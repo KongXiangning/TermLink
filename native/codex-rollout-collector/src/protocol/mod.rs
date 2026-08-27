@@ -2,6 +2,12 @@ mod batch;
 pub mod checkpoint;
 pub mod error;
 pub mod stage4;
+pub mod startup;
+pub mod target;
+pub mod target_data;
+pub mod target_mapping;
+pub mod target_runtime;
+pub mod target_source;
 
 pub use batch::{
     AnalysisBatch, BatchCompleteness, BatchDiagnostic, ParserProvenance, analyze_path,
@@ -20,4 +26,38 @@ pub use stage4::{
     RolloutCatalogCandidateRequest, RolloutDiscoveryRequest, RolloutLineageRequest,
     SESSION_LINEAGE_CAPABILITY, SourceSpecRequest, TaskOutcome, ToolDetail, analyze_request,
     analyze_request_with_state, checkpoint_for_batch,
+};
+pub use startup::{
+    STARTUP_CONFIG_VERSION, StartupConfigError, StartupMode, TargetStartupConfig,
+    normalize_sessions_root, parse_startup_args,
+};
+pub use target::{
+    TARGET_ACK_CAPABILITY, TARGET_ACK_REJECTION_CODES, TARGET_ANALYZE_CAPABILITY,
+    TARGET_ANALYZE_CAPABILITY_ALIAS, TARGET_CANCEL_CAPABILITY, TARGET_CHECKPOINT_CAPABILITY,
+    TARGET_PROTOCOL_VERSION, TARGET_REPLACEMENT_CAPABILITY, TARGET_REQUIRED_CAPABILITIES,
+    TargetAckMessage, TargetAnalyzeMode, TargetAnalyzeRequest, TargetAnalyzerHello,
+    TargetBatchMessage, TargetCancelMessage, TargetCapabilitySet, TargetCompleteMessage,
+    TargetCompleteStatus, TargetCompleteness, TargetErrorMessage, TargetMessage, TargetMessageType,
+    TargetNodeHello, TargetProtocolError, TargetProtocolHeader, TargetRecovery,
+    TargetResourceLimits, TargetRole, canonicalize_capabilities, negotiate_capabilities,
+};
+pub use target_data::{
+    TARGET_CURSOR_SCHEMA_VERSION, TARGET_DATA_SCHEMA_VERSION, TARGET_REDUCER_ID,
+    TargetAnalysisBatch, TargetAnalyzerCheckpoint, TargetAnalyzerCursor, TargetBatchMappingContext,
+    TargetBatchSourceRef, TargetCheckpointReader, TargetCheckpointSegment, TargetCheckpointSource,
+    TargetCheckpointWireProfile, TargetCompleteLineBoundary, TargetCursorCapabilities,
+    TargetCursorKind, TargetDataError, TargetDeliveryIdentity, TargetLegacyCheckpointContext,
+    TargetLineageCheckpoint, TargetLineageCoverage, TargetLineageTransition,
+    TargetLineageValidationState, TargetMutation, TargetProgress, TargetProjectionWatermark,
+    TargetReducerCheckpointState, TargetSnapshotBoundary, TargetSnapshotUnit,
+    TargetSourceByteRange, TargetSourceCompression, TargetSourceKind, TargetSourceScope,
+    TargetTaskOutcome, TargetToolDetail,
+};
+pub use target_mapping::{
+    TargetMappedAnalysis, map_target_source_read, map_target_source_read_with_control,
+};
+pub use target_runtime::{TargetActiveRequest, TargetRuntime, TargetRuntimeAction};
+pub use target_source::{
+    TargetSourceProvenance, TargetSourceRead, TargetSourceReadError, TargetSourceSegmentEvidence,
+    read_target_source, read_target_source_with_deadline,
 };

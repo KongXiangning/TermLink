@@ -113,6 +113,18 @@
     - `SESSION_LINEAGE_CAPABILITY = "session_lineage_v1"` 只表示隔离 Collector 支持可选的会话级 discovery/lineage 输入，以及 `BatchMessage` 的 additive `discovered_sources`、`lineage_transitions`、`lineage_coverage`、`lineage_checkpoint` 字段；这些字段不是产品 history DTO、数据库表或 App ADTO，旧消费者缺失时必须保持可反序列化兼容。
   - 备注：这是 P0-RC.1 的隔离内部边界；Node DTO 接入、持久化、完整 reducer/runtime 及 P0-C/P0-B.4R 能力不由本契约授权。
 
+- 名称：4.5 Rust analyzer target-side startup/process interface（隔离内部）
+  - 路径 / 符号：`native/codex-rollout-collector`；target startup、target stdio JSONL protocol、target runtime 和内部 source/lineage bridge
+  - 当前语义：Rust target 是与既有 legacy Stage 4 runtime 分离的 stdio JSONL process；本轮已验证 startup、Node-first hello/准入、单 active request、cancel/timeout/resource settlement、`sessions_root` 内部 source/lineage locating、cursor/segment 到 Adapter/reducer/projection 的 target batch mapping，以及 ACK→complete delivery gate。该接口仍是隔离 Rust Collector 边界，不是现有 Node/Android 公共入口。
+  - 不可破坏项：
+    - target 仅在 `--startup-config-version 1 --sessions-root <absolute normalized path>` 启动约束通过后运行；`sessions_root` 是启动级 source boundary，target `analyze` 不接受 source path、discovery、catalog、date range 或 active hint；旧 no-arg legacy/test runtime 保持独立分流。
+    - 握手方向固定为 Node 先发送 `hello(role=node)`，Rust 回传同 `request_id` 的 `hello(role=analyzer)`；未完成握手不得接受 `analyze`，单个 target process 只允许一个 active request。
+    - target 公共 `analyze` mode 只有 `preview`、`backfill`、`append`；batch delivery 使用外层 `job_id`、`segment_id`、`batch_id`，只有匹配当前 request 且 `accepted=true,persisted=true` 的正 ACK 才能推进 delivery watermark 并允许发送 `complete`。
+    - source read、metadata/cursor 构造和等待 ACK 的资源/超时结果必须保持 typed fail-closed 语义；出站 batch JSON 编码长度不得冒充 source `max_decoded_bytes` 或 `max_segment_bytes` 预算。
+    - target batch mapping 只接入既有 Rust source segments 与 `CodexEventAdapter`/`AnalysisReducer`/`AnalysisProjection` 结果；lineage replacement evidence 必须按 root→active 顺序保留，同源 append 的物理 delta 与 `ForwardAppendCursor` 不混用。`TailPreviewCursor`、`BackfillCursor`、`ForwardAppendCursor` 不可混用，segment overlap 必须幂等去重；unknown/alias/`ParseGap`/partial/pending tail、shrink/truncation/replacement 或 mutation 等不完整证据不得伪造 canonical batch。
+    - target mapping/formal-promotion 的 cancel/timeout 必须 fail-closed，不得在对应 source worker 未明确结束前启动并行 generation，也不得发布 batch 或 complete。
+  - 备注：本条锁定本轮步骤 0～9 已验证的隔离 Rust target startup、target/legacy dispatch、process lifecycle、source/lineage bridge、target mapping 和 delivery gate；不由本条授权进入 Node consumer、产品数据库、IPC 或 Android 集成。candidate pre-I/O path confinement 与 formal source hash/append prefix digest interruptibility 仍是 deferred source-scope 风险；本条不构成 release/canary/benchmark 声明。
+
 ### 🟡 可扩展不可破坏
 
 - `codexConfig` 可以扩展字段，但不能破坏已有 `approvalPolicy` / `sandboxMode` 语义

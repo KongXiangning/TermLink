@@ -54,12 +54,13 @@
 - `CodexEventAdapter` 是唯一建立 conversation/turn/tool/plan/usage 关联的入口；`AnalysisReducer`/`AnalysisProjection` 只消费 TermLink-owned `AnalysisEvent`，tool/Plan/usage 归约必须保持重试交付/overlap 幂等和 partial/unknown/alias 的诊断、不完整语义。Demo/Spike 只能作为只读 golden/reference oracle，不得成为正式实现依赖或产品 DTO 来源。
 - `SegmentAssembly::promote_to_forward_append` 是 formal source promotion 的唯一安全路径；`TailPreviewCursor`/`BackfillCursor` 不得直接转换为 `ForwardAppendCursor`。pending tail、gap、partial、parse diagnostic、source mutation/truncation/replacement 或 fingerprint/anchor 不一致时必须 fail-closed。
 - 不得在没有独立任务、范围锁定和用户确认的情况下把该基础层扩展到 Node、Android、IPC、数据库、服务端持久化、完整 reducer/runtime 或既有 Demo/Spike 路径。
+- **4.5 模块协作顺序（AD-022）**：Rust target 接口契约先行，Node consumer 在后续独立任务中依据已同步的 Rust 契约重新设计和实施；Rust 任务不得因 Node 尚未开始或现状不一致而直接修改 Node。若双方最佳实践最终冲突，必须由 Rust/Node owner 联合分析并取得确认，不能由任一模块单方面静默覆盖共享边界。
 
 ## Scope
 
 - 适用范围：`E:\coding\TermLink`
-- 原则：本项目技能使用仓库内 Codex 镜像目录，不依赖全局 `C:\Users\kongx\.codex\skills`。
-- 当前目录：`.codex/skills/`
+- 原则：本项目技能使用仓库内 Codex / Claude 镜像目录，不依赖全局 skills。
+- 当前目录：`.codex/skills/`（Claude 镜像为 `.claude/skills/`）
 
 ## Android build and device debug
 
@@ -235,7 +236,7 @@
 
 1. 先读取对应 `SKILL.md`，按其中步骤执行。
 2. 默认在仓库根目录执行命令：`E:\coding\TermLink`。
-3. 新增或修改本地 skill 时，保持 `.codex/skills/` 内容准确。
+3. 新增或修改本地 skill 时，保持 `.codex/skills/` 内容准确，并同步 `.claude/skills/` 镜像。
 4. 优先复用宿主目录中的 skill 自带脚本（如 `.codex/skills/<name>/scripts/*`），不要重复造流程。
 5. workflow-system bootstrap skills 的目录名前缀 `workflow-system-` 只是命名空间；实际调用名以 `SKILL.md` 里的 `name` 为准（如 `/greenfield-init`、`/adopt-existing-project`）。
 6. `docs-requirement-sync` 场景下，遵循 CR 门禁规则：

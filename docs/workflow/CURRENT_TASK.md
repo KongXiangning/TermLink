@@ -6,20 +6,13 @@
 - 任务标题：{{TASK_TITLE}}
 - 任务 slug：{{TASK_SLUG}}
 - 当前状态：draft
-- 说明：当前无活跃任务包。上一任务 `20260825-003`（收敛 Node↔Rust 接口文档，移除 discovery/fingerprint 业务接口语义）已于 2026-08-26 完成验收并归档。
+- 说明：当前无活跃任务包。上一任务 `20260826-001`（4.5 阶段 Rust analyzer 公共协议一次性迁移与 legacy 字段退役）已完成验收并归档；Rust 侧交付，Node 收集器迁移待独立任务承接。
 
 ## Clean Handoff
 
-- 归档文件：`TASKS/TASK-20260825-003-codex-node-rust-interface-contract-convergence.md`
-- 交付摘要：`docs/workflow/TASK_SUMMARY.md`（20260825-003）
-- 项目状态：`docs/workflow/STATUS.md`（2026-08-26 已同步；含遗留风险与下一检查点）
-- 新增决策：`AD-021`（discovery/fingerprint 废止、`retention_profile` 与泛化 `revision` 非公共语义）
-- 新增经验：`L-028`（WSL 复核 Windows 宿主验证口径）
+- 归档文件：`TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md`
+- 归档结论：Rust-only target-side migration、target protocol/process `70/70`、native 全量 `229/229`，fmt/check、依赖闭包、scope/static boundary、`review-diff`、`review-implementation`、`verify-contracts` 和 `run-regression` 均已通过。
+- 经验与风险：跨 AI/worktree 的同一任务必须共享已物化的 task identity；Node collector/coordinator 仍需独立 4.5 migration；`RD-4.5-006-001` 的 candidate pre-I/O source confinement 与 `RI-4.5-007-011` 的 formal source hash interruptibility 仍为 deferred。
+- 工作树说明：归档仅新增归档文件并重建本 clean handoff；既有 task-external dirty/untracked 内容保持原样。
 
-## 待处理交接项
-
-1. 本任务 13 个文件（含归档包）已按 path-scoped 提交为 `bef0274`；工作树仍有 R-010 任务外 dirty/untracked 内容，保持原样，后续只能继续 path-scoped 处理，禁止整树操作。
-2. formal native crate 兼容字段（fingerprint/prefix anchor、`retention_profile`、item/source `revision`）物理删除需另立协议迁移任务。
-3. 如需清理 `CONTRACTS.md`/`DECISIONS.md` 中 AD-011/AD-012 旧 formal revision 表述，另立范围锁定任务并取得用户确认。
-
-下一轮任务启动时执行 `/create-current-task`。
+下一轮任务启动时执行 `/create-current-task`，生成新的任务身份和范围；不要直接复用已归档任务的 ID、slug 或验收状态。

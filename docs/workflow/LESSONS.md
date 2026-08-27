@@ -325,6 +325,48 @@
   - 触发信号：`$skill` 在任何附件选择前就已经被污染；XML 中 `EditText` bounds 位于高位，但自动化脚本仍点击低位坐标；重跑同一业务路径时污染字符不稳定复现。
   - 应对动作：在关键输入步骤前先抓最新 XML，读取当前 `android.widget.EditText` 的 bounds，再点其内部坐标；把低位固定点点击视为不可靠手法，不用它来判定业务回归。
 
+## Rust 模块与 source 边界
+
+### L-029: 跨模块实施应先锁定 contract，再由各模块独立适配
+
+- **场景**：Rust 4.5 target 先行实施时，Node consumer 尚未进入同一迁移任务，现有 Node 形态与新 Rust contract 可能暂时不一致。
+- **结论**：先同步并锁定 Rust contract，再在后续独立任务中让 Node 依据该 contract 重新设计；Rust 任务不得为迁就未开始模块而直接修改其代码。若双方最佳实践最终冲突，应由对应 owner 联合分析后确认共享边界，不能单方面静默覆盖。
+- **触发信号**：实现者准备跨模块修改以“顺手对齐”接口，或把另一模块的旧实现当作当前模块 contract 的隐含输入。
+- **应对动作**：在 task scope 中明确模块 owner、Allowed/Forbidden Files 和 contract handoff；只完成本模块的可验证边界，把跨模块适配另立任务；冲突保留为联合评审项，不用临时兼容代码掩盖。
+- **Source**：`2026-08-27` / AD-022 / 4.5 Rust target closeout
+
+### L-030: source 路径隔离必须在 discovery 产生任何 I/O 前生效
+
+- **场景**：target bridge 在 discovery 后才做 canonical path confinement，而 discovery 已经可能读取候选文件的 header、metadata 或 fingerprint；candidate symlink 指向 root 外部时，外部内容可能先被读取再被拒绝。
+- **结论**：post-read 拒绝不能满足 fail-closed 的 source root 边界。对 root 和每个 candidate 的可靠 confinement 必须位于 discovery 的所有文件读取之前；如果最小修复需要扩大到 formal source 层，应路由为独立 scope-widening 任务，不在 target 层做事后补丁。
+- **触发信号**：代码先调用 discovery/catalog/read，再对候选做 canonicalize 或 containment；测试只覆盖 root symlink，没有覆盖 candidate symlink。
+- **应对动作**：增加 candidate symlink/外部目标回归，断言外部文件未发生 header、metadata、fingerprint 或正文读取；将 pre-I/O safety 与 post-read defence 分开验收，并在 scope 不允许时明确记录 deferred 风险。
+- **Source**：`2026-08-27` / `RD-4.5-006-001`
+
+### L-031: 分层错误必须在协议边界保留原始资源语义
+
+- **场景**：discovery 或 read-plan 返回 resource limit、timeout、cancel 等 typed error，但 target process 将所有错误统一映射为 `analysis_failed`，导致 retryability 和资源错误码丢失。
+- **结论**：source、mapping、protocol 三层之间需要显式、穷尽的错误映射表；`resource_limit_exceeded`、`resource_timeout`、cancel 与普通分析失败必须保持可区分，不能用一个通用错误覆盖异常的重试语义。
+- **触发信号**：跨层 bridge 只有一个兜底 `analysis_failed` 分支，或测试只断言“请求失败”而不检查 outbound error code、retryable 和 active-request 清理。
+- **应对动作**：为每个 source error category 建立 process-level 回归，分别断言 wire code、retryability、是否产生 batch/complete 以及下一请求能否恢复；新增底层错误类型时同步更新映射表和测试矩阵。
+- **Source**：`2026-08-27` / `RD-4.5-006-002`
+
+### L-032: request 级 decoded budget 必须在每个 segment 读取前扣减
+
+- **场景**：多段 lineage 读取给每个 segment 配置完整的 `max_decoded_bytes`，直到 segment 完成后才检查 request 总量；同时把 outbound batch 的 JSON 编码长度误当作 source decoded budget。
+- **结论**：request aggregate budget 必须由 source 读取层在每次 segment 开始前消费剩余额度，不能让每段都拥有一份完整预算；source decoded bytes 与 outbound wire payload bytes 是两个独立计量面，不能互相替代。
+- **触发信号**：segment 配置沿用原始完整预算、总量检查晚于读取，或小 source budget 下仅因结果 JSON 较大而拒绝合法 batch。
+- **应对动作**：把剩余 request budget 传入下一 segment，超限前 fail-closed；对多段 lineage、重读完整 replacement、较大输出/较小 source budget 分别回归，并独立记录 source 与 outbound 计数。
+- **Source**：`2026-08-27` / `RD-4.5-006-003`、`RI-4.5-006-002`
+
+### L-033: cancel/timeout 只有在 worker 终止后才能释放 single-flight 槽位
+
+- **场景**：请求收到 cancel 或 timeout 后立即释放 generation slot，但 source/mapping worker 仍在运行；新请求可能并发启动，旧 worker 的迟到结果还可能污染当前 request。
+- **结论**：cancel/timeout 是取消意图，不等于底层 worker 已停止。必须等旧 worker 明确返回后再清理占用并丢弃 stale result；在此期间保持 single-flight，避免用“已向客户端返回错误”冒充“资源已释放”。
+- **触发信号**：取消响应先于 worker completion，随后第二个请求能被接受，或迟到 batch/complete 仍可出站。
+- **应对动作**：为 delayed worker、迟到结果、第二请求、恢复请求建立 process-level 矩阵；断言取消/超时期间无 batch/complete、旧 worker 保持占用，worker 结束后下一请求才能正常 ACK/complete。
+- **Source**：`2026-08-27` / `RI-4.5-007-008`、`RI-4.5-007-011`
+
 ## 部署与运行时
 
 - 场景：

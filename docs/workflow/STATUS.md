@@ -39,6 +39,7 @@
 - [x] Android Codex Header / composer 布局回归 follow-up：任务 `20260722-001` 已完成。恢复左侧会话管理 drawer 入口，移除无实际系统 inset 时强制产生的 36dp composer 底部空白，并在不改变 composer 外框高度的前提下把提示、光标和首行改为顶部起笔。Android JVM 163/163、owner/gateway targeted 45/45、debug APK、360/412dp Huawei 真机 drawer/IME/视觉 smoke 通过；三键导航非零 inset 由单测覆盖，未切换系统导航模式补人工截图。
 ## 🔨 正在开发
 
+- [ ] 4.5 Rust analyzer target-side migration（当前任务）：步骤 0～9 的 Rust-only target 实现、最终审查、契约核验和回归门禁已完成；target protocol/process `70/70`、native 全量 `229/229`，并通过 fmt、locked/offline check、metadata/tree vendor closure、startup/hello smoke、scope/static boundary scan、`review-diff`、`review-implementation` 与 `verify-contracts`。当前任务状态为 `completed_ready_for_closeout`，仅待 workflow closeout；该项仍不是产品稳定或 release 声明：Node consumer、服务端数据库、IPC、Android、release、canary 和 benchmark 均未启用或不适用。`RD-4.5-006-001` 与 `RI-4.5-007-011` 继续按 deferred source-boundary / formal-source-interruptibility 风险保留。
 - [ ] `20260823-001` Codex Rollout Collector 会话级 discovery / lineage read：实现、最终审查与关键回归已完成，当前任务进入 `completed_ready_for_closeout`，仅待 path-scoped workflow closeout；该状态不表示 Rust 实现仍有已知阻断缺口。Codex 文件名与 `history_base` 兼容性仍需随 vendor/上游变化维护 fixture，稳定边界不扩展到 Node/服务端数据库、App ADTO、IPC、Android 或 release 集成。
 - [ ] `20260820-001` Codex Rollout Collector 阶段 2 输入层与兼容层：实现、review/contract/regression 和最终兼容验收均已完成；当前任务包仍保持 active，仅待 `sync-contracts`、交付摘要与 closeout/归档。该状态不表示仍有实现缺口；稳定边界不扩展到 P0-C、P0-B.4R、完整 analyzer 或 Node/Android/IPC/数据库集成。
 - [ ] `20260820-002` Codex Rollout Collector 阶段 3：实现、review、contract、regression 与 R-009/R-003 验收均已完成；当前任务仍保持 active 仅待 path-scoped workflow closeout，R-010 任务外 dirty/untracked owner 需用户后续处理，不阻塞 formal 代码交付。稳定边界不扩展到完整 analyzer、Node/Android/IPC/数据库或 release。
@@ -81,6 +82,7 @@
 
 ## 📋 待开发
 
+- [ ] Node consumer migration / 产品集成：按已收敛的 Rust 4.5 contract 接入 Node consumer、既有服务端持久化及后续产品链路；不把当前 Rust-only target 任务的完成误写成 Node/DB/IPC/Android 集成完成。若两侧最佳实践导致契约冲突，需由 Rust/Node owner 联合评审后再决定最终接口。
 - [ ] Relay 控制平面与透明中转模式从规划进入实现
 - [ ] 更完整的 workflow task 驱动交付链路
 - [ ] integration / e2e / deploy validation 的正式绑定
@@ -93,6 +95,7 @@
 - `src/ws/terminalGateway.js` 责任过重，是高回归风险区域
 - `20260820-001` 阶段 2 已完成 native-only 验收：formal suite 为 56 unit、27 conformance、2 `stage2_input` integration、0 doc tests，SourceBackend full-read、`analyze_source`、AnalysisBatch provenance、legacy/current 和 fail-closed 兼容均有回归证据。阶段 2 原先的默认 shell MinGW linker 可发现性问题已在阶段 3 通过当前用户 PATH 修复并由新 PowerShell 默认测试复验；clean-checkout、跨机器和工具链安装/替换仍不属于本轮证据。当前仅保留 workflow closeout 状态，未发生 Node/Android/IPC/数据库集成，也没有把该结果扩展为完整 analyzer、release、canary 或 benchmark。
 - `20260820-003` 阶段 4 仅完成隔离 runtime/conformance：Rust/Node 目标测试全通过，正式 Rust binary 由 Node 集成测试驱动并保存派生字段/mutations；malformed complete/checkpoint、mutation preflight、revision 回退、显式 source identity、协议级资源超时、无 cursor source checkpoint 校验、异常重启有限重试交付、当前 request batch 门禁、checkpoint 单调性和 per-item revision 均已验证。实际 Demo/Spike 子进程输出参与对照；Node 默认 file store 未接入既有产品 DB。Windows 当前 Rust cargo 复归使用显式 MinGW PATH/RUSTFLAGS，未宣称跨机器 toolchain 或 release 证据。
+- 当前 4.5 Rust target-side migration 的步骤 0～9 实现与关键验证均已通过，但仍只属于隔离 Rust target evidence，未进入产品稳定或 release 区：Node consumer 尚未启用，且无 Release evidence、canary 或 benchmark。`RD-4.5-006-001` 的 candidate symlink 可能在 discovery 期间先于 target bridge 的 canonical confinement 被读取；可靠修复需要修改当前锁定 Forbidden 的 `native/codex-rollout-collector/src/source/**`。`RI-4.5-007-011` 的 formal source hash / append prefix digest 可中断性也需要 source scope；两项按当前模块 owner 协作策略保持 deferred，不伪装为已解决。
 - R-010 closeout scope：工作树仍包含未由本任务授权处理的 dirty/untracked 路径及混合 workflow 基线变更，任务外 owner 尚未确认。formal collector 与本任务允许的 workflow 文档已完成 path-scoped 审查，但未对任务外内容执行 reset、checkout、clean、移动、删除或整树提交；该项是收尾归属风险，不是 formal collector 代码回归。
 - Codex session / thread / task 链路中，已绑定 conversation 的实时同步、A/B 切换隔离与同一任务重入已完成真机验证；仍需观察尚未绑定 conversation 的跨 cwd 历史候选策略，以及真实 owner pending action 的端到端表现。
 - 后续新需求若触碰 Codex session / thread / task 状态逻辑，必须按 `CONTRACTS.md` 的实时同步核心回归门验证；不得以 cwd/latest 或历史 task id 替换已绑定 conversation，也不得将授权提权、PLAN 或 Goal 控制视为已验收。
@@ -114,10 +117,13 @@
 ## ❌ 已移除 / 推迟
 
 - [x] 根目录 `skills/` 重复技能树已移除
+- [ ] `RD-4.5-006-001` candidate pre-I/O path confinement：当前 4.5 任务不扩大到 `native/codex-rollout-collector/src/source/**`，留待独立 source-scope 任务与 Rust/Node 契约联合评审。
+- [ ] `RI-4.5-007-011` formal source hash / append prefix digest interruptibility：target-only containment 已完成，但 formal source 层增强超出当前 scope，留待独立任务。
 - [ ] 旧 WebView-only Codex 路径不再作为主交付方向，但是否彻底清理仍待后续任务决定
 
 ## 🔜 下一检查点
 
+- [ ] 完成当前 4.5 Rust analyzer target-side migration 的 workflow closeout：步骤 0～9 和 Rust-only 验证已完成，下一 handoff 为 `sync-contracts`，随后继续 `sync-decisions`、`sync-host-guidance`、`capture-lessons`、交付摘要与归档。保持 target/legacy 隔离，不启用 Node consumer，不扩大到 `src/source/**` 或产品集成。
 - [ ] 为 formal native crate 的 fingerprint/prefix anchor、`retention_profile`、item/source `revision` 兼容字段物理删除另立协议迁移任务；如需同步清理 `CONTRACTS.md`/`DECISIONS.md` 中 AD-011/AD-012 的旧 formal revision 术语，一并单独锁范围并取得用户确认
 - [ ] 完成 `20260823-001` workflow closeout：按下一 handoff 执行 `sync-contracts`，随后准备交付摘要/归档；保持会话级 discovery/lineage 能力在隔离 Rust Collector 边界内，不扩展到产品持久化、App ADTO、IPC、Android 或 release。
 - [ ] 完成 `20260820-001` workflow closeout：按下一 handoff 执行 `sync-contracts`，随后准备交付摘要/归档；保持阶段 2 稳定声明在 native formal package 输入/兼容边界内，不扩展到 P0-C、P0-B.4R、完整 analyzer 或产品集成
@@ -131,6 +137,8 @@
 
 ## 最近更新记录
 
+- 2026-08-27：同步当前 4.5 Rust analyzer target-side migration 的最终实现状态。步骤 0～9 已完成，target protocol/process `70/70`、native 全量 `229/229`，fmt、locked/offline check、metadata/tree vendor closure、startup/hello smoke、scope/static boundary scan、`review-diff`、`review-implementation`、`verify-contracts` 和 `full-qa` 均通过；任务进入 `completed_ready_for_closeout`，下一 handoff 为 `sync-contracts`。本项仍仅是隔离 Rust target evidence，Node consumer/产品集成未启用，无 release/canary/benchmark 稳定声明；`RD-4.5-006-001` 与 `RI-4.5-007-011` 保持 deferred，未重新打开嵌套 `replay` finding。
+- 2026-08-27：同步当前 4.5 Rust analyzer target-side migration 状态。步骤 0～6 的 Rust target/legacy、startup、wire/data、runtime、batch/ACK/complete 和内部 source/lineage bridge 已完成，针对步骤 6 的 resource/error/accounting findings 已修复并通过 target `56/56`、native `214/214`、fmt、locked/offline check、metadata/tree vendor closure、startup/hello smoke、scope scan、`review-diff`、`review-implementation` 和 `verify-contracts`；当前仍为 in-development，步骤 7～9 未完成。`RD-4.5-006-001` 保持 deferred；本任务无 release/deploy/canary/benchmark 状态变化，Node/Android/IPC/DB 不进入本轮稳定声明。
 - 2026-08-26：完成并收口 `20260825-003`「收敛 Node↔Rust 接口文档」：4.5 公共 `analyze` 只保留 conversation/read intent、mode、cursor/恢复状态和资源预算，discovery/fingerprint 退出业务接口；`serverRevision`、泛化 item/source `revision` 和公共 `retention_profile` 从现行来源移除，旧 collector change plan 标注为 L1 formal-only implementation background。验证为 scoped `git diff --check` 通过（CRLF 归一口径）与 collector 回归（宿主侧 30/30；本日 WSL 复跑 28/30，2 例失败均为 WSL 会话无法运行 Windows 构建的正式 Rust `.exe`，属环境限制）。formal native crate 兼容字段物理删除与治理文档旧 formal 术语清理分别留待独立协议迁移 / 范围锁定任务。
 - 2026-08-24：同步 `20260823-001` 会话级 Rust Collector 状态。跨日期 discovery、文件 lineage 关联、root→head 完整读取重建、tail/backward、backfill、同文件 append、child transition、coverage/provenance/checkpoint/replacement evidence，以及 plain-over-compressed sibling canonicalization 均已实现并通过 Rust 全量目标回归（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）、fmt、diff check、敏感信息扫描和提交前检查；最新实现提交为 `a94dcbc`。该状态只进入隔离 native Rust Collector 稳定边界，未改变产品 Node/DB、App ADTO、IPC、Android 或 release/deploy/canary/benchmark 状态；当前任务仍待 `sync-contracts` 后 closeout。
 - 2026-08-19：同步 `20260819-001` Step 4 状态。P0-RC.1 正式 package 已通过 clean-checkout 与 Demo/Spike/formal 同 fixture 最终回归，formal package 为 9 项 unit、27 项 conformance、0 项 doc test，metadata 为 539 packages、0 Git sources、0 runfiles；alias、`UnknownEvent`/`ParseGap`、source-boundary 与 `target/**` ignore 证据齐全。正式 package 的稳定边界已登记，但任务包仍 active 以完成 workflow closeout；不改变 P0-C/P0-B.4R、完整 analyzer、Node/Android/IPC/数据库及 release readiness 状态。F-004 按用户指令忽略，下一 handoff 为 `sync-contracts`。

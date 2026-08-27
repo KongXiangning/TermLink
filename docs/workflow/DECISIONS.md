@@ -371,6 +371,21 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：把 discovery 改名后继续暴露（拒绝——Node 仍错误承担 Rust 内部 source 定位职责）；把旧 watermark 改名 `item_revision` 延续为产品机制（拒绝——在无版本管理事实下伪装成现行机制）；本轮顺带删除 formal 字段（拒绝——超出文档修订范围，属协议迁移任务）。
 - 验证方式：对现行来源执行 discovery/fingerprint/`serverRevision`/`retention_profile`/revision 正向语义检索通过；宿主侧 `node --test tests/codexRolloutCollector.test.js` 30/30 与 scoped `git diff --check` 通过；2026-08-26 WSL 复跑 28/30，2 例失败均为 WSL 无法运行 Windows 构建正式 `.exe` 的环境限制。
 
+### AD-022: 4.5 采用 Rust 契约先行、Node 后续适配的模块协作策略
+
+- 状态：accepted
+- 分类：架构 / 模块边界与迁移协作（user-confirmed）
+- 背景：4.5 Rust target-side 先于 Node consumer 开始实施；当前 Rust 端已经形成 target startup/wire/process 边界，而 Node 迁移尚未开始。用户明确要求按模块职责推进，不因 Node 尚未实施或现状不一致而在 Rust 任务中直接修改 Node 模块。
+- 决策：当前阶段以 Rust 端已确认的最佳实践更新并稳定 Rust 4.5 接口契约；Node 模块开始实施时，依据该契约重新调整对应设计后再开发。若双方最终因各自模块的最佳实践出现接口冲突，必须由 Rust/Node owner 共同分析后作出最终实践决定，不能由任一模块单方面静默覆盖另一方边界。
+- 原因：保持模块所有权和变更隔离，避免在 Node 尚未进入 4.5 实施阶段时提前改变其行为，同时让后续 Node 设计有明确、可审计的 Rust 接口依据。
+- 约束：
+  - 当前 Rust target task 不修改 Node consumer、Node coordinator、产品 DB、IPC 或 Android；Node migration 必须另立任务并按本条及现行 contract 重新设计。
+  - Rust 契约先行不等于产品集成已完成，也不授权把隔离 target protocol 直接接入现有 Node production path。
+  - AI 不得把跨模块冲突按个人偏好单方面裁决；需要改写共享契约、扩大模块范围或改变既有决策时，必须重新 review、lock 并取得用户确认。
+- 影响范围：Rust 4.5 target contract、后续 Node analyzer consumer/coordinator migration、跨模块接口评审和交付 handoff；不改变当前产品运行链路。
+- 替代方案：在 Rust 实施阶段直接修改 Node 以追平当前实现（拒绝——越过模块实施顺序并扩大当前 scope）；让 Node 与 Rust 各自保留未协调的接口（拒绝——会把冲突推迟到集成阶段且不可审计）。
+- 验证方式：当前任务保持 Node consumer 未启用，Rust target startup/process/wire 边界已通过 target `56/56`、native `214/214`、`review-diff`、`review-implementation`、`verify-contracts` 和 `full-qa`；工作树未出现 Node/Android/IPC/DB diff。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径
@@ -461,6 +476,21 @@ local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard
 - 触发复议条件：团队补齐 smoke / integration / deploy 验证脚本，或第一张 workflow task 需要这些门禁。
 - 明确不做范围：不在 adoption 期猜测不存在的 CI / e2e 命令。
 
+### DEFER-002: discovery candidate 的 pre-I/O path confinement 交由 source owner 后续复核
+
+- 状态：deferred
+- 分类：架构 / source boundary 与模块协作（user-confirmed）
+- 背景：`RD-4.5-006-001` 发现 target bridge 在 discovery 完成后才做 canonical confinement；candidate symlink 指向 root 外部文件时，discovery 可能先读取文件/header/metadata/fingerprint，再由 target 层拒绝。可靠的 pre-I/O 修复需要修改当前锁定 Forbidden 的 `native/codex-rollout-collector/src/source/**`。
+- 当前结论：本轮不扩大 Rust target task 到 `src/source/**`，不把该风险伪装成已解决；保持 Rust 端接口/契约先行，待 source 模块 owner 或 Rust/Node 联合契约评审时决定是否单独立项和放行范围。
+- 暂缓原因：该修复属于 discovery/source 层的模块责任，不是当前 target protocol Allowed Files 内的安全补丁；跨模块直接修改会破坏既定 scope lock 和模块 ownership。
+- 约束：
+  - AI 不得在当前任务或普通 target 修复中修改 `src/source/**`、标记 `RD-4.5-006-001` 为 resolved，或用 post-discovery 检查宣称已满足 pre-I/O boundary。
+  - 后续若要落实，必须建立独立任务，说明影响/兼容/回滚/验证方式，重新执行 `review-current-task` 与 `lock-scope`，并取得用户确认。
+  - Node 开始实施 4.5 时应依据已同步的 Rust 契约设计；若 source boundary 与 Node 实践冲突，按 AD-022 共同分析，不在任一模块中单方面绕过。
+- 影响范围：Rust source discovery、target source bridge、后续 Node source consumer 设计和 sessions_root 安全验收；当前不改变已通过的 target process regression。
+- 触发复议条件：source owner 提供 discovery pre-I/O canonicalization 修复方案，或 Rust/Node 联合接口评审确认该边界必须进入下一版本任务。
+- 验证方式：当前状态记录在 `CURRENT_TASK.md`、`STATUS.md` 和审查队列中为 deferred；target `56/56` 与 native `214/214` 通过，但不将其作为 candidate symlink pre-I/O 已覆盖的证据。
+
 ## 🔁 已演进 / 已替代
 
 ### SUPERSEDED-001: 根目录 `skills/` 作为本地技能主入口
@@ -482,3 +512,18 @@ local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard
 - 否决原因：当前阶段目标是固化事实和治理基线，不是借 adoption 顺手重构产品。
 - 替代方案：等 workflow baseline 稳定后，用 `CURRENT_TASK.md` 单独立项。
 - 如果再次被提出时的默认处理：先要求 inventory 证据和明确范围，再决定是否开新任务。
+
+### REJECTED-002: 将嵌套 `replay` 作为 TargetCompleteMessage checkpoint 的失败条件
+
+- 状态：rejected
+- 分类：协议审查范围 / unknown field 处理（user-confirmed）
+- 背景：`RD-4.5-002-002` 指出 checkpoint 中出现嵌套字段 `{"nested":{"replay":true}}` 时，target complete 的 validation、JSONL 序列化和直接 serde 序列化仍会成功，并认为这可能泄漏 legacy `replay`。
+- 否决结论：若该嵌套字段不参与业务处理，过程和结果与缺少该字段相同，则按 opaque/unknown no-op 处理；不因这一嵌套字段单独增加递归 forbidden-key rejection、专门错误或 review finding。本条不把 `replay` 解释成 target mode、恢复能力或业务语义。
+- 否决原因：用户确认当前没有必要对不影响处理结果的嵌套 unknown metadata 采取额外严格控制；避免把无行为字段误升级为新的协议门禁，同时保留未知字段的兼容处理空间。
+- 约束：
+  - 本条只否决“嵌套 `replay` no-op 场景”的问题认定，不改变 target public schema 不主动声明 `replay`、legacy 物理删除仍待单独确认以及已确认的 target/legacy 隔离。
+  - AI 不得递归解释 nested `replay`，也不得据此引入 replay/full/recovery mode；若该字段未来开始影响结果或成为明确公共语义，必须重新提交用户确认和契约评审。
+  - 当前 review queue 不再报告该 finding，后续复核不得以同一场景重复打开。
+- 影响范围：Rust target checkpoint/complete validator、target JSONL serialization review、后续协议审查规则；不改变 source/Node/Android/IPC/DB 范围。
+- 替代方案：对所有嵌套对象递归拒绝 `replay`（拒绝——超出用户确认的严格度且对 no-op 字段没有已证明的行为收益）；把 `replay` 提升为 target recovery 语义（拒绝——与 AD-019 冲突）。
+- 验证方式：用户已明确确认该场景不构成当前问题；本轮 `review-diff`、`review-implementation`、`verify-contracts` 和 `full-qa` 均未重新报告该 finding。
