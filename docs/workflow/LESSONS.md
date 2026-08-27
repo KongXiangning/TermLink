@@ -367,6 +367,14 @@
 - **应对动作**：为 delayed worker、迟到结果、第二请求、恢复请求建立 process-level 矩阵；断言取消/超时期间无 batch/complete、旧 worker 保持占用，worker 结束后下一请求才能正常 ACK/complete。
 - **Source**：`2026-08-27` / `RI-4.5-007-008`、`RI-4.5-007-011`
 
+### L-034: opaque delivery identity 必须绑定完整 validated source scope
+
+- **场景**：target mapping 的 `delivery_ids` 仅用 mode、source id/epoch 和 range 拼接字符串，遗漏 job、conversation、snapshot、完整行边界、rollout ordinal 以及 batch range/index；这种实现可能在不同任务或源版本之间产生相同的 segment/batch identity。
+- **结论**：逻辑交付 identity 不是展示标签，必须由完整的 validated source scope 确定性派生。应使用带长度和 presence 标记的规范化编码区分 absent/null/empty，并采用 domain-separated SHA-256；batch identity 在 segment identity 之上继续绑定 batch range 和 index。`request_id`、generation、读取顺序、随机值和时间信息不得进入 identity。
+- **触发信号**：identity helper 接收临时字符串，或测试只断言 ID 非空、单次请求成功和同 request 重试通过，却没有覆盖单字段变更、不同 request id/进程重启、空值区分及 batch range/index 差异。
+- **应对动作**：在 mapping 边界按现有 `TargetSource*` 类型组装 scope，集中实现最小 target-owned 派生 helper；用固定 golden vector 加 job、conversation、source scope、snapshot、完整行边界、ordinal、batch range/index 的 mutation/retry 测试锁定算法，并确认 wire 字段形状不变。
+- **Source**：`2026-08-27` / `20260827-001` / `5a3214a`
+
 ## 部署与运行时
 
 - 场景：
