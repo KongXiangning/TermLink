@@ -1,7 +1,7 @@
 ---
 name: review-diff
 preamble-tier: 2
-version: 0.2.0
+version: 0.3.0
 description: >
   Review the current diff for scope drift, decision drift, and obvious
   regression risk.
@@ -32,6 +32,7 @@ forbidden_writes:
   - docs/workflow/DECISIONS.md
 must_check:
   - diff review target 是否明确，且没有因 checkpoint commit 导致 diff 失真
+  - working-tree review 是否同时盘点 staged、unstaged 和 untracked 文件；untracked 文件是否逐个纳入审查目标
   - diff 是否只触碰 Allowed Files
   - diff 是否触碰 Forbidden Files
   - diff 触碰 Conditional Files 时条件和证据是否成立
@@ -40,6 +41,9 @@ must_check:
   - 是否遗漏 Change Propagation Check
   - 是否通过 safety boundary review
   - 是否存在 unauthorized scope widening
+  - 是否识别异步、进程生命周期、generation、取消/超时、队列、回调和 cleanup/release 风险面，并形成 implementation risk profile
+  - 每个风险或失败是否区分 current-step blocking、future-step deferred 和 out-of-scope
+  - 在缺少中间 checkpoint 时，是否把 finding provenance 标记为 unknown，而不是猜测由哪一轮引入
   - 是否触碰 dangerous command / deployment / database surfaces 且未记录安全处理
   - 是否触碰 CI/CD / deploy config / monitoring / benchmark config 且未授权
   - UI / 视觉 diff 是否通过 design drift review
@@ -57,6 +61,9 @@ stop_conditions:
 output:
   - 边界审查结论
   - 越界与回归风险列表
+  - 提交给 review-implementation 的 implementation risk profile
+  - current-step / future-step / out-of-scope 归属分类
+  - finding provenance 与证据基础；无法追溯时明确标记 unknown
 handoff:
   success: review-implementation
   failure: ask-user
@@ -72,6 +79,7 @@ decision_policy:
   user_challenge: 发现意图偏移时必须明确上浮。
 verification:
   - 已声明本次审查使用的 diff review target
+  - 已检查 staged、unstaged 和 untracked 文件，并在 target 中列出实际覆盖范围
   - 已对照任务范围和决策执行审查
   - 已按 Allowed Files / Forbidden Files / Conditional Files 审查 diff
   - 已执行 safety boundary review
@@ -81,6 +89,7 @@ verification:
   - 已执行 design drift review
   - 已检查公共 API、schema、DTO、event、共享逻辑和 docs/workflow/CONTRACTS.md 锁定项的传播影响
   - 已输出 clean 或问题列表
+  - 已输出风险画像，并完成当前步骤归属分类
   - 没有直接修改代码
 allowed-tools:
   - Read
@@ -206,7 +215,7 @@ design_drift_review:
 
 Accepted targets:
 
-- Working tree: `git diff` plus `git diff --cached` when the task has no checkpoint commits.
+- Working tree: `git diff` plus `git diff --cached` and `git status --short` when the task has no checkpoint commits. Because ordinary `git diff` does not include untracked files, every untracked file must be explicitly inspected and named in the target as `working-tree+untracked`.
 - Staged only: `git diff --cached` when the user explicitly asks to review staged changes.
 - Commit range: `git diff <base>..<head>` for committed checkpoint work.
 - Task range: `git diff <task-start-base>..HEAD` when `docs/workflow/CURRENT_TASK.md > 回滚点` records a task base.
@@ -215,6 +224,7 @@ Accepted targets:
 
 Rules:
 
+- A working-tree target is incomplete if `git status --short` reports untracked files that were not inspected. Do not call such a review clean.
 - Do not treat an empty working tree as a clean review if `docs/workflow/CURRENT_TASK.md` or conversation context records checkpoint commits that have not been reviewed.
 - Long tasks may create checkpoint commits before `/close-current-task`; review must compare against the declared base/range instead of requiring all work to remain uncommitted.
 - If multiple plausible targets exist, surface the ambiguity and stop before making a scope conclusion.
@@ -223,6 +233,7 @@ Rules:
 ## Must Check
 
 - diff review target 是否明确，且没有因 checkpoint commit 导致 diff 失真
+- working-tree review 是否包含 staged、unstaged 和 untracked 文件；untracked 文件是否已逐个读取并纳入 target
 - diff 是否只触碰 Allowed Files
 - diff 是否触碰 Forbidden Files
 - diff 触碰 Conditional Files 时条件和证据是否成立
@@ -234,6 +245,34 @@ Rules:
 - 是否触碰 dangerous command / deployment / database surfaces 且未记录安全处理
 - 是否触碰 CI/CD / deploy config / monitoring / benchmark config 且未授权
 - UI / 视觉 diff 是否通过 design drift review
+- 是否识别异步/状态生命周期风险并形成 implementation risk profile
+- 每个 finding 是否标记 current-step blocking、future-step deferred 或 out-of-scope
+- 无中间 checkpoint 时是否将 provenance 标为 unknown
+
+## Implementation Risk Profile
+
+`/review-diff` 只负责识别风险面和生成深审输入，不在此处替代 `/review-implementation` 的正确性审查。
+
+当 diff 涉及异步任务、子进程、generation/restart、timeout/cancel、队列或 single-flight、外部事件回调、cleanup/release、锁或状态机时，必须输出 `implementation_risk_profile`，至少包含：
+
+- `stateful_async`: 是否存在跨回调或跨请求的状态生命周期
+- `resources`: child process、active request、waiter、fence、tracker、queue 等受管理资源
+- `failure_signals`: exit、error、throw、false return、timeout、cancel、no-event、delayed event 等信号
+- `release_points`: 状态清理、promise resolve、资源释放和允许新 generation 的位置
+- `concurrency_edges`: stop/start、cancel/timeout、restart、stale event、observer before/after fence 等交叉点
+- `required_tests`: 下一个审查阶段必须验证的负向路径和时序场景
+
+如果没有可用的中间 checkpoint 或逐轮 diff，风险画像可以描述当前累计 diff，但不得据此断言问题由某一轮修复引入；来源必须写为 `unknown`。
+
+## Current-Step Applicability
+
+审查发现必须相对于 `docs/workflow/CURRENT_TASK.md` 的当前步骤分类：
+
+- `current-step blocking`: 当前步骤已经实现或声明负责，且问题会阻止当前步骤验收
+- `future-step deferred`: 仅由后续尚未迁移的旧接口、旧字段或未来接线造成；记录为延期风险，但不能阻塞当前步骤
+- `out-of-scope`: 需要扩大锁定范围或改变产品/契约/架构；按既有 handoff 规则上浮
+
+`future-step deferred` 不能被写成当前步骤 clean 的证据，也不能被错误升级为当前步骤 blocker。
 
 ## Stop Conditions
 
@@ -393,17 +432,25 @@ UI / 视觉 diff 必须做 design drift review。重点检查：
 - 需要改变产品行为、契约、架构或设计方向：交给 `/ask-user`。
 - 根因不明：交给 `/investigate-root-cause`。
 
+每个 implementation finding 在 handoff 前还必须带上：
+
+- `scope_ownership`: current-step blocking / future-step deferred / out-of-scope
+- `provenance`: pre-existing / introduced-by-current-patch / interaction-or-latent / unknown
+- `evidence_basis`: base、checkpoint、当前 diff、复现测试或仅静态推断
+
 ## Execution Protocol
 
 1. Restate the goal in one sentence.
 2. Read all files listed in `reads`.
 3. Establish and report `diff_review_target`.
-4. Check `must_check` items before acting.
-5. Respect `forbidden_writes` and current task boundaries.
-6. Classify the result using `conditional_handoff` before choosing the next skill.
-7. If any `stop_conditions` match and no `conditional_handoff` route applies, stop and hand off to `handoff.failure`.
-8. Produce the artifact(s) described in `output`.
-9. Hand off according to `conditional_handoff`; use `handoff.success` only for the `clean` route.
+4. Inventory staged、unstaged 和 untracked 文件，并把实际覆盖范围写入 target。
+5. Check `must_check` items before acting.
+6. Build the implementation risk profile and current-step applicability classification when relevant.
+7. Respect `forbidden_writes` and current task boundaries.
+8. Classify the result using `conditional_handoff` before choosing the next skill.
+9. If any `stop_conditions` match and no `conditional_handoff` route applies, stop and hand off to `handoff.failure`.
+10. Produce the artifact(s) described in `output`.
+11. Hand off according to `conditional_handoff`; use `handoff.success` only for the `clean` route.
 
 ## Output Contract
 
