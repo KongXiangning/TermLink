@@ -1,7 +1,7 @@
 ---
 name: run-regression
 preamble-tier: 2
-version: 0.2.0
+version: 0.3.0
 description: >
   Select the right QA mode, run existing tests and smoke checks, and report
   whether stable behavior still holds.
@@ -12,7 +12,16 @@ trigger: |
   通过范围复核后。
 inputs:
   - current_task
+  - current_step_id
+  - current_step_acceptance
   - diff_review_target
+  - task_diff_target
+  - repair_diff_target
+  - review_mode
+  - review_epoch
+  - repair_base
+  - accepted_findings
+  - repair_policy
   - project_profile
   - test_commands
   - smoke_check_list
@@ -40,6 +49,8 @@ must_check:
   - paused / interrupted owner 候选是否已读取 matching suspended package evidence
   - active-owner guard 是否已在 resume route 前判定
   - 先跑与当前改动直接相关的测试
+  - 每个检查是否声明 required-now 或 future-gate；每个失败是否按 current-step-regression、future-step-expected-gap、unrelated-preexisting 或 unknown 分类
+  - future-step failure 是否有证据证明仅由后续尚未实施的步骤造成，而不是当前步骤回归
   - 核心稳定功能是否仍正常
   - 最小 smoke check 是否完成
   - UI / 交互 / 登录相关任务是否已考虑 browser-backed smoke
@@ -49,9 +60,10 @@ must_check:
 stop_conditions:
   - diff-aware 或 report-only 模式下 diff_review_target 缺失、不明确，或无法证明与前序 review
     使用的目标一致
-  - 关键测试失败
-  - 验证结果与任务目标冲突
-  - 现有测试缺失但无法完成人工检查
+  - 当前步骤 required-now 检查失败，或确认存在 current-step regression
+  - 验证结果与当前步骤 acceptance 冲突
+  - 失败分类为 unknown 且覆盖当前步骤 acceptance 或 diff 影响面，无法安全判定当前步骤
+  - 当前步骤 required-now 验证缺失且无法完成人工检查
   - 认证态验证需要 session/cookie 但不可用
   - paused / interrupted owner 候选存在但 matching suspended package evidence
     缺失、marker 不自洽或无法唯一解析
@@ -68,7 +80,9 @@ output:
   - Visual evidence
   - Release evidence
   - Findings
-  - Pass / fail
+  - Current step verdict：PASS / FAIL / BLOCKED
+  - Task-wide observations：future-step deferred / unrelated / unknown
+  - 每个失败的 failure_scope 与分类证据
   - Evidence
   - Handoff
   - 测试结果
@@ -99,8 +113,9 @@ verification:
   - UI / 交互相关任务已说明是否执行 browser-backed smoke
   - UI / 视觉任务已说明 visual QA、browser-backed smoke 或 blocked reason
   - 发布后验证已说明 health / canary / benchmark 证据或 blocked reason
-  - 已明确给出 pass / fail 判断
-  - 失败时已转入 investigate-root-cause
+  - 已明确给出 Current step verdict 和 Task-wide observations
+  - 每个失败已完成 failure_scope 分类；future-step expected gap 未被误判为当前步骤回归
+  - 非 report-only 模式下，只有 current-step regression 或影响当前步骤的 unknown 才进入 investigate-root-cause
   - report-only 模式已停在 QA report，没有继续进入 sync-current-task 或 investigate-root-cause
 allowed-tools:
   - Read
@@ -148,13 +163,14 @@ release_verification_rules:
   - benchmark 必须提供 baseline source、指标、允许回退阈值和对比证据
   - 缺少生产 session、deploy log、health endpoint 或 baseline 时输出 blocked，不得假装通过
 pass_criteria:
-  - 相关测试通过
-  - 关键 smoke check 无阻断问题
+  - 当前步骤 required-now 测试通过
+  - 当前步骤关键 smoke check 无阻断问题
+  - 不存在 current-step regression，且不存在覆盖当前步骤 acceptance 的 unresolved unknown
   - 需要登录的验证已确认 session/cookie 可用，或已标记 blocked
 failure_policy:
   - diff-aware 或 report-only 模式下缺少明确 diff_review_target 时停止，不进入
     sync-current-task 或 investigate-root-cause
-  - 测试失败时进入 investigate-root-cause，而不是直接大改代码
+  - 只有 current-step regression 或覆盖当前步骤 acceptance 的 unknown 才使当前步骤 fail/blocked 并进入 investigate-root-cause；future-step expected gap 与 unrelated pre-existing 只记录为 task-wide observation
   - report-only 模式只报告问题和证据，不进入实现或修复
   - report-only 模式覆盖 normal handoff；无论 pass / fail，输出报告后停止
 report_only_handoff_policy:
@@ -180,7 +196,16 @@ browser_session_policy:
 ## Inputs
 
 - current_task
+- current_step_id
+- current_step_acceptance
 - diff_review_target
+- task_diff_target
+- repair_diff_target
+- review_mode
+- review_epoch
+- repair_base
+- accepted_findings
+- repair_policy
 - project_profile
 - test_commands
 - smoke_check_list
@@ -219,6 +244,9 @@ browser_session_policy:
 - paused / interrupted owner 候选是否已读取 matching suspended package evidence
 - active-owner guard 是否已在 resume route 前判定
 - 先跑与当前改动直接相关的测试
+- 每个检查是否声明 `required-now` 或 `future-gate`
+- 每个失败是否按 `current-step-regression`、`future-step-expected-gap`、`unrelated-preexisting` 或 `unknown` 分类
+- future-step failure 是否有证据证明仅由后续尚未实施的步骤造成，而不是当前步骤回归
 - 核心稳定功能是否仍正常
 - 最小 smoke check 是否完成
 - UI / 交互 / 登录相关任务是否已考虑 browser-backed smoke
@@ -229,9 +257,10 @@ browser_session_policy:
 ## Stop Conditions
 
 - diff-aware 或 report-only 模式下 diff_review_target 缺失、不明确，或无法证明与前序 review 使用的目标一致
-- 关键测试失败
-- 验证结果与任务目标冲突
-- 现有测试缺失但无法完成人工检查
+- 当前步骤 `required-now` 检查失败，或确认存在 `current-step-regression`
+- 验证结果与当前步骤 acceptance 冲突
+- 失败分类为 `unknown` 且覆盖当前步骤 acceptance 或 diff 影响面，无法安全判定当前步骤
+- 当前步骤 `required-now` 验证缺失且无法完成人工检查
 - 认证态验证需要 session/cookie 但不可用
 
 ## Decision Policy
@@ -248,8 +277,9 @@ browser_session_policy:
 - UI / 交互相关任务已说明是否执行 browser-backed smoke
 - UI / 视觉任务已说明 visual QA、browser-backed smoke 或 blocked reason
 - 发布后验证已说明 health / canary / benchmark 证据或 blocked reason
-- 已明确给出 pass / fail 判断
-- 失败时已转入 investigate-root-cause
+- 已明确给出 `Current step verdict` 和 `Task-wide observations`
+- 每个失败已完成 failure_scope 分类；future-step expected gap 未被误判为当前步骤回归
+- 非 report-only 模式下，只有 current-step regression 或影响当前步骤的 unknown 才进入 investigate-root-cause
 
 ## Extension Fields
 
@@ -292,13 +322,14 @@ browser_session_policy:
 - 缺少生产 session、deploy log、health endpoint 或 baseline 时输出 blocked，不得假装通过
 
 ### pass_criteria
-- 相关测试通过
-- 关键 smoke check 无阻断问题
+- 当前步骤 required-now 测试通过
+- 当前步骤关键 smoke check 无阻断问题
+- 不存在 current-step regression，且不存在覆盖当前步骤 acceptance 的 unresolved unknown
 - 需要登录的验证已确认 session/cookie 可用，或已标记 blocked
 
 ### failure_policy
 - diff-aware 或 report-only 模式下缺少明确 diff_review_target 时停止，不进入 sync-current-task 或 investigate-root-cause
-- 测试失败时进入 investigate-root-cause，而不是直接大改代码
+- 只有 current-step regression 或覆盖当前步骤 acceptance 的 unknown 才使当前步骤 fail/blocked 并进入 investigate-root-cause；future-step expected gap 与 unrelated pre-existing 只记录为 task-wide observation
 - report-only 模式只报告问题和证据，不进入实现或修复
 - report-only 模式覆盖 normal handoff；无论 pass / fail，输出报告后停止
 
@@ -322,9 +353,34 @@ browser_session_policy:
 - `authenticated-browser`：用于登录态页面、权限流、账号状态相关验证。先确认 session/cookie 或人工登录可用。
 - `regression-baseline`：当存在 baseline、截图、历史报告或性能/行为基线时，做前后对比。
 
+## Current-Step Failure Classification
+
+运行前先把检查分为：
+
+- `required-now`：当前步骤 acceptance、当前 diff 影响面或锁定回归门禁要求现在通过。
+- `future-gate`：明确属于后续已规划步骤，当前步骤不以其通过作为 acceptance evidence。
+
+每个失败必须选择一个 `failure_scope`，并引用 CURRENT_TASK 当前步骤、测试断言和 diff 影响面作为证据：
+
+- `current-step-regression`：当前步骤本应成立的行为失败，或者当前 diff 直接破坏既有稳定行为。
+- `future-step-expected-gap`：失败仅由后续尚未实施的字段、接口或接线造成；它必须有步骤归属证据，不能只因为“以后会修”就这样分类。
+- `unrelated-preexisting`：失败不由当前 diff 引入，也不属于当前步骤 acceptance。
+- `unknown`：证据不足，无法安全归类。
+
+判定规则：
+
+```text
+Current step PASS =
+  all required-now checks pass
+  AND no current-step-regression
+  AND no unresolved unknown overlapping current-step acceptance
+```
+
+`future-step-expected-gap` 和 `unrelated-preexisting` 必须完整报告为 `Task-wide observations`，但不得让当前步骤 FAIL，也不得被当作当前步骤通过证据。`unknown` 若覆盖当前步骤 acceptance 或 diff 影响面，当前步骤为 BLOCKED；不覆盖时保留为 task-wide risk。`qa_mode=report-only` 只改变 handoff，不改变上述分类和 verdict。
+
 ## Ownership-Aware Routing
 
-`/run-regression` 在输出 pass / fail / blocked / report-only 结论前，必须先判断该验证结果属于哪个 owner，再决定是否推荐后续 handoff。
+`/run-regression` 在输出 Current step verdict 和 Task-wide observations 前，必须先完成 failure_scope 分类，再判断该验证结果属于哪个 owner并决定是否推荐后续 handoff。
 
 Canonical ownership route 闭集：
 
@@ -401,8 +457,12 @@ Recommended handoff rules：
 ```md
 QA Report:
 - QA mode:
+- Current step:
+- Current step acceptance:
 - Target surface:
 - Checks run:
+- Check classification (required-now / future-gate):
+- Failure scope and evidence:
 - Ownership assessment:
 - Ownership evidence:
 - Recommended route:
@@ -411,7 +471,8 @@ QA Report:
 - Visual evidence:
 - Release evidence:
 - Findings:
-- Pass / fail:
+- Current step verdict: PASS / FAIL / BLOCKED
+- Task-wide observations:
 - Evidence:
 - Handoff:
 ```
@@ -422,14 +483,15 @@ QA Report:
 2. Read all files listed in `reads`.
 3. Select and state the QA mode before running checks.
 4. Check `must_check` items before acting.
-5. Complete `Ownership assessment` and `Ownership evidence` before choosing any `Recommended route` or `Recommended handoff`.
-6. If the route points to paused / interrupted ownership, read the matching suspended package evidence first and evaluate the active-owner guard before choosing `Recommended handoff`.
-7. Respect `forbidden_writes` and current task boundaries.
-8. If any `stop_conditions` match, produce a fail or blocked QA report; use `handoff.failure` for actual regressions outside `report-only`, and do not implement fixes here.
-9. In `report-only` mode, stop after the QA report even when findings exist.
-10. In `report-only` mode, do not follow `handoff.success` or `handoff.failure`; the QA report is the terminal output.
-11. Produce the artifact(s) described in `output`.
-12. Hand off to `handoff.success` when the skill completes normally outside `report-only` mode.
+5. Classify every selected check as `required-now` or `future-gate`, then classify every failure with `failure_scope` before deciding the current-step verdict.
+6. Complete `Ownership assessment` and `Ownership evidence` before choosing any `Recommended route` or `Recommended handoff`.
+7. If the route points to paused / interrupted ownership, read the matching suspended package evidence first and evaluate the active-owner guard before choosing `Recommended handoff`.
+8. Respect `forbidden_writes` and current task boundaries.
+9. If any `stop_conditions` match, produce a fail or blocked QA report; use `handoff.failure` only for current-step regressions or current-step-overlapping unknowns outside `report-only`, and do not implement fixes here.
+10. In `report-only` mode, stop after the QA report even when findings exist.
+11. In `report-only` mode, do not follow `handoff.success` or `handoff.failure`; the QA report is the terminal output.
+12. Produce the artifact(s) described in `output`.
+13. Hand off to `handoff.success` when the current-step verdict is PASS outside `report-only` mode; retain future-step and unrelated observations in the report.
 
 ## Output Contract
 

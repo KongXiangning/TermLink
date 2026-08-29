@@ -1,7 +1,7 @@
 ---
 name: verify-contracts
 preamble-tier: 2
-version: 0.2.0
+version: 0.3.0
 description: >
   Verify that the current diff does not violate locked interface or architecture
   contracts.
@@ -12,7 +12,13 @@ trigger: |
   diff 较大、涉及稳定边界，或 review-diff 发现潜在契约风险时。
 inputs:
   - current_diff
+  - current_step_id
+  - current_step_acceptance
   - diff_review_target
+  - task_diff_target
+  - repair_diff_target
+  - review_mode
+  - review_epoch
   - contracts
   - current_task
 reads:
@@ -31,13 +37,17 @@ must_check:
   - 接口签名与返回结构
   - 稳定导出与表结构
   - 依赖方向、状态流、目录职责、DTO 语义
+  - 契约观察是否由当前 diff 引入并阻止当前步骤，还是仅属于 future-step deferred
+  - future-step deferred 是否有任务步骤证据，且当前 diff 尚未暴露、调用或依赖该契约缺口；否则仍按当前 diff 契约破坏处理
 stop_conditions:
   - diff_review_target 缺失、不明确，或无法证明与前序 review 使用的目标一致
-  - 发现锁定契约已被破坏
+  - 发现当前 diff 破坏锁定契约或产生未授权架构反向依赖
   - 发现需要修改 docs/workflow/CONTRACTS.md 才能解释当前改动
 output:
   - 接口契约检查结果
   - 架构契约检查结果
+  - Current step contract verdict：PASS / FAIL / BLOCKED
+  - Future-step contract observations
 handoff:
   success: run-regression
   failure: ask-user
@@ -50,6 +60,7 @@ verification:
   - 接口层与架构层都已检查
   - 已明确标注是否破坏锁定契约
   - 没有静默放宽边界
+  - future-step 尚未实施的契约缺口未被误判为当前 diff 的契约破坏，也未被当作当前步骤通过证据
 allowed-tools:
   - Read
   - Grep
@@ -76,8 +87,8 @@ violation_levels:
   - "major: 破坏扩展性"
   - "critical: 破坏锁定契约"
 pass_criteria:
-  - 无锁定契约破坏
-  - 无未授权架构反向依赖
+  - 当前 diff 无锁定契约破坏
+  - 当前 diff 无未授权架构反向依赖
 ---
 
 # Skill: verify-contracts
@@ -93,7 +104,13 @@ diff 较大、涉及稳定边界，或 review-diff 发现潜在契约风险时�
 ## Inputs
 
 - current_diff
+- current_step_id
+- current_step_acceptance
 - diff_review_target
+- task_diff_target
+- repair_diff_target
+- review_mode
+- review_epoch
 - contracts
 - current_task
 
@@ -125,11 +142,13 @@ diff 较大、涉及稳定边界，或 review-diff 发现潜在契约风险时�
 - 接口签名与返回结构
 - 稳定导出与表结构
 - 依赖方向、状态流、目录职责、DTO 语义
+- 契约观察是否由当前 diff 引入并阻止当前步骤，还是仅属于 future-step deferred
+- future-step deferred 是否有任务步骤证据，且当前 diff 尚未暴露、调用或依赖该契约缺口；否则仍按当前 diff 契约破坏处理
 
 ## Stop Conditions
 
 - diff_review_target 缺失、不明确，或无法证明与前序 review 使用的目标一致
-- 发现锁定契约已被破坏
+- 发现当前 diff 破坏锁定契约或产生未授权架构反向依赖
 - 发现需要修改 docs/workflow/CONTRACTS.md 才能解释当前改动
 
 ## Decision Policy
@@ -144,6 +163,7 @@ diff 较大、涉及稳定边界，或 review-diff 发现潜在契约风险时�
 - 接口层与架构层都已检查
 - 已明确标注是否破坏锁定契约
 - 没有静默放宽边界
+- future-step 尚未实施的契约缺口未被误判为当前 diff 的契约破坏，也未被当作当前步骤通过证据
 
 ## Extension Fields
 
@@ -165,8 +185,8 @@ diff 较大、涉及稳定边界，或 review-diff 发现潜在契约风险时�
 - critical: 破坏锁定契约
 
 ### pass_criteria
-- 无锁定契约破坏
-- 无未授权架构反向依赖
+- 当前 diff 无锁定契约破坏
+- 当前 diff 无未授权架构反向依赖
 
 ## Execution Protocol
 

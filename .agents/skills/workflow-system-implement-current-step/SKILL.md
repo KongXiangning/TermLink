@@ -1,7 +1,7 @@
 ---
 name: implement-current-step
 preamble-tier: 2
-version: 0.2.0
+version: 0.3.0
 description: >
   Implement only the current step from docs/workflow/CURRENT_TASK.md and refuse
   opportunistic scope expansion.
@@ -12,6 +12,11 @@ trigger: |
   进入具体编码实现时。
 inputs:
   - current_task_current_step
+  - review_mode
+  - review_epoch
+  - repair_base
+  - accepted_findings
+  - repair_policy
   - contracts
   - confirmed_decisions
   - lessons
@@ -39,6 +44,9 @@ must_check:
   - UI / 视觉实现是否只采用已确认设计约束
   - 是否遵守既有决策与 lessons
   - 是否触发 dangerous command gate
+  - open finding 是否为当前 task owned、admission=admitted 且具有足够 evidence
+  - 修复 finding 时是否保留 review_epoch、repair_base、fingerprint、blocking 和 provenance
+  - 同一 fingerprint 的 repair_attempts 是否低于阈值；达到阈值时是否转 investigate-root-cause
   - 当前实现正确性是否新增、扩展或质疑第三方 library / framework / SDK / API / CLI tool / cloud
     service 的 current behavior，是否需要触发 External Documentation Gate
 stop_conditions:
@@ -48,6 +56,8 @@ stop_conditions:
   - dangerous command 未说明命令、风险、目标、回滚/恢复方式并获得确认
   - 需要破坏锁定契约
   - 实现依赖未确认的 Taste / User challenge 决策
+  - finding 已经过 sync-review-findings 规范化或 legacy migration，但 admission、evidence、fingerprint 或当前步骤归属仍矛盾，无法证明可修
+  - 同一 fingerprint 已达到 repair policy 阈值，却试图继续猜测式修复
   - External Documentation Gate 补查后发现需要改变方案、依赖版本、架构边界、数据结构、用户行为、已锁定契约，或当前计划不再成立
   - External Documentation Gate 已触发但无法取得 current docs
     evidence，且受影响判断是当前实现正确性的前置条件
@@ -56,10 +66,16 @@ output:
   - 修改文件列表
   - 本步验证结果
   - docs/workflow/CURRENT_TASK.md 更新
+  - repair mode、epoch、base、fingerprint、attempt 和 finding disposition
   - External docs evidence、复用 evidence 说明、no-op reason 或 blocked reason
 handoff:
   success: review-diff
   failure: ask-user
+conditional_handoff:
+  unconfirmed_finding: sync-review-findings
+  legacy_or_incomplete_finding: sync-review-findings
+  repair_budget_exceeded: investigate-root-cause
+  review_state_ambiguous: ask-user
 decision_policy:
   mechanical: 可以自动选择低风险实现细节与局部重构内联形式。
   taste: 样式、文案、交互布局等不得静默决定。
@@ -70,6 +86,9 @@ verification:
   - 没有在未通过 dangerous command gate 的情况下执行危险命令
   - 当前步骤有最小验证结果
   - docs/workflow/CURRENT_TASK.md 执行记录已更新
+  - 初次实现使用 discovery，finding 修复使用 verification，且没有静默切换
+  - 只有 admitted、current-step owned 的 finding 被修复
+  - repair_attempts 仅在实际开始修复时增加，且验证结果与 disposition 已记录
   - 若触发 External Documentation Gate，已在执行记录或本步验证记录中写入 current docs evidence；若已有
     evidence 足够覆盖本步，已写明复用范围；若只能记录 blocked reason，未继续实现依赖第三方 current behavior 的代码
 allowed-tools:
@@ -122,11 +141,24 @@ step_limit:
 regression_expectation:
   - 完成后至少提供最小验证结果
   - 不得把未验证步骤标记为完成
+review_modes:
+  discovery: 首次实现后的完整审查前置状态；不消费未接纳 finding 进行猜测式修复
+  verification: 只修复已 admitted 的 current-step finding 或本轮已确认的 direct regression；修复后必须回到 verification review
+repair_policy:
+  default_max_attempts_per_fingerprint: 2
+  rules:
+    - repair_attempts 只在本 skill 实际开始代码修复时增加
+    - 达到阈值后不得改写 finding 标题或新建同义 finding 绕过限制，必须 handoff investigate-root-cause
+    - task 只有在持久状态中记录 override reason 才可提高阈值
 review_finding_intake:
   - 如果 docs/workflow/CURRENT_TASK.md 的审查问题队列存在 open finding，先按 severity
     和当前步骤相关性处理
+  - "只处理 `Admission: admitted`、当前 task owned 且 `Handoff: implement-current-step` 的 finding"
+  - finding 必须有 evidence_kind 和 evidence_basis；静态控制流、不变量违反、契约违反和测试证据均可，不要求一律 runtime reproduction
+  - finding 缺少 convergence 字段或证据不足时，不修改业务代码，交回 sync-review-findings 更新 disposition
   - 修复 finding 时不得跳过 Allowed Files / Forbidden Files / Conditional Files
-  - 修复后将 finding 标记为 resolved、deferred 或 needs-user，并保留验证结果
+  - 实际修复完成后将 finding 标记为 verification-pending；只有后续 verification review 可以标记 resolved
+  - 未实施修复且需要补证据、迁移旧字段或重新裁定 admission 时交回 sync-review-findings，不得猜测式修改
 ---
 
 # Skill: implement-current-step
@@ -142,6 +174,11 @@ review_finding_intake:
 ## Inputs
 
 - current_task_current_step
+- review_mode
+- review_epoch
+- repair_base
+- accepted_findings
+- repair_policy
 - contracts
 - confirmed_decisions
 - lessons
@@ -173,6 +210,9 @@ review_finding_intake:
 - 是否只执行当前步骤
 - 是否存在需要优先处理的审查问题队列
 - 是否只改允许范围内的文件
+- open finding 是否为当前 task owned、Admission=admitted 且具有足够 evidence
+- 修复 finding 时是否保留 review_epoch、repair_base、fingerprint、blocking 和 provenance
+- 同一 fingerprint 的 repair_attempts 是否低于 repair policy 阈值
 - UI / 视觉实现是否只采用已确认设计约束
 - 是否遵守既有决策与 lessons
 - 是否触发 dangerous command gate
@@ -185,6 +225,8 @@ review_finding_intake:
 - dangerous command 未说明命令、风险、目标、回滚/恢复方式并获得确认
 - 需要破坏锁定契约
 - 实现依赖未确认的 Taste / User challenge 决策
+- finding 已经过 sync-review-findings 规范化或 legacy migration，但 admission、evidence、fingerprint 或当前步骤归属仍矛盾，无法证明可修
+- 同一 fingerprint 已达到 repair policy 阈值，却试图继续猜测式修复
 
 ## Decision Policy
 
@@ -199,6 +241,9 @@ review_finding_intake:
 - 没有在未通过 dangerous command gate 的情况下执行危险命令
 - 当前步骤有最小验证结果
 - docs/workflow/CURRENT_TASK.md 执行记录已更新
+- 初次实现使用 discovery，finding 修复使用 verification，且没有静默切换
+- 只有 admitted、current-step owned 的 finding 被修复
+- repair_attempts 仅在实际开始修复时增加，且验证结果与 finding disposition 已记录
 
 ## Extension Fields
 
@@ -246,10 +291,30 @@ review_finding_intake:
 - 完成后至少提供最小验证结果
 - 不得把未验证步骤标记为完成
 
+### review_modes
+- discovery: 首次实现后的完整审查前置状态；不消费 repair finding 进行猜测式修复
+- verification: 只修复已 admitted 的 current-step finding 或本轮已确认的 direct regression；修复后必须回到 verification review
+
+### conditional_handoff
+- unconfirmed_finding: sync-review-findings
+- legacy_or_incomplete_finding: sync-review-findings
+- repair_budget_exceeded: investigate-root-cause
+- review_state_ambiguous: ask-user
+
+### repair_policy
+- default_max_attempts_per_fingerprint: 2
+- repair_attempts 只在本 skill 实际开始代码修复时增加
+- 达到阈值后不得改写 finding 标题或新建同义 finding 绕过限制，必须 handoff investigate-root-cause
+- task 只有在持久状态中记录 override reason 才可提高阈值
+
 ### review_finding_intake
 - 如果 docs/workflow/CURRENT_TASK.md 的审查问题队列存在 open finding，先按 severity 和当前步骤相关性处理
+- 只处理 `Admission: admitted`、当前 task owned 且 `Handoff: implement-current-step` 的 finding；这就是 Finding Admission Policy 的执行入口
+- finding 必须有 evidence_kind 和 evidence_basis；静态控制流、不变量违反、契约违反和测试证据均可，不要求一律 runtime reproduction
+- finding 缺少 convergence 字段或证据不足时，不修改业务代码，交回 sync-review-findings 更新 disposition
 - 修复 finding 时不得跳过 Allowed Files / Forbidden Files / Conditional Files
-- 修复后将 finding 标记为 resolved、deferred 或 needs-user，并保留验证结果
+- 实际修复完成后将 finding 标记为 verification-pending；只有后续 verification review 可以标记 resolved
+- 未实施修复且需要补证据、迁移旧字段或重新裁定 admission 时交回 sync-review-findings，不得猜测式修改
 
 ### external_documentation_gate
 - 先复用 docs/workflow/CURRENT_TASK.md 中已有 ctx7 evidence；只有 evidence 不足、新增 / 扩展 / 质疑第三方 current behavior，或错误可能来自第三方当前行为且会影响当前实现正确性时才补查
@@ -300,9 +365,22 @@ UI / 视觉实现只能实现已确认设计。不得静默更换字体、颜色
 当 `/implement-current-step` 来自 `/sync-review-findings` 时，先读取 `docs/workflow/CURRENT_TASK.md > 审查问题队列`：
 
 - 优先处理 P1 / P2，P3 只在当前步骤范围内处理。
-- 只修 `Status: open` 且 `Handoff: implement-current-step` 的 finding。
+- 只修 `Status: open`、`Admission: admitted`、当前 task owned 且 `Handoff: implement-current-step` 的 finding。
+- finding 必须有 `review_mode`、`review_epoch`、`repair_base`、`fingerprint`、`blocking`、`scope_ownership`、`provenance`、`evidence_kind` 和 `evidence_basis`。
+- 静态控制流、不变量违反、契约违反、类型/schema 证明、失败测试、运行复现或日志 trace 均可作为证据；不要求一律 runtime reproduction。
+- `future-step deferred`、unrelated、hypothetical 或 advisory finding 不得被改成当前步骤代码修复。
+- `needs-investigation`、`needs-user`、`rejected` 和未完成 legacy migration 的 finding 不得进入代码修复。
 - 修复时不得扩大范围；需要扩大范围时停止并回到 `/lock-scope`。
-- 修复后把 finding 标记为 `resolved`、`deferred` 或 `needs-user`，并记录验证结果。
+- 修复前确认同一 fingerprint 的 `repair_attempts` 低于阈值；达到阈值时不再猜测式修改，转 `/investigate-root-cause`。
+- 实际开始代码修复时才增加 `repair_attempts`；修复完成并记录本步验证后，把 finding 标记为 `verification-pending`。只有后续 verification review 可以把它标记为 `resolved`；若验证失败则 reopen 同一 fingerprint 或按 direct regression / needs-investigation 规则处理。
+
+## Review Convergence Protocol
+
+1. 没有历史 repair context 的首次实现使用 `review_mode=discovery`；由 finding 修复触发的实现使用 `review_mode=verification`。有歧义时停止，不得静默切换。
+2. 保留当前 `review_epoch` 和 `repair_base`；不得通过改标题、改行号或新建同义 finding 绕过既有 fingerprint。
+3. 修复只针对 admitted 的 current-step finding 或本轮已确认的 direct regression。一次实现可以修复多个已接纳 finding，但不主动扩大审查问题集合。
+4. 每个 fingerprint 默认最多失败修复 2 次；达到阈值后 handoff `/investigate-root-cause`。只有 task state 中有明确 override reason 才能提高阈值。
+5. 修复完成后 handoff `/review-diff`，并明确传递 `review_mode=verification`、`review_epoch`、`repair_base` 和本轮 accepted findings。
 
 ## External Documentation Gate
 
@@ -355,11 +433,14 @@ UI / 视觉实现只能实现已确认设计。不得静默更换字体、颜色
 
 1. Restate the goal in one sentence.
 2. Read all files listed in `reads`.
-3. Check `must_check` items before acting.
-4. Respect `forbidden_writes` and current task boundaries.
-5. If any `stop_conditions` match, stop and hand off to `handoff.failure`.
-6. Produce the artifact(s) described in `output`.
-7. Hand off to `handoff.success` when the skill completes normally.
+3. Resolve `review_mode`, `review_epoch`, `repair_policy` and the current repair context before reading the finding queue.
+4. Check `must_check` items before acting.
+5. If the input is a review finding, confirm admission, evidence, ownership, fingerprint and repair budget before modifying code.
+6. Respect `forbidden_writes` and current task boundaries.
+7. If any `stop_conditions` match, use the applicable `conditional_handoff`; do not silently patch or fall back to an unrestricted repair.
+8. Produce the artifact(s) described in `output`.
+9. If code was changed to repair a finding, hand off to `review-diff` in verification mode with the same epoch and repair base.
+10. Hand off to `handoff.success` when the skill completes normally.
 
 ## Output Contract
 

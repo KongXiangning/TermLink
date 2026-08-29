@@ -1,7 +1,7 @@
 ---
 name: sync-review-findings
 preamble-tier: 2
-version: 0.1.0
+version: 0.2.0
 description: >
   Persist structured implementation review findings into
   docs/workflow/CURRENT_TASK.md before the next fix pass.
@@ -15,6 +15,10 @@ inputs:
   - current_task
   - structured_review_findings
   - finding_source
+  - review_mode
+  - review_epoch
+  - repair_base
+  - repair_policy
 reads:
   - docs/workflow/CURRENT_TASK.md
   - TASKS/paused/**
@@ -41,23 +45,37 @@ must_check:
   - active-owner guard 是否已在 resume route 前判定
   - 是否需要扩大范围、修改契约或确认产品行为
   - 是否存在根因未明的 finding
+  - review 输出是否包含可执行定位、失败场景、evidence、severity、blocking proposal、scope ownership 和 fingerprint components；canonical fingerprint、admission、epoch、repair base 与持久状态由本 skill 规范化
+  - 是否按 Finding Admission Policy 区分 accepted finding、direct regression、missed blocker、deferred 和 advisory
+  - 是否按 fingerprint 去重、reopen 原记录，并正确维护 repair_attempts
 stop_conditions:
   - finding 缺少可执行定位或失败场景
   - finding 与当前任务目标无法建立关系
   - paused / interrupted owner 候选存在但 matching suspended package evidence
     缺失、marker 不自洽或无法唯一解析
   - active-owner guard 未通过却试图把 finding 写成 resume success chain 或当前任务可修队列
+  - 经过本 skill 的规范化或 legacy migration 后，verification context 仍无法唯一确定 review_epoch、repair_base 或 admission，或者现有状态互相矛盾
+  - 同 fingerprint 已达到 repair policy 阈值却仍试图写成新的普通可修 finding
 output:
   - 更新后的 docs/workflow/CURRENT_TASK.md 审查问题队列
   - Ownership assessment
   - Ownership evidence
   - Recommended route
   - Recommended handoff
+  - Finding admission disposition
+  - review epoch、fingerprint、evidence 和 repair budget 记录
 handoff:
   success: implement-current-step
   failure: ask-user
 conditional_handoff:
   queued_fixable_findings: implement-current-step
+  verification_direct_regression: implement-current-step
+  verification_missed_blocker: investigate-root-cause
+  duplicate_finding: implement-current-step
+  no_actionable_from_review_diff: review-implementation
+  no_actionable_from_review_implementation: verify-contracts
+  no_actionable_after_legacy_migration: review-diff
+  repair_budget_exceeded: investigate-root-cause
   scope_widening_candidate: lock-scope
   resume_paused_guard_passed: resume-paused-task
   resume_paused_guard_blocked: ask-user
@@ -78,6 +96,10 @@ verification:
   - 只有 `current_task_owned` 且当前 Allowed Files 内可修的 mechanical finding 被写入队列
   - paused / interrupted / new bug / user decision findings 没有错写进当前队列
   - 越界、契约、架构或产品问题没有被伪装成 mechanical fix
+  - verification 普通新观察没有被写成当前 repair queue
+  - direct regression 保留 review_epoch 和 repair_base，生成自己的 canonical fingerprint，并通过 caused_by 指向触发它的 repair finding
+  - missed blocker 或 budget exceeded 没有绕过 investigate-root-cause
+  - 零 admitted finding 时没有 handoff implement-current-step，而是按 finding_source 返回 clean review successor
 allowed-tools:
   - Read
   - Write
@@ -97,16 +119,49 @@ finding_queue_fields:
   - Failure scenario
   - Minimal fix direction
   - Required test
+  - Review mode
+  - Review epoch
+  - Fingerprint
+  - Fingerprint components
+  - Caused by
+  - Blocking
+  - Scope ownership
+  - Provenance
+  - Evidence kind
+  - Evidence basis
+  - Repair base
+  - Repair attempts
+  - Admission
+  - Migration source
   - Handoff
 finding_statuses:
   - open
   - in-progress
+  - verification-pending
   - resolved
   - deferred
+  - needs-investigation
   - needs-user
+finding_admission_statuses:
+  - admitted
+  - deferred
+  - advisory
+  - rejected
+  - needs-investigation
+  - needs-user
+repair_policy:
+  default_max_attempts_per_fingerprint: 2
+  rules:
+    - repair_attempts 只在 implement-current-step 实际开始代码修复时增加
+    - 达到阈值后不得新建同义 finding 继续猜测式修复，交给 investigate-root-cause
+    - task 只有在持久状态中记录 override reason 才可提高阈值
 finding_handoff_rules:
   - 当前 Allowed Files 内的 mechanical implementation finding 写入队列后交给
     implement-current-step
+  - verification direct regression 保留当前 epoch 和 repair base，生成自己的 canonical fingerprint，并以 caused_by 关联原 repair finding 后交给 implement-current-step
+  - verification missed blocker 标记 needs-investigation，不写成普通可修队列，交给 investigate-root-cause；本 skill 不自行创建新的 discovery epoch
+  - 同 fingerprint 达到 repair policy 阈值后交给 investigate-root-cause
+  - duplicate finding 只更新原记录；仅当原记录被确认仍 open、admission=admitted 且 repair budget 可用时，duplicate_finding 才可 handoff implement-current-step
   - 需要扩大范围的 finding 不写成可修队列，交给 lock-scope
   - 需要改产品、契约、架构或设计方向的 finding 交给 ask-user
   - 根因不明的 finding 交给 investigate-root-cause
@@ -127,6 +182,10 @@ finding_handoff_rules:
 - current_task
 - structured_review_findings
 - finding_source
+- review_mode
+- review_epoch
+- repair_base
+- repair_policy
 
 ## Project Variables
 
@@ -157,11 +216,16 @@ finding_handoff_rules:
 - finding 是否能映射到当前任务允许范围
 - 是否需要扩大范围、修改契约或确认产品行为
 - 是否存在根因未明的 finding
+- review 输出是否包含可执行定位、失败场景、evidence、severity、blocking proposal、scope ownership 和 fingerprint components；canonical fingerprint、admission、epoch、repair base 与持久状态由本 skill 规范化
+- 是否按 Finding Admission Policy 区分 accepted finding、direct regression、missed blocker、deferred 和 advisory
+- 是否按 fingerprint 去重、更新或 reopen 原记录，并只在实际代码修复时增加 repair_attempts
 
 ## Stop Conditions
 
 - finding 缺少可执行定位或失败场景
 - finding 与当前任务目标无法建立关系
+- 经过本 skill 的规范化或 legacy migration 后，verification context 仍无法唯一确定 review_epoch、repair_base 或 admission，或者现有状态互相矛盾
+- 同 fingerprint 已达到 repair policy 阈值，却试图新建同义 finding 继续普通修复
 
 ## Decision Policy
 
@@ -174,11 +238,22 @@ finding_handoff_rules:
 - docs/workflow/CURRENT_TASK.md 已记录每条待修 finding
 - 每条 finding 保留 severity、定位、失败场景、最小修复方向和验证要求
 - 越界、契约、架构或产品问题没有被伪装成 mechanical fix
+- 普通 verification 新观察没有被写成当前 repair queue
+- direct regression 保留 review_epoch 和 repair_base，生成自己的 canonical fingerprint，并通过 caused_by 指向触发它的 repair finding
+- missed blocker 或 budget exceeded 没有绕过 investigate-root-cause
+- 零 admitted finding 时没有 handoff implement-current-step，而是按 finding_source 返回 clean review successor
 
 ## Extension Fields
 
 ### conditional_handoff
 - queued_fixable_findings: implement-current-step
+- verification_direct_regression: implement-current-step
+- verification_missed_blocker: investigate-root-cause
+- duplicate_finding: implement-current-step
+- no_actionable_from_review_diff: review-implementation
+- no_actionable_from_review_implementation: verify-contracts
+- no_actionable_after_legacy_migration: review-diff
+- repair_budget_exceeded: investigate-root-cause
 - scope_widening_candidate: lock-scope
 - resume_paused_guard_passed: resume-paused-task
 - resume_paused_guard_blocked: ask-user
@@ -199,21 +274,123 @@ finding_handoff_rules:
 - Failure scenario
 - Minimal fix direction
 - Required test
+- Review mode
+- Review epoch
+- Fingerprint
+- Fingerprint components
+- Caused by
+- Blocking
+- Scope ownership
+- Provenance
+- Evidence kind
+- Evidence basis
+- Repair base
+- Repair attempts
+- Admission
+- Migration source
 - Handoff
 
 ### finding_statuses
 - open
 - in-progress
+- verification-pending
 - resolved
 - deferred
+- needs-investigation
 - needs-user
+
+### finding_admission_statuses
+- admitted
+- deferred
+- advisory
+- rejected
+- needs-investigation
+- needs-user
+
+### repair_policy
+- default_max_attempts_per_fingerprint: 2
+- repair_attempts 只在 implement-current-step 实际开始代码修复时增加
+- 达到阈值后不得新建同义 finding 继续猜测式修复，交给 investigate-root-cause
+- task 只有在持久状态中记录 override reason 才可提高阈值
+
+### finding_identity
+- canonical fingerprint 使用 rfp-v1 固定字段顺序，由 acceptance_dimension、logical_owner、symbol_or_resource、transition_or_behavior 和 failure_condition 组成
+- fingerprint 不得依赖行号、commit SHA 或易变变量名
+- review 对新 finding 提供 fingerprint components；本 skill 独占负责规范化、去重和持久化 canonical fingerprint
 
 ### finding_handoff_rules
 - 当前 Allowed Files 内的 mechanical implementation finding 写入队列后交给 implement-current-step
+- verification direct regression 保留当前 epoch 和 repair base，生成自己的 canonical fingerprint，并以 caused_by 关联原 repair finding 后交给 implement-current-step
+- verification missed blocker 标记 needs-investigation，不写成普通可修队列，交给 investigate-root-cause；本 skill 不自行创建新的 discovery epoch
+- 同 fingerprint 达到 repair policy 阈值后交给 investigate-root-cause
+- duplicate finding 只更新原记录；仅当原记录被确认仍 open、admission=admitted 且 repair budget 可用时，duplicate_finding 才可 handoff implement-current-step
 - 需要扩大范围的 finding 不写成可修队列，交给 lock-scope
 - 命中 paused / interrupted owner 候选时，必须先读取 matching suspended package evidence，再决定是否 route 到 `resume-*` 或 `ask-user`
 - 需要改产品、契约、架构或设计方向的 finding 交给 ask-user
 - 根因不明的 finding 交给 investigate-root-cause
+
+## Review Convergence and Finding Admission
+
+`/sync-review-findings` 不仅负责格式化 finding，还负责决定它是否有资格进入当前 repair loop。持久化的 task state 必须能恢复以下字段：`review_mode`、`review_epoch`、`repair_base`、`fingerprint`、`severity`、`blocking`、`scope_ownership`、`provenance`、`evidence_kind`、`evidence_basis`、`repair_attempts` 和 `admission`。
+
+模式规则：
+
+- `discovery`：首次审查实现基线，允许接纳新的 current-step finding。
+- `verification`：只验证已接纳 finding、受影响 transition family 和本轮直接 regression；普通新观察只能记录为 `deferred` 或 `advisory`。
+
+verification finding admission：
+
+- `accepted_finding_still_open`：按 fingerprint 更新或 reopen 原记录，不创建同义 finding。
+- `direct_regression`：必须证明由本轮 repair 直接造成，且属于当前任务；`repair_base=unknown` 时不得作此分类。接纳后保留同一 epoch 和 repair base，为 regression 生成自己的 canonical fingerprint，并记录 `caused_by=<原 repair finding fingerprint>`。
+- `missed_current_step_blocker`：必须直接阻止当前 acceptance 并具备 strong evidence；标记 `needs-investigation`，交给 `investigate-root-cause`，不直接进入普通修复队列，也不得由本 skill 创建新 discovery epoch。
+- `future_step_deferred`、unrelated pre-existing、hypothetical、maintainability suggestion 和 alternative design preference：不得以 `admitted` 写入当前 repair queue。
+
+Review 对新 finding 只提交 fingerprint components；本 skill 使用以下 canonical v1 固定格式生成最终 fingerprint：
+
+```text
+rfp-v1|acceptance=<acceptance-id-or-slug>
+|owner=<module-or-service>
+|resource=<stable-symbol-or-resource>
+|transition=<state-a->state-b-or-behavior>
+|failure=<observable-failure>
+```
+
+字段值统一 trim、转小写 kebab-case；仓库文件使用相对路径；缺失值写 `none`。不得包含行号、commit SHA、临时变量名或仅因重构变化的描述。相同 fingerprint 必须更新原条目并保留历史，而不是换标题重新入队。Verification 引用 accepted finding 时必须复用已持久化 fingerprint。
+
+`severity` 与 `blocking` 独立判断；只有会阻止当前步骤 acceptance、违反锁定契约或造成已证实 regression 的问题才可标记为当前 blocker。`repair_attempts` 只在 implement-current-step 实际开始一次代码修复时增加；达到默认 2 次且没有持久化 override reason 时，停止普通修复并交给 `investigate-root-cause`。
+
+## Finding Admission Protocol
+
+1. 读取当前 task state 和已有 finding queue，确定当前 `review_mode`、`review_epoch` 和 `repair_base`。初始 discovery epoch 使用 `<task-id>/<step-id>/d<sequence>`；新 epoch 只能来自步骤重新规划、acceptance/scope 正式变化、实现基线明确替换或 `/investigate-root-cause` 形成的新根因模型，并记录创建原因。
+2. 区分上游必需字段与本 skill 派生字段。上游必须提供定位、失败场景、evidence、severity、blocking proposal、scope ownership、最小修复方向、required verification 和 fingerprint components；本 skill 负责 canonical fingerprint、dedup、admission、epoch、repair base、status、repair attempts 初始值和 handoff。
+3. 先按 fingerprint 查找既有记录，再按 Finding Admission Policy 判断是否接纳。
+4. 只有 `admission=admitted`、当前 task owned 且当前 Allowed Files 内可修的 mechanical finding，才能写成 `Status: open`、`Handoff: implement-current-step`。
+5. `deferred`、`advisory`、`needs-investigation` 和 `needs-user` 必须保留 disposition，但不得伪装成当前可修 finding。
+6. 同 fingerprint 达到 repair policy 阈值时不得新建替代记录；转 `repair_budget_exceeded` / `investigate-root-cause`。
+7. 规范化后若 admitted finding 数量为零，不得使用 `handoff.success` 或进入 `/implement-current-step`：`finding_source=review-diff` 返回 `/review-implementation`，`finding_source=review-implementation` 返回 `/verify-contracts`，仅执行 legacy migration 时返回 `/review-diff` 继续明确模式的审查链。
+
+## Legacy Finding Migration
+
+现有队列条目缺少 convergence 字段时，不得仅因元数据缺失而判定输入无效或要求重新审查。执行一次性迁移：
+
+1. 保留原 Finding ID、原始描述、severity、定位、失败场景、修复方向和验证要求。
+2. 能从已有证据确定时生成 canonical fingerprint；不能确定时标记 `needs-investigation`，不得猜测式入队。
+3. 缺少历史上下文时设置 `review_mode=discovery`、`provenance=unknown`、`repair_base=unknown`、`repair_attempts=0`，并为当前 task/step 创建首个 migration discovery epoch。
+4. 重新执行 ownership、blocking 和 admission 判断。证据充分且当前范围内可修时可迁移为 `open/admitted`；证据不足时标记 `needs-investigation` 或 `needs-user`。
+5. 迁移完成后记录 `migration_source=legacy-finding`，后续不得再次重置 repair attempts 或创建同义 finding。
+
+缺少新元数据不是 stop condition；只有失败场景/定位缺失、语义矛盾，或规范化后仍无法安全确定 disposition 时才停止。
+
+## Finding Status Lifecycle
+
+允许的普通修复状态转换只有：
+
+```text
+open/admitted -> in-progress -> verification-pending
+verification-pending -> resolved | open(reopen same fingerprint) | needs-investigation
+```
+
+`deferred`、`needs-investigation`、`needs-user` 和 `rejected` 不得直接进入 `/implement-current-step`。只有 verification review 可以把 `verification-pending` 标记为 `resolved`；implementer 只能声明 repair 已应用并等待验证。
 
 ## Ownership-Aware Queue Routing
 
@@ -268,15 +445,17 @@ Recommended handoff rules：
 ## Finding Sync Protocol
 
 1. Read `docs/workflow/CURRENT_TASK.md`.
-2. Normalize each incoming finding without changing its meaning.
-3. Complete `Ownership assessment` and `Ownership evidence` before deciding queue destination.
-4. If `Ownership assessment` points to a paused / interrupted owner candidate, read the matching suspended package evidence from `TASKS/paused/**` or `TASKS/interrupted/**` before choosing `Recommended route`, `Recommended handoff`, or queue disposition.
-5. Write only to `docs/workflow/CURRENT_TASK.md > 审查问题队列`.
-6. Preserve the source skill name, severity, location, failure scenario, minimal fix direction, and required test.
-7. Mark new actionable items as `open`.
-8. Classify each finding with `conditional_handoff`; only `queued_fixable_findings` may enter the queue for code fix.
-9. If a finding requires scope widening, product confirmation, contract change, architecture change, root-cause investigation, paused / interrupted resume, new bug registration, or user decision, stop and hand off according to `conditional_handoff` / `finding_handoff_rules`.
-10. Use `handoff.success` only after fixable findings are persisted to the queue.
+2. Determine and preserve `review_mode`, `review_epoch`, `repair_base` and `repair_policy`; verification 不得静默退回 discovery。
+3. Normalize each incoming finding without changing its meaning, then complete evidence、fingerprint、ownership 和 provenance。
+4. Complete `Ownership assessment` and `Ownership evidence` before deciding queue destination.
+5. If `Ownership assessment` points to a paused / interrupted owner candidate, read the matching suspended package evidence from `TASKS/paused/**` or `TASKS/interrupted/**` before choosing `Recommended route`, `Recommended handoff`, or queue disposition.
+6. Match the fingerprint against existing records before creating a new record; update or reopen the existing record when it is the same finding。
+7. Write only to `docs/workflow/CURRENT_TASK.md > 审查问题队列`.
+8. Preserve the source skill name, severity, location, failure scenario, minimal fix direction, required test, evidence and convergence fields.
+9. Mark only admitted actionable items as `open` and `Handoff: implement-current-step`.
+10. Classify each finding with `Finding Admission Policy` and `conditional_handoff`.
+11. If a finding requires scope widening, product confirmation, contract change, architecture change, root-cause investigation, paused / interrupted resume, new bug registration, or user decision, stop and hand off according to `conditional_handoff` / `finding_handoff_rules`.
+12. Use `handoff.success` only after admitted fixable findings are persisted; deferred/advisory findings must not create a repair loop. Zero admitted findings must use the source-aware no-actionable route instead of `/implement-current-step`.
 
 ## Output Contract
 
