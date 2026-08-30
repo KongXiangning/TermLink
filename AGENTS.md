@@ -15,6 +15,7 @@
   - `docs/workflow/DECISIONS.md`
   - `docs/workflow/BASELINES.md`
 - 当前项目按**老项目接入**处理，不要把 adoption 阶段当成重写架构的机会。
+- 分阶段任务的回归判定以 `CURRENT_TASK.md` 当前步骤的 required-now 门禁为准：后续步骤的预期缺口记录为 `future-step-expected-gap`，不得阻塞当前步骤；全量结果、失败分类和实际缺口必须保留，并继续作为整体任务与最终交付门禁。不得用该规则掩盖当前步骤自身的契约违规、未知失败、真实回归、挂起/泄漏或范围越界。
 - 变更项目级 AI 协作规则、宿主说明或共享 workflow 命令后，执行 `/sync-host-guidance`。
 - 变更 workflow 模板或治理文档骨架后，执行：
   - `bun install`
