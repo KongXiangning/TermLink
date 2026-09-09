@@ -4,6 +4,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { validateCheckpoint } = require('./analyzerProtocol');
+
 const CHECKPOINT_SCHEMA_VERSION = 1;
 
 const CHECKPOINT_COMPLETENESS_RANK = Object.freeze({
@@ -13,20 +15,66 @@ const CHECKPOINT_COMPLETENESS_RANK = Object.freeze({
     canonical: 3
 });
 
+const LEGACY_CHECKPOINT_FIELDS = Object.freeze([
+    'source_spec',
+    'sourceSpec',
+    'replay',
+    'retention_profile',
+    'retentionProfile',
+    'discovery',
+    'revision'
+]);
+
+function clone(value) {
+    if (value === undefined) return undefined;
+    return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeString(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function stripLegacyCheckpointFields(value) {
+    const sanitized = clone(value);
+    for (const field of LEGACY_CHECKPOINT_FIELDS) delete sanitized[field];
+
+    // Only known checkpoint/source envelope fields are scrubbed.  Arbitrary
+    // nested additive metadata is opaque and must not be recursively
+    // reinterpreted as a public legacy protocol field.
+    if (sanitized.source && typeof sanitized.source === 'object'
+        && !Array.isArray(sanitized.source)) {
+        for (const field of LEGACY_CHECKPOINT_FIELDS) delete sanitized.source[field];
+    }
+    return sanitized;
+}
+
+function readOptional(scope, camelCase, snakeCase) {
+    if (!scope || typeof scope !== 'object') return undefined;
+    if (Object.prototype.hasOwnProperty.call(scope, camelCase)) return scope[camelCase];
+    if (Object.prototype.hasOwnProperty.call(scope, snakeCase)) return scope[snakeCase];
+    return undefined;
+}
+
 function normalizeScope(scope) {
     const value = scope && typeof scope === 'object' ? scope : {};
-    const conversationId = String(value.conversationId ?? value.conversation_id ?? '').trim();
-    const sourceId = String(value.sourceId ?? value.source_id ?? value.source?.source_id ?? '').trim();
-    const sourceEpoch = String(
-        value.sourceEpoch ?? value.source_epoch ?? value.source?.source_epoch ?? ''
-    ).trim();
-    if (!conversationId || !sourceId || !sourceEpoch) return null;
+    const source = value.source && typeof value.source === 'object' ? value.source : {};
+    const conversationId = normalizeString(value.conversationId ?? value.conversation_id);
+    const sourceId = normalizeString(
+        value.sourceId ?? value.source_id ?? source.source_id
+    );
+    const sourceEpoch = normalizeString(
+        value.sourceEpoch ?? value.source_epoch ?? source.source_epoch
+    );
+    if (!conversationId || !sourceId || !sourceEpoch || sourceEpoch === 'unbound') return null;
     return { conversationId, sourceId, sourceEpoch };
 }
 
 function scopeHash(scope) {
     const normalized = normalizeScope(scope);
-    if (!normalized) throw new Error('checkpoint scope is incomplete');
+    if (!normalized) throw checkpointError(
+        'ANALYSIS_CHECKPOINT_SCOPE_INVALID',
+        'checkpoint scope is incomplete'
+    );
     return crypto.createHash('sha256')
         .update(`${normalized.conversationId}\u0000${normalized.sourceId}\u0000${normalized.sourceEpoch}`)
         .digest('hex');
@@ -34,130 +82,109 @@ function scopeHash(scope) {
 
 function normalizeCheckpoint(checkpoint) {
     if (!checkpoint || typeof checkpoint !== 'object' || Array.isArray(checkpoint)) {
-        throw new Error('checkpoint must be an object');
+        throw checkpointError(
+            'ANALYSIS_CHECKPOINT_INVALID',
+            'checkpoint must be an object'
+        );
     }
-    const value = JSON.parse(JSON.stringify(checkpoint));
-    if (value.schema_version !== CHECKPOINT_SCHEMA_VERSION) {
-        throw new Error(`unsupported checkpoint schema: ${value.schema_version}`);
-    }
-    requireCheckpointObject(value, 'source');
-    const scope = normalizeScope(value);
-    if (!scope) throw new Error('checkpoint identity is incomplete');
-    requireCheckpointString(value, 'request_id');
-    requireCheckpointString(value, 'conversation_id');
-    requireCheckpointString(value.source, 'source_id', 'source.source_id');
-    requireCheckpointString(value.source, 'source_epoch', 'source.source_epoch');
-    if (value.source.source_epoch.trim() === 'unbound') {
-        throw new Error('checkpoint.source.source_epoch must be bound');
-    }
-    validateDigest(value.source.fingerprint, 'source.fingerprint', 'covered_bytes');
-    validateDigest(value.source.prefix_anchor, 'source.prefix_anchor', 'end_offset');
 
-    requireCheckpointObject(value, 'reader');
-    for (const field of ['backend', 'version', 'source_kind', 'compression']) {
-        requireCheckpointString(value.reader, field, `reader.${field}`);
+    let value;
+    try {
+        value = stripLegacyCheckpointFields(clone(checkpoint));
+    } catch (error) {
+        throw checkpointError(
+            'ANALYSIS_CHECKPOINT_INVALID',
+            `checkpoint must be JSON serializable: ${error.message}`
+        );
     }
-    requireCheckpointObject(value, 'wire_profile');
-    for (const field of ['parser_backend', 'wire_source_revision', 'compatibility_profile']) {
-        requireCheckpointString(value.wire_profile, field, `wire_profile.${field}`);
+
+    // Keep one validator as the wire/storage boundary.  The target schema
+    // owns source_range/snapshot_boundary and object projection watermarks;
+    // old fingerprint/prefix fields remain optional opaque metadata.
+    validateCheckpoint(value);
+    if (value.schema_version !== CHECKPOINT_SCHEMA_VERSION) {
+        throw checkpointError(
+            'ANALYSIS_CHECKPOINT_SCHEMA_UNSUPPORTED',
+            `unsupported checkpoint schema: ${value.schema_version}`
+        );
     }
-    requireCheckpointObject(value, 'segment');
-    if (value.segment.source_range !== undefined && value.segment.source_range !== null) {
-        validateRange(value.segment.source_range, 'segment.source_range');
-    }
-    for (const field of ['physical_line_start', 'physical_line_end', 'rollout_ordinal']) {
-        if (value.segment[field] !== undefined && value.segment[field] !== null
-            && (!Number.isSafeInteger(value.segment[field]) || value.segment[field] < 0)) {
-            throw new Error(`checkpoint.segment.${field} must be a non-negative integer`);
-        }
-    }
-    requireCheckpointObject(value, 'reducer_state');
-    requireCheckpointString(value, 'projection_watermark');
-    requireCheckpointString(value, 'completeness');
-    if (!['unknown', 'partial', 'provisional', 'canonical'].includes(value.completeness)) {
-        throw new Error(`unsupported checkpoint completeness: ${value.completeness}`);
-    }
-    if (!Object.prototype.hasOwnProperty.call(value, 'cursor_kind')) {
-        throw new Error('checkpoint.cursor_kind is required');
-    }
-    if (!Object.prototype.hasOwnProperty.call(value, 'cursor')) {
-        throw new Error('checkpoint.cursor is required');
-    }
-    if (value.cursor_kind !== undefined && value.cursor_kind !== null
-        && !['tail_preview', 'backfill', 'forward_append'].includes(value.cursor_kind)) {
-        throw new Error(`unsupported checkpoint cursor kind: ${value.cursor_kind}`);
-    }
-    if (value.cursor_kind !== undefined && value.cursor_kind !== null && value.cursor === null) {
-        throw new Error('checkpoint.cursor_kind requires cursor');
-    }
-    if (value.cursor !== undefined && value.cursor !== null
-        && (typeof value.cursor !== 'object' || Array.isArray(value.cursor))) {
-        throw new Error('checkpoint.cursor must be an object or null');
-    }
-    if (value.cursor !== undefined && value.cursor !== null) {
-        if (typeof value.cursor.cursor_kind !== 'string'
-            || value.cursor.cursor_kind !== value.cursor_kind) {
-            throw new Error('checkpoint.cursor_kind does not match cursor payload');
-        }
-    }
-    if ((value.cursor === undefined || value.cursor === null)
-        && value.cursor_kind !== undefined && value.cursor_kind !== null) {
-        throw new Error('checkpoint.cursor_kind requires cursor');
+
+    const scope = normalizeScope(value);
+    if (!scope) {
+        throw checkpointError(
+            'ANALYSIS_CHECKPOINT_IDENTITY_INVALID',
+            'checkpoint identity is incomplete'
+        );
     }
     return { checkpoint: value, scope };
 }
 
-function requireCheckpointObject(parent, field) {
-    if (!parent[field] || typeof parent[field] !== 'object' || Array.isArray(parent[field])) {
-        throw new Error(`checkpoint.${field} must be an object`);
+function assertScopeMatches(scope, normalizedCheckpoint) {
+    const normalized = normalizeScope(scope);
+    if (!normalized) {
+        throw checkpointError(
+            'ANALYSIS_CHECKPOINT_SCOPE_INVALID',
+            'checkpoint scope is incomplete'
+        );
+    }
+    if (scopeHash(normalized) !== scopeHash(normalizedCheckpoint.scope)) {
+        throw checkpointError(
+            'ANALYSIS_CHECKPOINT_SCOPE_MISMATCH',
+            'checkpoint scope does not match payload'
+        );
+    }
+
+    assertOptionalIdentity(scope, 'job_id', 'jobId', normalizedCheckpoint.checkpoint.job_id);
+    assertOptionalIdentity(
+        scope,
+        'request_id',
+        'requestId',
+        normalizedCheckpoint.checkpoint.request_id
+    );
+    return normalized;
+}
+
+function assertOptionalIdentity(scope, snakeCase, camelCase, actual) {
+    const supplied = readOptional(scope, camelCase, snakeCase);
+    if (supplied === undefined || supplied === null) return;
+    if (typeof supplied !== 'string' || !supplied.trim() || supplied.trim() !== actual) {
+        throw checkpointError(
+            'ANALYSIS_CHECKPOINT_SCOPE_MISMATCH',
+            `checkpoint ${snakeCase} does not match requested scope`
+        );
     }
 }
 
-function requireCheckpointString(parent, field, label = `checkpoint.${field}`) {
-    if (typeof parent[field] !== 'string' || !parent[field].trim()) {
-        throw new Error(`${label} must be a non-empty string`);
-    }
-}
-
-function validateRange(value, field) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)
-        || !Number.isSafeInteger(value.start)
-        || !Number.isSafeInteger(value.end)
-        || value.start < 0
-        || value.end < value.start) {
-        throw new Error(`${field} must be an ordered non-negative byte range`);
-    }
-}
-
-function validateDigest(value, field, offsetField) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        throw new Error(`${field} is required`);
-    }
-    requireCheckpointString(value, 'algorithm', `${field}.algorithm`);
-    requireCheckpointString(value, 'digest', `${field}.digest`);
-    if (!Number.isSafeInteger(value[offsetField]) || value[offsetField] < 0) {
-        throw new Error(`${field}.${offsetField} must be a non-negative integer`);
+function scopeIdentityMatches(scope, checkpoint) {
+    try {
+        assertOptionalIdentity(scope, 'job_id', 'jobId', checkpoint.job_id);
+        assertOptionalIdentity(scope, 'request_id', 'requestId', checkpoint.request_id);
+        return true;
+    } catch (_) {
+        return false;
     }
 }
 
 function checkpointProgress(checkpoint) {
-    const segmentEnd = checkpoint?.segment?.source_range?.end;
-    const coveredBytes = checkpoint?.source?.fingerprint?.covered_bytes;
-    const prefixEnd = checkpoint?.source?.prefix_anchor?.end_offset;
-    const primary = Number.isSafeInteger(segmentEnd)
-        ? segmentEnd
-        : (Number.isSafeInteger(coveredBytes) ? coveredBytes : (Number.isSafeInteger(prefixEnd) ? prefixEnd : 0));
-    return [
-        primary,
-        Number.isSafeInteger(coveredBytes) ? coveredBytes : 0,
-        Number.isSafeInteger(prefixEnd) ? prefixEnd : 0,
-        Number.isSafeInteger(checkpoint?.segment?.physical_line_end)
-            ? checkpoint.segment.physical_line_end
-            : 0,
-        Number.isSafeInteger(checkpoint?.segment?.rollout_ordinal)
-            ? checkpoint.segment.rollout_ordinal
-            : 0
-    ];
+    // Only target progress fields participate in monotonicity.  A legacy
+    // fingerprint, prefix anchor, or revision may be retained for diagnosis,
+    // but it must never make a checkpoint appear newer or older.
+    const range = checkpoint?.source?.source_range || checkpoint?.segment?.source_range;
+    const end = Number.isSafeInteger(range?.end) ? range.end : 0;
+    const start = Number.isSafeInteger(range?.start) ? range.start : 0;
+    const lineEnd = Number.isSafeInteger(checkpoint?.segment?.physical_line_end)
+        ? checkpoint.segment.physical_line_end
+        : 0;
+    const ordinal = Number.isSafeInteger(checkpoint?.segment?.rollout_ordinal)
+        ? checkpoint.segment.rollout_ordinal
+        : 0;
+    const itemCount = Number.isSafeInteger(checkpoint?.projection_watermark?.logical_item_count)
+        ? checkpoint.projection_watermark.logical_item_count
+        : 0;
+
+    // A lower range start covers more of a backward segment when the end is
+    // equal, hence the negated start in this lexicographic progress tuple.
+    return [end, -start, lineEnd, ordinal, itemCount];
 }
 
 function compareCheckpointProgress(existing, incoming) {
@@ -178,9 +205,71 @@ function checkpointAdvances(existing, incoming) {
     return compareCheckpointProgress(existing, incoming) > 0;
 }
 
+function assertStoredCheckpointJobMatches(existing, incoming) {
+    if (!existing) return;
+    const existingJobId = normalizeString(existing.job_id);
+    const incomingJobId = normalizeString(incoming.job_id);
+    if (existingJobId && incomingJobId && existingJobId !== incomingJobId) {
+        throw checkpointError(
+            'ANALYSIS_CHECKPOINT_SCOPE_MISMATCH',
+            'checkpoint job_id conflicts with the stored source scope'
+        );
+    }
+}
+
+function checkpointError(code, message) {
+    const error = new Error(message);
+    error.code = code;
+    return error;
+}
+
+async function readCheckpointFile(filePath) {
+    let bytes;
+    try {
+        bytes = await fs.promises.readFile(filePath);
+    } catch (error) {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+    }
+    try {
+        return JSON.parse(bytes.toString('utf8'));
+    } catch (_) {
+        return null;
+    }
+}
+
+class KeyedMutationQueue {
+    constructor() {
+        this.tails = new Map();
+    }
+
+    async wait(key) {
+        const tail = this.tails.get(key);
+        if (tail) await tail;
+    }
+
+    run(key, operation) {
+        const previous = this.tails.get(key) || Promise.resolve();
+        const result = previous.then(
+            () => operation(),
+            () => operation()
+        );
+        const tail = result.catch(() => {});
+        this.tails.set(key, tail);
+        return result.finally(() => {
+            if (this.tails.get(key) === tail) this.tails.delete(key);
+        });
+    }
+}
+
+function checkpointMutationKey(scope) {
+    return `conversation:${scope.conversationId}`;
+}
+
 class FileCheckpointStore {
     constructor({ rootDir = path.resolve(process.cwd(), 'data', 'codex-rollout-checkpoints') } = {}) {
         this.rootDir = path.resolve(rootDir);
+        this.mutations = new KeyedMutationQueue();
     }
 
     async init() {
@@ -195,99 +284,105 @@ class FileCheckpointStore {
     async load(scope) {
         const normalized = normalizeScope(scope);
         if (!normalized) return null;
-        let bytes;
+        await this.mutations.wait(checkpointMutationKey(normalized));
+        return this._loadUnlocked(normalized, scope);
+    }
+
+    async _loadUnlocked(normalized, identityScope = normalized) {
+        const value = await readCheckpointFile(this.pathFor(normalized));
+        if (!value) return null;
         try {
-            bytes = await fs.promises.readFile(this.pathFor(normalized));
-        } catch (error) {
-            if (error.code === 'ENOENT') return null;
-            throw error;
-        }
-        let checkpoint;
-        try {
-            checkpoint = JSON.parse(bytes.toString('utf8'));
-        } catch (_) {
-            return null;
-        }
-        try {
-            const normalizedCheckpoint = normalizeCheckpoint(checkpoint);
+            const normalizedCheckpoint = normalizeCheckpoint(value);
             if (scopeHash(normalizedCheckpoint.scope) !== scopeHash(normalized)) return null;
-            return normalizedCheckpoint.checkpoint;
+            if (!scopeIdentityMatches(identityScope, normalizedCheckpoint.checkpoint)) return null;
+            return clone(normalizedCheckpoint.checkpoint);
         } catch (_) {
+            // A malformed or stale file is not usable recovery evidence.
             return null;
         }
     }
 
     async save(scope, checkpoint) {
-        const normalized = normalizeScope(scope);
         const normalizedCheckpoint = normalizeCheckpoint(checkpoint);
-        if (!normalized || scopeHash(normalized) !== scopeHash(normalizedCheckpoint.scope)) {
-            throw new Error('checkpoint scope does not match payload');
-        }
-        const existing = await this.load(normalized);
-        if (existing && !checkpointAdvances(existing, normalizedCheckpoint.checkpoint)) {
-            return existing;
-        }
-        await fs.promises.mkdir(this.rootDir, { recursive: true });
-        const target = this.pathFor(normalized);
-        const temporary = path.join(
-            this.rootDir,
-            `.${path.basename(target)}.${process.pid}.${crypto.randomUUID()}.tmp`
-        );
-        const handle = await fs.promises.open(temporary, 'wx');
-        try {
-            await handle.writeFile(JSON.stringify(normalizedCheckpoint.checkpoint));
-            await handle.sync();
-        } finally {
-            await handle.close();
-        }
-        try {
-            await fs.promises.rename(temporary, target);
-        } catch (error) {
-            await fs.promises.unlink(temporary).catch(() => {});
-            throw error;
-        }
-        return normalizedCheckpoint.checkpoint;
+        const normalized = assertScopeMatches(scope, normalizedCheckpoint);
+        return this.mutations.run(checkpointMutationKey(normalized), async () => {
+            const existing = await this._loadUnlocked(normalized);
+            assertStoredCheckpointJobMatches(existing, normalizedCheckpoint.checkpoint);
+            if (existing && !checkpointAdvances(existing, normalizedCheckpoint.checkpoint)) {
+                return existing;
+            }
+
+            await fs.promises.mkdir(this.rootDir, { recursive: true });
+            const target = this.pathFor(normalized);
+            const temporary = path.join(
+                this.rootDir,
+                `.${path.basename(target)}.${process.pid}.${crypto.randomUUID()}.tmp`
+            );
+            const handle = await fs.promises.open(temporary, 'wx');
+            try {
+                await handle.writeFile(JSON.stringify(normalizedCheckpoint.checkpoint));
+                await handle.sync();
+            } finally {
+                await handle.close();
+            }
+            try {
+                await fs.promises.rename(temporary, target);
+            } catch (error) {
+                await fs.promises.unlink(temporary).catch(() => {});
+                throw error;
+            }
+            return clone(normalizedCheckpoint.checkpoint);
+        });
     }
 
     async remove(scope) {
         const normalized = normalizeScope(scope);
         if (!normalized) return false;
-        try {
-            await fs.promises.unlink(this.pathFor(normalized));
-            return true;
-        } catch (error) {
-            if (error.code === 'ENOENT') return false;
-            throw error;
-        }
+        return this.mutations.run(checkpointMutationKey(normalized), async () => {
+            try {
+                await fs.promises.unlink(this.pathFor(normalized));
+                return true;
+            } catch (error) {
+                if (error.code === 'ENOENT') return false;
+                throw error;
+            }
+        });
     }
 
     async replaceConversation(conversationId, scope) {
         const normalized = normalizeScope(scope);
-        if (!normalized) throw new Error('checkpoint scope is incomplete');
-        const keepHash = scopeHash(normalized);
-        await fs.promises.mkdir(this.rootDir, { recursive: true });
-        for (const name of await fs.promises.readdir(this.rootDir)) {
-            if (!name.endsWith('.json')) continue;
-            const filePath = path.join(this.rootDir, name);
-            let value;
-            try {
-                value = JSON.parse((await fs.promises.readFile(filePath)).toString('utf8'));
-            } catch (_) {
-                continue;
+        if (!normalized) throw checkpointError(
+            'ANALYSIS_CHECKPOINT_SCOPE_INVALID',
+            'checkpoint scope is incomplete'
+        );
+        return this.mutations.run(checkpointMutationKey(normalized), async () => {
+            const keepHash = scopeHash(normalized);
+            await fs.promises.mkdir(this.rootDir, { recursive: true });
+            for (const name of await fs.promises.readdir(this.rootDir)) {
+                if (!name.endsWith('.json')) continue;
+                const filePath = path.join(this.rootDir, name);
+                const value = await readCheckpointFile(filePath);
+                if (!value) continue;
+                let candidate;
+                try {
+                    candidate = normalizeScope(value);
+                } catch (_) {
+                    candidate = null;
+                }
+                if (candidate
+                    && candidate.conversationId === String(conversationId || '').trim()
+                    && scopeHash(candidate) !== keepHash) {
+                    await fs.promises.unlink(filePath);
+                }
             }
-            const candidate = normalizeScope(value);
-            if (candidate
-                && candidate.conversationId === String(conversationId || '').trim()
-                && scopeHash(candidate) !== keepHash) {
-                await fs.promises.unlink(filePath);
-            }
-        }
+        });
     }
 }
 
 class MemoryCheckpointStore {
     constructor() {
         this.values = new Map();
+        this.mutations = new KeyedMutationQueue();
     }
 
     async init() {
@@ -296,41 +391,58 @@ class MemoryCheckpointStore {
 
     async load(scope) {
         const normalized = normalizeScope(scope);
-        return normalized ? this.values.get(scopeHash(normalized)) || null : null;
+        if (!normalized) return null;
+        await this.mutations.wait(checkpointMutationKey(normalized));
+        return this._loadUnlocked(normalized, scope);
+    }
+
+    _loadUnlocked(normalized, identityScope = normalized) {
+        const value = this.values.get(scopeHash(normalized));
+        if (!value || !scopeIdentityMatches(identityScope, value)) return null;
+        return clone(value);
     }
 
     async save(scope, checkpoint) {
-        const normalized = normalizeScope(scope);
         const normalizedCheckpoint = normalizeCheckpoint(checkpoint);
-        if (!normalized || scopeHash(normalized) !== scopeHash(normalizedCheckpoint.scope)) {
-            throw new Error('checkpoint scope does not match payload');
-        }
-        const existing = this.values.get(scopeHash(normalized)) || null;
-        if (existing && !checkpointAdvances(existing, normalizedCheckpoint.checkpoint)) {
-            return existing;
-        }
-        this.values.set(scopeHash(normalized), normalizedCheckpoint.checkpoint);
-        return normalizedCheckpoint.checkpoint;
+        const normalized = assertScopeMatches(scope, normalizedCheckpoint);
+        return this.mutations.run(checkpointMutationKey(normalized), async () => {
+            const key = scopeHash(normalized);
+            const existing = this._loadUnlocked(normalized) || null;
+            assertStoredCheckpointJobMatches(existing, normalizedCheckpoint.checkpoint);
+            if (existing && !checkpointAdvances(existing, normalizedCheckpoint.checkpoint)) {
+                return clone(existing);
+            }
+            this.values.set(key, clone(normalizedCheckpoint.checkpoint));
+            return clone(normalizedCheckpoint.checkpoint);
+        });
     }
 
     async remove(scope) {
         const normalized = normalizeScope(scope);
-        return normalized ? this.values.delete(scopeHash(normalized)) : false;
+        if (!normalized) return false;
+        return this.mutations.run(checkpointMutationKey(normalized), () => (
+            this.values.delete(scopeHash(normalized))
+        ));
     }
 
     async replaceConversation(conversationId, scope) {
         const normalized = normalizeScope(scope);
-        if (!normalized) throw new Error('checkpoint scope is incomplete');
-        const keepHash = scopeHash(normalized);
-        const conversation = String(conversationId || '').trim();
-        for (const [key, value] of this.values) {
-            const candidate = normalizeScope(value);
-            if (candidate
-                && candidate.conversationId === conversation
-                && key !== keepHash) {
-                this.values.delete(key);
+        if (!normalized) throw checkpointError(
+            'ANALYSIS_CHECKPOINT_SCOPE_INVALID',
+            'checkpoint scope is incomplete'
+        );
+        return this.mutations.run(checkpointMutationKey(normalized), () => {
+            const keepHash = scopeHash(normalized);
+            const conversation = String(conversationId || '').trim();
+            for (const [key, value] of this.values) {
+                const candidate = normalizeScope(value);
+                if (candidate
+                    && candidate.conversationId === conversation
+                    && key !== keepHash) {
+                    this.values.delete(key);
+                }
             }
-        }
+        });
     }
 }
 
@@ -340,5 +452,7 @@ module.exports = {
     MemoryCheckpointStore,
     normalizeScope,
     scopeHash,
-    normalizeCheckpoint
+    normalizeCheckpoint,
+    checkpointAdvances,
+    checkpointProgress
 };

@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+
 const { projectionCoverageOf, validateMessage } = require('./analyzerProtocol');
 const { atomicWriteJson } = require('./analysisRunStore');
 const { normalizeCheckpoint } = require('./analysisCheckpointStore');
@@ -14,52 +15,162 @@ const COMPLETENESS_RANK = Object.freeze({
     canonical: 3
 });
 
+const TARGET_BATCH_PAYLOAD_FIELDS = Object.freeze([
+    'conversation_id',
+    'source_id',
+    'source_epoch',
+    'source_range',
+    'history_items',
+    'diagnostics',
+    'parser_provenance',
+    'complete',
+    'completeness',
+    'projection',
+    'tool_details',
+    'usage',
+    'task_outcomes',
+    'progress',
+    'next_cursor',
+    'mutations',
+    'history_base',
+    'replacements',
+    'reducer_state',
+    'lineage_transitions',
+    'lineage_coverage',
+    'lineage_checkpoint'
+]);
+
+const OPAQUE_BATCH_PAYLOAD_FIELDS = Object.freeze([
+    'source_fingerprint',
+    'source_prefix_anchor'
+]);
+
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
 function clone(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
-function scopeKey(scope) {
-    return [scope.conversationId, scope.sourceId, scope.sourceEpoch].join('\u0000');
+function isObject(value) {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function stripGenericRevision(value) {
+    if (Array.isArray(value)) return value.map(stripGenericRevision);
+    if (!isObject(value)) return value;
+
+    const normalized = {};
+    for (const [key, nestedValue] of Object.entries(value)) {
+        if (key === 'revision') continue;
+        normalized[key] = stripGenericRevision(nestedValue);
+    }
+    return normalized;
+}
+
+function normalizeTargetPayload(payload) {
+    // The target validator accepts additive nested metadata, but generic item
+    // or source `revision` is not a 4.5 Node business field. Normalize it at
+    // the hash/storage boundary while leaving parser provenance's distinct
+    // `wire_source_revision` untouched.
+    return stripGenericRevision(payload);
+}
+
+// Receipt content must be independent of object insertion order. Node stores
+// Rust delivery identity opaquely and only hashes the already validated
+// payload to compare an exact redelivery.
+function stableStringify(value) {
+    if (value === undefined) return 'null';
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
+    return '{' + Object.keys(value)
+        .filter((key) => value[key] !== undefined)
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+        .join(',') + '}';
+}
+
+function contentHash(value) {
+    return crypto.createHash('sha256').update(stableStringify(value)).digest('hex');
+}
+
+function sameJson(left, right) {
+    return stableStringify(left) === stableStringify(right);
+}
+
+function firstPresent(...values) {
+    return values.find((value) => value !== undefined && value !== null);
+}
+
+function checkpointConversationId(value) {
+    return value?.checkpoint?.conversation_id;
 }
 
 function normalizeScope(batchOrScope) {
-    const value = batchOrScope && typeof batchOrScope === 'object' ? batchOrScope : {};
-    const source = value.source && typeof value.source === 'object' ? value.source : {};
-    const conversationId = String(
-        value.conversationId ?? value.conversation_id ?? value.conversation_id ?? ''
-    ).trim();
-    const sourceId = String(
-        value.sourceId ?? value.source_id ?? source.source_id ?? ''
-    ).trim();
-    const sourceEpoch = String(
-        value.sourceEpoch ?? value.source_epoch ?? source.source_epoch ?? ''
-    ).trim();
+    const value = isObject(batchOrScope) ? batchOrScope : {};
+    const payload = value.message_type === 'batch' && isObject(value.payload)
+        ? value.payload
+        : value;
+    const source = isObject(value.source)
+        ? value.source
+        : (isObject(payload.source) ? payload.source : {});
+    const conversationId = String(firstPresent(
+        value.conversationId,
+        value.conversation_id,
+        payload.conversationId,
+        payload.conversation_id,
+        checkpointConversationId(value)
+    ) || '').trim();
+    const sourceId = String(firstPresent(
+        value.sourceId,
+        value.source_id,
+        payload.sourceId,
+        payload.source_id,
+        source.sourceId,
+        source.source_id
+    ) || '').trim();
+    const sourceEpoch = String(firstPresent(
+        value.sourceEpoch,
+        value.source_epoch,
+        payload.sourceEpoch,
+        payload.source_epoch,
+        source.sourceEpoch,
+        source.source_epoch
+    ) || '').trim();
     if (!conversationId || !sourceId || !sourceEpoch) {
-        throw new Error('analysis batch scope is incomplete');
+        const error = new Error('analysis batch scope is incomplete');
+        error.code = 'ANALYSIS_BATCH_SCOPE_INVALID';
+        throw error;
     }
     if (sourceEpoch === 'unbound') {
-        throw new Error('analysis batch source epoch must be bound');
+        const error = new Error('analysis batch source epoch must be bound');
+        error.code = 'ANALYSIS_BATCH_SCOPE_INVALID';
+        throw error;
     }
     return { conversationId, sourceId, sourceEpoch };
 }
 
+function scopeKey(scope) {
+    const normalized = scope?.conversationId && scope?.sourceId && scope?.sourceEpoch
+        ? scope
+        : normalizeScope(scope);
+    return [normalized.conversationId, normalized.sourceId, normalized.sourceEpoch].join('\u0000');
+}
+
+function sameScope(left, right) {
+    return Boolean(left && right)
+        && left.conversationId === right.conversationId
+        && left.sourceId === right.sourceId
+        && left.sourceEpoch === right.sourceEpoch;
+}
+
 function completenessOf(value) {
-    if (typeof value === 'string' && COMPLETENESS_RANK[value] !== undefined) return value;
-    return 'unknown';
+    return typeof value === 'string' && COMPLETENESS_RANK[value] !== undefined
+        ? value
+        : 'unknown';
 }
 
 function completenessRank(value) {
     return COMPLETENESS_RANK[completenessOf(value)];
-}
-
-const PROJECTION_COVERAGE_RANK = Object.freeze({
-    unknown: 0,
-    partial: 1,
-    complete: 2
-});
-
-function projectionCoverageRank(value) {
-    return PROJECTION_COVERAGE_RANK[value] ?? 0;
 }
 
 function itemKeyOf(item) {
@@ -70,8 +181,307 @@ function eventIdOf(item) {
     return item?.event_id || item?.payload?.metadata?.event_id || item?.metadata?.event_id || null;
 }
 
-function contentHash(value) {
-    return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function deliveryKey(identity) {
+    return [identity.job_id, identity.segment_id, identity.batch_id].join('\u0000');
+}
+
+function deliveryIdentityOf(batch) {
+    return {
+        request_id: batch.identity.request_id,
+        job_id: batch.identity.job_id,
+        segment_id: batch.identity.segment_id,
+        batch_id: batch.identity.batch_id,
+        scope: {
+            conversation_id: batch.scope.conversationId,
+            source_id: batch.scope.sourceId,
+            source_epoch: batch.scope.sourceEpoch
+        }
+    };
+}
+
+function normalizeDeliveryIdentity(value, code = 'ANALYSIS_COMPLETE_DELIVERY_INVALID') {
+    if (!isObject(value)) {
+        throw importerError(
+            code,
+            'complete delivery identity must be an object'
+        );
+    }
+    const fields = {
+        request_id: value.request_id ?? value.requestId,
+        job_id: value.job_id ?? value.jobId,
+        segment_id: value.segment_id ?? value.segmentId,
+        batch_id: value.batch_id ?? value.batchId
+    };
+    for (const [field, fieldValue] of Object.entries(fields)) {
+        if (typeof fieldValue !== 'string' || !fieldValue.trim()) {
+            throw importerError(
+                code,
+                `complete delivery ${field} is required`,
+                { field }
+            );
+        }
+    }
+    let scope = null;
+    const scopeValue = value.scope ?? value.source_scope ?? value.sourceScope;
+    if (scopeValue !== undefined && scopeValue !== null) {
+        try {
+            scope = normalizeScope(scopeValue);
+        } catch (_) {
+            throw importerError(
+                code,
+                'complete delivery scope is incomplete'
+            );
+        }
+    }
+    return { ...fields, scope };
+}
+
+function sameDeliveryIdentity(left, right) {
+    if (!left || !right) return false;
+    for (const field of ['request_id', 'job_id', 'segment_id', 'batch_id']) {
+        if (left[field] !== right[field]) return false;
+    }
+    if (left.scope && right.scope) {
+        try {
+            if (!sameScope(normalizeScope(left.scope), normalizeScope(right.scope))) {
+                return false;
+            }
+        } catch (_) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function deliveryIdentityFromReceipt(receipt) {
+    if (!isObject(receipt)) return null;
+    try {
+        return normalizeDeliveryIdentity(receipt);
+    } catch (_) {
+        return null;
+    }
+}
+
+function isTargetBatchMessage(value) {
+    return isObject(value)
+        && value.message_type === 'batch'
+        && isObject(value.payload)
+        && typeof value.job_id === 'string'
+        && typeof value.segment_id === 'string'
+        && typeof value.batch_id === 'string';
+}
+
+function selectPayloadFields(payload, fields) {
+    const selected = {};
+    for (const field of fields) {
+        if (hasOwn(payload, field)) selected[field] = clone(payload[field]);
+    }
+    return selected;
+}
+
+function stagedPayloadOf(payload) {
+    const staged = selectPayloadFields(payload, TARGET_BATCH_PAYLOAD_FIELDS);
+    const opaque = selectPayloadFields(payload, OPAQUE_BATCH_PAYLOAD_FIELDS);
+    if (Object.keys(opaque).length > 0) staged.opaque_metadata = opaque;
+    return staged;
+}
+
+function semanticPayloadOf(payload) {
+    // Opaque fingerprint/prefix metadata is retained separately for audit but
+    // never decides whether a redelivery is the same target batch.
+    return selectPayloadFields(payload, TARGET_BATCH_PAYLOAD_FIELDS);
+}
+
+function targetBatchProgress(payload) {
+    const range = payload.source_range;
+    const progress = payload.progress || {};
+    return [
+        completenessRank(payload.completeness),
+        range ? range.end : -1,
+        range ? -range.start : 0,
+        Number.isSafeInteger(progress.records_emitted) ? progress.records_emitted : 0,
+        Number.isSafeInteger(progress.bytes_scanned) ? progress.bytes_scanned : 0
+    ];
+}
+
+function compareProgress(left, right) {
+    for (let index = 0; index < Math.max(left?.length || 0, right?.length || 0); index += 1) {
+        const leftValue = left?.[index] ?? 0;
+        const rightValue = right?.[index] ?? 0;
+        if (leftValue !== rightValue) return leftValue > rightValue ? 1 : -1;
+    }
+    return 0;
+}
+
+function rangeIndexSort(left, right) {
+    const leftRange = left.source_range;
+    const rightRange = right.source_range;
+    const values = [
+        leftRange ? leftRange.start : -1,
+        rightRange ? rightRange.start : -1,
+        leftRange ? leftRange.end : -1,
+        rightRange ? rightRange.end : -1
+    ];
+    if (values[0] !== values[1]) return values[0] - values[1];
+    if (values[2] !== values[3]) return values[2] - values[3];
+    return left.delivery_key.localeCompare(right.delivery_key);
+}
+
+function reindexRanges(state) {
+    state.rangeIndex.sort(rangeIndexSort);
+    state.rangeIndex.forEach((entry, index) => {
+        entry.index = index;
+        const staging = state.staging.get(entry.delivery_key);
+        if (staging) staging.range_index = index;
+    });
+}
+
+function coverageKey(batch) {
+    return stableStringify({
+        source_range: batch.payload.source_range,
+        completeness: batch.payload.completeness,
+        next_cursor: batch.payload.next_cursor
+    });
+}
+
+function importerError(code, message, details = undefined, rejectionCode = undefined) {
+    const error = new Error(message);
+    error.code = code;
+    if (details !== undefined) error.details = details;
+    if (rejectionCode) error.rejection_code = rejectionCode;
+    return error;
+}
+
+function batchConflict(message, details) {
+    return importerError(
+        'ANALYSIS_BATCH_SCOPE_CONFLICT',
+        message,
+        details,
+        'batch_scope_conflict'
+    );
+}
+
+function missingItemKeyError(kind) {
+    return importerError(
+        'ANALYSIS_BATCH_EVIDENCE_INVALID',
+        `${kind} is missing stable item_key`,
+        { kind },
+        'batch_validation_failed'
+    );
+}
+
+function normalizeTargetBatch(message) {
+    validateMessage(message);
+    if (!isTargetBatchMessage(message)) {
+        throw importerError(
+            'ANALYSIS_BATCH_ENVELOPE_INVALID',
+            'batch must contain the target delivery envelope',
+            undefined,
+            'batch_validation_failed'
+        );
+    }
+    const payload = normalizeTargetPayload(message.payload);
+    const scope = normalizeScope(message);
+    if (payload.projection?.conversation_id !== undefined
+        && payload.projection.conversation_id !== scope.conversationId) {
+        throw batchConflict(
+            'projection conversation_id does not match batch scope',
+            { field: 'payload.projection.conversation_id' }
+        );
+    }
+    const identity = {
+        job_id: message.job_id,
+        segment_id: message.segment_id,
+        batch_id: message.batch_id,
+        request_id: message.request_id
+    };
+    return {
+        message,
+        payload,
+        scope,
+        identity,
+        delivery_key: deliveryKey(identity),
+        staged_payload: stagedPayloadOf(payload),
+        content_hash: contentHash(semanticPayloadOf(payload)),
+        progress: targetBatchProgress(payload),
+        projection_coverage: projectionCoverageOf(payload.projection)
+    };
+}
+
+function expectedValue(sources, ...keys) {
+    for (const source of sources) {
+        if (!isObject(source)) continue;
+        for (const key of keys) {
+            if (hasOwn(source, key)) return source[key];
+        }
+    }
+    return undefined;
+}
+
+function assertExpectedIdentity(batch, options = {}) {
+    const expected = [options.expected, options.identity, options.request, options].filter(isObject);
+    const values = {
+        request_id: expectedValue(expected, 'request_id', 'requestId'),
+        job_id: expectedValue(expected, 'job_id', 'jobId'),
+        segment_id: expectedValue(expected, 'segment_id', 'segmentId'),
+        batch_id: expectedValue(expected, 'batch_id', 'batchId')
+    };
+    for (const [field, value] of Object.entries(values)) {
+        if (value === undefined || value === null) continue;
+        if (typeof value !== 'string' || !value.trim() || value !== batch.identity[field]) {
+            throw importerError(
+                'ANALYSIS_BATCH_IDENTITY_MISMATCH',
+                `${field} does not match the current analyzer attempt`,
+                { field, expected: value, actual: batch.identity[field] },
+                'batch_validation_failed'
+            );
+        }
+    }
+
+    const expectedScope = expectedValue(expected, 'scope');
+    if (expectedScope !== undefined) {
+        let normalizedScope;
+        try {
+            normalizedScope = normalizeScope(expectedScope);
+        } catch (_) {
+            throw importerError(
+                'ANALYSIS_BATCH_SCOPE_INVALID',
+                'expected batch scope is incomplete',
+                undefined,
+                'batch_validation_failed'
+            );
+        }
+        if (!sameScope(normalizedScope, batch.scope)) {
+            throw batchConflict(
+                'batch scope does not match the current analyzer attempt',
+                { expected: normalizedScope, actual: batch.scope }
+            );
+        }
+    }
+
+    const recovery = options.recoveryDelivery
+        ?? options.recovery_delivery
+        ?? expectedValue(expected, 'recovery_delivery', 'recoveryDelivery', 'recovery');
+    if (recovery !== undefined && recovery !== null) {
+        if (!isObject(recovery)
+            || typeof recovery.segment_id !== 'string'
+            || typeof recovery.batch_id !== 'string') {
+            throw importerError(
+                'ANALYSIS_BATCH_RECOVERY_INVALID',
+                'recovery delivery must contain segment_id and batch_id',
+                undefined,
+                'batch_validation_failed'
+            );
+        }
+        if (recovery.segment_id !== batch.identity.segment_id
+            || recovery.batch_id !== batch.identity.batch_id
+            || (recovery.job_id !== undefined && recovery.job_id !== batch.identity.job_id)) {
+            throw batchConflict(
+                'returned delivery identity does not match recovery delivery',
+                { recovery, actual: batch.identity }
+            );
+        }
+    }
 }
 
 function emptyState(scope) {
@@ -79,11 +489,20 @@ function emptyState(scope) {
         scope: { ...scope },
         retired: false,
         activeHead: true,
+        staging: new Map(),
+        receipts: new Map(),
+        rangeIndex: [],
         items: new Map(),
         toolDetails: new Map(),
         taskOutcomes: new Map(),
         usage: null,
+        usageHash: null,
+        usageCoverageKey: null,
+        usageProgress: null,
         projection: null,
+        projectionHash: null,
+        projectionCoverageKey: null,
+        projectionProgress: null,
         diagnostics: [],
         batches: [],
         complete: false,
@@ -93,16 +512,10 @@ function emptyState(scope) {
         replaceApplied: false,
         replacementBatchId: null,
         lastBatchId: null,
+        lastDelivery: null,
         lastCursor: null,
-        lastRevision: 0,
+        lastProgress: null,
         lastCompleteness: 'unknown',
-        usageRevision: 0,
-        usageCompleteness: 'unknown',
-        usageSourceEpoch: null,
-        projectionRevision: 0,
-        projectionCompleteness: 'unknown',
-        projectionCoverage: 'unknown',
-        projectionSourceEpoch: null,
         mutations: [],
         replacements: [],
         batchRequestIds: new Map()
@@ -121,11 +534,20 @@ function stateToJson(state) {
         scope: clone(state.scope),
         retired: state.retired,
         active_head: state.activeHead,
+        staging: [...state.staging.values()].map(clone),
+        receipts: [...state.receipts.values()].map(clone),
+        range_index: clone(state.rangeIndex),
         items: [...state.items.values()].map(clone),
         tool_details: [...state.toolDetails.values()].map(clone),
         task_outcomes: [...state.taskOutcomes.values()].map(clone),
         usage: clone(state.usage),
+        usage_hash: state.usageHash,
+        usage_coverage_key: state.usageCoverageKey,
+        usage_progress: clone(state.usageProgress),
         projection: clone(state.projection),
+        projection_hash: state.projectionHash,
+        projection_coverage_key: state.projectionCoverageKey,
+        projection_progress: clone(state.projectionProgress),
         diagnostics: clone(state.diagnostics),
         batches: clone(state.batches),
         complete: state.complete,
@@ -135,17 +557,11 @@ function stateToJson(state) {
         replace_applied: state.replaceApplied,
         replacement_batch_id: state.replacementBatchId,
         last_batch_id: state.lastBatchId,
+        last_delivery: clone(state.lastDelivery),
         last_cursor: clone(state.lastCursor),
-        last_revision: state.lastRevision,
+        last_progress: clone(state.lastProgress),
         last_completeness: state.lastCompleteness,
         batch_request_ids: [...state.batchRequestIds.entries()],
-        usage_revision: state.usageRevision,
-        usage_completeness: state.usageCompleteness,
-        usage_source_epoch: state.usageSourceEpoch,
-        projection_revision: state.projectionRevision,
-        projection_completeness: state.projectionCompleteness,
-        projection_coverage: state.projectionCoverage,
-        projection_source_epoch: state.projectionSourceEpoch,
         mutations: clone(state.mutations),
         replacements: clone(state.replacements)
     };
@@ -154,11 +570,29 @@ function stateToJson(state) {
 function stateFromJson(value, scope) {
     const state = emptyState(scope);
     state.retired = Boolean(value?.retired);
-    // Old state files predate the active-head marker and represent the
-    // current source epoch, so they remain active by default.
     state.activeHead = value?.active_head !== false;
+
+    const stagingValues = Array.isArray(value?.staging) ? value.staging : [];
+    for (const entry of stagingValues) {
+        if (entry?.delivery_key) state.staging.set(entry.delivery_key, entry);
+    }
+    const receiptValues = Array.isArray(value?.receipts)
+        ? value.receipts
+        : (Array.isArray(value?.batch_receipts) ? value.batch_receipts : []);
+    for (const entry of receiptValues) {
+        if (entry?.delivery_key) state.receipts.set(entry.delivery_key, entry);
+    }
+    state.rangeIndex = Array.isArray(value?.range_index) ? value.range_index : [];
+
     for (const item of Array.isArray(value?.items) ? value.items : []) {
-        if (item?.item_key) state.items.set(item.item_key, item);
+        const itemKey = item?.item_key || itemKeyOf(item?.event);
+        if (!itemKey) continue;
+        const record = {
+            ...item,
+            item_key: itemKey,
+            content_hash: item.content_hash || contentHash(item.event || item)
+        };
+        state.items.set(eventRecordKey(record), record);
     }
     for (const item of Array.isArray(value?.tool_details) ? value.tool_details : []) {
         const key = item?.item_key || item?.call_id;
@@ -167,10 +601,37 @@ function stateFromJson(value, scope) {
     for (const item of Array.isArray(value?.task_outcomes) ? value.task_outcomes : []) {
         if (item?.item_key) state.taskOutcomes.set(item.item_key, item);
     }
+
     state.usage = value?.usage || null;
+    state.usageHash = value?.usage_hash
+        || (state.usage ? contentHash(state.usage) : null);
+    state.usageCoverageKey = value?.usage_coverage_key || null;
+    state.usageProgress = Array.isArray(value?.usage_progress)
+        ? value.usage_progress
+        : null;
     state.projection = value?.projection || null;
+    state.projectionHash = value?.projection_hash
+        || (state.projection ? contentHash(state.projection) : null);
+    state.projectionCoverageKey = value?.projection_coverage_key || null;
+    state.projectionProgress = Array.isArray(value?.projection_progress)
+        ? value.projection_progress
+        : null;
     state.diagnostics = Array.isArray(value?.diagnostics) ? value.diagnostics : [];
     state.batches = Array.isArray(value?.batches) ? value.batches : [];
+    state.complete = Boolean(value?.complete);
+    state.provisional = value?.provisional !== false;
+    state.canonical = Boolean(value?.canonical);
+    state.pendingReplacement = Boolean(value?.pending_replacement);
+    state.replaceApplied = Boolean(value?.replace_applied);
+    state.replacementBatchId = value?.replacement_batch_id || null;
+    state.lastBatchId = value?.last_batch_id || null;
+    state.lastDelivery = deliveryIdentityFromReceipt(value?.last_delivery);
+    state.lastCursor = value?.last_cursor || null;
+    state.lastProgress = Array.isArray(value?.last_progress) ? value.last_progress : null;
+    state.lastCompleteness = completenessOf(value?.last_completeness);
+    state.mutations = Array.isArray(value?.mutations) ? value.mutations : [];
+    state.replacements = Array.isArray(value?.replacements) ? value.replacements : [];
+
     const requestEntries = Array.isArray(value?.batch_request_ids)
         ? value.batch_request_ids
         : Object.entries(value?.batch_request_ids || {});
@@ -183,37 +644,38 @@ function stateFromJson(value, scope) {
             state.batchRequestIds.set(entry[0], entry[1]);
         }
     }
-    state.complete = Boolean(value?.complete);
-    state.provisional = value?.provisional !== false;
-    state.canonical = Boolean(value?.canonical);
-    state.pendingReplacement = Boolean(value?.pending_replacement);
-    state.replaceApplied = Boolean(value?.replace_applied);
-    state.replacementBatchId = value?.replacement_batch_id || null;
-    state.lastBatchId = value?.last_batch_id || null;
-    state.lastCursor = value?.last_cursor || null;
-    state.lastRevision = Number.isSafeInteger(value?.last_revision) ? value.last_revision : 0;
-    state.lastCompleteness = value?.last_completeness
-        ? completenessOf(value.last_completeness)
-        : (state.canonical ? 'canonical' : 'unknown');
-    state.usageRevision = Number.isSafeInteger(value?.usage_revision) ? value.usage_revision : 0;
-    state.usageCompleteness = completenessOf(value?.usage_completeness);
-    state.usageSourceEpoch = value?.usage_source_epoch || null;
-    state.projectionRevision = Number.isSafeInteger(value?.projection_revision)
-        ? value.projection_revision
-        : 0;
-    state.projectionCompleteness = completenessOf(value?.projection_completeness);
-    state.projectionCoverage = value?.projection_coverage
-        || projectionCoverageOf(state.projection || {});
-    state.projectionSourceEpoch = value?.projection_source_epoch || null;
-    state.mutations = Array.isArray(value?.mutations) ? value.mutations : [];
-    state.replacements = Array.isArray(value?.replacements) ? value.replacements : [];
+
+    // Older artifacts only had batch ids. They remain readable as audit
+    // history, but are not used as target receipt identity or revision gates.
+    for (const receipt of state.receipts.values()) {
+        if (!state.batches.includes(receipt.batch_id)) state.batches.push(receipt.batch_id);
+        if (!state.batchRequestIds.has(receipt.delivery_key)
+            && receipt.last_request_id) {
+            state.batchRequestIds.set(receipt.delivery_key, receipt.last_request_id);
+        }
+    }
+    if (!state.lastDelivery) {
+        const receipts = [...state.receipts.values()];
+        const latestReceipt = state.lastBatchId
+            ? [...receipts].reverse().find((receipt) => receipt.batch_id === state.lastBatchId)
+            : receipts.at(-1);
+        state.lastDelivery = deliveryIdentityFromReceipt(latestReceipt);
+    }
+    reindexRanges(state);
+
     if (state.retired) {
         state.activeHead = false;
+        state.staging.clear();
+        state.receipts.clear();
+        state.rangeIndex = [];
         state.items.clear();
         state.toolDetails.clear();
         state.taskOutcomes.clear();
         state.usage = null;
+        state.usageHash = null;
+        state.usageProgress = null;
         state.projection = null;
+        state.projectionHash = null;
         state.diagnostics = [];
         state.batches = [];
         state.complete = false;
@@ -223,16 +685,10 @@ function stateFromJson(value, scope) {
         state.replaceApplied = false;
         state.replacementBatchId = null;
         state.lastBatchId = null;
+        state.lastDelivery = null;
         state.lastCursor = null;
-        state.lastRevision = 0;
+        state.lastProgress = null;
         state.lastCompleteness = 'unknown';
-        state.usageRevision = 0;
-        state.usageCompleteness = 'unknown';
-        state.usageSourceEpoch = null;
-        state.projectionRevision = 0;
-        state.projectionCompleteness = 'unknown';
-        state.projectionCoverage = 'unknown';
-        state.projectionSourceEpoch = null;
         state.mutations = [];
         state.replacements = [];
         state.batchRequestIds.clear();
@@ -240,180 +696,376 @@ function stateFromJson(value, scope) {
     return state;
 }
 
-function canReplace(existing, incoming) {
-    if (!existing) return true;
-    const incomingRank = completenessRank(incoming?.completeness);
-    const existingRank = completenessRank(existing?.completeness);
-    if (incomingRank !== existingRank) return incomingRank > existingRank;
-    if (existing.source_epoch && incoming.source_epoch
-        && existing.source_epoch !== incoming.source_epoch) return false;
-    return Number.isSafeInteger(incoming?.revision)
-        && incoming.revision > (Number.isSafeInteger(existing?.revision) ? existing.revision : 0);
-}
-
-function canReplaceProjection(existing, incoming) {
-    if (!existing) return true;
-    const incomingCoverage = projectionCoverageRank(incoming?.coverage);
-    const existingCoverage = projectionCoverageRank(existing?.coverage);
-    if (incomingCoverage !== existingCoverage) return incomingCoverage > existingCoverage;
-    return canReplace(existing, incoming);
-}
-
-function batchRevision(batch) {
-    const candidates = [];
-    if (Number.isSafeInteger(batch?.revision) && batch.revision >= 0) {
-        candidates.push(batch.revision);
-    }
-    if (Number.isSafeInteger(batch?.source_range?.end) && batch.source_range.end >= 0) {
-        candidates.push(batch.source_range.end);
-    }
-    if (Number.isSafeInteger(batch?.progress?.bytes_scanned) && batch.progress.bytes_scanned >= 0) {
-        candidates.push(batch.progress.bytes_scanned);
-    }
-    return candidates.length ? Math.max(...candidates) : 0;
-}
-
-function explicitRevision(value) {
-    return Number.isSafeInteger(value) && value >= 0 ? value : null;
-}
-
-function mutationRevisionFor(batch, itemKey, mutationKinds) {
-    const candidates = [];
-    for (const mutation of Array.isArray(batch?.mutations) ? batch.mutations : []) {
-        if (!mutationKinds.includes(mutation?.mutation)) continue;
-        if (itemKey !== null && itemKeyOf(mutation.item) !== itemKey) continue;
-        const revision = explicitRevision(mutation?.item?.revision);
-        if (revision !== null) candidates.push(revision);
-    }
-    return candidates.length ? Math.max(...candidates) : null;
-}
-
-function historyItemRevision(batch, item) {
-    const itemKey = itemKeyOf(item);
-    return mutationRevisionFor(batch, itemKey, ['upsert_item'])
-        ?? explicitRevision(item?.revision)
-        ?? explicitRevision(item?.metadata?.revision)
-        ?? explicitRevision(item?.payload?.metadata?.revision)
-        ?? batchRevision(batch);
-}
-
-function sameScope(left, right) {
-    return Boolean(left && right)
-        && left.conversationId === right.conversationId
-        && left.sourceId === right.sourceId
-        && left.sourceEpoch === right.sourceEpoch;
-}
-
-function replacementFactsOf(batch) {
-    const candidates = [
-        ...(Array.isArray(batch?.replacements) ? batch.replacements : []),
-        ...(Array.isArray(batch?.mutations)
-            ? batch.mutations
-                .filter((mutation) => mutation?.mutation === 'replace_last_turn')
-                .map((mutation) => mutation.replacement)
-            : [])
-    ];
-    const unique = new Map();
-    for (const replacement of candidates) {
-        if (!replacement?.replacement_key) continue;
-        const existing = unique.get(replacement.replacement_key);
-        if (existing) {
-            if (JSON.stringify(existing) !== JSON.stringify(replacement)) {
-                const error = new Error('replacement key was reused with different evidence');
-                error.code = 'ANALYSIS_REPLACEMENT_CONFLICT';
-                throw error;
-            }
-            continue;
-        }
-        unique.set(replacement.replacement_key, replacement);
-    }
-    return [...unique.values()];
-}
-
-function replacementMutationFactsOf(batch) {
-    return Array.isArray(batch?.mutations)
-        ? batch.mutations
-            .filter((mutation) => mutation?.mutation === 'replace_last_turn')
-            .map((mutation) => mutation.replacement)
-            .filter(Boolean)
-        : [];
-}
-
-function resolveLastTurnReplacementFact(batch, facts) {
-    if (batch?.replace_previous || batch?.completeness !== 'canonical') return null;
-    if (!facts.length) return null;
-
-    const byChildRollout = new Map();
-    for (const replacement of facts) {
-        if (replacement.conversation_id !== batch.conversation_id) return null;
-        const existing = byChildRollout.get(replacement.child_rollout_id);
-        if (existing && existing.replacement_key !== replacement.replacement_key) {
-            return null;
-        }
-        byChildRollout.set(replacement.child_rollout_id, replacement);
-    }
-
-    const visited = new Set();
-    let expectedChildRollout = batch.source_id;
-    let immediateReplacement = null;
-    while (byChildRollout.has(expectedChildRollout)) {
-        if (visited.has(expectedChildRollout)) return null;
-        visited.add(expectedChildRollout);
-        const replacement = byChildRollout.get(expectedChildRollout);
-        immediateReplacement ||= replacement;
-        expectedChildRollout = replacement.parent_rollout_id;
-    }
-    if (visited.size !== facts.length) return null;
-    return immediateReplacement;
-}
-
-function assertReplacementFactsCompatible(state, replacementFacts) {
-    for (const replacement of replacementFacts) {
-        const existing = state.replacements.find(
-            (candidate) => candidate.replacement_key === replacement.replacement_key
-        );
-        if (existing && JSON.stringify(existing) !== JSON.stringify(replacement)) {
-            const error = new Error('replacement key was reused with different evidence');
-            error.code = 'ANALYSIS_REPLACEMENT_CONFLICT';
-            throw error;
-        }
-    }
-}
-
-function assertCanonicalReplacementBatch(batch, replacementFacts) {
-    if (replacementFacts.length > 0 && batch.completeness !== 'canonical') {
-        const error = new Error('replacement evidence requires canonical batch');
-        error.code = 'ANALYSIS_REPLACEMENT_REQUIRES_CANONICAL';
-        throw error;
-    }
-}
-
-function lastTurnReplacementFactOf(batch) {
-    return resolveLastTurnReplacementFact(batch, replacementMutationFactsOf(batch));
-}
-
-function pendingLastTurnReplacementFactOf(batch) {
-    const evidence = resolveLastTurnReplacementFact(batch, replacementFactsOf(batch));
-    if (!evidence || replacementMutationFactsOf(batch).length > 0) return null;
-    return evidence;
-}
-
-function sourceEpochError(code, message) {
-    const error = new Error(message);
-    error.code = code;
-    return error;
+function cloneState(state) {
+    return stateFromJson(stateToJson(state), state.scope);
 }
 
 function requireWritableState(state, { allowPendingReplacement = false } = {}) {
     if (state?.retired) {
-        const error = new Error('source epoch is retired');
-        error.code = 'ANALYSIS_SOURCE_EPOCH_RETIRED';
-        throw error;
+        throw importerError('ANALYSIS_SOURCE_EPOCH_RETIRED', 'source epoch is retired');
     }
-    if (state?.activeHead === false && !(allowPendingReplacement && state.pendingReplacement)) {
-        const error = new Error('source epoch is no longer the active conversation head');
-        error.code = 'ANALYSIS_SOURCE_EPOCH_INACTIVE';
-        throw error;
+    if (state?.activeHead === false
+        && !(allowPendingReplacement && state.pendingReplacement)) {
+        throw importerError(
+            'ANALYSIS_SOURCE_EPOCH_INACTIVE',
+            'source epoch is no longer the active conversation head'
+        );
+    }
+}
+
+// history_items contains AnalysisEvent occurrences, not reduced product items.
+// ToolStarted and ToolCompleted share an item_key but have distinct event_id values.
+// Retain both facts; projection/mutations carry the Rust-reduced logical object.
+function eventRecordKey(record) {
+    const eventId = record.event_id || eventIdOf(record.event);
+    return stableStringify(eventId
+        ? ['event', eventId]
+        : ['legacy-item', record.item_key]);
+}
+
+function itemRecordOf(item, payload) {
+    const itemKey = itemKeyOf(item);
+    if (!itemKey) throw missingItemKeyError('history item');
+    const metadata = item?.payload?.metadata || item?.metadata || {};
+    return {
+        item_key: itemKey,
+        event_id: eventIdOf(item),
+        event: clone(item),
+        content_hash: contentHash(item),
+        completeness: payload.completeness,
+        source_epoch: payload.source_epoch,
+        source_ref: clone(metadata.source_ref || null)
+    };
+}
+
+function keyedRecordOf(value, payload, kind) {
+    const key = value?.item_key || value?.call_id;
+    if (!key) throw missingItemKeyError(kind);
+    const semanticValue = clone(value);
+    delete semanticValue.completeness;
+    delete semanticValue.source_epoch;
+    return {
+        ...clone(value),
+        completeness: value.completeness || payload.completeness,
+        source_epoch: value.source_epoch || payload.source_epoch,
+        content_hash: contentHash(semanticValue)
+    };
+}
+
+function outcomeRecordOf(value, payload) {
+    if (!value?.item_key) throw missingItemKeyError('task outcome');
+    const semanticValue = clone(value);
+    delete semanticValue.completeness;
+    delete semanticValue.source_epoch;
+    return {
+        ...clone(value),
+        completeness: value.completeness || payload.completeness,
+        source_epoch: value.source_epoch || payload.source_epoch,
+        content_hash: contentHash(semanticValue)
+    };
+}
+
+function assertCollectionHasNoConflict(values, keyOf, kind) {
+    const seen = new Map();
+    for (const value of values) {
+        const key = keyOf(value);
+        if (!key) throw missingItemKeyError(kind);
+        const hash = value.content_hash || contentHash(value);
+        const existing = seen.get(key);
+        if (existing && existing !== hash) {
+            throw batchConflict(
+                `${kind} content conflicts within one batch`,
+                { kind, key }
+            );
+        }
+        seen.set(key, hash);
+    }
+}
+
+function assertExistingContent(existing, incoming, kind, key) {
+    if (!existing) return;
+    const existingHash = existing.content_hash || contentHash(existing.event || existing);
+    if (existingHash !== incoming.content_hash) {
+        throw batchConflict(
+            `${kind} content conflicts with an existing staged item`,
+            { kind, key }
+        );
+    }
+}
+
+function mutationIdentityOf(mutation) {
+    return [
+        mutation?.mutation || '',
+        mutation?.item?.item_key || '',
+        mutation?.item?.call_id || '',
+        mutation?.replacement?.replacement_key || '',
+        stableStringify(mutation?.source_range || null)
+    ].join('\u0000');
+}
+
+function replacementValuesOf(payload) {
+    return [
+        ...(Array.isArray(payload.replacements) ? payload.replacements : []),
+        ...(Array.isArray(payload.mutations)
+            ? payload.mutations
+                .filter((mutation) => mutation?.mutation === 'replace_last_turn')
+                .map((mutation) => mutation.replacement)
+                .filter(Boolean)
+            : [])
+    ];
+}
+
+function preflightTargetState(state, batch) {
+    const payload = batch.payload;
+    const itemRecords = payload.history_items.map((item) => itemRecordOf(item, payload));
+    const detailRecords = payload.tool_details.map(
+        (detail) => keyedRecordOf(detail, payload, 'tool detail')
+    );
+    const outcomeRecords = payload.task_outcomes.map(
+        (outcome) => outcomeRecordOf(outcome, payload)
+    );
+
+    assertCollectionHasNoConflict(itemRecords, eventRecordKey, 'history event');
+    assertCollectionHasNoConflict(
+        detailRecords,
+        (value) => value.item_key || value.call_id,
+        'tool detail'
+    );
+    assertCollectionHasNoConflict(outcomeRecords, (value) => value.item_key, 'task outcome');
+
+    for (const incoming of itemRecords) {
+        const key = eventRecordKey(incoming);
+        assertExistingContent(state.items.get(key), incoming, 'history event', key);
+    }
+    for (const incoming of detailRecords) {
+        const key = incoming.item_key || incoming.call_id;
+        assertExistingContent(state.toolDetails.get(key), incoming, 'tool detail', key);
+    }
+    for (const incoming of outcomeRecords) {
+        assertExistingContent(
+            state.taskOutcomes.get(incoming.item_key),
+            incoming,
+            'task outcome',
+            incoming.item_key
+        );
+    }
+
+    const mutationByIdentity = new Map();
+    for (const entry of state.mutations) {
+        mutationByIdentity.set(mutationIdentityOf(entry.mutation), entry.content_hash);
+    }
+    for (const mutation of payload.mutations) {
+        const identity = mutationIdentityOf(mutation);
+        const hash = contentHash(mutation);
+        const existingHash = mutationByIdentity.get(identity);
+        if (existingHash && existingHash !== hash) {
+            throw batchConflict(
+                'mutation evidence conflicts with an existing staged mutation',
+                { mutation: mutation.mutation, identity }
+            );
+        }
+        mutationByIdentity.set(identity, hash);
+    }
+
+    const replacements = replacementValuesOf(payload);
+    const replacementByKey = new Map(
+        state.replacements.map((value) => [value.replacement_key, value])
+    );
+    for (const replacement of replacements) {
+        const existing = replacementByKey.get(replacement.replacement_key);
+        if (existing && !sameJson(existing, replacement)) {
+            throw batchConflict(
+                'replacement evidence conflicts with an existing staged replacement',
+                { replacement_key: replacement.replacement_key }
+            );
+        }
+        replacementByKey.set(replacement.replacement_key, replacement);
+    }
+
+    const incomingProjection = payload.projection;
+    const incomingProjectionHash = contentHash(incomingProjection);
+    if (state.projection
+        && state.projectionProgress
+        && compareProgress(batch.progress, state.projectionProgress) === 0
+        && state.projectionHash !== incomingProjectionHash) {
+        throw batchConflict(
+            'projection content conflicts at the same target coverage',
+            { field: 'payload.projection' }
+        );
+    }
+    if (payload.usage !== null
+        && state.usage
+        && state.usageCoverageKey === coverageKey(batch)
+        && state.usageHash !== contentHash(payload.usage)) {
+        throw batchConflict(
+            'usage content conflicts at the same target coverage',
+            { field: 'payload.usage' }
+        );
+    }
+
+    return {
+        itemRecords,
+        detailRecords,
+        outcomeRecords,
+        replacements,
+        projectionHash: incomingProjectionHash,
+        usageHash: payload.usage === null ? null : contentHash(payload.usage)
+    };
+}
+
+function putHigherCompleteness(map, key, incoming) {
+    const existing = map.get(key);
+    if (!existing || completenessRank(incoming.completeness) > completenessRank(existing.completeness)) {
+        map.set(key, incoming);
+    }
+}
+
+function applyTargetState(state, batch, preflight) {
+    const payload = batch.payload;
+    for (const incoming of preflight.itemRecords) {
+        putHigherCompleteness(state.items, eventRecordKey(incoming), incoming);
+    }
+    for (const incoming of preflight.detailRecords) {
+        putHigherCompleteness(state.toolDetails, incoming.item_key || incoming.call_id, incoming);
+    }
+    for (const incoming of preflight.outcomeRecords) {
+        putHigherCompleteness(state.taskOutcomes, incoming.item_key, incoming);
+    }
+
+    if (payload.usage !== null) {
+        const incomingProgress = batch.progress;
+        if (!state.usage || compareProgress(incomingProgress, state.usageProgress || []) >= 0) {
+            state.usage = {
+                ...clone(payload.usage),
+                completeness: payload.completeness,
+                source_epoch: payload.source_epoch
+            };
+            state.usageHash = preflight.usageHash;
+            state.usageCoverageKey = coverageKey(batch);
+            state.usageProgress = clone(incomingProgress);
+        }
+    }
+
+    const projectionProgress = batch.progress;
+    if (!state.projection
+        || compareProgress(projectionProgress, state.projectionProgress || []) >= 0) {
+        state.projection = {
+            ...clone(payload.projection),
+            coverage: batch.projection_coverage,
+            completeness: payload.completeness,
+            source_epoch: payload.source_epoch
+        };
+        state.projectionHash = preflight.projectionHash;
+        state.projectionCoverageKey = coverageKey(batch);
+        state.projectionProgress = clone(projectionProgress);
+    }
+
+    for (const diagnostic of payload.diagnostics) {
+        const hash = contentHash(diagnostic);
+        if (!state.diagnostics.some((entry) => entry.content_hash === hash)) {
+            state.diagnostics.push({ content_hash: hash, diagnostic: clone(diagnostic) });
+        }
+    }
+    for (const mutation of payload.mutations) {
+        const hash = contentHash(mutation);
+        if (!state.mutations.some((entry) => entry.content_hash === hash)) {
+            state.mutations.push({ content_hash: hash, mutation: clone(mutation) });
+        }
+    }
+    for (const replacement of preflight.replacements) {
+        if (!state.replacements.some(
+            (entry) => entry.replacement_key === replacement.replacement_key
+        )) {
+            state.replacements.push(clone(replacement));
+        }
+    }
+
+    const canonical = payload.completeness === 'canonical'
+        && batch.projection_coverage === 'complete';
+    if (canonical) {
+        state.canonical = true;
+        state.complete = true;
+        state.provisional = false;
+        if (state.projection && typeof state.projection === 'object') {
+            state.projection.complete = true;
+            state.projection.provisional = false;
+        }
+    } else if (!state.canonical) {
+        state.complete = false;
+        state.provisional = true;
+        if (state.projection && typeof state.projection === 'object') {
+            state.projection.complete = false;
+            state.projection.provisional = true;
+        }
+    }
+
+    const incomingProgress = batch.progress;
+    if (!state.lastProgress || compareProgress(incomingProgress, state.lastProgress) > 0) {
+        state.lastBatchId = batch.identity.batch_id;
+        state.lastCursor = clone(payload.next_cursor);
+        state.lastProgress = clone(incomingProgress);
+        state.lastCompleteness = payload.completeness;
+    }
+}
+
+function createReceipt(batch) {
+    return {
+        delivery_key: batch.delivery_key,
+        job_id: batch.identity.job_id,
+        segment_id: batch.identity.segment_id,
+        batch_id: batch.identity.batch_id,
+        first_request_id: batch.identity.request_id,
+        last_request_id: batch.identity.request_id,
+        request_ids: [batch.identity.request_id],
+        scope: {
+            conversation_id: batch.scope.conversationId,
+            source_id: batch.scope.sourceId,
+            source_epoch: batch.scope.sourceEpoch
+        },
+        content_hash: batch.content_hash,
+        source_range: clone(batch.payload.source_range),
+        completeness: batch.payload.completeness,
+        persisted: true,
+        status: 'staged'
+    };
+}
+
+function createStaging(batch, receipt) {
+    return {
+        delivery_key: batch.delivery_key,
+        job_id: batch.identity.job_id,
+        segment_id: batch.identity.segment_id,
+        batch_id: batch.identity.batch_id,
+        request_id: batch.identity.request_id,
+        request_ids: [...receipt.request_ids],
+        scope: clone(receipt.scope),
+        content_hash: batch.content_hash,
+        source_range: clone(batch.payload.source_range),
+        range_index: null,
+        completeness: batch.payload.completeness,
+        complete: batch.payload.complete,
+        persisted: true,
+        payload: clone(batch.staged_payload)
+    };
+}
+
+class KeyedMutationQueue {
+    constructor() {
+        this.tails = new Map();
+    }
+
+    async wait(key) {
+        await (this.tails.get(key) || Promise.resolve());
+    }
+
+    run(key, operation) {
+        const previous = this.tails.get(key) || Promise.resolve();
+        const current = previous.then(operation, operation);
+        const tail = current.catch(() => undefined);
+        this.tails.set(key, tail);
+        return current.finally(() => {
+            if (this.tails.get(key) === tail) this.tails.delete(key);
+        });
     }
 }
 
@@ -428,354 +1080,196 @@ class MemoryAnalysisStore {
     }
 
     async _state(scope) {
-        const key = scopeKey(scope);
-        if (!this.states.has(key)) this.states.set(key, emptyState(scope));
+        const normalized = normalizeScope(scope);
+        const key = scopeKey(normalized);
+        if (!this.states.has(key)) this.states.set(key, emptyState(normalized));
         return this.states.get(key);
     }
 
+    _findReceipt(delivery) {
+        for (const [key, state] of this.states) {
+            const receipt = state.receipts.get(delivery);
+            if (receipt) return { key, state, receipt };
+        }
+        return null;
+    }
+
     async replaceScope(scope, replacementBatchId = null) {
-        const state = emptyState(scope);
+        const normalized = normalizeScope(scope);
+        const state = emptyState(normalized);
         state.replaceApplied = true;
         state.replacementBatchId = replacementBatchId;
-        this.states.set(scopeKey(scope), state);
-        this.operations.push(['replace', scopeKey(scope)]);
+        this.states.set(scopeKey(normalized), state);
+        this.operations.push(['replace', scopeKey(normalized)]);
         return state;
     }
 
     async replaceConversation(conversationId, scope, replacementBatchId = null) {
         const normalizedConversationId = String(conversationId || '').trim();
-        const newKey = scopeKey(scope);
+        const normalized = normalizeScope(scope);
+        const newKey = scopeKey(normalized);
         for (const [key, state] of this.states) {
             if (key !== newKey && state.scope.conversationId === normalizedConversationId) {
                 this.states.set(key, retiredState(state.scope));
             }
         }
         this.operations.push(['replace_conversation', normalizedConversationId, newKey]);
-        return this.replaceScope(scope, replacementBatchId);
+        return this.replaceScope(normalized, replacementBatchId);
+    }
+
+    async _applyTargetBatch(message) {
+        const batch = normalizeTargetBatch(message);
+        const key = scopeKey(batch.scope);
+        const existingReceipt = this._findReceipt(batch.delivery_key);
+        if (existingReceipt) {
+            if (!sameScope(existingReceipt.state.scope, batch.scope)) {
+                throw batchConflict(
+                    'delivery identity was reused for a different source scope',
+                    { delivery_key: batch.delivery_key }
+                );
+            }
+            if (existingReceipt.receipt.content_hash !== batch.content_hash) {
+                throw batchConflict(
+                    'delivery identity was reused with different batch content',
+                    { delivery_key: batch.delivery_key }
+                );
+            }
+
+            const candidate = cloneState(existingReceipt.state);
+            const receipt = candidate.receipts.get(batch.delivery_key);
+            const staging = candidate.staging.get(batch.delivery_key);
+            let mutated = false;
+            if (!receipt.request_ids.includes(batch.identity.request_id)) {
+                receipt.request_ids.push(batch.identity.request_id);
+                receipt.last_request_id = batch.identity.request_id;
+                staging.request_ids = [...receipt.request_ids];
+                staging.request_id = batch.identity.request_id;
+                candidate.batchRequestIds.set(batch.delivery_key, batch.identity.request_id);
+                mutated = true;
+            }
+            const latestDelivery = deliveryIdentityOf(batch);
+            if (!sameDeliveryIdentity(candidate.lastDelivery, latestDelivery)) {
+                candidate.lastDelivery = latestDelivery;
+                mutated = true;
+            }
+            if (mutated) this.states.set(existingReceipt.key, candidate);
+            this.operations.push(['duplicate', batch.delivery_key]);
+            return {
+                state: candidate,
+                duplicate: true,
+                mutated,
+                receipt: clone(receipt),
+                staging: clone(staging)
+            };
+        }
+
+        const current = this.states.get(key) || emptyState(batch.scope);
+        requireWritableState(current, { allowPendingReplacement: true });
+        const candidate = cloneState(current);
+        const preflight = preflightTargetState(candidate, batch);
+        const receipt = createReceipt(batch);
+        const staging = createStaging(batch, receipt);
+        candidate.receipts.set(batch.delivery_key, receipt);
+        candidate.staging.set(batch.delivery_key, staging);
+        candidate.rangeIndex.push({
+            index: null,
+            delivery_key: batch.delivery_key,
+            job_id: batch.identity.job_id,
+            segment_id: batch.identity.segment_id,
+            batch_id: batch.identity.batch_id,
+            source_range: clone(batch.payload.source_range),
+            completeness: batch.payload.completeness
+        });
+        reindexRanges(candidate);
+        const indexed = candidate.rangeIndex.find(
+            (entry) => entry.delivery_key === batch.delivery_key
+        );
+        staging.range_index = indexed?.index ?? null;
+        if (!candidate.batches.includes(batch.identity.batch_id)) {
+            candidate.batches.push(batch.identity.batch_id);
+        }
+        candidate.batchRequestIds.set(batch.delivery_key, batch.identity.request_id);
+        candidate.lastDelivery = deliveryIdentityOf(batch);
+        applyTargetState(candidate, batch, preflight);
+        this.states.set(key, candidate);
+        this.operations.push(['apply', batch.delivery_key]);
+        return {
+            state: candidate,
+            duplicate: false,
+            mutated: true,
+            receipt: clone(receipt),
+            staging: clone(staging)
+        };
     }
 
     async applyBatch(batch) {
+        if (isTargetBatchMessage(batch)) return this._applyTargetBatch(batch);
+        // The old flat batch has no target delivery envelope. Let the single
+        // protocol validator produce the migration/fail-closed error instead
+        // of silently restoring legacy import semantics.
         validateMessage(batch);
-        const scope = normalizeScope(batch);
-        const key = scopeKey(scope);
-        const existing = this.states.get(key) || null;
-        if (existing?.retired) requireWritableState(existing);
-        const retiredEpoch = [...this.states.values()].find(
-            (candidate) => candidate.scope.conversationId === scope.conversationId
-                && candidate.retired
-                && candidate.scope.sourceEpoch === scope.sourceEpoch
+        throw importerError(
+            'ANALYSIS_BATCH_ENVELOPE_INVALID',
+            'batch must contain the target delivery envelope',
+            undefined,
+            'batch_validation_failed'
         );
-        if (retiredEpoch) requireWritableState(retiredEpoch);
-
-        const replacementFacts = replacementFactsOf(batch);
-        if (batch.replace_previous && replacementFacts.length > 0) {
-            throw sourceEpochError(
-                'ANALYSIS_REPLACEMENT_REQUIRES_SEPARATE_SOURCE_TRANSITION',
-                'last-turn replacement must not use replace_previous'
-            );
-        }
-        const transitionReplacement = lastTurnReplacementFactOf(batch);
-        const pendingReplacement = pendingLastTurnReplacementFactOf(batch);
-        assertCanonicalReplacementBatch(batch, replacementFacts);
-
-        // A retry of the exact same batch after a process crash is idempotent.
-        // Check the durable batch id before source-head arbitration so a
-        // duplicate child batch is not mistaken for a second active epoch.
-        if (existing?.batches.includes(batch.batch_id)) {
-            return { state: existing, duplicate: true };
-        }
-
-        const activeStates = [...this.states.values()].filter(
-            (candidate) => candidate.scope.conversationId === scope.conversationId
-                && !candidate.retired
-                && candidate.activeHead !== false
-        );
-        if (activeStates.length > 1) {
-            throw sourceEpochError(
-                'ANALYSIS_SOURCE_EPOCH_AMBIGUOUS',
-                'multiple active source epochs exist for conversation'
-            );
-        }
-        const active = activeStates[0] || null;
-        const sameActiveScope = active ? sameScope(active.scope, scope) : false;
-        const transitionParent = transitionReplacement
-            && active
-            && !sameActiveScope
-            && active.scope.sourceId === transitionReplacement.parent_rollout_id
-            ? active
-            : null;
-        const pendingParent = pendingReplacement
-            && active
-            && !sameActiveScope
-            && active.scope.sourceId === pendingReplacement.parent_rollout_id
-            ? active
-            : null;
-        if (active && active.scope.sourceEpoch === scope.sourceEpoch && !sameActiveScope) {
-            if (!transitionParent && !pendingParent) {
-                throw sourceEpochError(
-                    'ANALYSIS_SOURCE_EPOCH_REQUIRED',
-                    'source epoch is already bound to another source identity'
-                );
-            }
-        }
-        if (active && !sameActiveScope && !batch.replace_previous
-            && !transitionParent && !pendingParent) {
-            throw sourceEpochError(
-                'ANALYSIS_SOURCE_EPOCH_REQUIRED',
-                'a new source epoch requires replace_previous'
-            );
-        }
-
-        let state = existing;
-        const pendingReplacementRetry = Boolean(
-            batch.replace_previous
-            && state?.replaceApplied
-            && state.batches.length === 0
-            && state.replacementBatchId === batch.batch_id
-        );
-        if (batch.replace_previous && state
-            && (state.replaceApplied || state.batches.length > 0)
-            && !pendingReplacementRetry) {
-            throw sourceEpochError(
-                'ANALYSIS_SOURCE_EPOCH_REQUIRED',
-                'replace_previous is only valid for the first batch of a new source epoch'
-            );
-        }
-        if (state?.replaceApplied && state.batches.length === 0
-            && !batch.replace_previous && !pendingReplacementRetry) {
-            throw sourceEpochError(
-                'ANALYSIS_SOURCE_EPOCH_REQUIRED',
-                'the first batch of a replacement epoch must carry replace_previous'
-            );
-        }
-        if (!state) {
-            state = await this._state(scope);
-        }
-        if (batch.replace_previous && !pendingReplacementRetry) {
-            if (typeof this.replaceConversation === 'function') {
-                state = await this.replaceConversation(scope.conversationId, scope, batch.batch_id);
-            } else {
-                state = await this.replaceScope(scope, batch.batch_id);
-            }
-        } else {
-            requireWritableState(state, { allowPendingReplacement: true });
-        }
-        // Replacement evidence is the conflict-sensitive part of the batch.
-        // Preflight it before any item, projection, mutation, or head state is
-        // changed so Memory and File stores fail atomically for this error.
-        assertReplacementFactsCompatible(state, replacementFacts);
-        const batchCompleteness = completenessOf(batch.completeness || (batch.complete ? 'canonical' : 'partial'));
-        const batchRank = completenessRank(batchCompleteness);
-        const revision = batchRevision(batch);
-        const projectionCoverage = projectionCoverageOf(batch.projection);
-
-        for (const item of batch.history_items) {
-            const itemKey = itemKeyOf(item);
-            if (!itemKey) {
-                const error = new Error('history item is missing stable item_key');
-                error.code = 'ANALYSIS_ITEM_KEY_MISSING';
-                throw error;
-            }
-            const incoming = {
-                item_key: itemKey,
-                event_id: eventIdOf(item),
-                event: clone(item),
-                content_hash: contentHash(item),
-                completeness: batchCompleteness,
-                source_epoch: batch.source_epoch,
-                revision: historyItemRevision(batch, item)
-            };
-            const existing = state.items.get(itemKey);
-            if (canReplace(existing, incoming)) {
-                state.items.set(itemKey, incoming);
-            }
-        }
-
-        for (const detail of Array.isArray(batch.tool_details) ? batch.tool_details : []) {
-            const key = detail.item_key || detail.call_id;
-            if (!key) continue;
-            const detailRevision = explicitRevision(detail.revision)
-                ?? mutationRevisionFor(batch, key, ['upsert_detail'])
-                ?? revision;
-            const incoming = {
-                ...clone(detail),
-                completeness: completenessOf(detail.completeness || batchCompleteness),
-                source_epoch: detail.source_epoch || batch.source_epoch,
-                revision: detailRevision
-            };
-            const existing = state.toolDetails.get(key);
-            if (canReplace(existing, incoming)) {
-                state.toolDetails.set(key, incoming);
-            }
-        }
-        for (const outcome of Array.isArray(batch.task_outcomes) ? batch.task_outcomes : []) {
-            if (!outcome.item_key) continue;
-            const outcomeRevision = explicitRevision(outcome.revision)
-                ?? mutationRevisionFor(batch, outcome.item_key, ['upsert_outcome'])
-                ?? revision;
-            const incoming = {
-                ...clone(outcome),
-                completeness: completenessOf(outcome.completeness || batchCompleteness),
-                source_epoch: outcome.source_epoch || batch.source_epoch,
-                revision: outcomeRevision
-            };
-            const existing = state.taskOutcomes.get(outcome.item_key);
-            if (canReplace(existing, incoming)) {
-                state.taskOutcomes.set(outcome.item_key, incoming);
-            }
-        }
-        const usageIncoming = batch.usage
-            ? {
-                ...clone(batch.usage),
-                completeness: batchCompleteness,
-                source_epoch: batch.source_epoch,
-                revision: mutationRevisionFor(batch, null, ['upsert_usage']) ?? revision
-            }
-            : null;
-        if (usageIncoming && canReplace(
-            state.usage && {
-                completeness: state.usageCompleteness,
-                source_epoch: state.usageSourceEpoch,
-                revision: state.usageRevision
-            },
-            usageIncoming
-        )) {
-            state.usage = usageIncoming;
-            state.usageRevision = usageIncoming.revision;
-            state.usageCompleteness = batchCompleteness;
-            state.usageSourceEpoch = batch.source_epoch;
-        }
-        const projectionIncoming = batch.projection
-            ? {
-                ...clone(batch.projection),
-                coverage: projectionCoverage,
-                completeness: batchCompleteness,
-                source_epoch: batch.source_epoch,
-                revision
-            }
-            : null;
-        if (projectionIncoming && canReplaceProjection(
-            state.projection && {
-                coverage: state.projectionCoverage,
-                completeness: state.projectionCompleteness,
-                source_epoch: state.projectionSourceEpoch,
-                revision: state.projectionRevision
-            },
-            projectionIncoming
-        )) {
-            state.projection = projectionIncoming;
-            state.projectionRevision = revision;
-            state.projectionCompleteness = batchCompleteness;
-            state.projectionCoverage = projectionCoverage;
-            state.projectionSourceEpoch = batch.source_epoch;
-        }
-        for (const diagnostic of Array.isArray(batch.diagnostics) ? batch.diagnostics : []) {
-            const marker = JSON.stringify(diagnostic);
-            if (!state.diagnostics.some((entry) => JSON.stringify(entry) === marker)) {
-                state.diagnostics.push(clone(diagnostic));
-            }
-        }
-        for (const mutation of Array.isArray(batch.mutations) ? batch.mutations : []) {
-            const marker = contentHash(mutation);
-            if (!state.mutations.some((entry) => entry.content_hash === marker)) {
-                state.mutations.push({ content_hash: marker, mutation: clone(mutation) });
-            }
-        }
-        for (const replacement of replacementFacts) {
-            if (!replacement?.replacement_key) continue;
-            const existing = state.replacements.find(
-                (candidate) => candidate.replacement_key === replacement.replacement_key
-            );
-            if (existing) {
-                continue;
-            }
-            state.replacements.push(clone(replacement));
-        }
-
-        let transitionParentKey = null;
-        if (transitionParent) {
-            transitionParent.activeHead = false;
-            transitionParentKey = scopeKey(transitionParent.scope);
-            state.activeHead = true;
-            state.pendingReplacement = false;
-        } else if (pendingParent) {
-            // Validated evidence can arrive before the historical projection
-            // is complete.  Keep the child as a durable staging scope, but do
-            // not make it the active conversation head until the collector
-            // emits the complete-coverage replace_last_turn mutation.
-            state.activeHead = false;
-            state.pendingReplacement = true;
-        }
-
-        const completeRange = Array.isArray(batch.mutations) && batch.mutations.some(
-            (mutation) => mutation?.mutation === 'complete_range'
-        );
-        const staleIncompleteOverlap = state.canonical
-            && (batchRank < 3 || state.projectionCoverage !== 'complete')
-            && !completeRange;
-        if (state.projectionCoverage === 'complete'
-            && (batchCompleteness === 'canonical' || completeRange)) {
-            state.canonical = true;
-            state.complete = true;
-            state.provisional = false;
-            if (state.projection && typeof state.projection === 'object') {
-                state.projection.provisional = false;
-            }
-        } else if (!staleIncompleteOverlap) {
-            state.canonical = false;
-            state.complete = false;
-            state.provisional = true;
-            if (state.projection && typeof state.projection === 'object') {
-                state.projection.complete = state.projectionCoverage === 'complete'
-                    ? state.projection.complete === true
-                    : false;
-                if (batchCompleteness !== 'canonical') {
-                    state.projection.provisional = true;
-                }
-            }
-        }
-        state.batches.push(batch.batch_id);
-        state.batchRequestIds.set(batch.batch_id, batch.request_id);
-        const lastRank = completenessRank(state.lastCompleteness);
-        if (batchRank > lastRank || (batchRank === lastRank && revision > state.lastRevision)) {
-            state.lastBatchId = batch.batch_id;
-            state.lastCursor = clone(batch.next_cursor);
-            state.lastRevision = revision;
-            state.lastCompleteness = batchCompleteness;
-        }
-        this.operations.push(['apply', batch.batch_id]);
-        return { state, duplicate: false, transitionParentKey };
     }
 
     async assertScopeWritable(scope) {
         const normalized = normalizeScope(scope);
         const state = await this._state(normalized);
         requireWritableState(state, { allowPendingReplacement: true });
-        const activeStates = [...this.states.values()].filter(
-            (candidate) => candidate.scope.conversationId === normalized.conversationId
-                && !candidate.retired
-                && candidate.activeHead !== false
-        );
-        if (state.pendingReplacement) return state;
-        if (activeStates.some((candidate) => !sameScope(candidate.scope, normalized))) {
-            throw sourceEpochError(
-                'ANALYSIS_SOURCE_EPOCH_REQUIRED',
-                'complete belongs to a retired source epoch'
-            );
-        }
         return state;
     }
 
-    async assertCompleteCommit(scope, requestId) {
+    async assertCompleteCommit(scope, requestId, identity = {}) {
         const normalized = normalizeScope(scope);
         const state = await this.assertScopeWritable(normalized);
-        const normalizedRequestId = String(requestId || '').trim();
-        const importedForRequest = state.batches.length > 0
-            && [...state.batchRequestIds.values()].some((value) => value === normalizedRequestId);
-        if (!normalizedRequestId || !importedForRequest) {
-            const error = new Error('complete requires at least one imported batch from the same request');
-            error.code = 'ANALYSIS_COMPLETE_WITHOUT_BATCH';
-            throw error;
+        const suppliedDelivery = identity.expected_delivery ?? identity.expectedDelivery;
+        const expectedDelivery = suppliedDelivery !== undefined && suppliedDelivery !== null
+            ? normalizeDeliveryIdentity(suppliedDelivery)
+            : normalizeDeliveryIdentity({
+                request_id: requestId,
+                job_id: identity.job_id,
+                segment_id: identity.segment_id,
+                batch_id: identity.batch_id,
+                scope: normalized
+            });
+        if (!requestId || expectedDelivery.request_id !== requestId) {
+            throw importerError(
+                'ANALYSIS_COMPLETE_WITHOUT_BATCH',
+                'complete requires at least one imported batch from the same request'
+            );
+        }
+        if (expectedDelivery.scope
+            && !sameScope(expectedDelivery.scope, normalized)) {
+            throw importerError(
+                'ANALYSIS_COMPLETE_DELIVERY_MISMATCH',
+                'complete delivery scope does not match the current source scope',
+                { expected: expectedDelivery.scope, actual: normalized }
+            );
+        }
+        if (!state.lastDelivery || !sameDeliveryIdentity(state.lastDelivery, expectedDelivery)) {
+            throw importerError(
+                'ANALYSIS_COMPLETE_DELIVERY_MISMATCH',
+                'complete checkpoint watermark must match the latest accepted batch delivery',
+                {
+                    expected: expectedDelivery,
+                    actual: state.lastDelivery
+                }
+            );
+        }
+        const matching = [...state.receipts.values()].filter(
+            (receipt) => receipt.delivery_key === deliveryKey(state.lastDelivery)
+                && receipt.request_ids?.includes(requestId)
+                && sameScope(normalizeScope(receipt.scope), normalized)
+        );
+        if (matching.length === 0) {
+            throw importerError(
+                'ANALYSIS_COMPLETE_WITHOUT_BATCH',
+                'complete requires at least one imported batch from the same request'
+            );
         }
         return state;
     }
@@ -789,10 +1283,12 @@ class FileAnalysisStore extends MemoryAnalysisStore {
     constructor({ rootDir = path.resolve(process.cwd(), 'data', 'codex-rollout-analysis') } = {}) {
         super();
         this.rootDir = path.resolve(rootDir);
+        this.mutationQueue = new KeyedMutationQueue();
     }
 
     pathFor(scope) {
-        const digest = crypto.createHash('sha256').update(scopeKey(scope)).digest('hex');
+        const normalized = normalizeScope(scope);
+        const digest = crypto.createHash('sha256').update(scopeKey(normalized)).digest('hex');
         return path.join(this.rootDir, `${digest}.json`);
     }
 
@@ -801,16 +1297,39 @@ class FileAnalysisStore extends MemoryAnalysisStore {
         return this;
     }
 
+    async _loadAll() {
+        await fs.promises.mkdir(this.rootDir, { recursive: true });
+        for (const name of await fs.promises.readdir(this.rootDir)) {
+            if (!name.endsWith('.json')) continue;
+            const filePath = path.join(this.rootDir, name);
+            let value;
+            try {
+                value = JSON.parse((await fs.promises.readFile(filePath)).toString('utf8'));
+            } catch (_) {
+                continue;
+            }
+            let fileScope;
+            try {
+                fileScope = normalizeScope(value?.scope || value);
+            } catch (_) {
+                continue;
+            }
+            const key = scopeKey(fileScope);
+            if (!this.states.has(key)) this.states.set(key, stateFromJson(value, fileScope));
+        }
+    }
+
     async _state(scope) {
-        const key = scopeKey(scope);
+        const normalized = normalizeScope(scope);
+        const key = scopeKey(normalized);
         if (!this.states.has(key)) {
             let value = null;
             try {
-                value = JSON.parse((await fs.promises.readFile(this.pathFor(scope))).toString('utf8'));
+                value = JSON.parse((await fs.promises.readFile(this.pathFor(normalized))).toString('utf8'));
             } catch (error) {
                 if (error.code !== 'ENOENT') throw error;
             }
-            this.states.set(key, value ? stateFromJson(value, scope) : emptyState(scope));
+            this.states.set(key, value ? stateFromJson(value, normalized) : emptyState(normalized));
         }
         return this.states.get(key);
     }
@@ -825,29 +1344,11 @@ class FileAnalysisStore extends MemoryAnalysisStore {
         return state;
     }
 
-    async _loadConversation(conversationId) {
-        const normalizedConversationId = String(conversationId || '').trim();
-        await fs.promises.mkdir(this.rootDir, { recursive: true });
-        for (const name of await fs.promises.readdir(this.rootDir)) {
-            if (!name.endsWith('.json')) continue;
-            const filePath = path.join(this.rootDir, name);
-            let value;
-            try {
-                value = JSON.parse((await fs.promises.readFile(filePath)).toString('utf8'));
-            } catch (_) {
-                continue;
-            }
-            const fileScope = normalizeScope(value?.scope || value);
-            if (!fileScope || fileScope.conversationId !== normalizedConversationId) continue;
-            const key = scopeKey(fileScope);
-            if (!this.states.has(key)) this.states.set(key, stateFromJson(value, fileScope));
-        }
-    }
-
     async replaceConversation(conversationId, scope, replacementBatchId = null) {
         const normalizedConversationId = String(conversationId || '').trim();
-        await this._loadConversation(normalizedConversationId);
-        const newKey = scopeKey(scope);
+        const normalized = normalizeScope(scope);
+        await this._loadAll();
+        const newKey = scopeKey(normalized);
         const retiredStates = [];
         for (const [key, candidate] of this.states) {
             if (key !== newKey
@@ -860,7 +1361,7 @@ class FileAnalysisStore extends MemoryAnalysisStore {
         }
         this.operations.push(['replace_conversation', normalizedConversationId, newKey]);
         for (const retired of retiredStates) await this._persist(retired);
-        const state = emptyState(scope);
+        const state = emptyState(normalized);
         state.replaceApplied = true;
         state.replacementBatchId = replacementBatchId;
         this.states.set(newKey, state);
@@ -869,31 +1370,43 @@ class FileAnalysisStore extends MemoryAnalysisStore {
     }
 
     async applyBatch(batch) {
-        await this._loadConversation(batch.conversation_id);
-        const result = await super.applyBatch(batch);
-        if (!result.duplicate) {
-            // Persist the parent head first.  If the process stops between
-            // these writes, retrying the child is still safe: the parent is
-            // retained but no longer writable, and the child can be rebuilt.
-            if (result.transitionParentKey) {
-                const transitionParent = this.states.get(result.transitionParentKey);
-                if (transitionParent) await this._persist(transitionParent);
+        if (!isTargetBatchMessage(batch)) return super.applyBatch(batch);
+        return this.mutationQueue.run('all', async () => {
+            const normalized = normalizeTargetBatch(batch);
+            await this._loadAll();
+            const key = scopeKey(normalized.scope);
+            const hadState = this.states.has(key);
+            const before = hadState ? stateToJson(this.states.get(key)) : null;
+            const operationsBefore = this.operations.length;
+            try {
+                const result = await super.applyBatch(batch);
+                if (result.mutated) await this._persist(result.state);
+                return result;
+            } catch (error) {
+                if (hadState) this.states.set(key, stateFromJson(before, normalized.scope));
+                else this.states.delete(key);
+                this.operations.length = operationsBefore;
+                throw error;
             }
-            await this._persist(result.state);
-        }
-        return result;
+        });
     }
 
     async assertScopeWritable(scope) {
-        const normalized = normalizeScope(scope);
-        await this._loadConversation(normalized.conversationId);
-        return super.assertScopeWritable(normalized);
+        await this.mutationQueue.wait('all');
+        await this._loadAll();
+        return super.assertScopeWritable(scope);
     }
 
-    async assertCompleteCommit(scope, requestId) {
-        const normalized = normalizeScope(scope);
-        await this._loadConversation(normalized.conversationId);
-        return super.assertCompleteCommit(normalized, requestId);
+    async assertCompleteCommit(scope, requestId, identity = {}) {
+        await this.mutationQueue.wait('all');
+        await this._loadAll();
+        return super.assertCompleteCommit(scope, requestId, identity);
+    }
+
+    async snapshot(scope) {
+        await this.mutationQueue.wait('all');
+        await this._loadAll();
+        return super.snapshot(scope);
     }
 }
 
@@ -909,89 +1422,214 @@ class AnalysisBatchImporter {
         return this;
     }
 
-    async importBatch(batch, { checkpoint = null } = {}) {
-        validateMessage(batch);
-        const scope = normalizeScope(batch);
+    async importBatch(batch, options = {}) {
+        const normalized = normalizeTargetBatch(batch);
+        assertExpectedIdentity(normalized, options);
         let normalizedCheckpoint = null;
-        if (checkpoint) {
-            normalizedCheckpoint = this._validateCheckpointForScope(
-                checkpoint,
-                scope,
-                batch.completeness,
-                batch.request_id
+        if (options.checkpoint !== undefined && options.checkpoint !== null) {
+            normalizedCheckpoint = this._validateCheckpointForBatch(
+                options.checkpoint,
+                normalized
             );
         }
+
         const result = await this.store.applyBatch(batch);
-        if (batch.replace_previous && !result.duplicate && this.checkpointStore?.replaceConversation) {
-            await this.checkpointStore.replaceConversation(batch.conversation_id, scope);
-        }
         if (normalizedCheckpoint && this.checkpointStore) {
-            await this.checkpointStore.save(scope, normalizedCheckpoint);
+            await this.checkpointStore.save(
+                {
+                    ...normalized.scope,
+                    job_id: normalized.identity.job_id,
+                    request_id: normalized.identity.request_id
+                },
+                normalizedCheckpoint
+            );
         }
         return {
             accepted: true,
             persisted: true,
             duplicate: result.duplicate,
-            scope,
-            state: await this.store.snapshot(scope)
+            scope: normalized.scope,
+            delivery: {
+                job_id: normalized.identity.job_id,
+                segment_id: normalized.identity.segment_id,
+                batch_id: normalized.identity.batch_id,
+                request_id: normalized.identity.request_id
+            },
+            receipt: result.receipt,
+            staging: result.staging,
+            state: await this.store.snapshot(normalized.scope)
         };
     }
 
-    async commitComplete(complete, { scope, checkpoint = complete?.checkpoint || null } = {}) {
+    async commitComplete(complete, {
+        scope,
+        checkpoint = complete?.checkpoint || null,
+        acceptedDelivery = undefined,
+        accepted_delivery: acceptedDeliverySnake = undefined
+    } = {}) {
         validateMessage(complete);
         const normalizedScope = normalizeScope(scope || checkpoint);
-        const normalizedCheckpoint = this._validateCheckpointForScope(
+        const normalizedCheckpoint = this._validateCheckpointForComplete(
             checkpoint,
             normalizedScope,
-            complete.completeness,
-            complete.request_id
+            complete
         );
-        if (typeof this.store.assertCompleteCommit === 'function') {
-            await this.store.assertCompleteCommit(normalizedScope, complete.request_id);
-        } else if (typeof this.store.assertScopeWritable === 'function') {
-            const state = await this.store.assertScopeWritable(normalizedScope);
-            const requestIds = state?.batchRequestIds instanceof Map
-                ? [...state.batchRequestIds.values()]
-                : [];
-            if (!state?.batches?.length || !requestIds.includes(complete.request_id)) {
-                const error = new Error(
-                    'complete requires at least one imported batch from the same request'
+        const delivery = acceptedDelivery ?? acceptedDeliverySnake ?? null;
+        const normalizedDelivery = delivery === null
+            ? null
+            : normalizeDeliveryIdentity(delivery);
+        if (normalizedDelivery) {
+            if (normalizedDelivery.request_id !== complete.request_id
+                || normalizedDelivery.job_id !== complete.job_id
+                || normalizedDelivery.segment_id !== normalizedCheckpoint.projection_watermark.segment_id
+                || normalizedDelivery.batch_id !== normalizedCheckpoint.projection_watermark.batch_id) {
+                throw importerError(
+                    'ANALYSIS_COMPLETE_DELIVERY_MISMATCH',
+                    'complete checkpoint watermark does not match the accepted batch delivery',
+                    {
+                        accepted_delivery: normalizedDelivery,
+                        checkpoint_watermark: normalizedCheckpoint.projection_watermark
+                    }
                 );
-                error.code = 'ANALYSIS_COMPLETE_WITHOUT_BATCH';
-                throw error;
+            }
+            if (normalizedDelivery.scope
+                && !sameScope(normalizedDelivery.scope, normalizedScope)) {
+                throw importerError(
+                    'ANALYSIS_COMPLETE_DELIVERY_MISMATCH',
+                    'complete delivery scope does not match the checkpoint scope',
+                    { accepted_scope: normalizedDelivery.scope, checkpoint_scope: normalizedScope }
+                );
             }
         }
+        if (typeof this.store.assertCompleteCommit === 'function') {
+            await this.store.assertCompleteCommit(normalizedScope, complete.request_id, {
+                job_id: complete.job_id,
+                segment_id: normalizedCheckpoint.projection_watermark.segment_id,
+                batch_id: normalizedCheckpoint.projection_watermark.batch_id,
+                expected_delivery: normalizedDelivery,
+                scope: normalizedScope
+            });
+        }
         if (this.checkpointStore) {
-            await this.checkpointStore.save(normalizedScope, normalizedCheckpoint);
+            await this.checkpointStore.save(
+                {
+                    ...normalizedScope,
+                    job_id: complete.job_id,
+                    request_id: complete.request_id
+                },
+                normalizedCheckpoint
+            );
         }
         return this.store.snapshot(normalizedScope);
     }
 
-    _validateCheckpointForScope(checkpoint, scope, completeness, requestId = null) {
-        let normalized;
+    _normalizeCheckpoint(checkpoint) {
         try {
-            normalized = normalizeCheckpoint(checkpoint);
+            return normalizeCheckpoint(checkpoint);
         } catch (error) {
             const wrapped = new Error(`invalid analyzer checkpoint: ${error.message}`);
             wrapped.code = 'ANALYSIS_CHECKPOINT_INVALID';
+            wrapped.cause = error;
             throw wrapped;
         }
-        if (!sameScope(normalized.scope, scope)) {
-            const error = new Error('checkpoint scope does not match batch scope');
-            error.code = 'ANALYSIS_CHECKPOINT_SCOPE_MISMATCH';
-            throw error;
+    }
+
+    _validateCheckpointForBatch(checkpoint, batch) {
+        const normalized = this._normalizeCheckpoint(checkpoint);
+        if (!sameScope(normalized.scope, batch.scope)) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_SCOPE_MISMATCH',
+                'checkpoint scope does not match batch scope'
+            );
         }
-        if (requestId && normalized.checkpoint.request_id !== requestId) {
-            const error = new Error('checkpoint request_id does not match message');
-            error.code = 'ANALYSIS_CHECKPOINT_REQUEST_MISMATCH';
-            throw error;
+        const value = normalized.checkpoint;
+        if (value.job_id !== batch.identity.job_id) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_JOB_MISMATCH',
+                'checkpoint job_id does not match batch envelope'
+            );
         }
-        if (completeness && normalized.checkpoint.completeness !== completeness) {
-            const error = new Error('checkpoint completeness does not match message');
-            error.code = 'ANALYSIS_CHECKPOINT_COMPLETENESS_MISMATCH';
-            throw error;
+        if (value.request_id !== batch.identity.request_id) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_REQUEST_MISMATCH',
+                'checkpoint request_id does not match batch envelope'
+            );
+        }
+        if (value.completeness !== batch.payload.completeness) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_COMPLETENESS_MISMATCH',
+                'checkpoint completeness does not match batch'
+            );
+        }
+        if (!sameJson(value.source.source_range, batch.payload.source_range)
+            || !sameJson(value.segment.source_range, batch.payload.source_range)) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_RANGE_MISMATCH',
+                'checkpoint source range does not match batch'
+            );
+        }
+        if (!sameJson(value.cursor, batch.payload.next_cursor)) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_CURSOR_MISMATCH',
+                'checkpoint cursor does not match batch next_cursor'
+            );
+        }
+        if (value.projection_watermark.segment_id !== batch.identity.segment_id
+            || value.projection_watermark.batch_id !== batch.identity.batch_id
+            || value.projection_watermark.source_epoch !== batch.scope.sourceEpoch
+            || (value.projection_watermark.source_id !== null
+                && value.projection_watermark.source_id !== batch.scope.sourceId)) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_DELIVERY_MISMATCH',
+                'checkpoint projection watermark does not match batch delivery'
+            );
+        }
+        if (batch.payload.reducer_state
+            && !sameJson(value.reducer_state, batch.payload.reducer_state)) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_REDUCER_MISMATCH',
+                'checkpoint reducer state does not match batch'
+            );
+        }
+        if (batch.payload.lineage_checkpoint !== undefined
+            && !sameJson(value.lineage_checkpoint, batch.payload.lineage_checkpoint)) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_LINEAGE_MISMATCH',
+                'checkpoint lineage evidence does not match batch'
+            );
         }
         return normalized.checkpoint;
+    }
+
+    _validateCheckpointForComplete(checkpoint, scope, complete) {
+        const normalized = this._normalizeCheckpoint(checkpoint);
+        if (!sameScope(normalized.scope, scope)) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_SCOPE_MISMATCH',
+                'checkpoint scope does not match complete scope'
+            );
+        }
+        const value = normalized.checkpoint;
+        if (value.job_id !== complete.job_id) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_JOB_MISMATCH',
+                'checkpoint job_id does not match complete'
+            );
+        }
+        if (value.request_id !== complete.request_id) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_REQUEST_MISMATCH',
+                'checkpoint request_id does not match complete'
+            );
+        }
+        if (value.completeness !== complete.completeness
+            || !sameJson(value.cursor, complete.next_cursor)) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_COMPLETENESS_MISMATCH',
+                'checkpoint completeness/cursor does not match complete'
+            );
+        }
+        return value;
     }
 }
 
@@ -1003,5 +1641,7 @@ module.exports = {
     normalizeScope,
     scopeKey,
     completenessOf,
-    itemKeyOf
+    itemKeyOf,
+    deliveryKey,
+    normalizeTargetBatch
 };
