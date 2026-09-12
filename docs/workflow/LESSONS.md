@@ -375,6 +375,30 @@
 - **应对动作**：在 mapping 边界按现有 `TargetSource*` 类型组装 scope，集中实现最小 target-owned 派生 helper；用固定 golden vector 加 job、conversation、source scope、snapshot、完整行边界、ordinal、batch range/index 的 mutation/retry 测试锁定算法，并确认 wire 字段形状不变。
 - **Source**：`2026-08-27` / `20260827-001` / `5a3214a`
 
+### L-035: 分阶段迁移必须区分 current-step regression 与 future-step expected gap
+
+- **场景**：Node 4.5 迁移按步骤推进时，collector 全量回归仍会命中步骤 7～8 尚未迁移的旧 `sourceSpec/replay`、legacy replacement/importer/checkpoint/coordinator 形状；如果把全量失败一律当作当前步骤失败，会错误阻塞已经通过 focused gate 的步骤。
+- **结论**：当前步骤的门禁只判断该步骤的 required-now 证据；后续步骤尚未实施导致的失败应明确标记为 `future-step-expected-gap` 并保留在全量结果中，不能伪装成通过，也不能反过来否定当前步骤。任务状态必须同时呈现 focused PASS、全量失败分类和后续步骤边界。
+- **触发信号**：当前步骤的 focused tests、diff、contract 和适用回归均通过；全量失败的调用形状、断言或代码路径明确属于后续步骤，且没有新增当前步骤失败、未知失败、取消或挂起。
+- **应对动作**：逐项记录失败的 scope、调用形状和证据，先判断是否属于 current-step regression；同步 `CURRENT_TASK.md`、`STATUS.md` 和必要的决策记录，保留 full-suite overall gate，直到后续步骤完成后再重新收敛这些缺口。不得仅凭“全量不绿”推进错误的回退，也不得无证据地把真实当前步骤问题标成 future gap。
+- **Source**：`2026-08-30` / `20260828-001` / `AD-023`
+
+### L-036: 延期测试断言必须与运行时生命周期语义分离记录
+
+- **场景**：initial hello deadline 已按协议返回 timeout，但 analyzer 的 termination fence 仍需等待子进程真正退出；旧测试立即断言 `runningIntent === null`，因此暴露的是观察时序差异，而不是对外超时语义或资源隔离失效。
+- **结论**：测试对内部清理状态的即时观察不能替代运行时生命周期保证。若已确认影响较小，可以延期对齐该断言，但必须保留 fail-closed timeout、termination fence 和 stale-result 隔离语义，并记录 finding、现象、已保留的运行时保证及重新打开条件。
+- **触发信号**：对外 timeout settlement 在 deadline 内发生，旧 worker 仍受 termination fence 管理，没有发现泄漏、迟到 batch/complete 或 current-step regression，唯一失败是子进程退出证据到达前的内部状态即时断言。
+- **应对动作**：不要为了满足测试时序而削弱或提前释放生命周期状态；保留 focused/full regression 的失败分类，关联 `RI-4.5-004-016` 与 `DEFER-003`，并在真实泄漏、merge gate 要求、生命周期重构或用户重新打开时重新评估。
+- **Source**：`2026-08-30` / `20260828-001` / `DEFER-003`
+
+### L-037: 同一任务跨 AI/宿主交接必须以 live CURRENT_TASK 为准
+
+- **场景**：同一 `20260828-001` 由不同 AI 或宿主接续实施；如果新接手者只依赖自己的对话上下文、`git status` 或全量测试结果，可能重复创建任务、把后续步骤缺口误判为当前回归，或把已提交的 workflow 审查文件重复纳入当前 diff。
+- **结论**：跨 AI/宿主交接时，`CURRENT_TASK.md` 的任务 ID、当前步骤、当前 handoff、`Current diff review target`、执行记录和问题队列是唯一 live task source of truth。新接手者必须沿已有任务继续，不得凭局部记忆新建任务或提前进入 delivery/归档；同时要区分已提交的 workflow 文件、当前任务变更和任务外 dirty/untracked owner。
+- **触发信号**：仓库已有 active `CURRENT_TASK.md`；任务 ID 与新请求仍相同；workflow skill 文件已经提交或被明确排除；全量失败同时包含当前步骤与后续步骤的不同调用形状。
+- **应对动作**：行动前读取 live task 和其要求的治理文档，核对 `git log`、`git status`、精确 diff target 与最近 handoff；从声明的步骤继续，只按 required-now 门禁判定当前步骤，并把 full-suite 分类保留在任务记录中。发现 ownership 或状态冲突时暂停并上浮确认，不以新 AI 的局部观察覆盖既有证据。
+- **Source**：`2026-08-30` / `20260828-001` / cross-host workflow handoff
+
 ## 部署与运行时
 
 - 场景：

@@ -386,6 +386,22 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：在 Rust 实施阶段直接修改 Node 以追平当前实现（拒绝——越过模块实施顺序并扩大当前 scope）；让 Node 与 Rust 各自保留未协调的接口（拒绝——会把冲突推迟到集成阶段且不可审计）。
 - 验证方式：当前任务保持 Node consumer 未启用，Rust target startup/process/wire 边界已通过 target `56/56`、native `214/214`、`review-diff`、`review-implementation`、`verify-contracts` 和 `full-qa`；工作树未出现 Node/Android/IPC/DB diff。
 
+### AD-023: 4.5 按当前步骤门禁推进，不让后续步骤缺口阻塞当前步骤
+
+- 状态：accepted
+- 分类：治理 / 分阶段回归门禁（user-confirmed）
+- 背景：Node 4.5 迁移采用分步骤实施；全量 collector 测试会同时触及尚未迁移的旧 `sourceSpec/replay`、legacy batch/complete、importer/coordinator 接线等后续步骤路径。若把这些预期缺口直接当作当前步骤回归，会错误阻塞已独立验证通过的 startup、hello 或 importer 步骤。
+- 决策：每个步骤只以该步骤的 required-now focused contract、实现审查和回归证据判定 PASS。能够由证据确认属于步骤 3～8 后续实现的失败，必须记录为 `future-step-expected-gap`，不能阻塞当前步骤推进；全量测试结果、失败分类和实际缺口仍必须保留，并继续作为整体任务的 merge/最终交付门禁，直到指定后续步骤完成。
+- 原因：保持模块化迁移顺序和可审计的增量交付，避免未到来的实现被提前要求，同时不通过隐藏全量失败来制造“全绿”假象。
+- 约束：
+  - AI 不得仅因测试名称或主观判断把当前步骤失败标为 future gap；必须有调用形状、允许范围、步骤计划或复现证据支持分类。
+  - 当前步骤自身的契约违规、未知失败、真实回归、挂起/泄漏或范围越界仍必须阻塞该步骤，不能借本条绕过。
+  - `future-step-expected-gap` 不等于已解决，也不等于产品稳定或 release 证据；必须在对应步骤重新验证并收口。
+  - 不得为追求当前步骤局部通过而静默修改后续模块、共享契约、产品入口或测试门禁定义。
+- 影响范围：`CURRENT_TASK.md` 的步骤判定、Node 4.5 focused/full regression 分类、后续 review/closeout 记录；不改变 Rust/Node wire、产品 DB、IPC、Android 或 release 契约。
+- 替代方案：以全量 suite 必须立即全绿作为每一步的唯一门禁（拒绝——会把未实施步骤误判为当前回归）；忽略全量失败只看 focused suite（拒绝——会丢失整体迁移风险）。
+- 验证方式：步骤 2、3、4、5、6 均在保留全量失败分类的前提下，以各自 focused evidence 判定通过；步骤 6 的 importer `10/10`、target focused `42/42` 通过，collector 全量 `64/91` 的 26 项后续缺口继续保留，未被写成稳定或最终交付证据。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径
@@ -490,6 +506,21 @@ local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard
 - 影响范围：Rust source discovery、target source bridge、后续 Node source consumer 设计和 sessions_root 安全验收；当前不改变已通过的 target process regression。
 - 触发复议条件：source owner 提供 discovery pre-I/O canonicalization 修复方案，或 Rust/Node 联合接口评审确认该边界必须进入下一版本任务。
 - 验证方式：当前状态记录在 `CURRENT_TASK.md`、`STATUS.md` 和审查队列中为 deferred；target `56/56` 与 native `214/214` 通过，但不将其作为 candidate symlink pre-I/O 已覆盖的证据。
+
+### DEFER-003: `RI-4.5-004-016` 初始 hello deadline 断言对齐暂缓
+
+- 状态：deferred
+- 分类：Node collector 生命周期 / 测试断言（user-confirmed）
+- 背景：初始 hello deadline 场景中，运行时已经在 deadline 内对外结算 timeout，但 termination fence 仍等待 child 的退出证据；旧测试在 timeout 返回后立即断言 `runningIntent === null`，因此与当前异步收口顺序不一致。
+- 当前结论：暂不修改运行时以迎合该即时断言。保留 fail-closed timeout、generation termination fence 和后续退出证据收口语义，把该项作为已知 deferred 测试断言对齐问题记录；当前未发现请求继续发布结果、旧 generation 污染新请求或进程挂起的实际业务影响。
+- 暂缓原因：用户明确不采用测试驱动式生命周期改动；在当前验证范围内该问题表现为测试观察时点与异步 termination fence 的差异，影响较小，暂不值得改变已验证的失败收口顺序。
+- 约束：
+  - AI 不得把该项标记为已解决，也不得为让 `runningIntent` 提前清空而绕过 child 退出证据、termination fence 或 generation 隔离。
+  - 不得把该测试失败写成当前步骤的功能性 regression；全量失败仍须保留并可定位到 `RI-4.5-004-016`。
+  - 若出现真实请求/进程泄漏、后续 merge gate 要求、生命周期实现重构或用户重新打开该项，必须重新进行 focused review、范围确认和回归验证。
+- 影响范围：`src/services/codexRolloutCollector` 的 Node process/coordinator 生命周期测试与任务回归分类；不改变 Rust target、公共 wire、产品 DB、IPC、Android 或 release 语义。
+- 替代方案：在 timeout 返回前强制等待 child 退出，或提前释放 `runningIntent`（暂不采用——前者会扩大请求结算延迟，后者会削弱 termination fence 的 fail-closed 保护）。
+- 验证方式：步骤 4 lifecycle focused selection `23/23` 通过；collector 全量最新 `64/91`，仅保留该 1 项 deferred 断言失败及 26 项后续步骤预期缺口，无取消/挂起。
 
 ## 🔁 已演进 / 已替代
 

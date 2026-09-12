@@ -72,7 +72,13 @@ function normalizeTargetPayload(payload) {
     // or source `revision` is not a 4.5 Node business field. Normalize it at
     // the hash/storage boundary while leaving parser provenance's distinct
     // `wire_source_revision` untouched.
-    return stripGenericRevision(payload);
+    const normalized = stripGenericRevision(payload);
+    // This payload belongs to Rust, not the Node history schema. It must
+    // round-trip unchanged even if its private state uses a name like revision.
+    if (isObject(payload.reducer_state) && hasOwn(payload.reducer_state, 'payload')) {
+        normalized.reducer_state.payload = clone(payload.reducer_state.payload);
+    }
+    return normalized;
 }
 
 // Receipt content must be independent of object insertion order. Node stores
@@ -406,6 +412,37 @@ function normalizeTargetBatch(message) {
         progress: targetBatchProgress(payload),
         projection_coverage: projectionCoverageOf(payload.projection)
     };
+}
+
+function verifiedStagedBatch(staged, receipt, identity, scope) {
+    const key = deliveryKey(identity);
+    for (const record of [staged, receipt]) {
+        if (!record || record.persisted !== true || record.delivery_key !== key
+            || record.job_id !== identity.job_id
+            || record.segment_id !== identity.segment_id
+            || record.batch_id !== identity.batch_id
+            || !record.request_ids?.includes(identity.request_id)
+            || !sameScope(normalizeScope(record.scope), scope)) {
+            throw batchConflict('durable receipt and staging identity do not match the accepted delivery');
+        }
+    }
+    const batch = normalizeTargetBatch({
+        protocol_version: 1,
+        message_type: 'batch',
+        request_id: identity.request_id,
+        job_id: identity.job_id,
+        segment_id: identity.segment_id,
+        batch_id: identity.batch_id,
+        payload: staged.payload
+    });
+    if (!sameScope(batch.scope, scope)
+        || batch.content_hash !== receipt.content_hash
+        || batch.content_hash !== staged.content_hash
+        || !sameJson(receipt.source_range, batch.payload.source_range)
+        || receipt.completeness !== batch.payload.completeness) {
+        throw batchConflict('durable receipt does not match its batch payload');
+    }
+    return batch;
 }
 
 function expectedValue(sources, ...keys) {
@@ -1277,6 +1314,41 @@ class MemoryAnalysisStore {
     async snapshot(scope) {
         return stateToJson(await this._state(normalizeScope(scope)));
     }
+
+    async getRecoveryDelivery({ job_id: jobId, conversation_id: conversationId } = {}) {
+        if (typeof jobId !== 'string' || !jobId.trim()
+            || typeof conversationId !== 'string' || !conversationId.trim()) {
+            throw batchConflict('recovery lookup requires job and conversation identity');
+        }
+        const candidates = [...this.states.values()].filter((state) => (
+            state.lastDelivery?.job_id === jobId
+            || [...state.receipts.values()].some((receipt) => receipt.job_id === jobId)
+            || [...state.staging.values()].some((staged) => staged.job_id === jobId)
+        ));
+        if (candidates.length === 0) return null;
+        if (candidates.length !== 1 || candidates[0].scope.conversationId !== conversationId) {
+            throw batchConflict('recovery job has ambiguous or mismatched source scope');
+        }
+        const state = candidates[0];
+        const last = state.lastDelivery;
+        if (state.retired || !last || last.job_id !== jobId) {
+            throw batchConflict('recovery job is not the latest durable delivery for its source');
+        }
+        const key = deliveryKey(last);
+        const receipt = state.receipts.get(key);
+        const staged = state.staging.get(key);
+        const batch = verifiedStagedBatch(staged, receipt, last, state.scope);
+        return {
+            ...clone(last),
+            scope: clone(state.scope),
+            content_hash: batch.content_hash,
+            scope_digest: contentHash({
+                scope: state.scope,
+                source_range: batch.payload.source_range ?? null,
+                next_cursor: batch.payload.next_cursor
+            })
+        };
+    }
 }
 
 class FileAnalysisStore extends MemoryAnalysisStore {
@@ -1297,7 +1369,7 @@ class FileAnalysisStore extends MemoryAnalysisStore {
         return this;
     }
 
-    async _loadAll() {
+    async _loadAll({ strict = false } = {}) {
         await fs.promises.mkdir(this.rootDir, { recursive: true });
         for (const name of await fs.promises.readdir(this.rootDir)) {
             if (!name.endsWith('.json')) continue;
@@ -1305,13 +1377,15 @@ class FileAnalysisStore extends MemoryAnalysisStore {
             let value;
             try {
                 value = JSON.parse((await fs.promises.readFile(filePath)).toString('utf8'));
-            } catch (_) {
+            } catch (error) {
+                if (strict) throw batchConflict('durable analysis evidence cannot be read', { file: name });
                 continue;
             }
             let fileScope;
             try {
                 fileScope = normalizeScope(value?.scope || value);
-            } catch (_) {
+            } catch (error) {
+                if (strict) throw batchConflict('durable analysis evidence has an invalid scope', { file: name });
                 continue;
             }
             const key = scopeKey(fileScope);
@@ -1328,6 +1402,9 @@ class FileAnalysisStore extends MemoryAnalysisStore {
                 value = JSON.parse((await fs.promises.readFile(this.pathFor(normalized))).toString('utf8'));
             } catch (error) {
                 if (error.code !== 'ENOENT') throw error;
+            }
+            if (value && !sameScope(normalizeScope(value.scope || value), normalized)) {
+                throw batchConflict('durable analysis scope does not match its requested source');
             }
             this.states.set(key, value ? stateFromJson(value, normalized) : emptyState(normalized));
         }
@@ -1407,6 +1484,12 @@ class FileAnalysisStore extends MemoryAnalysisStore {
         await this.mutationQueue.wait('all');
         await this._loadAll();
         return super.snapshot(scope);
+    }
+
+    async getRecoveryDelivery(identity) {
+        await this.mutationQueue.wait('all');
+        await this._loadAll({ strict: true });
+        return super.getRecoveryDelivery(identity);
     }
 }
 
@@ -1510,6 +1593,31 @@ class AnalysisBatchImporter {
                 scope: normalizedScope
             });
         }
+        // A self-consistent complete is not evidence that its range/state was
+        // delivered. Bind it to the durable payload of the last ACKed batch.
+        const snapshot = await this.store.snapshot(normalizedScope);
+        const staged = snapshot.staging?.find((entry) => (
+            entry.job_id === complete.job_id
+            && entry.segment_id === normalizedCheckpoint.projection_watermark.segment_id
+            && entry.batch_id === normalizedCheckpoint.projection_watermark.batch_id
+            && entry.persisted === true
+            && entry.request_ids?.includes(complete.request_id)
+        ));
+        if (!staged) {
+            throw importerError(
+                'ANALYSIS_COMPLETE_WITHOUT_BATCH',
+                'complete requires durable payload evidence from the current attempt'
+            );
+        }
+        const identity = {
+            request_id: complete.request_id,
+            job_id: staged.job_id,
+            segment_id: staged.segment_id,
+            batch_id: staged.batch_id
+        };
+        const receipt = snapshot.receipts?.find((entry) => entry.delivery_key === deliveryKey(identity));
+        const batch = verifiedStagedBatch(staged, receipt, identity, normalizedScope);
+        this._validateCheckpointForBatch(normalizedCheckpoint, batch);
         if (this.checkpointStore) {
             await this.checkpointStore.save(
                 {
@@ -1574,6 +1682,15 @@ class AnalysisBatchImporter {
                 'checkpoint cursor does not match batch next_cursor'
             );
         }
+        const provenance = batch.payload.parser_provenance;
+        if (['parser_backend', 'wire_source_revision', 'compatibility_profile'].some(
+            (field) => !sameJson(value.wire_profile[field], provenance[field])
+        )) {
+            throw importerError(
+                'ANALYSIS_CHECKPOINT_PROVENANCE_MISMATCH',
+                'checkpoint parser provenance does not match the accepted batch'
+            );
+        }
         if (value.projection_watermark.segment_id !== batch.identity.segment_id
             || value.projection_watermark.batch_id !== batch.identity.batch_id
             || value.projection_watermark.source_epoch !== batch.scope.sourceEpoch
@@ -1591,8 +1708,7 @@ class AnalysisBatchImporter {
                 'checkpoint reducer state does not match batch'
             );
         }
-        if (batch.payload.lineage_checkpoint !== undefined
-            && !sameJson(value.lineage_checkpoint, batch.payload.lineage_checkpoint)) {
+        if (!sameJson(value.lineage_checkpoint, batch.payload.lineage_checkpoint ?? null)) {
             throw importerError(
                 'ANALYSIS_CHECKPOINT_LINEAGE_MISMATCH',
                 'checkpoint lineage evidence does not match batch'

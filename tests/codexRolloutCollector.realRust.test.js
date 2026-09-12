@@ -160,3 +160,20 @@ test('real Rust target enforces a zero resource timeout and remains usable for t
     assert.equal(next.complete.status, 'partial');
     assert.equal(collector.processManager.generation, generation);
 });
+
+test('real Rust accepts consecutive new jobs for the same conversation and persisted source', async (t) => {
+    const { collector } = await createRustCollector(t);
+    const first = await collector.analyze(createAnalyzeRequest({
+        requestId: 'first-read-attempt', jobId: 'first-read-job', conversationId, mode: 'backfill'
+    }));
+    const anchor = await collector.checkpointStore.load(first.scope);
+    const second = await collector.analyze(createAnalyzeRequest({
+        requestId: 'next-read-attempt', jobId: 'next-read-job', conversationId, mode: 'backfill',
+        cursor: anchor.cursor, persistedAnchor: anchor
+    }));
+    assert.equal(second.complete.job_id, 'next-read-job');
+    assert.deepEqual(second.scope, first.scope);
+    assert.equal(second.state.items.length, first.state.items.length);
+    assert.equal(second.state.receipts.length, first.state.receipts.length + 1);
+    assert.equal((await collector.runStore.get('next-read-attempt')).status, 'completed');
+});

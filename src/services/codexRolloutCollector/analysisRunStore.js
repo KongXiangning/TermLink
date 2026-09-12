@@ -387,6 +387,8 @@ function assertBeginIdentity(current, input) {
         }
     }
     if (input.requestProvided) {
+        if (current.status === 'queued' && current.process_generation === 0
+            && input.requestId === current.request_id && input.attempt === current.attempt) return;
         assertRequestIdentityProgression(
             current,
             input.requestId,
@@ -528,7 +530,7 @@ class BaseAnalysisRunStore {
             source_epoch: input.sourceEpoch,
             request_id: input.requestId,
             mode: input.mode,
-            status: 'running',
+            status: run.status === 'queued' ? 'queued' : 'running',
             attempt: input.attempt,
             retry_budget: input.retryBudget,
             retry_count: input.retryCount,
@@ -552,6 +554,20 @@ class BaseAnalysisRunStore {
             deadline: run.deadline ?? null,
             cancel_requested_at: run.cancel_requested_at ?? null
         }, this.now);
+    }
+
+    async enqueue(run) {
+        const input = parseRunInput(run);
+        return this.mutations.run(runMutationKey(input.runId), async () => {
+            const existing = await this._readUnlocked(input.runId);
+            if (existing) {
+                assertBeginIdentity(existing, input);
+                return clone(existing);
+            }
+            const value = this._newRun({ ...run, status: 'queued' });
+            await this._write(value);
+            return clone(value);
+        });
     }
 
     async begin(run) {
@@ -718,6 +734,30 @@ class FileAnalysisRunStore extends BaseAnalysisRunStore {
             throw error;
         }
     }
+
+    async listRecoverable({ limit = 1000 } = {}) {
+        const records = [];
+        const directory = await fs.promises.opendir(this.rootDir);
+        let scanned = 0;
+        for await (const entry of directory) {
+            if (!entry.isFile() || !/^[a-f0-9]{64}\.json$/.test(entry.name)) continue;
+            // Stream old terminal records instead of loading the entire run
+            // history; only recoverable jobs consume the recovery capacity.
+            if (++scanned % 64 === 0) await new Promise((resolve) => setImmediate(resolve));
+            const raw = JSON.parse(await fs.promises.readFile(path.join(this.rootDir, entry.name), 'utf8'));
+            const record = normalizeRunRecord(raw, this.now);
+            if (entry.name !== `${runFileKey(record.run_id)}.json`) {
+                throw runError('ANALYSIS_RUN_SCOPE_MISMATCH', 'run file identity does not match its filename');
+            }
+            if (!['completed', 'failed'].includes(record.status)) {
+                if (records.length >= limit) {
+                    throw runError('ANALYSIS_RECOVERY_LIMIT', 'recoverable job limit exceeded');
+                }
+                records.push(record);
+            }
+        }
+        return records;
+    }
 }
 
 class MemoryAnalysisRunStore extends BaseAnalysisRunStore {
@@ -738,6 +778,21 @@ class MemoryAnalysisRunStore extends BaseAnalysisRunStore {
     _getUnlocked(runId) {
         const value = this.values.get(String(runId || '').trim());
         return value ? clone(normalizeRunRecord(value, this.now)) : null;
+    }
+
+    async listRecoverable({ limit = 1000 } = {}) {
+        await Promise.all([...this.mutations.tails.values()]);
+        const records = [];
+        let scanned = 0;
+        for (const record of this.values.values()) {
+            if (++scanned % 64 === 0) await new Promise((resolve) => setImmediate(resolve));
+            if (['completed', 'failed'].includes(record.status)) continue;
+            if (records.length >= limit) {
+                throw runError('ANALYSIS_RECOVERY_LIMIT', 'recoverable job limit exceeded');
+            }
+            records.push(clone(normalizeRunRecord(record, this.now)));
+        }
+        return records;
     }
 }
 

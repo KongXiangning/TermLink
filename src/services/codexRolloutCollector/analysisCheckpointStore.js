@@ -187,10 +187,10 @@ function checkpointProgress(checkpoint) {
     return [end, -start, lineEnd, ordinal, itemCount];
 }
 
-function compareCheckpointProgress(existing, incoming) {
+function compareCheckpointProgress(existing, incoming, fieldCount = 5) {
     const existingProgress = checkpointProgress(existing);
     const incomingProgress = checkpointProgress(incoming);
-    for (let index = 0; index < incomingProgress.length; index += 1) {
+    for (let index = 0; index < fieldCount; index += 1) {
         if (incomingProgress[index] !== existingProgress[index]) {
             return incomingProgress[index] > existingProgress[index] ? 1 : -1;
         }
@@ -201,20 +201,16 @@ function compareCheckpointProgress(existing, incoming) {
 function checkpointAdvances(existing, incoming) {
     const existingRank = CHECKPOINT_COMPLETENESS_RANK[existing?.completeness] ?? 0;
     const incomingRank = CHECKPOINT_COMPLETENESS_RANK[incoming?.completeness] ?? 0;
-    if (incomingRank !== existingRank) return incomingRank > existingRank;
-    return compareCheckpointProgress(existing, incoming) > 0;
-}
-
-function assertStoredCheckpointJobMatches(existing, incoming) {
-    if (!existing) return;
-    const existingJobId = normalizeString(existing.job_id);
-    const incomingJobId = normalizeString(incoming.job_id);
-    if (existingJobId && incomingJobId && existingJobId !== incomingJobId) {
-        throw checkpointError(
-            'ANALYSIS_CHECKPOINT_SCOPE_MISMATCH',
-            'checkpoint job_id conflicts with the stored source scope'
-        );
-    }
+    // Promotion can change reducer counts and omit optional line/ordinal
+    // metadata; only the physical source range establishes non-regression.
+    const progress = compareCheckpointProgress(existing, incoming,
+        incomingRank > existingRank ? 2 : 5);
+    // Each new read intent owns a new job. Stored job/request IDs describe
+    // provenance, not ownership of this conversation/source recovery slot.
+    // Promotion must not trade a newer safe position for an older one, and
+    // greater progress must not downgrade a canonical checkpoint.
+    return incomingRank >= existingRank && progress >= 0
+        && (incomingRank > existingRank || progress > 0);
 }
 
 function checkpointError(code, message) {
@@ -307,7 +303,6 @@ class FileCheckpointStore {
         const normalized = assertScopeMatches(scope, normalizedCheckpoint);
         return this.mutations.run(checkpointMutationKey(normalized), async () => {
             const existing = await this._loadUnlocked(normalized);
-            assertStoredCheckpointJobMatches(existing, normalizedCheckpoint.checkpoint);
             if (existing && !checkpointAdvances(existing, normalizedCheckpoint.checkpoint)) {
                 return existing;
             }
@@ -408,7 +403,6 @@ class MemoryCheckpointStore {
         return this.mutations.run(checkpointMutationKey(normalized), async () => {
             const key = scopeHash(normalized);
             const existing = this._loadUnlocked(normalized) || null;
-            assertStoredCheckpointJobMatches(existing, normalizedCheckpoint.checkpoint);
             if (existing && !checkpointAdvances(existing, normalizedCheckpoint.checkpoint)) {
                 return clone(existing);
             }

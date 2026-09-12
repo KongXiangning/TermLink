@@ -3461,6 +3461,143 @@ test('target complete binds its checkpoint watermark to the latest accepted deli
     }
 });
 
+test('complete checkpoint must match the durable ACKed batch evidence after restart', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-complete-evidence-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+    const cases = [
+        ['range', (message) => {
+            resizeTargetCheckpoint(message.checkpoint, 1000);
+            message.next_cursor = message.checkpoint.cursor;
+        }],
+        ['completeness', () => {}],
+        ['reducer', (message) => { message.checkpoint.reducer_state.payload = { forged: true }; }],
+        ['provenance', (message) => { message.checkpoint.wire_profile.wire_source_revision = 'other-wire'; }]
+    ];
+    for (const storage of ['memory', 'file']) {
+        for (const [name, tamper] of cases) {
+            await t.test(`${storage}: rejects mismatched ${name}`, async () => {
+                const dir = path.join(root, storage, name);
+                let store = storage === 'file'
+                    ? new FileAnalysisStore({ rootDir: path.join(dir, 'analysis') })
+                    : new MemoryAnalysisStore();
+                const checkpoints = storage === 'file'
+                    ? new FileCheckpointStore({ rootDir: path.join(dir, 'checkpoints') })
+                    : new MemoryCheckpointStore();
+                let importer = await new AnalysisBatchImporter({ store, checkpointStore: checkpoints }).init();
+                const batch = targetBatch({
+                    requestId: 'request-evidence',
+                    completeness: name === 'completeness' ? 'partial' : 'canonical'
+                });
+                const imported = await importer.importBatch(batch);
+                if (storage === 'file') {
+                    store = new FileAnalysisStore({ rootDir: path.join(dir, 'analysis') });
+                    importer = await new AnalysisBatchImporter({ store, checkpointStore: checkpoints }).init();
+                }
+                const before = await store.snapshot(imported.scope);
+                const forged = targetComplete({ requestId: batch.request_id });
+                tamper(forged);
+                await assert.rejects(() => importer.commitComplete(forged, {
+                    scope: imported.scope, acceptedDelivery: imported.delivery
+                }), (error) => error.code.startsWith('ANALYSIS_CHECKPOINT_'));
+                assert.equal(await checkpoints.load(imported.scope), null);
+                assert.deepEqual(await store.snapshot(imported.scope), before);
+                const valid = targetComplete({
+                    requestId: batch.request_id, completeness: batch.payload.completeness
+                });
+                await importer.commitComplete(valid, {
+                    scope: imported.scope, acceptedDelivery: imported.delivery
+                });
+                assert.equal((await checkpoints.load(imported.scope)).completeness, batch.payload.completeness);
+            });
+        }
+    }
+});
+
+test('recovery delivery comes from the latest verified durable batch, not request or file order', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-recovery-receipt-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+    for (const storage of ['memory', 'file']) {
+        let store = storage === 'file'
+            ? new FileAnalysisStore({ rootDir: path.join(root, storage) })
+            : new MemoryAnalysisStore();
+        await store.init();
+        const identity = { job_id: 'job-1', conversation_id: 'conversation-1' };
+        assert.equal(await store.getRecoveryDelivery(identity), null);
+        await store.applyBatch(targetBatch());
+        const latest = targetBatch({ segmentId: 'opaque-segment', batchId: 'opaque-batch' });
+        await store.applyBatch(latest);
+        if (storage === 'file') store = await new FileAnalysisStore({ rootDir: path.join(root, storage) }).init();
+        const recovered = await store.getRecoveryDelivery(identity);
+        assert.equal(recovered.segment_id, 'opaque-segment');
+        assert.equal(recovered.batch_id, 'opaque-batch');
+        assert.equal(recovered.request_id, latest.request_id);
+        assert.ok(recovered.scope_digest);
+        await assert.rejects(() => store.getRecoveryDelivery({ ...identity, conversation_id: 'wrong' }));
+        await store.applyBatch(targetBatch({ jobId: 'newer-job' }));
+        await assert.rejects(() => store.getRecoveryDelivery(identity),
+            (error) => error.code === 'ANALYSIS_BATCH_SCOPE_CONFLICT');
+    }
+});
+
+test('file recovery fails closed on unreadable or corrupt durable analysis evidence', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-corrupt-recovery-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+    const identity = { job_id: 'job-1', conversation_id: 'conversation-1' };
+    for (const corruption of [
+        'invalid-json', 'invalid-scope', 'payload-conflict', 'receipt-identity',
+        'staging-identity', 'receipt-scope', 'staging-scope', 'receipt-hash', 'receipt-not-persisted'
+    ]) {
+        const directory = path.join(root, corruption);
+        const store = await new FileAnalysisStore({ rootDir: directory }).init();
+        const batch = targetBatch();
+        await store.applyBatch(batch);
+        const file = store.pathFor(batch.payload);
+        const persisted = JSON.parse(await fs.promises.readFile(file, 'utf8'));
+        if (corruption === 'invalid-scope') persisted.scope = {};
+        if (corruption === 'payload-conflict') persisted.staging[0].payload.progress.records_seen += 1;
+        if (corruption === 'receipt-identity') persisted.receipts[0].segment_id = 'forged-segment';
+        if (corruption === 'staging-identity') persisted.staging[0].segment_id = 'forged-segment';
+        if (corruption === 'receipt-scope') persisted.receipts[0].scope.conversation_id = 'wrong';
+        if (corruption === 'staging-scope') persisted.staging[0].scope.conversation_id = 'wrong';
+        if (corruption === 'receipt-hash') persisted.receipts[0].content_hash = 'forged-hash';
+        if (corruption === 'receipt-not-persisted') persisted.receipts[0].persisted = false;
+        await fs.promises.writeFile(file, corruption === 'invalid-json' ? '{' : JSON.stringify(persisted));
+        const reopened = await new FileAnalysisStore({ rootDir: directory }).init();
+        await assert.rejects(() => reopened.getRecoveryDelivery(identity),
+            (error) => error.code === 'ANALYSIS_BATCH_SCOPE_CONFLICT');
+        const checkpoints = new MemoryCheckpointStore();
+        const importer = new AnalysisBatchImporter({ store: reopened, checkpointStore: checkpoints });
+        await assert.rejects(() => importer.commitComplete(targetComplete({ requestId: batch.request_id }), {
+            scope: batch.payload
+        }));
+        assert.equal(await checkpoints.load(batch.payload), null);
+    }
+});
+
+test('opaque Rust reducer payload round-trips unchanged through staging and complete', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-opaque-reducer-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+    for (const storage of ['memory', 'file']) {
+        let store = storage === 'file'
+            ? new FileAnalysisStore({ rootDir: root }) : new MemoryAnalysisStore();
+        const checkpoints = new MemoryCheckpointStore();
+        let importer = await new AnalysisBatchImporter({ store, checkpointStore: checkpoints }).init();
+        const batch = targetBatch();
+        const opaque = { revision: 7, private_state: { replay: true, revision: 3 } };
+        batch.payload.reducer_state.payload = opaque;
+        const imported = await importer.importBatch(batch);
+        if (storage === 'file') {
+            store = new FileAnalysisStore({ rootDir: root });
+            importer = await new AnalysisBatchImporter({ store, checkpointStore: checkpoints }).init();
+        }
+        const complete = targetComplete({ requestId: batch.request_id });
+        complete.checkpoint.reducer_state.payload = structuredClone(opaque);
+        await importer.commitComplete(complete, { scope: imported.scope, acceptedDelivery: imported.delivery });
+        assert.deepEqual((await checkpoints.load(imported.scope)).reducer_state.payload, opaque);
+        assert.deepEqual((await store.snapshot(imported.scope)).staging[0].payload.reducer_state.payload, opaque);
+    }
+});
+
 test('target batch importer excludes nested generic revisions from semantic and durable payloads', async (t) => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-target-revision-boundary-'));
     t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
@@ -4412,6 +4549,318 @@ test('complete cannot commit unless the same request imported a batch', async ()
     assert.equal(state.canonical, true);
 });
 
+test('collector binds the first batch to the requested conversation before staging', async (t) => {
+    const makeManager = (batchConversationId) => ({
+        requestTimeoutMs: 1000,
+        generation: 1,
+        requests: [],
+        async start() {},
+        async request(request, { onBatch }) {
+            this.requests.push(request);
+            await onBatch(targetBatch({
+                requestId: request.request_id,
+                jobId: request.job_id,
+                conversationId: batchConversationId,
+                sourceId: 'first-batch-rollout',
+                sourceEpoch: 'first-batch-epoch'
+            }));
+            return { status: 'completed', completeness: 'canonical' };
+        },
+        waitForIdle() { return Promise.resolve(); },
+        async stop() {}
+    });
+
+    const makeCollector = async (batchConversationId, importCalls) => {
+        const store = new MemoryAnalysisStore();
+        const realImporter = await new AnalysisBatchImporter({ store }).init();
+        const importer = {
+            init: async () => realImporter,
+            importBatch: async (...args) => {
+                importCalls.count += 1;
+                return realImporter.importBatch(...args);
+            },
+            commitComplete: (...args) => realImporter.commitComplete(...args)
+        };
+        const manager = makeManager(batchConversationId);
+        const collector = new CodexRolloutCollector({
+            processManager: manager,
+            importer,
+            store,
+            checkpointStore: new MemoryCheckpointStore(),
+            runStore: new MemoryAnalysisRunStore(),
+            processRestartRetries: 0
+        });
+        return { collector, manager, store };
+    };
+
+    const wrongCalls = { count: 0 };
+    const wrong = await makeCollector('conversation-B', wrongCalls);
+    t.after(() => wrong.collector.stop());
+    await assert.rejects(
+        wrong.collector.analyze(createAnalyzeRequest({
+            requestId: 'first-wrong-request',
+            jobId: 'first-wrong-job',
+            conversationId: 'conversation-A',
+            mode: 'preview'
+        })),
+        (error) => error.code === 'ANALYSIS_BATCH_SCOPE_CONFLICT'
+            && error.details.expected_conversation_id === 'conversation-A'
+    );
+    assert.equal(wrongCalls.count, 0);
+    assert.equal(wrong.store.states.size, 0, 'wrong-conversation batch must not enter staging');
+
+    const correctCalls = { count: 0 };
+    const correct = await makeCollector('conversation-A', correctCalls);
+    t.after(() => correct.collector.stop());
+    const result = await correct.collector.analyze(createAnalyzeRequest({
+        requestId: 'first-correct-request',
+        jobId: 'first-correct-job',
+        conversationId: 'conversation-A',
+        mode: 'preview'
+    }));
+    assert.equal(correctCalls.count, 1);
+    assert.equal(result.scope.conversationId, 'conversation-A');
+    assert.equal(result.state.receipts.length, 1);
+});
+
+test('collector retries the failed later batch and does not reuse the prior durable batch identity', async (t) => {
+    const store = new MemoryAnalysisStore();
+    const checkpoints = new MemoryCheckpointStore();
+    const runs = new MemoryAnalysisRunStore();
+    const realImporter = await new AnalysisBatchImporter({ store, checkpointStore: checkpoints }).init();
+    let failSecondBatch = true;
+    const importerRecovery = [];
+    const importer = {
+        init: async () => realImporter,
+        importBatch: async (batch, options) => {
+            importerRecovery.push({
+                batchId: batch.batch_id,
+                recovery: options.recoveryDelivery ? { ...options.recoveryDelivery } : null
+            });
+            if (batch.batch_id === 'batch-B2' && failSecondBatch) {
+                failSecondBatch = false;
+                const error = new Error('synthetic staging unavailable');
+                error.code = 'STAGING_UNAVAILABLE';
+                throw error;
+            }
+            return realImporter.importBatch(batch, options);
+        },
+        commitComplete: (...args) => realImporter.commitComplete(...args)
+    };
+    const requests = [];
+    const manager = {
+        requestTimeoutMs: 5000,
+        generation: 1,
+        async start() {},
+        async request(request, { onBatch }) {
+            requests.push({ ...request });
+            const makeBatch = (segmentId, batchId) => targetBatch({
+                requestId: request.request_id,
+                jobId: request.job_id,
+                segmentId,
+                batchId,
+                conversationId: 'multi-batch-conversation',
+                sourceId: 'multi-batch-rollout',
+                sourceEpoch: 'multi-batch-epoch'
+            });
+            const first = makeBatch('segment-B1', 'batch-B1');
+            const second = makeBatch('segment-B2', 'batch-B2');
+            try {
+                if (requests.length === 1) {
+                    await onBatch(first);
+                    await onBatch(second);
+                } else {
+                    await onBatch(second);
+                    await onBatch(makeBatch('segment-B3', 'batch-B3'));
+                }
+            } catch (error) {
+                if (requests.length === 1 && error.code === 'STAGING_UNAVAILABLE') {
+                    const rejected = new Error('batch rejected');
+                    rejected.code = 'batch_rejected';
+                    rejected.retryable = true;
+                    rejected.details = {
+                        rejection_code: 'staging_unavailable',
+                        job_id: second.job_id,
+                        segment_id: second.segment_id,
+                        batch_id: second.batch_id
+                    };
+                    throw rejected;
+                }
+                throw error;
+            }
+            return { status: 'completed', completeness: 'canonical' };
+        },
+        waitForIdle() { return Promise.resolve(); },
+        async stop() {}
+    };
+    const collector = new CodexRolloutCollector({
+        processManager: manager,
+        importer,
+        store,
+        checkpointStore: checkpoints,
+        runStore: runs,
+        processRestartRetries: 1
+    });
+    t.after(() => collector.stop());
+
+    const result = await collector.analyze(createAnalyzeRequest({
+        requestId: 'multi-batch-request',
+        jobId: 'multi-batch-job',
+        conversationId: 'multi-batch-conversation',
+        mode: 'backfill'
+    }));
+    assert.equal(requests.length, 2);
+    assert.deepEqual(requests[1].recovery, {
+        segment_id: 'segment-B2',
+        batch_id: 'batch-B2'
+    });
+    assert.deepEqual(importerRecovery, [
+        { batchId: 'batch-B1', recovery: null },
+        { batchId: 'batch-B2', recovery: null },
+        { batchId: 'batch-B2', recovery: {
+            job_id: 'multi-batch-job',
+            segment_id: 'segment-B2',
+            batch_id: 'batch-B2',
+            request_id: 'multi-batch-request',
+            scope: {
+                conversationId: 'multi-batch-conversation',
+                sourceId: 'multi-batch-rollout',
+                sourceEpoch: 'multi-batch-epoch'
+            }
+        } },
+        { batchId: 'batch-B3', recovery: null }
+    ]);
+    const state = await store.snapshot({
+        conversationId: 'multi-batch-conversation',
+        sourceId: 'multi-batch-rollout',
+        sourceEpoch: 'multi-batch-epoch'
+    });
+    assert.equal(state.receipts.length, 3);
+    const run = await runs.get('multi-batch-request');
+    assert.equal(run.status, 'completed');
+    assert.equal(run.pending_recovery_delivery, null);
+    assert.equal(run.recovery_delivery.batch_id, 'batch-B3');
+    assert.equal(result.state.receipts.length, 3);
+});
+
+test('restart prefers an explicit pending later batch over an older durable receipt', async (t) => {
+    const store = new MemoryAnalysisStore();
+    const checkpoints = new MemoryCheckpointStore();
+    const runs = new MemoryAnalysisRunStore();
+    const realImporter = await new AnalysisBatchImporter({ store, checkpointStore: checkpoints }).init();
+    const scope = {
+        conversationId: 'restart-multi-conversation',
+        sourceId: 'restart-multi-rollout',
+        sourceEpoch: 'restart-multi-epoch'
+    };
+    const oldBatch = targetBatch({
+        requestId: 'old-attempt',
+        jobId: 'restart-multi-job',
+        segmentId: 'segment-B1',
+        batchId: 'batch-B1',
+        ...scope
+    });
+    await realImporter.importBatch(oldBatch);
+    const readIntent = createAnalyzeRequest({
+        requestId: 'old-attempt',
+        jobId: 'restart-multi-job',
+        conversationId: scope.conversationId,
+        mode: 'backfill'
+    });
+    await runs.enqueue({
+        run_id: 'restart-multi-run',
+        job_id: 'restart-multi-job',
+        request_id: 'old-attempt',
+        conversation_id: scope.conversationId,
+        source_id: scope.sourceId,
+        source_epoch: scope.sourceEpoch,
+        mode: 'backfill',
+        read_intent: readIntent,
+        recovery_schema_version: 1,
+        priority: 'background',
+        enqueue_sequence: 1,
+        deadline: Date.now() + 5000,
+        retry_budget: 2,
+        retry_count: 0,
+        attempt: 0,
+        process_generation: 0
+    });
+    const pending = {
+        job_id: 'restart-multi-job',
+        segment_id: 'segment-B2',
+        batch_id: 'batch-B2',
+        request_id: 'old-attempt'
+    };
+    await runs.update('restart-multi-run', {
+        status: 'retry_wait',
+        retry_count: 1,
+        recovery_delivery: pending,
+        pending_recovery_delivery: pending
+    });
+
+    const requests = [];
+    const manager = {
+        requestTimeoutMs: 5000,
+        generation: 1,
+        async start() {},
+        async request(request, { onBatch }) {
+            requests.push({ ...request });
+            assert.deepEqual(request.recovery, {
+                segment_id: 'segment-B2',
+                batch_id: 'batch-B2'
+            });
+            await onBatch(targetBatch({
+                requestId: request.request_id,
+                jobId: request.job_id,
+                segmentId: 'segment-B2',
+                batchId: 'batch-B2',
+                ...scope
+            }));
+            await onBatch(targetBatch({
+                requestId: request.request_id,
+                jobId: request.job_id,
+                segmentId: 'segment-B3',
+                batchId: 'batch-B3',
+                ...scope
+            }));
+            return { status: 'completed', completeness: 'canonical' };
+        },
+        waitForIdle() { return Promise.resolve(); },
+        async stop() {}
+    };
+    const collector = new CodexRolloutCollector({
+        processManager: manager,
+        importer: realImporter,
+        store,
+        checkpointStore: checkpoints,
+        runStore: runs,
+        processRestartRetries: 2
+    });
+    t.after(() => collector.stop());
+    await collector.init();
+    const waitDeadline = Date.now() + 1000;
+    while (true) {
+        const run = await runs.get('restart-multi-run');
+        if (run.status === 'completed') break;
+        if (run.status === 'failed' || run.status === 'cancelled') {
+            assert.fail(`restart recovery run ended in ${run.status}: ${run.last_error?.message || 'unknown error'}`);
+        }
+        if (Date.now() >= waitDeadline) {
+            assert.fail(`restart recovery run did not complete: ${run.status}`);
+        }
+        await waitMs(1);
+    }
+    assert.equal(requests.length, 1);
+    assert.notEqual(requests[0].request_id, 'old-attempt');
+    const state = await store.snapshot(scope);
+    assert.deepEqual(state.receipts.map((entry) => entry.batch_id), [
+        'batch-B1', 'batch-B2', 'batch-B3'
+    ]);
+    const run = await runs.get('restart-multi-run');
+    assert.equal(run.pending_recovery_delivery, null);
+    assert.equal(run.recovery_delivery.batch_id, 'batch-B3');
+});
+
 test('mutation evidence is complete before importer state can be touched', async () => {
     const importer = await new AnalysisBatchImporter({ store: new MemoryAnalysisStore() }).init();
     const missingMetadata = targetBatch({
@@ -4668,10 +5117,9 @@ test('target checkpoint stores validate scope, preserve opaque metadata, and rec
             sourceEpoch: scope.sourceEpoch,
             completeness: 'partial'
         }), 10);
-        await assert.rejects(
-            () => restartedStore.save({ ...scope, jobId: 'job-other' }, lowerOtherJob),
-            (error) => error.code === 'ANALYSIS_CHECKPOINT_SCOPE_MISMATCH'
-        );
+        const unchanged = await restartedStore.save({ ...scope, jobId: 'job-other' }, lowerOtherJob);
+        assert.equal(unchanged.job_id, 'job-a');
+        assert.equal(unchanged.source.source_range.end, 20);
 
         const canonical = resizeTargetCheckpoint(targetCheckpoint({
             jobId: 'job-a',
@@ -4693,11 +5141,9 @@ test('target checkpoint stores validate scope, preserve opaque metadata, and rec
             sourceEpoch: scope.sourceEpoch,
             completeness: 'canonical'
         }), 80);
-        await assert.rejects(
-            () => restartedStore.save({ ...scope, jobId: 'job-other' }, higherOtherJob),
-            (error) => error.code === 'ANALYSIS_CHECKPOINT_SCOPE_MISMATCH'
-        );
-        assert.equal((await restartedStore.load(scope)).job_id, 'job-a');
+        await restartedStore.save({ ...scope, jobId: 'job-other' }, higherOtherJob);
+        assert.equal((await restartedStore.load(scope)).job_id, 'job-other');
+        assert.equal((await restartedStore.load(scope)).source.source_range.end, 80);
 
         await assert.rejects(
             () => restartedStore.save({ ...scope, sourceId: 'other.jsonl' }, canonical),
