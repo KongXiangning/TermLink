@@ -1019,6 +1019,70 @@ test('target process manager rejects direct analyze sends until the current hell
     );
 });
 
+test('target process manager clears synchronous spawn failures before retrying startup', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-sync-spawn-retry-'));
+    const codexHome = path.join(root, 'codex-home');
+    await fs.promises.mkdir(codexHome);
+    let manager = null;
+    let spawnCalls = 0;
+    let retryChild = null;
+    t.after(async () => {
+        await manager?.stop();
+        await fs.promises.rm(root, { recursive: true, force: true });
+    });
+    manager = new AnalyzerProcessManager({
+        analyzerPath: process.execPath,
+        cwd: root,
+        env: { CODEX_HOME: codexHome },
+        helloTimeoutMs: 1000,
+        requestTimeoutMs: 1000,
+        spawnImpl: () => {
+            spawnCalls += 1;
+            if (spawnCalls === 1) throw new Error('synthetic synchronous spawn failure');
+            retryChild = createSyntheticAnalyzerChild({ exitOnKill: true });
+            setImmediate(() => retryChild.emit('spawn'));
+            return retryChild;
+        }
+    });
+
+    await assert.rejects(
+        manager.start(),
+        (error) => error instanceof Error
+            && error.message === 'synthetic synchronous spawn failure'
+    );
+    assert.equal(manager.child, null);
+    assert.equal(manager.startPromise, null);
+
+    await manager.stop();
+    await manager.start();
+    assert.equal(spawnCalls, 2);
+    assert.equal(manager.child, retryChild);
+    assert.equal(manager.readyGeneration, manager.generation);
+
+    await manager.stop();
+    assert.equal(manager.child, null);
+});
+
+test('target process manager clears start promise when default spawn throws synchronously', async (t) => {
+    const manager = new AnalyzerProcessManager({ analyzerPath: 123 });
+    t.after(async () => manager.stop());
+
+    await assert.rejects(
+        manager.start(),
+        (error) => error?.code === 'ERR_INVALID_ARG_TYPE'
+    );
+    assert.equal(manager.child, null);
+    assert.equal(manager.startPromise, null);
+
+    await manager.stop();
+    await assert.rejects(
+        manager.start(),
+        (error) => error?.code === 'ERR_INVALID_ARG_TYPE'
+    );
+    assert.equal(manager.child, null);
+    assert.equal(manager.startPromise, null);
+});
+
 for (const [helloMode, expectedCode] of [
     ['mismatch_request', 'ANALYZER_HELLO_REQUEST_MISMATCH'],
     ['wrong_role', 'ANALYZER_HELLO_ROLE_INVALID'],

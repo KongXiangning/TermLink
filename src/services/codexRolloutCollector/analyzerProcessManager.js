@@ -361,7 +361,8 @@ class AnalyzerProcessManager extends EventEmitter {
         this.generation = generation;
         this.readyGeneration = null;
         this.stdoutBuffer = '';
-        this.startPromise = new Promise((resolve, reject) => {
+        let synchronousSpawnFailure = false;
+        const startPromise = new Promise((resolve, reject) => {
             let settled = false;
             let child;
             try {
@@ -372,7 +373,7 @@ class AnalyzerProcessManager extends EventEmitter {
                     windowsHide: true
                 });
             } catch (error) {
-                this.startPromise = null;
+                synchronousSpawnFailure = true;
                 reject(error);
                 return;
             }
@@ -483,7 +484,8 @@ class AnalyzerProcessManager extends EventEmitter {
                 if (error) rejectOnce(error);
             });
         });
-        return this._awaitStartPromise(this.startPromise, requestedTimeoutMs);
+        this.startPromise = synchronousSpawnFailure ? null : startPromise;
+        return this._awaitStartPromise(startPromise, requestedTimeoutMs);
     }
 
     async _awaitStartPromise(startPromise, timeoutMs) {
