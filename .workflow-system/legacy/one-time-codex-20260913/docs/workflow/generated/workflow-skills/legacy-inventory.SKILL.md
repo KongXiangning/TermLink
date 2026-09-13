@@ -1,0 +1,125 @@
+---
+name: legacy-inventory
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Inventory an existing project before adopting workflow governance.
+purpose: |
+  对老项目做事实盘点、现状固化和风险标注，为 adopt-existing-project 提供可验证输入。
+stage: 初始化
+trigger: |
+  当老项目已有代码、文档、数据库或部署线索，但尚未接入 workflow-system 治理时。
+inputs:
+  - existing_repository
+  - business_context
+  - user_request
+reads:
+  - .workflow-system/WORKFLOW_PROTOCOL.md
+  - .workflow-system/FILE_SCHEMAS.md
+  - templates/docs/
+  - README.md
+  - docs/
+  - package.json
+  - src
+  - android
+  - public
+  - tests
+  - scripts
+writes:
+  - docs/adoption/architecture-inventory.md
+  - docs/adoption/database-inventory.md
+  - docs/adoption/API_INVENTORY.md
+  - docs/adoption/RISK_REGISTER.md
+  - docs/adoption/ADOPTION_REPORT.md
+  - docs/workflow/ROADMAP.md
+forbidden_writes:
+  - src
+  - android
+  - public
+  - tests
+  - scripts
+  - docs/workflow/CURRENT_TASK.md
+  - docs/workflow/CONTRACTS.md
+must_check:
+  - 哪些事实能被代码、配置、数据库或文档直接证明
+  - 哪些 API、数据库字段、模块和行为已经被依赖
+  - 哪些区域属于 stable、fragile、unknown 或 deprecated
+  - 哪些历史决策只能 inferred，哪些原因仍是 unknown
+stop_conditions:
+  - 核心入口、运行方式或测试方式无法从仓库事实中确认
+  - 数据库、部署或 API 事实来源互相冲突且无法判定真值
+  - 缺少关键业务背景导致无法区分稳定事实与偶然实现
+output:
+  - docs/adoption/architecture-inventory.md 当前事实版
+  - docs/adoption/database-inventory.md 当前事实版
+  - docs/adoption/API_INVENTORY.md
+  - docs/adoption/RISK_REGISTER.md
+  - docs/adoption/ADOPTION_REPORT.md
+  - docs/workflow/ROADMAP.md 治理缺口 / 迁移窗口草案
+handoff:
+  success: adopt-existing-project
+  failure: ask-user
+decision_policy:
+  mechanical: 可以扫描仓库、整理目录、命令、依赖、API 和 schema 事实。
+  taste: 不要美化命名、结构或文档语气；需要调整时标为后续重构候选。
+  user_challenge: 不得重新设计老项目，不得把 inferred 或 unknown 写成 confirmed。
+verification:
+  - 每个关键事实都有代码、配置、文档或数据库证据
+  - stable / fragile / unknown / deprecated 分类清晰
+  - 输出足以让 adopt-existing-project 固化首版治理基线
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Write
+  - Edit
+  - AskUserQuestion
+notes:
+  - 这是老项目盘点 skill，不改业务代码。
+  - 目标是固化现状，不是假装重新设计。
+  - 完成后下一步通常是 adopt-existing-project。
+  - "`reads` / `forbidden_writes` 中列出的代码目录来自项目 profile 的 source-directories
+    渲染结果；在 source-repo reference output 中会展开为当前仓库目录，不代表所有 target repo
+    共享同一套目录结构。"
+---
+
+# Skill: legacy-inventory
+
+## Purpose
+
+对老项目做事实盘点、现状固化和风险标注，为 adopt-existing-project 提供可验证输入。
+
+## Trigger
+
+当老项目已有代码、文档、数据库或部署线索，但尚未接入 workflow-system 治理时。
+
+## Execution Rules
+
+1. 系统扫描现有代码、文档、配置，以及仓库中可发现的测试、数据库迁移和部署线索；不要预设特定目录名，优先依据仓库事实发现入口和边界。`reads` 中渲染出的代码目录是项目 profile 的具体展开值，不是 workflow-system 的固定目录假设。
+2. 把每条结论标为 `confirmed`、`inferred` 或 `unknown`，并附证据来源。
+3. `docs/adoption/architecture-inventory.md` 只描述当前实际架构，不美化、不重写、不提出新架构作为事实。
+4. `docs/adoption/database-inventory.md` 只固化当前表结构、迁移状态、数据约束和高风险字段。
+5. `docs/adoption/API_INVENTORY.md` 记录真实 API、消费者、兼容性承诺和 unknown consumer。
+6. `docs/adoption/RISK_REGISTER.md` 按 stable / fragile / unknown / deprecated 标记模块、接口、数据和流程。
+7. `docs/adoption/ADOPTION_REPORT.md` 汇总证据、推断、冲突来源、待确认问题和建议固化项。
+8. `docs/workflow/ROADMAP.md` 只记录治理缺口、迁移计划和重构窗口草案，不把重构当作已批准任务。
+9. 不创建 `docs/workflow/CURRENT_TASK.md`，不修改业务代码，不把 inferred / unknown 写成 confirmed。
+
+## Hard Boundaries
+
+- 不修改项目代码目录下的业务或执行逻辑。
+- 不创建 `docs/workflow/CURRENT_TASK.md`。
+- 不修改 `docs/workflow/CONTRACTS.md`。
+- 不重新设计老项目。
+- 不把猜测、默认值或单次偶然现象写成项目事实。
+
+## Handoff
+
+- 成功：`adopt-existing-project`
+- 失败：`ask-user`
+
+## Reference Render Semantics
+
+- This generated file is a source-repo reference render produced from the current `.workflow-system/PROJECT_PROFILE.yaml`.
+- The concrete project values shown here reflect this repository's profile, not a universal target-project default.
+- Target projects render workflow skills from their own `.workflow-system/PROJECT_PROFILE.yaml` during install / sync.

@@ -1,0 +1,699 @@
+schema_version: 1
+kind: vnext-source-contract
+phase: Phase 2
+
+source_namespace:
+  root: templates/vnext
+  skill_templates: templates/vnext/skills
+  contract_file: .workflow-system/vnext/SOURCE_CONTRACT.yaml
+  installable: false
+  generated: false
+  host_sync: false
+
+entries:
+  - id: prepare-task
+    exposure: daily
+    template: templates/vnext/skills/prepare-task.SKILL.md.tmpl
+  - id: review-draft
+    exposure: daily
+    template: templates/vnext/skills/review-draft.SKILL.md.tmpl
+  - id: review-change
+    exposure: daily
+    template: templates/vnext/skills/review-change.SKILL.md.tmpl
+  - id: execute-step
+    exposure: daily
+    template: templates/vnext/skills/execute-step.SKILL.md.tmpl
+  - id: debug-task
+    exposure: daily
+    template: templates/vnext/skills/debug-task.SKILL.md.tmpl
+  - id: task-lifecycle
+    exposure: daily
+    template: templates/vnext/skills/task-lifecycle.SKILL.md.tmpl
+  - id: capture-work-item
+    exposure: daily
+    template: templates/vnext/skills/capture-work-item.SKILL.md.tmpl
+  - id: close-task
+    exposure: daily
+    template: templates/vnext/skills/close-task.SKILL.md.tmpl
+
+administrative_entries:
+  - id: bootstrap-project
+    exposure: admin
+    template: templates/vnext/skills/bootstrap-project.SKILL.md.tmpl
+
+expert_entries:
+  - id: validate-change
+    exposure: expert
+    template: templates/vnext/skills/validate-change.SKILL.md.tmpl
+  - id: git-commit
+    exposure: expert
+    template: templates/vnext/skills/git-commit.SKILL.md.tmpl
+
+capabilities:
+  - id: project-context-resolver
+    exposure: internal
+    trigger:
+      - every entry that needs canonical project truth
+    input_contract:
+      - target root identity
+      - intent and task identity
+      - scope, changed surfaces, claims, and risk triggers
+      - local Markdown/YAML sources, path/symbol queries, and heading/ID locators
+      - project profile documentation seeds and the existing project documentation center
+      - optional Contract/Decision implementation anchors from the current knowledge context
+    output_contract:
+      - relevant source locators
+      - authority, relevance, freshness, conflicts, and exclusions
+      - current/stale/unresolved anchor status and bounded live-search seeds
+      - risk-appropriate impact expansion across references, callers, imports, consumers, types, schemas, configuration, generated surfaces, and tests
+    stop_conditions:
+      - unsupported schema
+      - unresolved mandatory authority conflict
+      - unsafe locator or missing required context
+
+  - id: source-authority-policy
+    exposure: internal
+    trigger:
+      - a decision, fact, or evidence source may govern the intent
+    input_contract:
+      - candidate sources and their source revisions
+      - authority class and precedence
+    output_contract:
+      - authoritative source selection
+      - explicit conflict and unresolved-fact report
+    stop_conditions:
+      - authority cannot be established
+      - a lower-authority source would be required to override a higher one
+
+  - id: task-identity-guard
+    exposure: internal
+    trigger:
+      - a request may create, replan, or mutate a task
+    input_contract:
+      - task identity and active-owner tuple
+      - requested intent and caller authority
+    output_contract:
+      - verified task identity
+      - allowed owner transition or non-mutation result
+    stop_conditions:
+      - missing or ambiguous identity
+      - multiple active owners
+      - caller is not authorized for the requested task mutation
+      - a new identity collides with a canonical task artifact, previous task reconciliation is incomplete, draft steps lack strict metadata/first-step admission, or confirmation is not bound to current task identity, document identity, and exact draft revision
+
+  - id: scope-guard
+    exposure: internal
+    trigger:
+      - product or governance mutation is proposed
+    input_contract:
+      - canonical CURRENT_TASK Allowed Files, Conditional Files, and Forbidden Files buckets
+      - explicit changed paths or one verified diff target
+      - transformation kind, distinguishing localized from inherently-broad mutation
+      - conditional authorizations with exact target, evidence references, and authority
+      - separate Read / discovery context, which is allowed to be broader but is not write authority
+    output_contract:
+      - per-path mutation admission or blocker with Forbidden precedence and default-deny
+      - separate read/discovery matches that never become write permission
+      - exact admitted paths, excluded targets, and source revision
+      - bounded widening requirement; changed goal, scope, or acceptance routes to supersede/replan
+    stop_conditions:
+      - required scope bucket is missing, malformed, duplicated, or ambiguous
+      - target is outside admitted scope
+      - forbidden target is requested
+      - Conditional target lacks an exact authorization with evidence and authority
+      - a broad glob is used without an inherently-broad transformation
+      - the changed-path diff target is empty, duplicated, invalid, or not explicit
+      - read/discovery context is treated as write authority
+      - scope widening lacks authority or the goal, scope, or acceptance changed without supersede/replan
+
+  - id: decision-authority-gate
+    exposure: internal
+    trigger:
+      - implementation requires a non-mechanical choice
+    input_contract:
+      - decision candidate, constraints, and existing authority
+      - user-owned, contract-owned, and mechanical categories
+    output_contract:
+      - classified decision
+      - authorized choice or explicit user blocker
+    stop_conditions:
+      - user-owned choice is unresolved
+      - proposed choice conflicts with a confirmed Contract or Decision
+
+  - id: adaptive-depth-policy
+    exposure: internal
+    trigger:
+      - every Phase 1 entry invocation
+    input_contract:
+      - risk surface, uncertainty, changed surfaces, and evidence needs
+    output_contract:
+      - selected risk profile
+      - triggered conditional capabilities and skipped-capability reasons
+    stop_conditions:
+      - a mandatory gate would be skipped
+      - risk evidence is insufficient to select a safe depth
+
+  - id: draft-consistency-challenge
+    exposure: internal
+    trigger:
+      - review-draft evaluates a complete candidate draft against its verbatim request, authoritative sources, evidence plan, and step repairability
+    input_contract:
+      - verbatim request and exact source locators with authority, relevance, and freshness
+      - candidate acceptance, decided and unresolved choices, mutation scope, implementation steps, validation plan, and persistent-test proof claims
+      - relevant project facts needed to judge feasibility, excluding the draft author's rationale and prior conclusion
+      - transient semantic delta map and path-by-step interaction map
+    output_contract:
+      - 'one ephemeral verdict: no-material-gap, repairable-gap, or user-decision-required'
+      - bounded discrepancies with request or source reference, draft reference, material impact, and correction owner
+      - explicit cross-step repairability gaps where planned integration or validation can expose a failure outside the current step scope
+      - no authority decision, scope expansion, Runtime proposal, finding-queue write, review receipt, or durable review state
+    stop_conditions:
+      - the verbatim request, source provenance, candidate draft, or relevant feasibility context is unavailable
+      - the challenge would need to invent a user-owned decision, broaden the task, or act as a public review entry
+
+  - id: propagation-evidence-validator
+    exposure: internal
+    trigger:
+      - shared API, DTO, event, schema, or generated surface is affected
+    input_contract:
+      - changed contract surface and known consumers
+      - compatibility and linked-regression claims
+    output_contract:
+      - propagation impact map
+      - claim-bound compatibility and regression evidence gaps
+    stop_conditions:
+      - impacted consumer or contract cannot be identified
+      - required propagation evidence is unavailable
+
+  - id: design-evidence-gate
+    exposure: internal
+    trigger:
+      - UI or visual acceptance is in scope
+    input_contract:
+      - confirmed design source, anchors, and acceptance claims
+    output_contract:
+      - design evidence requirements and verdict
+      - visual deviation or missing-evidence report
+    stop_conditions:
+      - no confirmed design authority exists
+      - visual acceptance cannot be verified
+
+  - id: release-evidence-gate
+    exposure: internal
+    trigger:
+      - deployment, migration, release, benchmark, or canary behavior is affected
+    input_contract:
+      - release claims, rollback plan, observation window, and health checks
+    output_contract:
+      - release evidence plan and rollback/observation verdict
+    stop_conditions:
+      - rollback or observation authority is missing
+      - release evidence is incomplete for the claimed outcome
+
+  - id: external-documentation-gate
+    exposure: internal
+    trigger:
+      - current third-party library, framework, SDK, API, CLI, or cloud behavior affects correctness
+    input_contract:
+      - affected dependency behavior and exact current documentation claim
+      - dependency/version context and source revision
+    output_contract:
+      - current authoritative documentation evidence
+      - applicability and unresolved documentation conflict
+    stop_conditions:
+      - required current documentation cannot be obtained
+      - documentation evidence does not support the implementation assumption
+
+  - id: resume-review-gate
+    exposure: internal
+    trigger:
+      - replan or recovery is requested against an existing task snapshot
+    input_contract:
+      - exact task identity, checkpoint, dirty attribution, and recovery package
+    output_contract:
+      - readiness decision and verified next intent
+    stop_conditions:
+      - snapshot identity or source revision mismatches
+      - recovery package is incomplete or ambiguous
+
+  - id: read-only-review-guard
+    exposure: internal
+    trigger:
+      - review-draft or review-change is invoked in any mode
+    input_contract:
+      - review request and declared side-effect policy
+    output_contract:
+      - read-only execution boundary
+      - governed mutation count and ephemeral-effects accounting
+    stop_conditions:
+      - a product, governance, queue, registry, install, or host write is requested
+
+  - id: diff-target-resolver
+    exposure: internal
+    trigger:
+      - review or execution needs a change target
+    input_contract:
+      - task base/checkpoint and current revision
+      - requested path, symbol, or logical diff target
+    output_contract:
+      - one verified logical diff target and comparable revisions
+    stop_conditions:
+      - target is missing, stale, ambiguous, or mismatched
+
+  - id: evidence-admission-policy
+    exposure: internal
+    trigger:
+      - a claim, evidence gap, or persistent-test decision is evaluated
+    input_contract:
+      - 'claim model: id, kind, owner_source, certainty, impact, and existing_evidence'
+      - 'invariant-admission/v1: classify invariants as bounded local/temporal mechanical or global/domain/permanent and preserve the authority, scope, and lifetime supported by the claim'
+      - 'invariant admission records why the chosen semantic strength is needed and who owns it; implementation convenience alone is not authority'
+      - 'bounded local mechanical invariants may be admitted without another user confirmation only when they are reversible, tied to a named operation, transition, or task boundary, and supported by accepted-task, confirmed-bug, or anchored-risk changed-behavior evidence'
+      - 'global/domain/permanent/schema invariants require confirmed owner_source contract or user authority, shared or critical impact, and existing evidence for an explicit Contract/Decision or user-owned design/contract decision'
+      - 'initial/default acceptance and current-task exclusion must not be upgraded into a global/permanent restriction; confirmed current acceptance may control bounded task behavior but does not rewrite future design/baseline semantics unless an explicit contract/design decision changes them'
+      - proposed minimum-sufficient evidence type and expected disposition
+      - 'evidence types may include static proof, existing regression, focused test, integration smoke, browser/session check, visual evidence, real-device evidence, external documentation, release health/canary, and explicit human acceptance'
+      - 'evidence-plan decision: whether new evidence is needed, minimum-sufficient type, existing-check reuse, temporary exploration, and failure route'
+      - 'prepare-task creates and persists a non-empty canonical CURRENT_TASK.runtime_state.claim_evidence plan with at least one acceptance claim; each claim has stable claim_id/claim_kind and each planned slot has slot_id, minimum_type, disposition, and evidence_refs'
+      - 'migrate-claim-evidence is a Runtime-compatibility-owned internal transition, not a public prepare-task semantic command; it remains reachable through the low-level Runtime API for legacy active + active tasks, installs only a non-empty acceptance-bearing plan, and preserves task identity, definition, scope, acceptance, implementation state, execution history, findings, review state, and lifecycle tuple'
+      - 'existing, reused, and newly-executed slots require evidence_refs; missing, deferred, and blocked slots are not completion evidence'
+      - 'execute-step may update only disposition and evidence_refs for an existing plan; it cannot add, remove, or redefine claims or evidence slots'
+      - 'legacy CURRENT_TASK documents remain readable but require prepare-task refinement/migration before task-complete or terminal close-task; aggregate command success cannot provide completion compatibility'
+      - 'exploratory probe budget: duration, tool/run count, permitted temporary artifact locations, and cleanup/audit rule'
+      - persistent-test policy, including default non-admission or user no-test deny
+      - 'persistent-test admission fields when a persistent test is proposed: owner, basis, proves, existing-evidence insufficiency, assertion boundary, and failure disposition'
+      - 'risk-analysis admission is anchored to an identified changed behavior, known failure model, and admitted task scope'
+      - 'when an evidence plan must survive a turn, session, delegation, pause, or interruption: typed proposal to an existing canonical task record'
+    output_contract:
+      - claim-bound minimum-sufficient evidence plan that separates validation from test creation
+      - 'durable claim-bound evidence completion state consumed by task-complete and close-task; aggregate command success or free-text notes cannot substitute for a slot disposition and evidence_refs'
+      - 'invariant admission preserves semantic strength: bounded local/temporal mechanical claims remain reversible, while global/domain/permanent claims carry explicit authority and future-design conflict trace'
+      - persistent-test not-admitted, admitted, deferred, or rejected decision separate from validation and existing-check reuse
+      - 'admitted persistent tests only with an explicit owner, one of acceptance, regression, critical-invariant, or critical-risk, a behavioral or contract boundary assertion, and an expected failure disposition'
+      - bounded exploratory-evidence record and cross-turn persistence status when triggered
+    stop_conditions:
+      - 'claim kind, owner_source, certainty, or impact is missing or outside its closed set'
+      - 'an invariant upgrades an initial/default behavior or current-task exclusion into a global, permanent, or schema-level restriction without the required explicit authority'
+      - 'a global/domain/permanent invariant lacks confirmed contract or user design authority, shared or critical impact, or explicit existing evidence'
+      - 'a bounded local mechanical invariant lacks a named operation, transition, or task boundary, reversibility, or changed-behavior evidence'
+      - 'current acceptance conflicts with a documented future design/baseline and the stronger restriction has no explicit contract/design decision'
+      - a proposed persistent test has no authorized owner or authority source
+      - evidence is insufficient or unrelated to the claim
+      - 'task-complete or close-task relies on aggregate command success, notes, or model summary instead of the durable claim-bound evidence slots'
+      - an exploratory probe lacks a bounded duration, tool/run count, permitted temporary artifact locations, or cleanup/audit rule
+      - 'a persistent test lacks an explicit owner, closed admission basis, concrete claim, existing-evidence insufficiency reason, behavioral or contract boundary assertion, or expected failure disposition'
+      - 'risk-analysis is used as a persistent-test owner without an identified changed behavior, known failure model, and admitted task scope'
+      - 'provisional or exploratory certainty is used to silently admit a persistent test instead of a temporary probe or explicit confirmed reclassification'
+      - a model-generated hypothetical, code change, coverage request, or incidental implementation detail is used as a persistent-test admission basis
+      - an evidence plan that must survive a turn, session, delegation, pause, or interruption lacks a typed proposal into an existing canonical task record
+      - user no-test policy conflicts with an authoritative Contract or Decision
+
+  - id: finding-admission
+    exposure: internal
+    trigger:
+      - review or repair proposes a finding for the current task
+    input_contract:
+      - evidence, owner route, scope, root-cause confidence, and fingerprint
+      - existing open/resolved findings and repair budget
+    output_contract:
+      - admitted, deferred, rejected, or duplicate finding disposition
+      - stable fingerprint and authorized route
+    stop_conditions:
+      - owner, scope, authority, evidence, root cause, or deduplication gate fails
+
+  - id: review-convergence-policy
+    exposure: internal
+    trigger:
+      - a repair is followed by review verification
+    input_contract:
+      - review cycle, repair-wave identities, finding fingerprints, attempt counters, and remaining budget
+      - the same logical diff target and the active step's checkpoint policy
+      - verification evidence and newly observed issues
+    output_contract:
+      - resolved, continue, debug, user, or blocked convergence verdict
+      - updated bounded repair route
+      - a clean verification receipt that can qualify the existing task-state advancement proposal
+    stop_conditions:
+      - per-fingerprint, repair-round, or new-finding-wave budget is exhausted
+      - the next route requires unknown root cause or user-owned authority
+      - required verification or checkpoint evidence is absent, mismatched, or not tied to the active step
+
+  - id: dangerous-operation-gate
+    exposure: internal
+    trigger:
+      - a command or product operation has a dangerous or destructive surface
+    input_contract:
+      - exact command/target, risk, scope, and rollback/recovery plan
+      - required confirmation and authority evidence
+    output_contract:
+      - authorized operation or explicit stop
+    stop_conditions:
+      - target or rollback is unclear
+      - required confirmation or authority evidence is absent
+
+  - id: knowledge-admission-policy
+    exposure: internal
+    trigger:
+      - a durable Contract, Decision, or Lesson candidate is proposed
+    input_contract:
+      - candidate kind, statement, provenance, applicability, authority, stability, and evidence
+      - semantic fingerprint and conflict set
+      - optional implementation anchors observed from existing task evidence
+    output_contract:
+      - admit, merge, supersede, defer, reject, or no-op disposition
+      - permitted uses and provenance-preserving reason
+      - optional anchors retained as navigation hints, never as completeness or mutation authority
+    stop_conditions:
+      - authority, stability, reuse, conflict, or deduplication requirements fail
+
+  - id: root-cause-loop
+    exposure: internal
+    trigger:
+      - a defect, regression, or unexpected behavior needs a bounded causal investigation
+    input_contract:
+      - reproducible symptom and affected target
+      - current task owner, admitted scope, and task evidence when the investigation is task-bound
+      - available evidence and owner context for an independent or new-bug investigation
+      - hypotheses, attempts, and investigation budget
+    output_contract:
+      - reproduced or unavailable result
+      - validated root-cause statement or unresolved hypothesis set
+      - authorized recovery route and remaining budget
+    stop_conditions:
+      - reproduction is unavailable after bounded attempts
+      - root cause remains unvalidated after the investigation budget
+      - proposed repair requires user, scope, or other-owner authority
+
+  - id: owner-route-resolver
+    exposure: internal
+    trigger:
+      - an observation, finding, lifecycle event, or work item may belong to different owners
+    input_contract:
+      - task identity and active-owner tuple when the route is task-bound
+      - evidence, scope, and candidate owner routes
+      - current lifecycle and authority state
+    output_contract:
+      - one canonical owner route
+      - route evidence and guard-aware next action
+      - explicit user or blocked result when no route is authorized
+    stop_conditions:
+      - owner cannot be established from authoritative evidence
+      - route would cross task, scope, or lifecycle ownership
+      - a guard-required transition is missing its evidence
+
+  - id: lifecycle-transition-guard
+    exposure: internal
+    trigger:
+      - a task pause, interruption, resume, supersede, or recovery transition is requested
+    input_contract:
+      - exact task identity and current workflow/lifecycle tuple
+      - requested transition, snapshot, checkpoint, and dirty attribution
+      - recovery strategy, rollback conditions, and authority evidence
+    output_contract:
+      - legal transition decision
+      - complete snapshot/checkpoint/recovery requirements
+      - normalized next lifecycle tuple or fail-closed result
+    stop_conditions:
+      - identity or current tuple is missing, stale, or ambiguous
+      - transition is illegal or recovery evidence is incomplete
+      - the request attempts hot migration of unsupported legacy state
+
+  - id: record-only-intake-guard
+    exposure: internal
+    trigger:
+      - a new work item is proposed while an active task exists
+    input_contract:
+      - relation to the active task and supporting evidence
+      - proposed inbox record and duplicate/scope checks
+      - owner route and record-only constraints
+    output_contract:
+      - unrelated, record-only admission decision
+      - at most one inbox record proposal
+      - explicit ask-user or blocked route for uncertainty or scope widening
+    stop_conditions:
+      - relation is uncertain or duplicate suspicion is unresolved
+      - item belongs to the active task or requires scope widening
+      - proposal would mutate task identity, lifecycle, catalog, or active state
+
+  - id: closure-eligibility-gate
+    exposure: internal
+    trigger:
+      - a task is proposed for preview, closure, delivery summary, or archive
+    input_contract:
+      - task identity, acceptance claims, validation evidence, and remaining risks
+      - release/rollback/observation evidence when applicable
+      - status, archive path, and explicit lesson candidates when supplied
+    output_contract:
+      - closure eligibility verdict
+      - complete delivery/closure summary inputs
+      - admitted Runtime proposals or a truthful blocker
+    stop_conditions:
+      - acceptance, validation, release, rollback, or observation evidence is incomplete
+      - unresolved blocker is being presented as completion
+      - identity, archive path, or remaining risk cannot be verified
+
+  - id: host-isolation-guard
+    exposure: internal
+    trigger:
+      - bootstrap or synchronization may touch a host guidance surface
+    input_contract:
+      - target host and paired guidance paths
+      - target-owned, native, frozen, and workflow-owned asset classification
+      - explicit host selection and conflict evidence
+    output_contract:
+      - isolated host mutation plan
+      - preserved native/user-owned content
+      - conflict or stop result for ambiguous ownership
+    stop_conditions:
+      - host ownership cannot be established
+      - a native or frozen asset would be overwritten
+      - paired host guidance would become semantically divergent
+
+  - id: generation-atomicity-policy
+    exposure: internal
+    trigger:
+      - bootstrap or synchronization generates more than one governed asset
+    input_contract:
+      - source artifact identity and generated target set
+      - staging, validation, promotion, and rollback boundary
+      - post-promotion read-back checks
+    output_contract:
+      - deterministic generated asset set
+      - all-or-nothing promotion decision
+      - read-back evidence and explicit recovery marker when interrupted
+    stop_conditions:
+      - generated output is stale, incomplete, or conflicting
+      - validation cannot run before promotion
+      - rollback or interruption state cannot be identified
+
+runtime_operations:
+  - id: task-state-transaction
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - CURRENT_TASK.md
+    write_targets:
+      - CURRENT_TASK.md
+    allowed_callers:
+      - prepare-task
+      - execute-step
+      - review-change
+      - debug-task
+      - task-lifecycle
+    bound_callers:
+      - execute-step
+      - prepare-task
+      - review-change
+    bound_actions:
+      - execute-step:step-progress
+      - review-change:default:record-review-result
+      - prepare-task:default:clear-resume-review-gate
+      - prepare-task:default:create-draft
+      - prepare-task:default:update-draft
+      - prepare-task:confirm:confirm-draft
+      - prepare-task:default:migrate-claim-evidence
+      - prepare-task:replan:mark-replan-blocked
+      - prepare-task:replan:clear-replan-block
+      - prepare-task:replan:commit-replan
+
+  - id: finding-queue-transaction
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - CURRENT_TASK.md
+    write_targets:
+      - CURRENT_TASK.md
+    allowed_callers:
+      - execute-step
+    bound_callers:
+      - execute-step
+    bound_actions:
+      - execute-step:repair:admit
+      - execute-step:repair:record-repair-attempt
+      - execute-step:repair:resolve
+      - execute-step:repair:defer
+      - execute-step:repair:reject
+
+  - id: lifecycle-transaction
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - vNext lifecycle marker
+      - vNext snapshot
+      - vNext recovery package and its observed content revision
+    write_targets:
+      - vNext lifecycle marker
+      - vNext snapshot
+      - vNext recovery package
+    allowed_callers:
+      - task-lifecycle
+    bound_callers:
+      - task-lifecycle
+    bound_actions:
+      - task-lifecycle:pause
+      - task-lifecycle:interrupt
+      - task-lifecycle:resume-paused
+      - task-lifecycle:resume-interrupted
+      - task-lifecycle:supersede
+
+  - id: inbox-record-transaction
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - CURRENT_TASK.md
+      - TASKS/inbox/**
+    write_targets:
+      - TASKS/inbox/**
+    allowed_callers:
+      - capture-work-item
+    bound_callers:
+      - capture-work-item
+    bound_actions:
+      - capture-work-item:record
+
+  - id: project-status-transaction
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - CURRENT_TASK.md
+      - STATUS.md
+      - TASKS/TASK-{{TASK_ID}}-{{TASK_SLUG}}.md
+    write_targets:
+      - STATUS
+    allowed_callers:
+      - close-task
+      - bootstrap-project
+    bound_callers:
+      - close-task
+      - bootstrap-project
+    bound_actions:
+      - close-task:default:sync
+      - bootstrap-project:design:status
+      - bootstrap-project:greenfield:status
+      - bootstrap-project:inventory:status
+      - bootstrap-project:adopt:status
+      - bootstrap-project:realign:status
+
+  - id: archive-transaction
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - CURRENT_TASK.md
+      - canonical task archive
+    write_targets:
+      - CURRENT_TASK.md
+      - canonical task archive
+    allowed_callers:
+      - close-task
+    bound_callers:
+      - close-task
+    bound_actions:
+      - close-task:default:archive
+
+  - id: lesson-record-transaction
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - CURRENT_TASK.md
+      - canonical task archive
+      - LESSONS
+    write_targets:
+      - LESSONS
+    allowed_callers:
+      - close-task
+    bound_callers:
+      - close-task
+    bound_actions:
+      - close-task:default:record
+
+  - id: contract-candidate-commit
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - CURRENT_TASK.md
+      - canonical task archive
+      - source-authority evidence
+      - existing CONTRACTS.md when present
+    write_targets:
+      - CONTRACTS.md
+    allowed_callers:
+      - bootstrap-project
+      - close-task
+    bound_callers:
+      - bootstrap-project
+      - close-task
+    bound_actions:
+      - bootstrap-project:greenfield:contract
+      - bootstrap-project:adopt:contract
+      - bootstrap-project:realign:contract
+      - close-task:default:contract
+
+  - id: decision-record-transaction
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - CURRENT_TASK.md
+      - canonical task archive
+      - source-authority evidence
+      - existing DECISIONS.md when present
+    write_targets:
+      - DECISIONS.md
+    allowed_callers:
+      - bootstrap-project
+      - close-task
+    bound_callers:
+      - bootstrap-project
+      - close-task
+    bound_actions:
+      - bootstrap-project:design:decision
+      - bootstrap-project:greenfield:decision
+      - bootstrap-project:inventory:decision
+      - bootstrap-project:adopt:decision
+      - bootstrap-project:realign:decision
+      - close-task:default:decision
+
+  - id: paired-host-guidance-transaction
+    status: bound
+    binding: vnext-runtime
+    implementation_phase: Phase 2
+    source_targets:
+      - target host guidance
+    write_targets:
+      - paired host guidance
+    allowed_callers:
+      - bootstrap-project
+    bound_callers:
+      - bootstrap-project
+    bound_actions:
+      - bootstrap-project:greenfield:host-guidance
+      - bootstrap-project:adopt:host-guidance
+      - bootstrap-project:realign:host-guidance

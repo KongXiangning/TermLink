@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "vnext-bootstrap-receipt",
+  "mode": "realign",
+  "target_identity": "422aec7bf194cc99ac59c0d71a605b4c",
+  "project": {
+    "name": "termlink",
+    "slug": "termlink"
+  },
+  "host": "codex",
+  "source": {
+    "revision": "distribution-2b187f47d07cf2e9",
+    "tree_hash": "2b187f47d07cf2e9ec60cdc799d54f130062dcebf6a751bcfdd4c60ac1b556f0"
+  },
+  "input_fingerprint": "e526ccdd1fdf3a5d9a8269335d66e93363d70efb2617a65917c4e7a0be7d0cc0",
+  "completed_at": "2026-09-13T16:42:45.641Z",
+  "managed_files": [
+    {
+      "path": ".workflow-system/PROJECT_PROFILE.yaml",
+      "checksum": "f04d4406b5fa249ef3708e4e013a36103c03698013696bba24cb7a1dadd7ba3c"
+    },
+    {
+      "path": "AGENTS.md",
+      "checksum": "2a4916f24dc9f8220c846bcc2d1c504b66e93f2b31e05e6ee46a51de116fd05b"
+    },
+    {
+      "path": "CLAUDE.md",
+      "checksum": "b520cb1e195af43edbd9744283dea42a9c2302a9918cb466d20a30942e19b94c"
+    },
+    {
+      "path": "docs/workflow/CONTRACTS.md",
+      "checksum": "5a102082b3a6d3c2548df68c2fc0f1496fc6ef45bbc581e140a9923880465d9a"
+    },
+    {
+      "path": "docs/workflow/DECISIONS.md",
+      "checksum": "d8721637ddb924b5a5c9863fe56c33bbeac8dc80abe390765dacae713812dbcf"
+    },
+    {
+      "path": "docs/workflow/LESSONS.md",
+      "checksum": "5660f67a5eb52cec517667bd4c2756710072483dad84c9dc8ce2ce14f335555d"
+    },
+    {
+      "path": "docs/workflow/ROADMAP.md",
+      "checksum": "b5c3b6bb0a88b02fa0e939ebe8aa6ad3edc9376e708001ea641201d91e48439b"
+    },
+    {
+      "path": "docs/workflow/STATUS.md",
+      "checksum": "f4797218647039ebad297cf73bb87b60c4bce634baf9c26f38ac8f95c471cbd6"
+    },
+    {
+      "path": "docs/workflow/WORKFLOW_GUIDE.md",
+      "checksum": "83b39d38520d0988a4a981431aed05ab3c05f7ac6a6323256a3f242d7825663c"
+    }
+  ],
+  "legacy_compatibility": "absent",
+  "recovery_boundary": "in-progress-marker"
+}

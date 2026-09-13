@@ -1,0 +1,93 @@
+---
+name: debug-task
+description: Investigate a reproducible task symptom and choose an authorized recovery route.
+entry_contract:
+  entry: debug-task
+  mode:
+    - investigate-only
+    - resolve
+  intent: Establish a reproducible root cause and select one authorized recovery route.
+  input_contract:
+    required:
+      - symptom
+      - affected_target
+    optional:
+      - task_identity
+      - admitted_scope
+      - evidence_plan
+      - test_write_policy
+      - persistent_test_admission
+      - reproduction_steps
+      - investigation_budget
+      - caller_context
+  authority_owner: task
+  mutation_boundary:
+    product_files: []
+    governance_sources: []
+    forbidden_targets:
+      - product files
+      - Contracts
+      - Decisions
+      - Lessons
+      - task state without an admitted proposal
+      - finding queues
+      - registry
+      - installation surface
+      - host surface
+  internal_capabilities:
+    - project-context-resolver
+    - root-cause-loop
+    - owner-route-resolver
+    - source-authority-policy
+    - scope-guard
+    - decision-authority-gate
+    - evidence-admission-policy
+    - external-documentation-gate
+    - review-convergence-policy
+  runtime_operations:
+    - task-state-transaction
+  stop_conditions:
+    - task ownership is required for a task-state proposal or resolve route but is missing or conflicted
+    - reproduction cannot be established within the bounded investigation budget
+    - root cause remains a hypothesis after the allowed attempts
+    - the proposed route requires scope widening, another owner, or user authority
+    - a claim or evidence plan is missing its stable identity, closed claim fields, minimum-sufficient evidence, or disposition
+    - exploratory evidence is requested without a bounded probe budget and cleanup/audit rule
+    - a persistent test is proposed without a complete P-12 admission record, including assertion boundary and failure disposition
+    - an evidence plan that must survive a turn, session, delegation, pause, or interruption has no typed proposal into an existing canonical task record
+    - the request uses an old or unsupported workflow schema
+  output_kind: debug-result
+---
+
+# vNext Skill: debug-task
+
+## Intent
+
+Establish a reproducible root cause and select one authorized recovery route. Investigation and resolution are modes of this single diagnostic intent; debugging never edits product code directly.
+
+## Operating rules
+
+1. Resolve the relevant project context and affected target before forming a repair hypothesis. Read/discovery may inspect broader callers, consumers, types, configuration, tests, and governance context, but it never grants write permission. For a current-task proposal or `resolve`, also verify task identity, active owner, admitted scope, and a read-only Runtime `scope-check` for the exact repair target.
+2. Reproduce the symptom or establish a bounded, evidence-backed reason reproduction is unavailable. Represent the reproduction/bug claim with a stable identity, closed kind/owner/certainty/impact fields, and existing evidence. Separate observed facts from hypotheses and validate each hypothesis against the smallest useful probe. Each temporary probe declares bounded duration, tool/run count, permitted temporary artifact locations, and cleanup/audit rule. A validation obligation or temporary probe does not automatically justify a persistent automated test; any persistent test requires P-12 admission.
+3. In `investigate-only`, return a terminal diagnostic result without proposing a repair route that has not passed evidence and authority checks. In `resolve`, require a confirmed root cause, current-owner route, exact scope-check admission, and an available repair budget before recommending the repair intent. If the repair would widen scope, return a terminal result with an optional user/replan recommendation for a later caller invocation instead of editing or invoking another public entry. Validation, reuse of an existing check, and persistent-test creation remain separate dispositions; a model-generated hypothesis, code change, coverage request, or speculative edge is not test admission.
+4. Persistent-test disposition defaults to `persistent_test: false`. If a persistent test is proposed, require an explicit owner, concrete proved claim or failure, existing-evidence insufficiency reason, exactly one basis from `acceptance`, `regression`, `critical-invariant`, or `critical-risk`, an assertion at the behavioral or contract boundary, and a clear expected failure disposition. A `risk-analysis` owner must be anchored to an identified changed behavior, known failure model, and admitted task scope. Provisional or exploratory certainty permits temporary probes only; explicitly reclassify the claim as confirmed before any persistent admission. `test_write_policy: deny` forbids creating or changing it while existing validation remains allowed; report any authoritative Contract/Decision conflict.
+5. Use current external documentation only when dependency behavior affects correctness. Return a terminal result with an optional owner-route recommendation for a later caller invocation when the issue belongs to another owner, requires scope widening, depends on a user-owned choice, or is unrelated work; do not treat it as a current-task repair or invoke another public entry.
+6. Before a turn, session, delegation, pause, interruption, or session-end boundary, carry claim identity, owner, certainty, admitted evidence types, and completion state through a typed proposal into the existing canonical task record; harness memory cannot reset or widen the plan.
+7. A current-task diagnostic evidence update may be described as a `task-state-transaction` proposal. Phase 2 binds that operation for `execute-step` and only the minimal `prepare-task` resume-review gate clear action; this entry never claims that task state was written. A `resolve` result may recommend `next_route: execute-step:repair` for a later caller invocation after an admitted finding; it does not invoke or hand off to that entry. After the repair, verification must cover the same logical diff and finding fingerprint before the active step can advance.
+
+## Required result
+
+Return one structured `debug_result` containing:
+
+- symptom and affected target; task identity, owner route, and admitted scope when the investigation concerns a current task;
+- reproduction evidence, hypotheses tested, root-cause confidence, and unresolved alternatives;
+- investigation attempts and remaining bounded budget;
+- claim-bound evidence decision and exploratory probe budget/audit, separate from the `persistent_test: false | true` disposition;
+- when applicable, the persistent-test owner, basis, proved claim/failure, existing-evidence insufficiency reason, behavioral/contract assertion boundary, and expected failure disposition;
+- any cross-turn evidence-plan persistence proposal and its canonical task-record target;
+- `investigate-only` or `resolve` disposition and at most one authorized `next_route` recommendation;
+- evidence gaps, user/other-owner blockers, and stop conditions;
+- a conditional task-state proposal only when current-task diagnostic evidence is admitted.
+- `terminal_boundary: public-entry-terminal/v1`; the recommended route is informational only. After this result, return to the caller and stop; the current invocation must not invoke another public Skill.
+
+`resolve` may recommend `next_route: execute-step:repair` as a result field for a later caller invocation after proof and authority. It does not invoke or hand off to that entry, or write product files itself.

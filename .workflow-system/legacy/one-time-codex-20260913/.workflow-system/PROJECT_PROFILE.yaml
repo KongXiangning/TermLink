@@ -1,0 +1,177 @@
+schema_version: 1
+project:
+  type: application
+  summary: "Mobile-first AI terminal workspace with Android native shell, WebView Codex runtime, session APIs, and workspace browsing."
+  name: termlink
+  slug: termlink
+  primary_hosts:
+    - claude
+    - codex
+runtime:
+  languages:
+    - JavaScript
+    - Kotlin
+    - HTML
+    - CSS
+  package_manager: npm
+  module_system: commonjs
+  build_commands:
+    - npm run android:sync
+    - npm run android:open
+  test_commands:
+    - node --test
+    - android\gradlew.bat :app:testDebugUnitTest
+    - npm run android:check-release-config
+  dev_commands:
+    - npm run dev
+    - npm run start
+paths:
+  workflow_home: docs/workflow
+  source_directories:
+    - src
+    - android
+    - public
+    - tests
+    - scripts
+  documentation_files:
+    - README.md
+    - ARCHITECTURE.md
+    - DATABASE.md
+    - docs/README.md
+    - docs/adoption/API_INVENTORY.md
+    - docs/adoption/RISK_REGISTER.md
+    - docs/adoption/ADOPTION_REPORT.md
+    - docs/product/PRODUCT_REQUIREMENTS.md
+    - docs/architecture/CURRENT_STATE.md
+    - docs/architecture/ROADMAP.md
+  workflow_template_directories:
+    - templates/docs
+    - templates/skills
+  existing_skill_template_patterns:
+    - "*/SKILL.md.tmpl"
+    - SKILL.md.tmpl
+  generated_artifacts:
+    - docs/workflow/generated/workflow-docs/**
+    - docs/workflow/generated/workflow-skills/**
+    - docs/workflow/SKILL_REGISTRY.md
+boundaries:
+  forbidden_paths:
+    - .git/**
+    - node_modules/**
+  generated_only_paths:
+    - docs/workflow/generated/workflow-docs/**
+    - docs/workflow/generated/workflow-skills/**
+    - docs/workflow/SKILL_REGISTRY.md
+  workflow_owned_paths:
+    - AGENTS.md
+    - CLAUDE.md
+    - .workflow-system/**
+    - docs/workflow/**
+    - scripts/workflow-core.ts
+    - scripts/repo-path-patterns.ts
+    - scripts/workflow-doc-contracts.ts
+    - scripts/task-identity.ts
+    - scripts/bootstrap-project-governance.ts
+    - scripts/validation-model.ts
+    - scripts/run-validation.ts
+    - scripts/check-freshness.ts
+    - scripts/gen-workflow-skills.ts
+    - scripts/gen-workflow-docs.ts
+    - scripts/gen-registry.ts
+    - scripts/workflow-runtime.ts
+    - templates/docs/**
+    - templates/skills/**
+architecture_rules:
+  - Keep workflow automation and generators in scripts/.
+  - Treat templates/skills/ as workflow skill template sources, not runtime
+    outputs.
+  - Do not hand-edit generated outputs.
+decision_types:
+  - mechanical
+  - taste
+  - user_challenge
+governance:
+  current_documents:
+    - .workflow-system/PROJECT_PROFILE.yaml
+    - .workflow-system/WORKFLOW_PROTOCOL.md
+    - .workflow-system/FILE_SCHEMAS.md
+    - AGENTS.md
+    - CLAUDE.md
+    - docs/workflow/SKILL_REGISTRY.md
+    - docs/workflow/DOCUMENT_CATALOG.md
+    - docs/workflow/BASELINES.md
+    - docs/workflow/CONTRACTS.md
+    - docs/workflow/CURRENT_TASK.md
+    - docs/workflow/DECISIONS.md
+    - docs/workflow/LESSONS.md
+    - docs/workflow/ROADMAP.md
+    - docs/workflow/STATUS.md
+    - docs/workflow/TASK_ARCHIVE.md
+    - docs/workflow/TASK_SUMMARY.md
+    - docs/workflow/WORKFLOW_GUIDE.md
+  planned_documents: []
+validation:
+  matrix:
+    - name: workflow-skills-validation
+      layer: protocol
+      command: bun run gen:workflow-skills --dry-run
+      blocker_level: blocks-generator
+      description: Validate workflow skill templates.
+      phase: P9
+      owner: workflow-system
+    - name: workflow-docs-validation
+      layer: protocol
+      command: bun run gen:workflow-docs --dry-run
+      blocker_level: blocks-generator
+      description: Validate generated governance doc structure.
+      phase: P9
+      owner: workflow-system
+    - name: registry-validation
+      layer: protocol
+      command: bun run gen:registry --dry-run
+      blocker_level: blocks-generator
+      description: Validate registry generation.
+      phase: P9
+      owner: workflow-system
+    - name: unit
+      layer: project
+      command: node --test
+      blocker_level: blocks-merge
+      description: Run the repository Node test suite.
+      phase: A4
+      owner: target-project
+    - name: android-unit
+      layer: project
+      command: android\gradlew.bat :app:testDebugUnitTest
+      blocker_level: blocks-merge
+      description: Run Android JVM unit tests. Requires Java 21 and the Android toolchain.
+      phase: A4
+      owner: target-project
+    - name: android-release-config
+      layer: project
+      command: npm run android:check-release-config
+      blocker_level: blocks-merge
+      description: Validate Android release config invariants for cleartext and scheme settings.
+      phase: A4
+      owner: target-project
+    - name: integration
+      layer: project
+      command: ""
+      blocker_level: blocks-merge
+      description: No repository-wide integration command is confirmed yet.
+      phase: A4
+      owner: target-project
+    - name: e2e-smoke
+      layer: project
+      command: ""
+      blocker_level: blocks-merge
+      description: No repository-wide e2e smoke command is confirmed yet.
+      phase: A4
+      owner: target-project
+    - name: contract-compatibility
+      layer: project
+      command: ""
+      blocker_level: blocks-merge
+      description: Contract compatibility checks are not yet bound to a dedicated repository-wide command.
+      phase: A4
+      owner: target-project

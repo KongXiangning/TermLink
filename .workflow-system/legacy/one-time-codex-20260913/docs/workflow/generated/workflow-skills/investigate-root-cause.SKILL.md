@@ -1,0 +1,406 @@
+---
+name: investigate-root-cause
+preamble-tier: 2
+version: 0.2.0
+description: >
+  Investigate root cause before fixing and propose the smallest viable repair
+  path.
+purpose: |
+  先做根因定位，再提出最小修复建议。
+stage: 阶段 4/6：实现或验证异常
+trigger: |
+  当前任务的测试失败、验证失败或实现过程中出现异常时；不是新 bug 登记入口。
+inputs:
+  - failing_behavior
+  - error_output
+  - current_diff
+  - current_task
+reads:
+  - docs/workflow/CURRENT_TASK.md
+  - TASKS/paused/**
+  - TASKS/interrupted/**
+writes:
+  - docs/workflow/CURRENT_TASK.md
+forbidden_writes:
+  - .git/**
+  - node_modules/**
+  - src
+  - android
+  - public
+  - tests
+  - scripts
+must_check:
+  - 复现路径是否明确
+  - 根因是否与当前改动直接相关
+  - 是否存在更小修复面
+  - ownership route 是否可收敛到 canonical 闭集
+  - paused / interrupted owner 候选是否已读取 matching suspended package evidence
+  - active-owner guard 是否已判定
+  - 是否存在第三方 library / framework / SDK / API / CLI tool / cloud service current
+    behavior 相关 root cause hypothesis，是否需要触发 External Documentation Gate
+stop_conditions:
+  - 连续多次定位仍不收敛
+  - 根因判断需要额外产品决策
+  - 问题实际来自范围外系统
+  - paused / interrupted owner 候选存在但 matching suspended package evidence
+    缺失、marker 不自洽或无法唯一解析
+  - active-owner guard 未通过却试图直接 handoff 到 resume success chain
+  - External Documentation Gate 已触发但无法取得 current docs evidence，且第三方 current
+    behavior 是当前 root cause hypothesis 的关键判断依据
+  - ctx7 evidence 否定当前 root cause hypothesis，且没有新的可验证假设
+output:
+  - Symptom
+  - Reproduction
+  - Root cause hypothesis
+  - Evidence
+  - Ownership assessment
+  - Ownership evidence
+  - Recommended route
+  - Recommended handoff
+  - External docs evidence、no-op reason 或 blocked reason
+  - Minimal fix path
+  - Regression check
+  - 根因判断
+  - 最小修复建议
+  - 需要额外确认的点
+handoff:
+  success: plan-implementation
+  failure: ask-user
+conditional_handoff:
+  new_bug_registration: create-current-task
+  report_only_investigation: ask-user
+  scope_widening_candidate: lock-scope
+  resume_paused_guard_passed: resume-paused-task
+  resume_paused_guard_blocked: ask-user
+  resume_interrupted_guard_passed: resume-interrupted-task
+  resume_interrupted_guard_blocked: ask-user
+  new_bug_task_required: create-current-task
+  user_decision_required: ask-user
+  verified_current_task_root_cause: plan-implementation
+decision_policy:
+  mechanical: 可以自动做日志、调用链和差异比对。
+  taste: 不要把修复策略包装成唯一正确方案。
+  user_challenge: 当修复需要改变产品行为时必须停下确认。
+verification:
+  - 原始失败场景已重新验证
+  - Root cause hypothesis 有证据支持
+  - 若触发 External Documentation Gate，current docs evidence 已写入 debug
+    evidence；若只能记录 blocked reason，未把未验证的第三方 current behavior 当作根因
+  - 根因有证据支持
+  - 最小修复面已识别
+  - 没有直接跳到大范围修复
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Write
+  - Edit
+  - Bash
+  - AskUserQuestion
+benefits-from:
+  - /implement-current-step
+  - /run-regression
+notes:
+  - 调查优先于修复。
+  - 用户要求登记、记录、新建 bug 时，必须转到 create-current-task，不得进入 implement-current-step。
+allowed_change_types:
+  - 调查记录
+  - 最小必要验证性修改
+intent_routing_rules:
+  - 用户意图是登记、记录、创建新 bug 任务时，handoff 到 create-current-task
+  - 用户明确只调查、只报告、不要修复时，输出调查报告并 handoff 到 ask-user
+  - 只有问题属于当前 docs/workflow/CURRENT_TASK.md 的实现或验证异常，且根因已验证，才 handoff 到
+    plan-implementation
+  - 如果 docs/workflow/CURRENT_TASK.md 缺失，或当前任务不是该 bug 的任务包，先 handoff 到
+    create-current-task
+disallowed_patterns:
+  - 未验证 root cause hypothesis 直接修复
+  - 未定位根因直接修复
+  - 将新 bug 登记请求直接当成修复授权
+  - 大范围猜测式改动
+failure_policy:
+  - 若三个 root cause hypothesis 仍不收敛，应停止继续猜测并请求人工判断
+regression_expectation:
+  - 重新进入实现前要通过 plan-implementation 明确修复只覆盖当前 bug
+  - 修复后必须复验原始失败场景
+external_documentation_gate:
+  - 只有第三方行为相关 root cause hypothesis 需要验证时才查 ctx7
+  - 共享调用优先级：ctx7 MCP -> 可确认 current docs 的 ctx7 / docs skill -> ctx7 CLI ->
+    blocked reason
+  - ctx7 evidence 只能支持或否定 hypothesis，不能替代 symptom、reproduction、日志、diff 或最小复现
+---
+
+# Skill: investigate-root-cause
+
+## Purpose
+
+先做根因定位，再提出最小修复建议。
+
+## Trigger
+
+当前任务的测试失败、验证失败或实现过程中出现异常时；不是新 bug 登记入口。
+
+## Inputs
+
+- failing_behavior
+- error_output
+- current_diff
+- current_task
+
+## Project Variables
+
+### core
+- termlink
+- application
+- JavaScript, Kotlin, HTML, CSS
+
+### structure
+- src, android, public, tests, scripts
+- .git/**, node_modules/**
+- Keep workflow automation and generators in scripts/., Treat templates/skills/ as workflow skill template sources, not runtime outputs., Do not hand-edit generated outputs.
+
+### execution
+- node --test, android\gradlew.bat :app:testDebugUnitTest, npm run android:check-release-config
+- mechanical, taste, user_challenge
+
+## Required Reads
+
+1. Classify user intent by `intent_routing_rules` before required reads.
+2. If the user is registering, recording, or creating a new bug task, hand off to `/create-current-task` and stop; `docs/workflow/CURRENT_TASK.md` is not required for that path.
+3. Only after the request is confirmed as current-task investigation, read every file listed in frontmatter `reads`.
+4. If `docs/workflow/CURRENT_TASK.md` is missing during current-task investigation, hand off to `/create-current-task` instead of guessing.
+5. When `docs/workflow/CURRENT_TASK.md` exists, treat it as the source of truth for scope.
+6. If `Ownership assessment` points to a paused / interrupted owner candidate, read the matching suspended package evidence from `TASKS/paused/**` or `TASKS/interrupted/**` before choosing `Recommended route`, `Recommended handoff`, or `Minimal fix path`.
+7. Do not infer owner from package presence, runtime memory, or fuzzy similarity; if the suspended package evidence is missing, contradictory, or not unique, fail closed to `blocked`, `ask-user`, `evidence gap`, `lock-scope`, or `/create-current-task`.
+
+## Must Check
+
+- 复现路径是否明确
+- 根因是否与当前改动直接相关
+- 是否存在更小修复面
+- `Ownership assessment` 是否已收敛到 canonical route 闭集
+- paused / interrupted owner 候选是否已读取 matching suspended package evidence
+- active-owner guard 是否已先于 resume handoff 判定
+
+## Stop Conditions
+
+- 连续多次定位仍不收敛
+- 根因判断需要额外产品决策
+- 问题实际来自范围外系统
+
+## Decision Policy
+
+- `mechanical`: 可以自动做日志、调用链和差异比对。
+- `taste`: 不要把修复策略包装成唯一正确方案。
+- `user_challenge`: 当修复需要改变产品行为时必须停下确认。
+
+## Verification
+
+- 原始失败场景已重新验证
+- Root cause hypothesis 有证据支持
+- 根因有证据支持
+- 最小修复面已识别
+- 没有直接跳到大范围修复
+
+## Extension Fields
+
+### allowed_change_types
+- 调查记录
+- 最小必要验证性修改
+
+### intent_routing_rules
+- 用户意图是登记、记录、创建新 bug 任务时，handoff 到 create-current-task
+- 用户明确只调查、只报告、不要修复时，输出调查报告并 handoff 到 ask-user
+- 只有问题属于当前 docs/workflow/CURRENT_TASK.md 的实现或验证异常，且根因已验证，才 handoff 到 plan-implementation
+- 如果 docs/workflow/CURRENT_TASK.md 缺失，或当前任务不是该 bug 的任务包，先 handoff 到 create-current-task
+
+### disallowed_patterns
+- 未验证 root cause hypothesis 直接修复
+- 未定位根因直接修复
+- 将新 bug 登记请求直接当成修复授权
+- 大范围猜测式改动
+
+### failure_policy
+- 若三个 root cause hypothesis 仍不收敛，应停止继续猜测并请求人工判断
+
+### regression_expectation
+- 重新进入实现前要通过 plan-implementation 明确修复只覆盖当前 bug
+- 修复后必须复验原始失败场景
+
+### external_documentation_gate
+- 只有第三方行为相关 root cause hypothesis 需要验证时才查 ctx7
+- 共享调用优先级：ctx7 MCP -> 可确认 current docs 的 ctx7 / docs skill -> ctx7 CLI -> blocked reason
+- ctx7 evidence 只能支持或否定 hypothesis，不能替代 symptom、reproduction、日志、diff 或最小复现
+
+## Investigation Loop
+
+0. Classify intent before investigation:
+   - If the user asks to register, record, or create a new bug task, do not inspect or modify code; hand off to `/create-current-task`.
+   - If the user asks only to investigate or report, produce the debug report and stop at `/ask-user`.
+   - Continue this loop only when the bug belongs to the current `docs/workflow/CURRENT_TASK.md` implementation or validation failure.
+1. Collect the symptom: copy the error output, failing assertion, stack trace, user-visible behavior, and any known reproduction steps.
+2. Establish reproduction: prove whether the failure is deterministic. If it cannot be reproduced, gather more evidence before proposing a fix.
+3. Trace the path: follow the code path, data flow, state transitions, recent diff, and relevant logs from the symptom back toward likely causes.
+4. State one `Root cause hypothesis`: write a specific, testable claim explaining what is wrong and why it produces the symptom.
+5. Verify that hypothesis before fixing: use a targeted test, log, assertion, debugger output, or minimal reproduction to confirm or reject it.
+6. If the hypothesis is rejected, record the evidence and form the next hypothesis. Do not patch symptoms between hypotheses.
+7. If three hypotheses fail, stop and hand off to `handoff.failure` with the tested hypotheses and evidence.
+8. After the root cause is verified, produce `Ownership assessment` and `Ownership evidence` before choosing any repair path or handoff.
+9. Use exactly one `Recommended route` from the canonical ownership route set: `current_task_owned`, `scope_widening_candidate`, `resume_paused_required`, `resume_interrupted_required`, `new_bug_task_required`, `user_decision_required`.
+10. If the route points to paused / interrupted ownership, read the matching suspended package evidence first and evaluate the active-owner guard before choosing `Recommended handoff`.
+11. If suspended package evidence is missing, contradictory, or not unique, or if the active-owner guard fails, only route to `blocked`, `ask-user`, `evidence gap`, `lock-scope`, or `/create-current-task`; do not jump directly to a resume success chain.
+12. After route selection is stable, identify the smallest viable fix path and the regression check that proves the original failure is fixed.
+
+## Ownership-Aware Routing
+
+`/investigate-root-cause` 在根因验证后必须先做 ownership-aware routing，再决定是否继续当前任务修复。
+
+Canonical ownership route 闭集：
+
+- `current_task_owned`
+- `scope_widening_candidate`
+- `resume_paused_required`
+- `resume_interrupted_required`
+- `new_bug_task_required`
+- `user_decision_required`
+
+Skill-local alias 只能映射到 canonical route 或 pre-routing state，不能扩展闭集：
+
+- `new_bug_registration`：pre-routing state，直接 handoff 到 `/create-current-task`
+- `report_only_investigation`：pre-routing state，直接 handoff 到 `/ask-user`
+- `verified_current_task_root_cause`：映射 `current_task_owned`
+- `scope_widening_candidate`：映射 `scope_widening_candidate`
+- `resume_paused_guard_passed` / `resume_paused_guard_blocked`：映射 `resume_paused_required`
+- `resume_interrupted_guard_passed` / `resume_interrupted_guard_blocked`：映射 `resume_interrupted_required`
+- `new_bug_task_required`：映射 `new_bug_task_required`
+- `user_decision_required`：映射 `user_decision_required`
+
+Ownership assessment rules:
+
+- 只有当问题位于当前 active task 的 Allowed Files 内，且最小修复不需要 widening，才可输出 `current_task_owned`。
+- 当根因属于当前任务目标，但最小修复路径会越出 Allowed Files 时，输出 `scope_widening_candidate` 并 handoff 到 `/lock-scope`。
+- 当根因明显属于唯一 paused / interrupted owner 候选时，先读取 matching suspended package evidence，再决定是否输出 `resume_paused_required` 或 `resume_interrupted_required`。
+- 当问题不属于当前 active task，也不属于可恢复的唯一 suspended owner，且需要单独 bug 任务承载时，输出 `new_bug_task_required`。
+- 当当前 live task 仍持有 active ownership、需要用户决定是否 pause / interrupt 当前任务后再恢复旧任务，或根因结论依赖人工裁决时，输出 `user_decision_required`。
+
+Ownership evidence rules:
+
+- `Ownership evidence` 必须引用 live `docs/workflow/CURRENT_TASK.md`、当前 diff / symptom / reproduction，以及命中时读取到的 matching suspended package evidence。
+- 不得仅凭运行时记忆或模糊相似性猜测 owner。
+- 若 suspended package marker 不自洽、文件缺失、同时命中多个候选或无法唯一解析，明确记录 `evidence gap`，并保持 fail-closed。
+
+Recommended handoff rules:
+
+- `current_task_owned` -> `verified_current_task_root_cause` -> `/plan-implementation`
+- `scope_widening_candidate` -> `scope_widening_candidate` -> `/lock-scope`
+- `resume_paused_required` -> `resume_paused_guard_passed` -> `/resume-paused-task`
+- `resume_paused_required` -> `resume_paused_guard_blocked` -> `/ask-user`
+- `resume_interrupted_required` -> `resume_interrupted_guard_passed` -> `/resume-interrupted-task`
+- `resume_interrupted_required` -> `resume_interrupted_guard_blocked` -> `/ask-user`
+- `new_bug_task_required` -> `new_bug_task_required` -> `/create-current-task`
+- `user_decision_required` -> `user_decision_required` -> `/ask-user`
+
+`Recommended route` 表达 owner 归属；`Recommended handoff` 表达 guard-aware 下一步。归属判断不得被包装成自动修复授权。
+
+## External Documentation Gate
+
+`/investigate-root-cause` 必须先收集 symptom、reproduction、日志、diff 或最小复现，再判断是否需要用 ctx7 验证第三方 current behavior。文档查询不能替代复现，也不能单独构成 root cause。
+
+触发条件：
+
+- 当前 `Root cause hypothesis` 明确依赖第三方 library / framework / SDK / API / CLI tool / cloud service 的 current behavior。
+- 失败现象可能由第三方参数、返回结构、配置字段、命令 flag、认证 / 权限、版本约束或 breaking-change 行为造成。
+- 本地复现、日志、错误输出或测试失败已经把可疑路径收敛到第三方 current behavior。
+- 需要判断某第三方行为当前是否仍受支持、是否 deprecated、是否有官方替代写法。
+
+不触发条件：
+
+- 还没有 symptom 或 reproduction，只有泛泛猜测。
+- 失败明显来自项目内业务逻辑、状态流、数据转换或最近 diff。
+- 只是登记新 bug、记录现象或要求 report-only 调查。
+- 第三方用法已有项目内稳定 wrapper 或锁定契约覆盖，且当前 hypothesis 不质疑该 wrapper / 契约。
+
+调用优先级：
+
+1. 优先使用 ctx7 MCP。
+2. MCP 不可用时，使用可确认会获取 current docs 的 ctx7 / docs skill。
+3. MCP 和可用 skill 都不可用，且宿主允许 shell / CLI 时，使用 `ctx7` CLI。
+4. 全部不可用时，记录 blocked reason；不得用训练数据默默替代 current docs 判断。
+
+失败处理：
+
+- 若 gate 已触发但无法取得 current docs evidence，不得把未验证的第三方 current behavior 当作 root cause。
+- blocked reason 必须写明已尝试通道、失败类型、受影响 hypothesis 和 handoff。失败类型包括未安装、不可用、无权限、命令不存在、认证失败、quota、DNS / network、返回结果不可信或宿主禁止 shell / CLI。
+- 只有当第三方 current behavior 不是当前 hypothesis 的关键判断依据，或本地证据已足以否定 / 支持根因时，才可继续；继续时必须写明 no-block reason。
+- 若 blocked reason 阻塞根因判断，停止并 handoff 到 `ask-user`，附上已验证 symptom、reproduction、已排除 hypothesis 和缺失的 current docs evidence。
+
+证据写入：
+
+- 把 docs source、查询对象、关键结论、适用版本或适用范围写入 Debug Report 的 `Evidence` / `debug evidence`。
+- 证据必须和 symptom、reproduction、root cause hypothesis 形成链条：文档结论只能支持或否定已提出的 hypothesis。
+- 若未触发 gate，说明 no-op reason，例如“不涉及第三方 current behavior”或“尚未形成第三方行为 hypothesis”。
+- 若 gate 不可用，按失败处理规则写明 blocked reason、受影响 hypothesis 和是否阻塞当前调查。
+
+## Root Cause Repair Rules
+
+- `/investigate-root-cause` does not authorize code repair by itself for a newly reported bug.
+- 新 bug 先生成或更新 `docs/workflow/CURRENT_TASK.md` 任务包，再由用户或编排入口决定是否进入实现。
+- 未验证 root cause hypothesis 前不得修复。
+- 一次只验证一个假设，不得同时尝试多个修复方向。
+- 修复必须针对已证明的根因，而不是隐藏报错、扩大兜底或绕过失败路径。
+- 如果根因或最小修复路径超出 `docs/workflow/CURRENT_TASK.md` 的允许范围，停止并回到 `/lock-scope` 或 `handoff.failure`。
+- 如果修复需要改变产品行为、接口契约或架构边界，按 `user_challenge` 停下确认。
+- `Minimal fix path` 只在 `Recommended route = current_task_owned` 时直接指向当前任务修复；其他 route 只能描述 why-not-fix-here 与下一步 handoff。
+- 修复后必须复验原始失败场景，并说明回归检查如何覆盖该 bug。
+
+## Debug Report Template
+
+```md
+Bug 调查报告：
+- Symptom:
+- Reproduction:
+- Root cause hypothesis:
+- Evidence:
+- Ownership assessment:
+- Ownership evidence:
+- Recommended route:
+- Recommended handoff:
+- Minimal fix path:
+- Regression check:
+- Remaining risk:
+```
+
+## Execution Protocol
+
+1. Restate the goal in one sentence.
+2. Classify intent by `intent_routing_rules` before required reads or implementation inspection.
+3. If this is new bug registration, hand off to `/create-current-task` and stop.
+4. If this is report-only investigation, output the debug report, hand off to `/ask-user`, and stop.
+5. Read all files listed in `reads` only after confirming this is current-task investigation.
+6. If `docs/workflow/CURRENT_TASK.md` is missing during current-task investigation, hand off to `/create-current-task` and stop.
+7. Check `must_check` items before acting.
+8. Complete the Investigation Loop before proposing or applying a fix.
+9. Respect `forbidden_writes` and current task boundaries.
+10. If any `stop_conditions` match, stop and hand off to `handoff.failure`.
+11. Produce the artifact(s) described in `output`.
+12. Hand off to `handoff.success` only for a verified root cause inside the current task scope.
+
+## Output Contract
+
+- Only write the files listed in `writes`.
+- If `writes` is `[]`, respond without persisting files.
+- Surface assumptions explicitly.
+- Keep the result structured and auditable.
+- Report unresolved risks rather than hiding them.
+
+## Notes
+
+- 调查优先于修复。
+- This is a draft skill template generated from the workflow schema in `vibe-coding/vibe-coding-workflow.md`.
+- This source-repo reference render already expands the current `.workflow-system/PROJECT_PROFILE.yaml`; target projects re-render these values during install / sync.
+
+## Reference Render Semantics
+
+- This generated file is a source-repo reference render produced from the current `.workflow-system/PROJECT_PROFILE.yaml`.
+- The concrete project values shown here reflect this repository's profile, not a universal target-project default.
+- Target projects render workflow skills from their own `.workflow-system/PROJECT_PROFILE.yaml` during install / sync.

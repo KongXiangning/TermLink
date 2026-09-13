@@ -1,4 +1,0 @@
-interface:
-  display_name: "Greenfield Init"
-  short_description: "Initialize workflow governance for a brand-new project"
-  default_prompt: "Use $greenfield-init to establish the first workflow governance baseline for a brand-new project."

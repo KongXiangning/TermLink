@@ -1,10 +1,13 @@
-# docs/workflow/LESSONS.md
+# LESSONS.md
+
+<!-- project-content-migration:2026-09-13 -->
+保留旧文档全部 L-ID 经验的场景、结论、触发信号和应对动作。技术经验供相关任务使用；旧 workflow 命令和流程仅说明当时的故障处理，不是当前 vNext 操作入口。本轮没有重新执行这些经验所引用的旧测试。
+
+来源：.workflow-system/legacy/one-time-codex-20260913/docs/workflow/LESSONS.md。
 
 ## 使用规则
 
-- 只记录跨任务可复用的经验
-- 每条经验都要说明触发信号和应对动作
-- 不要把一次性聊天过程原样粘贴到这里
+- 仅将经验作为相关任务的参考；执行入口、范围与状态以 vNext 当前协议和具体任务为准。
 
 ## 通用
 
@@ -398,6 +401,22 @@
 - **触发信号**：仓库已有 active `CURRENT_TASK.md`；任务 ID 与新请求仍相同；workflow skill 文件已经提交或被明确排除；全量失败同时包含当前步骤与后续步骤的不同调用形状。
 - **应对动作**：行动前读取 live task 和其要求的治理文档，核对 `git log`、`git status`、精确 diff target 与最近 handoff；从声明的步骤继续，只按 required-now 门禁判定当前步骤，并把 full-suite 分类保留在任务记录中。发现 ownership 或状态冲突时暂停并上浮确认，不以新 AI 的局部观察覆盖既有证据。
 - **Source**：`2026-08-30` / `20260828-001` / cross-host workflow handoff
+
+### L-038: 新增测试与 fixture 必须按行为链判定是否属于任务范围
+
+- **场景**：最新提交增加了 startup、真实 Rust、checkpoint/job、recovery/crash 测试和 fixture，原始 scope 没有逐项列出这些文件；如果只按“不是生产代码”或“提交后新增”排除，会丢失当前 Node analyzer recovery flow 的直接验证证据。
+- **结论**：范围审查应把新增文件映射到当前 acceptance、实现行为和直接依赖，再决定是否纳入；直接证明当前任务行为的测试/fixture 可以通过显式 scope widening 纳入 task-wide verification/closeout，但不因此获得产品实现或跨模块集成授权。
+- **触发信号**：新增测试能覆盖当前任务的状态转换、重启恢复、真实子进程或持久化 checkpoint；fixture 是这些断言的必要输入；但文件未出现在最初 Allowed Files 中。
+- **应对动作**：记录精确提交和路径，先执行 scope widening 与 decision classification，区分实现 Allowed、验证 Allowed 和 workflow Conditional 文件；随后运行 path scan、目标回归和契约核查，并在任务记录中保留未纳入的产品路径与 release 边界。不要把“纳入验证资产”解释成扩大 runtime、IPC、Android、DB 或产品入口范围。
+- **Source**：`2026-09-13` / `20260828-001` / `AD-024`
+
+### L-039: 同步 spawn 异常时不得让外层 Promise 重新占住启动槽位
+
+- **场景**：`AnalyzerProcessManager.start()` 用 `this.startPromise = new Promise(...)` 保存启动操作；Promise executor 内同步 `spawn` 失败时把 `this.startPromise` 清为 `null`，但 executor 返回后外层赋值仍会把 rejected Promise 写回槽位，导致后续重试持续复用旧失败结果。
+- **结论**：懒启动的共享 Promise 槽位不能在其 executor 内依赖外层赋值完成清理。同步异常必须通过局部 Promise、显式失败标记或赋值后的统一清理路径处理，确保失败后槽位确实为空，下一次 `start()` 能创建新的 generation/child。
+- **触发信号**：注入的 `spawnImpl` 第一次同步抛错后，第二次 `start()` 的 spawn 调用数不增加；或默认 `spawn` 的非法参数连续失败时始终得到同一个 rejected Promise。
+- **应对动作**：为 process manager 提供可注入的 spawn 探针，覆盖首次同步失败、`stop()` 后重试、默认 spawn 参数失败和成功 hello；断言失败后 `startPromise === null`、下一次确实重新 spawn，且无旧 generation、迟到结果或 termination fence 泄漏。不要只测试异步 `error` 事件，因为它无法覆盖外层 Promise 赋值顺序问题。
+- **Source**：`2026-09-13` / `20260828-001` / `RI-4.5-009-001`
 
 ## 部署与运行时
 

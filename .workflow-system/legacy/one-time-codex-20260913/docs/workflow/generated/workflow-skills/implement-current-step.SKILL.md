@@ -1,0 +1,382 @@
+---
+name: implement-current-step
+preamble-tier: 2
+version: 0.2.0
+description: >
+  Implement only the current step from docs/workflow/CURRENT_TASK.md and refuse
+  opportunistic scope expansion.
+purpose: |
+  只实现 docs/workflow/CURRENT_TASK.md 中当前步骤，禁止顺手扩散。
+stage: 阶段 4：小步实现
+trigger: |
+  进入具体编码实现时。
+inputs:
+  - current_task_current_step
+  - contracts
+  - confirmed_decisions
+  - lessons
+reads:
+  - docs/workflow/CURRENT_TASK.md
+  - docs/workflow/CONTRACTS.md
+  - docs/workflow/DECISIONS.md
+  - docs/workflow/LESSONS.md
+writes:
+  - src
+  - android
+  - public
+  - tests
+  - scripts
+  - docs/workflow/CURRENT_TASK.md
+forbidden_writes:
+  - .git/**
+  - node_modules/**
+  - docs/workflow/CONTRACTS.md
+  - docs/workflow/DECISIONS.md
+must_check:
+  - 是否只执行当前步骤
+  - 是否存在需要优先处理的审查问题队列
+  - 是否只改允许范围内的文件
+  - UI / 视觉实现是否只采用已确认设计约束
+  - 是否遵守既有决策与 lessons
+  - 是否触发 dangerous command gate
+  - 当前实现正确性是否新增、扩展或质疑第三方 library / framework / SDK / API / CLI tool / cloud
+    service 的 current behavior，是否需要触发 External Documentation Gate
+stop_conditions:
+  - 需要修改范围外文件
+  - 需要静默更换字体、颜色、布局、动效或品牌语气
+  - 命令目标超出 Allowed Files 或命中 Forbidden Files
+  - dangerous command 未说明命令、风险、目标、回滚/恢复方式并获得确认
+  - 需要破坏锁定契约
+  - 实现依赖未确认的 Taste / User challenge 决策
+  - External Documentation Gate 补查后发现需要改变方案、依赖版本、架构边界、数据结构、用户行为、已锁定契约，或当前计划不再成立
+  - External Documentation Gate 已触发但无法取得 current docs
+    evidence，且受影响判断是当前实现正确性的前置条件
+output:
+  - 代码改动
+  - 修改文件列表
+  - 本步验证结果
+  - docs/workflow/CURRENT_TASK.md 更新
+  - External docs evidence、复用 evidence 说明、no-op reason 或 blocked reason
+handoff:
+  success: review-diff
+  failure: ask-user
+decision_policy:
+  mechanical: 可以自动选择低风险实现细节与局部重构内联形式。
+  taste: 样式、文案、交互布局等不得静默决定。
+  user_challenge: 不得绕过锁定架构、接口和用户已定方向。
+verification:
+  - 修改文件全部在授权范围内
+  - UI / 视觉实现未偏离 Design mode、Design source、Design acceptance
+  - 没有在未通过 dangerous command gate 的情况下执行危险命令
+  - 当前步骤有最小验证结果
+  - docs/workflow/CURRENT_TASK.md 执行记录已更新
+  - 若触发 External Documentation Gate，已在执行记录或本步验证记录中写入 current docs evidence；若已有
+    evidence 足够覆盖本步，已写明复用范围；若只能记录 blocked reason，未继续实现依赖第三方 current behavior 的代码
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Write
+  - Edit
+  - Bash
+  - AskUserQuestion
+benefits-from:
+  - /decompose-task
+  - /sync-review-findings
+notes:
+  - 这是唯一允许改业务代码的主要实现 skill。
+allowed_change_types:
+  - 新增
+  - 局部修改
+  - 最小必要删除
+disallowed_patterns:
+  - 顺手重构
+  - 顺手补 unrelated bug
+  - 未经授权扩大范围
+  - 静默更换设计方向
+design_implementation_rules:
+  - 只能实现已确认设计
+  - 不得静默更换字体
+  - 不得静默更换颜色
+  - 不得静默更换布局
+  - 不得静默更换动效
+  - 不得静默更换品牌语气
+  - 设计方向变化必须回到 review-current-task 或决策确认
+dangerous_command_gate:
+  - recursive delete
+  - database destructive operation
+  - force push
+  - hard reset
+  - bulk move/delete
+  - production deploy/delete
+  - container/cluster destructive operation
+dangerous_command_required_fields:
+  - command
+  - risk
+  - target
+  - rollback/recovery
+  - scope check
+  - confirmation
+step_limit:
+  - 一次只允许完成一个当前步骤
+regression_expectation:
+  - 完成后至少提供最小验证结果
+  - 不得把未验证步骤标记为完成
+review_finding_intake:
+  - 如果 docs/workflow/CURRENT_TASK.md 的审查问题队列存在 open finding，先按 severity
+    和当前步骤相关性处理
+  - 修复 finding 时不得跳过 Allowed Files / Forbidden Files / Conditional Files
+  - 修复后将 finding 标记为 resolved、deferred 或 needs-user，并保留验证结果
+---
+
+# Skill: implement-current-step
+
+## Purpose
+
+只实现 docs/workflow/CURRENT_TASK.md 中当前步骤，禁止顺手扩散。
+
+## Trigger
+
+进入具体编码实现时。
+
+## Inputs
+
+- current_task_current_step
+- contracts
+- confirmed_decisions
+- lessons
+
+## Project Variables
+
+### core
+- termlink
+- application
+- JavaScript, Kotlin, HTML, CSS
+
+### structure
+- src, android, public, tests, scripts
+- .git/**, node_modules/**
+- Keep workflow automation and generators in scripts/., Treat templates/skills/ as workflow skill template sources, not runtime outputs., Do not hand-edit generated outputs.
+
+### execution
+- node --test, android\gradlew.bat :app:testDebugUnitTest, npm run android:check-release-config
+- mechanical, taste, user_challenge
+
+## Required Reads
+
+1. Read every file listed in frontmatter `reads` before making any decision.
+2. If a required file is missing, follow `handoff.failure` instead of guessing.
+3. When `docs/workflow/CURRENT_TASK.md` exists, treat it as the source of truth for scope.
+
+## Must Check
+
+- 是否只执行当前步骤
+- 是否存在需要优先处理的审查问题队列
+- 是否只改允许范围内的文件
+- UI / 视觉实现是否只采用已确认设计约束
+- 是否遵守既有决策与 lessons
+- 是否触发 dangerous command gate
+
+## Stop Conditions
+
+- 需要修改范围外文件
+- 需要静默更换字体、颜色、布局、动效或品牌语气
+- 命令目标超出 Allowed Files 或命中 Forbidden Files
+- dangerous command 未说明命令、风险、目标、回滚/恢复方式并获得确认
+- 需要破坏锁定契约
+- 实现依赖未确认的 Taste / User challenge 决策
+
+## Decision Policy
+
+- `mechanical`: 可以自动选择低风险实现细节与局部重构内联形式。
+- `taste`: 样式、文案、交互布局等不得静默决定。
+- `user_challenge`: 不得绕过锁定架构、接口和用户已定方向。
+
+## Verification
+
+- 修改文件全部在授权范围内
+- UI / 视觉实现未偏离 Design mode、Design source、Design acceptance
+- 没有在未通过 dangerous command gate 的情况下执行危险命令
+- 当前步骤有最小验证结果
+- docs/workflow/CURRENT_TASK.md 执行记录已更新
+
+## Extension Fields
+
+### allowed_change_types
+- 新增
+- 局部修改
+- 最小必要删除
+
+### disallowed_patterns
+- 顺手重构
+- 顺手补 unrelated bug
+- 未经授权扩大范围
+- 静默更换设计方向
+
+### design_implementation_rules
+- 只能实现已确认设计
+- 不得静默更换字体
+- 不得静默更换颜色
+- 不得静默更换布局
+- 不得静默更换动效
+- 不得静默更换品牌语气
+- 设计方向变化必须回到 review-current-task 或决策确认
+
+### dangerous_command_gate
+- recursive delete
+- database destructive operation
+- force push
+- hard reset
+- bulk move/delete
+- production deploy/delete
+- container/cluster destructive operation
+
+### dangerous_command_required_fields
+- command
+- risk
+- target
+- rollback/recovery
+- scope check
+- confirmation
+
+### step_limit
+- 一次只允许完成一个当前步骤
+
+### regression_expectation
+- 完成后至少提供最小验证结果
+- 不得把未验证步骤标记为完成
+
+### review_finding_intake
+- 如果 docs/workflow/CURRENT_TASK.md 的审查问题队列存在 open finding，先按 severity 和当前步骤相关性处理
+- 修复 finding 时不得跳过 Allowed Files / Forbidden Files / Conditional Files
+- 修复后将 finding 标记为 resolved、deferred 或 needs-user，并保留验证结果
+
+### external_documentation_gate
+- 先复用 docs/workflow/CURRENT_TASK.md 中已有 ctx7 evidence；只有 evidence 不足、新增 / 扩展 / 质疑第三方 current behavior，或错误可能来自第三方当前行为且会影响当前实现正确性时才补查
+- 共享调用优先级：ctx7 MCP -> 可确认 current docs 的 ctx7 / docs skill -> ctx7 CLI -> blocked reason
+- 若补查结果要求改变方案、依赖版本、架构边界、数据结构、用户行为或已锁定契约，停止并回到 plan-implementation / ask-user
+
+## Dangerous Command Gate
+
+`/careful` 在 workflow-system 中不是 shell 拦截器，而是实现阶段的 dangerous command gate。命令可能造成数据丢失、历史重写、生产资源删除或大范围文件变更时，先停下。
+
+高风险命令包括但不限于：
+
+- recursive delete，例如 `rm -rf`
+- database destructive operation，例如 `DROP TABLE`、`DROP DATABASE`、`TRUNCATE`
+- force push，例如 `git push --force`
+- hard reset，例如 `git reset --hard`
+- 批量移动或删除
+- 生产部署、生产删除或生产资源变更
+- 容器或集群破坏性操作，例如 `kubectl delete`、`docker rm -f`、`docker system prune`
+
+执行前必须输出：
+
+- command
+- risk
+- target
+- rollback/recovery
+- scope check
+- confirmation
+
+普通构建产物清理可以记录为低风险，但仍不得越过 `docs/workflow/CURRENT_TASK.md` 的 Allowed Files / Forbidden Files / Conditional Files。
+
+## Design Implementation Gate
+
+UI / 视觉实现只能实现已确认设计。不得静默更换字体、颜色、布局、动效、品牌语气或整体视觉方向。
+
+执行前核对：
+
+- Design mode
+- Design source
+- Design acceptance
+- Design evidence
+- Design open decisions
+
+如果实现需要改变设计方向，停止当前实现，回到 `/review-current-task` 或决策确认。
+
+## Review Finding Intake
+
+当 `/implement-current-step` 来自 `/sync-review-findings` 时，先读取 `docs/workflow/CURRENT_TASK.md > 审查问题队列`：
+
+- 优先处理 P1 / P2，P3 只在当前步骤范围内处理。
+- 只修 `Status: open` 且 `Handoff: implement-current-step` 的 finding。
+- 修复时不得扩大范围；需要扩大范围时停止并回到 `/lock-scope`。
+- 修复后把 finding 标记为 `resolved`、`deferred` 或 `needs-user`，并记录验证结果。
+
+## External Documentation Gate
+
+`/implement-current-step` 在写代码前先检查 `docs/workflow/CURRENT_TASK.md` 是否已有 ctx7 evidence。补查阈值按“是否影响当前实现正确性”判断，而不是按“是否出现第三方名词”判断。
+
+调用优先级：
+
+1. 优先使用 ctx7 MCP。
+2. MCP 不可用时，使用可确认会获取 current docs 的 ctx7 / docs skill。
+3. MCP 和可用 skill 都不可用，且宿主允许 shell / CLI 时，使用 `ctx7` CLI。
+4. 全部不可用时，记录 blocked reason；不得用训练数据默默替代 current docs 判断。
+
+可以不补查 / 复用已有 evidence：
+
+- `docs/workflow/CURRENT_TASK.md` 已有 evidence，且当前实现完全落在 evidence 覆盖的 API、参数、配置、CLI 用法、返回结构或版本约束内。
+- 当前步骤只是移动、封装或调用项目内已有第三方 wrapper，没有新增第三方 API 面。
+- 当前步骤只修改业务逻辑、类型整理或局部重构，不依赖第三方 current behavior。
+- 第三方用法已有项目内稳定先例，本步只是照同一模式使用，没有新增参数、配置、命令 flag 或初始化路径。
+
+必须补查 ctx7：
+
+- 当前步骤要新增第三方 API / SDK / CLI / config 用法，而 `docs/workflow/CURRENT_TASK.md` 没有对应 evidence。
+- 现有 evidence 只覆盖方案级选择，但没有覆盖实现所需的具体参数、返回结构、配置字段、命令 flag 或版本约束。
+- 实现中发现第三方行为和原计划不一致。
+- 报错、类型不匹配、运行失败或测试失败可能来自第三方 current behavior。
+- 使用易变 surface：认证、路由、构建配置、插件系统、云服务权限、SDK 初始化或 breaking-change 较多的 API。
+- 需要判断某写法当前是否仍被支持、是否 deprecated 或是否有官方替代写法。
+
+失败处理：
+
+- 若 gate 已触发但无法取得 current docs evidence，不得继续实现依赖第三方 current behavior 的代码。
+- blocked reason 必须写明已尝试通道、失败类型、受影响实现判断和 handoff。失败类型包括未安装、不可用、无权限、命令不存在、认证失败、quota、DNS / network、返回结果不可信或宿主禁止 shell / CLI。
+- 只有当受影响判断不是当前实现正确性的前置条件，或项目内已有稳定 wrapper / 已锁定契约足以覆盖当前判断时，才可继续；继续时必须写明 no-block reason。
+
+停止并回到方案 / 回问：
+
+- 补查后发现需要升级依赖版本。
+- 需要在官方 SDK 和 REST API 之间改路线。
+- 需要引入新库或替换既有库。
+- 需要改变架构边界、数据结构、用户行为或已锁定契约。
+- ctx7 evidence 和当前计划冲突，导致原实现方案不再成立。
+
+证据写入：
+
+- 把复用的 evidence 范围、补查得到的 docs source、查询对象、关键结论、适用版本或适用范围写入 `docs/workflow/CURRENT_TASK.md > 执行记录` 或本步验证记录。
+- 若未触发 gate，说明 no-op reason，例如“不涉及第三方 current behavior”“已有 evidence 足以覆盖本步”或“仅使用项目内稳定 wrapper”。
+- 若 gate 不可用，按失败处理规则写明 blocked reason、受影响实现判断和是否阻塞当前步骤。
+
+## Execution Protocol
+
+1. Restate the goal in one sentence.
+2. Read all files listed in `reads`.
+3. Check `must_check` items before acting.
+4. Respect `forbidden_writes` and current task boundaries.
+5. If any `stop_conditions` match, stop and hand off to `handoff.failure`.
+6. Produce the artifact(s) described in `output`.
+7. Hand off to `handoff.success` when the skill completes normally.
+
+## Output Contract
+
+- Only write the files listed in `writes`.
+- If `writes` is `[]`, respond without persisting files.
+- Surface assumptions explicitly.
+- Keep the result structured and auditable.
+- Report unresolved risks rather than hiding them.
+
+## Notes
+
+- 这是唯一允许改业务代码的主要实现 skill。
+- This is a draft skill template generated from the workflow schema in `vibe-coding/vibe-coding-workflow.md`.
+- This source-repo reference render already expands the current `.workflow-system/PROJECT_PROFILE.yaml`; target projects re-render these values during install / sync.
+
+## Reference Render Semantics
+
+- This generated file is a source-repo reference render produced from the current `.workflow-system/PROJECT_PROFILE.yaml`.
+- The concrete project values shown here reflect this repository's profile, not a universal target-project default.
+- Target projects render workflow skills from their own `.workflow-system/PROJECT_PROFILE.yaml` during install / sync.

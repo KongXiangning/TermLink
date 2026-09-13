@@ -1,0 +1,248 @@
+---
+name: prepare-task
+description: Turn a request or an existing task into a concise, executable CURRENT_TASK draft, then stop for explicit confirmation.
+entry_contract:
+  entry: prepare-task
+  mode:
+    - default
+    - confirm
+    - replan
+  intent: Prepare one bounded implementation task without implementing it.
+  input_contract:
+    required:
+      - request
+    optional:
+      - existing_task
+      - relevant_design
+      - caller_context
+      - operation_receipt
+  authority_owner: user
+  mutation_boundary:
+    product_files: []
+    governance_sources: []
+    forbidden_targets:
+      - direct product or governance writes outside the Runtime transaction
+  internal_capabilities:
+    - project-context-resolver
+    - source-authority-policy
+    - scope-guard
+    - decision-authority-gate
+    - adaptive-depth-policy
+    - evidence-admission-policy
+    - resume-review-gate
+  runtime_operations:
+    - task-state-transaction
+  stop_conditions:
+    - the goal, acceptance, or mutation boundary is too unclear to form a bounded draft
+    - confirmation is requested while a user-owned design choice remains unresolved
+    - a known scope, command, or authority blocker prevents an executable plan
+    - Runtime rejects the proposal or the current task state is not eligible for the requested mode
+  output_kind: prepared-task
+---
+
+# vNext Skill: prepare-task
+
+## Prepare the task
+
+For preparation, refinement, and replan, follow **Project document navigation**
+in `.workflow-system/runtime/support/CONTEXT_API.md`: start with the project
+profile and documentation center, then read the task-relevant source bodies.
+Submit `project_documents` and `affected_contracts` using **Saved task document
+references** in that same support file; retain or explicitly revise them on refinement/replan.
+Apply **Project document conflicts** there before selecting acceptance and design;
+carry unresolved choices or cited authorized resolutions into `design_decisions`.
+
+Understand the request and the relevant existing design, then prepare one
+executable `CURRENT_TASK` draft containing:
+
+- a revision-bound **Task Basis** link to the verbatim original request and
+  later explicit user decisions
+- **Goal**
+- **Acceptance**
+- **Out of scope**
+- necessary resolved **Design decisions**, unresolved user-owned choices, and
+  any conflict with existing design
+- **Mutation scope**: Allowed / Conditional / Forbidden
+- one explicit **Test Strategy** with mode, selection source, task
+  classification, and rationale
+- ordered **Implementation steps** that say what to change, where, and how to
+  validate the result
+- **Validation plan**
+- **Persistent Tests** explicitly allowed to be created or modified
+
+Use Runtime `file-context` to find/read relevant existing tests, helpers, fixtures and configuration before deciding reuse or new tests. Search results are candidates, not evidence of passing checks; unchanged reused tests need no creation/modification admission. For normal Runtime state inspection use `validate --summary`. Read `.workflow-system/runtime/support/CONTEXT_API.md` for inputs and limits.
+
+Read only the context needed to make those decisions. Resolve known scope and
+command blockers before submitting the draft; if a blocker cannot be resolved
+within the user's authority, report it instead of leaving it to `execute-step`.
+For every planned command, state its expected repository writes as `none` or
+bounded paths/globs so the adapter can check the plan before committing it.
+
+Preserve request evidence separately from the draft design. On first prepare,
+record the original request verbatim with its exact conversation or supplied
+source locator. On refinement, keep that original request and append only later
+explicit user statements that decide or change externally observable behavior;
+each entry keeps its verbatim text and exact locator. Reviewer findings, author
+interpretations, and inferred defaults are not user decisions and must never be
+stored in Task Basis. Runtime writes the identity-derived
+`TASK_BASIS-<TASK_ID>.md` and its path/revision link in `CURRENT_TASK` in the
+same atomic draft transaction.
+
+Persistent Tests are a closed allowlist and default to `none`. For every listed
+test asset, give its exact repository-relative path and the behavior it proves,
+and add that exact path—not a test-directory glob—to Allowed mutation scope.
+No broader Allowed or Conditional pattern may authorize other persistent-test
+paths. Do not add tests merely for coverage, robustness, or reviewer preference.
+Later execution may create or modify only the listed tests; existing tests may
+still be run for validation.
+
+Classify `test_strategy.mode` as exactly `flexible`, `test-first`,
+`implementation-first`, or `not-applicable`, and record `source` as exactly
+`explicit-user`, `project-policy`, or `inferred-default`. Apply this precedence
+without inversion: an explicit user requirement overrides applicable project
+policy, which overrides the inferred default. Set `source_ref` to the exact
+Task Basis source coordinate for `explicit-user`, the existing
+repository-relative policy file for `project-policy`, or
+`prepare-task-default` for `inferred-default`. Classify the task as exactly
+`contract-clear-behavior`, `exploratory-or-infrastructure`, or
+`non-executable-change`; the classification and `rationale` must make the
+selected rule auditable. Inferred defaults are:
+
+- use `flexible` for executable work without an explicit ordering requirement,
+  including contract-clear features, APIs, rules, regressions and infrastructure;
+- use `test-first` or `implementation-first` only for an explicit user/project
+  requirement with its source and rationale. Do not substitute flexible for it;
+- use `not-applicable` only when the task has no executable behavior, such as a
+  documentation-only or governance-metadata-only change. Never use it merely
+  to avoid testing a behavior change.
+
+If those rules do not identify one reliable mode, treat the choice as a
+user-owned open question and resolve it before submitting `prepare-draft`.
+Do not infer Red from step order or require a tests-only first step.
+Explicit ordering is blocked with `TEST_STRATEGY_PREREQUISITE_UNSUPPORTED`
+unless approved before-step slots bind the relevant prerequisite; preserve the request.
+Do not bind a prerequisite to the first step: the current Runtime requires an
+earlier authorized execution step to submit its report. Unsupported first-step
+prerequisites are rejected at admission, not waived after confirmation.
+Persistent Tests may remain `none`; new tests can pass on their first run.
+For `not-applicable`, use only the
+`non-executable-change` classification, set Persistent Tests to `none`, and
+first read
+`.workflow-system/PROJECT_PROFILE.yaml#boundaries.non_executable_change_paths`.
+Each policy entry must itself be an exact path or a literal directory prefix
+ending in `/**`; reject wildcard-bearing prefixes such as `*/**` and every
+other wildcard layout.
+Every Allowed, Conditional, and implementation-step mutation pattern must be
+an exact path or a provable subset of that project-owned boundary. Do not reuse
+documentation inventory as proof: a Markdown Skill template, host guidance, or
+generator input can change executable behavior. If the field is missing or
+empty, or a pattern is unknown, repository-wide, mixed with executable scope,
+or only partially overlaps the boundary, preserve the choice as an open
+question instead of submitting `not-applicable`; an unusable classification
+does not block `flexible`; explicit ordering remains subject to its prerequisite gate.
+Runtime creates `business_evidence_version: 1` for new semantic/raw drafts.
+Unversioned active tasks remain readable but cannot execute under these semantics;
+only an explicitly authorized replan can adopt them. Unknown versions are rejected.
+Runtime stores the strategy in the canonical
+`Test Strategy` subsection. Explicit confirmation freezes the strategy with
+the rest of the task definition; a later change requires replan.
+
+Keep every requirement at the strength, scope, and lifetime the user actually
+requested. A local behavior, default, or current-task exclusion is not a
+permanent invariant. If the request conflicts with existing design, record the
+conflict instead of silently strengthening or overriding either side.
+Necessary design decisions do not authorize inventing unspecified externally
+observable behavior; keep such choices unresolved until the user or an
+authoritative existing design resolves them.
+
+Before submission, form the complete candidate draft and build two transient
+checks that are never persisted as task state:
+
+- a **semantic delta map** from the verbatim request and authoritative source
+  locators to every acceptance claim and every decided behavior that materially
+  changes requiredness, defaults, accepted values, success or failure behavior,
+  stored data, compatibility, or another user-visible contract;
+- a **path-by-step interaction map** covering each planned write, the step that
+  creates it, later steps that integrate or validate it, and an in-scope repair
+  route for failures those later steps can expose. Step scopes are permissions
+  for one step, not exclusive file ownership; repeat exact earlier paths in a
+  later scope or reslice the plan when integration may need to revise them.
+
+Always run a bounded author self-check over those maps before submission. This
+check can repair omissions established by the request or an authoritative
+source, but it is not an independent review and must not invent a user-owned
+choice. When the committed draft still has a material authority conflict,
+unsupported observable behavior, multiple reasonable interpretations,
+irreversible migration, security or destructive risk, vague acceptance
+evidence, or an incomplete repair route, set `next_route: review-draft` as an
+informational recommendation for a later caller invocation. This invocation
+must not invoke another public Skill. Simple unambiguous local changes do not
+need that recommendation, but they still require both transient checks.
+
+If Runtime reports a resume-review gate, evaluate only the required readiness
+evidence, then submit the caller/host readiness receipt bound to the exact task,
+document, source revision, and gate reasons through `clear-resume-review`. Do not
+redesign the task or reconstruct the receipt from current state.
+
+In `confirm` mode, submit the user's explicit confirmation through
+`confirm-draft` with the exact confirmation receipt returned by the committed
+draft; do not reconstruct it from the current task. Report the result and stop.
+In `replan` mode, revise only the task decisions explicitly reopened by the user
+or current task state. `replan` consumes an authorized supersede result from an
+earlier lifecycle invocation; if that prerequisite is absent, report the route
+instead of exposing or driving Runtime's internal replan actions. Persist the
+replacement through `replan`, report the result, and stop.
+
+Do not implement business code. Once the user confirms the draft,
+`CURRENT_TASK` is the execution authority: later execution must not redesign the
+task, expand its scope, implement later steps early, or change its Persistent
+Tests or Test Strategy. Changing those decisions requires an explicit replan.
+
+## Required result
+
+Submit the draft's semantic content, including `task_basis`, to Runtime through
+`prepare-draft` on stdin;
+do not construct a proposal or edit `CURRENT_TASK.md` directly. Never create
+proposal or helper files inside the target repository; if the host requires a
+file, use an OS-temporary location outside the project. Only a successful
+Runtime result with verified `CURRENT_TASK` and Task Basis read-back proves
+that the draft was committed.
+
+After an ordinary draft commit, summarize it. If a user-owned choice remains
+unresolved, ask for that decision; otherwise ask the user to confirm that exact
+draft. Include Runtime's confirmation receipt in the prepared result so a
+later confirmation can return it unchanged. Then stop.
+Confirmation is a later explicit `prepare-task:confirm` invocation; never
+auto-confirm. Return one `prepared-task` result with any
+conflict or blocker and at most one informational `next_route`. Set
+`terminal_boundary: public-entry-terminal/v1`. A `next_route` recommendation
+must not invoke another public Skill.
+
+## Structured business evidence
+
+Submit claim_evidence instead of an acceptance text array. Each stable claim ID
+binds requirement/source_ref and concrete slots with globally task-unique check IDs.
+Each slot has due_step_id, applicability, method/entry/expected observation,
+required real boundaries, permitted substitutes, exact subject_paths and expected
+result. Use distinct rule and flow slots when the confirmed requirement crosses
+those boundaries. Do not use planned-validation. New slots start missing with no
+report or imported receipt; Runtime renders Acceptance from acceptance claims.
+
+Persistent Tests default to none. Each admitted path's proves lists stable claim
+IDs; also supply owner, owner_source, source_ref, basis, existing_evidence_insufficiency,
+assertion_boundary and failure_disposition. Coverage preferences alone are not a
+basis. Review the source of the oracle, weak assertions, redundant tests, reuse,
+and mock/fixture boundaries; file permission is not AST or per-test enforcement.
+
+
+## Review checkpoints
+
+Provide `implementation_steps[].review_checkpoint: {policy,reason}` from the
+confirmed risk and logical boundaries. Use required or not-required with a
+specific reason; retain project-mandated review. Existing omitted input remains
+conservatively required, not silently exempt. Later required checkpoints review
+all cumulative changes, so reserve exact earlier repair paths in their scope.
+Do not invent a final exemption: only an approved exemption of the entire target
+may use a reason starting with `final-exemption:`. Repair verification is never
+exempt. Read preimage size limits when planning large or binary changes; do not
+substitute Git HEAD for existing user changes.

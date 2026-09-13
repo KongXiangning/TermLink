@@ -1,14 +1,35 @@
-# CONTRACTS.md
+# vNext Contracts
 
-## 使用规则
+Project: termlink (termlink)
 
-- 修改代码前先读本文件。
-- 变更 `🔒` 项前，先在 `DECISIONS.md` 记录原因和兼容策略。
-- adoption 期只锁定已被当前代码和 active 文档共同证明的契约。
+## Confirmed boundaries
 
-## 一、接口契约
+- Bootstrap writes only the admitted workflow asset set.
+- Task state remains in canonical `CURRENT_TASK.md`.
+- project-type: application (source: .workflow-system/legacy/one-time-codex-20260913/.workflow-system/PROJECT_PROFILE.yaml)
+- runtime-languages: JavaScript, Kotlin, HTML, CSS (source: .workflow-system/legacy/one-time-codex-20260913/.workflow-system/PROJECT_PROFILE.yaml)
+- current-task-disposition: 20260828-001 archived; clean handoff; product integration remains separate (source: TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md)
 
-### 🔒 已锁定接口
+## Candidate status
+
+- These entries are the confirmed bootstrap baseline; unconfirmed facts remain outside the locked Contract.
+
+## vNext Contract Records
+
+- Normal close-task Contract admissions are appended here through the typed Runtime operation; this section is not edited directly by a Skill.
+
+### TermLink 项目接口与架构契约
+
+<!-- project-content-migration:2026-09-13 -->
+以下是旧 CONTRACTS.md 的接口、架构和变更约束完整章节，保留原有范围与术语。旧文档的自由修改 workflow 声明和传播治理流程不构成 vNext 写入授权。AD-021 优先解释旧 AD-011/AD-012 中 discovery、fingerprint、retention_profile 和泛化 revision 的公共接口语义。涉及代码变更时仍须核对当前实现和消费者，不能由历史文本推断新增产品能力。
+
+App 内 Skill 解析仍按 src/ws/terminalGateway.js 查找 .codex/skills、skills 和 .claude/skills；安装于 .agents/skills 的 vNext 公共技能不自动进入该 App 内目录，本轮未改业务源码。
+
+来源：.workflow-system/legacy/one-time-codex-20260913/docs/workflow/CONTRACTS.md。
+
+### 一、接口契约
+
+#### 🔒 已锁定接口
 
 - 名称：Sessions API
   - 路径 / 符号：`/api/sessions`, `/api/sessions/:id`
@@ -56,7 +77,7 @@
     - 既有 Basic Authorization、API 401 + `WWW-Authenticate`、`AUTH_ENABLED=false` 与 single-use WebSocket ticket 语义必须保持兼容
   - 备注：服务重启使内存浏览器会话失效是当前已接受行为；本契约不要求持久化认证 session
 
-### 🔒 已锁定核心函数 / 导出
+#### 🔒 已锁定核心函数 / 导出
 
 - 模块：`src/services/sessionManager.js`
   - 函数 / 符号：`createSession`, `listSessions`, `updateSession`, `deleteSession`
@@ -74,7 +95,7 @@
     - `codex` 会话路径规范化逻辑不能静默删除
   - 备注：会话恢复核心
 
-### 🔒 已锁定数据结构 / DTO / 事件 / 表结构
+#### 🔒 已锁定数据结构 / DTO / 事件 / 表结构
 
 - 名称：session summary DTO
   - 结构：`id/name/sessionMode/cwd/workspaceRoot/workspaceRootSource/lastCodexThreadId/codexConfig`
@@ -125,28 +146,22 @@
     - target mapping/formal-promotion 的 cancel/timeout 必须 fail-closed，不得在对应 source worker 未明确结束前启动并行 generation，也不得发布 batch 或 complete。
   - 备注：本条锁定本轮步骤 0～9 已验证的隔离 Rust target startup、target/legacy dispatch、process lifecycle、source/lineage bridge、target mapping 和 delivery gate；不由本条授权进入 Node consumer、产品数据库、IPC 或 Android 集成。candidate pre-I/O path confinement 与 formal source hash/append prefix digest interruptibility 仍是 deferred source-scope 风险；本条不构成 release/canary/benchmark 声明。
 
-### 🟡 可扩展不可破坏
+#### 🟡 可扩展不可破坏
 
 - `codexConfig` 可以扩展字段，但不能破坏已有 `approvalPolicy` / `sandboxMode` 语义
 - session 作用域的 workspace 接口可以扩展只读能力，但不能突破 `workspaceRoot` 边界
 - workspace picker 可以扩展目录选择体验，但不能突破 `TERMLINK_WORKSPACE_PICKER_ROOT`
 - Android / WebView UI 可以扩展次级入口，但不能破坏现有 session 与 workspace 主链路
 
-### 🟢 自由修改
+### 二、架构契约
 
-- workflow 文档
-- host guidance 说明文字
-- 非对外稳定的脚本和生成器
-
-## 二、架构契约
-
-### 🔒 依赖方向
+#### 🔒 依赖方向
 
 - `android/` 与 `public/` 通过 HTTP / WebSocket 依赖 `src/`
 - `src/routes/*` 依赖 `src/services/*` / `src/repositories/*`
 - `src/repositories/*` 不反向依赖 UI 层
 
-### 🔒 分层规则
+#### 🔒 分层规则
 
 - Express 路由负责协议层和参数校验
 - `sessionManager` 负责 session 生命周期
@@ -154,14 +169,14 @@
 - `terminalGateway` 负责 WebSocket / Codex runtime / PTY 运行态桥接
 - workspace 读写必须经过 workspace service / resolver，而不是任意直接拼路径
 
-### 🔒 状态流 / 数据流
+#### 🔒 状态流 / 数据流
 
 - HTTP 创建 session -> `sessionManager` -> `sessionStore`
 - WebSocket 连接 -> `terminalGateway` -> `sessionManager` / `ptyService` / `codexAppServerService`
 - workspace 请求 -> `resolveWorkspaceAccess()` -> workspace services -> Git 状态 / diff
 - 文档工作区 UI -> `public/workspace.*` 共享只读状态机 -> Workspace HTTP API；Android `WorkspaceActivity` 仅承担原生顶栏、返回栈、认证/mTLS 文件下载和只读系统打开
 
-### 🔒 Codex Rollout Collector P0-RC.1 隔离边界
+#### 🔒 Codex Rollout Collector P0-RC.1 隔离边界
 
 - `native/codex-rollout-collector` 是新增的独立 Rust package，不替换现有入口；固定数据流为 `SourceBackend → codex_wire::decode_rollout_line → CodexEventAdapter → AnalysisEvent → AnalysisBatch`。
 - `SourceBackend` 只负责 source 定位、JSONL/必要 zstd 的有界读取、完整行边界与 source provenance；不复制 Codex rollout reader/runtime。`codex_wire` 是唯一接触 vendored `codex-history` / `codex-protocol` 的 facade/decode 边界，Adapter 是唯一的 Codex 语义转换入口。
@@ -188,7 +203,7 @@
     - 阶段 4 Node 目录（`src/services/codexRolloutCollector/**`）只允许作为隔离 process/import/store 边界；默认文件 store 与可注入 store 仅用于该 artifact 的恢复/测试，不得静默接入 `terminalGateway`、IPC authority、Android、既有 server routes 或产品 DB。实际 Demo/Spike 子进程 conformance 只能作为只读 evidence，不能成为 formal runtime dependency。
     - 稳定证据门槛包括 formal package clean-checkout 构建/测试、Demo/Spike/formal 同 fixture 对照、legacy/current alias 映射、`UnknownEvent`/`ParseGap` fail-closed 诊断、SourceBackend full-read 与 full-vs-segmented source oracle、append recovery、source-boundary 与 Cargo graph 检查；未满足这些证据时不得扩大本边界。
 
-### 🔒 Codex 原生会话实时同步核心
+#### 🔒 Codex 原生会话实时同步核心
 
 - Android App Codex IPC 固定实现声明：App 端 Codex 会话实时同步固定采用 `active conversation → gateway follower acquire → CodexIpcFeed desired subscription/reconnect replay → Codex host 定向 snapshot/patch → Android IPC authority`。healthy IPC surface 是正文、operation、当前 turn 与运行态的唯一实时来源；`thread/read` 只属于明确 offline/desynced/当前订阅周期缺 surface 时的恢复读取，不得被当作实时同步实现。后续不得以定时轮询、snapshot 静默超时、cwd/task 猜测或 `codex_state=idle` 替换该链路；任何变更必须先更新架构决策，并通过 follower lifecycle、authority arbitration、A/B 隔离、长任务和重连回归。
 - 已锁定数据流：Codex Desktop / VS Code / Codex thread surface -> `codex-ipc` -> `CodexIpcFeed` 与 `CodexOwnerSurfaceTracker` -> `terminalGateway` normalized snapshot / conversation list -> Android WebSocket -> `CodexViewModel` / Codex UI。
@@ -243,15 +258,15 @@
   实测或 method capability 证明后才能使用，否则沿已接入的 `thread/turns/list` fail-closed。live tail 已显示但未落库、早期历史改写
   检测与 chained reconciliation 属 P0-C，不得借 P0-B 预埋或启用第二实时同步链路。
 
-### 🔒 目录职责
+#### 🔒 目录职责
 
 - `android/`：原生 Android 壳
 - `public/`：浏览器 / WebView 资源
 - `src/`：服务端与 runtime
 - `docs/`：产品 / 架构 / 运维 / 变更
-- `.claude/skills/` / `.codex/skills/`：host-local skills
+- `.claude/skills/` / `.codex/skills/`：旧 host-local Skills 目录；本项目 vNext 公共技能现安装于 .agents/skills，产品 Gateway 的旧目录发现是独立行为
 
-### 🔒 事件 / DTO 语义
+#### 🔒 事件 / DTO 语义
 
 - WebSocket `codex_state` 表示当前 session 的 Codex runtime 状态，而不是单次消息回执
 - `cwd` 是 Codex session 的执行上下文，也是 skill discovery 的项目作用域，不只是 UI 显示路径
@@ -260,88 +275,9 @@
 - `lastCodexThreadId` 是恢复线索，不是随意可覆盖的装饰字段
 - 已绑定 Codex session 的 `lastCodexThreadId` 是 IPC conversation 的 canonical id；它不能被历史 task id 或空 `codex_state.threadId` 替换
 
-## 三、变更规则
+### 三、变更规则
 
 - 任何改动 `sessions` / `workspace` API 结构的任务，都必须显式写出 consumer 影响面。
 - 任何改动 `data/sessions.json` 字段的任务，都必须给出迁移或兼容策略。
 - 任何涉及 `terminalGateway.js` 的任务，都默认属于高风险任务，需要更严格 scope。
 - 任何改动 Codex 实时同步核心的任务，必须在变更说明中逐项声明对 canonical id、binding 回写、owner fallback、Android A/B 隔离的影响；缺任一项不得以“无影响”默认通过。
-
-## 四、传播治理补充
-
-### candidate 回写记录
-
-- 对象路径：`src/routes/sessions.js` 与 `src/routes/workspace.js`
-  - 当前状态：`locked-candidate`
-  - direct consumers：Android native shell、WebView / browser pages
-  - cross_boundary：yes
-  - critical_path_hit：yes
-  - locked_hit_chain：sessions/workspace 主链路
-  - writeback_required：yes
-
-### LayoutContract
-
-- 容器路径：Android native shell + WebView dual-surface
-  - machine_anchor：`MainShellActivity` / `WorkspaceActivity`
-  - layout_model：native shell owns entry, WebView renders terminal/codex/workspace surfaces
-  - locked_properties：
-    - Sessions/Settings/Workspace 入口仍在原生壳内
-    - workspace 页面不应越过固定 `workspaceRoot`
-  - locked_relations：
-    - Android 与 WebView 共享同一 session/runtime 主线
-  - cascade_sources：profile config、session metadata、workspaceRoot
-  - sibling_reflow_sensitive：yes
-  - insertion_guard：
-    - mode：expand-only-no-reflow
-    - protected_siblings：Sessions、Terminal/Codex、Workspace 现有入口关系
-  - breakpoint_contracts：移动端优先
-  - stacking_context：native shell above embedded web runtime
-  - side_effect_scope：session/runtime/workspace 视图一致性
-
-### BehaviorContract
-
-- 对象路径：session lifecycle + codex runtime
-  - assertions：
-    - session 创建 / 删除 / rename / patch 语义稳定
-    - codex session 需要 `cwd`
-    - App / Codex CLI 的 skill 可见性按当前 Codex session `cwd` 对齐；服务端部署目录不是 App skill catalog 的默认项目作用域
-    - idle cleanup 默认 6 小时
-    - session workspace 访问不能突破 `workspaceRoot`
-    - picker API 访问不能突破 `TERMLINK_WORKSPACE_PICKER_ROOT`
-  - verification：
-    - `node --test`
-    - 手动 Sessions / Workspace / Android smoke
-
-### compat path / wrapper rules
-
-- stable source object：`skills/*` 旧目录
-  - same-file reuse pattern：no
-  - successor wrapper / compat object：host-local mirrors under `.claude/skills/` and local `.codex/skills/`
-  - preserved direct entrypoints：文档已切换到 host-local skills
-  - decision rationale：删除重复技能树，保留宿主镜像入口
-
-### API change downstream validation
-
-- hook：session create/update/delete 行为
-- store：`data/sessions.json`
-- page：Android Sessions / Terminal / Codex / Workspace
-- widget：状态栏、task history、runtime panel
-- form：Create Session / profile settings
-- table：session list
-- detail view：workspace file / diff view
-
-### frozen zone / UI anchor migration
-
-- frozen zone：
-  - zone type：`allowed-extension`
-  - protected siblings：Sessions / Terminal / Workspace 主导航关系
-  - removal precondition：需要明确替代入口和 consumer 验证
-- `UIAnchorReplacement`：
-  - old_anchor：根目录 `skills/`
-  - successor_anchor：host-local skills
-  - transition_window：已切换
-  - alias_policy：文档改指向新目录
-  - alias_details：Claude 使用 `.claude/skills/`，Codex 使用本地 `.codex/skills/`
-  - relation_migration：完成文档迁移并删除旧树
-  - removal_precondition：受控镜像已存在
-  - verification：本地 host paths 可读取

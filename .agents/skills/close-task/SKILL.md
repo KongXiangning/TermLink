@@ -1,0 +1,105 @@
+---
+name: close-task
+description: Prove closure eligibility and complete one governed task with truthful delivery evidence.
+entry_contract:
+  entry: close-task
+  mode:
+    - preview
+  intent: Prove closure eligibility and finish one task with truthful delivery, final knowledge admission, status, archive, and lesson proposals.
+  input_contract:
+    required:
+      - task_identity
+      - acceptance_claims
+      - validation_evidence
+    optional:
+      - release_evidence
+      - rollback_plan
+      - observation_window
+      - remaining_risks
+      - status_baseline
+      - archive_target
+      - contract_candidates
+      - decision_candidates
+      - lesson_candidates
+      - caller_context
+  authority_owner: task
+  mutation_boundary:
+    product_files: []
+    governance_sources: []
+    forbidden_targets:
+      - product files
+      - direct edits to CONTRACTS.md, DECISIONS.md, or LESSONS.md; use the typed Runtime proposals
+      - task state without a Runtime proposal
+      - project status without a Runtime proposal
+      - archive without a Runtime proposal
+      - registry
+      - installation surface
+      - host surface
+  internal_capabilities:
+    - project-context-resolver
+    - closure-eligibility-gate
+    - task-identity-guard
+    - evidence-admission-policy
+    - release-evidence-gate
+    - knowledge-admission-policy
+  runtime_operations:
+    - project-status-transaction
+    - archive-transaction
+    - lesson-record-transaction
+    - contract-candidate-commit
+    - decision-record-transaction
+  stop_conditions:
+    - task identity, acceptance, or validation evidence is missing or conflicted
+    - release, rollback, observation, or remaining-risk evidence is incomplete when triggered
+    - a blocker, open finding, or evidence gap would make completion untruthful
+    - status or archive identity/path cannot be verified
+    - the request uses an old or unsupported workflow schema
+  output_kind: closure-result
+---
+
+# vNext Skill: close-task
+
+## Intent
+
+Prove closure eligibility and finish one task with a truthful delivery summary. Ordinary closure is the default entry intent; `preview` is the explicit terminal, non-mutating variant.
+
+## Operating rules
+
+1. Verify immutable task identity, acceptance claims, claim-bound validation evidence, open findings, remaining risks, and the exact closure/archive target before preparing any proposal. A new/refined task must have a non-empty frozen `CURRENT_TASK.runtime_state.claim_evidence` plan with at least one acceptance claim; legacy CURRENT_TASK remains readable but requires prepare-task refinement/migration before terminal completion. Runtime derives `acceptance_satisfied` and `validation_complete` from that durable per-claim/per-slot state; every planned slot must be `existing`, `reused`, or `newly-executed` with `evidence_refs`. Missing, deferred, blocked, or aggregate command success cannot be summarized as complete, and the submitted closure booleans must match the durable derivation. Validation, reuse of an existing check, and creation of a persistent automated test remain separate decisions; the closure-side persistent-test disposition defaults to `persistent_test: false`, and closure does not infer a new test from missing evidence.
+2. Evaluate release health, rollback, canary, and observation evidence when the task risk triggers them. A missing or unresolved requirement yields a blocked or observing result; it cannot be summarized as complete.
+3. In `preview`, return the complete closure summary and eligibility verdict with zero Runtime proposals. In ordinary closure, prepare only typed proposals justified by the eligibility result: archive first, then admitted Contract/Decision candidates, then the existing Lesson and STATUS reconciliation operations.
+4. Keep task status descriptive and preserve acceptance, verification, release/rollback, observation, and remaining-risk facts. Do not rewrite history or infer a stable archive path from an ambiguous identity.
+5. Lesson admission may return `admit`, `defer`, or `no-op`; it only controls whether a `lesson-record-transaction` proposal exists and never blocks an otherwise eligible closure. When an admitted candidate matches an existing lesson digest (in historical lessons or earlier in the same proposal), lesson reconciliation writes a durable reuse proof referencing the exact target candidate coordinates rather than duplicating visible lesson text.
+6. Contract and Decision candidates are classified by `knowledge-admission-policy` before archive. Only `admit`, `merge`, and `supersede` produce typed Runtime proposals; `defer`, `reject`, and `no-op` produce no governance write. Task-local implementation details remain in CURRENT_TASK/archive.
+7. `archive-transaction` is the only operation allowed to change the task terminal tuple, and its two-file commit must be verified before preparing Contract, Decision, Lesson, or STATUS persistence. The archive stores the exact knowledge admission provenance needed for re-entry; this entry never claims that a proposal was written until Runtime returns a committed, read-back-verified result.
+8. A `closed + archived` re-entry validates the matching archive receipt and reconstructs the archived knowledge admissions. It runs only missing Contract/Decision/Lesson/STATUS reconciliation; already persisted records are deterministic no-ops, and it never repeats archive or creates a next task.
+9. After archive success the task is non-owner. Contract, Decision, STATUS, and Lesson operations use the matching archive receipt plus evidence admission for reconciliation; they must not require or recreate active-task ownership.
+10. Implementation anchors are optional observed navigation hints (normally 0–5), not completeness claims or mutation authority. Record only paths/symbols confirmed by existing task evidence; future consumers validate anchors against current code and expand live impact analysis according to risk.
+11. Closure is allowed only after the final canonical implementation step is durably marked `task-complete` by the Runtime. A required checkpoint must have its clean receipt, and every repair record must have same-diff verification and a terminal finding state; close-task cannot bypass an unfinished step, checkpoint, or repair route.
+
+## Required result
+
+Return one structured `closure_result` containing:
+
+- exact task identity, acceptance and validation verdict, and closure eligibility;
+- claim-bound validation results and separate persistent-test disposition; no new persistent test is implied by closure evidence requirements;
+- delivery summary with release/rollback/observation evidence and remaining risks;
+- preview or ordinary closure semantics and the exact status/archive targets;
+- explicit Contract/Decision admission dispositions plus Lesson admission, defer, or no-op decision;
+- typed Runtime proposals only when each operation's preconditions pass;
+- at most one `next_route` recommendation, if applicable; it is informational only and must not invoke another public Skill;
+- `terminal_boundary: public-entry-terminal/v1`; after this result, return to the caller and stop. Internal closure capabilities and declared Runtime operations are not public Skill chaining.
+
+The fixed ordinary order is `archive-transaction` → admitted `contract-candidate-commit` / `decision-record-transaction` → optional `lesson-record-transaction` → `project-status-transaction`. Closure is not complete until Runtime validates and commits the authorized proposals; downstream failure never rolls back a successful archive, and re-entry repairs only missing durable knowledge/status/Lesson records.
+
+## Business evidence boundary
+
+Read the frozen claim/slot/check obligations and their declared real boundaries.
+Require each due slot's bound applicable report; a local rule pass cannot replace
+missing or failed flow evidence. Reports and this assessment are caller-reported,
+not trusted execution attestations. Runtime completion checks current subjects,
+retained artifacts and consumed prerequisite snapshots. Do not invent a human
+signature or provider. Check P-12 owner/source, stable claim binding, necessity,
+existing-evidence insufficiency, oracle independence, weak assertions, and whether
+mock/fixture substitution contradicts the claimed boundary. No same-file AST
+or per-test semantic enforcement is implied.

@@ -1,7 +1,8 @@
 schema_version: 1
 project:
   type: application
-  summary: "Mobile-first AI terminal workspace with Android native shell, WebView Codex runtime, session APIs, and workspace browsing."
+  summary: Mobile-first AI terminal workspace with Android native shell, WebView
+    Codex runtime, session APIs, and workspace browsing.
   name: termlink
   slug: termlink
   primary_hosts:
@@ -40,51 +41,34 @@ paths:
     - docs/README.md
     - docs/adoption/API_INVENTORY.md
     - docs/adoption/RISK_REGISTER.md
-    - docs/adoption/ADOPTION_REPORT.md
     - docs/product/PRODUCT_REQUIREMENTS.md
     - docs/architecture/CURRENT_STATE.md
     - docs/architecture/ROADMAP.md
-  workflow_template_directories:
-    - templates/docs
-    - templates/skills
-  existing_skill_template_patterns:
-    - "*/SKILL.md.tmpl"
-    - SKILL.md.tmpl
-  generated_artifacts:
-    - docs/workflow/generated/workflow-docs/**
-    - docs/workflow/generated/workflow-skills/**
-    - docs/workflow/SKILL_REGISTRY.md
+  workflow_template_directories: []
+  existing_skill_template_patterns: []
+  generated_artifacts: []
 boundaries:
   forbidden_paths:
     - .git/**
     - node_modules/**
-  generated_only_paths:
-    - docs/workflow/generated/workflow-docs/**
-    - docs/workflow/generated/workflow-skills/**
-    - docs/workflow/SKILL_REGISTRY.md
+  generated_only_paths: []
   workflow_owned_paths:
     - AGENTS.md
     - CLAUDE.md
     - .workflow-system/**
     - docs/workflow/**
-    - scripts/workflow-core.ts
-    - scripts/repo-path-patterns.ts
-    - scripts/workflow-doc-contracts.ts
-    - scripts/task-identity.ts
-    - scripts/bootstrap-project-governance.ts
-    - scripts/validation-model.ts
-    - scripts/run-validation.ts
-    - scripts/check-freshness.ts
-    - scripts/gen-workflow-skills.ts
-    - scripts/gen-workflow-docs.ts
-    - scripts/gen-registry.ts
-    - scripts/workflow-runtime.ts
-    - templates/docs/**
-    - templates/skills/**
+    - .agents/skills/bootstrap-project/**
+    - .agents/skills/prepare-task/**
+    - .agents/skills/review-draft/**
+    - .agents/skills/review-change/**
+    - .agents/skills/execute-step/**
+    - .agents/skills/debug-task/**
+    - .agents/skills/task-lifecycle/**
+    - .agents/skills/capture-work-item/**
+    - .agents/skills/close-task/**
+    - .agents/skills/validate-change/**
+    - .agents/skills/git-commit/**
 architecture_rules:
-  - Keep workflow automation and generators in scripts/.
-  - Treat templates/skills/ as workflow skill template sources, not runtime
-    outputs.
   - Do not hand-edit generated outputs.
 decision_types:
   - mechanical
@@ -97,7 +81,6 @@ governance:
     - .workflow-system/FILE_SCHEMAS.md
     - AGENTS.md
     - CLAUDE.md
-    - docs/workflow/SKILL_REGISTRY.md
     - docs/workflow/DOCUMENT_CATALOG.md
     - docs/workflow/BASELINES.md
     - docs/workflow/CONTRACTS.md
@@ -112,27 +95,6 @@ governance:
   planned_documents: []
 validation:
   matrix:
-    - name: workflow-skills-validation
-      layer: protocol
-      command: bun run gen:workflow-skills --dry-run
-      blocker_level: blocks-generator
-      description: Validate workflow skill templates.
-      phase: P9
-      owner: workflow-system
-    - name: workflow-docs-validation
-      layer: protocol
-      command: bun run gen:workflow-docs --dry-run
-      blocker_level: blocks-generator
-      description: Validate generated governance doc structure.
-      phase: P9
-      owner: workflow-system
-    - name: registry-validation
-      layer: protocol
-      command: bun run gen:registry --dry-run
-      blocker_level: blocks-generator
-      description: Validate registry generation.
-      phase: P9
-      owner: workflow-system
     - name: unit
       layer: project
       command: node --test
@@ -151,7 +113,8 @@ validation:
       layer: project
       command: npm run android:check-release-config
       blocker_level: blocks-merge
-      description: Validate Android release config invariants for cleartext and scheme settings.
+      description: Validate Android release config invariants for cleartext and scheme
+        settings.
       phase: A4
       owner: target-project
     - name: integration
@@ -172,6 +135,29 @@ validation:
       layer: project
       command: ""
       blocker_level: blocks-merge
-      description: Contract compatibility checks are not yet bound to a dedicated repository-wide command.
+      description: Contract compatibility checks are not yet bound to a dedicated
+        repository-wide command.
       phase: A4
       owner: target-project
+    - name: vnext-contract
+      layer: protocol
+      command: node .workflow-system/runtime/dist/cli.js validate-contract --root .
+      blocker_level: blocks-merge
+      description: Installed vNext contract
+      phase: P9
+      owner: workflow-system
+    - name: vnext-current-task
+      layer: protocol
+      command: node .workflow-system/runtime/dist/cli.js validate --root . --summary
+      blocker_level: blocks-merge
+      description: Canonical current task
+      phase: P9
+      owner: workflow-system
+kind: vnext-project-profile
+vnext:
+  bootstrap_mode: adopt
+  target_identity: 422aec7bf194cc99ac59c0d71a605b4c
+  source_contract: .workflow-system/vnext/SOURCE_CONTRACT.yaml
+  runtime_contract: .workflow-system/vnext/RUNTIME_CONTRACT.yaml
+  runtime_entrypoint: .workflow-system/runtime/dist/cli.js
+  legacy_compatibility: absent

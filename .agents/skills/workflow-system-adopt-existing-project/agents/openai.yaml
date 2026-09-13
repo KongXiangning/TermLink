@@ -1,4 +1,0 @@
-interface:
-  display_name: "Adopt Existing Project"
-  short_description: "Establish a workflow governance baseline for an existing project"
-  default_prompt: "Use $adopt-existing-project to establish the first workflow governance baseline for an existing repository."

@@ -1,61 +1,23 @@
-# docs/workflow/DOCUMENT_CATALOG.md
+# Workflow document catalog
 
-## 使用规则
+<!-- project-content-migration:2026-09-13 -->
+## 当前入口
 
-- 本文件是 workflow-system 的文档目录入口，用来说明哪些文档属于治理、设计基线、老项目接管，以及它们应该放在哪个目录。
-- 本文件由 `bun run gen:workflow-docs` 自动生成，请勿手工编辑。
-- 为保持生成稳定，本文件不内嵌 wall-clock 生成时间或文件系统 mtime；统一记录生成批次，并提供查询最后修改时间的标准方式。
-- 真实 live runtime 路径以 `.workflow-system/PROJECT_PROFILE.yaml` 的 `paths.workflow_home` 和各 skill 的 `reads` / `writes` 为准。
-- 通用最后修改时间查询命令：`git log -1 --format=%cI -- <path>`。
+- CURRENT_TASK.md：唯一 canonical vNext 任务状态；000 是 closed/archived 的 Bootstrap 基线。
+- CONTRACTS.md：迁入旧项目接口、架构和变更约束的完整适用章节；vNext 记录区仍供未来正常 Runtime admission。
+- DECISIONS.md：迁入全部旧 AD/TD/DEFER/SUPERSEDED/REJECTED 记录正文，并标明旧流程决定的历史地位。
+- LESSONS.md：迁入全部 L-ID 经验正文；旧命令只作为历史事实。
+- BASELINES.md：迁入旧 release/compat/security/deploy/NFR candidate 基线；旧 GATE-001 不再适用。
+- STATUS.md：由旧状态和归档任务收敛的当前快照；旧逐次更新日志留在原文备份。
+- ROADMAP.md：当前治理窗口和未授权候选事项；产品路线另见 docs/architecture/ROADMAP.md。
+- WORKFLOW_GUIDE.md：vNext 日常入口与 TermLink 项目运行约束，取代旧过程手册。
+- TASK_SUMMARY.md、TASK_ARCHIVE.md：当前摘要和原有任务包定位；不伪造暂停工作完成。
 
-## 目录分类规则
+## 历史来源和处理
 
-| 目录 | 分类依据 | 说明 |
-| --- | --- | --- |
-| 根目录 | 宿主入口与系统控制文件 | 仅保留 `README.md`、`AGENTS.md`、`CLAUDE.md`、`.workflow-system/**` 等必须从根读取的入口 |
-| `docs/workflow/` | workflow 治理文档与 generated reference render | 放治理文档、目录索引、registry，以及 `generated/workflow-docs/**` / `generated/workflow-skills/**` |
-| `docs/designs/` | 新项目设计基线 | 放设计基线、领域模型、接口草案、详细设计等 greenfield 文档 |
-| `docs/adoption/` | 老项目事实盘点与接管材料 | 放 legacy inventory、风险登记、API 盘点和 adoption 报告 |
-
-- 对已完成 adoption 的存量项目，如果 `docs/workflow/DECISIONS.md` 或 `.workflow-system/PROJECT_PROFILE.yaml` 已明确保留现有项目文档路径（例如 `ARCHITECTURE.md`、`DATABASE.md`、`docs/architecture/**`），这些文档可以继续原位维护；`docs/designs/**` 与 `docs/adoption/*inventory.md` 是 canonical bucket，不是无条件迁移指令。
-
-## 文档总览
-
-| 路径 | 分类 | 作用 | 生成/维护方式 | 生成批次 | 最后修改时间查询 |
-| --- | --- | --- | --- | --- | --- |
-| `docs/workflow/DOCUMENT_CATALOG.md` | workflow-catalog | 文档目录协议与快速查表入口 | `gen:workflow-docs` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/DOCUMENT_CATALOG.md` |
-| `docs/workflow/WORKFLOW_GUIDE.md` | workflow-governance | 日常 workflow 使用说明 | `gen:workflow-docs` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/WORKFLOW_GUIDE.md` |
-| `docs/workflow/ROADMAP.md` | workflow-governance | 版本窗口、阶段计划与风险 | `gen:workflow-docs` 骨架 + runtime 内容 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/ROADMAP.md` |
-| `docs/workflow/STATUS.md` | workflow-governance | 项目状态、稳定面和检查点 | `gen:workflow-docs` 骨架 + runtime 内容 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/STATUS.md` |
-| `docs/workflow/CONTRACTS.md` | workflow-governance | 稳定接口、架构边界与传播治理补充 | `gen:workflow-docs` 骨架 + runtime 内容 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/CONTRACTS.md` |
-| `docs/workflow/DECISIONS.md` | workflow-governance | 已确认架构/口味/暂缓/否决决策 | `gen:workflow-docs` 骨架 + runtime 内容 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/DECISIONS.md` |
-| `docs/workflow/BASELINES.md` | workflow-governance | 发布、兼容、安全、部署、性能基线 | `gen:workflow-docs` 骨架 + runtime 内容 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/BASELINES.md` |
-| `docs/workflow/CURRENT_TASK.md` | workflow-governance | 当前任务包、范围和验证记录 | `gen:workflow-docs` 骨架 + runtime 内容 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/CURRENT_TASK.md` |
-| `docs/workflow/LESSONS.md` | workflow-governance | 可复用经验与踩坑记录 | `gen:workflow-docs` 骨架 + runtime 内容 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/LESSONS.md` |
-| `docs/workflow/TASK_SUMMARY.md` | workflow-governance | 交付摘要模板 | `gen:workflow-docs` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/TASK_SUMMARY.md` |
-| `docs/workflow/TASK_ARCHIVE.md` | workflow-governance | 任务归档模板 | `gen:workflow-docs` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/TASK_ARCHIVE.md` |
-| `docs/workflow/SKILL_REGISTRY.md` | workflow-registry | 全部 workflow skill 的 stage / IO / handoff 总览 | `gen:registry` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/SKILL_REGISTRY.md` |
-| `docs/workflow/generated/workflow-docs/**` | workflow-reference | source-repo governance docs reference render | `gen:workflow-docs` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/generated/workflow-docs` |
-| `docs/workflow/generated/workflow-skills/**` | workflow-reference | source-repo skill reference render | `gen:workflow-skills` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/generated/workflow-skills` |
-| `ARCHITECTURE.md` | project-doc | 当前仓库确认的项目架构事实与 inventory 基线 | 项目文档，按已确认事实维护 | current project doc | `git log -1 --format=%cI -- ARCHITECTURE.md` |
-| `DATABASE.md` | project-doc | 当前仓库确认的持久化/数据层事实与 inventory 基线 | 项目文档，按已确认事实维护 | current project doc | `git log -1 --format=%cI -- DATABASE.md` |
-| `docs/architecture/CURRENT_STATE.md` | project-doc | 当前产品/客户端/服务端现状说明 | 项目文档，按已确认事实维护 | current project doc | `git log -1 --format=%cI -- docs/architecture/CURRENT_STATE.md` |
-| `docs/architecture/ROADMAP.md` | project-doc | 产品/架构路线图与阶段计划 | 项目文档，按已确认事实维护 | current project doc | `git log -1 --format=%cI -- docs/architecture/ROADMAP.md` |
-| `docs/designs/architecture.md` | design-baseline | 新项目目标架构、边界与数据流 | `design-baseline-init` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/designs/architecture.md` |
-| `docs/designs/database.md` | design-baseline | 新项目数据库设计与生命周期约束 | `design-baseline-init` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/designs/database.md` |
-| `docs/designs/domain-model.md` | design-baseline | 核心实体、关系和业务不变量 | `design-baseline-init` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/designs/domain-model.md` |
-| `docs/designs/api-contracts.md` | design-baseline | API / DTO / Event / Module contract 草案 | `design-baseline-init` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/designs/api-contracts.md` |
-| `docs/designs/detailed-design.md` | design-baseline | 关键流程、状态机、错误路径和边界条件 | `design-baseline-init` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/designs/detailed-design.md` |
-| `docs/adoption/architecture-inventory.md` | adoption-inventory | 老项目当前架构事实版盘点 | `legacy-inventory` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/adoption/architecture-inventory.md` |
-| `docs/adoption/database-inventory.md` | adoption-inventory | 老项目当前数据库事实版盘点 | `legacy-inventory` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/adoption/database-inventory.md` |
-| `docs/adoption/API_INVENTORY.md` | adoption-inventory | 真实 API、消费者与兼容承诺盘点 | `legacy-inventory` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/adoption/API_INVENTORY.md` |
-| `docs/adoption/RISK_REGISTER.md` | adoption-inventory | stable / fragile / unknown / deprecated 风险登记 | `legacy-inventory` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/adoption/RISK_REGISTER.md` |
-| `docs/adoption/ADOPTION_REPORT.md` | adoption-inventory | 证据、推断、冲突与接管建议汇总 | `legacy-inventory` 与 `adopt-existing-project` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/adoption/ADOPTION_REPORT.md` |
-
-## 使用建议
-
-1. 不确定文档位置时，先读本文件，再读 `docs/workflow/WORKFLOW_GUIDE.md`。
-2. 需要 live governance 内容时，优先读 `docs/workflow/*.md`，不要把 `docs/workflow/generated/**` 当作目标项目的 live runtime docs。
-3. 需要 source-repo reference render 时，读取 `docs/workflow/generated/workflow-docs/**` 和 `docs/workflow/generated/workflow-skills/**`。
-4. 需要设计基线时读 `docs/designs/**`；需要老项目接管事实时读 `docs/adoption/**`。
-5. 对已确认保留现有项目文档路径的仓库，继续从 `ARCHITECTURE.md`、`DATABASE.md`、`docs/architecture/**` 等当前路径读取项目事实，不要为了满足 bucket 名称而静默迁移。
+- .workflow-system/legacy/one-time-codex-20260913/docs/workflow/ 保存 19 份旧根文档原字节。旧 CONTRACTS 的接口/架构/变更章节、DECISIONS 的全部决定、LESSONS 的全部经验及 BASELINES 的五类项目基线已由当前文档承载；旧流程规则、adoption 里程碑和 STATUS 逐次日志仅保留为历史。
+- 七份 TECHNICAL_DETAILS / TECHNICAL_PLAN 原文仍在 docs/workflow/ 原路径，并有原字节备份。
+- 旧 docs/workflow/generated/ 的 48 份参考和 SKILL_REGISTRY.md 已退役；旧 37 个 workflow-system Skill 目录在 .agents/skills/ 与 .claude/skills/ 均已退役。当前公共 Skill 为 .agents/skills/ 的 11 个安装版，项目私有 Skill 各宿主保留 9 个。
+- TASKS/paused/ 两份和 TASKS/inbox/ 三份原样保留，义务未转换或完成；后续需单独任务处理。
+- docs/adoption/ADOPTION_REPORT.md 与 docs/DOCUMENTS_BY_MTIME.md 是旧时间点快照，含旧命令/路径，不是当前入口。
+- .workflow-system/runtime/dist/cli.js 是项目本地 vNext Runtime；AGENTS.md 与 CLAUDE.md 是现行宿主入口。Bootstrap receipt 对后续专有内容修订显示 stale，不能当成最终文档字节的 clean 证明。

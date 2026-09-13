@@ -1,0 +1,89 @@
+---
+name: task-lifecycle
+description: Perform one explicit identity-safe task lifecycle transition.
+entry_contract:
+  entry: task-lifecycle
+  mode:
+    - pause
+    - interrupt
+    - resume-paused
+    - resume-interrupted
+    - supersede
+  intent: Perform one explicit, identity-safe task ownership or lifecycle transition.
+  input_contract:
+    required:
+      - task_identity
+      - requested_transition
+    optional:
+      - current_lifecycle_tuple
+      - checkpoint
+      - dirty_attribution
+      - recovery_package
+      - recovery_package_path
+      - recovery_package_revision
+      - rollback_conditions
+      - evidence_plan
+      - authority_evidence
+      - caller_context
+  authority_owner: task
+  mutation_boundary:
+    product_files: []
+    governance_sources: []
+    forbidden_targets:
+      - product files
+      - Contracts
+      - Decisions
+      - Lessons
+      - task state without a Runtime proposal
+      - lifecycle state without a Runtime proposal
+      - registry
+      - installation surface
+      - host surface
+  internal_capabilities:
+    - project-context-resolver
+    - lifecycle-transition-guard
+    - task-identity-guard
+    - owner-route-resolver
+    - resume-review-gate
+    - source-authority-policy
+    - decision-authority-gate
+    - scope-guard
+  runtime_operations:
+    - lifecycle-transaction
+  stop_conditions:
+    - exact task identity or current workflow/lifecycle tuple is missing, stale, or ambiguous
+    - requested transition is illegal or lacks required authority
+    - required evidence for the selected lifecycle transition is incomplete
+    - resume cannot identify one explicit matching recovery package and pass review readiness
+    - the request attempts to hot-migrate unsupported legacy state
+  output_kind: lifecycle-result
+---
+
+# vNext Skill: task-lifecycle
+
+## Intent
+
+Perform one explicit, identity-safe task ownership or lifecycle transition. The lifecycle state and workflow status remain distinct facts, and this entry handles only the requested transition.
+
+## Operating rules
+
+1. Verify the immutable task identity, active owner, current workflow status, current lifecycle tuple, requested mode, and the canonical task's explicit `Allowed / Conditional / Forbidden` scope buckets before proposing any transition. Any read/discovery context used to understand recovery remains separate from mutation authority.
+2. For `pause` and `interrupt`, collect the transition-specific checkpoint, dirty attribution, environment, recovery, rollback, and review evidence. Keep pause and interrupt as distinct modes; do not construct snapshots or package markers in the Skill. If an evidence plan crosses the lifecycle boundary, preserve each claim's identity, owner, certainty, admitted evidence types, and completion state in the existing canonical task snapshot/proposal; lifecycle evidence is not persistent-test admission.
+3. For `resume-paused` and `resume-interrupted`, confirm one explicit matching recovery package reference, its observed SHA-256 revision, and complete review evidence, including the preserved claim-bound evidence plan when one exists. Never infer a recovery target from a latest or merely similar package.
+4. For `supersede`, require typed invalidation evidence for `goal`, `scope`, or `acceptance`, including an invalidation reason and `partial_diff_disposition`. Preserve the original task identity, definition history, provenance, and invalidation evidence; supersede never carries or writes a replacement definition.
+5. Emit one typed `LifecycleProposal` for the selected mode. For resume, include the observed `recovery_package_revision` in the typed delta. The Runtime resolves canonical paths, re-reads and compares the package revision, validates package/state markers, constructs or restores the snapshot, and owns every durable write; this entry never claims that a lifecycle marker, snapshot, recovery package, or task state was written.
+
+## Required result
+
+Return one structured `lifecycle_result` containing:
+
+- exact task identity, current tuple, requested mode, and authority evidence;
+- legal-transition verdict and the selected transition's checkpoint/recovery evidence;
+- preserved claim-bound evidence-plan state across pause, interruption, or resume when triggered;
+- normalized next workflow/lifecycle tuple or a truthful blocked/user result;
+- rollback and recovery conditions, owner route, and review readiness;
+- one typed `LifecycleProposal` only when all model-visible transition preconditions pass;
+- at most one `next_route` recommendation, if applicable; it is informational only and must not invoke another public Skill;
+- `terminal_boundary: public-entry-terminal/v1`; after this result, return to the caller and stop. Internal lifecycle capabilities are not public Skill chaining.
+
+No transition is complete merely because a proposal was described. Slice B binds `lifecycle-transaction` for pause, interrupt, the two explicit resume modes, and `supersede`. Supersede only invalidates the old definition; use `prepare-task` in `replan` mode for a later same-task replacement, and report a truthful blocked result if that replacement cannot be committed.

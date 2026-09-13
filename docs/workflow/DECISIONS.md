@@ -1,13 +1,37 @@
-# DECISIONS.md
+# vNext Decisions
 
-## 使用规则
+Project: termlink (termlink)
 
-- 本文件记录 adoption 期已经能确认的架构决策、口味决策和暂缓项。
-- 不确定的原因和 future work 可以写 unknown / deferred，不能伪装成 accepted。
+## Bootstrap decision
 
-## 🏗️ 架构决策
+- mode: adopt
+- status: confirmed
+- authority: project owner
 
-### AD-001: 服务端会话元数据继续以 JSON 文件持久化
+## Confirmed facts
+
+- project-type: application (source: .workflow-system/legacy/one-time-codex-20260913/.workflow-system/PROJECT_PROFILE.yaml)
+- runtime-languages: JavaScript, Kotlin, HTML, CSS (source: .workflow-system/legacy/one-time-codex-20260913/.workflow-system/PROJECT_PROFILE.yaml)
+- current-task-disposition: 20260828-001 archived; clean handoff; product integration remains separate (source: TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md)
+
+## Inferred or unknown facts
+
+- none
+
+## vNext Decision Records
+
+- Normal close-task Decision admissions are appended here through the typed Runtime operation; this section is not edited directly by a Skill.
+
+### TermLink 项目决策记录
+
+<!-- project-content-migration:2026-09-13 -->
+下列完整原记录保留 AD、TD、DEFER、SUPERSEDED、REJECTED 的 ID、原因和影响。AD-001 至 AD-022 为项目架构决策来源；AD-021 对旧 formal revision/discovery 公共接口表述优先。AD-023/024 是旧任务流程或单任务范围决定，不是 vNext 默认测试顺序及新任务的自动授权。TD-001 的旧宿主路径已由当前 AGENTS.md、CLAUDE.md 与安装清单取代。DEFER-001 至 003 未因迁移完成；已替代和已否决记录仅作历史背景。本轮没有重新执行历史产品测试。
+
+来源：.workflow-system/legacy/one-time-codex-20260913/docs/workflow/DECISIONS.md。
+
+### 🏗️ 架构决策
+
+#### AD-001: 服务端会话元数据继续以 JSON 文件持久化
 
 - 状态：accepted
 - 背景：当前仓库未发现关系型数据库或迁移系统，而 session 生命周期已经依赖持久化恢复。
@@ -18,7 +42,7 @@
 - 替代方案：后续再单独立项做数据库迁移。
 - 验证方式：`src/repositories/sessionStore.js`、`src/services/sessionManager.js`
 
-### AD-002: Android 继续采用原生壳 + WebView 的混合架构
+#### AD-002: Android 继续采用原生壳 + WebView 的混合架构
 
 - 状态：accepted
 - 背景：README 与 active 架构文档都明确当前 Android 主线由 native shell + WebView 组成。
@@ -29,7 +53,7 @@
 - 替代方案：全面原生化，但需另开迁移任务。
 - 验证方式：`README.md`、`docs/architecture/CURRENT_STATE.md`
 
-### AD-003: 开源 release 安装路径的 Linux 自启正式支持范围限定为 systemd
+#### AD-003: 开源 release 安装路径的 Linux 自启正式支持范围限定为 systemd
 
 - 状态：accepted
 - 背景：任务 `20260513-001` 需要为开源 release 提供 Windows / Linux 安装与自启，但不同 Linux init 体系会显著扩大脚本范围、验证面和回退路径。
@@ -43,7 +67,7 @@
 - 替代方案：覆盖多种 Linux init 体系；当前未采用
 - 验证方式：`docs/workflow/CURRENT_TASK.md` 中的用户确认与后续 Linux 安装步骤验证
 
-### AD-004: Codex 实时同步核心冻结为稳定基线，pending action 另行验收
+#### AD-004: Codex 实时同步核心冻结为稳定基线，pending action 另行验收
 
 - 状态：accepted
 - 背景：TermLink 已完成并经真实 Android 手动验证同一 Codex 任务的最新 running 状态可以实时同步；同时完成 IPC id 绑定回写、Android 入口直传、A/B session 切换隔离，以及外部 owner 缺失时由 TermLink owner runtime 接管。授权提权和 PLAN 只具备自动化 / harness 路径证据，尚未得到真实 owner 自然产生 pending action 的人工端到端验证。
@@ -127,7 +151,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 
 约束：后续不得把 live replay assessment 改造成轮询、full read、canonical writer、第二实时权威或跨会话缓存；若需让 `needs_canonical` 自动补数据，必须单独锁定路线图第 4 步并重新取得授权。
 
-### AD-005: 正式 Codex Rollout Collector 只约束 Codex 来源，不屏蔽 Rust 通用依赖能力
+#### AD-005: 正式 Codex Rollout Collector 只约束 Codex 来源，不屏蔽 Rust 通用依赖能力
 
 - 状态：accepted
 - 背景：正式 `native/codex-rollout-collector` 必须脱离开发者本机 Codex checkout，并使用仓库内 vendored Codex history/protocol 闭包；但 vendor workspace 内可能保留未进入 formal graph 的非 Codex `runfiles` Git 声明。用户在本轮明确澄清，屏蔽目标是本地 Codex 源码引用，不是 Rust 的正常依赖能力。
@@ -141,7 +165,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：禁止所有外部 Git 依赖；当前因会误伤 Rust 正常能力且超出用户确认的屏蔽目标而不采用。
 - 验证方式：formal root `cargo metadata --locked --offline` 显示 539 packages、0 Git sources、0 runfiles；`cargo tree --locked --offline` 显示 Codex package 均来自 `native/codex-rollout-collector/vendor/codex`；source-boundary scan、formal package tests、clean-checkout build/test 和 `git diff --check` 均通过。该证据只验证 Codex 来源隔离，不改变本条决策的范围。
 
-### AD-006: P0-RC.1 正式 collector 仅在隔离基础层边界内进入稳定
+#### AD-006: P0-RC.1 正式 collector 仅在隔离基础层边界内进入稳定
 
 - 状态：accepted
 - 背景：任务 `20260819-001` 的 P0-RC.1 Step 1-4 已完成，正式 package 在 clean checkout 下通过构建与测试，并通过 Demo/Spike/formal 同 fixture 对照、alias 映射、`UnknownEvent`/`ParseGap` fail-closed、source-boundary 和 Cargo graph 检查；但本任务明确不实现完整 analyzer、P0-C/P0-B.4R 或产品集成。
@@ -156,7 +180,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：继续把正式 package 记为 in-development，直到 Node 或 Android 集成完成；当前不采用，因为这会把已验证的隔离基础层与后续产品集成错误耦合。
 - 验证方式：正式 package 为 9 项 unit、27 项 conformance、0 项 doc test；metadata 为 539 packages、0 Git sources、0 runfiles；同一 fixture 通过 Demo full-oracle/determinism、Spike wire parser 和 formal targeted conformance；legacy/current alias、未知 alias、source-boundary、target-ignore、clean-checkout 与 `git diff --check` 均通过。未执行、也未宣称 release/canary/benchmark 或 Node/Android/IPC/数据库集成。
 
-### AD-007: 阶段 3 只在 formal collector 内稳定 Adapter identity、conformance reducer 与 source promotion
+#### AD-007: 阶段 3 只在 formal collector 内稳定 Adapter identity、conformance reducer 与 source promotion
 
 - 状态：accepted
 - 背景：用户明确要求完成阶段 3 的完整 Adapter 映射、事件 identity、Tool/Plan/Turn/Usage 关联、reducer/projection conformance、Demo golden 对照和 partial/unknown/alias 语义，同时要求 Demo/Spike 继续作为只读验证 oracle；阶段 2 归档复核还要求补齐 tail/backfill 到 append 的安全 promotion 证据。
@@ -171,7 +195,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：直接复制 Demo reducer/DTO、用读取顺序生成 identity，或把 tail/backfill cursor 强制转成 append cursor；这些方案分别破坏 source-of-truth、重试交付/upsert 稳定性或 R-009 fail-closed 约束，不采用。
 - 验证方式：阶段 3 targeted suite 通过（60 unit、28 conformance、5 stage3 conformance），阶段 2 `stage2_input` 2 项与 doc tests 0 项通过；Demo CLI full-oracle/determinism 只读运行并产出 golden surface；formal source boundary、metadata/tree、fmt/check 和默认新 PowerShell cargo test 通过。该决策不声明产品 integration、release、canary 或 benchmark 完成。
 
-### AD-008: 阶段 4 只新增隔离 Rust↔Node analyzer runtime，不进入产品集成
+#### AD-008: 阶段 4 只新增隔离 Rust↔Node analyzer runtime，不进入产品集成
 
 - 状态：accepted
 - 背景：用户明确要求完成架构阶段 4，并同时修复阶段 3 的实际 Demo/Spike 双路径、真实分段归约和 partial→canonical 缺口；该授权只覆盖隔离 analyzer 进程、Node process/import/store 边界，不覆盖既有 IPC、Android、server routes 或数据库。
@@ -184,7 +208,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
   - 阶段 4 的默认文件 store 是隔离 artifact 的恢复/测试实现，不是现有产品历史数据库或 raw rollout 持久化方案。
 - 替代方案：继续只消费静态 golden、用重复完整 batch 模拟 segment、或把阶段 4 直接接入既有 gateway/DB；这些方案分别不能证明原始 conformance 要求或会突破 AD-006/本任务边界，不采用。
 
-### AD-009: 阶段 4 采用 Node 发起 hello、Rust 回应 hello，并对 source evidence fail-closed
+#### AD-009: 阶段 4 采用 Node 发起 hello、Rust 回应 hello，并对 source evidence fail-closed
 
 - 分类：架构 / 协议契约（user-challenge 收口）
 - 背景：用户指出当前实现由 Rust 启动主动发送 hello、拒绝 Node hello，与架构定义的 Node → Rust 方向漂移；同时旧草案把读取重试误写成来源替换。
@@ -194,7 +218,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 证据：任务 `20260820-003` 的 Rust stage4 protocol 7/7、Node collector 13/13（含正式 Rust binary、协议校验、异常重启和重复交付幂等）通过。
 - 验证方式：Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、7 stage4 protocol tests 全部通过；Node collector 13/13 定向测试通过，覆盖正式 Rust binary 派生字段、malformed canonical fail-closed、source mutation fail-closed、actual subprocess ACK、协议级 timeout/cancel、无 cursor source checkpoint 校验、batch 前后进程异常重启、file-store restart、overlap idempotence 与 late incomplete non-downgrade。未执行、也未宣称 release/canary/benchmark 或产品 IPC/Android/DB 集成。
 
-### AD-010: 阶段 4 恢复与 canonical 导入采用 fail-closed、有限重试交付语义
+#### AD-010: 阶段 4 恢复与 canonical 导入采用 fail-closed、有限重试交付语义
 
 - 状态：accepted
 - 分类：架构 / 协议契约（mechanical 收口）
@@ -203,7 +227,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 原因：这些约束把“来源未证实”“结果形状不完整”“请求超时未生效”和“进程重启后重复写入”统一收口为可审计的 fail-closed/幂等语义，既保证恢复安全，又不把隔离 artifact 扩展成产品 runtime。
 - 约束：资源超时、source mutation、malformed canonical 或超出重试预算都必须返回失败；不得无限重试、静默回显旧 cursor、仅凭 `complete=true` 宣称 canonical，或把既有 IPC/Android/DB 接入本任务。
 
-### AD-011: 阶段 4 checkpoint、revision 与 source evidence 采用严格证据
+#### AD-011: 阶段 4 checkpoint、revision 与 source evidence 采用严格证据
 
 - 状态：accepted
 - 分类：架构 / 协议契约（mechanical 收口）
@@ -213,7 +237,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 约束：该决策只适用于隔离 `native/codex-rollout-collector` ↔ `src/services/codexRolloutCollector` artifact；不扩展到既有 server/DB、IPC、Android、Demo/Spike 或产品 DTO。checkpoint schema、mutation 字段或 source evidence 语义发生破坏性变化时必须另行决策并迁移 fixture。
 - 证据：Node collector 定向测试覆盖 forged complete/checkpoint、mutation 缺字段、revision 回退、path-only identity 和 File store restart；Rust stage4 protocol 回归通过。
 
-### AD-012: 阶段 4 完成提交、checkpoint 与 item revision 必须单调且按对象绑定
+#### AD-012: 阶段 4 完成提交、checkpoint 与 item revision 必须单调且按对象绑定
 
 - 状态：accepted
 - 分类：架构 / 协议契约（mechanical 收口）
@@ -223,7 +247,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 约束：只适用于隔离 `native/codex-rollout-collector` ↔ `src/services/codexRolloutCollector` artifact；不扩展到既有 server/DB、IPC、Android、Demo/Spike 或产品 DTO。checkpoint schema 或 revision 语义发生破坏性变化时必须另行决策并迁移 fixture。
 - 证据：Node 定向测试 22/22 覆盖空 complete、跨 request 拒绝、Memory/File checkpoint canonical→partial/低 progress 防覆盖，以及高 batch coverage 下 revision 6 overlap 覆盖 revision 5；Rust 全量回归复用既有 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol 门禁。
 
-### AD-013: Codex rollout parent 以不可变 source contract 为准，不保留辅助 full-read 整文件 mutation guard
+#### AD-013: Codex rollout parent 以不可变 source contract 为准，不保留辅助 full-read 整文件 mutation guard
 
 - 状态：accepted
 - 分类：架构 / source contract（user-confirmed）
@@ -233,7 +257,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 约束：本决策不删除 `history_base`/cut、conversation/source identity、source epoch、cursor/prefix anchor、完整行/pending tail、append recovery、bounded parent header/suffix guard 或 replacement validation；不改变 Rust↔Node 隔离协议和普通单文件读取语义。后续不得把 active-source guard、cursor/source identity 语义或该 unsupported 输入重新扩大为公共产品契约而不重新取得用户确认。
 - 证据：实现删除 `read_lineage_batch()` 中 parent auxiliary full-history read 的整文件 before/after guard；现有 stage4 source guard 回归保留，后续以 Rust stage4 定向/全量测试、fmt 和 diff 范围检查确认。
 
-### AD-014: Rust Collector 以会话级 lineage 定位/重建为一级目标
+#### AD-014: Rust Collector 以会话级 lineage 定位/重建为一级目标
 
 - 状态：accepted
 - 分类：架构 / source contract（user-confirmed）
@@ -249,7 +273,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：只读取当前目录、只接受调用方传入的 active 文件，或让 Node 自行猜测唯一 active path；这些方案无法满足跨日期发现、重启恢复和完整历史重建，不采用。
 - 验证方式：跨日期与五文件 synthetic/sanitized fixture、真实 rollout 目录完整读取/Preview/Backfill/Append smoke、最新路径重启恢复、root-like 歧义和 lineage 全量 Rust 目标回归通过（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）。
 
-### AD-015: lineage 读取不是 rollout.jsonl 物理分页，且不设置 lineage depth 上限
+#### AD-015: lineage 读取不是 rollout.jsonl 物理分页，且不设置 lineage depth 上限
 
 - 状态：accepted
 - 分类：架构 / read contract（user-confirmed）
@@ -265,7 +289,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：把 `max_date_partitions` 传递为 lineage depth、增加固定 `max_lineage_depth`，或把每个物理读取窗口统称为分页；这些方案混淆发现范围与读取语义并损害完整历史目标，不采用。
 - 验证方式：超过旧默认深度仍完整解析、同日深 lineage 在单日期分区限制下仍可解析、环 fail-closed、同文件 append/full lineage 等价及重启恢复测试通过；Rust 全量目标回归与格式检查通过。
 
-### AD-016: Codex rollout 的 plain sibling 优先，普通 `.zst` parent lineage fail-closed
+#### AD-016: Codex rollout 的 plain sibling 优先，普通 `.zst` parent lineage fail-closed
 
 - 状态：accepted
 - 分类：架构 / source compatibility（user-confirmed）
@@ -280,7 +304,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：同时保留两个 sibling、按 mtime 选择、plain 失败时尝试 `.zst`，或伪造解压后的 byte cursor；这些方案分别引入歧义、非确定性或错误恢复，不采用。
 - 验证方式：plain 优先、zst-only 保留、非 sibling 相同 ID 仍歧义、跨日期候选链不变及 `.zst` parent 类型化拒绝回归通过；Rust 全量目标测试、fmt、diff check 和提交前扫描通过。
 
-### AD-017: lineage evidence、projection coverage 与 replacement mutation 必须分层
+#### AD-017: lineage evidence、projection coverage 与 replacement mutation 必须分层
 
 - 状态：accepted
 - 分类：架构 / protocol semantics（user-confirmed）
@@ -296,7 +320,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 验证方式：transition validation state 向后兼容、partial/evidence-only child、complete replacement、stopped/interrupted 和 coverage/mutation 分离测试通过；Rust 全量目标回归（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）通过。
 - 后续标注（2026-08-25，AD-020）：本条三状态描述属于隔离 formal artifact 的兼容语义。现行生产代码不主动构造 `discovered`，它仅作为旧 payload 缺失字段时的 serde 反序列化默认值保留；4.5 Node↔Rust 公共 Data Contract 的 `LineageTransition.validation_state` 只有 `validated | validation_unavailable`。不得把本条三状态表述当作 4.5 公共输出要求。
 
-### AD-018: Codex rollout 由外部 app-server 管理，单会话 Collector 保持单例协调
+#### AD-018: Codex rollout 由外部 app-server 管理，单会话 Collector 保持单例协调
 
 - 状态：accepted
 - 分类：架构 / source ownership 与 collector coordination（user-confirmed）
@@ -317,7 +341,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：把 `source_epoch`、product source replacement、`commitFence` 和多 worker canonical writer 作为阶段 5 默认模型；该方案与已确认的 app-server ownership 和单例 Collector 事实不符，暂不采用。
 - 验证方式：架构文档、契约、决策和两侧 host guidance 已同步；本轮仅修改文档，未改变 Rust、Node、Android、IPC 或数据库代码。
 
-### AD-019: Rust analyzer 只定义三种普通读取 mode，恢复采用普通读取请求的重试交付
+#### AD-019: Rust analyzer 只定义三种普通读取 mode，恢复采用普通读取请求的重试交付
 
 - 状态：accepted
 - 分类：架构 / Node↔Rust analyzer recovery semantics（user-confirmed）
@@ -328,7 +352,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 影响范围：Rust analyzer architecture/data/wire/startup contract、Node coordinator/interface index、history sync cross-reference docs；不修改 Rust/Node/Android/IPC/DB 代码。
 - 验证方式：相关文档检索不存在额外全量分析 mode、Rust analyzer 独立恢复 capability 或“重启后 Rust 内部恢复状态”作为现行语义；保留 IPC reconnect/live replay 的独立定义。
 
-### AD-020: 概念按“层级 × 当前状态”登记，历史设计不得自动升级为现行契约
+#### AD-020: 概念按“层级 × 当前状态”登记，历史设计不得自动升级为现行契约
 
 - 状态：accepted
 - 分类：治理 / 文档概念分层与废止识别（user-confirmed）
@@ -350,7 +374,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：直接删除旧草案中的 serverRevision/revisionScope 章节（拒绝——丢失设计演变记录且不可审计）；只在对话中维护清单（拒绝——不可审计、必然再次漂移）。
 - 验证方式：全仓检索确认各草案顶部标注存在、4.5 三份 split contract 未把 unadopted 概念列为必填字段、Rust 生产路径仍不构造 `Discovered`；`git diff --check` 通过。
 
-### AD-021: 4.5 公共 Node↔Rust 接口收敛——discovery/fingerprint 废止，`retention_profile` 与泛化 revision 非公共语义
+#### AD-021: 4.5 公共 Node↔Rust 接口收敛——discovery/fingerprint 废止，`retention_profile` 与泛化 revision 非公共语义
 
 - 状态：accepted
 - 分类：架构 / 进程协议文档收敛（user-confirmed）
@@ -371,7 +395,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：把 discovery 改名后继续暴露（拒绝——Node 仍错误承担 Rust 内部 source 定位职责）；把旧 watermark 改名 `item_revision` 延续为产品机制（拒绝——在无版本管理事实下伪装成现行机制）；本轮顺带删除 formal 字段（拒绝——超出文档修订范围，属协议迁移任务）。
 - 验证方式：对现行来源执行 discovery/fingerprint/`serverRevision`/`retention_profile`/revision 正向语义检索通过；宿主侧 `node --test tests/codexRolloutCollector.test.js` 30/30 与 scoped `git diff --check` 通过；2026-08-26 WSL 复跑 28/30，2 例失败均为 WSL 无法运行 Windows 构建正式 `.exe` 的环境限制。
 
-### AD-022: 4.5 采用 Rust 契约先行、Node 后续适配的模块协作策略
+#### AD-022: 4.5 采用 Rust 契约先行、Node 后续适配的模块协作策略
 
 - 状态：accepted
 - 分类：架构 / 模块边界与迁移协作（user-confirmed）
@@ -386,7 +410,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：在 Rust 实施阶段直接修改 Node 以追平当前实现（拒绝——越过模块实施顺序并扩大当前 scope）；让 Node 与 Rust 各自保留未协调的接口（拒绝——会把冲突推迟到集成阶段且不可审计）。
 - 验证方式：当前任务保持 Node consumer 未启用，Rust target startup/process/wire 边界已通过 target `56/56`、native `214/214`、`review-diff`、`review-implementation`、`verify-contracts` 和 `full-qa`；工作树未出现 Node/Android/IPC/DB diff。
 
-### AD-023: 4.5 按当前步骤门禁推进，不让后续步骤缺口阻塞当前步骤
+#### AD-023 (历史旧任务流程): 4.5 按当前步骤门禁推进，不让后续步骤缺口阻塞当前步骤
 
 - 状态：accepted
 - 分类：治理 / 分阶段回归门禁（user-confirmed）
@@ -402,9 +426,25 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：以全量 suite 必须立即全绿作为每一步的唯一门禁（拒绝——会把未实施步骤误判为当前回归）；忽略全量失败只看 focused suite（拒绝——会丢失整体迁移风险）。
 - 验证方式：步骤 2、3、4、5、6 均在保留全量失败分类的前提下，以各自 focused evidence 判定通过；步骤 6 的 importer `10/10`、target focused `42/42` 通过，collector 全量 `64/91` 的 26 项后续缺口继续保留，未被写成稳定或最终交付证据。
 
-## 🎨 口味决策
+#### AD-024 (仅适用于旧任务 20260828-001): 纳入直接相关验证资产，但不扩大产品实现范围
 
-### TD-001: host guidance 使用各自宿主的本地 skill 路径
+- 状态：accepted
+- 分类：治理 / 任务范围与验收证据收口（user-confirmed）
+- 背景：用户明确要求将最新提交 `20b79197ce8889294c7a12585ebe3ae008fac11d` 及其紧邻验证提交 `9409b35a5b31afa37dc39a4159ef7181bdec81fb` 中新增或扩展的 Node 4.5 startup、真实 Rust、checkpoint/job、recovery/crash 测试与 fixture 纳入任务 `20260828-001`。这些文件直接验证 Node analyzer consumer/coordinator 的 recovery flow，不能按无关新增文件排除。
+- 决策：任务 `20260828-001` 的 task-wide verification/closeout 范围包含上述直接相关测试、fixture 及其必要的验证资产；提交中已实际变更的 `CONTRACTS.md`、`DECISIONS.md`、`STATUS.md`、`LESSONS.md` 通过对应 workflow sync/closeout skill 作为 task-owned Conditional Files 维护。该纳入只改变任务审计与验收证据范围，不新增运行时架构、公共产品接口或产品传播面。
+- 原因：保留这些资产才能完整证明 startup、Node→Rust、checkpoint/restart、recovery/crash 和 recovery identity 的实现证据，并使最终 closeout 可追溯；将其视为噪音会丢失与当前任务直接相关的回归覆盖。
+- 约束：
+  - Rust/native、IPC、Android、DB/Stage 5、产品入口、release/canary 及未列路径仍不在本任务授权范围内；不得因纳入测试/fixture 而静默扩展到这些模块。
+  - 测试、fixture 和 workflow 文档属于验证/治理资产，不等价于产品集成完成、稳定发布或 release 证据；后续步骤缺口与 `RI-4.5-004-016` deferred 仍按现有任务记录保留。
+  - workflow 文档只能通过对应的 sync/closeout skill 修改；若要改变公共契约、模块边界或继续扩大范围，必须重新 review、lock scope 并取得用户明确确认。
+  - AI 不得把本条的 task-wide evidence admission 解释为 Node 以外模块的实现授权，也不得在后续任务中静默把这些隔离 artifact 接入 IPC、Android、数据库或产品 history。
+- 影响范围：任务 `20260828-001` 的 `CURRENT_TASK.md`、Node collector 目标测试与 fixture、真实 Rust smoke/依赖验证证据，以及对应 workflow Conditional evidence；不改变 Rust↔Node 公共 wire、产品 DB、IPC、Android 或 release 契约。
+- 替代方案：将新增测试、fixture 和 workflow 变更全部视为无关噪音并移出当前任务（拒绝——会丢失 recovery flow 的直接验证和审计链）；借纳入验证资产之名扩大到产品集成（拒绝——违反既有模块边界与范围锁定）。
+- 验证方式：scope widening、decision classification、review-diff、review-implementation、verify-contracts 和 required-now regression 已完成；最新 task target `147/147`、Node/fixture `node --check` `16/16`、真实 Rust smoke `1/1`、Rust `target_identity` `6/6` 与 `stage4_target_protocol` `70/70` 通过。
+
+### 🎨 口味决策
+
+#### TD-001 (宿主路径已由 vNext 入口取代): host guidance 使用各自宿主的本地 skill 路径
 
 - 状态：accepted
 - 背景：仓库刚完成把 `skills/` 重复树删除，并将文档改为 host-local skills。
@@ -418,7 +458,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：重新恢复单一根目录 `skills/` 作为源，但当前未采用。
 - 复议条件：host-local mirror 维护成本失控或 `.codex` 忽略策略导致协作失真。
 
-### TD-002: adoption 基线遇到文档/代码冲突时以可运行代码与配置为准
+#### TD-002: adoption 基线遇到文档/代码冲突时以可运行代码与配置为准
 
 - 状态：accepted
 - 背景：本轮 inventory 已发现 `README.md` 默认端口与 `src/server.js` 默认值不一致。
@@ -429,7 +469,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：继续把 README 等 active 文档视为同等级事实源，但当前冲突已证明这样风险更高。
 - 复议条件：仓库未来建立了受控发布文档源并以其覆盖运行时默认值。
 
-### TD-004: `node --test` gate 拆分为 confirmed narrow gate + deferred fix follow-up
+#### TD-004: `node --test` gate 拆分为 confirmed narrow gate + deferred fix follow-up
 
 - 状态：accepted
 - 背景：`20260511-001` 任务已通过 Step 1/Step 2 排查确认 `node --test` full suite 的挂起面不是单点问题，而是 `tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js` 与 `tests\terminalGateway.sessionid.test.js` 三个独立 hanging surface；其余 6 个测试文件（`tlsConfig`、`workspace.routes`、`workspace.web`、`sessionStore.metadata`、`terminal_shortcut_input`、`codexSecondaryPanel.integration`）均可单独或组合在 3 秒内正常退出。
@@ -444,7 +484,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：继续保持 full suite 为唯一 gate（拒绝——gate 实际不可用）；直接降级 `node --test` 为非 blocker（拒绝——丢失 6 个 passing 文件的覆盖）；不拆分直接修复 hanging 文件（拒绝——超出当前 investigation-only 任务范围，需要独立修复任务）
 - 验证方式：`tmp\20260511-001-step2\*` 中 14 组 meta 文件记录了各子集的 pass/hung 结果；confirmed subset 已通过 `tmp\20260511-001-step4\confirmed-narrow-gate.meta.txt` 的 6 文件组合 gate 验证，其中 `sessionStore.metadata`、`terminal_shortcut_input`、`codexSecondaryPanel.integration` 已单文件验证通过，`tlsConfig/workspace.routes/workspace.web` 已通过 3 文件组合验证
 
-### TD-005: Android Codex 历史缓存按服务/任务手动管理，不设总量上限或自动淘汰
+#### TD-005: Android Codex 历史缓存按服务/任务手动管理，不设总量上限或自动淘汰
 
 - 状态：accepted
 - 背景：用户确认手机需要保留离线可用的全部已同步正文和已下载附件，并通过设置页自行管理空间。
@@ -470,7 +510,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard 与域名+Nginx 都归为可能抖动或受限的
 传输路径变量，不要求额外复现“WireGuard 未接通”作为修复门禁，也不把该网络变量与 mTLS 认证层混为一谈。
 
-### TD-003: 现有架构文档继续保留在当前项目路径，不因 workflow bucket 升级而强制迁移
+#### TD-003: 现有架构文档继续保留在当前项目路径，不因 workflow bucket 升级而强制迁移
 
 - 状态：accepted
 - 背景：新的 workflow 文档目录协议为 greenfield design baseline 引入了 `docs/designs/**`，并为 adoption inventory 引入了 `docs/adoption/*inventory.md`，但当前仓库已经有 `ARCHITECTURE.md`、`DATABASE.md` 和 `docs/architecture/**` 作为持续维护中的项目文档。
@@ -481,9 +521,9 @@ local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard
 - 替代方案：立即把上述文档整体迁移到新 bucket；当前未采用。
 - 复议条件：团队明确把这些文档改造为 greenfield design baseline 或 adoption inventory 的正式 live source。
 
-## ⏸️ 暂缓决策
+### ⏸️ 暂缓决策
 
-### DEFER-001: integration / e2e / deploy validation 的正式绑定
+#### DEFER-001: integration / e2e / deploy validation 的正式绑定
 
 - 状态：deferred
 - 背景：workflow validation matrix 已预留槽位，但当前仓库事实里只明确绑定了 `node --test`、`android\\gradlew.bat :app:testDebugUnitTest` 和 `npm run android:check-release-config`。
@@ -492,7 +532,7 @@ local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard
 - 触发复议条件：团队补齐 smoke / integration / deploy 验证脚本，或第一张 workflow task 需要这些门禁。
 - 明确不做范围：不在 adoption 期猜测不存在的 CI / e2e 命令。
 
-### DEFER-002: discovery candidate 的 pre-I/O path confinement 交由 source owner 后续复核
+#### DEFER-002: discovery candidate 的 pre-I/O path confinement 交由 source owner 后续复核
 
 - 状态：deferred
 - 分类：架构 / source boundary 与模块协作（user-confirmed）
@@ -507,7 +547,7 @@ local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard
 - 触发复议条件：source owner 提供 discovery pre-I/O canonicalization 修复方案，或 Rust/Node 联合接口评审确认该边界必须进入下一版本任务。
 - 验证方式：当前状态记录在 `CURRENT_TASK.md`、`STATUS.md` 和审查队列中为 deferred；target `56/56` 与 native `214/214` 通过，但不将其作为 candidate symlink pre-I/O 已覆盖的证据。
 
-### DEFER-003: `RI-4.5-004-016` 初始 hello deadline 断言对齐暂缓
+#### DEFER-003: `RI-4.5-004-016` 初始 hello deadline 断言对齐暂缓
 
 - 状态：deferred
 - 分类：Node collector 生命周期 / 测试断言（user-confirmed）
@@ -522,9 +562,9 @@ local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard
 - 替代方案：在 timeout 返回前强制等待 child 退出，或提前释放 `runningIntent`（暂不采用——前者会扩大请求结算延迟，后者会削弱 termination fence 的 fail-closed 保护）。
 - 验证方式：步骤 4 lifecycle focused selection `23/23` 通过；collector 全量最新 `64/91`，仅保留该 1 项 deferred 断言失败及 26 项后续步骤预期缺口，无取消/挂起。
 
-## 🔁 已演进 / 已替代
+### 🔁 已演进 / 已替代
 
-### SUPERSEDED-001: 根目录 `skills/` 作为本地技能主入口
+#### SUPERSEDED-001: 根目录 `skills/` 作为本地技能主入口
 
 - 当前状态：superseded
 - 原决策编号：historical-local-skills-root
@@ -534,9 +574,9 @@ local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard
 - 兼容 / 迁移要求：文档与宿主说明统一切换到 `.claude/skills/` / `.codex/skills/`
 - 审计备注：若未来再改，必须同步 host guidance
 
-## ❌ 已否决
+### ❌ 已否决
 
-### REJECTED-001: adoption 阶段重写产品架构
+#### REJECTED-001: adoption 阶段重写产品架构
 
 - 状态：rejected
 - 背景：workflow-system 接入的是老项目，不是 greenfield。
@@ -544,7 +584,7 @@ local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard
 - 替代方案：等 workflow baseline 稳定后，用 `CURRENT_TASK.md` 单独立项。
 - 如果再次被提出时的默认处理：先要求 inventory 证据和明确范围，再决定是否开新任务。
 
-### REJECTED-002: 将嵌套 `replay` 作为 TargetCompleteMessage checkpoint 的失败条件
+#### REJECTED-002: 将嵌套 `replay` 作为 TargetCompleteMessage checkpoint 的失败条件
 
 - 状态：rejected
 - 分类：协议审查范围 / unknown field 处理（user-confirmed）

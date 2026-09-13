@@ -1,0 +1,1057 @@
+schema_version: 1
+# Shared transaction responses expose the evidence ceiling, not proof of execution.
+# Transaction result field: evidence_assurance: caller-reported.
+kind: vnext-runtime-contract
+phase: Phase 2
+
+runtime_distribution:
+  kind: project-local-node
+  package_path: .workflow-system/runtime
+  entrypoint: .workflow-system/runtime/dist/cli.js
+  package_manifest: .workflow-system/runtime/package.json
+  lockfile: .workflow-system/runtime/package-lock.json
+  package_name: vibe-coding-vnext-runtime
+  package_version: 0.18.1
+  node_min_version: ">=20.0.0"
+
+proposal:
+  schema_version: 1
+  kind: vnext-runtime-proposal
+  caller:
+    - execute-step
+    - review-change
+    - prepare-task
+    - task-lifecycle
+    - capture-work-item
+    - close-task
+  operation_kinds:
+    - task-state-transaction
+    - finding-queue-transaction
+    - lifecycle-transaction
+    - inbox-record-transaction
+    - project-status-transaction
+    - archive-transaction
+    - lesson-record-transaction
+    - contract-candidate-commit
+    - decision-record-transaction
+  source_tuple:
+    - path
+    - revision
+    - document_id
+    - task_id
+    - task_slug
+    - workflow_status
+    - lifecycle_state
+    - active_step_id
+    - active_step_status
+    - finding_queue_revision
+    - resume_requires_review
+    - resume_review_reasons
+  required_envelope:
+    - authority_evidence
+    - semantic_delta
+    - preconditions
+    - evidence_refs
+    - idempotency_key
+    - requested_write_targets
+  finding_queue_admission:
+    required:
+      - cycle_phase
+      - finding_admission_wave_id
+  finding_queue_repair:
+    required:
+      - review_cycle_id
+      - repair_wave_id
+  task_state:
+    actions:
+      - retry-step
+      - record-step-preflight
+      - step-progress
+      - clear-resume-review-gate
+      - create-draft
+      - update-draft
+      - confirm-draft
+      - migrate-claim-evidence
+      - record-review-result
+      - mark-replan-blocked
+      - clear-replan-block
+      - commit-replan
+    step_progress:
+      required:
+        - step_id
+        - status
+        - evidence_refs
+      optional:
+        - note
+        - repair_fingerprint
+        - repair_fingerprints
+        - repair_wave_id
+        - change_set_id
+        - review_receipt
+        - claim_evidence
+        - execution_result
+    claim_evidence:
+      stored_in: canonical CURRENT_TASK.runtime_state
+      record_fields:
+        - claim_id
+        - claim_kind
+        - requirement
+        - source_ref
+        - slots
+      slot_fields:
+        - slot_id
+        - minimum_type
+        - disposition
+        - evidence_refs
+        - due_step_id
+        - applicability
+        - before_step_id
+        - check
+        - report
+        - prerequisite_receipt
+      complete_dispositions:
+        - existing
+        - reused
+        - newly-executed
+      incomplete_dispositions:
+        - missing
+        - deferred
+        - blocked
+      completion_rule: non-empty acceptance-bearing frozen plan; due slots require bound successful reports and applicable subject revisions; close checks all slots and consumed prerequisites
+    claim_evidence_migration:
+      mode: default
+      action: migrate-claim-evidence
+      required:
+        - claim_evidence
+        - evidence_refs
+      from: active + active legacy-or-empty-plan
+      to: active + active
+      mutation: install one non-empty acceptance-bearing frozen claim_evidence plan; do not change task semantics
+      preserves:
+        - TASK_ID
+        - TASK_SLUG
+        - document_id
+        - goal
+        - scope
+        - acceptance
+        - implementation steps
+        - active step/status
+        - execution history
+        - findings
+        - review state
+        - lifecycle tuple
+    advancement_outcomes:
+      - not-applicable
+      - repair-awaiting-verification
+      - advanced
+      - task-complete
+    review_receipt:
+      required:
+        - cycle_id
+        - cycle_phase
+        - change_set_id
+        - review_target_revision
+        - verdict
+        - admitted_fingerprints
+        - evidence_refs
+      verdict: clean
+      cycle_phase:
+        - discovery
+        - verification
+      target_verification: runtime-file-manifest
+    review_result:
+      test_assessment: [applicable, reason, evidence_refs, necessity, oracle, boundary, reuse, applicability]
+      stored_in: canonical CURRENT_TASK.runtime_state.pending_review_result
+      verdicts:
+        - clean
+        - findings
+        - blocked
+      binds:
+        - active_step_id
+        - review_cycle_id
+        - latest_execution_id
+        - change_set_id
+        - review_target_revision
+      consumed_by:
+        clean: execute-step:complete-reviewed-step
+        findings: execute-step:begin-repair
+        blocked: caller-route
+    draft:
+      mode: default
+      actions:
+        - create-draft
+        - update-draft
+      identity_required:
+        - task_id
+        - task_slug
+        - document_id
+        - task_title
+      definition_required:
+        - background_context
+        - acceptance
+        - allowed_scope
+        - conditional_scope
+        - forbidden_scope
+        - affected_contracts
+        - confirmed_decisions
+        - open_questions
+        - implementation_plan
+        - implementation_steps
+        - regression_checks
+        - rollback_points
+        - design_constraints
+        - post_release_validation
+        - propagation_governance
+      claim_evidence: required-and-non-empty-for-new-or-refined-drafts; must-include-an-acceptance-claim; legacy-documents-remain-readable-but-require-migration-before-terminal-completion
+      task_basis:
+        required:
+          - original_request
+          - user_decisions
+        source_fields:
+          - source
+          - verbatim
+        storage: identity-derived-linked-document
+        write_binding: same-atomic-draft-transaction
+        review_results_forbidden: true
+      create_from: closed + archived
+      update_from: draft + active
+      target: draft + active
+      previous_close_reconciliation:
+        archive: required
+        status: required
+        admitted_lesson: required-or-durable-reuse-proof
+      step_admission:
+        all_steps_metadata_complete: true
+        active_step: first-admitted-step
+      preserves:
+        - TASK_ID
+        - TASK_SLUG
+        - document_id on update
+        - execution_log
+        - applied_proposals
+        - canonical provenance
+    confirm:
+      mode: confirm
+      action: confirm-draft
+      required:
+        - task_id
+        - task_slug
+        - document_id
+        - draft_revision
+        - evidence_refs
+      authority:
+        - user-confirmation
+        - authorized-caller
+      authority_coordinates:
+        required:
+          - task_id
+          - document_id
+          - draft_revision
+        exact_draft_revision: true
+      from: draft + active
+      to: active + active
+  execute_step:
+    semantic_adapter:
+      input: stdin-json
+      commands:
+        - preflight-step
+        - evidence-context
+        - retry-step
+        - begin-repair
+        - record-step-result
+        - complete-reviewed-step
+      step_source: confirmed-current-task
+      scope_enforcement: task-and-current-step
+      command_plan_source: confirmed-current-step
+      persistent_tests_enforcement: frozen-section-plus-scope-evaluator
+      test_strategy_execution:
+        phase_source: versioned-frozen-test-strategy
+        legacy_behavior: read-history-block-unversioned-execution
+        test_first:
+          first_step_phase: test-first
+          later_step_phase: test-first
+          first_step_outcome: implemented
+          later_step_outcome: implemented
+          advancement_gate: runtime-consumed-bound-prerequisite-evidence
+        red_evidence:
+          result_status: expected-failure
+          kind: behavior-not-implemented
+          companion_statuses:
+            - passed
+          forbidden_statuses:
+            - failed
+            - blocked
+            - not-run
+          acceptance_evidence: forbidden
+          unexpected_failure_outcome: blocked
+          review_checkpoint: required
+        non_red_outcome: implemented-with-passed-results-or-bound-reproduction
+      completion_evidence_source: recorded-step-result-only
+      change_detection: runtime-preflight-candidate-before-after-delta
+      proposal_file_policy: project-external-only
+      advancement_owner: runtime
+      post_completion_commit_owner: user-or-explicit-outer-orchestrator
+      post_completion_route: git-commit
+    bound_actions:
+      - admit
+      - retry-step
+      - record-step-preflight
+      - step-progress
+      - record-repair-attempt
+      - resolve
+  review_change:
+    semantic_adapter:
+      input: stdin-json
+      commands:
+        - review-context
+        - review-read
+        - record-review-result
+      context_source: latest-recorded-execution
+      reviewable_execution: implemented-or-test-red-awaiting-required-checkpoint-or-repair-verification
+      change_set: runtime-owned-stable-id
+      review_target: runtime-cumulative-before-after-file-delta
+      result_storage: canonical-pending-review-result
+      direct_product_writes: deny
+      advancement_owner: execute-step
+    bound_actions:
+      - record-review-result
+  prepare_task:
+    semantic_adapter:
+      input: stdin-json
+      commands:
+        - prepare-draft
+        - confirm-draft
+        - clear-resume-review
+        - replan
+      draft_fields:
+        - task_basis
+        - goal
+        - acceptance
+        - out_of_scope
+        - design_decisions
+        - mutation_scope
+        - test_strategy
+        - implementation_steps
+        - validation_plan
+        - persistent_tests
+      optional_draft_fields:
+        - project_documents
+        - affected_contracts
+      decision_partition:
+        decided: confirmed_decisions
+        unresolved: open_questions
+      task_basis_storage: linked-TASK_BASIS-with-path-and-revision
+      command_footprint_preflight:
+        source: "implementation_steps[].commands"
+        fields:
+          - command
+          - expected_repo_writes
+        evaluator: shared-mutation-scope-evaluator
+        timing: before-draft-commit
+      confirmation_binding: runtime-issued-draft-receipt-plus-authorized-caller
+      resume_review_binding: caller-provided-exact-readiness-receipt
+      replan_entry: superseded + active
+      test_strategy:
+        storage: current-task-regression-checks/test-strategy
+        fields:
+          - mode
+          - source
+          - source_ref
+          - task_classification
+          - rationale
+        modes:
+          - flexible
+          - test-first
+          - implementation-first
+          - not-applicable
+        sources:
+          - explicit-user
+          - project-policy
+          - inferred-default
+        classifications:
+          - contract-clear-behavior
+          - exploratory-or-infrastructure
+          - non-executable-change
+        source_binding:
+          explicit-user: exact-task-basis-source-coordinate
+          project-policy: existing-project-policy-file
+          inferred-default: prepare-task-default
+        precedence:
+          - explicit-user
+          - project-policy
+          - inferred-default
+        ambiguity: resolve-as-open-question-before-draft-commit
+        frozen_by: confirm-draft
+        change_after_confirm: replan-only
+        enforcement: create-update-confirm-and-replan
+        ordering_enforcement: runtime-consumed-before-step-slots
+        non_executable_scope:
+          policy_source: .workflow-system/PROJECT_PROFILE.yaml#boundaries.non_executable_change_paths
+          required_for: not-applicable
+          evaluated_surfaces:
+            - task-allowed-scope
+            - task-conditional-scope
+            - implementation-step-mutation-scope
+          policy_pattern_grammar: exact-path-or-literal-directory-prefix-globstar
+          relation: exact-or-proven-subset
+          missing_or_ambiguous: block-not-applicable-only
+          historical_active_tasks: not-revalidated
+          error_codes:
+            - TEST_STRATEGY_NON_EXECUTABLE_UNPROVEN
+            - TEST_STRATEGY_NON_EXECUTABLE_SCOPE_VIOLATION
+      persistent_tests_storage: existing-scope-and-regression-sections
+      persistent_tests_enforcement: frozen-section-plus-scope-evaluator
+      proposal_file_policy: project-external-only
+      internal_action_owners:
+        migrate-claim-evidence: runtime-compatibility
+        mark-replan-blocked: runtime-convergence
+        clear-replan-block: runtime-convergence
+    bound_actions:
+      - clear-resume-review-gate
+      - create-draft
+      - update-draft
+      - confirm-draft
+      - migrate-claim-evidence
+      - mark-replan-blocked
+      - clear-replan-block
+      - commit-replan
+    draft_mode: default
+    draft_actions:
+      - create-draft
+      - update-draft
+    confirm_mode: confirm
+    confirm_actions:
+      - confirm-draft
+    migration_mode: default
+    migration_actions:
+      - migrate-claim-evidence
+    replan_mode: replan
+    replan_actions:
+      - mark-replan-blocked
+      - clear-replan-block
+      - commit-replan
+  inbox_record:
+    mode: default
+    action: record
+    required:
+      - item_slug
+      - record
+      - relation_evidence_refs
+      - duplicate_check
+      - proposed_owner
+      - target_path
+      - evidence_refs
+    record_fields:
+      - artifact_kind
+      - item_id
+      - title
+      - type
+      - source
+      - captured_at
+      - relation_to_current_task
+      - current_task_id
+      - description
+      - evidence
+      - suggested_next_action
+      - status
+    relation: unrelated
+    duplicate_check: clear
+    proposed_owner:
+      - triage_later
+      - ask_user
+    target_pattern: TASKS/inbox/INBOX-<YYYYMMDD>-<short-id>-<slug>.md
+    provenance_fields:
+      - idempotency_key
+      - proposal_digest
+      - source_revision
+      - source_task_id
+      - source_task_slug
+      - source_document_id
+      - relation_evidence_refs
+      - duplicate_check
+      - proposed_owner
+  lifecycle:
+    modes:
+      - pause
+      - interrupt
+      - resume-paused
+      - resume-interrupted
+      - supersede
+    bound_modes:
+      - pause
+      - interrupt
+      - resume-paused
+      - resume-interrupted
+      - supersede
+    proposal_only_modes: []
+    pause_required:
+      required:
+        - lifecycle_state
+        - suspension_reason
+        - task_start_base
+        - last_reviewed_checkpoint
+        - current_diff_review_target
+        - rollback_conditions
+        - resume_review_reasons
+        - evidence_refs
+    interrupt_required:
+      required:
+        - lifecycle_state
+        - suspension_reason
+        - task_start_base
+        - last_reviewed_checkpoint
+        - current_diff_review_target
+        - rollback_conditions
+        - resume_review_reasons
+        - checkpoint_evidence
+        - dirty_attribution
+        - environment_state
+        - recovery_strategy
+        - evidence_refs
+    resume_required:
+      required:
+        - artifact_kind
+        - recovery_package_path
+        - recovery_package_revision
+        - resume_review_reasons
+        - evidence_refs
+    supersede_required:
+      required:
+        - invalidation_kind
+        - invalidation_reason
+        - evidence_refs
+        - partial_diff_disposition
+  close_task:
+    default_mode: default
+    preview_mode: preview
+    terminal_from:
+      - active + active
+    terminal_to:
+      - closed + archived
+    claim_evidence: derive acceptance_satisfied and validation_complete from the non-empty frozen CURRENT_TASK claim_evidence plan; require an acceptance claim; aggregate command success is insufficient
+    lesson_admission:
+      - admit
+      - defer
+      - no-op
+    knowledge_admission:
+      dispositions:
+        - admit
+        - merge
+        - supersede
+        - defer
+        - reject
+        - no-op
+      durable_dispositions:
+        - admit
+        - merge
+        - supersede
+      candidate_fields:
+        - candidateId
+        - kind
+        - fingerprint
+        - statement
+        - sourceRefs
+        - applicability
+        - authoritySource
+        - stability
+        - evidenceRefs
+        - noveltyAgainst
+        - conflictSet
+        - supersedes
+        - reviewOrExpiryTrigger
+        - expectedConsumers
+        - decisionContext
+        - systemicSeverity
+        - implementation_anchors
+      implementation_anchors:
+        coverage:
+          - observed
+          - verified-scope
+        max_anchors: 5
+        line_number_locators: forbidden
+        missing_symbol_behavior: live-search-fallback
+      reentry_source: canonical-task-archive-admission
+  lesson_marker:
+    contract: vnext-lesson-marker/canonical-v1
+    marker_version_field: absent
+    noncanonical_behavior: fail-closed
+    persisted:
+      fields:
+        - task_id
+        - task_slug
+        - document_id
+        - archive_path
+        - archive_revision
+        - source_revision
+        - candidate_ref
+        - candidate_digest
+        - evidence_refs
+      disposition: omitted
+    reused:
+      fields:
+        - task_id
+        - task_slug
+        - document_id
+        - archive_path
+        - archive_revision
+        - source_revision
+        - candidate_ref
+        - candidate_digest
+        - evidence_refs
+        - disposition
+        - reused_candidate
+      disposition: reused
+      reused_candidate_fields:
+        - task_id
+        - document_id
+        - archive_revision
+        - candidate_ref
+
+mutation_scope:
+  status: bound
+  binding: vnext-runtime-read-only
+  source: CURRENT_TASK.md
+  buckets:
+    - Allowed Files
+    - Conditional Files
+    - Forbidden Files
+  default_write_policy: deny
+  read_discovery_is_not_write_authority: true
+  ordinary_write_scope: exact-file-or-file-plus-symbol
+  broad_glob_requires: inherently-broad-transformation
+  conditional_expansion_requires: evidence-and-authority
+  persistent_test_policy:
+    source: CURRENT_TASK Persistent Tests section
+    when_present: exact-allowlist-default-deny
+    conventional_paths: runtime-classified
+    nonconventional_paths: caller-declared
+    legacy_missing_section: compatibility-unenforced
+  changed_goal_scope_acceptance: supersede-or-replan
+  check_command: scope-check
+  input:
+    required:
+      - explicit_changed_paths
+      - conditional_authorizations_with_evidence_and_authority
+      - transformation_kind
+  output:
+    required:
+      - per-path-admission-and-blocker
+      - separate-read-discovery-match
+      - source-revision
+  command_write_footprint:
+    pre_command: required
+    expected:
+      required:
+        - command
+        - kind
+        - repository_relative_targets
+        - evidence_refs
+      bounded_kind: bounded
+      unbounded_behavior: blocked-before-execution
+      admission: shared-mutation-scope-evaluator
+    post_command:
+      observed_field: observed_write_paths
+      admission: shared-mutation-scope-evaluator
+      cleanup_behavior: sticky-blocked-after-unauthorized-observation
+    observation_limitations:
+      - no-os-level-transient-write-history-proof
+
+canonical_current_task:
+  frontmatter:
+    schema_version: 1
+    kind: vnext-current-task
+    required:
+      - document_id
+      - runtime_state
+  runtime_state:
+    schema_version: 1
+    kind: vnext-current-task-runtime-state
+    fields:
+      - business_evidence_version
+      - evidence_plan_revision
+      - task_id
+      - task_slug
+      - workflow_status
+      - lifecycle_state
+      - resume_requires_review
+      - resume_review_reasons
+      - active_step_id
+      - active_step_status
+      - finding_queue_revision
+      - review_cycle
+      - findings
+      - execution_log
+      - applied_proposals
+      - claim_evidence_required
+      - claim_evidence
+      - pending_review_result
+      - review_coverage
+      - step_attempts
+    review_cycle:
+      fields:
+        - id
+        - cycle_phase
+        - repair_round
+        - counted_repair_wave_ids
+        - active_repair_wave_id
+        - verification_new_finding_wave_used
+        - verification_new_finding_wave_id
+      repair_round_max: 3
+      same_repair_wave_counts_once: true
+      verification_new_finding_wave_max: 1
+  source_of_truth: same-canonical-CURRENT_TASK-document
+  legacy_schema_behavior: migration-required
+
+concurrency:
+  model: single-authorized-writer
+  concurrent_state_changing_writers: forbidden
+  stale_detection: source-revision-and-explicit-recovery-package-revision
+
+operations:
+  - id: task-state-transaction
+    status: bound
+    binding: vnext-runtime
+    operation: task-state-transaction
+    source_targets:
+      - CURRENT_TASK.md
+      - task-basis/TASK_BASIS-<TASK_ID>.md
+    write_targets:
+      - CURRENT_TASK.md
+      - task-basis/TASK_BASIS-<TASK_ID>.md
+    allowed_callers:
+      - execute-step
+      - review-change
+      - prepare-task
+    result_states:
+      - success
+      - no-op
+      - conflict
+      - blocked
+    atomic: true
+    idempotence: fail-closed
+    conflict_policy: fail-closed
+
+  - id: finding-queue-transaction
+    status: bound
+    binding: vnext-runtime
+    operation: finding-queue-transaction
+    source_targets:
+      - CURRENT_TASK.md
+    write_targets:
+      - CURRENT_TASK.md
+    allowed_callers:
+      - execute-step
+    result_states:
+      - success
+      - no-op
+      - conflict
+      - blocked
+    atomic: true
+    idempotence: fail-closed
+    conflict_policy: fail-closed
+
+  - id: lifecycle-transaction
+    status: bound
+    binding: vnext-runtime
+    operation: lifecycle-transaction
+    source_targets:
+      - CURRENT_TASK.md
+      - TASKS/paused/**
+      - TASKS/interrupted/**
+    write_targets:
+      - CURRENT_TASK.md
+      - TASKS/paused/**
+      - TASKS/interrupted/**
+    allowed_callers:
+      - task-lifecycle
+    result_states:
+      - success
+      - no-op
+      - conflict
+      - blocked
+    atomic: true
+    idempotence: fail-closed
+    conflict_policy: fail-closed
+
+  - id: inbox-record-transaction
+    status: bound
+    binding: vnext-runtime
+    operation: inbox-record-transaction
+    source_targets:
+      - CURRENT_TASK.md
+      - TASKS/inbox/**
+    write_targets:
+      - TASKS/inbox/**
+    allowed_callers:
+      - capture-work-item
+    result_states:
+      - success
+      - no-op
+      - conflict
+      - blocked
+    atomic: true
+    idempotence: fail-closed
+    conflict_policy: fail-closed
+
+  - id: project-status-transaction
+    status: bound
+    binding: vnext-runtime
+    operation: project-status-transaction
+    source_targets:
+      - CURRENT_TASK.md
+      - STATUS.md
+      - TASKS/TASK-<TASK_ID>-<TASK_SLUG>.md
+    write_targets:
+      - STATUS.md
+    allowed_callers:
+      - close-task
+    result_states:
+      - success
+      - no-op
+      - conflict
+      - blocked
+    atomic: true
+    idempotence: fail-closed
+    conflict_policy: fail-closed
+
+  - id: archive-transaction
+    status: bound
+    binding: vnext-runtime
+    operation: archive-transaction
+    source_targets:
+      - CURRENT_TASK.md
+      - TASKS/TASK-<TASK_ID>-<TASK_SLUG>.md
+    write_targets:
+      - CURRENT_TASK.md
+      - TASKS/TASK-<TASK_ID>-<TASK_SLUG>.md
+    allowed_callers:
+      - close-task
+    result_states:
+      - success
+      - no-op
+      - conflict
+      - blocked
+    atomic: true
+    idempotence: fail-closed
+    conflict_policy: fail-closed
+
+  - id: lesson-record-transaction
+    status: bound
+    binding: vnext-runtime
+    operation: lesson-record-transaction
+    source_targets:
+      - CURRENT_TASK.md
+      - TASKS/TASK-<TASK_ID>-<TASK_SLUG>.md
+      - LESSONS.md
+    write_targets:
+      - LESSONS.md
+    allowed_callers:
+      - close-task
+    result_states:
+      - success
+      - no-op
+      - conflict
+      - blocked
+    atomic: true
+    idempotence: fail-closed
+    conflict_policy: fail-closed
+
+  - id: contract-candidate-commit
+    status: bound
+    binding: vnext-runtime
+    operation: contract-candidate-commit
+    source_targets:
+      - CURRENT_TASK.md
+      - TASKS/TASK-<TASK_ID>-<TASK_SLUG>.md
+      - CONTRACTS.md
+    write_targets:
+      - CONTRACTS.md
+    allowed_callers:
+      - close-task
+    result_states:
+      - success
+      - no-op
+      - conflict
+      - blocked
+    atomic: true
+    idempotence: fail-closed
+    conflict_policy: fail-closed
+
+  - id: decision-record-transaction
+    status: bound
+    binding: vnext-runtime
+    operation: decision-record-transaction
+    source_targets:
+      - CURRENT_TASK.md
+      - TASKS/TASK-<TASK_ID>-<TASK_SLUG>.md
+      - DECISIONS.md
+    write_targets:
+      - DECISIONS.md
+    allowed_callers:
+      - close-task
+    result_states:
+      - success
+      - no-op
+      - conflict
+      - blocked
+    atomic: true
+    idempotence: fail-closed
+    conflict_policy: fail-closed
+
+unbound_operations: []
+
+bootstrap_project:
+  schema_version: 1
+  kind: vnext-bootstrap-runtime-contract
+  caller:
+    - bootstrap-project
+  modes:
+    - design
+    - greenfield
+    - inventory
+    - adopt
+    - realign
+  required_envelope:
+    - authority_evidence
+    - semantic_operations
+    - preconditions
+    - evidence_refs
+    - idempotency_key
+    - requested_write_targets
+    - requested_directory_targets
+    - changed_paths
+    - scope_document
+    - conditional_authorizations
+    - transformation_kind
+    - assets
+  mutation_scope:
+    status: bound
+    binding: vnext-runtime-read-only
+    source: bootstrap proposal.scope_document
+    default_write_policy: deny
+    conditional_expansion_requires: evidence-and-authority
+    read_discovery_is_not_write_authority: true
+    check_command: shared-mutation-scope-evaluator
+    input:
+      required:
+        - explicit_changed_paths
+        - conditional_authorizations_with_evidence_and_authority
+        - transformation_kind
+    output:
+      required:
+        - per-path-admission-and-blocker
+        - source-revision
+  asset_boundary:
+    allowed_roots:
+      - .workflow-system/PROJECT_PROFILE.yaml
+      - .workflow-system/vnext/BOOTSTRAP_RECEIPT.json
+      - docs/workflow/
+      - docs/designs/
+      - docs/adoption/
+      - AGENTS.md
+      - CLAUDE.md
+    forbidden_targets:
+      - .git/
+      - product source directories
+      - package manifests at project root
+      - native or user-owned host assets
+      - .workflow-system/WORKFLOW_PROTOCOL.md
+      - .workflow-system/FILE_SCHEMAS.md
+      - .workflow-system/vnext/SOURCE_CONTRACT.yaml
+      - .workflow-system/vnext/RUNTIME_CONTRACT.yaml
+      - .workflow-system/vnext/DISTRIBUTION_STATE.json
+      - .workflow-system/vnext/DISTRIBUTION_IN_PROGRESS.json
+      - .workflow-system/runtime/**
+      - .agents/skills/**
+      - paths outside the generated governance set
+    generated_categories:
+      - config
+      - generated
+      - governance
+  operations:
+    - id: contract-candidate-commit
+      status: bound
+      binding: vnext-runtime
+      operation: contract-candidate-commit
+      source_targets:
+        - source-authority evidence
+        - existing CONTRACTS.md when present
+      write_targets:
+        - CONTRACTS.md
+      allowed_callers:
+        - bootstrap-project
+      result_states:
+        - success
+        - no-op
+        - conflict
+        - blocked
+      atomic: true
+      idempotence: fail-closed
+      conflict_policy: fail-closed
+    - id: decision-record-transaction
+      status: bound
+      binding: vnext-runtime
+      operation: decision-record-transaction
+      source_targets:
+        - source-authority evidence
+        - existing DECISIONS.md when present
+      write_targets:
+        - DECISIONS.md
+      allowed_callers:
+        - bootstrap-project
+      result_states:
+        - success
+        - no-op
+        - conflict
+        - blocked
+      atomic: true
+      idempotence: fail-closed
+      conflict_policy: fail-closed
+    - id: project-status-transaction
+      status: bound
+      binding: vnext-runtime
+      operation: project-status-transaction
+      source_targets:
+        - STATUS.md
+      write_targets:
+        - STATUS.md
+      allowed_callers:
+        - bootstrap-project
+      result_states:
+        - success
+        - no-op
+        - conflict
+        - blocked
+      atomic: true
+      idempotence: fail-closed
+      conflict_policy: fail-closed
+    - id: paired-host-guidance-transaction
+      status: bound
+      binding: vnext-runtime
+      operation: paired-host-guidance-transaction
+      source_targets:
+        - target host guidance
+      write_targets:
+        - paired host guidance
+      allowed_callers:
+        - bootstrap-project
+      result_states:
+        - success
+        - no-op
+        - conflict
+        - blocked
+      atomic: true
+      idempotence: fail-closed
+      conflict_policy: fail-closed
+  recovery:
+    marker: .workflow-system/vnext/BOOTSTRAP_IN_PROGRESS.json
+    interrupted: fail-closed-explicit-recovery
+    rollback: verify-scoped-pre-bootstrap-preimage-before-marker-clear
+  read_back:
+    required:
+      - asset-checksums
+      - project-identity
+      - runtime-contract
+      - distribution-prerequisite
+      - canonical-CURRENT_TASK
+      - host-isolation

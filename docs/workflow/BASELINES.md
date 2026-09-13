@@ -1,17 +1,9 @@
 # BASELINES.md
 
-## 使用规则
+<!-- project-content-migration:2026-09-13 -->
+原项目 release、compat、安全、部署和可靠性基线迁入如下，保留 candidate 状态；迁移不等于完成发布验收。旧 GATE-001 属于退役 workflow-system 流程，不作为 vNext 门禁。当前 vNext 软件版本为 0.18.0；每次测试和发布判断仍以实际运行结果及具体任务证据为准。
 
-- 本文件定义当前项目的最低发布、兼容、安全和可靠性基线。
-- 只写已经能被代码或 active 文档证明的基线，不编造未来门槛。
-
-## 版本治理概览
-
-- 当前版本：1.0.0
-- 项目：termlink
-- 项目类型：application
-- 主要技术栈：Node.js CommonJS、Express、ws、node-pty、Capacitor、Android Kotlin、WebView
-- 关联验证入口：`node --test`、`android\gradlew.bat :app:testDebugUnitTest`、`npm run android:check-release-config`
+来源：.workflow-system/legacy/one-time-codex-20260913/docs/workflow/BASELINES.md。
 
 ## 发布基线
 
@@ -114,23 +106,3 @@
   - `node --test`
   - Sessions API / reconnect smoke
 - 例外处理：需要显式调整环境变量并记录
-
-## Gate 与错误码基线
-
-### GATE-001: workflow 默认 gate
-
-- 状态：candidate
-- 生效版本 / 范围：workflow adoption 期
-- blocker level：blocks-merge
-- 适用错误码：遵循 workflow-system 默认协议
-- merge gate：workflow generator / protocol / project checks 失败时阻断
-- ship gate：命中 release-critical 路径时升级
-- 升级条件：后续 create-current-task 命中高风险 contract 变更
-- 相关 strategy_origin / branch 语义：遵循 protocol 默认值
-- 兼容窗口 / removal precondition：未定义
-- 证据归档位置：`CURRENT_TASK.md` / workflow validation 输出
-
-## 基线变更记录
-
-- 2026-04-30：基于 legacy-inventory 建立首版项目基线
-- 2026-04-30：adoption review 对齐验证口径，补录 Android JVM unit 入口并保留 Node / release check 观察结果

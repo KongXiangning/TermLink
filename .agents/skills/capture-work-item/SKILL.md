@@ -1,0 +1,72 @@
+---
+name: capture-work-item
+description: Record one unrelated work item without promoting it into the active task.
+entry_contract:
+  entry: capture-work-item
+  mode: []
+  intent: Record one work item proven unrelated to the active task without promoting or switching it.
+  input_contract:
+    required:
+      - work_item
+      - relation_to_current_task
+    optional:
+      - evidence
+      - duplicate_check
+      - proposed_owner
+      - caller_context
+  authority_owner: none
+  mutation_boundary:
+    product_files: []
+    governance_sources: []
+    forbidden_targets:
+      - product files
+      - Contracts
+      - Decisions
+      - Lessons
+      - CURRENT_TASK.md
+      - task identity
+      - lifecycle state
+      - task catalog
+      - archive
+      - registry
+      - installation surface
+      - host surface
+  internal_capabilities:
+    - record-only-intake-guard
+    - owner-route-resolver
+    - scope-guard
+    - project-context-resolver
+  runtime_operations:
+    - inbox-record-transaction
+  stop_conditions:
+    - relation to the active task is uncertain or duplicate suspicion is unresolved
+    - the item belongs to the active task or requires scope widening
+    - owner or record identity cannot be established
+    - the proposal would create, switch, or mutate task, lifecycle, identity, catalog, or archive state
+    - the request uses an old or unsupported workflow schema
+  output_kind: capture-result
+---
+
+# vNext Skill: capture-work-item
+
+## Intent
+
+Record one work item proven unrelated to the active task. This is a record-only intake intent, not a task-creation or task-switching path.
+
+## Operating rules
+
+1. Resolve the active task and owner only far enough to prove the new item is unrelated. Read/discovery context may be broader for that determination, but it is not write authority. Treat `scope widening`, `uncertain`, and duplicate-suspected relations as fail-closed results and route any scope change to the scope guard/replan boundary.
+2. Admit at most one inbox record with a stable identity, evidence, proposed owner route, and clear relation statement. Do not create a task, change the active task, change lifecycle or identity, or alter a catalog.
+3. The only durable action this entry may propose is one `inbox-record-transaction` with the internal `capture-work-item:record` action. The public mode set remains empty; the bound Runtime derives and writes exactly one canonical `TASKS/inbox/INBOX-<YYYYMMDD>-<short-id>-<slug>.md` record, or returns a truthful no-op, conflict, or blocked result.
+4. The Runtime record transaction is record-only: it never writes `CURRENT_TASK.md`, `STATUS.md`, `LESSONS.md`, task identity, lifecycle state, archive, catalog, or product files. Do not auto-promote the record or start another intent.
+
+## Required result
+
+Return one structured `capture_result` containing:
+
+- work-item identity, relation evidence, duplicate check, and owner route;
+- record-only admission verdict and exact inbox target;
+- a single inbox Runtime proposal and its truthful Runtime result, or a blocked/user result;
+- explicit confirmation that active task, lifecycle, identity, catalog, and archive state were not mutated;
+- at most one `next_route` recommendation, if applicable; it is informational only and must not invoke another public Skill;
+- `terminal_boundary: public-entry-terminal/v1`; after this result, return to the caller and stop. Record-only capabilities are not public Skill chaining.

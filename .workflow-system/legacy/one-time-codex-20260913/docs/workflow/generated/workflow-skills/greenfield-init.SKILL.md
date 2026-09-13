@@ -1,0 +1,127 @@
+---
+name: greenfield-init
+preamble-tier: 1
+version: 0.1.0
+description: >
+  Initialize workflow governance for a brand-new project before any task package
+  exists.
+purpose: |
+  基于已确认设计基线，为新项目建立首版治理基线，包括项目画像、协作约束、契约边界、状态、路线图、基线和决策文档。
+stage: 初始化
+trigger: |
+  当项目刚开始，尚未建立治理体系，需要先把项目基线搭起来时。
+inputs:
+  - user_request
+  - project_goals
+  - target_users_and_scenarios
+  - stack_preferences
+  - delivery_constraints
+reads:
+  - .workflow-system/PROJECT_PROFILE.yaml
+  - .workflow-system/WORKFLOW_PROTOCOL.md
+  - .workflow-system/FILE_SCHEMAS.md
+  - templates/docs/
+  - docs/workflow/ROADMAP.md
+  - docs/designs/architecture.md
+  - docs/designs/database.md
+  - docs/designs/
+  - docs/workflow/BASELINES.md
+  - README.md
+  - package.json
+writes:
+  - .workflow-system/PROJECT_PROFILE.yaml
+  - AGENTS.md
+  - CLAUDE.md
+  - docs/workflow/ROADMAP.md
+  - docs/workflow/CONTRACTS.md
+  - docs/workflow/BASELINES.md
+  - docs/workflow/STATUS.md
+  - docs/workflow/DECISIONS.md
+forbidden_writes:
+  - src
+  - android
+  - public
+  - tests
+  - scripts
+must_check:
+  - 项目目标、目标用户和成功标准是否明确
+  - 技术栈、测试方式、部署方式和禁区是否明确
+  - 已确认设计基线是否足以固化首版治理文档
+  - 需要用户确认的高层产品或架构决策是否显式暴露
+  - 首版治理文档是否能支撑后续 create-current-task
+stop_conditions:
+  - 项目目标或目标用户不明确
+  - 复杂新项目缺少 design-baseline-init 输出且无法判断架构、数据库或接口边界
+  - 技术栈和部署方式存在多个高影响备选方案
+  - 用户尚未确认关键边界或禁区
+output:
+  - 首版 .workflow-system/PROJECT_PROFILE.yaml
+  - 首版 host 指引文件（同时生成 `AGENTS.md` / `CLAUDE.md`）
+  - 首版 docs/workflow/ROADMAP.md / docs/workflow/CONTRACTS.md /
+    docs/workflow/BASELINES.md / docs/workflow/STATUS.md /
+    docs/workflow/DECISIONS.md
+handoff:
+  success: create-current-task
+  failure: ask-user
+decision_policy:
+  mechanical: 可以整理结构、补齐字段、统一格式。
+  taste: 对工程偏好和协作方式不要擅自定稿，必须显式暴露。
+  user_challenge: 不得静默替用户做高层产品定位、核心架构或范围取舍。
+verification:
+  - .workflow-system/PROJECT_PROFILE.yaml 具备后续技能渲染所需的核心字段
+  - "`AGENTS.md`、`CLAUDE.md`、docs/workflow/ROADMAP.md、docs/workflow/CONTRACTS.m\
+    d、docs/workflow/BASELINES.md、docs/workflow/STATUS.md、docs/workflow/DECISION\
+    S.md 已建立首版骨架"
+  - 已确认接口、模块和数据约束已固化到 docs/workflow/CONTRACTS.md
+  - 架构取舍和否决方案已记录到 docs/workflow/DECISIONS.md
+  - 未把未确认假设写成既定事实
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Write
+  - Edit
+  - AskUserQuestion
+notes:
+  - 这是项目级初始化 skill，不直接开始实现功能。
+  - 必须先问清用户目标、边界、禁区，并优先消费 design-baseline-init 的已确认设计输出。
+  - 完成后下一步通常是 create-current-task，而不是直接编码。
+---
+
+# Skill: greenfield-init
+
+## Purpose
+
+基于已确认设计基线，为新项目建立首版治理基线，包括项目画像、协作约束、契约边界、状态、路线图、基线和决策文档。
+
+## Trigger
+
+当项目刚开始，尚未建立治理体系，需要先把项目基线搭起来时。
+
+## Execution Rules
+
+1. 先读取已有 scaffold（如 `.workflow-system/PROJECT_PROFILE.yaml`、`README.md`、`package.json`）、设计基线（如 `docs/workflow/ROADMAP.md`、`docs/designs/architecture.md`、`docs/designs/database.md`、`docs/designs/`、`docs/workflow/BASELINES.md`）以及 `.workflow-system/WORKFLOW_PROTOCOL.md`、`.workflow-system/FILE_SCHEMAS.md`、`templates/docs/`；如果项目文件不存在，就把缺失视为待建立事实，而不是错误。
+2. 复杂新项目若缺少架构、数据库、接口或详细设计基线，先停止并要求进入 `design-baseline-init`，不要在本 skill 中现场推导完整设计。
+3. 按 `.workflow-system/FILE_SCHEMAS.md` 与 `templates/docs/` 的章节骨架建立首版 `.workflow-system/PROJECT_PROFILE.yaml`、`AGENTS.md`、`CLAUDE.md`、`docs/workflow/ROADMAP.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/BASELINES.md`、`docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md`。
+4. 只把已确认设计固化为治理基线：稳定接口、模块边界和数据约束写入 `docs/workflow/CONTRACTS.md`；版本窗口和当前阶段写入 `docs/workflow/ROADMAP.md`；发布、兼容、安全、部署、性能要求写入 `docs/workflow/BASELINES.md`；架构取舍、替代方案和否决方案写入 `docs/workflow/DECISIONS.md`。
+5. 同时生成 `AGENTS.md` 与 `CLAUDE.md`，让 Codex / Claude 可以并行使用同一套 workflow-system；不要再按“当前宿主”二选一。
+6. 任何高层产品定位、技术选型、部署策略、测试策略、目录规划，只能写入**已确认事实**；未确认项必须显式列为待确认，而不是暗自决定。
+7. 输出结果必须能让后续 `/create-current-task` 在不重复问项目级问题的前提下工作。
+
+## Hard Boundaries
+
+- 不直接开始功能实现。
+- 不在本 skill 中完成完整设计推导。
+- 不静默做高层产品或架构决策。
+- 不把猜测写成项目事实。
+
+## Handoff
+
+- 成功：`create-current-task`
+- 失败：`ask-user`
+
+## Reference Render Semantics
+
+- This generated file is a source-repo reference render produced from the current `.workflow-system/PROJECT_PROFILE.yaml`.
+- The concrete project values shown here reflect this repository's profile, not a universal target-project default.
+- Target projects render workflow skills from their own `.workflow-system/PROJECT_PROFILE.yaml` during install / sync.

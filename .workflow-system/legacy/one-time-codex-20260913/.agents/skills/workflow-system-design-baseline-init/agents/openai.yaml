@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Baseline Init"
+  short_description: "Create the first design baseline for a new project"
+  default_prompt: "Use $design-baseline-init to produce the first design baseline for a brand-new project before workflow governance is frozen."

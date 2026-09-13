@@ -1,0 +1,172 @@
+---
+name: bootstrap-project
+description: Establish or reconcile a governed vNext project surface after Distribution installation without creating feature implementation or an active task.
+entry_contract:
+  entry: bootstrap-project
+  mode:
+    - design
+    - greenfield
+    - inventory
+    - adopt
+    - realign
+  intent: Establish or reconcile a vNext governed project surface after Distribution installation without creating feature implementation or an active task.
+  input_contract:
+    required:
+      - target project root and project identity
+      - one bootstrap mode from the closed set
+      - explicit changed_paths for every promoted target
+      - mutation scope and any exact conditional authorization
+      - evidence references for the selected mode
+    optional:
+      - confirmed design baseline
+      - confirmed adoption facts and provenance
+      - inventory source and host selection
+      - caller recovery context
+  authority_owner: user
+  mutation_boundary:
+    product_files: []
+    governance_sources: []
+    forbidden_targets:
+      - feature implementation and business source files
+      - an active task, task identity, or task execution state
+      - unconfirmed Contracts, Decisions, or project facts
+      - native or user-owned host guidance
+      - Distribution-owned Runtime, Protocol, Schema, or Agent Skill assets
+      - paths outside the admitted bootstrap asset set
+  internal_capabilities:
+    - project-context-resolver
+    - source-authority-policy
+    - design-evidence-gate
+    - decision-authority-gate
+    - scope-guard
+    - propagation-evidence-validator
+    - host-isolation-guard
+    - generation-atomicity-policy
+    - dangerous-operation-gate
+  runtime_operations:
+    - contract-candidate-commit
+    - decision-record-transaction
+    - project-status-transaction
+    - paired-host-guidance-transaction
+  stop_conditions:
+    - target identity, mode precondition, or source authority is missing or conflicted
+    - the target contains an unsupported legacy schema or an interrupted bootstrap marker
+    - a frozen, native, user-owned, or conflicting asset would be replaced
+    - changed_paths is missing, duplicated, broader than the planned diff, or not admitted by scope
+    - a Conditional target lacks exact evidence references and explicit authority
+    - design or adoption facts are inferred but presented as confirmed
+    - generation, validation, promotion, or read-back cannot complete atomically
+    - the operation would create feature code, an active task, or a second state source
+    - a persistent test is proposed without a complete P-12 admission record
+  output_kind: bootstrap-result
+---
+
+# vNext Skill: bootstrap-project
+
+## Intent
+
+Establish the target project's governed vNext workflow surface through one typed,
+auditable bootstrap transaction. This administrative entry preserves distinct
+mode preconditions and stop conditions; it is not a daily execution entry and
+does not create feature implementation or an active task.
+
+The Node Distribution installer has already installed the project-local
+Runtime, Protocol, Schema, and canonical `.agents/skills/<skill-name>/SKILL.md`
+Agent Skills. This entry is the separate governance transition: it may
+establish project identity and canonical governance facts only after its mode
+preconditions and authority evidence pass. Those Distribution assets are
+read-only prerequisites here; Bootstrap never generates, promotes, or
+receipt-owns them.
+
+The production execution path is target-local. After collecting the user's
+mode-specific evidence, use the immutable support surface and Runtime already
+installed at `.workflow-system/runtime/`:
+
+```text
+node .workflow-system/runtime/dist/cli.js bootstrap-support prepare \\
+  --root <project> --mode <mode> [evidence/input flags] --json
+```
+
+Review the returned typed plan and its exact `planned_writes`, then provide
+that exact list through the existing Bootstrap changed-path protocol and rerun
+with `--write`. The support command prepares the typed proposal and the
+project-local Runtime commits it; the Skill never edits governance Markdown
+directly. This path does not require Bun, the workflow-system source
+repository, `WORKFLOW_SYSTEM_ROOT`, or source-side `gen`/`pack`/`sync` commands.
+
+## Operating rules
+
+1. Resolve the target root, project identity, existing workflow assets, host
+   surfaces, freeze markers, and source revision before proposing a write. A
+   project-local vNext receipt is evidence of a prior transaction, not a second
+   authoritative state machine.
+2. Admit exactly one mode: `design`, `greenfield`, `inventory`, `adopt`, or
+   `realign`. Keep the mode's precondition and terminal result explicit. A
+   missing design baseline routes to a design result; an incomplete inventory
+   routes to inventory or user confirmation; an unsupported old schema routes
+   to the offline migration boundary. Completed migration admission comes from
+   the installed read-only Migration Pack provenance verifier, not from the
+   presence of either migration marker alone. A migrated governed target does
+   not require ordinary Bootstrap, but an explicit `realign` remains allowed.
+   The only chained mode transitions are `design` → `greenfield` and
+   `inventory` → `adopt`; these are internal mode transitions within this
+   single public entry, not invocation of another public Skill. Other valid
+   receipts require replay or explicit `realign`.
+3. Record confirmed facts with their authority and provenance. Keep inferred or
+   unknown facts visible as such. Adoption may not turn an unresolved consumer,
+   interface, or ownership conflict into a locked Contract or Decision.
+4. Design mode produces design evidence and draft decisions only. Greenfield
+   mode consumes a confirmed design baseline. Inventory mode records actual
+   paths, consumers, evidence, migration risks, and unknowns without changing
+   product files. Adopt mode promotes only confirmed facts. Realign mode may
+   touch workflow-owned vNext assets only and must preserve the canonical
+   `CURRENT_TASK.md` (including a completed task identity), target facts, user
+   documentation, native host assets, and frozen paths. Migration
+   `INSTALL_STATE.json` and `MIGRATION_RECEIPT.json` are read-only historical
+   provenance; they may coexist with a later Bootstrap Receipt, and realign
+   must not update or receipt-own them. An active or invalid task state blocks
+   realign.
+5. Keep the caller's `changed_paths` as the authoritative proposed diff target.
+   Feed the exact paths through the existing mutation scope evaluator. Read or
+   discovery context may be broader; it never grants write authority. Forbidden
+   paths always block, and every Conditional path requires exact authorization,
+   evidence references, and explicit authority.
+6. Validate the already-installed Distribution through its existing payload,
+   state, checksum, Skill-layout, immutable Bootstrap support, and project-local
+   Runtime read-back. Generate governance assets only through the target-local
+   Bootstrap support surface. Do not build or promote Runtime, Protocol, Schema,
+   or Agent Skills; do not hand-copy files, invoke the legacy generator, or
+   write a generic Markdown editor.
+7. Before promotion, validate the Distribution prerequisite, governance asset
+   checksums, host isolation, canonical `CURRENT_TASK.md`, and the selected
+   mode's evidence. Promote the governance asset set atomically, read every
+   promoted target back, and record only Bootstrap-owned governance assets in
+   the completion receipt. The project-local Runtime owns the typed governance
+   transaction and atomic file boundary; the target-local support layer owns
+   only immutable preparation support.
+8. The bootstrap baseline is a closed, archived administrative baseline. It is
+   not an active task and it does not authorize `execute-step`. A later task
+   preparation must establish its own confirmed identity and owner through the
+   existing daily Runtime path.
+9. Replay only when the target identity, mode inputs, receipt, and every
+   Bootstrap-managed governance checksum match. Distribution software drift is
+   owned by the Distribution lifecycle and must not make Bootstrap provenance
+   stale; missing, stale, incomplete, conflicting, or interrupted governance
+   state still fails closed.
+10. Validation is evidence, not an automatic request for a persistent test.
+    Reuse contract, freshness, runtime, read-back, and health checks first. A
+    new persistent test needs a separate P-12 admission with owner, claim,
+    insufficiency reason, one closed basis, boundary assertion, and failure
+    disposition.
+
+## Required result
+
+Return one structured `bootstrap-result` containing the selected mode, target
+classification, project identity, authority/provenance decisions, exact
+planned writes, exact changed-path scope verdict, Bootstrap governance
+provenance, mode evidence, Distribution and governance read-back evidence,
+replay or recovery disposition, and any remaining caller obligation. Do not
+report initialization as complete until the governance transaction and all
+post-promotion reads succeed;
+- at most one `next_route` recommendation, if applicable; it is informational only and must not invoke another public Skill;
+- `terminal_boundary: public-entry-terminal/v1`; after this result, return to the caller and stop. The permitted internal Bootstrap mode transitions above are not public Skill chaining.

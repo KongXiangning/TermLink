@@ -1,4 +1,0 @@
-interface:
-  display_name: "Legacy Inventory"
-  short_description: "Inventory an existing project before workflow adoption"
-  default_prompt: "Use $legacy-inventory to inventory an existing project before adopting workflow governance."
