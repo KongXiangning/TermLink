@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260914-rust-issues-audit-s3 | TASK-001 | draft | TBD | @maintainer | 2026-09-14 |  | `docs/changes/records/CR-20260914-rust-issues-audit-s3.md` |
 | CR-20260914-rust-issues-audit-s2 | TASK-001 | draft | TBD | @maintainer | 2026-09-14 |  | `docs/changes/records/CR-20260914-rust-issues-audit-s2.md` |
 | CR-20260914-rust-issues-audit-s1 | TASK-001 | draft | TBD | @maintainer | 2026-09-14 |  | `docs/changes/records/CR-20260914-rust-issues-audit-s1.md` |
 | CR-20260811-1458-codex-b4r-corrected-reimplementation | REQ-20260516-codex-mobile-realtime-sync | active | baca633 | @maintainer | 2026-08-11 |  | `docs/changes/records/CR-20260811-codex-b4r-corrected-reimplementation.md` |

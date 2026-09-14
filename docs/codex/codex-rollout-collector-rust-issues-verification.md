@@ -1318,6 +1318,45 @@ node native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
 }
 ```
 
-## 7. S3/S4待办
+## 7. S3九项台账核实（2026-09-14）
 
-S3依据实际差异、未到达断言和现行契约逐项核实RUST-001..009，尤其不能把合法preview状态、预算拒绝、未知能力自动判缺陷。S4仅静态检查Gemini补丁和依赖，当前应用后回归属于后续修复任务。此处不预写复用结论。
+### 7.1 判定口径和边界
+
+本节仅把当前工作树的静态实现同§1.1所述schema 4 S2报告、现行4.5契约进行比对。S2的13项业务差异是定位信号，既不自动等于九项台账缺陷，也不自动证明任何产品路径通过或已修复。下列“已确认”只表示在隔离Rust基础层可复核到相应实现与审计证据；它不包含Node、数据库、Android、IPC、App展示或Gemini补丁的正确性结论。
+
+分类含义如下：
+
+| 结论类别 | 含义 |
+| --- | --- |
+| 已确认的隔离Rust缺陷 | 当前实现和S2可重复观测共同指向当前Rust行为违反已采用的局部语义。 |
+| 已确认的隔离Rust能力/契约缺口 | 当前正式输出未保存契约明确要求的隔离分析信息；不等同于产品接口或产品修复。 |
+| 未确认／证据不足 | 台账所述机制未在当前实现或S2中复现，或关键公共流程尚未到达。 |
+| 预期fail-closed／容量需求未证实 | 资源限制按契约拒绝输入；没有当前容量目标或基准时，不把拒绝归类为缺陷。 |
+| 未采用能力／跨模块需求 | 当前模型没有该能力的已采用需求，或需要后续Node和产品协作；未知输入保持诊断而非被静默当作已支持。 |
+
+### 7.2 RUST-001至RUST-009逐项分类
+
+| 台账项 | 当前源码或审计证据 | 适用范围与尚存不确定性 | 结论类别 | 有界结论 |
+| --- | --- | --- | --- | --- |
+| RUST-001：checkpoint恢复污染backfill归属 | `protocol/target_mapping.rs`的`restore_checkpoint_state`在恢复已验证checkpoint后直接恢复adapter/reducer状态，未按`request.mode`排除backfill；S2的R02、R06、R09均记录恢复后owner分别落到`A1`、`A2`或`C2`而非当前目标turn。 | 适用于从checkpoint启动、且目标归属应由当前backfill重建的隔离target请求。S2公共完成/提升流程仍受ordinal 0边界和预算拒绝阻断，不能由此量化完整公共链路或产品影响。 | 已确认的隔离Rust缺陷 | 当前恢复分支会把旧adapter/reducer归属带入backfill，需在未来独立Rust修复任务中限定恢复语义。 |
+| RUST-002：`item_completed`只适配用户消息 | `codex_adapter/mod.rs`的`adapt_item_completed`只接受`TurnItem::UserMessage`，其他item返回`item_completed_non_user`诊断；S2 R07观察到精确文件路径为空，R08观察到completed command数为0。 | 适用于由`item_completed`承载的文件变更、命令等非用户消息。当前审计未覆盖全部真实Codex事件语料，也未评估Gemini补丁。 | 已确认的隔离Rust缺陷 | 当前adapter在该入口丢弃已知非用户item，导致下游分析缺失相应事实。 |
+| RUST-003：正式task outcome未聚合编辑文件 | `protocol/target_data.rs`的`TargetTaskOutcome`只包含item key、状态、消息、完整性和source epoch；`target_mapping.rs`仅由`TurnCompleted`构造它，未聚合文件事实。架构§8要求隔离分析的task outcome保留文件等可审计信息，S2 R07也显示文件事实未到达精确输出。 | 适用于formal target协议的task outcome。它不是现有App/数据库DTO，不能据此要求产品展示或持久化。 | 已确认的隔离Rust能力/契约缺口 | 当前正式结果缺少编辑文件聚合；任何数据模型扩展须另行设计并保持隔离边界。 |
+| RUST-004：backward range不前进 | `protocol/target_source.rs`在backfill中以`SourceReadMode::BackwardRange`调用`plan_range`；S2 R02、R06、R09的`internal_backward_progress`均为真，记录的精确窗口持续向前推进。 | 反证仅覆盖S2内部窗口。公共请求在assembly/promotion前被ordinal 0类型边界或resource limit终止，因此未获得完整公共端到端正例。 | 未确认／证据不足 | 台账所称“永不前进”未在当前实现复现；公共完整流程仍应在单独测试设计中补足，不能把未到达当作已修复或已失败。 |
+| RUST-005：默认资源上限应放宽到400 MB | `source/record.rs`与`protocol/target.rs`的默认decoded/line/segment限制是有界部署限制；S2 R29得到`SegmentLimitExceeded`，现行wire contract §4.2.1要求超过预算时以`resource_limit_exceeded`安全失败。 | 适用于超过调用方/默认预算的读取请求。没有当前已批准的400 MB工作负载、内存基准或SLO，不能从一次预算拒绝推出新的默认值。 | 预期fail-closed／容量需求未证实 | 当前拒绝与契约一致；是否调整容量属于未来有证据的性能/容量任务，不构成当前缺陷或产品通过结论。 |
+| RUST-006：绝对路径redaction丢失命令和文件事实 | `codex_adapter/mod.rs`的`safe_path_display`、`sanitize_tool_input`和`sanitize_tool_text`会把绝对本地路径替换为`<local-path-redacted>`；S2 R07/R08分别没有得到精确文件和completed command事实。架构§4.6要求隔离采集保留真实命令、参数、cwd以及文件变更等可审计细节。 | 适用于formal collector的证据保留层。安全披露、跨进程传输和产品展示策略尚未在本任务定义，不能把本结论扩展为允许向任何产品surface暴露路径。 | 已确认的隔离Rust能力/契约缺口 | 当前无条件redaction同已采用的隔离审计保留要求不兼容；未来修复需把保留、脱敏和曝光边界分开设计。 |
+| RUST-007：redaction后以路径为键导致文件碰撞 | 当前`TargetTaskOutcome`尚不存在台账所述的`edited_files`路径键`BTreeMap`；adapter的`FileChanged`逻辑身份来自source position而非显示路径，S2也没有观察到两个文件折叠为同一键。 | 只可能适用于未来建立文件聚合且选择redacted路径作key的设计。该设计、其键和碰撞语义均未采用。 | 未确认／证据不足 | 当前没有可复核的碰撞reducer；它可作为RUST-006后续设计的风险提示，但不是当前可确认缺陷。 |
+| RUST-008：未映射`thread_goal_updated` | 当前Rust源码没有`thread_goal_updated`或同义variant的wire/adapter映射。兼容性契约要求未知或缺失variant转为`UnknownEvent`/`ParseGap`并保留诊断，而非假装已支持。 | 适用于当前未建模的上游事件。没有当前生产样本、fixture或下游已采用的消费要求，不能断言该事件已成为本阶段必需能力。 | 未采用能力／预期未知兼容行为 | 当前没有该专用语义是能力缺口候选，但unknown诊断是契约规定的安全降级，不能归类为当前已确认缺陷。 |
+| RUST-009：未发现/级联subagent活动 | 当前源码没有台账所述subagent discovery/cascade映射；兼容性文档允许inter-agent记录保存关联诊断或显式跳过，同时禁止污染当前conversation identity。AD-022规定Rust接口先行，Node consumer和产品协作另立任务。 | 该能力需要上游事件定义、Node单例采集协调、关联语义和后续产品消费共同确认；S2没有提供该完整范围的实测证据。 | 未采用能力／跨模块需求 | 它不是当前隔离Rust缺陷。若未来立项，必须先锁定Rust输入契约，再在独立Node/产品任务中处理cascade和展示。 |
+
+### 7.3 与S2差异和后续工作的分离
+
+- 业务差异：S2的R02、R06、R07、R08、R09为本节提供了局部证据，但仍保持其报告中的未到达、预算和类型边界说明；其余13项差异不被重命名为九项台账结论。
+- 隔离Rust能力/契约缺口：RUST-003和RUST-006只说明formal collector应如何保存分析事实，不建立产品DTO、DB表、IPC消息或App行为。
+- 预期安全行为：RUST-005的资源拒绝、RUST-008对未知variant的诊断，均不能因“缺少业务能力”被改写为产品失败。
+- 证据不足：RUST-004与RUST-007没有当前可复核的台账所述实现路径；后续若需要验证，须新建受控测试/修复任务，不能在本步骤补写产品代码。
+
+本S3没有应用、构建、运行或静态复用Gemini补丁，也没有执行Node、数据库、Android、IPC或App验证。上述结论不主张任何产品fix、产品pass或发布就绪。
+
+## 8. 后续边界
+
+后续S4仅可按已确认范围静态检查Gemini补丁和依赖；当前应用后的构建、回归和任何修复仍属于后续独立任务。
