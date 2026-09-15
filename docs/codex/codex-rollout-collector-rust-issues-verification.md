@@ -1418,7 +1418,7 @@ node native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
 
 | 条目 | 当前可核对证据与结论 | 限制及 S4 输入 |
 | --- | --- | --- |
-| RUST-001 | target_mapping.rs:830 的 restore_checkpoint_state 对同 source 恢复 Adapter/Reducer，没有 Backfill mode 分支；重验保留 R02/R06/R09 归属差异。原隔离缺陷结论保留。 | 公共完整流程和产品影响仍未证明；S4 只评估限定恢复语义的修复。 |
+| RUST-001 | 区分已观测归属差异与待证实恢复因果：重验保留 R02/R06/R09 归属差异，但该差异来自测试直接调用内部 internal_windows 逆序向 Adapter/Reducer 注入记录，未调用 target checkpoint 恢复；公共 backfill 实质清空了 anchor/cursor 并在整源范围超过预算处失败（见 RUST-004）。target_mapping.rs:830 的 restore_checkpoint_state 虽无 backfill 分支，但尚无可达公共路径证明其造成了该归属差异。因果结论降为证据不足/静态设计风险，更正 §7 判定为已证实缺陷的过度声明。 | 不作为已证明的公共隔离 bug；S4 仅静态评估恢复语义限定与重放隔离候选，不推导产品缺陷。 |
 | RUST-002 | codex_adapter/mod.rs:809 仅接受 UserMessage；其他 item_completed 进入 item_completed_non_user 诊断。R07/R08 对文件、命令事实的差异仍在。原局部适配缺陷结论保留。 | 不推导所有事件或产品路径失败；S4 核对已知非用户 item 的类型映射。 |
 | RUST-003 | TargetTaskOutcome 当前字段为 item_key/status/message/completeness/source_epoch，没有 edited_files；架构 §8 的目标 outcome 文件信息与 formal 模型之间仍存在能力/契约差距。 | R07 无文件事实也受 RUST-002 影响，不能独立证明某个不存在的聚合器有实现 bug；S4 按模型扩展候选评估。 |
 | RUST-004 | target_source.rs:1024 的 Backfill 将 known_complete_range/cursor.complete_range 原样交给 source_range_or_full（1102）；read_plan.rs:391 的 plan_range 只校验该范围，不生成其之前的新窗口。无范围时以整个 source 作为范围，也可能先触发单段限制。由源码确认公共 Backfill 范围构造缺少正常有界推进。 | 更正 §7 用内部窗口前进反驳公共路径的推论。静态缺陷已确认；没有新增公共成功执行证据，不声称修复或完整复现生产样本。 |
@@ -1433,3 +1433,42 @@ node native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
 当前任务仍为业务矩阵、当前 Rust 问题核实、Gemini 静态复用评估。S3-R1 结论需要独立 review-change；原 S4 未执行，待审核后评估已确认缺陷和明确分层的能力缺口，逐项给出直接复用/需适配/不适用/证据不足。任何 Rust 修复、fixture 新增、契约变更、容量策略或 Node/DB/App 集成均后置。
 
 原六条 deferred finding 保留原 fingerprint/次数/证据，其多 batch、跨窗输入、snapshot 时序、富字段 oracle、lineage/recovery oracle、失败分类义务不因重跑成功自动解决。C-R004/C-R008/C-R009/C-AUDIT 撤出的实施义务见 docs/workflow/AUDIT_RESTORATION-001-20260915.md；它们尚未实施，不能被审计更正当作完成。
+
+### 9.4 冻结 Schema-4 报告 32 例逐例断言、通过/差异与路径限制追溯
+
+基于当前冻结报告（schema 4，SHA-256 `3554da2df845463577161f29b067cb5c545ffd6cd81c4327bc6bbb56a96d6c61`，19 通过、13 业务差异），逐例断言、观测状态与路径限制映射如下：
+
+| 用例 ID | 名称 | S1 关联场景 | 当前报告状态 | 验证字段与观测差异 | 路径与测试边界限制 |
+| --- | --- | --- | --- | --- | --- |
+| R01 | r01_small_history | A03 | business-difference | complete: exp true, got false; body_order/turns 符合预期 | 公共 target protocol 路径；因 complete 未达业务预期判定业务差异 |
+| R02 | r02_recent_then_backward | A02, A04, H08, H13 | business-difference | internal_ordinal_boundary 不符; A1/A2/tool 归属差异; bounded_read 报 resource_limit_exceeded (20468 > 1370); 后续 internal_assembly_complete 与 internal_promotion 因归属与读取差异前置未满足 (prerequisite-not-met) | 内部 internal_windows 逆序注入，未调用 target checkpoint；公共 backfill 因整源范围超限 |
+| R03 | r03_append_after_snapshot | A05, F01 | passed | snapshot 期间追加隔离与增量读取验证通过 | 目标 source append 语义与增量游标验证通过 |
+| R04 | r04_empty_source | A06 | business-difference | complete: exp true, got false | 空源返回空批次，但 complete 标记未置 true |
+| R05 | r05_source_not_yet_created | A07 | business-difference | missing_conversation: exp uuid, got "no date partition in requested boundary" | 来源不存在时的错误信息与严格断言存在格式差异 |
+| R06 | r06_tool_details | H01, H07 | business-difference | internal_ordinal_boundary 不符; A1/A2/tool 归属差异; bounded_read 超段限制 (17928 > 1359); 后续 internal_assembly_complete 与 internal_promotion 前置未满足 (prerequisite-not-met) | 内部 internal_windows 逆序注入与工具详情验证 |
+| R07 | r07_file_changes | H02, H07 | business-difference | exact_file_paths: exp 2 got 0; exact_diff_retained: false | 非用户 item_completed 未被 Adapter 映射为文件事实 |
+| R08 | r08_completed_command | H03 | business-difference | one_completed_command: exp 1 got 0; 后续 command_fields 因无完成命令前置未满足 (prerequisite-not-met) | 命令完成事件未被 Adapter 提取为独立命令事实 |
+| R09 | r09_multiple_plan_answers | H04, H14 | business-difference | ordinal 边界不符; body 包含确认/继续多余正文; 归属差异; plan 项数/回答/问题关联缺失; bounded_read 超段限制 (24167 > 1447); 后续 internal_assembly_complete 与 internal_promotion 前置未满足 (prerequisite-not-met) | 内部 internal_windows 逆序注入；Plan 与多次问答关联缺失 |
+| R10 | r10_per_turn_usage | H05 | passed | 每 turn token usage、secondary rate 归约通过 | target 数据模型单轮 usage 归约通过 |
+| R11 | r11_failure_not_success | H06 | business-difference | failed_status: exp "failed" got "interrupted"; failed_outcome 同 | 状态映射为 interrupted 而非 failed，属于类型化分类差异 |
+| R12 | r12_unknown_events | H09, H10 | passed | 未知事件与未知字段降级为 UnknownEvent / diagnostic 通过 | 格式宽容性与向前兼容通过 |
+| R13 | r13_resend_completed | F02 | business-difference | discovered_source_ids 仅 1 个; replacement_count: 0; body 未替换; checkpoint 为 null | 多 rollout source lineage / child 替换关系未在 target mapping 建立 |
+| R14 | r14_resend_unfinished | F03 | business-difference | discovered_source_ids 仅 1 个; partial 字段取自 payload.complete，actual=true 而 expected=false（错误宣告完成而非 partial=true） | 未完成 child 替换场景未发现第二个 source |
+| R15 | r15_restart_skips_middle_head | F04 | business-difference | discovered_source_ids 仅 1 个; replacement_count: 0; body 未替换; checkpoint 为 null | 跨中间 head 恢复未重建多源替换链 |
+| R16 | r16_branch_isolation | F05 | passed | 独立 Branch 新会话与旧会话隔离通过 | 独立会话未混入非关联历史 |
+| R17 | r17_ack_loss_restart | E14, E03 | passed | ACK 丢失后新 request_id（由 read-1 改为 retry）保持同一 job/source/segment/batch 幂等重试通过 | 重启后幂等重放通过 |
+| R18 | r18_negative_ack_retry | E08 | passed | 负 ACK / 错误交付重试通过 | 协议负向重试机制通过 |
+| R19 | r19_cancel_then_read | E11 | passed | 取消后读取与资源释放通过 | 协作者取消语义通过 |
+| R20 | r20_unfinished_line_resume | G01 | passed | 末尾半行 / 截断恢复通过 | 完整行边界识别通过 |
+| R21 | r21_line_below_prefix | G09 (V01) | passed | 单行预算下边界（有前缀）通过 | 预算防护边界测试通过 |
+| R22 | r22_line_equal_prefix | G09 (V02) | passed | 单行预算等值边界（有前缀）通过 | 预算防护边界测试通过 |
+| R23 | r23_line_over_prefix | G09 (V03) | passed | 单行预算超限防护（有前缀）通过 | 预算超限拒绝通过 |
+| R24 | r24_line_below_no_prefix | G09 (V04) | passed | 单行预算下边界（无前缀）通过 | 预算防护边界测试通过 |
+| R25 | r25_line_equal_no_prefix | G09 (V05) | passed | 单行预算等值边界（无前缀）通过 | 预算防护边界测试通过 |
+| R26 | r26_line_over_no_prefix | G09 (V06) | passed | 单行预算超限防护（无前缀）通过 | 预算超限拒绝通过 |
+| R27 | r27_segment_below | G10 (V07) | passed | 单段预算下边界通过 | 预算防护边界测试通过 |
+| R28 | r28_segment_equal | G10 (V08) | passed | 单段预算等值边界通过 | 预算防护边界测试通过 |
+| R29 | r29_segment_over | G10 (V09) | business-difference | SegmentLimitExceeded: exp "successful bounded read" got resource_limit_exceeded (2898 > 2897) | 预算边界触发拒绝，用例预期成功而实现 fail-closed |
+| R30 | r30_decoded_below | G10 (V10) | passed | 解码字节下边界通过 | 预算防护边界测试通过 |
+| R31 | r31_decoded_equal | G10 (V11) | passed | 解码字节等值边界通过 | 预算防护边界测试通过 |
+| R32 | r32_decoded_over | G10 (V12) | passed | 解码字节超限防护通过 | 预算防护边界测试通过 |
