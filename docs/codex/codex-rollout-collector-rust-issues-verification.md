@@ -1430,7 +1430,7 @@ node native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
 
 ### 9.3 剩余义务与证据强度
 
-当前任务仍为业务矩阵、当前 Rust 问题核实、Gemini 静态复用评估。S3-R1 结论需要独立 review-change；原 S4 未执行，待审核后评估已确认缺陷和明确分层的能力缺口，逐项给出直接复用/需适配/不适用/证据不足。任何 Rust 修复、fixture 新增、契约变更、容量策略或 Node/DB/App 集成均后置。
+当前任务为业务矩阵、当前 Rust 问题核实与 Gemini 静态复用评估。S3-R1 纠偏结论已完成独立 review-change 并 clean 推进至 S4。S4 针对九项台账及前置依赖完成只读静态复用核对，完整评估见 [Gemini 修复复用静态评估报告](codex-rollout-collector-gemini-fix-reuse-assessment.md) 及 [CR-S4](../changes/records/CR-20260914-rust-issues-audit-s4.md)。评估明确给出各候选 commit 的复用分类与依赖闭包（RUST-004 依赖 294a8f77 导出声明，RUST-005 明确服务端进程硬上限与请求级收紧边界，RUST-007 明确为未来聚合不变量，RUST-009 肯定关系证据提取而调度后置）；任何 Rust 修复、fixture 新增、契约变更、容量策略或 Node/DB/App 集成均后置。
 
 原六条 deferred finding 保留原 fingerprint/次数/证据，其多 batch、跨窗输入、snapshot 时序、富字段 oracle、lineage/recovery oracle、失败分类义务不因重跑成功自动解决。C-R004/C-R008/C-R009/C-AUDIT 撤出的实施义务见 docs/workflow/AUDIT_RESTORATION-001-20260915.md；它们尚未实施，不能被审计更正当作完成。
 

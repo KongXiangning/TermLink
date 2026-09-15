@@ -1,0 +1,204 @@
+# Codex Rollout Collector 4.5 Gemini 修复复用静态评估报告 (S4)
+
+## 1. 评估基准与方法论边界
+
+### 1.1 版本与环境基准
+- **当前审计工作树 HEAD**: `2a1d967cec0d391d0a83950cca38a895d393d510`
+- **Gemini 工作树路径**: `E:/coding/TermLink-rust-source-resolution-gemini`
+- **观测到的 Gemini HEAD**: `56b863d9aa11f67fb743369aa5ff0495cb638521`
+- **共同祖先 Commit (Common Ancestor)**: `7a167711950710b05f3e84c8d3ad975df1c6ab0c`
+- **外部问题台账快照**: `E:/coding/TermLink-rust-source-resolution-gemini/docs/codex/codex-rollout-collector-rust-issues-ledger.md` (SHA-256: `674cb0b6f5e31ac7547569d174757a6988c9e0155e1c7c2001aa0b1ddd785f15`)
+
+### 1.2 评估边界与强制门禁
+1. **纯静态只读对比**: 本评估严格限定为只读静态代码、提交历史、diff hunks 与依赖关系的交叉核对。依用户明确指令（“gemini不做测试，只关注当前项目这端”），**完全不构建、不测试、不执行、不 cherry-pick、不 merge、亦不应用 Gemini 代码**。
+2. **动态基准未执行**: 用户已取消相同显式预算及默认预算下的动态算法比较；内存、吞吐、延迟与极端 400MB 样本重放均标记为未验证，不把 Gemini 文档声称的“10x performance boost (1.5s for 392MB)”直接作为性能达标证据。
+3. **架构与契约红线**: 严守 `docs/workflow/CONTRACTS.md`（Codex Rollout Collector P0-RC.1 隔离边界）与 `docs/workflow/DECISIONS.md`（AD-004、AD-018 至 AD-022）。对代码复用性、依赖闭包、契约适用性与未来不变量进行严格分层审视。
+
+---
+
+## 2. 候选 Commit 与逐项 Hunk 静态深度评估
+
+### 2.1 RUST-001: Backfill 模式下恢复尾部 Checkpoint 污染历史 `active_turn_id`
+- **Gemini Commit**: `ade0a0a0e5dfc6d0eb7aeec477fed84f2c938a88`
+- **提交标题**: `fix(codex/rust): isolate tail active_turn_id in backfill mode to prevent history turn corruption (RUST-001)`
+- **涉及文件与 Hunks**:
+  - `native/codex-rollout-collector/src/analysis.rs` (L646-651): 新增 `AnalysisReducer::reset_active_turn_id(&mut self)`。
+  - `native/codex-rollout-collector/src/codex_adapter/mod.rs` (L86-91): 新增 `CodexEventAdapter::reset_active_turn_id(&self)`。
+  - `native/codex-rollout-collector/src/protocol/target_mapping.rs` (L874-883): 在 `restore_checkpoint_state` 中判断 `if request.mode == TargetAnalyzeMode::Backfill` 时调用上述两个 reset 函数。
+  - `native/codex-rollout-collector/src/protocol/target_source.rs` (L1037-1045): 在 `target_end` 计算中增加 `complete_range.start == 0 && complete_range.end == total` 时的分支。
+  - `native/codex-rollout-collector/tests/stage4_target_protocol.rs` (L1485): 测试中补充 `edited_files: Vec::new()`（强依赖 RUST-003）。
+  - `scripts/export-transcript-md.js` (混合脚本提交)。
+- **混合提交与依赖分析**: 混合了 Node 端导出脚本，并隐式依赖了 `c2c48628`（RUST-003）的 `edited_files` 测试类型修改以及 `87191b85`（RUST-004）的切片推进逻辑。
+- **契约与架构影响**: 在 Backfill 模式下重置状态机 `active_turn_id` 本身属于合理的防御性设计；但 S3-R1 审计已证明，当前测试中的归属差异来自 internal_windows 逆序喂入，而非公共 checkpoint 恢复。`target_source.rs` 中的特殊分支属于算法层 hack。
+- **复用分类**: **需拆分或调整 (Adaptation required)**
+- **建议处理方案**: 提取 pure Rust 的 `reset_active_turn_id` 防御逻辑；剔除 `scripts/export-transcript-md.js`；解除对未采纳的 `edited_files` 依赖；同 RUST-004 协同整理公共 Backfill 游标推导。
+
+### 2.2 RUST-002: `CodexEventAdapter` 丢弃 `FileChange` 与 `CommandExecution` 事件 (L-030)
+- **Gemini Commit**: `c2c4862899edaa0adc41c4b1a6bf1ff34303150b`
+- **提交标题**: `feat(collector): aggregate and restore Edited files card in TargetTaskOutcome`
+- **涉及文件与 Hunks**:
+  - `native/codex-rollout-collector/src/codex_adapter/mod.rs` (L811-834): 在 `adapt_item_completed` 中将 `let TurnItem::UserMessage(item) = ...` 改为 match，并增加 `TurnItem::FileChange(item) => self.adapt_file_changes(...)` 分支。
+  - `native/codex-rollout-collector/src/codex_adapter/mod.rs` (L1550-1575): 新增 `file_change_stats` 统计 `add`, `delete`, `update` 的增减行数。
+  - `native/codex-rollout-collector/src/model/analysis_event.rs` (L143-152): 为 `AnalysisEvent::FileChanged` 新增 `change_type`, `additions`, `deletions` 字段。
+  - `scripts/export-transcript-md.js` (混合脚本提交)。
+- **混合提交与依赖分析**: 与 RUST-003（`TargetTaskOutcome.edited_files`）强耦合在同一提交中，同时混合了 JS 导出脚本。
+- **契约与架构影响**:
+  1. 台账声称修复了 `FileChange` 与 `CommandExecution`，但代码审查发现 **完全没有处理 `TurnItem::CommandExecution`**，仍然落入 `_ => vec![self.diagnostic(...)]`，属于部分修复/声称过度。
+  2. `AnalysisEvent::FileChanged` 扩展了三个字段，虽标记为 optional/serde default，但改变了下游批次输出。
+- **复用分类**: **需拆分或调整 (Adaptation required)**
+- **建议处理方案**: 独立剥离 `TurnItem::FileChange` 的 Adapter 适配分支；补充真正缺失的 `TurnItem::CommandExecution` 事件适配设计；剥离 JS 脚本与 RUST-003 的协议修改。
+
+### 2.3 RUST-003: `TargetTaskOutcome` 契约模型缺失 `edited_files` 字段与 Reducer 聚合
+- **Gemini Commit**: `c2c4862899edaa0adc41c4b1a6bf1ff34303150b`
+- **涉及文件与 Hunks**:
+  - `native/codex-rollout-collector/src/protocol/target_data.rs` (L1361-1378): 新增结构体 `TargetEditedFile`（`path`, `change_type`, `additions`, `deletions`），在 `TargetTaskOutcome` 中新增 `pub edited_files: Vec<TargetEditedFile>`。
+  - `native/codex-rollout-collector/src/protocol/target_mapping.rs` (L1211-1277): 在 `derive_target_fields` 中按 turn 维护 `files_by_turn: BTreeMap<String, BTreeMap<String, TargetEditedFile>>`，并注入到 `TargetTaskOutcome.edited_files`。
+- **契约与架构影响**:
+  - 现行 `docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md` 中 `TargetTaskOutcome` 仅有 `item_key`, `status`, `message`, `completeness`, `source_epoch`。
+  - Gemini 单方面修改了 Rust 4.5 公共数据契约。按 AD-022 与契约约束，契约变更必须先在文档和架构层确定，再行实现。
+- **复用分类**: **需拆分或调整 (Adaptation required)**
+- **建议处理方案**: 将 `edited_files` 作为契约演进候选提案单独提上契约治理流程，不得在没有更新 `data-contract-draft.md` 与 Node 端对应解析器的情况下直接合入代码。
+
+### 2.4 RUST-004: Backfill 模式下 Backward Segment 向前步进算法未向前移动
+- **Gemini Commit**: `87191b85631079a1ecd49734697e7afb569c9f48`
+- **提交标题**: `feat(collector): implement backward segment advancement in Backfill mode for complete 400MB history recovery`
+- **涉及文件与 Hunks**:
+  - `native/codex-rollout-collector/src/protocol/target_source.rs` (L1035-1065):
+    - 改动切片边界算法：从 `cursor.complete_range.start` 开始作为本次 `target_end`。
+    - 处理边界：`if target_end == 0` 返回 `SourceByteRange::new(0, 0)`。
+    - 引入安全余量：`let margin = limits.max_line_bytes.min(limits.max_segment_bytes / 4);`，并计算 `start_candidate = target_end.saturating_sub(limits.max_segment_bytes.saturating_sub(margin));`。
+    - 调用 `crate::source::previous_line_start(spec.path(), start_candidate)` 寻找上一个行首，构造 `clamped_range`。
+  - `scripts/export-transcript-md.js` (136 行混合改动)。
+  - `scripts/pipeline-backfill-verification.js` (23 行混合改动)。
+- **前置依赖与编译闭包分析 (关键发现)**:
+  - `87191b85` 在 `target_source.rs` 中直接调用了 `crate::source::previous_line_start`。
+  - **但在当前工作树基准下，`read_plan.rs:636` 中的 `previous_line_start` 为模块内部私有函数 (`fn previous_line_start`)，且 `source/mod.rs` 并没有将其 re-export！**
+  - 该函数的 `pub` 声明及 `source/mod.rs` 的导出 hunks 实际**被打包在提交 `294a8f77`（RUST-005）中**：
+    - `native/codex-rollout-collector/src/source/read_plan.rs`: `pub fn previous_line_start(...)`
+    - `native/codex-rollout-collector/src/source/mod.rs`: `pub use read_plan::{..., previous_line_start};`
+  - 如果仅孤立提取 `87191b85` 的 43 行算法，在当前代码库中**将因私有函数未导出而无法通过编译**。必须同步提取 `294a8f77` 中的这两处可见性导出 hunks 才能形成完整编译闭包。
+- **契约与架构影响**: 该改动直接命中 S3 审计确认的静态缺陷（原 `target_source.rs` 范围构造未向前推进），步进逻辑符合 BackwardRange 语义。
+- **复用分类**: **需拆分或调整 (Adaptation required)**
+- **建议处理方案**: 提取 `target_source.rs` 的切片步进算法 hunk，**连同 `294a8f77` 中 `previous_line_start` 的 `pub` 及 re-export 声明一并提取**；剥离 JS 脚本；在独立修复任务中补齐针对 BackwardRange 推进的单元测试。
+
+### 2.5 RUST-005: 超大文件（400MB）内存与分段预算放宽
+- **Gemini Commit**: `294a8f7725333be942adea9919d0f5306eef0a52`
+- **提交标题**: `feat(collector): support seamless Preview-to-Backfill transition and increase line/segment budgets`
+- **涉及文件与 Hunks 拆解**:
+  - **Hunk A (前置依赖类，可复用)**:
+    - `native/codex-rollout-collector/src/source/read_plan.rs`: `pub fn previous_line_start`
+    - `native/codex-rollout-collector/src/source/mod.rs`: re-export `previous_line_start`
+    - 此两处为 RUST-004 的编译前置依赖，属于基础设施可见性调整。
+  - **Hunk B (默认预算常量放宽类，政策待定/未验证)**:
+    - `native/codex-rollout-collector/src/protocol/target.rs`:
+      - `TARGET_DEFAULT_MAX_LINE_BYTES`: 512KB → 4MB
+      - `TARGET_DEFAULT_MAX_SEGMENT_BYTES`: 4MB → 16MB
+      - `TARGET_DEFAULT_TAIL_BYTES`: 2MB → 8MB
+      - `TARGET_DEFAULT_TIMEOUT_MS`: 30,000 → 120,000
+    - `native/codex-rollout-collector/src/source/record.rs`:
+      - `SourceSpec::DEFAULT_MAX_LINE_BYTES`: 512KB → 4MB
+      - `SourceSpec::DEFAULT_MAX_SEGMENT_BYTES`: 4MB → 16MB
+  - **Hunk C (游标混用类，违反 Target 契约，拒绝复用)**:
+    - `native/codex-rollout-collector/src/protocol/target_source.rs`:
+      - 在 `TargetAnalyzeMode::Backfill` 下放松校验，允许 `cursor.cursor_kind == TargetCursorKind::TailPreview` 直接作为输入。
+- **静态评估与测试影响细化**:
+  1. **测试影响分层澄清**: 审计套件中的 V01–V12（`business_history_audit.rs:782-820`）在测试中通过 `budget(max_line, max_segment, max_decoded)` 为每个用例显式传递了参数（输入约 1.6KB），并不直接依赖 `target.rs` 中的上述全局默认常量。因此，不能在未动态运行的情况下笼统声称修改全局默认值“必然导致 V01–V12 失败”，该影响应客观标为**未验证 (unverified)**。
+  2. **常量放宽与请求级控制**: 将全局默认常量调大 4-8 倍属于进程级容量策略偏好，非引擎本身逻辑修复。若生产端确实需要处理大行/大分段，更稳健的做法是调用方在 `TargetAnalyzeRequest.limits` 中按需显式指定，而非随意修改 Rust 库内硬编码默认常量。
+  3. **游标语义违规**: 在 Target 协议层，`TailPreview` 与 `Backfill` 代表截然不同的读取意图与游标生命周期。`target_source.rs` 直接将 TailPreview 游标当作 Backfill 游标消费，绕过了 Target 层对游标类型匹配与状态机一致性的校验，属于破坏契约安全性的捷径，必须予以拒绝。
+- **复用分类**: **需拆分调整 / 部分不可复用 (Adaptation required for Hunk A; Inapplicable for Hunks B & C)**
+- **建议处理方案**: 仅采纳 Hunk A（`previous_line_start` 的导出声明）；拒绝 Hunk C 的游标混用；Hunk B 的默认预算保持现行契约不变，大文件读取通过请求级参数指定。
+
+### 2.6 RUST-006: `safe_path_display` 与 `sanitize_tool_input` 过度脱敏导致命令参数与文件路径被抹除
+- **Gemini Commit**: `5a2fba2067812e3ea47f25bf4bdad6107825ed67`
+- **提交标题**: `fix(codex): remove destructive path redaction and enhance transcript markdown with interleaved timeline (RUST-006, RUST-007)`
+- **涉及文件与 Hunks**:
+  - `native/codex-rollout-collector/src/codex_adapter/mod.rs` (L1623-1760): 将 `safe_path_display`、`sanitize_tool_input`、`sanitize_tool_text` 内部的脱敏逻辑全部删除，改为直接返回原文本。
+  - `native/codex-rollout-collector/tests/conformance.rs` (L840-960): **反向修改阶段 3 契约测试**，将原本校验 `<local-path-redacted>` 的多处断言删除或放宽为 `cwd: Some(_)`、`path: Some(_)`。
+  - `scripts/export-transcript-md.js` (326 行混合脚本提交)。
+- **契约与架构影响**:
+  1. 破坏阶段 3 验证资产：`conformance.rs` 是经受严格治理的隔离基础层一致性套件，Gemini 为了消除脱敏直接反向删除测试断言，违反了项目治理规则。
+  2. 规范冲突：架构 §4.6 确实期望真实参数/路径，而当前 formal conformance 断言了脱敏。该策略冲突必须由架构治理流程正式决策，不能以删测试的方式粗暴解决。
+- **复用分类**: **不可直接复用 / 需适配治理 (Inapplicable directly / Policy Decision required)**
+- **建议处理方案**: 拒绝直接合并 `5a2fba20`；通过契约变更流程明确本地路径脱敏与非脱敏的分级开关；严禁直接修改 conformance 契约测试。
+
+### 2.7 RUST-007: 路径过度脱敏引发 Reducer 聚合 Key 碰撞（未来聚合不变量）
+- **Gemini Commit**: `5a2fba2067812e3ea47f25bf4bdad6107825ed67`
+- **基线澄清与静态事实分析 (关键发现)**:
+  - 在当前工作树基准（HEAD `2a1d967c`）下，`TargetTaskOutcome` **根本没有 `edited_files` 字段**，且文件修改事件是基于 source position 进行跟踪的。
+  - S3-R1 审计已明确指出：**当前实现不存在该碰撞缺陷，RUST-007 在当前基准下属于未确认 / 扩展不变量**。
+  - Gemini 台账中所称的“按 path 归约汇总发生碰撞”，**实际上是 Gemini 在提交 `c2c48628`（RUST-003）中新引入的 `files_by_turn: BTreeMap<String, BTreeMap<String, TargetEditedFile>>` 聚合逻辑，遇到 `5a2fba20` 之前的脱敏常量 `"<local-path-redacted>"` 时自己制造出来的副作用**。
+  - 换言之，RUST-007 不是当前已存在的修复义务，而是未来如果引入按文件路径聚合卡片时，必须遵守的**聚合层唯一性不变量**。
+- **复用分类**: **未确认/未来聚合不变量 (Prospective Invariant / Inapplicable to current baseline)**
+- **建议处理方案**: 维持 S3-R1 的判断，不将其作为当前缺陷进行修复；未来若立项引入 `TargetEditedFile` 聚合层，聚合键必须采用复合唯一键（如 `path + call_id` 或稳定逻辑序号），不能寄托于外部路径绝对不重复。
+
+### 2.8 RUST-008: `CodexEventAdapter` 未适配原生 `thread_goal_updated` 事件
+- **Gemini Commit**: `15988c90c9fe6aeba5b45155b8066dbb3f5e5802`
+- **提交标题**: `fix(codex-collector): adapt thread_goal_updated event and render goal status cards (RUST-008)`
+- **涉及文件与 Hunks**:
+  - `native/codex-rollout-collector/src/codex_adapter/mod.rs` (L91-140): 在 `adapt` 入口绕过正常解码流程，增加 `try_adapt_goal`，直接从 `record.raw` 的 JSON 中解析 `event_msg` 与 `thread_goal_updated`。
+  - `native/codex-rollout-collector/src/model/analysis_event.rs` (L192+): 定义 `AnalysisEvent::GoalUpdated`。
+  - `native/codex-rollout-collector/src/analysis.rs` (L864+): 在 `AnalysisReducer` 中归约 `GoalUpdated`。
+  - `scripts/export-transcript-md.js` (混合脚本)。
+- **契约与架构影响**:
+  1. 架构违规：绕过 `codex_wire` facade，直接在 Adapter 层读取未校验的 `record.raw` JSON，违反了“所有 Codex 原生事件通过 `codex_wire` facade 类型化解码”的铁律。
+  2. 缺少向后兼容与未知降级保护。
+- **复用分类**: **需拆分或调整 (Adaptation required)**
+- **建议处理方案**: 提取 Goal 的领域模型与 Reducer 聚合逻辑；但事件解码必须规范化下沉到 `codex_wire` facade 中，补齐 wire fixture 与序列化测试，不得从 raw JSON 钻取。
+
+### 2.9 RUST-009: `SubAgentActivity` 与跨代理协作事件未结构化建模
+- **Gemini Commit**: `56b863d9aa11f67fb743369aa5ff0495cb638521`
+- **提交标题**: `fix(codex-collector): adapt SubAgentActivity and support subagent lifecycle cards`
+- **涉及文件与 Hunks**:
+  - `native/codex-rollout-collector/src/codex_adapter/mod.rs` (L93-140): 新增 `try_adapt_subagent_activity`，从 `record.raw` 读取 `SubAgentActivity` 并映射字段。
+  - `native/codex-rollout-collector/src/model/analysis_event.rs`: 定义 `AnalysisEvent::SubagentActivity`。
+  - `native/codex-rollout-collector/src/analysis.rs`: 在 Reducer 中生成 `subagent` 卡片展示项。
+  - `scripts/export-transcript-md.js` (混合脚本)。
+- **职责与架构边界客观审视 (关键更正)**:
+  - **撤销过度定性**: 静态检查表明，Gemini 的 Rust hunk **仅仅是将当前 Rollout 日志中已有的父子关系元数据（`agent_thread_id`、`agent_path`、`kind`）映射为分析事件与投影卡片，并没有在 Rust 内部去定位子会话文件、读取子会话或发起调度**。因此，将其描述为“Rust 越界承担 Node 调度职责”并不准确。
+  - **真实技术风险**:
+    1. 与 RUST-008 相同，直接从 `record.raw` 的动态 JSON 中钻取字段，绕过了 `codex_wire` facade 类型化解码边界。
+    2. 缺乏独立的领域类型定义与测试 fixture。
+  - **AD-022 协作顺序**: 关系证据模型（例如 `SubagentDiscovered`）属于 Rust 端提取的只读事实；依据 AD-022“Rust 契约先行”原则，Rust 可以在契约层独立定义并提取这些证据，后续 Node 协调层再依据该契约进行二次级联采集调度。
+- **复用分类**: **需拆分或调整 (Adaptation required)**
+- **建议处理方案**: 肯定其关系证据提取与卡片展现的模型思路；但实现上必须改写为由 `codex_wire` facade 统一类型化解码驱动，并补齐 Adapter fixture 测试；级联调度逻辑交由后续 Node 任务实现。
+
+### 2.10 前置依赖提交核对
+- **Commit `0adf05578fe7`**: `fix(collector): increase discovery fingerprint budget to 1GB to support very large rollouts`
+  - 涉及: `target_source.rs` 中 `DISCOVERY_MAX_FINGERPRINT_BYTES` 从 64MB 改为 1GB。
+  - 评估: 属于针对超大日志的容灾参数调整，具有参考意义。但 1GB 硬编码过大，具体数值应交由后续工程容量策略决定或提供配置项。分类为 **需拆分或调整 (Adaptation required)**。
+- **Commit `8a8bef8f7185`**: `fix(collector): resolve cursor-anchor alignment and bootstrap fallback for large sessions`
+  - 涉及: 纯 Node 端（`analysisCheckpointStore.js`, `index.js`），无 Rust 改动。
+  - 评估: 不属于 Rust collector 范畴，为后续 Node 协调层任务的参考输入。
+
+---
+
+## 3. Gemini 修复复用分类汇总矩阵
+
+| 序号 | 问题编号 | Gemini 对应 Commit | 核心修改文件 | 依赖/混合状态 | 契约/测试影响 | 复用分类结论 | 实施建议 |
+|---|---|---|---|---|---|---|---|
+| 1 | RUST-001 | `ade0a0a0` | `target_mapping.rs`, `analysis.rs` | 混合 JS 脚本；依赖 RUST-003/004 | 属于防御性重置 | **需拆分或调整** | 剥离 JS 脚本，提取 pure Rust reset 逻辑 |
+| 2 | RUST-002 | `c2c48628` | `codex_adapter/mod.rs` | 混合 JS 脚本；与 RUST-003 耦合 | 未处理 CommandExecution；扩展 FileChanged | **需拆分或调整** | 提取 FileChange 分支；补齐 CommandExecution |
+| 3 | RUST-003 | `c2c48628` | `target_data.rs`, `target_mapping.rs` | 混合 JS 脚本；与 RUST-002 耦合 | 扩展 TargetTaskOutcome，超出当前公共草案 | **需拆分或调整** | 需先立项修订 data-contract，禁止静默变更 |
+| 4 | RUST-004 | `87191b85` | `target_source.rs` | 混合 150+ 行 JS 脚本；**依赖 294a8f77 导出** | 符合 BackwardRange 语义，修补核心步进 | **需拆分或调整** | 提取切片步进算法，连同 `294a8f77` 的导出声明一并提取 |
+| 5 | RUST-005 | `294a8f77` | `target.rs`, `record.rs`, `source/mod.rs` | 包含 RUST-004 必需依赖；混合 JS 脚本 | 导出声明可复用；游标混用违规；默认常量放宽未验证 | **需拆分调整 / 部分不可复用** | 采纳 `previous_line_start` 导出；拒绝游标混用；默认常量保持契约 |
+| 6 | RUST-006 | `5a2fba20` | `codex_adapter/mod.rs`, `conformance.rs` | 混合 320+ 行 JS 脚本 | 破坏阶段 3 conformance 契约测试 | **不可直接复用 / 需适配治理** | 严禁删改 conformance；通过治理决策脱敏开关 |
+| 7 | RUST-007 | `5a2fba20` | `codex_adapter/mod.rs` | 关联 `c2c48628` 聚合层 | 当前基准不存在碰撞；属于未来聚合层不变量 | **未确认 / 未来聚合不变量** | 维持当前未确认结论；未来若加聚合层需强化唯一键设计 |
+| 8 | RUST-008 | `15988c90` | `codex_adapter/mod.rs`, `analysis.rs` | 混合 JS 脚本 | 绕过 codex_wire facade 读取 raw JSON | **需拆分或调整** | 保留模型归约思路，改由 codex_wire 解码驱动 |
+| 9 | RUST-009 | `56b863d9` | `codex_adapter/mod.rs`, `analysis.rs` | 混合 JS 脚本 | 绕过 wire facade；未越界调度但需规范解码 | **需拆分或调整** | 肯定关系证据提取思路；改由 wire 解码，调度后置 |
+| - | 前置依赖 | `0adf0557` | `target_source.rs` | 独立 Rust 提交 | 调整指纹预算常数 | **需拆分或调整** | 评估容量合理性，避免过大常数硬编码 |
+
+---
+
+## 4. 结论与后续路线建议
+
+1. **Gemini 代码库不可整体 cherry-pick 或直接合并**:
+   - Gemini 分支包含大量混合提交（Rust 代码与 Node 脚本、Markdown 导出工具混杂在一起）。
+   - 存在破坏契约的违规修改（如直接删除 `conformance.rs` 测试断言、绕过 `codex_wire` facade 钻取 raw JSON、违规允许游标混用等）。
+2. **核心高价值 Rust 算法与依赖闭包**:
+   - RUST-004 中 `target_source.rs` 的切片步进算法，必须与 `294a8f77` 中的 `previous_line_start` `pub`/re-export 声明打包成完整编译闭包。
+   - RUST-001 中 `reset_active_turn_id` 的防御性状态清理。
+   - RUST-002 中 `TurnItem::FileChange` 的增量行数统计与映射。
+   - RUST-008 / RUST-009 中的领域事件建模思路（需重构为 wire 解码驱动）。
+3. **后续任务落地原则**:
+   - 必须通过独立、受控的修复任务（或 PR）逐步重构与落地，每项均须补齐 Rust 单元测试并保持现有 31 项阶段 3 conformance 测试 100% 通过。
+   - 保持 AD-022 顺序：Rust target 接口契约先行，Node consumer 依据同步的契约进行设计和实施，不得单方面覆盖边界。
