@@ -16,11 +16,13 @@ related_docs:
 
 # 当前 Rust 业务测试执行证据（S2）
 
+2026-09-15 S3-R1 恢复说明：S1/S2/S3 的已提交成果和失败记录保留；当前证据以本次重验及核实文档 §9 为准。以下旧轮次中“当前”“S3/S4未推进”等措辞只描述当时状态。原 S3 结论被后续证据重新打开；本轮只更正审计，不实施修复。六条 deferred finding、未到达断言、未执行 Node/DB/App 验证均未被本次消除。
+
 ## 1. 本次结果与证据边界
 
 **R5执行：完整采集成功，产品未通过。** 当前冻结runner完成构建、32例枚举、逐例执行及既有回归：19例通过，13例为业务差异（R01、R02、R04、R05、R06、R07、R08、R09、R11、R13、R14、R15、R29）；conformance 31/31与stage4_target_protocol 70/70均通过。`collectionPass=true`、`productPass=false`：前者只证明审计采集完整，后者保留业务差异，不能推导产品通过、完整矩阵覆盖或九项问题成立。当前报告的测试哈希为`cda39c250ebe65c21381e3a279d57aac98a2dbbc2160113f507f0c98d88ae3f6`，runner哈希为`2a2136953480112dea53bd44cf19c7caf0c58059b47f97e8c9f19cf6557426a1`；报告和旧attempt在OS TEMP/termlink-rust-issues-audit/current及其`attempts`归档。六项质量意见仍待独立核查，S3/S4未推进。证据为caller-reported。
 
-### 1.1 R5当前结构化执行摘要（唯一当前结构化记录）
+### 1.1 R5结构化执行摘要（2026-09-14 历史记录）
 
 2026-09-14T12:40:34.941Z 至 2026-09-14T12:41:04.525Z，冻结 runner 重新生成的 OS-TEMP `current/report.json` 是本步骤唯一的当前结构化来源；其 SHA-256 为 `b81003e0facf971e7dce1f73cf5d4d439354a8f47b4e0e98bdf0c4606edc3939`。以下是该 schema 4 报告的可审计摘要；完整逐例 expected/actual、命令和归档仍以该报告及 `attempts/` 为准。
 
@@ -1360,3 +1362,74 @@ node native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
 ## 8. 后续边界
 
 后续S4仅可按已确认范围静态检查Gemini补丁和依赖；当前应用后的构建、回归和任何修复仍属于后续独立任务。
+
+
+## 9. S3-R1 恢复后的证据复核（2026-09-15，待独立审核）
+
+### 9.1 新执行与保留边界
+
+本次 S3-R1 重验：2026-09-15T09:10:10.640Z 至 2026-09-15T09:10:51.500Z，schema 4，32 例中 19 通过、13 业务差异；conformance 31/31、target protocol 70/70，collectionPass=true、productPass=false。报告 C:/Users/kongx/AppData/Local/Temp/termlink-rust-issues-audit/current/report.json，SHA-256：f1d8ed968f425ea46838fac8842b2acce8ea0bea73fd9d4e94ed4a787b606c79。测试和 runner 哈希与原 S2 相同。
+
+```json
+{
+  "schema": 4,
+  "kind": "current-rust-business-audit",
+  "startedAt": "2026-09-15T09:10:10.640Z",
+  "finishedAt": "2026-09-15T09:10:51.500Z",
+  "collectionPass": true,
+  "productPass": false,
+  "caseCounts": {
+    "total": 32,
+    "passed": 19,
+    "businessDifferences": 13
+  },
+  "businessDifferenceIds": [
+    "R01",
+    "R02",
+    "R04",
+    "R05",
+    "R06",
+    "R07",
+    "R08",
+    "R09",
+    "R11",
+    "R13",
+    "R14",
+    "R15",
+    "R29"
+  ],
+  "existingRegression": {
+    "conformance": "31/31",
+    "stage4_target_protocol": "70/70",
+    "exit": 0
+  },
+  "hashes": {
+    "native/codex-rollout-collector/tests/business_history_audit.rs": "cda39c250ebe65c21381e3a279d57aac98a2dbbc2160113f507f0c98d88ae3f6",
+    "native/codex-rollout-collector/tests/support/run_business_history_audit.cjs": "2a2136953480112dea53bd44cf19c7caf0c58059b47f97e8c9f19cf6557426a1"
+  },
+  "reportSha256": "f1d8ed968f425ea46838fac8842b2acce8ea0bea73fd9d4e94ed4a787b606c79",
+  "assurance": "caller-reported"
+}
+```
+
+旧 §1.1 的 b81003e0 报告及其时点保留为历史；runner 在重跑前将旧 report/stdout/stderr 复制到 attempts 目录。本轮没有新建测试或修改测试资产，13 项业务差异不等于 13 个产品缺陷。复核输入包括原 Git S3 提交 fd673e6d、当前源码、现行契约及 CURRENT_TASK 保留的生产证据 supersede/replan 记录。原 attachment:e6fff2d9-c97a-4cfe-97ed-8ca2e732a219/pasted-text.txt 正文不在本次可读材料中，未重放真实会话；历史计划中“必须修复”的表述不能替代实际验证。
+
+### 9.2 九项复核与更正
+
+| 条目 | 当前可核对证据与结论 | 限制及 S4 输入 |
+| --- | --- | --- |
+| RUST-001 | target_mapping.rs:830 的 restore_checkpoint_state 对同 source 恢复 Adapter/Reducer，没有 Backfill mode 分支；重验保留 R02/R06/R09 归属差异。原隔离缺陷结论保留。 | 公共完整流程和产品影响仍未证明；S4 只评估限定恢复语义的修复。 |
+| RUST-002 | codex_adapter/mod.rs:809 仅接受 UserMessage；其他 item_completed 进入 item_completed_non_user 诊断。R07/R08 对文件、命令事实的差异仍在。原局部适配缺陷结论保留。 | 不推导所有事件或产品路径失败；S4 核对已知非用户 item 的类型映射。 |
+| RUST-003 | TargetTaskOutcome 当前字段为 item_key/status/message/completeness/source_epoch，没有 edited_files；架构 §8 的目标 outcome 文件信息与 formal 模型之间仍存在能力/契约差距。 | R07 无文件事实也受 RUST-002 影响，不能独立证明某个不存在的聚合器有实现 bug；S4 按模型扩展候选评估。 |
+| RUST-004 | target_source.rs:1024 的 Backfill 将 known_complete_range/cursor.complete_range 原样交给 source_range_or_full（1102）；read_plan.rs:391 的 plan_range 只校验该范围，不生成其之前的新窗口。无范围时以整个 source 作为范围，也可能先触发单段限制。由源码确认公共 Backfill 范围构造缺少正常有界推进。 | 更正 §7 用内部窗口前进反驳公共路径的推论。静态缺陷已确认；没有新增公共成功执行证据，不声称修复或完整复现生产样本。 |
+| RUST-005 | target.rs:47–50 的当前默认值：decoded 32 MiB、line 512 KiB、segment 4 MiB、tail 2 MiB。wire §4.2.1 规定预算拒绝，R29 仍为超段上限。 | 保留容量余量风险；原生产样本尺寸和完整请求不可得，不能认定本次默认值已对该样本失败，更不能据此采用 400 MB；与 RUST-004 整源范围造成的预算问题分开。 |
+| RUST-006 | safe_path_display/sanitize_tool_input/sanitize_tool_text 的绝对路径脱敏与架构 §4.6 的命令/cwd/文件事实保留存在已记录的设计差距。 | R07/R08 也受未适配 item 影响，不能把全部缺失单独归因于 redaction；S4 需同时检查保留层和披露边界，不授权暴露真实路径。 |
+| RUST-007 | TargetTaskOutcome 没有 edited_files 映射；当前文件事件身份使用稳定 source position，而不是显示路径。 | 保留为未来聚合不变量：不要用脱敏后相同的显示路径作唯一键。当前碰撞 bug 未确认；不把未来风险算已修复义务。 |
+| RUST-008 | vendor/protocol.rs:1372、3829、3845 已定义 ThreadGoalUpdated/ThreadGoal；decode.rs:299 的 event allowlist 没有 thread_goal_updated，Adapter 也没有对应语义分支。更正“原生类型不存在/只能未知”的笼统说法：已知 vendor 类型与 TermLink 接纳及映射之间有确定的支持缺口。 | unknown 降级仍符合兼容性兜底；具体最小目标元数据需求来自后续记录，需要与现行契约分层。原始样本未复验；S4 可评估关联证据候选，不复制 objective 正文、不宣称已经支持。 |
+| RUST-009 | vendor/items.rs:53、314 已有 SubAgentActivityItem(id/kind/agent_thread_id/agent_path)；item_completed 经 Adapter 809 行的非用户分支丢弃专用关系语义。 | 必须拆开“保存父任务中的子代理关系证据”和“发现/调度/级联读取子任务”。前者可独立静态核实缺口并评估候选；后者仍受 AD-022 及单例协调约束，后置。兼容性 §4.2 允许 inter-agent 诊断/跳过，不能把所有缺口自动归为违约。 |
+
+### 9.3 剩余义务与证据强度
+
+当前任务仍为业务矩阵、当前 Rust 问题核实、Gemini 静态复用评估。S3-R1 结论需要独立 review-change；原 S4 未执行，待审核后评估已确认缺陷和明确分层的能力缺口，逐项给出直接复用/需适配/不适用/证据不足。任何 Rust 修复、fixture 新增、契约变更、容量策略或 Node/DB/App 集成均后置。
+
+原六条 deferred finding 保留原 fingerprint/次数/证据，其多 batch、跨窗输入、snapshot 时序、富字段 oracle、lineage/recovery oracle、失败分类义务不因重跑成功自动解决。C-R004/C-R008/C-R009/C-AUDIT 撤出的实施义务见 docs/workflow/AUDIT_RESTORATION-001-20260915.md；它们尚未实施，不能被审计更正当作完成。

@@ -187,11 +187,39 @@ redesign the task or reconstruct the receipt from current state.
 In `confirm` mode, submit the user's explicit confirmation through
 `confirm-draft` with the exact confirmation receipt returned by the committed
 draft; do not reconstruct it from the current task. Report the result and stop.
-In `replan` mode, revise only the task decisions explicitly reopened by the user
-or current task state. `replan` consumes an authorized supersede result from an
-earlier lifecycle invocation; if that prerequisite is absent, report the route
-instead of exposing or driving Runtime's internal replan actions. Persist the
-replacement through `replan`, report the result, and stop.
+The legacy one-call `replan` and raw `commit-replan` remain closed. For a
+confirmed active task from an older installation, first read a fresh summary
+and linked Task Basis, then use `initialize-preservation` with their exact
+source and Basis revisions. Runtime saves both original files before adding
+the task-evolution marker; it does not rewrite the definition or evidence.
+Do not hand-edit the marker or task history. For a
+recorded challenge use Runtime `prepare-replan` with bounded `challenge_ids`
+(legacy `challenge_id` is normalized) and an authorized non-executable correction
+step. Use `mode: execution-recovery` for exact historical execution targets,
+with complete `obligation_map` and optional `pending_step_changes`. Paths must
+satisfy original task scope and, for conclusion correction, the project's declared
+non-executable boundary; a directory name or reading list grants no authority.
+Runtime preserves executed definitions and inserts new recovery IDs before pending
+work or at the end of an executed but unclosed task. Read the full obligation map,
+source tuple, scope/step diff, result validity, evidence admission and carry-forward
+proof before requesting a decision. `prepare-replan` leaves `CURRENT_TASK`
+unchanged. An explicit decision for the exact candidate digest, source revision,
+Task Basis revision, obligations digest and permission change is required for
+`confirm-replan`. Supply its receipt and the exact decision source/text; Runtime
+records this as caller-reported authorization, not authenticated approval.
+`discard-replan` retains a discarded marker and does not reactivate a superseded
+task. Changed goals, reduced acceptance or expanded total permissions are outside
+this route. Changed checks require new IDs and explicit replacement references,
+with old required boundaries retained. For existing preflight/dirty/pending-review
+attempts, use `suspend-recovery` with source revision, reason and evidence first;
+retain attempts and cumulative review baseline, then map unfinished obligations.
+Use `artifact-checkpoints` to select a precise baseline. `artifact-restore` or
+`mixed` candidates bind `restore_plan`; prepare and confirm never restore product
+files. See CONTEXT_API.md for the versioned schema. This Runtime rejects a successor draft
+from `superseded` with `REPLACEMENT_OUTCOME_UNSUPPORTED`; it has no non-completion
+replacement transition. Supersede alone never approves a new plan or completes
+the old task. Do not edit the
+canonical task, Task Basis or candidate to bypass confirmation.
 
 Do not implement business code. Once the user confirms the draft,
 `CURRENT_TASK` is the execution authority: later execution must not redesign the

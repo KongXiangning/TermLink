@@ -481,7 +481,11 @@ S1门禁：本矩阵需经独立review-change审核，特别审查未细分的�
 
 ## 10. S2 当前项目执行映射（2026-09-14）
 
-**R5当前状态：完整采集完成（审计通过，产品未通过）。** 冻结runner已完成构建、枚举和逐例执行：32例中19例通过、13例记录为业务差异（R01、R02、R04、R05、R06、R07、R08、R09、R11、R13、R14、R15、R29）；既有conformance 31/31与stage4_target_protocol 70/70均通过。`collectionPass=true`仅表示审计采集完整，`productPass=false`保留当前业务差异；不据此认领完整矩阵、九项问题成立或产品通过。当前`report.json`及此前attempt均在OS TEMP/termlink-rust-issues-audit/current及其`attempts`归档。
+2026-09-15 S3-R1 恢复说明：S1/S2/S3 的已提交成果和失败记录保留；当前证据以本次重验及核实文档 §9 为准。以下旧轮次中“当前”“S3/S4未推进”等措辞只描述当时状态。原 S3 结论被后续证据重新打开；本轮只更正审计，不实施修复。六条 deferred finding、未到达断言、未执行 Node/DB/App 验证均未被本次消除。
+
+本次 S3-R1 重验：2026-09-15T09:10:10.640Z 至 2026-09-15T09:10:51.500Z，schema 4，32 例中 19 通过、13 业务差异；conformance 31/31、target protocol 70/70，collectionPass=true、productPass=false。报告 C:/Users/kongx/AppData/Local/Temp/termlink-rust-issues-audit/current/report.json，SHA-256：f1d8ed968f425ea46838fac8842b2acce8ea0bea73fd9d4e94ed4a787b606c79。测试和 runner 哈希与原 S2 相同。
+
+**R5历史状态：完整采集完成（审计通过，产品未通过）。** 冻结runner已完成构建、枚举和逐例执行：32例中19例通过、13例记录为业务差异（R01、R02、R04、R05、R06、R07、R08、R09、R11、R13、R14、R15、R29）；既有conformance 31/31与stage4_target_protocol 70/70均通过。`collectionPass=true`仅表示审计采集完整，`productPass=false`保留当前业务差异；不据此认领完整矩阵、九项问题成立或产品通过。当前`report.json`及此前attempt均在OS TEMP/termlink-rust-issues-audit/current及其`attempts`归档。
 
 **R5上一轮历史状态：构建失败，未完成验证。** 本轮保留32例及ordinal 0，分离已定位descriptor边界与独立阶段，增加runner分类核对；但business_history_audit.rs:409的collect类型推断错误E0283使构建退出101、入口退出1。32例及101旧回归均未开始，本轮修改不构成通过证据；六项意见仍待验证。原始日志在OS TEMP/termlink-rust-issues-audit/current。
 

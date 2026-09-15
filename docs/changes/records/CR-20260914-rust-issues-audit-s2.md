@@ -19,7 +19,11 @@ related_docs:
 
 # 当前 Rust 业务测试执行 S2
 
-## R5执行：完整采集完成（审计通过，产品未通过）
+2026-09-15 S3-R1 恢复说明：S1/S2/S3 的已提交成果和失败记录保留；当前证据以本次重验及核实文档 §9 为准。以下旧轮次中“当前”“S3/S4未推进”等措辞只描述当时状态。原 S3 结论被后续证据重新打开；本轮只更正审计，不实施修复。六条 deferred finding、未到达断言、未执行 Node/DB/App 验证均未被本次消除。
+
+本次 S3-R1 重验：2026-09-15T09:10:10.640Z 至 2026-09-15T09:10:51.500Z，schema 4，32 例中 19 通过、13 业务差异；conformance 31/31、target protocol 70/70，collectionPass=true、productPass=false。报告 C:/Users/kongx/AppData/Local/Temp/termlink-rust-issues-audit/current/report.json，SHA-256：f1d8ed968f425ea46838fac8842b2acce8ea0bea73fd9d4e94ed4a787b606c79。测试和 runner 哈希与原 S2 相同。
+
+## R5历史执行：完整采集完成（审计通过，产品未通过）
 
 冻结runner已完成构建、32例枚举、逐例执行和既有回归：19例通过，13例为业务差异（R01、R02、R04、R05、R06、R07、R08、R09、R11、R13、R14、R15、R29）；conformance 31/31和stage4_target_protocol 70/70均通过。`collectionPass=true`只表示审计采集完整，`productPass=false`保留业务差异，不据此认领产品通过、完整矩阵覆盖或九项问题成立。当前测试哈希为`cda39c250ebe65c21381e3a279d57aac98a2dbbc2160113f507f0c98d88ae3f6`，runner哈希为`2a2136953480112dea53bd44cf19c7caf0c58059b47f97e8c9f19cf6557426a1`。当前report.json及旧attempt都在OS TEMP/termlink-rust-issues-audit/current及其`attempts`归档；六项意见仍待独立核查，未推进S3/S4。证据caller-reported。
 

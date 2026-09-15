@@ -33,6 +33,26 @@ user_decisions:
   - source: codex://threads/01a09d68-7704-77c2-8aa8-699a8860871a —
       用户明确CURRENT_TASK末尾空行不应阻塞并要求继续的消息（S1阻塞后）
     verbatim: "`CURRENT_TASK.md` 末尾多余空行   不应该成为阻塞点。继续"
+  - source: codex://threads/01a09d68-7704-77c2-8aa8-699a8860871a — S1提交后要求依据矩阵实现测试的消息
+    verbatim: 不应该是依据用例设计矩阵来实现测试用例吗？
+  - source: codex://threads/01a09d68-7704-77c2-8aa8-699a8860871a — S1提交后要求先说明测试数量的消息
+    verbatim: 先通过矩阵，告诉我会形成多少测试用例？我要判断会不会又产生过多不必要的测试用例
+  - source: codex://threads/01a09d68-7704-77c2-8aa8-699a8860871a — 限定仅当前项目测试并询问重发语义的消息
+    verbatim: >-
+      明确一点：gemini不做测试，只关注当前项目这端。
+
+      重发与分支4完整 child 替换、未完成 child 不发布替换、跨日期跳过中间 head 恢复、独立 Branch
+      隔离（F02–F05）  <-- 这个是什么？为什么要child替换？场景是编辑最后一个turn的任务然后重发吗？
+  - source: conversation:current-task-runtime-state-restoration/user-message:2026-09-15:允许本次有备份、有差异审查的一次性直接修复
+    verbatim: |-
+      **允许本次有备份、有差异审查的一次性直接修复**：
+
+      1. 根据 Git 中的原审计任务和后续记录，恢复审计目标、范围及剩余步骤。
+      2. 保留已有分析、执行历史、失败记录和未完成义务，不整份回退旧文件。
+      3. 同步必要的 Task Basis、状态和版本关联，使用现有 Runtime 校验一致性。
+      4. 核对通过后，继续正常审计流程，不修改业务源码。
+  - source: conversation:2026-09-15:full-audit-plan-restoration
+    verbatim: 开始实施修复
 ---
 # vNext TASK_BASIS
 

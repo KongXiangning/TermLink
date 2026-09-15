@@ -5,19 +5,21 @@ document_id: doc-87ea7576bc76f5782bea891f
 runtime_state:
   schema_version: 1
   kind: vnext-current-task-runtime-state
-  evidence_plan_revision: b63cf2cb7e47b9f873da11f95bed29790b1b2eac8cda7f971e35d0764a67e5c2
+  evidence_plan_revision: 16a7fb6b409916cb35f8e53fb2129b6a2139437abd2ffc04eb27fe4d0c156dcf
   business_evidence_version: 1
+  task_evolution_version: 2
+  preservation_source_revision: b616e1889f98c959526cecbdd29070d0528ade2006f7cdf54765d8fb6f21f356
   task_id: "001"
   task_slug: rust-issues-audit-worktree-rust-001-rust-009-gemini
   workflow_status: active
   lifecycle_state: active
   resume_requires_review: false
   resume_review_reasons: []
-  active_step_id: S4
-  active_step_status: ready
+  active_step_id: S3-R1
+  active_step_status: in-progress
   finding_queue_revision: 31
   review_cycle:
-    id: review-cycle-38d288112fb053d7ea7803d84700a117
+    id: review-cycle-0
     cycle_phase: discovery
     repair_round: 0
     counted_repair_wave_ids: []
@@ -5875,6 +5877,7 @@ runtime_state:
         - docs/codex/codex-rollout-collector-codex-compatibility.md
         - docs/workflow/CONTRACTS.md
         - docs/workflow/DECISIONS.md
+      recorded_at: 2026-09-14T15:36:51.618Z
       change_set_id: change-set-337165e8a66fdaa1f406bfe896caf8fd
       checkpoint: required
       advancement: advanced
@@ -6061,7 +6064,452 @@ runtime_state:
             Gemini 代码。
           source_ref: docs/workflow/task-basis/TASK_BASIS-001.md#original_request;
             docs/workflow/task-basis/TASK_BASIS-001.md#user_decisions
-      recorded_at: 2026-09-14T15:36:51.618Z
+    - action: supersede
+      idempotency_key: lifecycle-001-supersede-production-evidence-20260915-v1
+      operation_kind: lifecycle-transaction
+      caller: task-lifecycle
+      mode: supersede
+      task_id: "001"
+      task_slug: rust-issues-audit-worktree-rust-001-rust-009-gemini
+      document_id: doc-87ea7576bc76f5782bea891f
+      from_workflow_status: active
+      from_lifecycle_state: active
+      to_workflow_status: superseded
+      to_lifecycle_state: active
+      source_revision: 54c36699fc630dcce3e0431c96f9fc99da926e6f338a98deabafc3532707aa38
+      authority_evidence:
+        - kind: active-task-owner
+          source: docs/workflow/CURRENT_TASK.md
+          subject: Task 001 currently owns the active S4 lifecycle state.
+          task_id: "001"
+          document_id: doc-87ea7576bc76f5782bea891f
+          source_revision: 54c36699fc630dcce3e0431c96f9fc99da926e6f338a98deabafc3532707aa38
+        - kind: evidence-admission
+          source: docs/workflow/CURRENT_TASK.md
+          subject: User supplied production-log rebuttal and explicitly requested
+            supersede before replan.
+          task_id: "001"
+          document_id: doc-87ea7576bc76f5782bea891f
+          source_revision: 54c36699fc630dcce3e0431c96f9fc99da926e6f338a98deabafc3532707aa38
+      evidence_refs:
+        - conversation:user-message:task-lifecycle-supersede-20260915
+        - conversation:user-message:prepare-task-replan-20260915
+        - attachment:e6fff2d9-c97a-4cfe-97ed-8ca2e732a219/pasted-text.txt
+        - docs/codex/codex-rollout-collector-rust-issues-verification.md
+        - native/codex-rollout-collector/src/protocol/target_source.rs:1024
+        - native/codex-rollout-collector/src/codex_adapter/mod.rs:809
+        - native/codex-rollout-collector/tests/business_history_audit.rs:285
+        - native/codex-rollout-collector/tests/business_history_audit.rs:650
+      partial_diff_disposition:
+        reusable:
+          - Committed S2/S3 evidence and the bounded read-only diagnostic
+            evidence remain replan input; no product mutation is adopted.
+        rollback_required: []
+        stop_propagation:
+          - Do not execute S4 Gemini reuse or treat the recorded S3
+            classifications as final after the reopened evidence.
+          - Unrelated dirty .agents/skills/** and .workflow-system/** paths
+            remain user-owned and are excluded from this lifecycle transition.
+      invalidation_kind: scope
+      invalidation_reason: User-supplied production-log evidence materially reopens
+        RUST-004, RUST-005, RUST-007, RUST-008, and RUST-009. The confirmed task
+        only permits frozen audit documentation and explicitly excludes actual
+        user sessions, test-asset changes, and Rust implementation work; it
+        therefore cannot truthfully admit the required replacement acceptance
+        and scope. Supersede preserves the prior task history and creates no
+        replacement definition.
+      recorded_at: 2026-09-14T16:01:53.087Z
+    - action: commit-replan
+      idempotency_key: replan-commit-a302f43e223bdcce45158573a9123bbc189487e67c0cfbce
+      operation_kind: task-state-transaction
+      caller: prepare-task
+      mode: replan
+      task_id: "001"
+      task_slug: rust-issues-audit-worktree-rust-001-rust-009-gemini
+      document_id: doc-87ea7576bc76f5782bea891f
+      from_workflow_status: superseded
+      from_lifecycle_state: active
+      to_workflow_status: active
+      to_lifecycle_state: active
+      source_revision: bbbddbeb413c7497cb08d0bfce27934eac16b98285eef1be6eb22b5b3b1052cd
+      authority_evidence:
+        - kind: active-task-owner
+          source: docs/workflow/CURRENT_TASK.md
+          subject: "001"
+        - kind: scope-admission
+          source: docs/workflow/CURRENT_TASK.md
+          subject: "001"
+        - kind: evidence-admission
+          source: docs/workflow/CURRENT_TASK.md
+          subject: "001"
+      evidence_refs:
+        - adapter:replan:c0544a162afc87bd
+      recorded_at: 2026-09-14T16:30:14.654Z
+    - idempotency_key: execute-step-result-03346ec5569dcc7743d6c1af95aecef0ea16e401ad8549af
+      mode: default
+      step_id: S3-R1
+      status: in-progress
+      evidence_refs:
+        - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+        - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+      recorded_at: 2026-09-15T09:14:14.326Z
+      note: "Restored audit S3-R1: fresh frozen runner 32 cases/19 passed/13 business
+        differences and 101 regressions passed; four audit documents reconcile
+        current report and preserve prior S3/failed attempts. Reassessed all
+        nine issues, distinguished public Backfill and vendor goal/subagent
+        types from downstream mapping, retained six deferred findings and future
+        repair obligations. No business/test/contract/Gemini mutations. Required
+        independent review remains before S4."
+      change_set_id: change-set-337165e8a66fdaa1f406bfe896caf8fd
+      checkpoint: required
+      advancement: not-applicable
+      next_step_id: null
+      claim_evidence:
+        - claim_id: AUD-S2-CURRENT-RUN
+          claim_kind: acceptance
+          slots:
+            - slot_id: S2-RUNNER-COLLECTION
+              minimum_type: audit-run/v1
+              disposition: newly-executed
+              evidence_refs:
+                - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+                - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+              check:
+                check_id: S2-RUNNER-001
+                method: execution
+                entry: node
+                  native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
+                  --output "$env:TEMP/termlink-rust-issues-audit/current"
+                expected_observation: The runner records a complete 32-case collection with 19
+                  passed and 13 business-difference cases, both build/list and
+                  101 existing regressions succeed, collectionPass is true, and
+                  productPass is false.
+                required_boundaries:
+                  - frozen 32-case Rust audit
+                  - OS-TEMP report
+                  - existing conformance and stage4 target regressions
+                allowed_substitutes: []
+                subject_paths:
+                  - native/codex-rollout-collector/tests/business_history_audit.rs
+                  - native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
+                expected_result: passed
+              due_step_id: S3-R1
+              applicability: current
+              report:
+                result_id: audit-restored-20260915-0
+                status: passed
+                evidence_plan_revision: e3b4ac90e3d1521b90b8e684c0ceb5cffc382449f0b2c6fb6e72925aaa57acc2
+                subject_revision: 014c90d3d0eae19cf0efb38c925b05cb83ed3c0597451365a82a536adac72e21
+                actual_method: execution
+                environment: Windows PowerShell; frozen schema-4 audit rerun
+                  2026-09-15T09:10:10.640Z..09:10:51.500Z; static
+                  source/contract review; original production attachment not
+                  replayed.
+                assurance: caller-reported
+          requirement: S2 以当前资产重新采集完整 32 例审计：19 例通过、13 例业务差异、101 例既有回归通过，且
+            collectionPass=true、productPass=false。
+          source_ref: docs/workflow/task-basis/TASK_BASIS-001.md#original_request;
+            docs/workflow/CURRENT_TASK.md#lifecycle-001-supersede-s2-evidence-20260914-v1
+        - claim_id: AUD-S2-EVIDENCE-RECONCILIATION
+          claim_kind: acceptance
+          slots:
+            - slot_id: S2-CROSS-DOCUMENT-STATE
+              minimum_type: cross-document-reconciliation/v1
+              disposition: newly-executed
+              evidence_refs:
+                - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+                - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+              check:
+                check_id: S2-DOCUMENTS-001
+                method: static
+                entry: Compare the three S2 evidence documents against the fresh report and
+                  current test/runner hashes.
+                expected_observation: All three documents state the same current report metrics
+                  and product-pass boundary, while prior E0283 and unstarted
+                  counts remain explicitly historical.
+                required_boundaries:
+                  - matrix execution mapping
+                  - verification current-result section
+                  - S2 change record
+                  - historical-attempt preservation
+                allowed_substitutes: []
+                subject_paths:
+                  - docs/codex/codex-rollout-collector-business-test-matrix.md
+                  - docs/codex/codex-rollout-collector-rust-issues-verification.md
+                  - docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+                expected_result: accepted
+              due_step_id: S3-R1
+              applicability: current
+              report:
+                result_id: audit-restored-20260915-1
+                status: accepted
+                evidence_plan_revision: e3b4ac90e3d1521b90b8e684c0ceb5cffc382449f0b2c6fb6e72925aaa57acc2
+                subject_revision: 64212b630d061143250550fdb5edced2faed931163fca3fb656266e4f9917424
+                actual_method: static
+                environment: Windows PowerShell; frozen schema-4 audit rerun
+                  2026-09-15T09:10:10.640Z..09:10:51.500Z; static
+                  source/contract review; original production attachment not
+                  replayed.
+                assurance: caller-reported
+          requirement: S2 的矩阵、执行底稿和 CR 使用同一份当前审计结论，并将 E0283 与未启动计数保留为历史尝试，绝不把采集成功写成产品通过。
+          source_ref: docs/workflow/CURRENT_TASK.md#lifecycle-001-supersede-s2-evidence-20260914-v1;
+            docs/README.md#1
+        - claim_id: AUD-S3-NINE-ISSUES
+          claim_kind: acceptance
+          slots:
+            - slot_id: S3-ISSUE-CLASSIFICATION
+              minimum_type: issue-classification/v1
+              disposition: newly-executed
+              evidence_refs:
+                - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+                - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+              check:
+                check_id: S3-CLASSIFICATION-RESTORED-001
+                method: static
+                entry: Compare each RUST-001..009 conclusion with the frozen S2 report and its
+                  cited current Rust/contract evidence. Reassess
+                  RUST-004/005/007/008/009 against retained later evidence;
+                  separate observed facts, missing original samples, capacity
+                  risks, future invariants and unimplemented repairs.
+                expected_observation: Each ledger item identifies evidence, uncertainty,
+                  contract applicability, and a classification without declaring
+                  a product fix or broadening into Node, DB, Android, or IPC.
+                required_boundaries:
+                  - nine-item ledger coverage
+                  - current S2 evidence
+                  - contract applicability
+                  - no product mutation
+                allowed_substitutes: []
+                subject_paths:
+                  - docs/codex/codex-rollout-collector-rust-issues-verification.md
+                  - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+                  - native/codex-rollout-collector/tests/business_history_audit.rs
+                  - docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md
+                expected_result: accepted
+              due_step_id: S3-R1
+              applicability: current
+              report:
+                result_id: audit-restored-20260915-2
+                status: accepted
+                evidence_plan_revision: e3b4ac90e3d1521b90b8e684c0ceb5cffc382449f0b2c6fb6e72925aaa57acc2
+                subject_revision: f1bb52d62a509a64f906f7ce37e73a69ed6e662683686f530c0c3f80d3ca524f
+                actual_method: static
+                environment: Windows PowerShell; frozen schema-4 audit rerun
+                  2026-09-15T09:10:10.640Z..09:10:51.500Z; static
+                  source/contract review; original production attachment not
+                  replayed.
+                assurance: caller-reported
+          requirement: S3 对 RUST-001 至 RUST-009 逐项给出当前证据分类，不将 13 项审计差异等同为已确认产品缺陷，也不修改产品实现。
+          source_ref: docs/workflow/task-basis/TASK_BASIS-001.md#original_request;
+            docs/workflow/task-basis/TASK_BASIS-001.md#user_decisions
+        - claim_id: AUD-S4-GEMINI-REUSE
+          claim_kind: acceptance
+          slots:
+            - slot_id: S4-STATIC-REUSE-ASSESSMENT
+              minimum_type: static-reuse-assessment/v1
+              disposition: missing
+              evidence_refs: []
+              check:
+                check_id: S4-REUSE-001
+                method: static
+                entry: Compare the target worktree evidence with the observed Gemini revision
+                  and record direct-reuse, adaptation, inapplicable, or
+                  insufficient-evidence outcomes.
+                expected_observation: The assessment cites exact observed source hunks and
+                  dependencies, confines inspection to the Rust collector path,
+                  and records that no Gemini build, test, patch application, or
+                  product integration occurred.
+                required_boundaries:
+                  - observed Gemini revision
+                  - exact Rust hunk/dependency evidence
+                  - static-only boundary
+                  - no cross-module propagation
+                allowed_substitutes: []
+                subject_paths:
+                  - docs/codex/codex-rollout-collector-gemini-fix-reuse-assessment.md
+                  - docs/changes/records/CR-20260914-rust-issues-audit-s4.md
+                  - docs/codex/codex-rollout-collector-rust-issues-verification.md
+                expected_result: accepted
+              due_step_id: S4
+              applicability: current
+          requirement: S4 对已确认问题的 Gemini 修复完成仅静态的复用评估，绑定实际 hunk、依赖和跨模块边界，不运行、应用或宣称动态验证
+            Gemini 代码。
+          source_ref: docs/workflow/task-basis/TASK_BASIS-001.md#original_request;
+            docs/workflow/task-basis/TASK_BASIS-001.md#user_decisions
+      execution_result:
+        attempt_id: attempt-479f661f23221629b63cebcf37326c4b0a74a5c7
+        outcome: implemented
+        change_set_id: change-set-337165e8a66fdaa1f406bfe896caf8fd
+        review_base:
+          kind: runtime-file-manifest/v1
+          revision: 7f50f6f604ebbe469d6f25ea264db5aad3b4423734ac8c89b0a75288991cd82e
+          entries:
+            - path: docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+              state: file
+              sha256: 8ecd4304ae3c5aa751e9b6f49c6dae699d5733a013898b83ed640cfd6ed00e29
+            - path: docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+              state: file
+              sha256: 0c1ab813784adea9a144aa12ea353b0df3c533f9b97e78c404b47dda42aef89e
+            - path: docs/codex/codex-rollout-collector-business-test-matrix.md
+              state: file
+              sha256: 428267c680c4a4455960be83de95a4972db49f0ef27338527f5860a58e269031
+            - path: docs/codex/codex-rollout-collector-rust-issues-verification.md
+              state: file
+              sha256: 1b81cdf77c5e0f178629b2ece7fdfd1ae8f77a633e6bd62c69d5e956559d7be5
+        review_target:
+          kind: runtime-file-manifest/v1
+          revision: c06c05bb57b734e32d3948a2aaeea90f2be329ff445a000b0bf730ec14a2d158
+          entries:
+            - path: docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+              state: file
+              sha256: d867a5a48427cd64ad935e98ced203c2c49cf6322a3262c78cb552c26461af57
+            - path: docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+              state: file
+              sha256: e2ac0295354099b57623fac7c57748414a90a040b74ea6a284a11301fc47a27c
+            - path: docs/codex/codex-rollout-collector-business-test-matrix.md
+              state: file
+              sha256: bb9bd8be62e84c34e00c106ccb10095fbf78a8f201f05b38f44d894600e586e1
+            - path: docs/codex/codex-rollout-collector-rust-issues-verification.md
+              state: file
+              sha256: 7bbc5158cb8262569e50d5f026542abc088ba1d6e00862a99fb726dd070031c8
+        change_delta:
+          kind: runtime-file-delta/v1
+          base_revision: 7f50f6f604ebbe469d6f25ea264db5aad3b4423734ac8c89b0a75288991cd82e
+          target_revision: c06c05bb57b734e32d3948a2aaeea90f2be329ff445a000b0bf730ec14a2d158
+          entries:
+            - path: docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+              before_state: file
+              before_sha256: 8ecd4304ae3c5aa751e9b6f49c6dae699d5733a013898b83ed640cfd6ed00e29
+              after_state: file
+              after_sha256: d867a5a48427cd64ad935e98ced203c2c49cf6322a3262c78cb552c26461af57
+            - path: docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+              before_state: file
+              before_sha256: 0c1ab813784adea9a144aa12ea353b0df3c533f9b97e78c404b47dda42aef89e
+              after_state: file
+              after_sha256: e2ac0295354099b57623fac7c57748414a90a040b74ea6a284a11301fc47a27c
+            - path: docs/codex/codex-rollout-collector-business-test-matrix.md
+              before_state: file
+              before_sha256: 428267c680c4a4455960be83de95a4972db49f0ef27338527f5860a58e269031
+              after_state: file
+              after_sha256: bb9bd8be62e84c34e00c106ccb10095fbf78a8f201f05b38f44d894600e586e1
+            - path: docs/codex/codex-rollout-collector-rust-issues-verification.md
+              before_state: file
+              before_sha256: 1b81cdf77c5e0f178629b2ece7fdfd1ae8f77a633e6bd62c69d5e956559d7be5
+              after_state: file
+              after_sha256: 7bbc5158cb8262569e50d5f026542abc088ba1d6e00862a99fb726dd070031c8
+        actual_changed_paths:
+          - docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+          - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+          - docs/codex/codex-rollout-collector-business-test-matrix.md
+          - docs/codex/codex-rollout-collector-rust-issues-verification.md
+        command_results:
+          - command: node
+              native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
+              --output "$env:TEMP/termlink-rust-issues-audit/current"
+            status: passed
+            observed_repo_writes: []
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+          - command: git diff --check --
+              docs/codex/codex-rollout-collector-business-test-matrix.md
+              docs/codex/codex-rollout-collector-rust-issues-verification.md
+              docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+              docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+            status: passed
+            observed_repo_writes: []
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+          - command: git status --short
+            status: passed
+            observed_repo_writes: []
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+        validation_results:
+          - validation: Rerun the frozen 32-case audit and existing regressions
+            status: passed
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+          - validation: reconcile current evidence without rewriting historical failures
+            status: passed
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+          - validation: reassess all nine issues and explicitly RUST-004/005/007/008/009
+              using current source and retained later records
+            status: passed
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+          - validation: retain six deferred findings and all unexecuted obligations
+            status: passed
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+          - validation: no product or test changes.
+            status: passed
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+        acceptance_evidence:
+          - claim_id: AUD-S2-CURRENT-RUN
+            slot_id: S2-RUNNER-COLLECTION
+            check_id: S2-RUNNER-001
+            minimum_type: audit-run/v1
+            disposition: newly-executed
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+            report:
+              result_id: audit-restored-20260915-0
+              status: passed
+              evidence_plan_revision: e3b4ac90e3d1521b90b8e684c0ceb5cffc382449f0b2c6fb6e72925aaa57acc2
+              subject_revision: 014c90d3d0eae19cf0efb38c925b05cb83ed3c0597451365a82a536adac72e21
+              actual_method: execution
+              environment: Windows PowerShell; frozen schema-4 audit rerun
+                2026-09-15T09:10:10.640Z..09:10:51.500Z; static source/contract
+                review; original production attachment not replayed.
+              assurance: caller-reported
+          - claim_id: AUD-S2-EVIDENCE-RECONCILIATION
+            slot_id: S2-CROSS-DOCUMENT-STATE
+            check_id: S2-DOCUMENTS-001
+            minimum_type: cross-document-reconciliation/v1
+            disposition: newly-executed
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+            report:
+              result_id: audit-restored-20260915-1
+              status: accepted
+              evidence_plan_revision: e3b4ac90e3d1521b90b8e684c0ceb5cffc382449f0b2c6fb6e72925aaa57acc2
+              subject_revision: 64212b630d061143250550fdb5edced2faed931163fca3fb656266e4f9917424
+              actual_method: static
+              environment: Windows PowerShell; frozen schema-4 audit rerun
+                2026-09-15T09:10:10.640Z..09:10:51.500Z; static source/contract
+                review; original production attachment not replayed.
+              assurance: caller-reported
+          - claim_id: AUD-S3-NINE-ISSUES
+            slot_id: S3-ISSUE-CLASSIFICATION
+            check_id: S3-CLASSIFICATION-RESTORED-001
+            minimum_type: issue-classification/v1
+            disposition: newly-executed
+            evidence_refs:
+              - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
+              - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+            report:
+              result_id: audit-restored-20260915-2
+              status: accepted
+              evidence_plan_revision: e3b4ac90e3d1521b90b8e684c0ceb5cffc382449f0b2c6fb6e72925aaa57acc2
+              subject_revision: f1bb52d62a509a64f906f7ce37e73a69ed6e662683686f530c0c3f80d3ca524f
+              actual_method: static
+              environment: Windows PowerShell; frozen schema-4 audit rerun
+                2026-09-15T09:10:10.640Z..09:10:51.500Z; static source/contract
+                review; original production attachment not replayed.
+              assurance: caller-reported
+        blocker: null
   applied_proposals:
     - idempotency_key: prepare-draft-commit-90793f4d7b28b0c67b1c0b8d05ad66ea4ebed37ec410efea
       operation_kind: task-state-transaction
@@ -6343,19 +6791,68 @@ runtime_state:
       operation_kind: task-state-transaction
       proposal_digest: 048163de396466029ad18c71b60bc7e30ad1f146552ce5498f6c1413e1447673
       source_revision: 5f21b7d407c5420f2d947042823367a001c1e6a29fd573fa6c34374a0b7e2ca4
+    - idempotency_key: lifecycle-001-supersede-production-evidence-20260915-v1
+      operation_kind: lifecycle-transaction
+      proposal_digest: f8f6769dd05fe88ae5ca5725ebbe2f155ebaa27753d26a97e577d89f39a6b93e
+      source_revision: 54c36699fc630dcce3e0431c96f9fc99da926e6f338a98deabafc3532707aa38
+    - idempotency_key: replan-commit-a302f43e223bdcce45158573a9123bbc189487e67c0cfbce
+      operation_kind: task-state-transaction
+      proposal_digest: 0ec185c5e394d7d273adfa027981daa7cf2c2a107bb81d136d4f4ba71c1c2eee
+      source_revision: bbbddbeb413c7497cb08d0bfce27934eac16b98285eef1be6eb22b5b3b1052cd
+    - idempotency_key: preflight-dae9d03d07b3e599f65f13f46e6241c4cf57c5ac91fb1a427dd760099db65a93
+      operation_kind: task-state-transaction
+      proposal_digest: e83bff63d0d79ee3bdd26ea5b5d02412c3f30b7f27d3816bbd3f0a5e23c6c9d8
+      source_revision: 4395aa6267c69a4f2174bf56b93c9bba866d3de59c280b2bd32e0c3db17eb527
+    - idempotency_key: execute-step-result-03346ec5569dcc7743d6c1af95aecef0ea16e401ad8549af
+      operation_kind: task-state-transaction
+      proposal_digest: 1e209feb25df08324f00885b4f231557a32910eb49ac50eebf107c56f17ce899
+      source_revision: c5cc2d3f52c6381ce6338ad83726b0e4d29051bb0698c920bd9c34f3c9dcde1f
+    - idempotency_key: preflight-57f62055056eb5ceabfd5ed95b5187a048b051d3400abcfa0ac6bd84f6b27880
+      operation_kind: task-state-transaction
+      proposal_digest: c9134c8c5951f86c4dd2caceb5f876841864062edb44a754919e2d1eed967866
+      source_revision: 8035567c75c7ce41411584dca667979fbe75d0bf27ef4e4ce1d52ae99a9a569e
   claim_evidence_required: true
   claim_evidence:
+    - claim_id: AUD-S1-BUSINESS-MATRIX
+      claim_kind: acceptance
+      slots:
+        - slot_id: S1-MATRIX-PRESERVATION
+          minimum_type: business-matrix-review/v1
+          disposition: missing
+          evidence_refs: []
+          check:
+            check_id: S1-MATRIX-RESTORED-001
+            method: static
+            entry: Compare the existing S1 matrix and CR with the restored c1b512da
+              business-flow, scenario-count, independent-oracle and interface
+              assertions; record retained coverage and all gaps without claiming
+              Node/DB/App execution.
+            expected_observation: Original S1 obligations are individually traceable to
+              existing matrix evidence or an explicit unresolved gap; no new
+              tests or business implementation are authorized.
+            required_boundaries:
+              - App business branches and interleavings
+              - independent oracle and negative assertions
+              - actual Node-to-App interfaces
+              - design versus executed evidence
+            allowed_substitutes: []
+            subject_paths:
+              - docs/codex/codex-rollout-collector-business-test-matrix.md
+              - docs/changes/records/CR-20260914-rust-issues-audit-s1.md
+            expected_result: accepted
+          due_step_id: S3-R1
+          applicability: current
+      requirement: 以 App 真实业务流程为主轴形成完整用例矩阵，贯穿用户动作、Node 调度、Rust 采集、Node 存储、Node→App
+        接口返回及 App 可观察结果；独立分支可清点、断言可核算，九项问题仅在业务矩阵完成后交叉映射，Node/DB/App
+        本阶段只做设计与只读接口核对。
+      source_ref: git:c1b512da39580b7efd1755b720933ccd6add4286:docs/workflow/CURRENT_TASK.md#实施步骤-S1
     - claim_id: AUD-S2-CURRENT-RUN
       claim_kind: acceptance
       slots:
         - slot_id: S2-RUNNER-COLLECTION
           minimum_type: audit-run/v1
-          disposition: newly-executed
-          evidence_refs:
-            - native/codex-rollout-collector/tests/business_history_audit.rs
-            - native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
-            - docs/codex/codex-rollout-collector-rust-issues-verification.md
-            - docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+          disposition: missing
+          evidence_refs: []
           check:
             check_id: S2-RUNNER-001
             method: execution
@@ -6375,16 +6872,8 @@ runtime_state:
               - native/codex-rollout-collector/tests/business_history_audit.rs
               - native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
             expected_result: passed
-          due_step_id: S2
+          due_step_id: S3-R1
           applicability: current
-          report:
-            result_id: s2-runner-20260914-r5-repair-current
-            status: passed
-            evidence_plan_revision: b63cf2cb7e47b9f873da11f95bed29790b1b2eac8cda7f971e35d0764a67e5c2
-            subject_revision: 014c90d3d0eae19cf0efb38c925b05cb83ed3c0597451365a82a536adac72e21
-            actual_method: execution
-            environment: Windows PowerShell; runner output in OS TEMP
-            assurance: caller-reported
       requirement: S2 以当前资产重新采集完整 32 例审计：19 例通过、13 例业务差异、101 例既有回归通过，且
         collectionPass=true、productPass=false。
       source_ref: docs/workflow/task-basis/TASK_BASIS-001.md#original_request;
@@ -6394,11 +6883,8 @@ runtime_state:
       slots:
         - slot_id: S2-CROSS-DOCUMENT-STATE
           minimum_type: cross-document-reconciliation/v1
-          disposition: newly-executed
-          evidence_refs:
-            - docs/codex/codex-rollout-collector-business-test-matrix.md
-            - docs/codex/codex-rollout-collector-rust-issues-verification.md
-            - docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+          disposition: missing
+          evidence_refs: []
           check:
             check_id: S2-DOCUMENTS-001
             method: static
@@ -6418,16 +6904,8 @@ runtime_state:
               - docs/codex/codex-rollout-collector-rust-issues-verification.md
               - docs/changes/records/CR-20260914-rust-issues-audit-s2.md
             expected_result: accepted
-          due_step_id: S2
+          due_step_id: S3-R1
           applicability: current
-          report:
-            result_id: s2-docs-20260914-s3-repair-current
-            status: accepted
-            evidence_plan_revision: b63cf2cb7e47b9f873da11f95bed29790b1b2eac8cda7f971e35d0764a67e5c2
-            subject_revision: 5366761541d88760be11211df8c6665865cd83b30dcc5ee6dbf4a77bb224135b
-            actual_method: static
-            environment: Windows PowerShell
-            assurance: caller-reported
       requirement: S2 的矩阵、执行底稿和 CR 使用同一份当前审计结论，并将 E0283 与未启动计数保留为历史尝试，绝不把采集成功写成产品通过。
       source_ref: docs/workflow/CURRENT_TASK.md#lifecycle-001-supersede-s2-evidence-20260914-v1;
         docs/README.md#1
@@ -6436,17 +6914,16 @@ runtime_state:
       slots:
         - slot_id: S3-ISSUE-CLASSIFICATION
           minimum_type: issue-classification/v1
-          disposition: newly-executed
-          evidence_refs:
-            - docs/codex/codex-rollout-collector-rust-issues-verification.md
-            - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
-            - native/codex-rollout-collector/tests/business_history_audit.rs
-            - docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md
+          disposition: missing
+          evidence_refs: []
           check:
-            check_id: S3-CLASSIFICATION-001
+            check_id: S3-CLASSIFICATION-RESTORED-001
             method: static
             entry: Compare each RUST-001..009 conclusion with the frozen S2 report and its
-              cited current Rust/contract evidence.
+              cited current Rust/contract evidence. Reassess
+              RUST-004/005/007/008/009 against retained later evidence; separate
+              observed facts, missing original samples, capacity risks, future
+              invariants and unimplemented repairs.
             expected_observation: Each ledger item identifies evidence, uncertainty,
               contract applicability, and a classification without declaring a
               product fix or broadening into Node, DB, Android, or IPC.
@@ -6462,17 +6939,10 @@ runtime_state:
               - native/codex-rollout-collector/tests/business_history_audit.rs
               - docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md
             expected_result: accepted
-          due_step_id: S3
+          due_step_id: S3-R1
           applicability: current
-          report:
-            result_id: s3-classification-20260914-link-repair
-            status: accepted
-            evidence_plan_revision: b63cf2cb7e47b9f873da11f95bed29790b1b2eac8cda7f971e35d0764a67e5c2
-            subject_revision: 2475eb36a283479e743ec24fefeb2ba8f9433b80d37546bb52b8f63fca9e1e2d
-            actual_method: static
-            environment: Windows PowerShell
-            assurance: caller-reported
-      requirement: S3 对 RUST-001 至 RUST-009 逐项给出当前证据分类，不将 13 项审计差异等同为已确认产品缺陷，也不修改产品实现。
+      requirement: 依据业务矩阵对应的 Rust 断言独立核实 RUST-001 至
+        RUST-009；每项绑定业务场景/数据断言、当前代码及观测，区分真实缺陷、当前不成立、扩展项和证据不足，并说明对 App 历史流程的影响。
       source_ref: docs/workflow/task-basis/TASK_BASIS-001.md#original_request;
         docs/workflow/task-basis/TASK_BASIS-001.md#user_decisions
     - claim_id: AUD-S4-GEMINI-REUSE
@@ -6505,41 +6975,36 @@ runtime_state:
             expected_result: accepted
           due_step_id: S4
           applicability: current
-      requirement: S4 对已确认问题的 Gemini 修复完成仅静态的复用评估，绑定实际 hunk、依赖和跨模块边界，不运行、应用或宣称动态验证
-        Gemini 代码。
+      requirement: 对确认存在的问题给出 Gemini 修复可直接复用/需拆分或调整/不可复用/证据不足的结论，绑定精确 commit 或 dirty
+        patch 哈希、依赖、契约影响；依用户后续决定仅静态评估，相同输入动态对照明确未执行，不伪称已证明；其余问题说明不适用或另行决策。
       source_ref: docs/workflow/task-basis/TASK_BASIS-001.md#original_request;
         docs/workflow/task-basis/TASK_BASIS-001.md#user_decisions
+  artifact_checkpoint_ids:
+    - e58e3a9bf03b832276d1554455347376d896387c6037276308fbde03d7b8effe
+    - a4147edf2cb76714e0ebd327b248b0d381145db3ca7737a7b6cb0e744df179e4
+    - 5b4ae835f2b65c9ecd3295e03be86441838b0aec2d0cae5a45cda07ab91c0bb6
   pending_review_result: null
   step_attempts:
-    S2:
-      evidence_plan_revision: b63cf2cb7e47b9f873da11f95bed29790b1b2eac8cda7f971e35d0764a67e5c2
+    S3-R1:
+      evidence_plan_revision: 16a7fb6b409916cb35f8e53fb2129b6a2139437abd2ffc04eb27fe4d0c156dcf
       max_attempts: 3
       attempts:
-        - attempt_id: attempt-34675e375d603e9d5871ef952c2a6e0f42f5e049
-          idempotency_key: execute-step-result-321ff9329ba60d9f9725bb4d49f48ad254d263de4c10004e
+        - attempt_id: attempt-479f661f23221629b63cebcf37326c4b0a74a5c7
+          idempotency_key: preflight-dae9d03d07b3e599f65f13f46e6241c4cf57c5ac91fb1a427dd760099db65a93
           request_digest: null
           status: implemented
           blocker: null
           evidence_refs:
-            - native/codex-rollout-collector/tests/business_history_audit.rs
-            - native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
-            - docs/codex/codex-rollout-collector-rust-issues-verification.md
-            - docs/changes/records/CR-20260914-rust-issues-audit-s2.md
-            - docs/codex/codex-rollout-collector-business-test-matrix.md
-    S3:
-      evidence_plan_revision: b63cf2cb7e47b9f873da11f95bed29790b1b2eac8cda7f971e35d0764a67e5c2
-      max_attempts: 3
-      attempts:
-        - attempt_id: attempt-b586d108d2f5bcc5c46c0bfe8f4afa8f64290d3b
-          idempotency_key: execute-step-result-4dc5ef55a5912a10c4d0958ee200d542405d2b5a35d6b932
-          request_digest: null
-          status: implemented
-          blocker: null
-          evidence_refs:
-            - docs/codex/codex-rollout-collector-rust-issues-verification.md
+            - docs/workflow/CURRENT_TASK.md
+            - docs/codex/codex-rollout-collector-rust-issues-verification.md#9
             - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
-            - native/codex-rollout-collector/tests/business_history_audit.rs
-            - docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md
+        - attempt_id: attempt-1cf091c7e3b9a90792ff78d875e0bc92a8b13f60
+          idempotency_key: one-time-full-plan-restoration-20260915
+          request_digest: null
+          status: preflighted
+          blocker: null
+          evidence_refs:
+            - docs/workflow/AUDIT_RESTORATION-001-20260915.md
   review_coverage:
     change_set_id: change-set-337165e8a66fdaa1f406bfe896caf8fd
     base:
@@ -6569,23 +7034,23 @@ runtime_state:
           sha256: null
     target:
       kind: runtime-file-manifest/v1
-      revision: bc098cc52b6b90deb35339dcc461851deefd0e7517eff24511401fcfa8de42b0
+      revision: 91a9abccd86d742c625459c6f55cb86698c4343eafa82ab10ef93e508bc8e80b
       entries:
         - path: docs/changes/records/CR-20260914-rust-issues-audit-s1.md
           state: file
           sha256: b9942541da51385b9b244f922409cad297f1664bb3bf568f33470714846cda80
         - path: docs/changes/records/CR-20260914-rust-issues-audit-s2.md
           state: file
-          sha256: 8ecd4304ae3c5aa751e9b6f49c6dae699d5733a013898b83ed640cfd6ed00e29
+          sha256: d867a5a48427cd64ad935e98ced203c2c49cf6322a3262c78cb552c26461af57
         - path: docs/changes/records/CR-20260914-rust-issues-audit-s3.md
           state: file
-          sha256: 0c1ab813784adea9a144aa12ea353b0df3c533f9b97e78c404b47dda42aef89e
+          sha256: e2ac0295354099b57623fac7c57748414a90a040b74ea6a284a11301fc47a27c
         - path: docs/codex/codex-rollout-collector-business-test-matrix.md
           state: file
-          sha256: 428267c680c4a4455960be83de95a4972db49f0ef27338527f5860a58e269031
+          sha256: bb9bd8be62e84c34e00c106ccb10095fbf78a8f201f05b38f44d894600e586e1
         - path: docs/codex/codex-rollout-collector-rust-issues-verification.md
           state: file
-          sha256: 1b81cdf77c5e0f178629b2ece7fdfd1ae8f77a633e6bd62c69d5e956559d7be5
+          sha256: 7bbc5158cb8262569e50d5f026542abc088ba1d6e00862a99fb726dd070031c8
         - path: native/codex-rollout-collector/tests/business_history_audit.rs
           state: file
           sha256: cda39c250ebe65c21381e3a279d57aac98a2dbbc2160113f507f0c98d88ae3f6
@@ -6621,8 +7086,15 @@ runtime_state:
         state: absent
         sha256: null
         content_base64: null
-    pending_paths: []
-    last_clean_revision: bc098cc52b6b90deb35339dcc461851deefd0e7517eff24511401fcfa8de42b0
+    pending_paths:
+      - docs/changes/records/CR-20260914-rust-issues-audit-s1.md
+      - docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+      - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+      - docs/codex/codex-rollout-collector-business-test-matrix.md
+      - docs/codex/codex-rollout-collector-rust-issues-verification.md
+      - native/codex-rollout-collector/tests/business_history_audit.rs
+      - native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
+    last_clean_revision: null
 ---
 # vNext CURRENT_TASK
 
@@ -6639,21 +7111,21 @@ runtime_state:
 ## 任务输入依据
 
 - path: `docs/workflow/task-basis/TASK_BASIS-001.md`
-- revision: `1df2f2d2501bd54bcc6497eeb8b6b39cd1570d9b5a53b388c9d00c7eaed6d8e9`
+- revision: `e941ea21d9504ad2a1bf7aac26af9eb46f8fc8656f40af00d1f4a150cb2cf1b1`
 
 ## 背景与上下文
 
 ### Goal
 
-完成当前 Rust 审计结果的 S2 证据重整，再以冻结证据核实九项问题并静态评估 Gemini 修复复用；不实施产品修复或 Node/DB/App 集成。
+App history business-flow audit：从 App 真实使用流程设计 Rust→Node 采集、存储及 Node→App 查询接口用例矩阵，再核实当前 Rust 问题与 Gemini 修复复用。保留 c1b512da 完整任务目的及后续有效演进；S1/S2/S3 历史成果不重做，S3-R1 纠正受挑战结论后完成 S4，实际业务修复后置。
 
 ### Out of scope
 
 - Rust product source, vendored Codex closure, Cargo manifest or lockfile changes.
 - Node, database, Android, IPC, public-surface, deployment, or real-device integration work.
-- Any modification of the current audit test or runner; a future test-asset defect requires a new authorized replan.
+- 本次不修改既有审计测试或 runner。后续局部执行错误只评估受限同计划修复，不自动作废整个任务；确需新增写权限时单独取得相应准入。
 - Applying, cherry-picking, merging, building, testing, or otherwise executing Gemini worktree code.
-- New matrix scenarios, actual user sessions, product-pass claims, commits, pushes, or direct governance edits.
+- 新增执行用例或恢复已取消的 Gemini 动态测试、collection or persistence of raw user sessions, product-pass claims, commits, pushes, or further direct governance edits. Existing user-supplied production-evidence conclusions are read-only audit inputs under the 2026-09-15 restoration authorization.
 
 ### Project documents
 
@@ -6663,10 +7135,11 @@ runtime_state:
 
 ## 验收标准
 
+- [ ] 以 App 真实业务流程为主轴形成完整用例矩阵，贯穿用户动作、Node 调度、Rust 采集、Node 存储、Node→App 接口返回及 App 可观察结果；独立分支可清点、断言可核算，九项问题仅在业务矩阵完成后交叉映射，Node/DB/App 本阶段只做设计与只读接口核对。
 - [ ] S2 以当前资产重新采集完整 32 例审计：19 例通过、13 例业务差异、101 例既有回归通过，且 collectionPass=true、productPass=false。
 - [ ] S2 的矩阵、执行底稿和 CR 使用同一份当前审计结论，并将 E0283 与未启动计数保留为历史尝试，绝不把采集成功写成产品通过。
-- [ ] S3 对 RUST-001 至 RUST-009 逐项给出当前证据分类，不将 13 项审计差异等同为已确认产品缺陷，也不修改产品实现。
-- [ ] S4 对已确认问题的 Gemini 修复完成仅静态的复用评估，绑定实际 hunk、依赖和跨模块边界，不运行、应用或宣称动态验证 Gemini 代码。
+- [ ] 依据业务矩阵对应的 Rust 断言独立核实 RUST-001 至 RUST-009；每项绑定业务场景/数据断言、当前代码及观测，区分真实缺陷、当前不成立、扩展项和证据不足，并说明对 App 历史流程的影响。
+- [ ] 对确认存在的问题给出 Gemini 修复可直接复用/需拆分或调整/不可复用/证据不足的结论，绑定精确 commit 或 dirty patch 哈希、依赖、契约影响；依用户后续决定仅静态评估，相同输入动态对照明确未执行，不伪称已证明；其余问题说明不适用或另行决策。
 
 ## 允许修改范围
 
@@ -6676,6 +7149,7 @@ runtime_state:
 
 ### Allowed Files
 
+- `docs/changes/records/CR-20260914-rust-issues-audit-s1.md`
 - `docs/codex/codex-rollout-collector-business-test-matrix.md`
 - `docs/codex/codex-rollout-collector-rust-issues-verification.md`
 - `docs/changes/records/CR-20260914-rust-issues-audit-s2.md`
@@ -6716,11 +7190,39 @@ runtime_state:
 
 ## 已确认决策
 
-- The R5 compile failure is superseded only as current evidence: it remains a historical attempt, while the current runner result is collectionPass=true, productPass=false, 32 cases with 19 passed and 13 business differences, plus 101 passing existing regressions.
-- S2 changes only the three evidence documents and reruns the existing frozen audit; the current test and runner sources are validation subjects, not mutation targets.
-- S3 retains the original nine-item verification goal and classifies evidence without treating an audit difference as a confirmed product defect or applying a repair.
-- S4 remains a static, Rust-path-only comparison against observed Gemini revision 56b863d9aa11f67fb743369aa5ff0495cb638521; unrelated Gemini worktree changes are not touched.
-- The SourceBackend to Adapter to AnalysisBatch boundary, the three public analyzer modes, fail-closed semantics, and AD-022 Rust-first/Node-later ownership remain unchanged.
+- 用户后续明确矩阵从App真实业务出发，覆盖Rust→Node采集、存储及Node供App调用的接口；九项台账是后置交叉检查。保留原第一阶段范围：业务用例设计、当前Rust核查、Gemini复用评估，实际修复与完整Node/DB/App集成测试后置。
+- 用例按用户动作→初始状态→事件时序→Node调度→Rust输出→Node存储→Node接口→App可观察结果设计；业务主线与分支决定数量。不存在预设总用例数或9项=9例；覆盖汇总必须区分独立场景、参数子例、条款和执行状态，避免复合大行掩盖缺口。
+- 先独立建立业务矩阵与数据断言，再关联问题台账。端到端流程走通不能自动证明数据内容正确，正文/tool/file/Plan/usage/outcome/retention/unknown等语义用断言补全；九项若不适用现行需求如实分类，不通过扩大需求实现全覆盖。
+- 现有Node供App读取历史的入口是conversation_history_sync_request/older_request/recovery_request等WebSocket消息族；在S1逐例记录实际消息、相关实现入口和当前/目标/未定义状态，禁止推定新REST API或将Rust AnalysisBatch作为App DTO。
+- 新增App一致性来源按顶部AD-020及现行AD-021解读；serverRevision/revisionScope、泛化item/source revision以及依赖它们的段落不作为用例要求，Node每conversation一份canonical。旧导入顺序按当前Wire/Coordinator的staging ACK与最终产品事务两阶段约束解释；状态词仅用现有契约或业务含义，不假定所有目标接口已经实现。
+- 运行中加载历史的正向用例必须包含历史已存/未齐、IPC持续更新和迟到历史响应；healthy IPC authority保持不变，App历史older查询与Rust后台backfill分层。允许按现行基线出现live gap，不能增加跨重启IPC无损或实时rollout补洞要求。
+- 数量检查采用适用业务分支/关键交错→命名用例映射，质量检查采用输入可触发、独立oracle、字段级与否定断言、覆盖终态、责任边界和可重建证据。审查RD-001/002/003只作为修订上下文，不录入用户Task Basis。
+- Rust行为核查复用已有stage4_target_protocol.rs、conformance.rs、Cargo.toml及合成fixtures；Node codexHistorySyncService.test.js仅用于识别已有接口行为和模拟边界，不在本任务运行完整Node/DB测试。最小复現可调小预算制造多窗口，但必须记录连续推进、缺口和关联；独立完整正序oracle只作内部或测试参考，不增加analyze mode。
+- 原 Gemini 动态比较设计（后续已取消执行，仅保留解释标准）：比较拆为相同显式预算下算法组和各自默认预算组；超限、等于限值、限值下及安全前缀有无分别设计，记录实际有效配置。扩大窗口后未触发多段场景不能证明backfill正确，未测性能/内存列为未验证。
+- 测试策略 flexible/inferred-default：这是包含真实执行观测的探索性审计，无测试与产品代码修改先后要求；矩阵先行是分析步骤顺序，不等于 test-first。原阶段 Persistent Tests=none；后续已授权并完成当前 Rust 持久化测试，现有资产保留，本次不新增或修改。
+- 准备时当前 HEAD=f8125dd54fadb61e30f2139ba7b0791b62d8e33f，Gemini HEAD=56b863d9aa11f67fb743369aa5ff0495cb638521，共同 ancestor=7a167711950710b05f3e84c8d3ad975df1c6ab0c；执行 S1 再锁定实际版本和文件哈希。用户同基线声明为待逐文件核对事实，不预设所有文件仍一致。
+- 外部只读输入 E:/coding/TermLink-rust-source-resolution-gemini/docs/codex/codex-rollout-collector-rust-issues-ledger.md；准备时 SHA256=674cb0b6f5e31ac7547569d174757a6988c9e0155e1c7c2001aa0b1ddd785f15。范围固定九项；该文档含状态漂移，Gemini 的已确认字样不构成本任务授权。
+- 文档冲突处理：架构现行条款定义期望，代码定义实际行为；接口文件顶部旧实现状态是非规范历史快照。历史 formal checkpoint/ACK/revision 描述按 AD-020/021 分层，当前 L2 依 Startup/Wire/Data/Coordinator 正文，不静默修订来源文档。
+- 已发现当前 conformance 与 Adapter 单测明确断言 local-path-redacted，而架构 §4.6 要求真实命令/参数/cwd；本任务记录适用层级与策略冲突、追溯来源并评估 Gemini 影响，不授权删除脱敏或重写测试期望，故不阻塞只读审计。
+- 复用结论面向后续修复决策，不自动执行修复；同一提交含 Rust 与导出脚本时逐路径/逐 hunk 判断。文本适用、独立 Gemini 验证与当前应用后回归是不同证据，不夸大验证覆盖。
+- 原临时 harness 方案（已由后续当前项目持久化 runner 替代）：仅允许在 OS 临时目录创建审计 harness、合成 sessions、构建缓存、补丁副本和原始输出。Harness 通过正式启动参数与 stdio JSONL 操作真实 Rust binary，不使用测试注入 delivery 伪造 source/Adapter 输出，不引用 Node 内部实现、不持久化产品数据库。
+- 原临时 harness 路径记录（不作为当前待执行命令）：OS 临时工作目录为 $env:TEMP/termlink-rust-issues-audit/；S2 创建 audit.cjs，S3 复用并可补足诊断。脚本/fixture 重建方法、运行命令及关键输出写进审计报告，避免仅依赖会被清理的临时文件。
+- 审计 harness 成功表示预定观测被完成并如实归档；被测命令/用例失败必须保留原始退出码和输出，不改写为产品通过。构建环境阻塞不证明业务问题存在，应明确证据不足与后续动作；可静态定论的缺失/扩展项不强造失败复现。
+- Node durable staging、事务提交、canonical publication 在矩阵设计层覆盖，本阶段不编写模拟数据库来声称完成真实持久化验收。保持 AD-004 IPC authority 与 AD-022 模块顺序。
+- 每个执行批次新增对应 draft CR，记录请求/场景/证据关联及 commit_ref:TBD；本任务不制造 active CR 或虚构提交。不修改标准文档、索引和治理文件；Runtime 自有状态变更仅走其事务。
+- 原三个主步骤及其后续细分均保留累积报告和早前 CR 的修正权限，以便复用评估发现新证据时修正早前判断，禁止借此扩展产品修改范围。
+- 用户明确授权本任务的CURRENT_TASK.md末尾多余空行为非阻塞。把原仓库级git diff --check门禁拆为两条只读检查：其他路径保留原规则；仅对docs/workflow/CURRENT_TASK.md在单次Git调用中关闭blank-at-eof检查，其他默认空白规则仍生效。不写Git配置，不修改Runtime/技能或手工编辑治理文件。历史git diff --check退出1及blocked记录原样保留，不改写为通过；该例外只适用于当前任务的这一文件和这一种空白问题。
+- c1b512da 时的 replan 仅调整空白验证门禁，该事件已完成并保留历史；不据此把已完成 S1 重新设为待执行。
+
+### 后续有效演进与当前恢复边界
+
+- 原 S1 原样保留业务矩阵目的、详细输入/输出/否定断言及 review checkpoint；c1b512da 的矩阵和后续完成记录是历史成果，不因恢复而从头执行。
+- 原 S2 的 Rust 核查细分为当前 S2 执行采集与 S3 九项分类；依据用户要求形成的 business_history_audit.rs 与 run_business_history_audit.cjs 已存在，替代原临时 audit.cjs 执行方式。本次只运行既有资产，不恢复旧禁令来否定已授权工作。
+- 原 S3 Gemini 复用评估映射为当前 S4，不是当前九项分类 S3。用户明确“gemini不做测试，只关注当前项目这端”，因此取消 Gemini 构建/测试/相同 fixture 动态对照；保留精确 commit/hunk、前置依赖、混合提交、契约影响、适用性与证据不足分类。
+- S3-R1 是原 Rust 审计内的纠错子步骤，不是新业务目标。前次纠正文档和运行记录完整保留；本次恢复更完整验收后，旧版本报告仅为历史输入，必须重新取得或按 Runtime 明确准入复用证据，再独立审查。
+- RUST-004/008/009 的业务实现计划不作为当前任务授权；未完成的 C-R004/C-R008/C-R009/C-AUDIT 及全部失败和 deferred findings 保留在恢复记录，不标完成。
+- 现有 S2/S3/S4 证据门禁继续适用；原义务不得因步骤重编号、局部审查或状态机限制而消失。证据纠错不自动触发 supersede，不自动授权业务实现。
+- 本次直接恢复限 CURRENT_TASK、Task Basis 及恢复记录；后续正常流程使用现有 Runtime，不改 Runtime、技能、共享契约或业务源码。
 
 ## 待确认问题
 
@@ -6728,19 +7230,48 @@ runtime_state:
 
 ## 实现方案
 
-- S2: Rerun the frozen audit, reconcile its complete current result into the matrix, verification document, and S2 CR, and preserve prior failed attempts as historical evidence.
+- S1: S1以App真实业务为主轴建立完整采集→存储→Node供App读取的用例矩阵：先列首次加载最新再补早、缓存重入、运行中IPC并行历史加载、加载中新数据、终态协调、切换/断线/重启、resend/Branch和失败恢复的独立分支；逐例绑定输入/时序/各层断言/真实接口，统计覆盖并核验独立oracle。然后固定两侧Git/源码与ledger快照，进行九项问题的后置场景映射，创建矩阵和S1 CR。
+- S2: 从 S1 完整业务矩阵选取与九项问题对应的 Rust 断言，独立核实当前实现并说明 App 流程影响；运行后续已授权的冻结 32 例测试与既有回归，记录精确对象、边界、失败和未达到断言，产出 verification 与 S2 CR，绝不应用产品修复。
 - S3: Classify RUST-001 through RUST-009 from the reviewed S2 evidence and current cited contracts, then record bounded conclusions in the verification document and S3 CR without product changes.
-- S4: Perform the static Gemini reuse assessment for only confirmed S3 issues, record exact Rust hunks and dependencies, and publish bounded reuse outcomes with no Gemini execution or application.
+- S3-R1: 复核 S2 当前证据及后续记录对 S3 九项结论的影响，保留原结论历史，形成审计更正并恢复 S4 输入。
+- S4: 评估 Gemini 修复复用：只读检查台账对应 commits、精确 Rust hunks 和必要前置依赖（含经核实相关的 0adf0557 预算/source 改动），记录混合提交、契约/测试影响与复用分类，完成评估和 S4 CR，并依新证据修正早前报告。依用户后续决定不构建、不测试、不执行或应用 Gemini。
 
 ## 传播治理记录
 
 
 ## 实施步骤
 
-- S2: Rerun the frozen audit, reconcile its complete current result into the matrix, verification document, and S2 CR, and preserve prior failed attempts as historical evidence.
-  - purpose: Rerun the frozen audit, reconcile its complete current result into the matrix, verification document, and S2 CR, and preserve prior failed attempts as historical evidence.
+- S1: S1以App真实业务为主轴建立完整采集→存储→Node供App读取的用例矩阵：先列首次加载最新再补早、缓存重入、运行中IPC并行历史加载、加载中新数据、终态协调、切换/断线/重启、resend/Branch和失败恢复的独立分支；逐例绑定输入/时序/各层断言/真实接口，统计覆盖并核验独立oracle。然后固定两侧Git/源码与ledger快照，进行九项问题的后置场景映射，创建矩阵和S1 CR。
+  - purpose: S1以App真实业务为主轴建立完整采集→存储→Node供App读取的用例矩阵：先列首次加载最新再补早、缓存重入、运行中IPC并行历史加载、加载中新数据、终态协调、切换/断线/重启、resend/Branch和失败恢复的独立分支；逐例绑定输入/时序/各层断言/真实接口，统计覆盖并核验独立oracle。然后固定两侧Git/源码与ledger快照，进行九项问题的后置场景映射，创建矩阵和S1 CR。
+  - mutation_scope: docs/codex/codex-rollout-collector-business-test-matrix.md, docs/changes/records/CR-20260914-rust-issues-audit-s1.md
+  - required_evidence: 以业务流程清单、适用状态分支和关键交错为覆盖分母，汇总每组独立场景数、参数变体数、条款映射数和未覆盖/不适用依据；不能以9项台账或少量主题行作为完整性证明。架构5.4.9/5.5、retention和Coordinator失败矩阵逐项后置检查。; 每例有业务目标、前置缓存/IPC/source状态、可重建输入、操作与故障注入时点、Rust/存储/Node接口/App预期和禁止结果；绑定实际消息入口及当前/目标/未定义状态。未涉及层明确不参与，未知新字段仅标后续定义。; 完整历史流程要求多窗口连续backfill及promotion/append与独立oracle收敛；对象数量/顺序/关联、游标边界、完整性及不得覆盖旧数据均可判定。既有测试只按其实际断言映射，不以any/非空断言充当完整覆盖。; 健康IPC并行历史读取、App older cursor与Rust source cursor、两类ACK及durable job与App选择生命周期明确分开；Node/DB/App为设计证据，不标执行通过。; 业务矩阵形成后对RUST-001..009逐项映射，无法映射先核查业务/数据遗漏或未采纳扩展，不能反向用台账定义需求。
+  - review_checkpoint: required: 核验业务主轴、场景数量统计和断言质量，确认真实跨层时序与现有接口/目标边界。
+  - planned_command: git status --short
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: git rev-parse HEAD
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: git -C E:/coding/TermLink-rust-source-resolution-gemini status --short
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: git -C E:/coding/TermLink-rust-source-resolution-gemini rev-parse HEAD
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: git merge-base HEAD 56b863d9aa11f67fb743369aa5ff0495cb638521
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: git diff --check -- . ':(exclude)docs/workflow/CURRENT_TASK.md'
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: git -c core.whitespace=-blank-at-eof diff --check -- docs/workflow/CURRENT_TASK.md
+    - expected_repo_writes: none
+    - transformation_kind: localized
+
+- S2: 从 S1 完整业务矩阵选取与九项问题对应的 Rust 断言，独立核实当前实现并说明 App 流程影响；运行后续已授权的冻结 32 例测试与既有回归，记录精确对象、边界、失败和未达到断言，产出 verification 与 S2 CR，绝不应用产品修复。
+  - purpose: 从 S1 完整业务矩阵选取与九项问题对应的 Rust 断言，独立核实当前实现并说明 App 流程影响；运行后续已授权的冻结 32 例测试与既有回归，记录精确对象、边界、失败和未达到断言，产出 verification 与 S2 CR，绝不应用产品修复。
   - mutation_scope: docs/codex/codex-rollout-collector-business-test-matrix.md, docs/codex/codex-rollout-collector-rust-issues-verification.md, docs/changes/records/CR-20260914-rust-issues-audit-s2.md
-  - required_evidence: The fresh OS-TEMP report has 32 cases, 19 passed, 13 business differences, collectionPass=true, productPass=false, and a successful existing-regression command.; The matrix, verification document, and S2 CR agree on those current facts, retain prior E0283/unstarted results as historical attempts, and do not represent collection success as product success.; The scoped document diff is whitespace-clean; no test, product, contract, runtime, Node, Android, IPC, database, or Gemini worktree mutation is introduced.
+  - required_evidence: 每项独立记录现象是否存在及是否违反现行契约；证据不足说明具体尝试和缺失条件。测试全通过也不能替代针对症状的断言；静态缺失与动态行为证据分开。; 执行证据绑定S1业务场景/断言ID，明确哪些仅完成设计、哪些执行了Rust投影；独立oracle依据契约和输入事实，完整性/关联/边界必须有精确预期与否定断言，流程走通或两侧输出相同不足以认定正确。; The fresh OS-TEMP report has 32 cases, 19 passed, 13 business differences, collectionPass=true, productPass=false, and a successful existing-regression command.; The matrix, verification document, and S2 CR agree on those current facts, retain prior E0283/unstarted results as historical attempts, and do not represent collection success as product success.; The scoped document diff is whitespace-clean; no test, product, contract, runtime, Node, Android, IPC, database, or Gemini worktree mutation is introduced.
   - review_checkpoint: required: This checkpoint changes the authoritative reading of the audit result across three evidence artifacts.
   - planned_command: node native/codex-rollout-collector/tests/support/run_business_history_audit.cjs --output "$env:TEMP/termlink-rust-issues-audit/current"
     - expected_repo_writes: none
@@ -6754,7 +7285,7 @@ runtime_state:
 - S3: Classify RUST-001 through RUST-009 from the reviewed S2 evidence and current cited contracts, then record bounded conclusions in the verification document and S3 CR without product changes.
   - purpose: Classify RUST-001 through RUST-009 from the reviewed S2 evidence and current cited contracts, then record bounded conclusions in the verification document and S3 CR without product changes.
   - mutation_scope: docs/codex/codex-rollout-collector-rust-issues-verification.md, docs/changes/records/CR-20260914-rust-issues-audit-s3.md
-  - required_evidence: Each of the nine ledger items names the current source or audit evidence, applicability, uncertainty, and conclusion class.; The documentation separates business differences, capability gaps, expected fail-closed behavior, and evidence insufficiency; it makes no product-fix or product-pass claim.; The scoped document diff is whitespace-clean and remains within the approved documentation-only scope.
+  - required_evidence: 逐项绑定 S1 场景/数据断言、现行契约、源码位置、实际观测及 App 历史流程影响；证据缺口和不适用不得删除。Each of the nine ledger items names the current source or audit evidence, applicability, uncertainty, and conclusion class.; The documentation separates business differences, capability gaps, expected fail-closed behavior, and evidence insufficiency; it makes no product-fix or product-pass claim.; The scoped document diff is whitespace-clean and remains within the approved documentation-only scope.
   - review_checkpoint: required: Issue classifications determine any later repair or reuse work and require an independent evidence-bound review.
   - planned_command: git diff --check -- docs/codex/codex-rollout-collector-rust-issues-verification.md docs/changes/records/CR-20260914-rust-issues-audit-s3.md
     - expected_repo_writes: none
@@ -6762,10 +7293,24 @@ runtime_state:
   - planned_command: git status --short
     - expected_repo_writes: none
     - transformation_kind: localized
-- S4: Perform the static Gemini reuse assessment for only confirmed S3 issues, record exact Rust hunks and dependencies, and publish bounded reuse outcomes with no Gemini execution or application.
-  - purpose: Perform the static Gemini reuse assessment for only confirmed S3 issues, record exact Rust hunks and dependencies, and publish bounded reuse outcomes with no Gemini execution or application.
-  - mutation_scope: docs/codex/codex-rollout-collector-rust-issues-verification.md, docs/codex/codex-rollout-collector-gemini-fix-reuse-assessment.md, docs/changes/records/CR-20260914-rust-issues-audit-s4.md
-  - required_evidence: Every assessed candidate is classified as direct reuse, adaptation required, inapplicable, or insufficient evidence and cites exact observed Rust hunks and prerequisites.; The assessment records the observed Gemini revision and explicitly states that Gemini was not built, tested, patched, cherry-picked, merged, or applied.; The cumulative documentation-only diff is whitespace-clean and no product or cross-module boundary changes are introduced.
+- S3-R1: 复核 S2 当前证据及后续记录对 S3 九项结论的影响，保留原结论历史，形成审计更正并恢复 S4 输入。
+  - purpose: 复核 S2 当前证据及后续记录对 S3 九项结论的影响，保留原结论历史，形成审计更正并恢复 S4 输入。
+  - mutation_scope: docs/changes/records/CR-20260914-rust-issues-audit-s1.md, docs/codex/codex-rollout-collector-business-test-matrix.md, docs/codex/codex-rollout-collector-rust-issues-verification.md, docs/changes/records/CR-20260914-rust-issues-audit-s2.md, docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+  - required_evidence: 逐项复核恢复的原 S1 业务覆盖/断言质量与 S2→S3 场景映射；只验证既有矩阵，缺口如实记录，不新增执行用例或改测试。Rerun the frozen 32-case audit and existing regressions; reconcile current evidence without rewriting historical failures; reassess all nine issues and explicitly RUST-004/005/007/008/009 using current source and retained later records; retain six deferred findings and all unexecuted obligations; no product or test changes.
+  - review_checkpoint: required: 独立审查更正结论、后续证据适用范围及原审计义务保留，clean review 后才进入 S4。
+  - planned_command: node native/codex-rollout-collector/tests/support/run_business_history_audit.cjs --output "$env:TEMP/termlink-rust-issues-audit/current"
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: git diff --check -- docs/codex/codex-rollout-collector-business-test-matrix.md docs/codex/codex-rollout-collector-rust-issues-verification.md docs/changes/records/CR-20260914-rust-issues-audit-s2.md docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: git status --short
+    - expected_repo_writes: none
+    - transformation_kind: localized
+- S4: 评估 Gemini 修复复用：只读检查台账对应 commits、精确 Rust hunks 和必要前置依赖（含经核实相关的 0adf0557 预算/source 改动），记录混合提交、契约/测试影响与复用分类，完成评估和 S4 CR，并依新证据修正早前报告。依用户后续决定不构建、不测试、不执行或应用 Gemini。
+  - purpose: 评估 Gemini 修复复用：只读检查台账对应 commits、精确 Rust hunks 和必要前置依赖（含经核实相关的 0adf0557 预算/source 改动），记录混合提交、契约/测试影响与复用分类，完成评估和 S4 CR，并依新证据修正早前报告。依用户后续决定不构建、不测试、不执行或应用 Gemini。
+  - mutation_scope: docs/codex/codex-rollout-collector-business-test-matrix.md, docs/changes/records/CR-20260914-rust-issues-audit-s1.md, docs/changes/records/CR-20260914-rust-issues-audit-s2.md, docs/changes/records/CR-20260914-rust-issues-audit-s3.md, docs/codex/codex-rollout-collector-rust-issues-verification.md, docs/codex/codex-rollout-collector-gemini-fix-reuse-assessment.md, docs/changes/records/CR-20260914-rust-issues-audit-s4.md
+  - required_evidence: 原候选 ade0a0a、c2c4862、87191b8、294a8f7、5a2fba2、15988c9、56b863d9 及实际证明必要的前置依赖逐项核对；固定两侧版本/文件哈希，并发变化重读，不混用旧证据。检查 Rust-only hunks、混合提交、契约和测试影响；九项最终对账。相同显式预算/各自默认值及安全前缀仅按源码解释，动态算法对照、性能/内存及应用后回归标未验证，不因扩大窗口而认定修复。Every assessed candidate is classified as direct reuse, adaptation required, inapplicable, or insufficient evidence and cites exact observed Rust hunks and prerequisites.; The assessment records the observed Gemini revision and explicitly states that Gemini was not built, tested, patched, cherry-picked, merged, or applied.; The cumulative documentation-only diff is whitespace-clean and no product or cross-module boundary changes are introduced.
   - review_checkpoint: required: Cross-worktree reuse conclusions can affect future product repair scope and must be independently reviewed.
   - planned_command: git -C E:/coding/TermLink-rust-source-resolution-gemini rev-parse HEAD
     - expected_repo_writes: none
@@ -6792,6 +7337,12 @@ runtime_state:
 
 ### Validation Plan
 
+- [ ] S1 原业务分支、关键交错、独立场景/参数子例统计、输入/字段级/否定断言及真实 Node→App 消息映射仍是验收依据；S3-R1 复核现有成果及遗漏，不把九项台账或 32 个执行用例当作完整业务覆盖。
+- [ ] S2 与 S3 共同承接原 S2：场景/断言→实际 Rust 证据→契约适用性→App 影响逐项可追溯，未知或未到达断言保持未验证。
+- [ ] S4 承接原 S3 的全部静态复用义务；Gemini 动态测试是用户取消项而非已完成项，混合提交/依赖/配置差异与应用后回归限度必须记录。
+
+- [ ] S3-R1 revalidates S2/S3 evidence under the restored plan before S4; old result IDs remain historical and are not re-stamped.
+
 - [ ] S2 reruns the existing audit in OS TEMP and verifies the exact collection/product-pass split before documentation is accepted.
 - [ ] S2 preserves historical failures as historical and keeps the three current evidence artifacts mutually consistent.
 - [ ] S3 and S4 each receive a required review checkpoint before their conclusions can advance.
@@ -6808,11 +7359,15 @@ runtime_state:
 
 ## 设计约束
 
+原三主步骤的版本映射：c1b512da S1 → S1；c1b512da S2 → S2 + S3（受挑战部分由 S3-R1 纠正）；c1b512da S3 → S4。历史步骤编号必须连同计划版本解读，不能把旧 Gemini S3 与后来分类 S3 混为一项。S1/S2/S3 保留已完成事实；S3-R1 待新版本证据和独立审查，S4 未完成。
+
 
 ## 发布后验证
 
 
 ## 执行记录
+
+
 
 
 
@@ -7027,3 +7582,39 @@ runtime_state:
   evidence_refs: ["adapter:replan:4442b355217945bf"]
   recorded_at: 2026-09-14T11:53:47.745Z
 
+- action: supersede
+  old_status: active+active
+  new_status: superseded+active
+  task_id: 001
+  task_slug: rust-issues-audit-worktree-rust-001-rust-009-gemini
+  document_id: doc-87ea7576bc76f5782bea891f
+  proposal_idempotency_key: lifecycle-001-supersede-production-evidence-20260915-v1
+  source_revision: 54c36699fc630dcce3e0431c96f9fc99da926e6f338a98deabafc3532707aa38
+  authority_refs: ["active-task-owner:docs/workflow/CURRENT_TASK.md:Task 001 currently owns the active S4 lifecycle state.", "evidence-admission:docs/workflow/CURRENT_TASK.md:User supplied production-log rebuttal and explicitly requested supersede before replan."]
+  evidence_refs: ["conversation:user-message:task-lifecycle-supersede-20260915", "conversation:user-message:prepare-task-replan-20260915", "attachment:e6fff2d9-c97a-4cfe-97ed-8ca2e732a219/pasted-text.txt", "docs/codex/codex-rollout-collector-rust-issues-verification.md", "native/codex-rollout-collector/src/protocol/target_source.rs:1024", "native/codex-rollout-collector/src/codex_adapter/mod.rs:809", "native/codex-rollout-collector/tests/business_history_audit.rs:285", "native/codex-rollout-collector/tests/business_history_audit.rs:650"]
+  invalidation_kind: scope
+  invalidation_reason: User-supplied production-log evidence materially reopens RUST-004, RUST-005, RUST-007, RUST-008, and RUST-009. The confirmed task only permits frozen audit documentation and explicitly excludes actual user sessions, test-asset changes, and Rust implementation work; it therefore cannot truthfully admit the required replacement acceptance and scope. Supersede preserves the prior task history and creates no replacement definition.
+  partial_diff_disposition:
+    reusable: ["Committed S2/S3 evidence and the bounded read-only diagnostic evidence remain replan input; no product mutation is adopted."]
+    rollback_required: []
+    stop_propagation: ["Do not execute S4 Gemini reuse or treat the recorded S3 classifications as final after the reopened evidence.", "Unrelated dirty .agents/skills/** and .workflow-system/** paths remain user-owned and are excluded from this lifecycle transition."]
+  recorded_at: 2026-09-14T16:01:53.087Z
+
+- action: commit-replan
+  old_status: superseded+active
+  new_status: active+active
+  task_id: 001
+  task_slug: rust-issues-audit-worktree-rust-001-rust-009-gemini
+  document_id: doc-87ea7576bc76f5782bea891f
+  proposal_idempotency_key: replan-commit-a302f43e223bdcce45158573a9123bbc189487e67c0cfbce
+  source_revision: bbbddbeb413c7497cb08d0bfce27934eac16b98285eef1be6eb22b5b3b1052cd
+  authority_refs: ["active-task-owner:docs/workflow/CURRENT_TASK.md:001", "scope-admission:docs/workflow/CURRENT_TASK.md:001", "evidence-admission:docs/workflow/CURRENT_TASK.md:001"]
+  evidence_refs: ["adapter:replan:c0544a162afc87bd"]
+  recorded_at: 2026-09-14T16:30:14.654Z
+
+
+- One-time user-authorized direct restoration (2026-09-15): see docs/workflow/AUDIT_RESTORATION-001-20260915.md. Original Git audit goal/scope restored; prior execution log, findings, proposals, attempts and review coverage retained. Current step S3-R1 requires fresh evidence and review; S4 remains pending.
+
+- 2026-09-15 完整基线恢复：c1b512da 原三主步骤及详细义务已合并回当前定义；后续 S2/S3 细分与 Gemini 静态限制保留。旧报告、尝试、审查与前次不完整修复均保留，不给旧报告换版本。新的 claim slots 待验证；S3-R1 不得据旧版本证据直接完成。见 AUDIT_RESTORATION-001-20260915.md 第二次恢复记录。
+
+- 新版本执行关联：S3-R1 的旧 implemented 尝试 attempt-479f661f23221629b63cebcf37326c4b0a74a5c7 仍属 e3b4ac90e3d1521b90b8e684c0ceb5cffc382449f0b2c6fb6e72925aaa57acc2，其完整结果留在 execution_log；新尝试 attempt-1cf091c7e3b9a90792ff78d875e0bc92a8b13f60 绑定 16a7fb6b409916cb35f8e53fb2129b6a2139437abd2ffc04eb27fe4d0c156dcf，状态 ready，等待 Runtime preflight，不继承旧报告或 clean 审查。
