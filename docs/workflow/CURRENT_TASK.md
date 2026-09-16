@@ -11,8 +11,8 @@ runtime_state:
   preservation_source_revision: b616e1889f98c959526cecbdd29070d0528ade2006f7cdf54765d8fb6f21f356
   task_id: "001"
   task_slug: rust-issues-audit-worktree-rust-001-rust-009-gemini
-  workflow_status: active
-  lifecycle_state: active
+  workflow_status: closed
+  lifecycle_state: archived
   resume_requires_review: false
   resume_review_reasons: []
   active_step_id: S4
@@ -9550,6 +9550,7 @@ runtime_state:
         - native/codex-rollout-collector/src/protocol/target.rs:439-488
         - docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md#4.2.1
         - native/codex-rollout-collector/tests/business_history_audit.rs:782-820
+      recorded_at: 2026-09-15T18:15:11.893Z
       note: S4 static reuse assessment completed and verified clean
       change_set_id: change-set-337165e8a66fdaa1f406bfe896caf8fd
       checkpoint: required
@@ -9802,7 +9803,54 @@ runtime_state:
             patch 哈希、依赖、契约影响；依用户后续决定仅静态评估，相同输入动态对照明确未执行，不伪称已证明；其余问题说明不适用或另行决策。
           source_ref: docs/workflow/task-basis/TASK_BASIS-001.md#original_request;
             docs/workflow/task-basis/TASK_BASIS-001.md#user_decisions
-      recorded_at: 2026-09-15T18:15:11.893Z
+    - action: archive
+      idempotency_key: archive-task-001-e7d2696d45b5fa8cd947a29d87481f42
+      operation_kind: archive-transaction
+      caller: close-task
+      mode: default
+      task_id: "001"
+      task_slug: rust-issues-audit-worktree-rust-001-rust-009-gemini
+      document_id: doc-87ea7576bc76f5782bea891f
+      from_workflow_status: active
+      from_lifecycle_state: active
+      to_workflow_status: closed
+      to_lifecycle_state: archived
+      source_revision: e7d2696d45b5fa8cd947a29d87481f42453cd4546a4fd3c94892e94c1a498e7c
+      archive_path: TASKS/TASK-001-rust-issues-audit-worktree-rust-001-rust-009-gemini.md
+      archive_revision: 4c19b6271a590aebc6c376e53a213ac442fd2dc9c8130a0ab08eb2b40ccb9138
+      closure_delta_digest: 7f2b189d8a70d2d6cce4d96bad4b0c3e71cc7016e7238d95ccecdd5476d9fbea
+      authority_evidence:
+        - kind: active-task-owner
+          source: docs/workflow/CURRENT_TASK.md
+          subject: "001"
+          task_id: "001"
+          document_id: doc-87ea7576bc76f5782bea891f
+          source_revision: e7d2696d45b5fa8cd947a29d87481f42453cd4546a4fd3c94892e94c1a498e7c
+        - kind: evidence-admission
+          source: docs/workflow/CURRENT_TASK.md
+          subject: "001"
+          task_id: "001"
+          document_id: doc-87ea7576bc76f5782bea891f
+          source_revision: e7d2696d45b5fa8cd947a29d87481f42453cd4546a4fd3c94892e94c1a498e7c
+      evidence_refs:
+        - docs/changes/records/CR-20260914-rust-issues-audit-s4.md
+        - docs/codex/codex-rollout-collector-gemini-fix-reuse-assessment.md
+        - docs/codex/codex-rollout-collector-rust-issues-verification.md
+        - docs/changes/records/CR-20260914-rust-issues-audit-s1.md
+        - docs/changes/records/CR-20260914-rust-issues-audit-s2.md
+        - docs/changes/records/CR-20260914-rust-issues-audit-s3.md
+        - docs/codex/codex-rollout-collector-business-test-matrix.md
+        - native/codex-rollout-collector/tests/business_history_audit.rs
+        - native/codex-rollout-collector/tests/support/run_business_history_audit.cjs
+        - docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md
+      lesson_admission:
+        decision: no-op
+        candidate_refs: []
+        evidence_refs: []
+      knowledge_admissions:
+        contracts: []
+        decisions: []
+      recorded_at: 2026-09-16T02:45:30.518Z
   applied_proposals:
     - idempotency_key: prepare-draft-commit-90793f4d7b28b0c67b1c0b8d05ad66ea4ebed37ec410efea
       operation_kind: task-state-transaction
@@ -10244,6 +10292,10 @@ runtime_state:
       operation_kind: task-state-transaction
       proposal_digest: e8c434dbffae7528cf0a9bfd5df225c8eaf2dd83d4ec8df70972437c79c05dad
       source_revision: ee1ddcf8497d72c9e14f33df96eeaaa90b76ae0b1481a7f2f60339204f05a029
+    - idempotency_key: archive-task-001-e7d2696d45b5fa8cd947a29d87481f42
+      operation_kind: archive-transaction
+      proposal_digest: 76144bb00a9ef2bba7d4007f77b29c67750b93514858b062e42daa1f479029c1
+      source_revision: e7d2696d45b5fa8cd947a29d87481f42453cd4546a4fd3c94892e94c1a498e7c
   claim_evidence_required: true
   claim_evidence:
     - claim_id: AUD-S1-BUSINESS-MATRIX
@@ -10644,8 +10696,8 @@ runtime_state:
 - 任务 ID：001
 - 任务标题：Rust issues audit：建立采集到存储业务用例矩阵，核实当前 worktree 的 RUST-001 至 RUST-009，并评估 Gemini 修复复用。
 - 任务 slug：rust-issues-audit-worktree-rust-001-rust-009-gemini
-- 当前状态：active
-- 生命周期状态：active
+- 当前状态：closed
+- 生命周期状态：archived
 - 恢复需审查：false
 - 恢复审查原因：
 
@@ -10923,6 +10975,7 @@ App history business-flow audit：从 App 真实使用流程设计 Rust→Node �
 
 
 
+
 - Draft created by prepare-task; execution is blocked until explicit confirm-draft.
 
 - action: create-draft
@@ -11159,3 +11212,24 @@ App history business-flow audit：从 App 真实使用流程设计 Rust→Node �
 - 2026-09-15 完整基线恢复：c1b512da 原三主步骤及详细义务已合并回当前定义；后续 S2/S3 细分与 Gemini 静态限制保留。旧报告、尝试、审查与前次不完整修复均保留，不给旧报告换版本。新的 claim slots 待验证；S3-R1 不得据旧版本证据直接完成。见 AUDIT_RESTORATION-001-20260915.md 第二次恢复记录。
 
 - 新版本执行关联：S3-R1 的旧 implemented 尝试 attempt-479f661f23221629b63cebcf37326c4b0a74a5c7 仍属 e3b4ac90e3d1521b90b8e684c0ceb5cffc382449f0b2c6fb6e72925aaa57acc2，其完整结果留在 execution_log；新尝试 attempt-1cf091c7e3b9a90792ff78d875e0bc92a8b13f60 绑定 16a7fb6b409916cb35f8e53fb2129b6a2139437abd2ffc04eb27fe4d0c156dcf，状态 ready，等待 Runtime preflight，不继承旧报告或 clean 审查。
+
+- action: archive
+  old_status: active+active
+  new_status: closed+archived
+  task_id: 001
+  task_slug: rust-issues-audit-worktree-rust-001-rust-009-gemini
+  document_id: doc-87ea7576bc76f5782bea891f
+  proposal_idempotency_key: archive-task-001-e7d2696d45b5fa8cd947a29d87481f42
+  source_revision: e7d2696d45b5fa8cd947a29d87481f42453cd4546a4fd3c94892e94c1a498e7c
+  authority_refs: ["active-task-owner:docs/workflow/CURRENT_TASK.md:001", "evidence-admission:docs/workflow/CURRENT_TASK.md:001"]
+  evidence_refs: ["docs/changes/records/CR-20260914-rust-issues-audit-s4.md", "docs/codex/codex-rollout-collector-gemini-fix-reuse-assessment.md", "docs/codex/codex-rollout-collector-rust-issues-verification.md", "docs/changes/records/CR-20260914-rust-issues-audit-s1.md", "docs/changes/records/CR-20260914-rust-issues-audit-s2.md", "docs/changes/records/CR-20260914-rust-issues-audit-s3.md", "docs/codex/codex-rollout-collector-business-test-matrix.md", "native/codex-rollout-collector/tests/business_history_audit.rs", "native/codex-rollout-collector/tests/support/run_business_history_audit.cjs", "docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md"]
+  archive_path: TASKS/TASK-001-rust-issues-audit-worktree-rust-001-rust-009-gemini.md
+  archive_revision: 4c19b6271a590aebc6c376e53a213ac442fd2dc9c8130a0ab08eb2b40ccb9138
+  closure_delta_digest: 7f2b189d8a70d2d6cce4d96bad4b0c3e71cc7016e7238d95ccecdd5476d9fbea
+  lesson_admission:
+    decision: no-op
+    candidate_refs: []
+    evidence_refs: []
+  knowledge_admissions: {"contracts":[],"decisions":[]}
+  recorded_at: 2026-09-16T02:45:30.518Z
+
