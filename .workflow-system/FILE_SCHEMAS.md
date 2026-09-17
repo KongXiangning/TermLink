@@ -19,8 +19,159 @@ The canonical project surface contains the following governed documents:
 - `docs/workflow/ROADMAP.md`
 
 `CURRENT_TASK.md` carries its vNext YAML envelope and runtime state. Its body
-contains the task identity, acceptance, Allowed / Conditional / Forbidden
-scope buckets, implementation steps, test strategy, and execution evidence.
+contains the task identity, acceptance, the v1 scope compatibility buckets or
+the v2 mutation-authority projection, implementation steps, test strategy, and
+execution evidence.
+
+## Mutation Authority v2
+
+Mutation Authority v2 is selected explicitly by the pair
+`mutation_authority_version: 2` and `mutation_authority` in the task
+definition/frontmatter. It is not inferred from a v1 task or from a read
+operation. A project that has no authority-domain map remains on v1 exact-path
+semantics until an explicit task upgrade/replan opts into v2.
+
+The optional project profile map is:
+
+```yaml
+mutation_authority:
+  domains:
+    - id: node-rollout
+      roots:
+        - packages/node-rollout/**
+        - packages/node-rollout-tests/**
+    - id: shared-protocol
+      roots:
+        - packages/protocol/**
+```
+
+Each domain ID is unique. Each root is a bounded repository-relative exact
+path or a literal `/**` directory prefix; arbitrary globs, traversal and
+absolute paths are invalid. Roots owned by different domains may not overlap.
+Path resolution must produce one domain or `unclassified`; ambiguity fails
+closed. An unclassified path is not admitted by ordinary in-envelope
+self-admission. The domain map expresses mutation ownership, not a dependency
+graph.
+
+The domain map has a project-level lifecycle, not a per-task discovery step.
+`bootstrap-project` inventory reads the project structure and emits
+non-authorizing `authority_domain_candidates` with their basis and evidence
+references. In `greenfield`, `adopt`, or `realign`, a project owner may submit
+an explicit confirmation containing the selected candidate IDs/roots and the
+decision source/text. Only that confirmation promotes candidates into
+`PROJECT_PROFILE.yaml`; Runtime and `prepare-task` must never guess ownership or
+silently create a project-wide grant. A later task selects from this canonical
+map and does not rebuild it.
+
+The owner-confirmed lifecycle payload is conceptually:
+
+```yaml
+authority_domain_candidates:
+  - id: node-rollout
+    roots: [packages/node-rollout/**]
+    basis: <inventory observation>
+    evidence_refs: [<inventory evidence>]
+authority_domain_confirmation:
+  domains:
+    - id: node-rollout
+      roots: [packages/node-rollout/**]
+  decision_source: <project-owner source>
+  decision_text: <verbatim owner decision>
+```
+
+Every confirmed v2 task binds the canonical domain map revision into Runtime
+state. If the profile map is edited later, execution fails closed with a stale
+revision result and requires explicit task authority-domain revalidation;
+ordinary correction-replan, P-12 admission, and exact-path amendment do not
+rebind it. The task never inherits a widened project grant.
+
+A v2 task carries only positive mutation authority:
+
+```yaml
+mutation_authority_version: 2
+mutation_authority:
+  domains: [node-rollout]
+  exact_exceptions: []
+  forbidden: []
+```
+
+`domains` grant ordinary mutation authority for those project domains and
+`exact_exceptions` grant a deliberately narrow exact path, normally for an
+explicit cross-domain authorization. `forbidden` always wins. Read, grep,
+caller tracing, consumer tracing and root-cause discovery may cross domains,
+but they never grant write authority.
+
+The v2 step field is `planned_mutation_targets`. It is guidance for the
+initial implementation footprint and review comparison, not an independent
+write ACL. A target outside that planned footprint but inside the task
+authority envelope needs a complete assessment before admission:
+
+```yaml
+target: {path: src/internal/state.ts, symbol: normalizeState}
+reason: <why this target is required>
+blast_radius:
+  locality: local | elevated | high
+  visibility: private | shared | public | unknown
+  cross_component_consumers: none | present | unknown
+  contract_impact: none | possible | known
+evidence_refs: [<repository-relative evidence reference>]
+disposition: self-admit | escalate
+```
+
+The Agent owns this bounded semantic judgment. Runtime validates the shape,
+target binding, domain/forbidden/governance boundaries, first-touch state and
+audit record; it does not use caller-count thresholds or pretend to decide
+whether a shared change is business-correct. Prefer the smallest correct local
+change. A shared/high-impact target may still be self-admitted when the
+evidence establishes that the broader change is the correct root-cause
+location, preserves or intentionally changes the confirmed contract, and has
+adequate consumer/regression validation. Uncertainty or competing plausible
+directions is `escalate`.
+
+Every self-admitted unplanned target sets `dynamic_review_required` and is
+included in cumulative review coverage. If the target is discovered after an
+ordinary preflight has already admitted another path, call the internal
+`extend-preflight` action with the current receipt, additional targets and
+assessments. Runtime captures each new target's before-state before first
+mutation, keeps the same task/step/attempt/plan revision, does not consume a
+retry slot or create a continuation, and returns a replacement receipt. The
+subsequent result must use that newest receipt. A clean cumulative
+`review-change` result is required before step completion.
+
+Before a v2 draft becomes a confirmed definition, Runtime proves all declared
+`planned_mutation_targets`, exact command writes, bounded command footprints,
+and persistent-test paths against the project map. A planned target needs no
+blast-radius assessment, but it must be in an authorized domain or an exact
+exception and must not be forbidden, governed, or unclassified. Command
+footprints use only an exact path or literal `/**` directory-prefix grammar;
+Runtime admits a glob only when the candidate pattern is mechanically a subset
+of one granted domain root. An exact exception can authorize one exact path,
+never a directory glob, and synthetic probe paths are not proof.
+
+An existing test file inside the v2 envelope is an ordinary in-envelope
+expansion, but its assessment and review must cover oracle/reuse/boundary
+impact. A newly created persistent test (before-state `absent`) still requires
+the P-12 owner, claim, basis, existing-evidence-insufficiency, assertion
+boundary and failure-disposition admission. Runtime never turns a new test
+into an ordinary file merely because its domain is authorized.
+
+If a target is outside the task envelope, Runtime returns
+`MUTATION_AUTHORITY_EXPANSION_REQUIRED`. Same-envelope discovery must not use
+scope amendment. A true cross-domain expansion is handled by the existing
+additive scope-amendment route: explicit user authorization, immutable
+candidate/old definition, preserved findings/review/budget lineage, then a
+fresh continuation preflight. An absent new persistent test inside the
+envelope is a separate typed P-12 admission through the same infrastructure
+with `authority_diff: none`; Runtime validates and persists all supplied
+fields and never invents defaults. Discarding a committed candidate is
+forbidden, and an amendment is blocked only by a preflighted execution that
+has not recorded its matching result.
+
+The legacy `mutation_scope` step field and v1 Allowed / Conditional / Forbidden
+sections remain readable for v1 tasks and may be retained as a compatibility
+projection in v2 canonical Markdown. In v2 they are not the final hard
+authority; `planned_mutation_targets` and the task authority envelope are the
+machine-readable semantics.
 
 Every ordinary draft links one identity-derived Task Basis by exact path and
 SHA-256 revision. The Task Basis preserves only the verbatim original request
@@ -126,12 +277,40 @@ prepare-task default. If no mode can be selected reliably, prepare-task must
 resolve it as a user-owned open question before committing the draft. A
 behavior-changing task cannot use `not-applicable` merely to avoid tests.
 Executable inferred-default uses `flexible`; no tests-only first step or
-mandatory Red follows from step index. Explicit test-first/implementation-first
-must retain its source and rationale and bind approved before-step slots; absent
-prerequisites remain `TEST_STRATEGY_PREREQUISITE_UNSUPPORTED`.
+mandatory Red follows from step index alone. For an explicitly authorized
+`test-first` flow, Runtime may represent the per-execution admission phase as
+`red` only when the current step has a frozen, unconsumed before-step
+expected-failure obligation. Candidate filenames and candidate composition do
+not select the phase. Red admits only exact paths in the frozen Persistent
+Tests section, including non-typical test paths; its `required_outcome` remains
+`implemented`, because expected-failure evidence is the reproduction proof.
+Replacement preflight preserves that phase and rejects a product target before
+Runtime state changes.
+Explicit test-first/implementation-first must retain its source and rationale
+and bind approved before-step slots; absent prerequisites remain
+`TEST_STRATEGY_PREREQUISITE_UNSUPPORTED`.
 `not-applicable` requires Persistent Tests=none and proven non-executable scope
 under PROJECT_PROFILE boundaries.non_executable_change_paths (exact paths or
 literal directory-prefix /** only); documentation inventory is not proof.
+
+An additive authority amendment or typed persistent-test admission is stored as an independent
+`scope-amendment-candidate/v1`. Runtime uses it only when a v2 target is
+outside the task authority envelope (or when a v1 task requests a true scope
+addition). It requires explicit authorization only for actual authority
+expansion; a same-domain absent persistent test instead requires the complete
+P-12 record (`path`, `proves`, `owner`, `owner_source`, `source_ref`, `basis`,
+`existing_evidence_insufficiency`, `assertion_boundary`,
+`failure_disposition`) and records `authority_diff: none`. It then uses the
+candidate receipt only internally for drift/idempotency checks and commits the
+definition change in the same route. The candidate records the old/new plan
+identity and, when present, caller-reported authorization. The amendment
+creates a continuation step and preserves prior definitions, failures,
+uncompleted obligations, admitted/in-progress findings, pending review,
+cumulative review baseline, review cycle, and budget. It does not clear a
+pending review or reset the review cycle and does not alter the legacy
+`correction-replan/v2` `permission_change: none` semantics. Same-envelope
+omitted helpers and existing tests use `extend-preflight` instead and never
+create a continuation.
 
 Runtime-owned `runtime_state.business_evidence_version` is optional for historical
 reading, but must equal 1 when present. New semantic/raw create-draft and explicitly
@@ -142,7 +321,9 @@ never synthesizes the marker. S2 additionally requires the frozen evidence plan 
 reports or prerequisite receipts for old records.
 
 Preflight exposes `execution_phase: flexible` and `required_outcome: implemented`
-for ordinary tasks. Newly admitted tests may pass immediately. All planned command
+for ordinary tasks. A test-first reproduction preflight may expose
+`execution_phase: red`, but still exposes `required_outcome: implemented`.
+Newly admitted tests may pass immediately. All planned command
 and validation results must pass or match an admitted reproduction for implemented; expected-failure cannot satisfy
 positive acceptance. Historical test-red/expected-failure structures remain readable;
 new expected-failure results require the exact admitted before-step reproduction
@@ -282,15 +463,21 @@ project policy or repair verification.
 
 Runtime owns `review_coverage: {change_set_id, base, target, preimages,
 pending_paths, last_clean_revision}`. Base and target use the file manifest;
-preimages contain `{path,state,sha256,content_base64}` (null for absent), captured
-at first admitted touch, not reconstructed from Git HEAD. The manifest remains
-bounded by the existing 256 exact-path limit. Content has no fixed byte cutoff:
-canonical size scales with the admitted first-touch files, including large files.
-Every preimage still validates canonical base64 and its content hash.
+new preimages contain only `{path,state,sha256}`, captured at first admitted
+touch and not reconstructed from Git HEAD. File and symlink baseline bytes are
+stored as immutable raw blobs at `<workflow_home>/review-preimages/<sha256>.blob`;
+the digest is the deterministic lookup key and identical content is naturally
+deduplicated. The blob is persisted and hash-verified before CURRENT_TASK can
+reference it. Review-read resolves and verifies the blob and fails closed when
+it is missing or corrupt. Existing legacy `content_base64` preimages remain
+readable and are decoded, verified, persisted, and stripped during storage
+migration. The manifest remains bounded by the existing 256 exact-path limit;
+canonical task size is no longer proportional to the reviewed file bytes.
 Unrecorded changes cannot refresh the baseline. Repeated paths retain their
 original content; add/delete paths retain absent states. Ordinary execution logs
 retain each invocation's actual writes; the review context projects one cumulative
-delta and supplies review_preimages. Pure audit changes do not change its target.
+delta and supplies review-readable baseline identities. Pure audit changes do not
+change its target.
 
 `test_assessment: {applicable,reason,evidence_refs,necessity,oracle,boundary,reuse,
 applicability}` accompanies cumulative review results, bound by the enclosing
@@ -353,8 +540,10 @@ and report, not merely a newly copied hash.
 
 ### Read-only source context
 
-`review-context` returns the complete cumulative file index and bounded text
-diff, not raw first-touch base64. `review-read` binds before/after/diff ranges to
+`review-context` returns the cumulative file index through a bounded summary and
+bounded text diff, not raw first-touch base64. If its `complete_for_operation`
+flag is false, follow `required_unexpanded` through `task-read`/`review-read`
+before making a review decision. `review-read` binds before/after/diff ranges to
 its existing context receipt. `file-context` searches existing project tests
 and reads current files without requiring a confirmed task; it never creates
 baselines, admissions or reports. `validate --summary` omits baseline bodies;
@@ -371,3 +560,48 @@ Absence means unrecorded (legacy compatible); an empty sources array means expli
 no selected sources. The normal prepare adapter writes affected contracts to the
 existing affected-contracts section. Confirmation binds both sections; subsequent
 reads expose the saved metadata without loading the referenced documents.
+
+## Task aggregate and bounded context (0.19.5)
+
+CURRENT_TASK.md carries one aggregate submission head with exact source_revision,
+definition_revision, state_revision, and committed event range. The head is
+authoritative; a cache or index conflict cannot change execution facts. The
+current presentation retains the complete confirmed definition and workset;
+compact v2 retains only a bounded history navigation preview, while complete
+event history is navigated through the bound sidecar store.
+
+The profile-derived layout is:
+
+    <workflow_home>/task-data/<document_id>/
+      manifest.json
+      objects/<sha256>.json
+      events/<sequence>-<sha256>.json
+      indexes/                 # rebuildable, non-authoritative
+
+Object hashes include schema, object type, document ID, and complete
+deterministic content. Events retain independent identity, sequence, time,
+cause, result references, and idempotency keys. Unacknowledged orphan material
+is not committed. v1 does not run GC; target-owned task data is preserved by
+distribution maintenance.
+
+task-context is the bounded DTO for overview and operation context. task-read
+takes an exact object, event, history revision, or file reference. Every page
+bounds metadata and content in UTF-8 bytes and returns returned / total_bytes,
+continuation, and complete_for_operation; required content omitted by a page is
+incomplete. Continuations bind the source, definition, state, and exact
+reference. Receipts are read receipts only, not authority.
+Required content that does not fit one page must be continued; an incomplete
+required page is not complete. Definition reuse is limited to the same visible
+session and exact definition_revision.
+New transaction events expose proposal/result object references; task-read
+dereferences them by kind and restores large semantic-delta members without
+copying them into the event. A migrated old line locator is resolved by
+source_revision against retained history material, with optional old_line;
+compact CURRENT_TASK line numbers are not treated as old source coordinates.
+
+task-storage-migration is preview, exact-source confirmation, then commit.
+Migration preserves current bytes, linked basis and known historical
+execution/report/receipt/finding material, with explicit missing history and
+old locator aliases. It does not re-run tests, recover a task, or change its
+business meaning. Aggregate export includes the retained object closure and
+manifest, with paged output for large stores.

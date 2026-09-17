@@ -1,15 +1,121 @@
-# Runtime source context (0.18.7)
+# Runtime source context (0.19.5)
 
 Use the installed Node CLI at `.workflow-system/runtime/dist/cli.js`. Pass `--root <project>` and JSON on stdin. These context commands do not write task state, admit tests, run checks, or certify evidence. For normal task inspection, use `validate --summary`; plain `validate` retains its full diagnostic output, including stored baselines.
 
-## Bounded CURRENT_TASK reading
+## Current view, state, and history
 
-For `execute-step` and `review-change`, start each invocation with a fresh
-`validate --summary`. Its `source_tuple` identifies the current file and task;
-its `summary` supplies current lifecycle and step status, document references,
-and `evidence_plan_revision`. Never infer current status from an earlier body
-read. Versioned tasks are checked against their stored plan revision by both
-forms of `validate`; a failed validation supplies no reusable definition.
+`CURRENT_TASK.md` is the fixed human/Agent entrypoint, not the complete event
+ledger. Its frontmatter and body show the current confirmed definition, current
+workset, obligations, gates, and exact references. The durable aggregate is
+stored under `paths.workflow_home/task-data/<document_id>/`:
+
+```text
+objects/<sha256>.json
+events/<sequence>-<sha256>.json
+indexes/                  # rebuildable lookup material only
+manifest.json             # aggregate head and committed object references
+```
+
+The manifest's single head selects the current source, definition, state, and
+committed event range. An object or event that is not acknowledged by that head
+is not an executed action. Objects are content-addressed by schema, object type,
+document ID, and complete payload. Equal content may be stored once, but every
+execution, review, authorization, and idempotency event remains separately
+identifiable and ordered. The hot arrays retained in the legacy file are only a
+compatibility cache; they do not determine whether older facts exist.
+
+For ordinary operations use the read-only `task-context` projection. It has
+three layers: a bounded overview; the operation context with the complete
+current definition (unless the exact definition revision is still visible in
+the same conversation), current-step requirements, unfinished obligations,
+recorded dependencies, explicit unknown-dependency warnings, global gates, the
+latest execution, and the cumulative review target; and on-demand history. It never returns raw
+`runtime_state`, an unbounded execution log, or an unbounded idempotency list.
+Unknown dependency data stays unknown: a missing dependency graph is not proof
+that a gate can be skipped.
+
+```powershell
+node .workflow-system/runtime/dist/cli.js validate --summary --root <project>
+'{"entry":"preflight-step","max_bytes":16384}' |
+  node .workflow-system/runtime/dist/cli.js task-context --root <project>
+'{"kind":"event","event_sequence":12,"event_hash":"<sha256>","max_bytes":8192}' |
+  node .workflow-system/runtime/dist/cli.js task-read --root <project>
+```
+
+`task-read` accepts only an exact object, event, history material, or bounded
+file reference. A response is UTF-8 byte bounded and includes its selection,
+returned bytes, total bytes, continuation, and `complete_for_operation`. Follow
+the exact continuation with the same source/definition/state revision and
+reference. A stale revision or changed exact reference requires a fresh read;
+never combine pages from different heads. Required content not fully returned
+means the operation context is incomplete. Context/read receipts prove only the
+version and returned range; they are read-only and do not authorize a write.
+Repeated reads do not append audit events.
+
+New transaction events keep `transaction.proposal` and `transaction.result` as
+exact committed object references. Read them with `kind:proposal` or
+`kind:result`; `kind:semantic-delta` restores the semantic delta from the
+authoritative proposal object. Large claim evidence and execution results are
+referenced objects, not a second inline copy. For a migrated old source,
+`kind:history-material` with `source_revision` and optional `old_line` resolves
+against the retained exact preimage and returns an `exact-preimage` locator.
+It never interprets a line number against the compact CURRENT_TASK rendering;
+an unavailable preimage remains an explicit missing-history error.
+
+`validate --summary` checks the current aggregate and directly referenced
+objects. In compact representation it also verifies the CURRENT_TASK binding,
+manifest head, and the required current object closure; an invalid aggregate is
+reported as blocked/non-zero. `validate --deep` is an explicit diagnostic that walks the full
+committed event chain and object references. The two scopes must not be reported
+as equivalent. `task-export` is an explicit aggregate export for backup or
+verification, not the default model input. It returns canonical export JSON as
+UTF-8 byte-bounded text pages with a continuation; concatenate all pages before
+parsing it, and measure the entrypoint, projection, and complete store separately.
+
+Storage migration is separate from task evolution. Run
+`task-storage-migration` with `mode:preview`, inspect the exact current
+`source_revision`, then commit with that revision. Migration preserves the old
+CURRENT_TASK bytes, known history and old locator information; an unavailable
+preimage remains an explicit missing fact. Distribution upgrade does not
+remove target-owned `task-data`.
+
+## Default bounded context protocol
+
+The daily protocol is deliberately ordered:
+
+1. `validate --summary` obtains the newest current status and aggregate health.
+2. `task-context(entry, mode)` returns the bounded overview and operation
+   blocks. Required blocks may span pages; follow `continuation` until
+   `complete_for_operation: true` before using the operation context.
+3. `task-read` resolves exact definition, result, finding, receipt, event, or
+   retained history references. `file-context` and `review-read` remain the
+   source/diff readers for their existing boundaries.
+4. Only then invoke the existing preflight, execute, review, recovery, or
+   lifecycle entry.
+
+The projection is a DTO allowlist, not a serialization of `RuntimeState`.
+CURRENT_TASK remains a complete, governed presentation of the current
+definition and workset, but compact CURRENT_TASK does not contain the complete
+execution log or idempotency ledger. Missing task-data, a damaged object,
+manifest/source conflict, or a pending commit is an explicit recovery/error
+state; it is never converted into an empty history or bypassed by an unbounded
+Markdown fallback.
+
+Definition reuse requires the same visible conversation/session and the exact
+task ID, document ID, and `definition_revision`. A new session, compressed
+context, changed revision, or changed selection requires a fresh read. A
+receipt proves only the immutable version and returned range; it is not a user
+authorization, write permission, execution qualification, or proof that the
+model read or understood the content.
+
+## Bounded CURRENT_TASK reading (legacy compatibility)
+
+The following Markdown range procedure is retained only for an explicitly
+requested legacy/diagnostic read. For `execute-step` and `review-change`, the
+default is the protocol above. Start each invocation with a fresh
+`validate --summary`; its `source_tuple` identifies the current file and task.
+Never infer current status from an earlier body read. A failed validation or a
+compact/store error supplies no reusable definition.
 
 To read the confirmed definition, use `file-context` search with
 `roots:[source_tuple.path]` for the literal headings
@@ -27,9 +133,10 @@ partial range is the complete definition. If a read is stale, rerun the
 summary and restart at offset zero.
 
 Within the same visible conversation, an already complete definition can be
-reused only when the fresh summary has the same task ID, document ID, and
-non-null `evidence_plan_revision`. If any identity is different, the previous text is
-not fully visible, or the conversation was compacted, read the range again.
+reused only when the fresh summary has the same task ID, document ID, and exact
+`definition_revision`. If any identity is different, the previous text is not
+fully visible, or the conversation was compacted, read it again through
+`task-context`/`task-read`.
 Read linked Task Basis, execution history, and relevant project documents
 separately when the current work requires them. Continue to obtain fresh
 `preflight-step` or `review-context` results and inspect current evidence and
@@ -175,11 +282,24 @@ it does not automatically detect semantic contradictions or certify authorizatio
 
 ## Cumulative review
 
-`review-context` accepts `{}`. Its execution delta contains the complete file index; `text_diff` expands the first changed file and `unexpanded_paths` lists the others. Full first-touch content stays in Runtime. Use `review-read` for the remaining relevant content:
+`review-context` accepts `{}`. Its execution delta contains a bounded file index;
+`text_diff` expands the first changed file and `unexpanded_paths` lists a bounded
+prefix of the others. `complete_for_operation` is false when the index,
+Persistent Tests, admitted findings, or claim/slot summaries were truncated;
+`required_unexpanded` names the exact blocks that must be read before a verdict.
+Full first-touch content stays in Runtime. Use `review-read` for changed files
+and `task-read` for the exact recorded event or claim-evidence block:
 
 ```json
 {"context_receipt":"<the entire receipt object from review-context>","path":"src/example.ts","view":"diff","offset":0,"max_bytes":16384}
 ```
+
+When `claim_evidence_truncated` or `required_unexpanded` contains
+`claim-evidence`, read `task-read` with `{"kind":"claim-evidence"}` and follow
+all UTF-8 continuations. This is the authoritative current claim/report
+projection; the bounded summaries in `review-context` are navigation only.
+The event reference in `recorded_execution.event_reference` is the exact
+historical source for the recorded execution and its retained object references.
 
 `context_receipt` must be the object, not a string. `view` is `diff` (default), `before`, or `after`. `before` uses the exact first-touch baseline, including a dirty starting tree; it is never reconstructed from Git HEAD. A changed task or cumulative target rejects the old receipt. Added/deleted files expose their states. Binary/non-UTF-8 content, symlinks, missing historical baselines, and a diff computation limit are explicit `content_status` values, not an empty clean diff. If diff computation is unavailable, read `before`/`after` ranges.
 
@@ -245,6 +365,38 @@ For a superseded source, confirmation additionally requires
 a prior goal or scope invalidation cannot be repaired by this restricted route.
 Changing the goal, permission scope, claim/check method or an original step is
 outside this restricted route and remains blocked.
+
+### Independent scope amendment
+
+When the caller has already received an explicit user decision for an exact
+additive path set, return one manual public `prepare-task` call with mode
+`amend-scope`. It is
+available for an active or `blocked_by_replan` task even when code is already
+changed, a review result is pending, or findings are admitted/in-progress. The
+caller passes the exact paths, any new persistent-test paths, and the original
+decision source/text. If exact-path authorization is missing, return the missing
+paths and stop without creating a candidate. Otherwise Runtime writes the
+versioned `scope-amendment-candidate/v1`, computes its digest and receipt, and
+commits the amendment in the same Runtime route. The source remains
+`caller-reported`; the digest is only an internal drift/idempotency guard and is
+never a second user authorization object. The user does not call a separate
+candidate approval action or construct receipts or authority transitions by
+hand.
+
+The amendment creates a new continuation step and retains the previous step
+definition/history, failed and uncompleted obligations, findings, pending
+review, cumulative review baseline, review cycle and used attempt budget. It
+does not clear pending review or reset the review cycle. The user must then
+call a fresh `preflight-step`, execute/repair, `review-change`, and normal
+advancement/closure entries separately. The amendment operation alone is never
+completion, and public skills never invoke one another automatically.
+If the retained review is clean and has no finding, call
+`complete-reviewed-step` with the retained prior step; Runtime consumes that
+review handoff and leaves the new continuation ready before the fresh
+preflight.
+The legacy `prepare-task:prepare-replan` / `correction-replan/v2` route keeps
+`permission_change: none` and cannot consume a scope-amendment receipt.
+
 The current Runtime has no non-completion successor transition. A superseded
 task cannot create a new draft (`REPLACEMENT_OUTCOME_UNSUPPORTED`); keep its
 unfinished obligations visible instead of closing it as completed.

@@ -31,6 +31,7 @@ entry_contract:
     - source-authority-policy
     - decision-authority-gate
     - scope-guard
+    - mutation-authority-policy
     - draft-consistency-challenge
     - evidence-admission-policy
     - read-only-review-guard
@@ -53,6 +54,18 @@ Evaluate whether the draft preserves the original request, applies existing
 authority correctly, defines observable behavior deliberately, admits
 sufficient proof, and can be executed step by step. This entry is read-only and
 does not repair the draft.
+
+## Bounded task context protocol
+
+Start with `validate --summary`, then call the read-only
+`task-context(entry:"review-draft", mode:"default")` and follow required
+continuations. Read the exact Task Basis, definition, prior findings, and
+reports with `task-read`, and use `file-context` for cited project documents.
+Only the same visible session and exact `definition_revision` permit definition
+reuse. Receipts prove only version and returned range; they do not prove
+comprehension or grant write authority. On session compression, a revision
+change, an incomplete required page, or a compact/store error, reread or stop
+with a blocker rather than loading unbounded CURRENT_TASK history.
 
 ## Input boundary
 
@@ -83,6 +96,19 @@ does not repair the draft.
    not request authority: do not use them as Task Basis or as proof that a user
    chose an observable behavior.
 
+For a v2 candidate, independently verify that `mutation_authority_version: 2`
+and the task authority envelope name only project domains justified by the
+request. Check the profile's domain IDs, bounded roots, overlap behavior and
+the exact-exception/forbidden partition. Read/discovery dependencies may be
+listed as context without becoming mutation authority. Confirm that each step
+uses `planned_mutation_targets` as guidance rather than a second hard ACL, and
+that the draft leaves room for same-domain implementation discovery with a
+blast-radius assessment and mandatory cumulative review. A proposed
+cross-domain target belongs in explicit user authority/amendment, not in an
+implicit planned file list. Review the local-vs-shared decision: prefer the
+smallest correct local change, require evidence for a broader shared change,
+and surface uncertain consumer or contract impact as `needs-user`.
+
 ## Review behavior
 
 Build a transient semantic delta map and path-by-step interaction map, then
@@ -98,9 +124,10 @@ apply `draft-consistency-challenge` across these closed dimensions:
   decided observable behavior;
 - step-end executability in the current repository state, including whether a
   planned command can produce its claimed evidence at that point;
-- cross-step repairability, treating step scopes as permissions rather than
-  exclusive file ownership and checking that later validation has an in-scope
-  repair route for earlier code and configuration.
+- cross-step repairability, treating v1 step scopes as permissions rather than
+  exclusive file ownership and v2 `planned_mutation_targets` as guidance
+  inside the task authority envelope; check that later validation has an
+  in-authority repair route for earlier code and configuration.
 
 Use existing authority, scope, and evidence capabilities only to classify what
 the review detects. The review does not become another authority source, decide

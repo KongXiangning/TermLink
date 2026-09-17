@@ -7,6 +7,7 @@ entry_contract:
     - default
     - confirm
     - replan
+    - amend-scope
   intent: Prepare one bounded implementation task without implementing it.
   input_contract:
     required:
@@ -26,6 +27,7 @@ entry_contract:
     - project-context-resolver
     - source-authority-policy
     - scope-guard
+    - mutation-authority-policy
     - decision-authority-gate
     - adaptive-depth-policy
     - evidence-admission-policy
@@ -41,6 +43,19 @@ entry_contract:
 ---
 
 # vNext Skill: prepare-task
+
+## Bounded task context protocol
+
+For an existing task, begin with `validate --summary`, then call the read-only
+`task-context` for the selected entry and mode. Follow every required
+continuation before deciding that the context is complete; use `task-read` for
+exact definitions, prior results, findings, receipts, and history. Use
+`file-context` or `review-read` for source files and diffs. A context/read
+receipt proves only the bound version and returned range, never authorization
+or model comprehension. Reuse a definition only in the same visible session
+with the exact task, document, and `definition_revision`; after compression,
+session change, or revision change, read it again. A compact/store error is a
+blocker, not permission to fall back to an unbounded CURRENT_TASK read.
 
 ## Prepare the task
 
@@ -62,15 +77,61 @@ executable `CURRENT_TASK` draft containing:
 - **Out of scope**
 - necessary resolved **Design decisions**, unresolved user-owned choices, and
   any conflict with existing design
-- **Mutation scope**: Allowed / Conditional / Forbidden
+- **Mutation Authority**: v2 authority envelope (domains / exact exceptions /
+  forbidden) or the legacy Allowed / Conditional / Forbidden scope
 - one explicit **Test Strategy** with mode, selection source, task
   classification, and rationale
-- ordered **Implementation steps** that say what to change, where, and how to
-  validate the result
+- ordered **Implementation steps** that say what to change, the
+  `planned_mutation_targets`, and how to validate the result
 - **Validation plan**
 - **Persistent Tests** explicitly allowed to be created or modified
 
 Use Runtime `file-context` to find/read relevant existing tests, helpers, fixtures and configuration before deciding reuse or new tests. Search results are candidates, not evidence of passing checks; unchanged reused tests need no creation/modification admission. For normal Runtime state inspection use `validate --summary`. Read `.workflow-system/runtime/support/CONTEXT_API.md` for inputs and limits.
+
+## Mutation Authority v2
+
+When the project profile declares `mutation_authority.domains`, select v2
+explicitly by submitting `mutation_authority_version: 2` together with a
+positive `mutation_authority` object. Choose the smallest responsibility
+domains that own the requested change; do not grant a whole project merely
+because its callers or dependencies were read. `exact_exceptions` is for a
+specific user-authorized cross-domain path, and `forbidden` remains explicit
+task-level denial. Read, grep, caller/consumer tracing and root-cause analysis
+may cross domains, but they never become mutation authority.
+
+Do not use the v2 task authority envelope as a predicted file inventory. Each
+implementation step uses `planned_mutation_targets` for initial direction and
+planned-vs-actual review. A same-domain target discovered later may be
+self-admitted only after a bounded blast-radius assessment; it does not need a
+user scope amendment. A target outside the envelope is a hard authority
+decision and must use the explicit `amend-scope` route. If the project has no
+domain map, preserve legacy/v1 semantics; do not silently infer domains or
+upgrade an existing task.
+
+Before accepting a v2 draft, prove the complete executable declaration set:
+every `planned_mutation_targets`, exact `expected_repo_writes`, bounded command
+footprint, and persistent-test path must be inside one selected project domain
+or an exact exception, and must not overlap Forbidden, governance, or
+`unclassified` paths. Planned targets do not need a blast-radius assessment;
+they still need this structural proof. For a command `literal/path/**`, use the
+deterministic pattern-subset relation against the granted domain root. Never
+use a synthetic probe path, and never use an exact exception to authorize a
+directory glob. Resolve these blockers during `prepare-draft`, `update-draft`,
+replan/correction, or confirmation rather than deferring them to execution.
+
+Consume the project-owner-confirmed domain map produced by
+`bootstrap-project` inventory/adoption/realignment. Domain candidates are
+evidence only until explicitly confirmed; this entry does not guess ownership,
+rebuild the map per task, or widen a task because a dependency was read.
+
+For every possible in-envelope expansion, the transient assessment must name
+the exact target (and optional symbol), reason, locality, visibility,
+cross-component consumers, contract impact, evidence references, and either
+`self-admit` or `escalate`. Prefer the smallest correct local change. A shared
+or high-impact change may be self-admitted only when evidence shows the local
+alternative would be incorrect, duplicative, or contract-breaking and
+consumer/regression validation is planned. Uncertain or multiply plausible
+directions remain a user decision.
 
 Read only the context needed to make those decisions. Resolve known scope and
 command blockers before submitting the draft; if a blocker cannot be resolved
@@ -90,11 +151,15 @@ same atomic draft transaction.
 
 Persistent Tests are a closed allowlist and default to `none`. For every listed
 test asset, give its exact repository-relative path and the behavior it proves,
-and add that exact path—not a test-directory glob—to Allowed mutation scope.
-No broader Allowed or Conditional pattern may authorize other persistent-test
+and add that exact path—not a test-directory glob—to the v1 compatibility scope
+projection. No broader scope pattern may authorize other persistent-test
 paths. Do not add tests merely for coverage, robustness, or reviewer preference.
 Later execution may create or modify only the listed tests; existing tests may
-still be run for validation.
+still be run for validation. In v2, an existing test file inside an authorized
+domain is an ordinary in-envelope expansion, but its assessment must cover the
+test oracle, reuse, and boundary. An absent new persistent test still requires
+the complete P-12 owner/claim/basis/insufficiency/assertion-boundary/
+failure-disposition admission before creation.
 
 Classify `test_strategy.mode` as exactly `flexible`, `test-first`,
 `implementation-first`, or `not-applicable`, and record `source` as exactly
@@ -164,9 +229,11 @@ checks that are never persisted as task state:
   stored data, compatibility, or another user-visible contract;
 - a **path-by-step interaction map** covering each planned write, the step that
   creates it, later steps that integrate or validate it, and an in-scope repair
-  route for failures those later steps can expose. Step scopes are permissions
-  for one step, not exclusive file ownership; repeat exact earlier paths in a
-  later scope or reslice the plan when integration may need to revise them.
+  route for failures those later steps can expose. In v1, **Step scopes are permissions**
+  for one step, not exclusive file ownership. In v2,
+  `planned_mutation_targets` are guidance inside the task authority envelope;
+  they are not an independent hard file ACL. Repeat exact earlier paths in a
+  later plan when integration may need to revise them.
 
 Always run a bounded author self-check over those maps before submission. This
 check can repair omissions established by the request or an authoritative
@@ -221,10 +288,38 @@ replacement transition. Supersede alone never approves a new plan or completes
 the old task. Do not edit the
 canonical task, Task Basis or candidate to bypass confirmation.
 
+When the user has already explicitly authorized a true v2 authority expansion
+for the current task, use the independent `amend-scope` route. It is reserved
+for paths outside the task envelope, such as Node → Rust/shared protocol; an
+omitted same-domain helper or existing test uses `execute-step`'s internal
+`extend-preflight` instead. Before a v2 authority amendment, settle the
+current execution gate: only a preflighted attempt without its matching
+recorded execution result is outstanding. A ready retry, a recorded blocked or
+repair result, and pending review/findings may be preserved by the amendment;
+the amendment then creates the continuation and fresh preflight. Pass exact
+paths and, for any absent new persistent test, a complete caller-provided
+`persistent_test_admissions` record containing `path`, `proves`, `owner`,
+`owner_source`, `source_ref`, `basis`, `existing_evidence_insufficiency`,
+`assertion_boundary`, and `failure_disposition`; pass the user's original
+decision source and verbatim text only when authority actually expands to
+another domain or exact exception. Runtime computes and verifies its immutable
+candidate internally, preserves old definitions/findings/obligations and
+budget, and retains the existing v1 pending-review preservation behavior. An
+in-envelope P-12-only transition has `authority_diff: none`; it is a real
+admission, not `SCOPE_AMENDMENT_NOT_REQUIRED` or an invented default. The
+candidate digest is only a drift/idempotency guard; the user never constructs a
+receipt. `discard-scope-amendment` cannot discard a committed candidate. If the
+caller has only said “continue” or “repair” without an exact authority decision,
+stop with the concrete missing path/difference and ask for that decision; do
+not invent `authorized_paths`, widen a wildcard, or treat a generic
+continuation request as scope authorization.
+
 Do not implement business code. Once the user confirms the draft,
 `CURRENT_TASK` is the execution authority: later execution must not redesign the
-task, expand its scope, implement later steps early, or change its Persistent
-Tests or Test Strategy. Changing those decisions requires an explicit replan.
+task, expand v1 scope or v2 authority, implement later steps early, or change
+its Persistent Tests or Test Strategy. Same-authority v2 implementation
+discovery is the bounded exception described above and must be assessed and
+reviewed; changing the task authority still requires an explicit amendment.
 
 ## Required result
 

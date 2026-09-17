@@ -18,12 +18,15 @@ entry_contract:
       - admitted_scope
     governance_sources: []
     forbidden_targets:
-      - files outside the current step mutation scope
+      - v2 files outside the task authority envelope
+      - v1 files outside the current step mutation scope
+      - v2 in-envelope unplanned files without a blast-radius assessment and self-admit disposition
       - persistent tests absent from the confirmed task
       - governance and installation surfaces
   internal_capabilities:
     - task-identity-guard
     - scope-guard
+    - mutation-authority-policy
     - resume-review-gate
     - root-cause-loop
     - owner-route-resolver
@@ -62,17 +65,23 @@ apply also requires the durable current admitted attempt and retained budget.
 
 ## Intent
 
-Implement only the confirmed `CURRENT_TASK` step selected by Runtime. Do not redesign the task, widen scope, or implement a later step.
+Implement only the confirmed `CURRENT_TASK` step selected by Runtime. Do not redesign the task or widen the current step mutation scope in v1; do not widen v2 authority or implement a later step.
+Mutation Authority v2 permits bounded implementation discovery within the
+already authorized responsibility; the discovery assessment and review rules
+below are part of execution, not a new task authority.
 
 ## Operating rules
 
-Start with a fresh `validate --summary`, then follow **Bounded CURRENT_TASK
-reading** in `.workflow-system/runtime/support/CONTEXT_API.md`. Read the full
-definition range on first use. Reuse it only while it remains completely
-visible in this conversation and task ID, document ID, and
-non-null `evidence_plan_revision` still match the fresh summary; otherwise read it
-again. Use the latest summary for status. Do not load the entire canonical
-file just to recover its definition or treat earlier evidence as current.
+Start with a fresh `validate --summary`, then call the read-only
+`task-context(entry:"preflight-step", mode:"default")`. Follow every required
+continuation before treating the operation context as complete; use
+`task-read`/`file-context`/`review-read` for exact definitions, results,
+evidence, source files, and diffs. Reuse definition text only in the same
+visible session with the exact task/document and `definition_revision`; after
+compression, a new session, or a revision change, read it again. Use the latest
+summary for status. A receipt is not permission or proof of comprehension, and
+a compact/store error is a blocker rather than a reason to load unbounded
+CURRENT_TASK history.
 
 Before implementation, follow **Project document navigation** in
 `.workflow-system/runtime/support/CONTEXT_API.md` for the confirmed step's relevant
@@ -82,13 +91,18 @@ the plan or widen its mutation scope. Read the saved `project_documents` and
 Apply **Project document conflicts** in that support file before preflight and
 when contradictions emerge during execution; preserve existing explicit decisions.
 
-1. If the confirmed current step is already blocked, inspect its retained failed attempt and apply **Same-plan blocked-step recovery** before ordinary preflight; do not ask the user to choose another Skill for a confirmed in-scope correction. Otherwise send intended changed paths, including every exact planned command write, to Runtime `preflight-step` on stdin. Runtime freezes their before-state and returns the frozen test-strategy mode, execution phase, required outcome, and Persistent Tests in the receipt. Use only the current step, planned commands, validation, and receipt it returns. If the task is unconfirmed, a resume gate is active, explicit prerequisite evidence is unsupported, or another preflight gate blocks, report that result and stop.
-2. Modify only paths admitted for the current step. A persistent test may be created or changed only when it is already frozen in the confirmed task's `Persistent Tests`; do not admit another test during execution.
-3. Obey the Runtime phase. `flexible` has no mandatory Red or tests-only first step; an admitted test may pass immediately. Use `outcome: implemented` only when planned results pass or explicitly match the admitted reproduction check. Explicit ordering requires Runtime-consumed before-step evidence; do not substitute flexible. Historical `outcome: test-red` and `status: expected-failure` remain readable. A new expected-failure result requires a new report submitted in this execution for its exact unconsumed before-step check constraining a later step. Historical reproduction reports cannot authorize later repair or delivery failures. Expected failure cannot satisfy positive acceptance. Syntax, type, import, fixture, tool, unrelated-test, and environment failures are not Red evidence; record actual failures as blocked before considering same-plan recovery.
-4. Run only the current step's planned commands and validation. Do not substitute an unplanned write-capable command. If a command or validation fails, retain its real output, record the blocked result, and diagnose within the current owner and bounded investigation budget. A confirmed current-step code/test/fixture error may use **Same-plan blocked-step recovery** below without a separate public `debug-task` invocation or user route. Stop when the failure requires a changed goal, scope, acceptance, contract decision, external authority, or unavailable evidence.
-5. When the canonical review result contains findings, ask Runtime `begin-repair` for the complete admitted finding set. Repair only those findings in one bounded wave and do not use repair as an opportunity for unrelated improvements.
-6. Send declared actual changed paths, command results, validation results, and permitted acceptance evidence to Runtime `record-step-result` on stdin. Do not submit `outcome: test-red` without an admitted reproduction obligation (new executions use implemented and a bound expected-failure report). Runtime captures the after-state, derives the exact before/after delta, rejects a mismatched path declaration, and owns phase/order enforcement, scope re-checking, finding bookkeeping, proposal construction, state, read-back, and step advancement.
-7. When the canonical review result is `clean`, call Runtime `complete-reviewed-step`; completion cannot add evidence, never supply or copy a review receipt, and do not edit product code again. Runtime retains the existing required review and repair verification gates.
+1. If the confirmed current step is already blocked, inspect its retained failed attempt and apply **Same-plan blocked-step recovery** before ordinary preflight; do not ask the user to choose another Skill for a confirmed in-scope correction. Otherwise send intended changed paths, including every exact planned command write, to Runtime `preflight-step` on stdin. Runtime uses the same exact-target admission evaluator for ordinary and repair execution, freezes each before-state, and returns the frozen test-strategy mode, execution phase, required outcome, and Persistent Tests in the receipt. Runtime derives a `test-first` `red` phase only from the current step's frozen unconsumed before-step expected-failure obligation; candidate filenames or mixed candidate composition cannot change it, and its required outcome remains `implemented`. For v1, the task and current-step scopes are hard. For v2, `planned_mutation_targets` are guidance: planned targets receive normal admission, while an in-envelope unplanned target needs the complete blast-radius assessment below. Use only the current step, planned commands, validation, and receipt it returns. If the task is unconfirmed, a resume gate is active, explicit prerequisite evidence is unsupported, or another preflight gate blocks, report that result and stop.
+2. For a v2 target outside `planned_mutation_targets` but inside an authorized domain, inspect the exact symbol, exports, references, consumers, contract/DTO/schema role, persistence/concurrency/security boundary, and existing Contracts/Decisions before choosing `self-admit` or `escalate`. Prefer the smallest correct local change. A shared or high-impact change may be self-admitted only when evidence shows the local alternative would be incorrect, duplicative, or contract-breaking and consumer/regression validation is covered. Caller count alone is never a threshold. Do not ask for user authorization for ordinary same-domain discovery; do not continue silently when the assessment is uncertain or escalated.
+   Dynamic expansion authority is execution-scoped: Runtime considers only the current active step, plan revision, change set, and stable execution identity. An assessment recorded for an earlier step, continuation, or repair wave is audit history, not a reusable write grant; reassess the same path when a new execution discovers it.
+3. If a new same-envelope target is discovered after another admitted path in the same attempt has changed, call Runtime `extend-preflight` with the current receipt, exact `additional_targets`, one assessment per unplanned target, and non-empty evidence references. Runtime captures only the new target's first-touch before-state and returns a replacement receipt. Keep the same stable `execution_id`, task, step, execution phase, attempt or repair wave, plan revision and retry budget; do not create a continuation or use `scope-amendment`. Ordinary and repair receipts use this same evaluator and action. Use the newest receipt for `record-step-result`. A self-admitted expansion sets a cumulative dynamic-review gate, even when the step's ordinary checkpoint is `not-required`; a clean review consumes only the dynamic expansions bound to this execution and review result.
+4. If a same-domain unplanned target lacks an assessment, stop on `MUTATION_BLAST_RADIUS_ASSESSMENT_REQUIRED`; if its assessment is escalated, stop on `MUTATION_BLAST_RADIUS_ESCALATION_REQUIRED`. Do not route either case to authority amendment. If a target maps to another or no authority domain, stop on `MUTATION_AUTHORITY_EXPANSION_REQUIRED` and report the component/path and read evidence. Read/discovery across domains remains allowed, but write requires explicit user authorization through `prepare-task` `amend-scope`; first settle any outstanding current execution before that true authority amendment. Never guess an `exact_exception` or convert a dependency read into authority.
+5. Modify only paths admitted for the current step or the v2 replacement receipt. A persistent test may be created or changed only when it is already frozen in the confirmed task's `Persistent Tests` if its first-touch state is absent; an existing test file inside an authorized v2 domain may be an ordinary assessed expansion, but a target whose first-touch state is absent still requires the complete P-12 admission. In either case, review the test oracle, reuse, and boundary.
+   For an absent same-domain persistent test, ordinary dynamic admission is a distinct `PERSISTENT_TEST_UNADMITTED` blocker. Route the complete P-12 decision through `prepare-task:prepare-scope-amendment` with `persistent_test_admissions` and no authority authorization when `authority_diff` is empty; this transition is not a no-op and does not invent any missing fact.
+6. Obey the Runtime phase returned by the shared evaluator. `flexible` has no mandatory Red or tests-only first step; an admitted test may pass immediately. In a `test-first` Red execution, a test-only target may be admitted, but a product target discovered by `extend-preflight` is rejected before Runtime state changes; the same restriction applies to repair. `not-applicable` remains closed under discovery and every target must stay inside the project non-executable boundary. Use `outcome: implemented` only when planned results pass or explicitly match the admitted reproduction check. Explicit ordering requires Runtime-consumed before-step evidence; do not substitute flexible. Historical `outcome: test-red` and `status: expected-failure` remain readable. A new expected-failure result requires a new report submitted in this execution for its exact unconsumed before-step check constraining a later step. Historical reproduction reports cannot authorize later repair or delivery failures. Expected failure cannot satisfy positive acceptance. Syntax, type, import, fixture, tool, unrelated-test, and environment failures are not Red evidence; record actual failures as blocked before considering same-plan recovery.
+7. Run only the current step's planned commands and validation. Do not substitute an unplanned write-capable command. If a command or validation fails, retain its real output, record the blocked result, and diagnose within the current owner and bounded investigation budget. A confirmed current-step code/test/fixture error may use **Same-plan blocked-step recovery** below without a separate public `debug-task` invocation or user route. Stop when the failure requires a changed goal, scope, acceptance, contract decision, external authority, or unavailable evidence.
+8. When the canonical review result contains findings, ask Runtime `begin-repair` for the complete admitted finding set. Repair only those findings in one bounded wave and do not use repair as an opportunity for unrelated improvements.
+9. Send declared actual changed paths, command results, validation results, and permitted acceptance evidence to Runtime `record-step-result` on stdin. Do not submit `outcome: test-red` without an admitted reproduction obligation (new executions use implemented and a bound expected-failure report). Runtime captures the after-state, derives the exact before/after delta, rejects a mismatched path declaration, and owns phase/order enforcement, scope re-checking, finding bookkeeping, proposal construction, state, read-back, and step advancement.
+10. When the canonical review result is `clean`, call Runtime `complete-reviewed-step`; completion cannot add evidence, never supply or copy a review receipt, and do not edit product code again. For any v2 self-admitted expansion, obtain the mandatory fresh cumulative `review-change` result even when the ordinary step checkpoint is not required. Runtime retains the existing required review and repair verification gates.
 
 If the fresh summary reports an unresolved evidence challenge, do not consume
 the challenged old result. Only the confirmed correction step may run. Record a
@@ -97,6 +111,24 @@ Runtime resolves the challenge on reviewed completion and advances to the
 original pending step. Unaffected old reports may satisfy the new plan only
 when Runtime supplies and rechecks an `evidence-carry-forward/v1` proof. A
 previous before-step receipt or clean review cannot be copied to the correction.
+
+If the user has already authorized exact additional paths for a true v2 authority
+change, return one concrete manual `prepare-task` call with mode `amend-scope`,
+those paths, and the caller-reported decision source/text. Runtime consumes that
+existing explicit authorization through one `prepare-scope-amendment` route;
+its candidate digest is an internal drift guard, not a second approval object.
+The user does not construct an authority transition or receipt, and this
+   `execute-step` invocation does not invoke `prepare-task` for them. Before any
+   v2 target admission, Runtime compares the task-bound
+   `authority_domain_revision` with the canonical project map; a missing or
+   stale revision is fail-closed and must be resolved by explicit task
+   authority-domain revalidation; ordinary correction-replan, P-12 admission,
+   and exact-path amendment do not rebind it. Same-domain
+discovery must use `extend-preflight`, not this route.
+If the amendment retains a clean pending review for the prior step, return
+`complete-reviewed-step` for that prior step as the next manual call; Runtime
+consumes only that retained review and leaves the new continuation ready. This
+does not claim that the new continuation has executed or passed review.
 
 ## Required result
 
@@ -107,6 +139,11 @@ Only when Runtime reports successful step completion, return `next_route: git-co
 terminal_boundary: public-entry-terminal/v1
 
 ## Slot reports and prerequisite consumption
+
+For persistent-test admission, do not admit another test during execution
+without the complete P-12 owner, claim, basis, insufficiency, boundary, and
+failure-disposition record. An existing in-envelope test file may still be an
+ordinary assessed v2 footprint expansion.
 
 Submit acceptance_evidence by claim_id + slot_id + check_id + minimum_type, with
 disposition, retained evidence_refs and a structured report: result_id, status,
@@ -136,8 +173,12 @@ its returned revision. A not-required step still submits actual execution and
 all due evidence. Its changes remain pending for the next checkpoint. Do not
 refresh a stale baseline or use Git HEAD as the task's dirty before-state. Review
 uses the cumulative target, while actual_changed_paths describes this invocation.
-Repair paths require existing scope and a registered before-state; missing scope
-or baseline must be routed explicitly, never expanded by the reviewer. Clean
+Repair paths use the current repair preflight's same-envelope admission and may
+append a newly discovered in-envelope target through `extend-preflight`. The
+extension keeps the same repair wave and stable execution identity, captures
+only the new target before-state, and requires no retry-budget or continuation
+transition. Missing authority, assessment, phase admission, or baseline still
+blocks before mutation. Clean
 completion or a confirmed final cumulative exemption consumes pending coverage;
 repair requires a separate verification review even on an exempt step.
 
