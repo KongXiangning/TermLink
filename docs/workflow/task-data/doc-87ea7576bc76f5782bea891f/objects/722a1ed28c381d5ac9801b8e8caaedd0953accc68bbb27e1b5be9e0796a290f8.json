@@ -1,0 +1,1 @@
+{"document_id":"doc-87ea7576bc76f5782bea891f","kind":"vnext-task-object","object_type":"evidence-report","payload":{"evidence_refs":["docs/codex/codex-rollout-collector-rust-issues-verification.md#9"],"status":"passed","validation":"reassess all nine issues and explicitly RUST-004/005/007/008/009 using current source and retained later records"},"schema_version":1}

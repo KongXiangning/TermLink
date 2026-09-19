@@ -128,15 +128,19 @@ location, preserves or intentionally changes the confirmed contract, and has
 adequate consumer/regression validation. Uncertainty or competing plausible
 directions is `escalate`.
 
-Every self-admitted unplanned target sets `dynamic_review_required` and is
-included in cumulative review coverage. If the target is discovered after an
-ordinary preflight has already admitted another path, call the internal
-`extend-preflight` action with the current receipt, additional targets and
-assessments. Runtime captures each new target's before-state before first
-mutation, keeps the same task/step/attempt/plan revision, does not consume a
-retry slot or create a continuation, and returns a replacement receipt. The
-subsequent result must use that newest receipt. A clean cumulative
-`review-change` result is required before step completion.
+Every self-admitted unplanned target is retained in the execution-scoped
+expansion record. `dynamic_review_required` is true only when the retained
+assessment requires it: local/private/no-consumer/no-contract-impact discovery
+does not add a checkpoint by itself, while elevated, shared/public,
+cross-component, contract-impact or uncertain material requires cumulative
+review. If the target is discovered after an ordinary preflight has already
+admitted another path, call the internal `extend-preflight` action with the
+current receipt, additional targets and assessments regardless of review depth.
+Runtime captures each new target's before-state before first mutation, keeps the
+same task/step/attempt/plan revision, does not consume a retry slot or create a
+continuation, and returns a replacement receipt. The subsequent result must use
+that newest receipt. A clean cumulative `review-change` result is required only
+when the ordinary checkpoint or the retained expansion assessment requires it.
 
 Before a v2 draft becomes a confirmed definition, Runtime proves all declared
 `planned_mutation_targets`, exact command writes, bounded command footprints,
@@ -193,6 +197,29 @@ are task-local, never inferred from wording or array positions.
 - Check: `check_id` (unique within the task), `method: execution | static | human`,
   `entry`, `expected_observation`, `required_boundaries`, `allowed_substitutes`,
   exact `subject_paths`, `expected_result: passed | accepted | expected-failure`.
+  New execution checks also require `boundary: local | business-flow | e2e`
+  and `selection`. Boundary belongs to the check's evidence obligation, not the
+  claim. A single claim may have a local rule slot and a business-flow slot.
+  Optional `validation_items: string[]` freezes exclusive ownership of exact
+  `required_evidence` labels at this slot's due step. Labels must exist and must
+  not be claimed by another check. This is definition data, not a user decision;
+  recording a waiver cannot add or change it. Omission stays legacy-compatible.
+- Execution selection: `granularity: focused | target | broad-regression`,
+  `selector`, `selection_reason`, `invocation`,
+  `breadth_reason`, `breadth_basis`, `breadth_source_ref`. Boundary and granularity
+  are independent: business-flow/focused selects an integration case;
+  business-flow/target requires justified target execution. Every target/broad
+  execution needs bound breadth authority; E2E needs its allowed authority even
+  when focused. Structured invocation is `{kind: structured, argv, selector_arg_index}`
+  (kind may be omitted for compatibility). Opaque invocation is `{kind: opaque, command}`:
+  existing wrapper commands are frozen verbatim, cannot declare focused or a selector,
+  and use justified target/broad granularity. Structured literal selector argv or opaque command bind the
+  exact check entry and due step planned command. Unchanged historical checks
+  retain their original bytes (including old claim boundary and scope labels);
+  new/replacement checks must use the per-check orthogonal model. Explicit-user
+  authority binds exact Task Basis sources; project-policy/release-gate bind canonical
+  repository sources. Claim-based authority binds the current claim and its existing
+  Task Basis or repository requirements/Contract/Decision source (optional #heading identity).
 - Report: `result_id`, `status: passed | failed | blocked | not-run | skipped |
   accepted | expected-failure`, `evidence_plan_revision`, `subject_revision`,
   `actual_method`, `environment`, `assurance: caller-reported`. Shared transaction
@@ -204,7 +231,7 @@ are task-local, never inferred from wording or array positions.
 disposition, evidence_refs, report}` through record-step-result. Only the exact
 frozen slot changes; other slots retain their facts. Reusing a ref does not
 satisfy another slot. A changed report uses a new result_id. Draft changes to an
-obligation require replacement IDs; confirmed definitions change only by replan.
+obligation require replacement IDs; confirmed semantic definitions change only by their bounded planning route; engineering-only invocation changes use `replace-validation` under unchanged obligations.
 
 Runtime owns `evidence_plan_revision`, a SHA-256 of the frozen task definition
 and claim/slot/check plan, excluding result fields and execution audit. Reports
@@ -217,11 +244,13 @@ not comprehensively observed. Retain repository-relative artifact files in
 block new completion; historical archive reads do not rewrite recorded facts.
 
 All completion paths share Runtime evidence evaluation: due and overdue slots
-must succeed before step completion; future slots may remain missing; final
+must be proved or discharged by an exact applicable user waiver before step completion; future slots may remain missing; final
 completion/close checks every slot. Disposition or command pass alone cannot
 substitute for a bound applicable report. Static checks use accepted without a
-process exit code. No authenticated human acceptance provider is bound, so human
-reports are explicitly blocked; higher assurance requires a future real provider.
+process exit code. No authenticated human provider is bound. Ordinary task-level manual observations
+use `record-human-acceptance` and remain caller-reported; raw human reports are
+blocked. User waivers are separate from successful reports. Administrative
+realign still requires its independent Trusted Authority Channel.
 
 Only before-step slots carry `before_step_id` and nullable Runtime-owned
 `prerequisite_receipt: {step_id, preflight_id, result_id, subject_snapshot}`.
@@ -566,9 +595,41 @@ reads expose the saved metadata without loading the referenced documents.
 CURRENT_TASK.md carries one aggregate submission head with exact source_revision,
 definition_revision, state_revision, and committed event range. The head is
 authoritative; a cache or index conflict cannot change execution facts. The
-current presentation retains the complete confirmed definition and workset;
-compact v2 retains only a bounded history navigation preview, while complete
-event history is navigated through the bound sidecar store.
+logical task retains the complete confirmed definition and workset. New tasks
+use compact-v3: the on-disk CURRENT_TASK contains identity/status, exact
+`task_store.projection.definition` and `.state` object references, the current
+step and due-evidence navigation summary. No full claim plan, report, review
+result or complete implementation prose is duplicated inline. The summary is
+not an independent authority or an execution grant.
+
+The two roots and all selected material are part of the SAME canonical task
+aggregate, not a second mutable truth store. Definition material retains exact
+Markdown sections and claim/check definitions. State material contains dynamic
+slot outcomes, decisions and runtime facts, with content-addressed report and
+review material. Unchanged definitions and sections keep the same object IDs;
+normal execution changes the selected state, not the frozen definition.
+The Runtime resolves references and validates the complete logical task before
+using it. Missing/corrupt/uncommitted material or a head conflict cannot be
+silently replaced by the readable summary.
+
+Inline and compact-v2 tasks remain readable without automatic conversion.
+Compact-v3's parsed header and versioned navigation are checked against its
+immutable roots. Its reader does not require the current YAML serializer to
+reproduce historical bytes; the v3 layout remains frozen and has a retained
+golden fixture. This does not permit external edits of canonical bytes: manifest
+source hashes, object hashes, committed membership and hot-field equality remain.
+
+Issued business receipts retain validity across proved storage-only migrations,
+not across actual task transactions. The original receipt is consumed unchanged;
+physical write tuples and paged read coordinates remain exact. See CONTEXT_API.md
+for the in-flight receipt and candidate-history boundary.
+
+Explicit task-storage-migration also upgrades compact-v2 to compact-v3. It
+preserves the exact old file and history, definition semantics, user decisions,
+claim identities, failures, scope, review gates and budgets. No size limit or
+new lifecycle/admission requirement is introduced. The existing source-bound
+migration preview reports `legacy_bytes` and `projected_bytes` without writes;
+this is a representation comparison, not a growth-rate or performance claim.
 
 The profile-derived layout is:
 
@@ -590,6 +651,11 @@ bounds metadata and content in UTF-8 bytes and returns returned / total_bytes,
 continuation, and complete_for_operation; required content omitted by a page is
 incomplete. Continuations bind the source, definition, state, and exact
 reference. Receipts are read receipts only, not authority.
+For compact-v3, default `task-read kind=definition|state|current-snapshot`
+returns a `vnext-task-resolved-view/v1` with `source_object` and the full logical
+`payload`, still byte-paged. Explicit object SHA reads return the actual raw
+content-addressed object, not a resolved payload mislabeled with its digest.
+Aggregate export retains the full material closure, including previous roots.
 Required content that does not fit one page must be continued; an incomplete
 required page is not complete. Definition reuse is limited to the same visible
 session and exact definition_revision.
@@ -605,3 +671,103 @@ execution/report/receipt/finding material, with explicit missing history and
 old locator aliases. It does not re-run tests, recover a task, or change its
 business meaning. Aggregate export includes the retained object closure and
 manifest, with paged output for large stores.
+
+## Task-level process control (source-bound, caller-reported)
+
+These are internal Runtime commands of existing Skills, not new public modes.
+They never convert a generic continuation request into new authority.
+
+### `prepare-task:record-human-acceptance` / `record-evidence-waiver`
+
+Input: `claim_id`, `slot_id`, `check_id`, `evidence_plan_revision`,
+`subject_revision`, `decision_source`, `decision_text`; optional `validation_items`
+contains only exact due-step validation labels exclusively owned by the frozen
+check's `validation_items`. An unambiguous label identical to `check.entry` also
+has an exact owner without additional metadata. Step membership, similar text or
+having only one slot does not establish ownership. Ambiguous/unbound labels stay
+required; the task itself is not forced to migrate.
+The adapter supplies write paths and idempotency; users do not construct receipts.
+Runtime appends the exact statement to Task Basis and records dynamic
+`slot.user_decision = {kind, decision_id, decision_source, statement_sha256,
+check_id, evidence_plan_revision, subject_revision, recorded_at,
+assurance: caller-reported, validation_items?}`. It is excluded from definition
+revision, but remains in state and audit. Existing source coordinates are immutable.
+
+Human acceptance requires a frozen human/accepted check and produces a human
+accepted report, never execution PASS. Waiver requires a current user-owned
+acceptance/regression/exploration obligation: no prerequisite, critical invariant,
+contract or project/release-policy bypass. It preserves the old report/status.
+Both require unchanged subjects and an unchallenged exact slot. Progress, migration
+and replacement cannot synthesize or inherit a user decision. Unchanged decisions
+may be carried across a new plan only with Runtime-verified immutable history.
+
+Command/validation results may include `waiver_decision_id` with a truthful
+nonpassing status. Runtime verifies its exact current decision, due step, read-only
+check invocation or exclusive frozen validation ownership, at both recording and
+result consumption (including decisions saved by earlier versions). Shared commands require all bound
+obligations waived. A user-waived failed attempt may use ordinary retry with the
+exact Task Basis path as resolution evidence; retry limits and fresh preflight
+remain. Required review/findings and implementation writes are not bypassed.
+
+### `prepare-task:prepare-successor`
+
+Input is `{predecessor, draft}`. `draft` is the ordinary semantic draft.
+`predecessor` contains `task_id`, `document_id`, `source_revision`, `basis_revision`,
+`decision_source`, `decision_text`, `obligations`. Each obligation is
+`{prior_key, disposition: carry-forward|retired, successor_claim_id, reason}`.
+Keys are `claim:<claim_id>/slot:<slot_id>` and `finding:<fingerprint>` for every
+old slot and open finding. Carry-forward names a new claim; retirement uses null.
+The exact replacement statement must be retained in the new Task Basis.
+
+Only an already superseded predecessor qualifies. Ordinary prepare-draft still
+rejects it; supersede never requests a successor implicitly. Runtime publishes the
+exact `<old_revision>.successor.md` snapshot, new Basis and fresh task aggregate
+before atomically switching CURRENT_TASK to the unexecuted new identity. Old Basis,
+reports, pending findings and partial product files remain untouched. An interrupted
+preparation can leave inert immutable artifacts; they are not an executable task.
+An exact retry may adopt the identical new Basis only with the retained exact
+predecessor snapshot. A prepared aggregate must match the same proposal digest,
+predecessor and destination identity; its original creation audit is reused to
+keep the rendered source hash stable. Different bytes or requests remain conflicts.
+These rules do not remove a concurrent/interrupted governance write lock; they
+apply once the ordinary publication lock can be acquired.
+The new draft still requires ordinary `confirm-draft` once, bound to its exact
+receipt; no old PASS/waiver/preflight is imported. Old outcome is superseded, not
+complete, and all retired/carried obligations remain auditable.
+
+### `execute-step:replace-validation`
+
+Input: `{source_revision, claim_id, slot_id, replaces_check_id,
+replacement_check, reason}`. This does not take a replacement task definition.
+Only one current, unconsumed, read-only execution invocation between attempts may
+change. Keep method, observation, expected result, boundary, subjects, required
+boundaries, substitutes, validation ownership, exact granularity, selector and
+breadth authority (including focused E2E). Narrowing the selection also requires
+the existing planning route; this operation replaces invocation, not selection.
+Use a new check ID and the modern selection contract. Invalidate only that result;
+carry other applicable facts via immutable source proof. Preserve Goal, Acceptance,
+scope, task/document IDs, step order, Task Basis, findings, review and retry budgets.
+Pending review, a challenged/shared observation or changed intent uses its existing
+bounded owner route. This action writes exact history plus CURRENT_TASK through
+the existing task evolution/store transaction, not supersede or whole-task replan.
+
+Dynamic discovery uses existing assessments: only private/local/no cross-component
+consumer/no contract impact self-admission omits an additional dynamic review gate.
+Other expansions retain cumulative review; all ordinary and repair checkpoints
+remain. Old expansion records without `review_required` retain mandatory review.
+
+
+## Storage diagnostics response (not persisted task state)
+
+`validate --summary.storage_metrics` has `kind: task-storage-metrics/v1`,
+`read_only: true`, `diagnostic_only: true`, `unit: byte`, exact source/document
+identity and diagnostic `status: complete | partial | unavailable`. Its nullable
+byte counters and `previous_transaction_delta` are specified in CONTEXT_API.md's
+**Read-only task storage metrics** section. `coverage` names measurement limits
+and unavailable portions. Logical view fields overlap and must not be summed;
+physical aggregate totals include prepared/orphan files, whereas committed
+material/history counters exclude them and deduplicate objects by SHA.
+The previous delta is tied to adjacent acknowledged events, not repeated reads.
+Unknown prior filesystem totals are null. A metric is not a receipt, validation
+result, authority grant, size gate or an instruction to migrate/replan. No schema
+fields are added to CURRENT_TASK, immutable roots, events or manifests for metrics.

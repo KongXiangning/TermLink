@@ -122,6 +122,16 @@ apply `draft-consistency-challenge` across these closed dimensions:
   codes, response shapes, normalization, stored data, and compatibility;
 - validation and Persistent Tests coverage for each material acceptance or
   decided observable behavior;
+- whether the validation set is minimum-sufficient for all required observations
+  and independently authorized user/project/release or contract/risk obligations;
+  prefer a narrower feasible set only when it preserves detection, boundaries and
+  those obligations without increasing total cost. A focused selector's existence
+  alone does not invalidate justified target/broad execution. Require an explicit
+  breadth reason and existing permitted basis for `target`, E2E or broad regression;
+- whether a business-flow claim retains required integration/flow evidence
+  rather than being replaced by many local unit PASS results, whether E2E is
+  actually admitted by its acceptance/low-cost/policy/user basis, and whether
+  the proposed oracle can detect the real business failure;
 - step-end executability in the current repository state, including whether a
   planned command can produce its claimed evidence at that point;
 - cross-step repairability, treating v1 step scopes as permissions rather than
@@ -182,6 +192,21 @@ caller, and stop.
 
 ## Business evidence boundary
 
+Independently reconstruct the expected business outcome from request/Contract,
+then challenge the proposed check with one relevant wrong behavior. Read the
+actual assertion, fixture and setup: would the wrong behavior still PASS? Explain
+that gap in the existing finding's impact/correction basis; do not accept a test
+name, selection reason, metadata completeness or suite count as proof of detection.
+For a not-yet-written test, assess its planned setup and independent expected
+observation; absent code or execution reports alone is not a draft finding.
+Use **Failure-oriented validation selection** in
+`.workflow-system/runtime/support/CONTEXT_API.md`. This is read-only reasoning,
+not permission to execute tests, seed mutations or demand a mandatory Red run.
+An equally cheap check with the same detection adds no required evidence. Prefer
+repairing an inadequate oracle to adding redundant tests, without changing the
+business requirement. Uncertainty about the expected behavior belongs to its
+existing source/user decision route, not to a fabricated expectation.
+
 Assess whether the draft's claim/slot/check plan can prove each declared real
 boundary at the intended step. Review planned methods, prerequisites and evidence
 availability; missing execution reports are expected in a draft and do not block
@@ -190,6 +215,40 @@ binding, necessity and why existing evidence is insufficient. Review oracle
 independence and whether planned mocks/fixtures prove the promised boundary. Do not demand execution
 or completion evidence during draft review. Reports remain caller-reported;
 no Provider, authenticated human signature or AST enforcement is implied.
+
+Treat unjustified validation breadth as a material evidence-plan finding, not a
+harmless safety margin. Assess the whole selected set, not minimum granularity per
+check. Preserve independently authorized user/project/release and contract/risk
+obligations even when a smaller check alone proves an acceptance claim. Target or
+broad execution still needs its existing selection/breadth basis and exact source;
+E2E retains its separate admission. Do not narrow away an explicit obligation.
+
+Compare feasible sets with equivalent detection and required boundaries, including
+batched selectors when supported. Shared setup can justify a combined invocation
+only with a concrete total-cost comparison accounting for unrelated cases,
+execution, maintenance and diagnosis; convenience or one startup alone is not a
+basis. Record the rationale using existing `selection_reason` / `breadth_reason`
+and a permitted basis/source, not a new cost-advantage authority. “Same target,”
+“previously green,” and “final step” do not establish necessity. Require narrowing
+when no independent obligation requires the broader set and a narrower feasible
+set preserves detection and boundaries at no greater total cost. Do not demand a full suite merely because it is available.
+
+Review the complete slot/check boundary → granularity → frozen invocation binding.
+Structured invocation binds literal argv/selector; opaque invocation freezes the
+original wrapper command and cannot claim focused selection. Review its actual
+granularity and necessity without requiring a rewrite into Runtime CLI grammar.
+Check that selector arguments really narrow this runner, integration observes the
+declared business-flow boundary, and any runner granularity limitation is real.
+The same claim may require local rule and business-flow slots. Focused integration
+is `business-flow` + `focused`; a whole integration target is `business-flow` +
+`target` and still requires breadth authority. Focused E2E still needs E2E authority.
+Inspect the actual Task Basis, requirements, Contract, Decision or policy authority
+text, not just its existence. Release-gate E2E binds a real release/policy source;
+claim authority need not originate in a user decision.
+Apply that whole-set necessity and cost comparison before clean confirmation,
+including new update/replan/recovery checks; legacy compatibility never exempts
+replacement identities. These are boundary choices,
+not a unit < integration < E2E substitution hierarchy.
 
 
 Check each checkpoint's explicit reason and policy against project requirements.

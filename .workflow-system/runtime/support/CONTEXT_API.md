@@ -397,9 +397,13 @@ preflight.
 The legacy `prepare-task:prepare-replan` / `correction-replan/v2` route keeps
 `permission_change: none` and cannot consume a scope-amendment receipt.
 
-The current Runtime has no non-completion successor transition. A superseded
-task cannot create a new draft (`REPLACEMENT_OUTCOME_UNSUPPORTED`); keep its
-unfinished obligations visible instead of closing it as completed.
+Ordinary `prepare-draft` remains closed for a superseded task
+(`REPLACEMENT_OUTCOME_UNSUPPORTED`), so unfinished obligations cannot be hidden by
+pretending the predecessor completed. An explicit later replacement request uses
+the separate `prepare-successor` route described below: it keeps the predecessor
+superseded, binds every old slot/open finding to carry-forward or retirement, and
+creates a fresh unexecuted draft identity that still requires normal confirmation.
+Supersede by itself never authorizes that successor.
 
 Unchanged old reports remain unmodified and may satisfy a new plan only through
 Runtime-generated `evidence-carry-forward/v2` records. The old_source_revision and
@@ -518,3 +522,249 @@ Search defaults to 50 hits (maximum 200), uses the same byte budget, and stops a
 Install/upgrade prepares rg in the Installer staging transaction, preferring a verified project-local binary, then compatible PATH rg (14.1+ within major 14, or major 15), with a functional probe. Otherwise it downloads pinned 15.2.0 for Windows/Linux/macOS x64/arm64 and checks the built-in release SHA-256. Linux download uses musl. Managed files are under `.workflow-system/runtime/tools/rg/`; PATH reuse records no machine-specific absolute path. No system package manager, administrator privilege, or global PATH change is needed.
 
 Download/checksum/probe failure aborts installation before promotion. Old installations lacking rg receive `RG_DEPENDENCY_MISSING` from search; use the normal distribution upgrade route to prepare dependencies. Same-version upgrade also prepares a lost rg dependency when managed software is intact, retaining all ordinary upgrade admission and rollback checks; unrelated software drift is still rejected. Read-only calls never download. Other context operations do not require rg. An available rg does not make other installation dependencies offline-capable.
+
+## Process-control operations
+
+For explicit manual observation, use prepare-task's internal
+`record-human-acceptance`; for explicit unverified risk, `record-evidence-waiver`.
+Use exact claim/slot/check, plan and subject revision from `evidence-context` and
+the user's original source/text. The optional `validation_items` lists only exact
+labels exclusively owned by the frozen check's `validation_items` (or an
+unambiguous label equal to its entry). A same-step label is not ownership. New
+ownership is admitted with the plan, never invented while recording the waiver. Inputs and restrictions are defined in
+FILE_SCHEMAS.md. Both are caller-reported and do not grant authenticated realign.
+Inspect `user_decision` in evidence/review/task context; never interpret waiver as
+execution PASS. `waiver_decision_id` on a truthful nonpassing result is verified
+against that exact decision and cannot excuse an unrelated command or validation.
+
+A local equivalent invocation adjustment uses execute-step's `replace-validation`
+with source_revision, claim_id, slot_id, replaces_check_id, replacement_check and
+reason. Preserve observation, boundary, subjects, validation ownership, exact
+granularity, selector, breadth authority (including focused E2E), scope and
+budgets. Read fresh context/preflight afterwards. It does not accept an entire
+task definition. Changed business obligations still use bounded correction.
+
+An explicitly requested replacement after supersede uses prepare-task's
+`prepare-successor` with the exact predecessor identity/source/Basis, verbatim
+user decision and full old-obligation dispositions plus an ordinary new draft.
+Old unfinished state is retained; the new draft requires ordinary confirmation.
+After a publication exception, retry the identical request: exact prepared Basis
+and predecessor artifacts may be reused; an initialized aggregate retains its
+original creation audit. Different artifact bytes or proposal identities are
+conflicts, not permission to overwrite. Do not bypass a retained governance lock.
+Do not trigger supersede or successor merely because implementation needs repair.
+No public Skill invokes a following Skill on the user's behalf.
+
+Authority-amendment continuations retain the original evidence check commands and
+their exact repository-write footprints when those obligations move to the new
+step. Runtime does not synthesize a shell command from an implementation note or
+make the caller repeat an already frozen validation plan merely to add permission.
+
+
+## Compact-v3 active task presentation
+
+New tasks select exact immutable definition and state roots from CURRENT_TASK.
+The small Markdown file is a navigation projection, not the full plan or a new
+permission source. Continue using task-context and all required pages; use
+`task-read` for exact definitions, state, reports and review material. Default
+definition/state reads resolve the roots into a labeled logical view; explicit
+SHA object reads remain raw. Do not infer acceptance or mutation scope from
+summary text or edit task-data objects by hand.
+
+Existing inline and compact-v2 tasks continue unchanged. For an explicitly
+requested representation-only compaction, use the existing
+`task-storage-migration` preview, then commit with that exact source revision.
+Preview includes old/projected UTF-8 byte counts and writes nothing. Compaction
+retains original task/Task Basis/definition, decisions, scopes, outcomes,
+findings, review/repair budgets and historical source locators. It is not
+replan, successor, waiver, a test rerun, or a new workflow checkpoint.
+If canonical publication was interrupted before aggregate acknowledgement,
+retry the identical migration commit. Under the existing governance lock it
+recovers the exact pending transaction; its acknowledged result is idempotent.
+A source changed by any later transaction is still stale. Retained global write
+locks are not deleted or bypassed by compaction.
+
+Backups and transfers must include CURRENT_TASK and its task-data directory
+(and linked Task Basis and external evidence as before). `task-export` retains
+the complete committed object/event closure. No automatic history deletion or
+file-size rejection is performed. This representation reduces the active file;
+it does not claim that every internal Runtime operation avoids hydrating the
+full logical state/history or that total audit storage stops growing.
+
+### Storage migration and in-flight receipts
+
+Keep the original confirmation, execution/repair preflight, review context and
+correction-candidate receipts when an explicit storage migration occurs. Runtime
+accepts their old source only through an uninterrupted committed storage-migration
+lineage whose retained exact preimages reconstruct the same normalized logical
+state, definition, authority and task identity. An intervening business transaction,
+unknown source, corrupted/uncommitted history or pending publication does not qualify.
+All existing step, execution, review-target, evidence, Task Basis and budget checks
+still apply. Do not reacquire first-touch baselines after editing product files just
+because CURRENT_TASK was compacted; do not reconstruct or rewrite caller receipts.
+Candidate confirmation preserves the approved digest and records the actual current
+physical predecessor for history/carry-forward proof. Ordinary optimistic write
+proposals, migration commits, physical read/page coordinates and read-back checks
+remain exact; refresh read-only context when its physical revision changes.
+
+Compact-v3's navigation and hot-field model is version-specific in
+`task-projection-v3.ts`. Readers compare parsed frontmatter values and the frozen v3
+navigation against selected immutable material, not today's YAML emitter output.
+Quotation, key ordering and CRLF/LF spelling are not logical model changes, but
+physical CURRENT_TASK bytes must still match the acknowledged manifest. A new
+layout needs a new format reader; never change v3 wording/escaping/fields in place.
+The checked-in `test/fixtures/compact-v3/afeec7b.json` is historical wire input,
+not a fixture regenerated by the current renderer.
+
+
+## Read-only task storage metrics (C stage)
+
+`validate --summary` adds `storage_metrics` (`task-storage-metrics/v1`). No new
+input, Skill, task fields, confirmation or migration is required. The response is
+computed on demand from the canonical task and retained aggregate, not stored in
+CURRENT_TASK, an event, or a new metrics log. Repeated reads and no-op retries do
+not become transactions. Keep ordinary validation and receipt rules unchanged.
+A `partial`/`unavailable` metrics result is diagnostic only, never an instruction
+to stop. Existing canonical integrity failures still have their usual behavior.
+
+All units are bytes. Physical sizes are regular-file lengths, not allocated disk
+blocks or token counts. Logical sizes are stable-key UTF-8 JSON views. Current and
+historical state use the same canonical Runtime defaults before comparison;
+storage migration alone does not add logical bytes for omitted legacy fields.
+Task Basis references use the canonical section parser, not a separate whitespace
+rule; malformed references are unavailable, while an absent link alone counts as zero:
+
+| Field | Exact accounting boundary |
+| --- | --- |
+| `active_projection_bytes` | Actual CURRENT_TASK bytes, including inline/v2 presentation when present. |
+| `definition_bytes` | Existing normalized `task-definition/v2` view, not the tiny immutable root wrapper. |
+| `claim_evidence_bytes` | Current claims/checks and evidence values, including reports/decisions. |
+| `pending_review_bytes` | Pending review result value; zero when absent/null. |
+| `execution_hot_state_bytes` | Normalized Runtime state excluding claims, pending review and the two external-history arrays. |
+| `logical_state_bytes` | Entire normalized current Runtime state, excluding execution_log/applied_proposals and inline baseline content. |
+| `task_basis_bytes` | Exact linked Task Basis bytes when its revision matches; zero for no link, null when unavailable. |
+| `aggregate_total_bytes` | All regular files under this task-data/document_id, including indexes, manifest and orphan/prepared files. No symlinks are followed. |
+| `committed_material_bytes` | Distinct object file lengths acknowledged by committed events plus those event file lengths. Deduplicated by SHA; no indexes/manifest/orphans. |
+| `external_history_bytes` | Committed objects not selected by the current v3 definition/state roots, plus committed events; null if the legacy current-material closure cannot be established. |
+
+Logical fields overlap: definition includes claim definitions, claim_evidence
+includes definitions and evidence state, and logical_state includes claims and
+pending review. **Do not add them or add logical counts to physical totals.**
+`physical_breakdown` partitions aggregate_total into objects/events/indexes/
+manifest/other and reports the file count. Neither total includes separate
+review-baseline blobs, task-history packages outside task-data, product files,
+.git, or external evidence. Task Basis and CURRENT_TASK are separate counters.
+
+`previous_transaction_delta` identifies the head event (sequence, type, operation,
+action when retained, recorded time and both source revisions). It compares that
+event's exact logical before/after, not the previous summary invocation. Storage
+migration is explicitly labeled; shrinking the physical file is not shrinking the
+logical requirement. `committed_material_bytes` in this delta is only the latest
+event and objects newly referenced by that event, not all its reused references.
+An initial import has no comparable prior event. Unsupported legacy snapshots,
+missing old reports or unavailable exact old wire bytes yield null, never a
+fabricated zero. Re-rendered historical physical lengths are used only when the
+bytes match the retained source SHA. Current filesystem inventories cannot prove
+past index/manifest/orphan sizes, so historical `aggregate_total_bytes` delta is
+always null; use committed-material growth or separately retained real summaries.
+
+Additional diagnostic work has bounded inventory/event/object/material-read
+budgets, exposed in `coverage.limits`; exceeding them returns partial observations
+and reasons, not a task-size quota. These bounds do not claim to bound the existing
+canonical reader's own integrity/history hydration cost. Observations take no write
+lock; the initial manifest/source baseline is checked against the supplied canonical
+revision, and rechecked even after partial diagnostic failure. A detected concurrent
+head/publication change clears logical/disk counters and deltas and returns
+`unavailable`; only the supplied source identity and its raw byte length remain.
+This is not an atomic filesystem snapshot.
+No history is deleted, no remote telemetry is sent, and no test is run to collect
+metrics. Preserve the task-data with real tasks for later longitudinal analysis;
+C supplies observation, not a claim that growth has already been optimized.
+
+
+## Failure-oriented validation selection
+
+This is semantic guidance for prepare-task, read-only review-draft and
+review-change, not a Runtime field, new gate, test runner or mandatory test ladder.
+Use only the task-relevant branch of the guidance; do not turn it into a new
+checklist document or duplicate all acceptance text in CURRENT_TASK.
+
+**Select by detection, then cost.** Start with an authoritative business claim and
+one concrete violation grounded in that claim, an existing defect or an identified
+changed contract/risk. State what input/state transition would distinguish correct
+from wrong behavior, the independently expected result, and the cheapest boundary
+where that difference is observable. Only then search/read candidates. Confirm
+that the assertion and setup would distinguish them; names, non-empty output,
+coverage totals and historical PASS are insufficient. Input may use production
+helpers; the expected answer must not be computed by the same potentially defective
+logic. Do not create speculative failure obligations simply because they are easy
+to imagine.
+
+Reuse an adequate existing check. If it lacks the necessary assertion or setup,
+prefer a bounded change to that check under the existing test admission over a
+second overlapping check. Create a persistent test only through P-12 when existing
+evidence is insufficient. Stop adding checks when each required observation and
+identified regression risk has sufficient evidence. One invocation may cover
+several observations, but actual reports must still bind the exact slots; neither
+merging tests nor multiplying case counts proves efficiency or sufficiency.
+
+**Optimize the whole set, not each check's granularity.** Include independently
+authorized user/project/release and contract/risk obligations, not just one claim's
+assertion. A focused check does not cancel a separately required package regression
+or release run. Prefer a narrower feasible set only when it preserves detection,
+required boundaries and all applicable obligations at no greater total cost.
+Consider batched selectors before widening a target just to share setup. A combined
+invocation needs a concrete comparison that includes unrelated cases, startup/run
+cost, maintenance and diagnosis; one startup or convenience alone is insufficient.
+Keep exact reports for every supported slot and the existing permitted breadth
+basis/source. Describe the comparison in `selection_reason` / `breadth_reason`;
+cost advantage is not a new authority enum, blanket waiver, or demand to benchmark
+plans during read-only review. Reject unjustified breadth, not a legitimate wider
+run merely because a focused selector exists.
+
+**Choose the observation boundary, not the most expensive test.** Local rules and
+finite function chains can use focused unit checks or admitted static proof.
+Producer/consumer, protocol, process or persistence behavior requires the relevant
+real path (for example write → persist → read), not isolated mock PASS results.
+One claim may need both a local rule and flow observation; it does not automatically
+need both. A backend-only change does not imply browser/device E2E. E2E needs the
+existing acceptance/risk/policy/user basis and an explanation of why cheaper
+observations are insufficient. Consider setup, runtime, flakiness and diagnosis,
+not a universal unit < integration < E2E ranking. Whole targets or suites need the
+existing concrete breadth basis; do not run them because they are convenient.
+
+**Match the oracle to the failure.** Apply these examples only when the corresponding
+behavior belongs to the claim; they are not additional requirements for every task:
+
+| Failure under consideration | Minimum discriminating observation | Insufficient surrogate |
+| --- | --- | --- |
+| Retry reads an already known range | Observe the next missing range and monotonic coverage until the expected terminal snapshot; allow contract-required overlap only | Request succeeds or returns non-empty data |
+| Windowing still retains full raw history | Observe peak live raw-data residency/lifetime at fixed window size as input grows, separately from legitimate reducer/output state | Each I/O window is small; final output is correct; small fixture fits memory |
+| Cancellation/deadline checked only at entry | Change control after entry into the long scan/I/O path; assert bounded further work and the correct terminal result, using deterministic hooks/clock where appropriate | Already-cancelled input or wall-clock sleep alone |
+| Incorrect cross-window associations/unstable keys | Ensure the fixture actually straddles a boundary; assert exact ownership and equality across retry/overlap against independent expectations | IDs/keys exist or are non-empty |
+| Producer output unusable by consumer | Feed the unmodified public output into the actual consumer and inspect the required persisted/re-read result | Mocked success, hand-rewritten cursor, private payload decoding |
+
+These observations describe semantic sufficiency, not default instrumentation or
+an instruction to add one test per row. A temporary probe, existing evidence or
+static proof may suffice when admitted; do not turn diagnostics into persistent
+tests by default. A memory assertion must name the resource it measures; raw-data
+boundedness does not imply constant output size or RSS. A sampled value that cannot
+observe the relevant lifetime is not proof of its maximum.
+
+**Review without adding a phase.** review-draft reads/plans; it never executes the
+candidate, seeds a mutation or demands final reports. For unwritten tests, require
+an intelligible independent oracle and feasible setup, not a fabricated successful
+run. review-change checks the actual code, fixture and evidence. A hypothetical
+counterexample is reasoning, not a measured failure. Actually running a pre-fix or
+fault-injection control can be useful when justified and already authorized, but
+is not mandatory Red/TDD, a new prerequisite or a universal mutation-testing duty.
+Report only the boundary and observations actually demonstrated. An exit code is
+not a substitute for a missing business observation. Strengthening a check must
+not rewrite the expected business behavior to match the defect.
+
+Use existing check/report fields for the selected observation, reason and evidence
+references. No new per-test ledger, quota, schema, receipt or approval is introduced.
+Source-template guards test guidance availability, not model comprehension. A
+curated reference answer or deterministic selection fixture is not a fresh Agent
+run; broader selection-effectiveness claims require retained independent runs or
+real target-project dogfood with the actual Skill/model/version and source context.

@@ -119,15 +119,19 @@ duplicative, or contract-breaking. An elevated/high target may still be
 self-admitted when its root-cause and regression/consumer evidence is strong;
 uncertainty or multiple plausible directions escalates to the user.
 
-Every self-admitted planned-footprint expansion sets
-`dynamic_review_required` and enters cumulative review coverage. If discovery
-happens after another path has already been modified, the Agent calls the
-internal `execute-step:extend-preflight` action with the current receipt,
-additional targets, assessments and evidence references. Runtime captures the
-new paths' before-state before first touch, returns a replacement receipt,
-keeps the same attempt and plan revision, does not consume retry budget, and
-does not create a continuation. Results must use the newest receipt. A clean
-cumulative `review-change` is mandatory before completion.
+Every self-admitted planned-footprint expansion is retained in audit, but
+`dynamic_review_required` is selected from the assessment rather than from the
+fact that the target was unplanned. A local/private/no-consumer/no-contract-impact
+self-admission adds no checkpoint by itself; elevated, shared/public,
+cross-component, contract-impact or uncertain expansion retains cumulative
+review. If discovery happens after another path has already been modified, the
+Agent calls the internal `execute-step:extend-preflight` action with the current
+receipt, additional targets, assessments and evidence references regardless of
+review depth. Runtime captures the new paths' before-state before first touch,
+returns a replacement receipt, keeps the same attempt and plan revision, does
+not consume retry budget, and does not create a continuation. Results must use
+the newest receipt. A clean cumulative `review-change` is mandatory only when
+the retained assessment or ordinary checkpoint requires it.
 
 An existing test file inside the envelope follows ordinary expansion, while
 the assessment and review must cover oracle/reuse/boundary changes. A new
@@ -372,12 +376,22 @@ This additive storage contract preserves task identity, goal, acceptance,
 authority, scope, test admission, review / repair budgets, and lifecycle
 semantics. CURRENT_TASK.md remains the fixed human and Agent entrypoint. Its
 single submission head selects the current source, definition, state, and
-committed event range. The current body is a complete, governed presentation
-of the confirmed definition and current workset; execution and idempotency
-arrays are a compatibility hot-cache only. In compact v2 the current file
-keeps a bounded history navigation preview; complete history remains in the
-bound task-data aggregate and is never treated as empty when the preview is
-short.
+committed event range. Inline and compact-v2 tasks retain their original
+complete definition presentation; execution and idempotency arrays are only a
+compatibility hot-cache. New compact-v3 tasks keep exact immutable definition
+and state references with current-step navigation in CURRENT_TASK, rather than
+repeating the complete plan, claims and reports inline. The referenced material
+belongs to the same canonical aggregate and is resolved through task-context /
+task-read before execution. Summary text never grants authority. Existing tasks
+remain readable; explicit representation-only task-storage-migration preserves
+the old raw source and complete logical semantics without replan or a size gate.
+Already-issued business receipts survive only a Runtime-proven storage-only
+lineage with unchanged logical semantics; no business transaction is treated as
+an equivalent source. Keep original receipts rather than repeating approval or
+preflight after admitted edits. The v3 presentation model is versioned; YAML
+emission changes alone do not invalidate intact historical material.
+Complete history remains in the bound task-data aggregate and is never treated
+as empty when the active preview is short.
 
 The aggregate is stored under
 <workflow_home>/task-data/<document_id>/ with a manifest, immutable
@@ -410,3 +424,19 @@ validate --deep is the explicit full-history diagnostic. Storage migration is
 a separate preview -> exact source_revision confirmation -> commit action. It
 preserves exact legacy bytes, known history, and old locator aliases; a missing
 preimage remains explicitly missing.
+
+### Task-level user decisions and engineering adjustments
+
+Explicit human observations and risk waivers use the source-bound internal
+prepare-task commands defined in FILE_SCHEMAS.md. They are caller-reported:
+manual acceptance is not automated PASS, and waiver is not evidence. Critical
+invariants, prerequisites, policy, required review and findings are not bypassed.
+Local equivalent read-only validation adjustments use execute-step's internal
+replace-validation, preserving the task and its obligations. Low-risk private
+same-domain discoveries do not add a review beyond the confirmed checkpoint;
+elevated expansions retain cumulative review.
+
+Only a genuine task invalidation permits supersede. A later explicit replacement
+request may prepare a fresh successor with complete old-obligation disposition;
+it cannot erase unfinished facts or execute before ordinary draft confirmation.
+Supersede never automatically creates or approves a replacement.

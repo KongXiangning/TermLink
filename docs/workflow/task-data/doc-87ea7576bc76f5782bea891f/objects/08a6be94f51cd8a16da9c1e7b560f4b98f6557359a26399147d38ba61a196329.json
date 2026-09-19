@@ -1,0 +1,1 @@
+{"document_id":"doc-87ea7576bc76f5782bea891f","kind":"vnext-task-object","object_type":"evidence-report","payload":{"evidence_refs":[],"status":"not-run","validation":"逐项核对R02/R06/R09的已知边界分支：精确enum和原始records条件、phase依赖、未执行原因、普通cargo非零及runner分类对应；报告纠正旧版将ordinal 0笼统称为非法fixture的解释，保留原始失败事实，不抹除历史。只接受本计划定位的边界，不预判产品缺陷。"},"schema_version":1}

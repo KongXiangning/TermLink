@@ -315,15 +315,17 @@ fn read_target_source_with_limits(
     } else {
         None
     };
-    let active_plan = plan_active_source(
+    let active_plans = plan_active_source(
         request,
         &active_spec,
         &session,
         limits,
         formal_append_cursor.as_ref(),
+        cancelled,
+        deadline,
     )?;
     let full_lineage_read = request.mode != TargetAnalyzeMode::Preview
-        && is_full_plan(&active_plan)
+        && plans_cover_full_source(&active_plans)
         && (request.mode == TargetAnalyzeMode::Backfill
             || request.cursor.is_none()
             || !cursor_matches_active);
@@ -399,11 +401,13 @@ fn read_target_source_with_limits(
         }
     }
 
-    planned_segments.push(PlannedTargetSegment {
-        provenance: active_source.clone(),
-        plan: active_plan,
-        append_cursor: formal_append_cursor,
-    });
+    for (index, plan) in active_plans.into_iter().enumerate() {
+        planned_segments.push(PlannedTargetSegment {
+            provenance: active_source.clone(),
+            plan,
+            append_cursor: if index == 0 { formal_append_cursor.clone() } else { None },
+        });
+    }
 
     let backend = JsonlSourceBackend;
     let mut segments = Vec::with_capacity(planned_segments.len());
@@ -976,13 +980,56 @@ fn bind_spec(
     Ok(spec)
 }
 
+fn find_previous_line_start(path: &Path, candidate: u64) -> std::io::Result<u64> {
+    if candidate == 0 {
+        return Ok(0);
+    }
+    let mut file = std::fs::File::open(path)?;
+    let mut cursor = candidate;
+    let mut buffer = [0_u8; 8192];
+    use std::io::{Read, Seek, SeekFrom};
+    while cursor > 0 {
+        let chunk_size = buffer.len() as u64;
+        let start = cursor.saturating_sub(chunk_size);
+        let length = usize::try_from(cursor - start).unwrap_or(buffer.len());
+        file.seek(SeekFrom::Start(start))?;
+        file.read_exact(&mut buffer[..length])?;
+        if let Some(index) = buffer[..length].iter().rposition(|byte| *byte == b'\n') {
+            return Ok(start + index as u64 + 1);
+        }
+        cursor = start;
+    }
+    Ok(0)
+}
+
+fn plans_cover_full_source(plans: &[SourceReadPlan]) -> bool {
+    if plans.is_empty() {
+        return false;
+    }
+    let first = &plans[0];
+    if first.byte_range().start() != 0 {
+        return false;
+    }
+    let snapshot = first.snapshot_boundary().byte_length();
+    let mut covered_end = 0;
+    for plan in plans {
+        if plan.byte_range().start() != covered_end {
+            return false;
+        }
+        covered_end = plan.byte_range().end();
+    }
+    covered_end == snapshot
+}
+
 fn plan_active_source(
     request: &TargetAnalyzeRequest,
     spec: &SourceSpec,
     session: &SessionLineage,
     limits: TargetResolvedResourceLimits,
     formal_append_cursor: Option<&ForwardAppendCursor>,
-) -> Result<SourceReadPlan, TargetSourceReadError> {
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> Result<Vec<SourceReadPlan>, TargetSourceReadError> {
     let backend = JsonlSourceBackend;
     let cursor = request.cursor.as_ref();
     let cursor_matches_active = cursor.is_some_and(|cursor| {
@@ -1003,23 +1050,26 @@ fn plan_active_source(
             if spec.compression() == crate::source::SourceCompression::Zstd {
                 // Ordinary zstd has no tail/backward primitive. Active/root
                 // sources are still allowed to use a bounded forward stream.
-                return backend
+                let plan = backend
                     .plan_forward(spec)
-                    .map_err(TargetSourceReadError::ReadPlan);
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                return Ok(vec![plan]);
             }
             if cursor_matches_active {
                 let cursor = cursor.expect("cursor_matches_active implies a cursor");
-                return backend
+                let plan = backend
                     .plan_range(
                         spec,
                         SourceReadMode::BackwardRange,
                         source_range(cursor.complete_range),
                     )
-                    .map_err(TargetSourceReadError::ReadPlan);
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                return Ok(vec![plan]);
             }
-            backend
+            let plan = backend
                 .plan_tail(spec, limits.tail_bytes)
-                .map_err(TargetSourceReadError::ReadPlan)
+                .map_err(TargetSourceReadError::ReadPlan)?;
+            Ok(vec![plan])
         }
         TargetAnalyzeMode::Backfill => {
             if let Some(cursor) = cursor
@@ -1030,25 +1080,96 @@ fn plan_active_source(
                 ));
             }
             if spec.compression() == crate::source::SourceCompression::Zstd {
-                return backend
+                let plan = backend
                     .plan_forward(spec)
-                    .map_err(TargetSourceReadError::ReadPlan);
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                return Ok(vec![plan]);
             }
-            let range = if cursor_matches_active {
-                source_range_or_full(
-                    request
-                        .known_complete_range
-                        .or_else(|| cursor.map(|cursor| cursor.complete_range)),
-                    spec.path(),
-                )?
-            } else if cursor.is_none() {
-                source_range_or_full(request.known_complete_range, spec.path())?
+
+            let snapshot_len = std::fs::metadata(spec.path())
+                .map_err(|error| TargetSourceReadError::Read(error.to_string()))?
+                .len();
+            if snapshot_len == 0 {
+                let plan = backend
+                    .plan_range(
+                        spec,
+                        SourceReadMode::BackwardRange,
+                        SourceByteRange::new(0, 0).map_err(TargetSourceReadError::ReadPlan)?,
+                    )
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                return Ok(vec![plan]);
+            }
+
+            let (target_start, target_end) = if let Some(known) = request.known_complete_range {
+                if known.start == 0 && known.end < snapshot_len {
+                    (0, known.end)
+                } else if known.start > 0 && known.end < snapshot_len {
+                    (known.start, known.end)
+                } else {
+                    (0, snapshot_len)
+                }
+            } else if cursor_matches_active && let Some(cursor) = cursor {
+                if cursor.complete_range.start == 0 && cursor.complete_range.end < snapshot_len {
+                    (cursor.complete_range.end, snapshot_len)
+                } else {
+                    (0, snapshot_len)
+                }
             } else {
-                full_source_range(spec.path())?
+                (0, snapshot_len)
             };
-            backend
-                .plan_range(spec, SourceReadMode::BackwardRange, range)
-                .map_err(TargetSourceReadError::ReadPlan)
+
+            let max_segment = limits.max_segment_bytes;
+            if target_end.saturating_sub(target_start) <= max_segment {
+                let range = SourceByteRange::new(target_start, target_end)
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                let plan = backend
+                    .plan_range(spec, SourceReadMode::BackwardRange, range)
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                return Ok(vec![plan]);
+            }
+
+            let mut plans = Vec::new();
+            let mut current_start = target_start;
+            let mut total_planned_bytes = 0_u64;
+
+            while current_start < target_end {
+                check_control(cancelled, deadline)?;
+                let remaining = target_end - current_start;
+                let segment_end = if remaining <= max_segment {
+                    target_end
+                } else {
+                    let candidate = current_start.saturating_add(max_segment);
+                    let line_start = find_previous_line_start(spec.path(), candidate)
+                        .map_err(|error| TargetSourceReadError::Read(error.to_string()))?;
+                    if line_start <= current_start {
+                        return Err(TargetSourceReadError::ResourceLimit(format!(
+                            "single line in {} exceeds max_segment_bytes {}",
+                            spec.source_id(),
+                            max_segment
+                        )));
+                    }
+                    line_start
+                };
+
+                let segment_bytes = segment_end - current_start;
+                total_planned_bytes = total_planned_bytes.saturating_add(segment_bytes);
+                if total_planned_bytes > limits.max_decoded_bytes {
+                    return Err(TargetSourceReadError::ResourceLimit(format!(
+                        "aggregate planned bytes {} exceed max_decoded_bytes {}",
+                        total_planned_bytes, limits.max_decoded_bytes
+                    )));
+                }
+
+                let byte_range = SourceByteRange::new(current_start, segment_end)
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                let plan = backend
+                    .plan_range(spec, SourceReadMode::BackwardRange, byte_range)
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                plans.push(plan);
+                current_start = segment_end;
+            }
+
+            Ok(plans)
         }
         TargetAnalyzeMode::Append => {
             if let Some(cursor) = cursor
@@ -1059,9 +1180,10 @@ fn plan_active_source(
                 ));
             }
             if spec.compression() == crate::source::SourceCompression::Zstd {
-                return backend
+                let plan = backend
                     .plan_forward(spec)
-                    .map_err(TargetSourceReadError::ReadPlan);
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                return Ok(vec![plan]);
             }
             if cursor_matches_active {
                 let cursor = cursor.expect("cursor_matches_active implies a cursor");
@@ -1083,13 +1205,15 @@ fn plan_active_source(
                         "target cursor does not match persisted formal append evidence".to_string(),
                     ));
                 }
-                backend
+                let plan = backend
                     .plan_full(&append_spec)
-                    .map_err(TargetSourceReadError::ReadPlan)
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                Ok(vec![plan])
             } else {
-                backend
+                let plan = backend
                     .plan_full(spec)
-                    .map_err(TargetSourceReadError::ReadPlan)
+                    .map_err(TargetSourceReadError::ReadPlan)?;
+                Ok(vec![plan])
             }
         }
     }
@@ -1099,34 +1223,6 @@ fn source_range(range: TargetSourceByteRange) -> SourceByteRange {
     SourceByteRange::new(range.start, range.end).expect("validated target source range")
 }
 
-fn source_range_or_full(
-    range: Option<TargetSourceByteRange>,
-    path: &Path,
-) -> Result<SourceByteRange, TargetSourceReadError> {
-    match range {
-        Some(range) => Ok(source_range(range)),
-        None => full_source_range(path),
-    }
-}
-
-fn is_full_plan(plan: &SourceReadPlan) -> bool {
-    let range = plan.byte_range();
-    range.start() == 0
-        && range.end() == plan.snapshot_boundary().byte_length()
-        && matches!(
-            plan.mode(),
-            SourceReadMode::FullRead
-                | SourceReadMode::ForwardStream
-                | SourceReadMode::BackwardRange
-        )
-}
-
-fn full_source_range(path: &Path) -> Result<SourceByteRange, TargetSourceReadError> {
-    let length = fs::metadata(path)
-        .map_err(|error| TargetSourceReadError::Read(error.to_string()))?
-        .len();
-    SourceByteRange::new(0, length).map_err(TargetSourceReadError::ReadPlan)
-}
 
 fn read_segment(
     backend: &JsonlSourceBackend,

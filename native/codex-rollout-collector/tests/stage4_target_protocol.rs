@@ -3480,14 +3480,12 @@ fn target_mapping_projects_real_source_and_resumes_from_checkpoint() {
         mapped.batch.payload.next_cursor
     );
 
-    let mut retry = TargetAnalyzeRequest::new(
+    let retry = TargetAnalyzeRequest::new(
         "target-mapping-retry",
         "target-mapping-job",
         TARGET_MAPPING_CONVERSATION_ID,
         TargetAnalyzeMode::Backfill,
     );
-    retry.cursor = mapped.batch.payload.next_cursor.clone();
-    retry.persisted_anchor = Some(mapped.complete.checkpoint.clone());
     let retry_source = read_target_source(
         &retry,
         &target_startup_config(&root),
@@ -3506,6 +3504,51 @@ fn target_mapping_projects_real_source_and_resumes_from_checkpoint() {
     assert_eq!(
         retry_mapped.batch.payload.history_items,
         mapped.batch.payload.history_items
+    );
+
+    let mut incompatible_backfill = TargetAnalyzeRequest::new(
+        "target-mapping-incompatible",
+        "target-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    incompatible_backfill.cursor = mapped.batch.payload.next_cursor.clone();
+    incompatible_backfill.persisted_anchor = Some(mapped.complete.checkpoint.clone());
+    let incompatible_error = read_target_source(
+        &incompatible_backfill,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect_err("backfill must reject incompatible forward_append cursor");
+    assert!(matches!(
+        incompatible_error,
+        TargetSourceReadError::InvalidRequest(_)
+    ));
+
+    let mut append = TargetAnalyzeRequest::new(
+        "target-mapping-append",
+        "target-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Append,
+    );
+    append.cursor = mapped.batch.payload.next_cursor.clone();
+    append.persisted_anchor = Some(mapped.complete.checkpoint.clone());
+    let append_source = read_target_source(
+        &append,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("append consuming promoted cursor succeeds");
+    let append_mapped =
+        map_target_source_read(&append, &append_source).expect("append mapping succeeds");
+    assert_eq!(
+        append_mapped
+            .batch
+            .payload
+            .next_cursor
+            .as_ref()
+            .map(|c| c.cursor_kind),
+        Some(TargetCursorKind::ForwardAppend)
     );
 }
 
@@ -4259,7 +4302,7 @@ fn target_mapping_covers_mode_specific_gap_shrink_and_unfinished_tail_boundaries
         ));
     let complete_contents = fs::read_to_string(fixture_path).expect("boundary fixture reads");
     let path = write_target_fixture(&root, TARGET_MAPPING_CONVERSATION_ID, &complete_contents);
-    let modes = [
+    let complete_modes = [
         (
             "preview",
             TargetAnalyzeMode::Preview,
@@ -4268,11 +4311,11 @@ fn target_mapping_covers_mode_specific_gap_shrink_and_unfinished_tail_boundaries
         (
             "backfill",
             TargetAnalyzeMode::Backfill,
-            TargetCursorKind::Backfill,
+            TargetCursorKind::ForwardAppend,
         ),
     ];
 
-    for (label, mode, expected_cursor_kind) in modes {
+    for (label, mode, expected_cursor_kind) in complete_modes {
         let request = TargetAnalyzeRequest::new(
             format!("target-boundary-complete-{label}"),
             format!("target-boundary-complete-job-{label}"),
@@ -4317,7 +4360,19 @@ fn target_mapping_covers_mode_specific_gap_shrink_and_unfinished_tail_boundaries
         "{complete_contents}{separator}{{\"timestamp\":\"2026-08-26T00:00:02\",\"ordinal\":2,\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_complete\""
     );
     fs::write(&path, unfinished_contents).expect("unfinished tail fixture writes");
-    for (label, mode, expected_cursor_kind) in modes {
+    let unfinished_modes = [
+        (
+            "preview",
+            TargetAnalyzeMode::Preview,
+            TargetCursorKind::TailPreview,
+        ),
+        (
+            "backfill",
+            TargetAnalyzeMode::Backfill,
+            TargetCursorKind::Backfill,
+        ),
+    ];
+    for (label, mode, expected_cursor_kind) in unfinished_modes {
         let request = TargetAnalyzeRequest::new(
             format!("target-boundary-tail-{label}"),
             format!("target-boundary-tail-job-{label}"),
@@ -4379,7 +4434,7 @@ fn target_mapping_covers_mode_specific_gap_shrink_and_unfinished_tail_boundaries
         "{complete_contents}{separator}{{not-json}}\n{{\"timestamp\":\"2026-08-26T00:00:03\",\"ordinal\":2,\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_complete\"}}}}\n"
     );
     fs::write(&path, malformed_contents).expect("malformed boundary fixture writes");
-    for (label, mode, _) in modes {
+    for (label, mode, _) in complete_modes {
         let request = TargetAnalyzeRequest::new(
             format!("target-boundary-gap-{label}"),
             format!("target-boundary-gap-job-{label}"),
@@ -4419,7 +4474,7 @@ fn target_mapping_covers_mode_specific_gap_shrink_and_unfinished_tail_boundaries
     }
 
     fs::write(&path, complete_contents).expect("complete boundary fixture restores");
-    for (label, mode, _) in modes {
+    for (label, mode, _) in complete_modes {
         let request = TargetAnalyzeRequest::new(
             format!("target-boundary-shrink-{label}"),
             format!("target-boundary-shrink-job-{label}"),

@@ -140,7 +140,7 @@ fn map_target_source_read_inner(
         .map(|cursor| cursor.complete_range)
         .or_else(|| {
             if cursor_boundary_is_safe(source, active_segment) {
-                active_segment.complete_range
+                active_source_complete_range(source).or(active_segment.complete_range)
             } else {
                 // A gap or source mutation invalidates the reported physical
                 // boundary. Do not expose even a partial range that could be
@@ -858,6 +858,14 @@ fn restore_checkpoint_state(
         )));
     }
 
+    if request.mode == TargetAnalyzeMode::Backfill {
+        // Backfill processes missing history in forward chronological order.
+        // Restoring tail preview checkpoint state pollutes adapter turn/tool attribution
+        // and produces corrupted reducer keys/state (RUST-001). Checkpoint format
+        // validation above still applies.
+        return Ok(());
+    }
+
     let object = checkpoint
         .reducer_state
         .payload
@@ -892,15 +900,10 @@ fn build_next_cursor(
     }
     let complete_range = active_segment.complete_range?;
     match request.mode {
-        TargetAnalyzeMode::Preview | TargetAnalyzeMode::Backfill => {
+        TargetAnalyzeMode::Preview => {
             let last_line = last_complete_line(active_records, complete_range.end)?;
-            let cursor_kind = if request.mode == TargetAnalyzeMode::Preview {
-                TargetCursorKind::TailPreview
-            } else {
-                TargetCursorKind::Backfill
-            };
             manual_cursor(
-                cursor_kind,
+                TargetCursorKind::TailPreview,
                 source,
                 active_segment,
                 complete_range,
@@ -910,6 +913,29 @@ fn build_next_cursor(
                     .filter_map(|record| record.rollout_ordinal)
                     .max(),
             )
+        }
+        TargetAnalyzeMode::Backfill => {
+            if let Some(formal_cursor) = formal_append_cursor
+                && active_segment.complete
+                && active_source_covers_full_snapshot(source, active_segment)
+            {
+                TargetAnalyzerCursor::from_source_metadata(formal_cursor.metadata()).ok()
+            } else {
+                let effective_range =
+                    active_source_complete_range(source).unwrap_or(complete_range);
+                let last_line = last_complete_line(active_records, effective_range.end)?;
+                manual_cursor(
+                    TargetCursorKind::Backfill,
+                    source,
+                    active_segment,
+                    effective_range,
+                    Some(last_line),
+                    active_records
+                        .iter()
+                        .filter_map(|record| record.rollout_ordinal)
+                        .max(),
+                )
+            }
         }
         TargetAnalyzeMode::Append => formal_append_cursor
             .filter(|_| active_segment.complete)
@@ -978,6 +1004,54 @@ fn manual_cursor(
     cursor.validate().ok().map(|_| cursor)
 }
 
+fn active_source_complete_range(source: &TargetSourceRead) -> Option<TargetSourceByteRange> {
+    let active_segments: Vec<_> = source
+        .segments
+        .iter()
+        .filter(|segment| segment.source_id == source.source_id)
+        .collect();
+    if active_segments.is_empty() {
+        return None;
+    }
+    let mut covered_start = None;
+    let mut covered_end = 0_u64;
+    for (index, segment) in active_segments.iter().enumerate() {
+        if !segment.complete
+            || segment.parse_gap_count > 0
+            || segment.source_shrank_during_read
+            || segment.pending_tail_bytes > 0
+        {
+            return None;
+        }
+        let range = segment.complete_range?;
+        if index == 0 {
+            covered_start = Some(range.start);
+            covered_end = range.end;
+        } else {
+            if range.start != covered_end {
+                return None;
+            }
+            covered_end = range.end;
+        }
+    }
+    Some(TargetSourceByteRange {
+        start: covered_start?,
+        end: covered_end,
+    })
+}
+
+fn active_source_covers_full_snapshot(
+    source: &TargetSourceRead,
+    active_segment: &TargetSourceSegmentEvidence,
+) -> bool {
+    if !cursor_boundary_is_safe(source, active_segment) {
+        return false;
+    }
+    active_source_complete_range(source).is_some_and(|range| {
+        range.start == 0 && range.end == active_segment.snapshot_boundary.byte_length
+    })
+}
+
 fn formal_next_append_cursor(
     source: &TargetSourceRead,
     active_segment: &TargetSourceSegmentEvidence,
@@ -986,11 +1060,9 @@ fn formal_next_append_cursor(
     if active_segment.mode == crate::source::SourceReadMode::ForwardRange {
         return source.append_cursor.clone();
     }
-    if active_segment.mode == crate::source::SourceReadMode::FullRead
-        && active_segment.complete
-        && active_segment.complete_range.is_some_and(|range| {
-            range.start == 0 && range.end == active_segment.snapshot_boundary.byte_length
-        })
+    if (active_segment.mode == crate::source::SourceReadMode::FullRead
+        || active_segment.mode == crate::source::SourceReadMode::BackwardRange)
+        && active_source_covers_full_snapshot(source, active_segment)
     {
         return promote_full_snapshot_formal(source, active_segment, active_records);
     }
@@ -1405,10 +1477,12 @@ fn delivery_scope(
     source_range: Option<TargetSourceByteRange>,
     cursor: Option<&TargetAnalyzerCursor>,
 ) -> TargetSourceScope {
-    let cursor_kind = Some(match request.mode {
-        TargetAnalyzeMode::Preview => TargetCursorKind::TailPreview,
-        TargetAnalyzeMode::Backfill => TargetCursorKind::Backfill,
-        TargetAnalyzeMode::Append => TargetCursorKind::ForwardAppend,
+    let cursor_kind = cursor.as_ref().map(|cursor| cursor.cursor_kind).or_else(|| {
+        Some(match request.mode {
+            TargetAnalyzeMode::Preview => TargetCursorKind::TailPreview,
+            TargetAnalyzeMode::Backfill => TargetCursorKind::Backfill,
+            TargetAnalyzeMode::Append => TargetCursorKind::ForwardAppend,
+        })
     });
     let safe_boundary = cursor_boundary_is_safe(source, active_segment);
     let last_complete_line = cursor

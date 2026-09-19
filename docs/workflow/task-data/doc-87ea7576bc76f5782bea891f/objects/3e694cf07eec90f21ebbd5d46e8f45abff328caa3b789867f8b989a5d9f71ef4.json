@@ -1,0 +1,1 @@
+{"document_id":"doc-87ea7576bc76f5782bea891f","kind":"vnext-task-object","object_type":"evidence-report","payload":{"evidence_refs":[],"status":"not-run","validation":"使用同一OS TEMP target-dir运行既有conformance和stage4_target_protocol，101回归单列。stage3_conformance正式promotion测试仅作为只读实现参考，不虚报本轮运行或额外case。构建/日志只在OS TEMP，Git锁文件不变。"},"schema_version":1}

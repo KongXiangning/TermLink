@@ -11,7 +11,7 @@ runtime_distribution:
   package_manifest: .workflow-system/runtime/package.json
   lockfile: .workflow-system/runtime/package-lock.json
   package_name: vibe-coding-vnext-runtime
-  package_version: 0.20.0
+  package_version: 0.20.2
   node_min_version: ">=20.0.0"
 
 task_context:
@@ -75,8 +75,8 @@ task_context:
 task_store:
   schema_version: 1
   kind: vnext-task-store-contract
-  # v2 compact CURRENT_TASK binds this same manifest head to the current
-  # presentation; v1 sidecars remain readable until explicit migration.
+  # v3 is a lossless active projection of this same aggregate. Existing inline
+  # and compact-v2 tasks remain readable until explicit storage migration.
   root: <workflow_home>/task-data/<document_id>
   objects: objects/<sha256>.json
   events: events/<sequence>-<sha256>.json
@@ -89,6 +89,22 @@ task_store:
   migration: preview-confirm-commit-with-source-revision
   garbage_collection: disabled-in-v1
   target_owned_data: task-data-is-never-removed-by-distribution-upgrade
+  active_projection:
+    format: compact-v3
+    canonical_roots: CURRENT_TASK-definition-state-and-acknowledged-manifest
+    material: immutable-content-addressed-definition-state-reports
+    history: preserve-exact-preimages-events-and-idempotency
+    legacy: read-without-rewrite-and-explicit-storage-migration
+    admission: no-size-quota-or-business-transition
+    receipt_continuity: committed-storage-only-lineage-and-equal-logical-state
+    wire_compatibility: frozen-v3-model-not-current-serializer-bytes
+  diagnostics:
+    response: validate --summary/storage_metrics
+    kind: task-storage-metrics/v1
+    read_only: true
+    authority: none
+    persistence: none
+    incomplete: null-with-reason-not-a-gate
 
 proposal:
   schema_version: 1
@@ -138,6 +154,11 @@ proposal:
     required:
       - review_cycle_id
       - repair_wave_id
+  process_control:
+    user_evidence: exact-frozen-slot-and-subject; append-verbatim-Task-Basis; caller-reported-not-authenticated
+    waiver: user-owned-current-obligation-only; preserve-failed-or-missing-report; exact-result-waiver-decision-id; validation-labels-require-exclusive-frozen-check-ownership-at-record-and-consume; no-review-or-policy-bypass
+    successor: explicit-predecessor-decision-and-complete-obligation-map; fresh-draft-identity; predecessor-remains-superseded; exact-prepared-orphan-retry-only; ordinary-confirmation-required
+    validation_adjustment: replace-validation; one-read-only-check; preserve-observation-boundary-subjects-validation-ownership-exact-granularity-selector-authority-and-budgets; no-task-redefinition
   task_state:
     actions:
       - retry-step
@@ -145,6 +166,7 @@ proposal:
       - extend-preflight
       - step-progress
       - consume-retained-review
+      - record-user-evidence
       - clear-resume-review-gate
       - create-draft
       - update-draft
@@ -235,11 +257,12 @@ proposal:
         retry_budget_change: forbidden
         continuation: forbidden
         replacement_receipt: required
-        review: cumulative-review-required-for-self-admitted-expansion
+        review: risk-selected-cumulative-review-for-self-admitted-expansion
         repair: same-evaluator-same-wave-no-retry-consumption
         first_touch: append-only-for-new-targets
     claim_evidence:
       stored_in: canonical CURRENT_TASK.runtime_state
+      report_binding: exact-claim-slot-check-only; command pass never creates or satisfies another slot
       record_fields:
         - claim_id
         - claim_kind
@@ -257,6 +280,7 @@ proposal:
         - check
         - report
         - prerequisite_receipt
+        - user_decision
       complete_dispositions:
         - existing
         - reused
@@ -265,7 +289,40 @@ proposal:
         - missing
         - deferred
         - blocked
-      completion_rule: non-empty acceptance-bearing frozen plan; due slots require bound successful reports and applicable subject revisions; close checks all slots and consumed prerequisites
+      execution_selection:
+        invocation_kinds:
+          - structured
+          - opaque
+        fields:
+          - granularity
+          - selector
+          - selection_reason
+          - breadth_reason
+          - breadth_basis
+          - breadth_source_ref
+          - invocation
+        check_boundaries:
+          - local
+          - business-flow
+          - e2e
+        granularities:
+          - focused
+          - target
+          - broad-regression
+        breadth_bases:
+          - claim-risk-contract
+          - acceptance-boundary
+          - low-cost-evidence-insufficient
+          - project-policy
+          - release-gate
+          - explicit-user
+        freshness: new-or-changed-check-identity-across-draft-update-confirm-replan-recovery; unchanged-confirmed-legacy-compatible
+        command_binding: structured-argv-selector-or-verbatim-opaque-command-equals-entry-and-exact-due-step-planned-command; opaque-cannot-claim-focused
+        business_flow: per-check-boundary-independent-of-granularity; same-claim-rule-and-flow-slots; no-test-type-hierarchy
+        authority_binding: explicit-user-exact-task-basis; policy-and-release-canonical-repository-source; claim-bases-exact-current-claim-and-its-existing-task-basis-or-repository-source
+        e2e_admission: acceptance-boundary-or-low-cost-insufficiency-or-project-policy-or-release-gate-or-explicit-user
+        broad_admission: claim-risk-contract-or-project-policy-or-release-gate-or-explicit-user
+      completion_rule: non-empty acceptance-bearing frozen plan; due slots require bound successful reports or exact applicable user waivers; waivers never imply PASS; close checks all slots and consumed prerequisites
     claim_evidence_migration:
       mode: default
       action: migrate-claim-evidence
@@ -274,7 +331,7 @@ proposal:
         - evidence_refs
       from: active + active legacy-or-empty-plan
       to: active + active
-      mutation: install one non-empty acceptance-bearing frozen claim_evidence plan; do not change task semantics
+      mutation: reconstruct legacy claim/slot/check identities; execution entries must equal existing planned commands at their original due steps; modern selection metadata is not required
       preserves:
         - TASK_ID
         - TASK_SLUG
@@ -366,7 +423,7 @@ proposal:
       target: draft + active
       previous_close_reconciliation:
         archive: required
-        status: required
+        status: non-blocking
         admitted_lesson: required-or-durable-reuse-proof
       step_admission:
         all_steps_metadata_complete: true
@@ -406,6 +463,7 @@ proposal:
         - extend-preflight
         - evidence-context
         - retry-step
+        - replace-validation
         - begin-repair
         - record-step-result
         - complete-reviewed-step
@@ -474,6 +532,9 @@ proposal:
       input: stdin-json
       commands:
         - prepare-draft
+        - prepare-successor
+        - record-human-acceptance
+        - record-evidence-waiver
         - confirm-draft
         - clear-resume-review
         - replan
@@ -569,6 +630,7 @@ proposal:
         mark-replan-blocked: runtime-convergence
         clear-replan-block: runtime-convergence
     bound_actions:
+      - record-user-evidence
       - clear-resume-review-gate
       - create-draft
       - update-draft
@@ -819,7 +881,7 @@ mutation_scope:
     conventional_paths: runtime-classified
     nonconventional_paths: caller-declared
     legacy_missing_section: compatibility-unenforced
-  changed_goal_scope_acceptance: supersede-or-replan
+  changed_goal_scope_acceptance: bounded-correction-amendment-or-supersede-successor
   check_command: scope-check
   input:
     required:
@@ -875,7 +937,7 @@ mutation_authority:
     - blast_radius
     - evidence_refs
     - disposition
-  dynamic_review: mandatory-cumulative-review-for-self-admitted-expansion
+  dynamic_review: risk-selected-cumulative-review-for-self-admitted-expansion
   cross_envelope_error: MUTATION_AUTHORITY_EXPANSION_REQUIRED
   extension_action: execute-step:extend-preflight
   extension_identity: stable-execution-id-with-current-receipt-token
@@ -1024,7 +1086,7 @@ canonical_current_task:
       repair_round_max: 3
       same_repair_wave_counts_once: true
       verification_new_finding_wave_max: 1
-  source_of_truth: same-canonical-CURRENT_TASK-document
+  source_of_truth: CURRENT_TASK-head-plus-selected-immutable-roots-one-canonical-aggregate
   legacy_schema_behavior: migration-required
 
 concurrency:

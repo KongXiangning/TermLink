@@ -1,0 +1,1 @@
+{"document_id":"doc-87ea7576bc76f5782bea891f","kind":"vnext-task-object","object_type":"evidence-report","payload":{"evidence_refs":["docs/codex/codex-rollout-collector-business-test-matrix.md","docs/changes/records/CR-20260914-rust-issues-audit-s1.md"],"status":"passed","validation":"业务矩阵形成后对RUST-001..009逐项映射，无法映射先核查业务/数据遗漏或未采纳扩展，不能反向用台账定义需求。"},"schema_version":1}

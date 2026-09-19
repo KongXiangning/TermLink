@@ -1,0 +1,1 @@
+{"document_id":"doc-87ea7576bc76f5782bea891f","kind":"vnext-task-object","object_type":"evidence-report","payload":{"evidence_refs":[],"status":"not-run","validation":"运行前静态核对32例请求和输入：新意图新job，同意图重试保留job；cursor与checkpoint一致且kind适用于mode；无checkpoint拼接/伪造batch；测试schema、依赖断言与类型化错误分支有明确处置。六项finding逐项对照，不因旧修改已存在就认定完成。"},"schema_version":1}
