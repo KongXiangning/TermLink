@@ -44,3 +44,4 @@ pub use segment::{
     SegmentAssembler, SegmentAssembly, SegmentAssemblyLimits, SegmentCarrier, SegmentCarrierKind,
     SegmentCompleteness, SegmentDescriptor, SegmentError, SegmentGap, SourceSegment,
 };
+pub(crate) use segment::StreamingRecordSummary;

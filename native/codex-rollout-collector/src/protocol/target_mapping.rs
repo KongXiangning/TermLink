@@ -27,9 +27,9 @@ use crate::model::{
 };
 use crate::protocol::batch::{AnalysisBatch, BatchCompleteness, BatchDiagnostic, ParserProvenance};
 use crate::source::{
-    CURSOR_READER_BACKEND, CURSOR_READER_VERSION, ForwardAppendCursor, SegmentAssembler,
+    CURSOR_READER_BACKEND, CURSOR_READER_VERSION, ForwardAppendCursor, SegmentAssembly,
     SegmentCompleteness, SegmentDescriptor, SnapshotBoundary, SourceByteRange, SourceRecord,
-    SourceSegment, SourceSpec,
+    SourceSpec, StreamingRecordSummary,
 };
 
 use super::target::{
@@ -111,14 +111,6 @@ fn map_target_source_read_inner(
                 source.source_id
             ))
         })?;
-    let (records, overlap_conflict) =
-        deduplicate_records(source, &source.records, cancelled, deadline)?;
-    let active_records = records
-        .iter()
-        .filter(|record| record.source_identity == active_segment.source_id)
-        .cloned()
-        .collect::<Vec<_>>();
-
     // Debug-only fixture control used by the target process tests to hold the
     // worker inside mapping after source I/O has completed. It is deliberately
     // before the formal promotion branch so the shared deadline/cancel check
@@ -126,13 +118,45 @@ fn map_target_source_read_inner(
     // mapping pass.
     target_test_delay("TERMLINK_TARGET_PROTOCOL_TEST_MAPPING_DELAY_MS");
     check_mapping_control(cancelled, deadline)?;
-    let formal_cursor = formal_next_append_cursor(source, active_segment, &active_records);
+
+    let mut adapter = CodexEventAdapter::new_with_conversation_id(
+        CompatibilityProfile::Current,
+        Some(request.conversation_id.clone()),
+    );
+    let mut reducer = AnalysisReducer::new(Some(request.conversation_id.clone()));
+    restore_checkpoint_state(request, source, &mut adapter, &mut reducer)?;
+    let restored_reducer = reducer.clone();
+
+    let source_read_complete = source.segments.iter().all(segment_is_complete)
+        && !source.segments.is_empty();
+    let (mut legacy_batch, record_summary) = adapt_records(
+        &adapter,
+        source,
+        false,
+        source_read_complete,
+        cancelled,
+        deadline,
+    )?;
+    legacy_batch.source_id = Some(source.source_id.clone());
+    if !source.lineage_transitions.is_empty() {
+        legacy_batch.history_base = source.active_source.history_base.clone();
+    }
+
+    let overlap_conflict = record_summary.overlap_conflict;
+    let source_read_complete = source_read_complete && !overlap_conflict;
+    let formal_cursor = formal_next_append_cursor(
+        source,
+        active_segment,
+        &record_summary.active_promotion,
+        cancelled,
+        deadline,
+    )?;
     check_mapping_control(cancelled, deadline)?;
     let cursor = build_next_cursor(
         request,
         source,
         active_segment,
-        &active_records,
+        &record_summary.active,
         formal_cursor.as_ref(),
     );
     let source_range = cursor
@@ -148,30 +172,6 @@ fn map_target_source_read_inner(
                 None
             }
         });
-
-    let mut adapter = CodexEventAdapter::new_with_conversation_id(
-        CompatibilityProfile::Current,
-        Some(request.conversation_id.clone()),
-    );
-    let mut reducer = AnalysisReducer::new(Some(request.conversation_id.clone()));
-    restore_checkpoint_state(request, source, &mut adapter, &mut reducer)?;
-    let restored_reducer = reducer.clone();
-
-    let source_read_complete = source.segments.iter().all(segment_is_complete)
-        && !source.segments.is_empty()
-        && !overlap_conflict;
-    let mut legacy_batch = adapt_records(
-        &adapter,
-        &records,
-        source,
-        source_read_complete,
-        cancelled,
-        deadline,
-    )?;
-    legacy_batch.source_id = Some(source.source_id.clone());
-    if !source.lineage_transitions.is_empty() {
-        legacy_batch.history_base = source.active_source.history_base.clone();
-    }
 
     let lineage_validation_batch =
         build_lineage_validation_batch(request, source, cancelled, deadline)?;
@@ -286,7 +286,13 @@ fn map_target_source_read_inner(
         tool_details,
         usage,
         task_outcomes,
-        progress: progress_for(source, &records, completeness, cancelled, deadline)?,
+        progress: progress_for(
+            source,
+            record_summary.unique_records,
+            completeness,
+            cancelled,
+            deadline,
+        )?,
         next_cursor: cursor.clone(),
         mutations,
         reducer_state: Some(reducer_state.clone()),
@@ -303,7 +309,7 @@ fn map_target_source_read_inner(
         request,
         source,
         active_segment,
-        &active_records,
+        &record_summary.active,
         source_range,
         cursor.as_ref(),
     );
@@ -328,7 +334,7 @@ fn map_target_source_read_inner(
         request,
         source,
         active_segment,
-        &active_records,
+        &record_summary.active,
         source_range,
         cursor.clone(),
         completeness,
@@ -472,46 +478,100 @@ fn segment_is_complete(segment: &TargetSourceSegmentEvidence) -> bool {
         && !segment.source_shrank_during_read
 }
 
-fn deduplicate_records(
-    source: &TargetSourceRead,
-    records: &[SourceRecord],
-    cancelled: Option<&AtomicBool>,
-    deadline: Option<Instant>,
-) -> Result<(Vec<SourceRecord>, bool), TargetSourceReadError> {
-    type RecordKey = (String, u64, u64, u64, Option<u64>);
+#[derive(Debug, Default)]
+struct ActiveRecordSummary {
+    first_physical_line: Option<u64>,
+    last_physical_line: Option<u64>,
+    last_rollout_ordinal: Option<u64>,
+    last_complete_line: Option<TargetCompleteLineBoundary>,
+}
 
-    let mut seen = BTreeMap::<RecordKey, SourceRecord>::new();
-    let mut ordered = Vec::with_capacity(records.len());
-    let mut conflict = false;
-    for record in records {
-        check_mapping_control(cancelled, deadline)?;
-        let key = (
-            record.source_identity.clone(),
-            record.byte_start,
-            record.byte_end,
-            record.physical_line_ordinal,
-            record.rollout_ordinal,
+impl ActiveRecordSummary {
+    fn observe(&mut self, record: &SourceRecord) {
+        self.first_physical_line = Some(
+            self.first_physical_line
+                .map_or(record.physical_line_ordinal, |value| {
+                    value.min(record.physical_line_ordinal)
+                }),
         );
-        if let Some(existing) = seen.get(&key) {
-            if existing != record {
-                conflict = true;
-            }
-            continue;
+        self.last_physical_line = Some(
+            self.last_physical_line
+                .map_or(record.physical_line_ordinal, |value| {
+                    value.max(record.physical_line_ordinal)
+                }),
+        );
+        if let Some(ordinal) = record.rollout_ordinal {
+            self.last_rollout_ordinal = Some(
+                self.last_rollout_ordinal
+                    .map_or(ordinal, |value| value.max(ordinal)),
+            );
         }
-        seen.insert(key, record.clone());
-        ordered.push(record.clone());
+        if record.parse_error.is_none() {
+            let candidate = TargetCompleteLineBoundary {
+                physical_line_ordinal: record.physical_line_ordinal,
+                byte_start: record.byte_start,
+                byte_end: record.byte_end,
+            };
+            if self
+                .last_complete_line
+                .as_ref()
+                .is_none_or(|current| {
+                    (candidate.byte_end, candidate.physical_line_ordinal)
+                        > (current.byte_end, current.physical_line_ordinal)
+                })
+            {
+                self.last_complete_line = Some(candidate);
+            }
+        }
     }
-    ordered.sort_by(|left, right| {
-        source_chain_rank(source, &left.source_identity)
-            .cmp(&source_chain_rank(source, &right.source_identity))
-            .then_with(|| left.byte_start.cmp(&right.byte_start))
-            .then_with(|| left.byte_end.cmp(&right.byte_end))
-            .then_with(|| left.physical_line_ordinal.cmp(&right.physical_line_ordinal))
-            .then_with(|| left.rollout_ordinal.cmp(&right.rollout_ordinal))
-            .then_with(|| left.source_identity.cmp(&right.source_identity))
-    });
-    check_mapping_control(cancelled, deadline)?;
-    Ok((ordered, conflict))
+}
+
+#[derive(Debug, Default)]
+struct RecordPassSummary {
+    unique_records: u64,
+    overlap_conflict: bool,
+    active: ActiveRecordSummary,
+    active_promotion: StreamingRecordSummary,
+}
+
+#[derive(Debug, Default)]
+struct SourceRecordFrontier {
+    initialized: bool,
+    byte_end: u64,
+}
+
+#[derive(Debug, Default)]
+struct StreamingRecordDeduplicator {
+    /// Keep one compact position frontier per physical source.  The source
+    /// bridge replays windows in source order, so a record wholly below this
+    /// frontier is an overlap retry and can be dropped without retaining
+    /// prior raw records or a cumulative record-key set.
+    frontiers: BTreeMap<String, SourceRecordFrontier>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RecordDisposition {
+    New,
+    Duplicate,
+    ConflictingOverlap,
+}
+
+impl StreamingRecordDeduplicator {
+    fn observe(&mut self, record: &SourceRecord) -> RecordDisposition {
+        let frontier = self
+            .frontiers
+            .entry(record.source_identity.clone())
+            .or_default();
+        if !frontier.initialized || record.byte_start >= frontier.byte_end {
+            frontier.initialized = true;
+            frontier.byte_end = frontier.byte_end.max(record.byte_end);
+            return RecordDisposition::New;
+        }
+        if record.byte_end <= frontier.byte_end {
+            return RecordDisposition::Duplicate;
+        }
+        RecordDisposition::ConflictingOverlap
+    }
 }
 
 fn source_chain_rank(source: &TargetSourceRead, source_id: &str) -> u64 {
@@ -525,12 +585,12 @@ fn source_chain_rank(source: &TargetSourceRead, source_id: &str) -> u64 {
 
 fn adapt_records(
     adapter: &CodexEventAdapter,
-    records: &[SourceRecord],
     source: &TargetSourceRead,
+    lineage: bool,
     source_read_complete: bool,
     cancelled: Option<&AtomicBool>,
     deadline: Option<Instant>,
-) -> Result<AnalysisBatch, TargetSourceReadError> {
+) -> Result<(AnalysisBatch, RecordPassSummary), TargetSourceReadError> {
     let mut batch = AnalysisBatch::empty(CompatibilityProfile::Current);
     batch.completeness = if source_read_complete {
         BatchCompleteness::Provisional
@@ -538,8 +598,27 @@ fn adapt_records(
         BatchCompleteness::Partial
     };
 
-    for record in records {
+    let mut summary = RecordPassSummary::default();
+    let mut deduplicator = StreamingRecordDeduplicator::default();
+    source.for_each_record(lineage, |record| {
         check_mapping_control(cancelled, deadline)?;
+        match deduplicator.observe(record) {
+            RecordDisposition::New => {}
+            RecordDisposition::Duplicate => return Ok(()),
+            RecordDisposition::ConflictingOverlap => {
+                summary.overlap_conflict = true;
+                return Ok(());
+            }
+        }
+        summary.unique_records = summary.unique_records.saturating_add(1);
+        if record.source_identity == source.source_id {
+            summary.active.observe(record);
+            summary
+                .active_promotion
+                .observe(record)
+                .map_err(|error| mapping_error(format!("summarize source record: {error}")))?;
+        }
+
         let decoded = decode_source_record(record, CompatibilityProfile::Current);
         let mut events = adapter.adapt(record, decoded);
         for (index, event) in events.iter_mut().enumerate() {
@@ -561,6 +640,17 @@ fn adapt_records(
             }
         }
         batch.items.extend(events);
+        Ok(())
+    })?;
+
+    if summary.overlap_conflict {
+        batch.complete = false;
+        batch.diagnostics.push(BatchDiagnostic {
+            code: "overlap_conflict".to_string(),
+            message: Some("overlapping source records disagree".to_string()),
+            source_ref: None,
+            availability: Availability::PartialRollout,
+        });
     }
 
     for segment in &source.segments {
@@ -591,7 +681,7 @@ fn adapt_records(
         }
     }
 
-    Ok(batch)
+    Ok((batch, summary))
 }
 
 fn mapping_diagnostic_for(event: &AnalysisEvent) -> BatchDiagnostic {
@@ -684,7 +774,7 @@ fn build_lineage_validation_batch(
     cancelled: Option<&AtomicBool>,
     deadline: Option<Instant>,
 ) -> Result<Option<AnalysisBatch>, TargetSourceReadError> {
-    let (Some(records), Some(segments)) = (
+    let (Some(_records), Some(segments)) = (
         source.lineage_records.as_ref(),
         source.lineage_segments.as_ref(),
     ) else {
@@ -701,9 +791,11 @@ fn build_lineage_validation_batch(
         active_source: source.active_source.clone(),
         discovered_sources: Vec::new(),
         segments: segments.clone(),
-        records: Vec::new(),
+        records: source.lineage_records.clone().unwrap_or_default(),
+        record_spool: source.lineage_record_spool.clone(),
         lineage_segments: None,
         lineage_records: None,
+        lineage_record_spool: None,
         append_cursor: None,
         lineage_transitions: Vec::new(),
         lineage_coverage: source.lineage_coverage.clone(),
@@ -713,10 +805,10 @@ fn build_lineage_validation_batch(
         CompatibilityProfile::Current,
         Some(request.conversation_id.clone()),
     );
-    let mut batch = adapt_records(
+    let (mut batch, _) = adapt_records(
         &adapter,
-        records,
         &validation_source,
+        false,
         true,
         cancelled,
         deadline,
@@ -889,7 +981,7 @@ fn build_next_cursor(
     request: &TargetAnalyzeRequest,
     source: &TargetSourceRead,
     active_segment: &TargetSourceSegmentEvidence,
-    active_records: &[SourceRecord],
+    active_records: &ActiveRecordSummary,
     formal_append_cursor: Option<&ForwardAppendCursor>,
 ) -> Option<TargetAnalyzerCursor> {
     if active_segment.compression != TargetSourceCompression::PlainJsonl {
@@ -901,17 +993,18 @@ fn build_next_cursor(
     let complete_range = active_segment.complete_range?;
     match request.mode {
         TargetAnalyzeMode::Preview => {
-            let last_line = last_complete_line(active_records, complete_range.end)?;
+            let last_line = active_records
+                .last_complete_line
+                .as_ref()
+                .filter(|line| line.byte_end == complete_range.end)
+                .cloned()?;
             manual_cursor(
                 TargetCursorKind::TailPreview,
                 source,
                 active_segment,
                 complete_range,
                 Some(last_line),
-                active_records
-                    .iter()
-                    .filter_map(|record| record.rollout_ordinal)
-                    .max(),
+                active_records.last_rollout_ordinal,
             )
         }
         TargetAnalyzeMode::Backfill => {
@@ -923,17 +1016,18 @@ fn build_next_cursor(
             } else {
                 let effective_range =
                     active_source_complete_range(source).unwrap_or(complete_range);
-                let last_line = last_complete_line(active_records, effective_range.end)?;
+                let last_line = active_records
+                    .last_complete_line
+                    .as_ref()
+                    .filter(|line| line.byte_end == effective_range.end)
+                    .cloned()?;
                 manual_cursor(
                     TargetCursorKind::Backfill,
                     source,
                     active_segment,
                     effective_range,
                     Some(last_line),
-                    active_records
-                        .iter()
-                        .filter_map(|record| record.rollout_ordinal)
-                        .max(),
+                    active_records.last_rollout_ordinal,
                 )
             }
         }
@@ -941,21 +1035,6 @@ fn build_next_cursor(
             .filter(|_| active_segment.complete)
             .and_then(|cursor| TargetAnalyzerCursor::from_source_metadata(cursor.metadata()).ok()),
     }
-}
-
-fn last_complete_line(records: &[SourceRecord], end: u64) -> Option<TargetCompleteLineBoundary> {
-    if end == 0 {
-        return None;
-    }
-    records
-        .iter()
-        .filter(|record| record.byte_end == end && record.parse_error.is_none())
-        .max_by_key(|record| record.physical_line_ordinal)
-        .map(|record| TargetCompleteLineBoundary {
-            physical_line_ordinal: record.physical_line_ordinal,
-            byte_start: record.byte_start,
-            byte_end: record.byte_end,
-        })
 }
 
 fn cursor_boundary_is_safe(
@@ -1055,24 +1134,31 @@ fn active_source_covers_full_snapshot(
 fn formal_next_append_cursor(
     source: &TargetSourceRead,
     active_segment: &TargetSourceSegmentEvidence,
-    active_records: &[SourceRecord],
-) -> Option<ForwardAppendCursor> {
+    active_summary: &StreamingRecordSummary,
+    cancelled: Option<&AtomicBool>,
+    deadline: Option<Instant>,
+) -> Result<Option<ForwardAppendCursor>, TargetSourceReadError> {
     if active_segment.mode == crate::source::SourceReadMode::ForwardRange {
-        return source.append_cursor.clone();
+        return Ok(source.append_cursor.clone());
     }
     if (active_segment.mode == crate::source::SourceReadMode::FullRead
         || active_segment.mode == crate::source::SourceReadMode::BackwardRange)
         && active_source_covers_full_snapshot(source, active_segment)
     {
-        return promote_full_snapshot_formal(source, active_segment, active_records);
+        check_mapping_control(cancelled, deadline)?;
+        return Ok(promote_full_snapshot_formal(
+            source,
+            active_segment,
+            active_summary,
+        ));
     }
-    None
+    Ok(None)
 }
 
 fn promote_full_snapshot_formal(
     source: &TargetSourceRead,
     active_segment: &TargetSourceSegmentEvidence,
-    active_records: &[SourceRecord],
+    active_summary: &StreamingRecordSummary,
 ) -> Option<ForwardAppendCursor> {
     // Keep this delay inside the formal promotion path, rather than around
     // the worker, so tests exercise the exact boundary where a shared
@@ -1096,76 +1182,35 @@ fn promote_full_snapshot_formal(
         )
         .ok()?,
     );
+    if !active_summary.rollout_ordinals_valid() {
+        return None;
+    }
     let snapshot = SnapshotBoundary::new(active_segment.snapshot_boundary.byte_length);
     let range = SourceByteRange::new(0, active_segment.snapshot_boundary.byte_length).ok()?;
-    let (formal_records, actual_last_rollout_ordinal) =
-        records_for_formal_promotion(active_records)?;
-    let descriptor = SegmentDescriptor::from_records(
+    let (first_rollout_ordinal, last_rollout_ordinal) = active_summary
+        .normalized_rollout_ordinals()
+        .map_or((None, None), |(first, last)| (Some(first), Some(last)));
+    let descriptor = SegmentDescriptor::new(
         format!("target-promotion:{}", source.source_id),
-        &spec,
+        spec.source_id(),
+        spec.source_epoch()?.to_string(),
         snapshot,
         range,
-        &formal_records,
+        active_summary.first_complete_line().cloned(),
+        active_summary.last_complete_line().cloned(),
+        active_summary.first_physical_line(),
+        active_summary.last_physical_line(),
+        first_rollout_ordinal,
+        last_rollout_ordinal,
         0,
         SegmentCompleteness::Complete,
     )
     .ok()?;
-    let segment = SourceSegment::new(descriptor, formal_records, Vec::new()).ok()?;
-    let mut assembler = SegmentAssembler::default();
-    assembler.add_segment(segment).ok()?;
-    let promoted = assembler.assemble().promote_to_forward_append(&spec).ok()?;
-    if promoted.metadata().last_rollout_ordinal() == actual_last_rollout_ordinal {
-        return Some(promoted);
-    }
-    let metadata = promoted.metadata();
-    ForwardAppendCursor::from_source(
-        &spec,
-        metadata.snapshot_boundary(),
-        metadata.complete_range(),
-        metadata.last_complete_line().cloned(),
-        actual_last_rollout_ordinal,
+    Some(
+        SegmentAssembly::from_streaming_summary(vec![descriptor], active_summary.clone())
+            .promote_to_forward_append(&spec)
+            .ok()?,
     )
-    .ok()
-}
-
-fn records_for_formal_promotion(
-    records: &[SourceRecord],
-) -> Option<(Vec<SourceRecord>, Option<u64>)> {
-    let mut ordered = records.to_vec();
-    ordered.sort_by(|left, right| {
-        left.byte_start
-            .cmp(&right.byte_start)
-            .then_with(|| left.byte_end.cmp(&right.byte_end))
-            .then_with(|| left.physical_line_ordinal.cmp(&right.physical_line_ordinal))
-    });
-    let ordinals = ordered
-        .iter()
-        .map(|record| record.rollout_ordinal)
-        .collect::<Vec<_>>();
-    let actual_last = ordinals.iter().flatten().copied().max();
-    if ordinals.iter().all(Option::is_none) {
-        return Some((ordered, None));
-    }
-    if ordinals.iter().any(Option::is_none) {
-        return None;
-    }
-    let values = ordinals.into_iter().flatten().collect::<Vec<_>>();
-    let starts_with_zero = values.first().copied() == Some(0);
-    let contiguous = values
-        .windows(2)
-        .all(|pair| pair[1] == pair[0].saturating_add(1));
-    if starts_with_zero && contiguous {
-        for record in &mut ordered {
-            record.rollout_ordinal = record
-                .rollout_ordinal
-                .map(|ordinal| ordinal.saturating_add(1));
-        }
-        return Some((ordered, actual_last));
-    }
-    if values.first().is_some_and(|ordinal| *ordinal > 0) && contiguous {
-        return Some((ordered, actual_last));
-    }
-    None
 }
 
 fn projection_is_canonical(projection: &AnalysisProjection) -> bool {
@@ -1186,7 +1231,7 @@ fn to_batch_completeness(value: TargetCompleteness) -> BatchCompleteness {
 
 fn progress_for(
     source: &TargetSourceRead,
-    records: &[SourceRecord],
+    unique_records: u64,
     completeness: TargetCompleteness,
     cancelled: Option<&AtomicBool>,
     deadline: Option<Instant>,
@@ -1195,7 +1240,7 @@ fn progress_for(
         check_mapping_control(cancelled, deadline)?;
         Ok::<u64, TargetSourceReadError>(total.saturating_add(segment.records_read))
     })?;
-    let records_emitted = records_seen.min(records.len() as u64);
+    let records_emitted = records_seen.min(unique_records);
     let bytes_scanned = source.segments.iter().try_fold(0_u64, |total, segment| {
         check_mapping_control(cancelled, deadline)?;
         Ok::<u64, TargetSourceReadError>(
@@ -1473,7 +1518,7 @@ fn delivery_scope(
     request: &TargetAnalyzeRequest,
     source: &TargetSourceRead,
     active_segment: &TargetSourceSegmentEvidence,
-    active_records: &[SourceRecord],
+    active_records: &ActiveRecordSummary,
     source_range: Option<TargetSourceByteRange>,
     cursor: Option<&TargetAnalyzerCursor>,
 ) -> TargetSourceScope {
@@ -1490,16 +1535,18 @@ fn delivery_scope(
         .or_else(|| {
             source_range
                 .filter(|_| safe_boundary)
-                .and_then(|range| last_complete_line(active_records, range.end))
+                .and_then(|range| {
+                    active_records
+                        .last_complete_line
+                        .clone()
+                        .filter(|line| line.byte_end == range.end)
+                })
         });
     let last_rollout_ordinal = cursor
         .and_then(|cursor| cursor.last_rollout_ordinal)
         .or_else(|| {
             source_range.filter(|_| safe_boundary).and_then(|_| {
-                active_records
-                    .iter()
-                    .filter_map(|record| record.rollout_ordinal)
-                    .max()
+                active_records.last_rollout_ordinal
             })
         });
 
@@ -1520,7 +1567,7 @@ fn build_checkpoint(
     request: &TargetAnalyzeRequest,
     source: &TargetSourceRead,
     active_segment: &TargetSourceSegmentEvidence,
-    active_records: &[SourceRecord],
+    active_records: &ActiveRecordSummary,
     source_range: Option<TargetSourceByteRange>,
     cursor: Option<TargetAnalyzerCursor>,
     completeness: TargetCompleteness,
@@ -1534,23 +1581,16 @@ fn build_checkpoint(
     let wire_profile = TargetCheckpointWireProfile::from_parser_provenance(&parser_provenance)
         .map_err(|error| mapping_error(error.to_string()))?;
     let physical_line_start = active_records
-        .iter()
-        .map(|record| record.physical_line_ordinal)
-        .filter(|ordinal| *ordinal > 0)
-        .min();
+        .first_physical_line
+        .filter(|ordinal| *ordinal > 0);
     let physical_line_end = active_records
-        .iter()
-        .map(|record| record.physical_line_ordinal)
-        .filter(|ordinal| *ordinal > 0)
-        .max();
+        .last_physical_line
+        .filter(|ordinal| *ordinal > 0);
     let segment = TargetCheckpointSegment {
         source_range,
         physical_line_start,
         physical_line_end,
-        rollout_ordinal: active_records
-            .iter()
-            .filter_map(|record| record.rollout_ordinal)
-            .max(),
+        rollout_ordinal: active_records.last_rollout_ordinal,
     };
     let watermark = TargetProjectionWatermark {
         schema_version: TARGET_DATA_SCHEMA_VERSION,

@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use codex_rollout_collector::model::AnalysisEvent;
 use codex_rollout_collector::protocol::{
     map_target_source_read, parse_startup_args, read_target_source,
     read_target_source_with_deadline, StartupMode, TargetAnalyzeMode, TargetAnalyzeRequest,
@@ -185,6 +186,39 @@ fn test_backfill_multi_window_plain_jsonl_without_rejection() {
         expected_start, total_len,
         "segments must cover up to total snapshot len"
     );
+    // 2b. Resident raw records must be bounded by the final physical window.
+    //     "Fewer than all records" would also hold if only one early window
+    //     were dropped, so derive the expectation from the final window range
+    //     and prove the handoff keeps only that window in TargetSourceRead.
+    let final_window = source
+        .segments
+        .last()
+        .expect("multi-window source has a final segment")
+        .requested_range;
+    let mut final_window_lines = 0_usize;
+    let mut line_start = 0_u64;
+    for line in contents.split_inclusive('\n') {
+        let line_end = line_start + line.len() as u64;
+        if line_start >= final_window.start && line_end <= final_window.end {
+            final_window_lines += 1;
+        }
+        line_start = line_end;
+    }
+    assert!(
+        final_window_lines > 0 && final_window_lines < contents.lines().count(),
+        "final window must be a strict subset of the fixture: {final_window_lines} of {} lines",
+        contents.lines().count()
+    );
+    assert!(
+        source.records.len() <= final_window_lines,
+        "resident raw records {} exceeded the final physical window bound {}",
+        source.records.len(),
+        final_window_lines
+    );
+    assert!(
+        source.records.len() < contents.lines().count(),
+        "multi-window source must not retain every raw record in TargetSourceRead"
+    );
 
     // 3. Mapping succeeds and yields Canonical completeness and promoted ForwardAppend cursor
     let mapped = map_target_source_read(&request, &source)
@@ -215,12 +249,74 @@ fn test_backfill_multi_window_plain_jsonl_without_rejection() {
         mapped.complete.status,
         TargetCompleteStatus::Completed
     );
+
+    // 4. The bounded-residency handoff must not change what the caller sees.
+    //    Reading the same unchanged fixture as one physical window is an
+    //    independent oracle for deterministic chronological output and stable
+    //    logical keys across a different window split; residency, not content,
+    //    may differ.
+    let mut single_window_req = TargetAnalyzeRequest::new(
+        "req-backfill-single-window",
+        "job-backfill-single-window",
+        TEST_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    single_window_req.resource_limits = Some(TargetResourceLimits {
+        max_line_bytes: Some(1000),
+        max_segment_bytes: Some(50_000),
+        max_decoded_bytes: Some(50_000),
+        ..TargetResourceLimits::default()
+    });
+    let single_window_source =
+        read_target_source(&single_window_req, &config, &AtomicBool::new(false))
+            .expect("single-window backfill source read succeeds");
+    assert_eq!(
+        single_window_source.segments.len(),
+        1,
+        "single-window oracle must read the fixture as one physical window"
+    );
+    assert!(
+        single_window_source.records.len() > source.records.len(),
+        "single-window oracle must retain more raw records than the bounded handoff: {} vs {}",
+        single_window_source.records.len(),
+        source.records.len()
+    );
+    let single_window_mapped = map_target_source_read(&single_window_req, &single_window_source)
+        .expect("mapping single-window source read succeeds");
+
+    assert_eq!(
+        mapped.batch.payload.history_items, single_window_mapped.batch.payload.history_items,
+        "window split must not change reduced history events or their chronological order"
+    );
+    assert_eq!(
+        mapped.batch.payload.tool_details, single_window_mapped.batch.payload.tool_details,
+        "window split must not change tool details or their stable logical keys"
+    );
+    assert_eq!(
+        mapped.batch.payload.mutations, single_window_mapped.batch.payload.mutations,
+        "window split must not change projected mutations or their stable logical keys"
+    );
+    assert_eq!(
+        mapped.batch.payload.completeness, single_window_mapped.batch.payload.completeness,
+        "window split must not change the reported completeness"
+    );
 }
 
 #[test]
 fn test_backfill_multi_window_tool_attribution_and_stable_keys() {
     let root = unique_temp_root("tool-attribution");
     let contents = generate_clean_rollout(TEST_CONVERSATION_ID);
+    let output_marker = "\"call_id\":\"call-1\",\"output\"";
+    let output_offset = contents
+        .find(output_marker)
+        .expect("tool output marker exists");
+    let output_line_start = contents[..output_offset]
+        .rfind('\n')
+        .map_or(0, |index| index + 1) as u64;
+    let begin_offset = contents
+        .find("\"call_id\":\"call-1\"")
+        .expect("tool begin marker exists");
+    assert!(output_line_start > begin_offset as u64);
     write_fixture_file(&root, TEST_CONVERSATION_ID, &contents);
     let config = target_config(&root);
 
@@ -232,25 +328,90 @@ fn test_backfill_multi_window_tool_attribution_and_stable_keys() {
     );
     request.resource_limits = Some(TargetResourceLimits {
         max_line_bytes: Some(1000),
-        max_segment_bytes: Some(1000),
+        // End the first physical window exactly before the tool output so
+        // begin/end attribution must cross the window boundary.
+        max_segment_bytes: Some(output_line_start),
         max_decoded_bytes: Some(50_000),
         ..TargetResourceLimits::default()
     });
 
     let source = read_target_source(&request, &config, &AtomicBool::new(false))
         .expect("source read succeeds");
+    assert!(source.segments.len() >= 2);
+    let begin_line_start = contents[..begin_offset]
+        .rfind('\n')
+        .map_or(0, |index| index + 1) as u64;
+    let begin_window = source
+        .segments
+        .iter()
+        .position(|segment| {
+            segment.requested_range.start <= begin_line_start
+                && begin_line_start < segment.requested_range.end
+        })
+        .expect("tool begin belongs to a source window");
+    let output_window = source
+        .segments
+        .iter()
+        .position(|segment| {
+            segment.requested_range.start <= output_line_start
+                && output_line_start < segment.requested_range.end
+        })
+        .expect("tool output belongs to a source window");
+    assert_ne!(begin_window, output_window, "tool begin/end must straddle windows");
     let mapped = map_target_source_read(&request, &source)
         .expect("mapping succeeds");
 
-    // Check that tool details are present and populated
-    assert!(
-        !mapped.batch.payload.tool_details.is_empty(),
-        "must have tool_details"
+    let tool = mapped
+        .batch
+        .payload
+        .tool_details
+        .iter()
+        .find(|tool| tool.call_id == "call-1")
+        .expect("cross-window tool detail exists");
+    assert_eq!(tool.tool_kind, "function_call");
+    // The fixture declares workdir E:\coding\TermLink. The adapter's sanitize
+    // policy replaces absolute local paths with REDACTED_LOCAL_PATH while
+    // keeping the rest of the arguments; the window split must not change
+    // either part.
+    assert_eq!(
+        tool.input.as_deref(),
+        Some(r#"{"command":"cargo test","workdir":"<local-path-redacted>"}"#),
+        "tool begin input must survive the window split with the sanitized fixture arguments"
     );
-    for tool in &mapped.batch.payload.tool_details {
-        assert!(!tool.call_id.is_empty(), "tool call must have valid call_id");
-        assert!(!tool.tool_kind.is_empty(), "tool call must have tool_kind");
-    }
+    assert!(
+        !tool.input.as_deref().unwrap_or_default().contains("TermLink"),
+        "tool begin input must not leak the local workspace path"
+    );
+    assert_eq!(tool.output.as_deref(), Some("Exit code: 0\npass"));
+
+    let started = mapped
+        .batch
+        .payload
+        .history_items
+        .iter()
+        .find_map(|event| match event {
+            AnalysisEvent::ToolStarted {
+                metadata, call_id, ..
+            } if call_id == "call-1" => Some(metadata),
+            _ => None,
+        })
+        .expect("tool start event exists");
+    let completed = mapped
+        .batch
+        .payload
+        .history_items
+        .iter()
+        .find_map(|event| match event {
+            AnalysisEvent::ToolCompleted {
+                metadata, call_id, ..
+            } if call_id == "call-1" => Some(metadata),
+            _ => None,
+        })
+        .expect("tool completion event exists");
+    assert_eq!(started.item_key, completed.item_key);
+    assert_eq!(started.item_key, tool.item_key);
+    assert_eq!(started.turn_id.as_deref(), Some("turn-1"));
+    assert_eq!(completed.turn_id.as_deref(), Some("turn-1"));
 
     // Check that carrier records without explicit turn_id in payload are attributed
     // to the active enclosing turn
@@ -288,6 +449,18 @@ fn test_backfill_multi_window_tool_attribution_and_stable_keys() {
     for k in &mutation_keys {
         assert!(!k.is_empty(), "item key must not be empty");
     }
+
+    // Re-delivery with an exact overlap must preserve the same logical keys
+    // and projected tool association.
+    let mut overlapped_source = source.clone();
+    overlapped_source
+        .records
+        .push(source.records.first().cloned().expect("resident window record"));
+    let retried = map_target_source_read(&request, &overlapped_source)
+        .expect("exact overlap remains idempotent");
+    assert_eq!(retried.batch.payload.history_items, mapped.batch.payload.history_items);
+    assert_eq!(retried.batch.payload.tool_details, mapped.batch.payload.tool_details);
+    assert_eq!(retried.batch.payload.mutations, mapped.batch.payload.mutations);
 }
 
 #[test]
@@ -330,14 +503,26 @@ fn test_backfill_formal_promotion_to_forward_append_and_subsequent_append() {
 
     let checkpoint = backfill_mapped.complete.checkpoint;
 
-    // Step 2: Append new records to the rollout file with contiguous ordinal (17)
-    let new_line = "{\"timestamp\":\"2026-08-26T00:00:20.000Z\",\"ordinal\":17,\"type\":\"event_msg\",\"payload\":{\"type\":\"agent_message\",\"message\":\"追加新事件\"}}\n";
+    // Step 2: Append a new incremental turn (task_started + agent_message +
+    // task_complete) with contiguous ordinals 17..19, so the append result can
+    // be checked for the appended turn itself and not only for cursor movement.
+    let appended_turn = "turn-3";
+    let appended_message = "追加新事件";
+    let new_lines = format!(
+        concat!(
+            "{{\"timestamp\":\"2026-08-26T00:00:20.000Z\",\"ordinal\":17,\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_started\",\"turn_id\":\"{turn}\",\"model_context_window\":258400,\"collaboration_mode_kind\":\"default\"}}}}\n",
+            "{{\"timestamp\":\"2026-08-26T00:00:21.000Z\",\"ordinal\":18,\"type\":\"event_msg\",\"payload\":{{\"type\":\"agent_message\",\"message\":\"{message}\",\"phase\":\"commentary\"}}}}\n",
+            "{{\"timestamp\":\"2026-08-26T00:00:22.000Z\",\"ordinal\":19,\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_complete\",\"turn_id\":\"{turn}\",\"last_agent_message\":\"{message}\",\"duration_ms\":2000}}}}\n"
+        ),
+        turn = appended_turn,
+        message = appended_message
+    );
     let mut file = fs::OpenOptions::new()
         .append(true)
         .open(&file_path)
         .expect("open for append");
     use std::io::Write;
-    file.write_all(new_line.as_bytes()).expect("write append");
+    file.write_all(new_lines.as_bytes()).expect("write append");
     drop(file);
 
     let new_len = fs::metadata(&file_path).expect("metadata").len();
@@ -376,6 +561,46 @@ fn test_backfill_formal_promotion_to_forward_append_and_subsequent_append() {
         .expect("append emits next cursor");
     assert_eq!(next_append_cursor.cursor_kind, TargetCursorKind::ForwardAppend);
     assert_eq!(next_append_cursor.complete_range.end, new_len);
+
+    // The append batch must carry the appended incremental turn itself;
+    // cursor movement alone would not prove the appends were consumed.
+    let appended_turn_ids: Vec<&str> = append_mapped
+        .batch
+        .payload
+        .history_items
+        .iter()
+        .filter_map(|event| match event {
+            AnalysisEvent::TurnStarted { metadata, .. } => metadata.turn_id.as_deref(),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        appended_turn_ids.contains(&appended_turn),
+        "append batch must reduce the appended turn start, got {appended_turn_ids:?}"
+    );
+
+    let appended_messages: Vec<(&str, Option<&str>)> = append_mapped
+        .batch
+        .payload
+        .history_items
+        .iter()
+        .filter_map(|event| match event {
+            AnalysisEvent::AssistantMessage { metadata, text } if text == appended_message => {
+                Some((text.as_str(), metadata.turn_id.as_deref()))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        appended_messages.len(),
+        1,
+        "exactly one appended assistant message must be reduced into the append batch"
+    );
+    assert_eq!(
+        appended_messages[0].1,
+        Some(appended_turn),
+        "appended assistant message must be attributed to the appended turn"
+    );
 }
 
 #[test]
@@ -422,8 +647,8 @@ fn test_backfill_three_entrypoints() {
         TargetCursorKind::ForwardAppend
     );
 
-    // Entrypoint 2: Continuation cursor
-    // Read up to line 3 at exact newline boundary
+    // Entrypoint 2: a known complete prefix must advance to the missing
+    // suffix instead of rereading 0..known_end.
     let p1_end = line_offsets[2];
     let mut first_part_req = TargetAnalyzeRequest::new(
         "req-part1",
@@ -434,12 +659,37 @@ fn test_backfill_three_entrypoints() {
     first_part_req.known_complete_range = Some(TargetSourceByteRange { start: 0, end: p1_end });
     let p1_source = read_target_source(&first_part_req, &config, &AtomicBool::new(false))
         .expect("p1 read succeeds");
+    assert_eq!(
+        p1_source
+            .segments
+            .first()
+            .expect("missing suffix segment")
+            .requested_range
+            .start,
+        p1_end
+    );
+    assert_eq!(
+        p1_source
+            .segments
+            .last()
+            .expect("missing suffix segment")
+            .requested_range
+            .end,
+        total_len
+    );
+    assert!(p1_source
+        .segments
+        .iter()
+        .all(|segment| segment.requested_range.start >= p1_end));
     let p1_mapped = map_target_source_read(&first_part_req, &p1_source).expect("p1 mapping");
     let p1_cursor = p1_mapped.batch.payload.next_cursor.expect("p1 cursor");
     assert_eq!(p1_cursor.cursor_kind, TargetCursorKind::Backfill);
-    assert_eq!(p1_cursor.complete_range.end, p1_end);
+    assert_eq!(p1_cursor.complete_range.start, p1_end);
+    assert_eq!(p1_cursor.complete_range.end, total_len);
 
-    // Continue with continuation cursor
+    // A cursor describing a known suffix can likewise derive only the missing
+    // prefix. The source must not silently fall back to the already-known
+    // suffix or to the entire file.
     let mut p2_req = TargetAnalyzeRequest::new(
         "req-part2",
         "job-part",
@@ -450,10 +700,11 @@ fn test_backfill_three_entrypoints() {
     let p2_source = read_target_source(&p2_req, &config, &AtomicBool::new(false))
         .expect("p2 read succeeds");
     let p2_seg = p2_source.segments.first().expect("p2 seg");
-    assert_eq!(p2_seg.requested_range.start, p1_end);
-    assert_eq!(p2_seg.requested_range.end, total_len);
+    assert_eq!(p2_seg.requested_range.start, 0);
+    assert_eq!(p2_seg.requested_range.end, p1_end);
 
-    // Entrypoint 3: known_complete_range (at exact line offset)
+    // Entrypoint 3: an interior range is ambiguous and must fail closed; it
+    // cannot be used as an excuse to replay the known bytes.
     let kcr_end = line_offsets[6];
     let mut kcr_req = TargetAnalyzeRequest::new(
         "req-kcr",
@@ -461,12 +712,13 @@ fn test_backfill_three_entrypoints() {
         TEST_CONVERSATION_ID,
         TargetAnalyzeMode::Backfill,
     );
-    kcr_req.known_complete_range = Some(TargetSourceByteRange { start: 0, end: kcr_end });
-    let kcr_source = read_target_source(&kcr_req, &config, &AtomicBool::new(false))
-        .expect("kcr read succeeds");
-    let kcr_seg = kcr_source.segments.first().expect("kcr seg");
-    assert_eq!(kcr_seg.requested_range.start, 0);
-    assert_eq!(kcr_seg.requested_range.end, kcr_end);
+    kcr_req.known_complete_range = Some(TargetSourceByteRange {
+        start: p1_end,
+        end: kcr_end,
+    });
+    let kcr_error = read_target_source(&kcr_req, &config, &AtomicBool::new(false))
+        .expect_err("interior known range must fail closed");
+    assert!(matches!(kcr_error, TargetSourceReadError::InvalidRequest(_)));
 }
 
 #[test]

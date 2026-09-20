@@ -9,10 +9,16 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
+    io::{BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
     time::{Duration, Instant},
 };
+
+use serde::{Deserialize, Serialize};
 
 use super::{
     startup::TargetStartupConfig,
@@ -178,13 +184,20 @@ pub struct TargetSourceRead {
     pub active_source: TargetSourceProvenance,
     pub discovered_sources: Vec<TargetSourceProvenance>,
     pub segments: Vec<TargetSourceSegmentEvidence>,
+    /// Keep only the final physical window in memory. Earlier windows are
+    /// serialized to `record_spool` and replayed by the mapper one record at
+    /// a time, so a large but budget-valid backfill does not retain its full
+    /// raw history in RAM.
     pub records: Vec<SourceRecord>,
+    pub(crate) record_spool: Option<Arc<TargetSourceRecordSpool>>,
     /// Full lineage evidence re-read for same-source append continuation. It
     /// is intentionally separate from `records`: the reducer consumes only
     /// the append delta, while replacement validation needs the complete
-    /// parent/child snapshots.
+    /// parent/child snapshots. Only the final lineage window remains
+    /// resident; earlier windows use `lineage_record_spool`.
     pub lineage_segments: Option<Vec<TargetSourceSegmentEvidence>>,
     pub lineage_records: Option<Vec<SourceRecord>>,
+    pub(crate) lineage_record_spool: Option<Arc<TargetSourceRecordSpool>>,
     /// Formal append evidence produced by `JsonlSourceBackend::read_append`.
     /// It remains an internal Rust value; the target mapper converts it to the
     /// target cursor and stores it in the opaque reducer checkpoint state for
@@ -193,6 +206,188 @@ pub struct TargetSourceRead {
     pub lineage_transitions: Vec<TargetLineageTransition>,
     pub lineage_coverage: TargetLineageCoverage,
     pub lineage_checkpoint: TargetLineageCheckpoint,
+}
+
+/// A disk-backed bounded raw-record handoff between the source reader and the
+/// target mapper. The current worker API completes source I/O before mapping,
+/// so this keeps chronological replay possible without making all raw records
+/// resident in memory at once.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct TargetSourceRecordSpool {
+    path: PathBuf,
+}
+
+impl Drop for TargetSourceRecordSpool {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+struct TargetSourceRecordSpoolWriter {
+    path: PathBuf,
+    file: BufWriter<fs::File>,
+    finished: bool,
+}
+
+impl Drop for TargetSourceRecordSpoolWriter {
+    fn drop(&mut self) {
+        if !self.finished {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct SpoolRecord {
+    source_identity: String,
+    byte_start: u64,
+    byte_end: u64,
+    physical_line_ordinal: u64,
+    rollout_ordinal: Option<u64>,
+    timestamp: Option<String>,
+    raw: Option<serde_json::Value>,
+    parse_error: Option<String>,
+}
+
+static RECORD_SPOOL_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+impl TargetSourceRecordSpoolWriter {
+    fn new() -> Result<Self, TargetSourceReadError> {
+        let unique = RECORD_SPOOL_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| {
+                TargetSourceReadError::Read(format!(
+                    "record spool clock is unavailable: {error}"
+                ))
+            })?
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "termlink-target-record-spool-{}-{nanos}-{unique}.jsonl",
+            std::process::id()
+        ));
+        let file = fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&path)
+            .map_err(|error| {
+                TargetSourceReadError::Read(format!(
+                    "create record spool {}: {error}",
+                    path.display()
+                ))
+            })?;
+        Ok(Self {
+            path,
+            file: BufWriter::new(file),
+            finished: false,
+        })
+    }
+
+    fn append(&mut self, records: &[SourceRecord]) -> Result<(), TargetSourceReadError> {
+        for record in records {
+            let spool_record = SpoolRecord {
+                source_identity: record.source_identity.clone(),
+                byte_start: record.byte_start,
+                byte_end: record.byte_end,
+                physical_line_ordinal: record.physical_line_ordinal,
+                rollout_ordinal: record.rollout_ordinal,
+                timestamp: record.timestamp.clone(),
+                raw: record.raw.clone(),
+                parse_error: record.parse_error.clone(),
+            };
+            serde_json::to_writer(&mut self.file, &spool_record).map_err(|error| {
+                TargetSourceReadError::Read(format!(
+                    "write raw record to spool {}: {error}",
+                    self.path.display()
+                ))
+            })?;
+            self.file.write_all(b"\n").map_err(|error| {
+                TargetSourceReadError::Read(format!(
+                    "terminate raw record spool line {}: {error}",
+                    self.path.display()
+                ))
+            })?;
+        }
+        Ok(())
+    }
+
+    fn finish(mut self) -> Result<Arc<TargetSourceRecordSpool>, TargetSourceReadError> {
+        self.file.flush().map_err(|error| {
+            TargetSourceReadError::Read(format!(
+                "flush raw record spool {}: {error}",
+                self.path.display()
+            ))
+        })?;
+        self.finished = true;
+        let path = self.path.clone();
+        Ok(Arc::new(TargetSourceRecordSpool { path }))
+    }
+}
+
+fn decode_spool_record(line: &str) -> Result<SourceRecord, TargetSourceReadError> {
+    let record = serde_json::from_str::<SpoolRecord>(line).map_err(|error| {
+        TargetSourceReadError::Read(format!("decode raw record spool line: {error}"))
+    })?;
+    Ok(SourceRecord {
+        source_identity: record.source_identity,
+        byte_start: record.byte_start,
+        byte_end: record.byte_end,
+        physical_line_ordinal: record.physical_line_ordinal,
+        rollout_ordinal: record.rollout_ordinal,
+        timestamp: record.timestamp,
+        raw: record.raw,
+        parse_error: record.parse_error,
+    })
+}
+
+impl TargetSourceRead {
+    pub(crate) fn for_each_record<F>(
+        &self,
+        lineage: bool,
+        mut visit: F,
+    ) -> Result<(), TargetSourceReadError>
+    where
+        F: FnMut(&SourceRecord) -> Result<(), TargetSourceReadError>,
+    {
+        let spool = if lineage {
+            self.lineage_record_spool.as_ref()
+        } else {
+            self.record_spool.as_ref()
+        };
+        if let Some(spool) = spool {
+            let file = fs::File::open(&spool.path).map_err(|error| {
+                TargetSourceReadError::Read(format!(
+                    "open raw record spool {}: {error}",
+                    spool.path.display()
+                ))
+            })?;
+            let mut reader = BufReader::new(file);
+            let mut line = String::new();
+            loop {
+                line.clear();
+                let read = reader.read_line(&mut line).map_err(|error| {
+                    TargetSourceReadError::Read(format!(
+                        "read raw record spool {}: {error}",
+                        spool.path.display()
+                    ))
+                })?;
+                if read == 0 {
+                    break;
+                }
+                let record = decode_spool_record(line.trim_end_matches(['\r', '\n']))?;
+                visit(&record)?;
+            }
+        }
+        let resident = if lineage {
+            self.lineage_records.as_deref().unwrap_or(&[])
+        } else {
+            &self.records
+        };
+        for record in resident {
+            visit(record)?;
+        }
+        Ok(())
+    }
 }
 
 /// Resolve and execute the source read represented by a target analyze
@@ -412,6 +607,7 @@ fn read_target_source_with_limits(
     let backend = JsonlSourceBackend;
     let mut segments = Vec::with_capacity(planned_segments.len());
     let mut records = Vec::new();
+    let mut record_spool_writer = None;
     let mut append_cursor = None;
     let mut total_decoded_bytes = 0_u64;
     for planned in planned_segments {
@@ -423,7 +619,7 @@ fn read_target_source_with_limits(
                 limits.max_decoded_bytes, planned.provenance.rollout_id
             )));
         }
-        let (evidence, mut segment_records, next_append_cursor) =
+        let (evidence, segment_records, next_append_cursor) =
             if let Some(append_cursor) = planned.append_cursor.as_ref() {
                 read_append_segment(
                     &backend,
@@ -450,15 +646,29 @@ fn read_target_source_with_limits(
                 total_decoded_bytes, limits.max_decoded_bytes
             )));
         }
-        records.append(&mut segment_records);
+        // Keep only the newest physical window resident. The mapper replays
+        // earlier windows from the spool in the same acquisition order.
+        let previous_records = std::mem::replace(&mut records, segment_records);
+        if !previous_records.is_empty() {
+            let writer = match record_spool_writer.as_mut() {
+                Some(writer) => writer,
+                None => {
+                    record_spool_writer = Some(TargetSourceRecordSpoolWriter::new()?);
+                    record_spool_writer
+                        .as_mut()
+                        .expect("record spool writer was just created")
+                }
+            };
+            writer.append(&previous_records)?;
+        }
         segments.push(evidence);
         if next_append_cursor.is_some() {
             append_cursor = next_append_cursor;
         }
     }
 
-    let (lineage_segments, lineage_records) = if lineage_recovery {
-        let (full_segments, full_records) = read_full_lineage_for_append(
+    let (lineage_segments, lineage_records, lineage_record_spool) = if lineage_recovery {
+        let (full_segments, full_records, full_record_spool) = read_full_lineage_for_append(
             &backend,
             request,
             &session,
@@ -471,13 +681,16 @@ fn read_target_source_with_limits(
             deadline,
         )?;
         if !full_segments.is_empty() {
-            (Some(full_segments), Some(full_records))
+            (Some(full_segments), Some(full_records), full_record_spool)
         } else {
-            (None, None)
+            (None, None, None)
         }
     } else {
-        (None, None)
+        (None, None, None)
     };
+    let record_spool = record_spool_writer
+        .map(TargetSourceRecordSpoolWriter::finish)
+        .transpose()?;
 
     let lineage_transitions = session
         .transitions
@@ -547,8 +760,10 @@ fn read_target_source_with_limits(
             .collect::<Result<Vec<_>, _>>()?,
         segments,
         records,
+        record_spool,
         lineage_segments,
         lineage_records,
+        lineage_record_spool,
         append_cursor,
         lineage_transitions,
         lineage_coverage,
@@ -597,9 +812,17 @@ fn read_full_lineage_for_append(
     total_decoded_bytes: &mut u64,
     cancelled: &AtomicBool,
     deadline: Instant,
-) -> Result<(Vec<TargetSourceSegmentEvidence>, Vec<SourceRecord>), TargetSourceReadError> {
+) -> Result<
+    (
+        Vec<TargetSourceSegmentEvidence>,
+        Vec<SourceRecord>,
+        Option<Arc<TargetSourceRecordSpool>>,
+    ),
+    TargetSourceReadError,
+> {
     let mut segments = Vec::with_capacity(session.chain.len());
     let mut records = Vec::new();
+    let mut record_spool_writer = None;
     for candidate in &session.chain {
         check_control(cancelled, deadline)?;
         let is_active = candidate.source.rollout_id == active_source.rollout_id;
@@ -647,7 +870,7 @@ fn read_full_lineage_for_append(
                 limits.max_decoded_bytes, candidate.source.rollout_id
             )));
         }
-        let (evidence, mut source_records) = read_segment(
+        let (evidence, source_records) = read_segment(
             backend,
             &planned,
             remaining_decoded_bytes,
@@ -661,10 +884,25 @@ fn read_full_lineage_for_append(
                 *total_decoded_bytes, limits.max_decoded_bytes
             )));
         }
-        records.append(&mut source_records);
+        let previous_records = std::mem::replace(&mut records, source_records);
+        if !previous_records.is_empty() {
+            let writer = match record_spool_writer.as_mut() {
+                Some(writer) => writer,
+                None => {
+                    record_spool_writer = Some(TargetSourceRecordSpoolWriter::new()?);
+                    record_spool_writer
+                        .as_mut()
+                        .expect("lineage record spool writer was just created")
+                }
+            };
+            writer.append(&previous_records)?;
+        }
         segments.push(evidence);
     }
-    Ok((segments, records))
+    let record_spool = record_spool_writer
+        .map(TargetSourceRecordSpoolWriter::finish)
+        .transpose()?;
+    Ok((segments, records, record_spool))
 }
 
 fn source_segment_is_complete(segment: &TargetSourceSegmentEvidence) -> bool {
@@ -980,20 +1218,43 @@ fn bind_spec(
     Ok(spec)
 }
 
-fn find_previous_line_start(path: &Path, candidate: u64) -> std::io::Result<u64> {
+fn find_previous_line_start(
+    path: &Path,
+    candidate: u64,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> Result<u64, TargetSourceReadError> {
+    find_previous_line_start_with_check(path, candidate, || {
+        check_control(cancelled, deadline)
+    })
+}
+
+fn find_previous_line_start_with_check<F>(
+    path: &Path,
+    candidate: u64,
+    mut check: F,
+) -> Result<u64, TargetSourceReadError>
+where
+    F: FnMut() -> Result<(), TargetSourceReadError>,
+{
     if candidate == 0 {
         return Ok(0);
     }
-    let mut file = std::fs::File::open(path)?;
+    let mut file = std::fs::File::open(path)
+        .map_err(|error| TargetSourceReadError::Read(error.to_string()))?;
     let mut cursor = candidate;
     let mut buffer = [0_u8; 8192];
     use std::io::{Read, Seek, SeekFrom};
     while cursor > 0 {
+        check()?;
         let chunk_size = buffer.len() as u64;
         let start = cursor.saturating_sub(chunk_size);
         let length = usize::try_from(cursor - start).unwrap_or(buffer.len());
-        file.seek(SeekFrom::Start(start))?;
-        file.read_exact(&mut buffer[..length])?;
+        file.seek(SeekFrom::Start(start))
+            .map_err(|error| TargetSourceReadError::Read(error.to_string()))?;
+        file.read_exact(&mut buffer[..length])
+            .map_err(|error| TargetSourceReadError::Read(error.to_string()))?;
+        check()?;
         if let Some(index) = buffer[..length].iter().rposition(|byte| *byte == b'\n') {
             return Ok(start + index as u64 + 1);
         }
@@ -1101,18 +1362,37 @@ fn plan_active_source(
             }
 
             let (target_start, target_end) = if let Some(known) = request.known_complete_range {
-                if known.start == 0 && known.end < snapshot_len {
-                    (0, known.end)
-                } else if known.start > 0 && known.end < snapshot_len {
-                    (known.start, known.end)
+                if known.end > snapshot_len {
+                    return Err(TargetSourceReadError::InvalidRequest(format!(
+                        "known_complete_range end {} exceeds snapshot length {}",
+                        known.end, snapshot_len
+                    )));
+                }
+                if known.start == 0 {
+                    // A known prefix advances the next read to the first
+                    // missing byte. Never replay the already-complete range.
+                    (known.end, snapshot_len)
+                } else if known.end == snapshot_len {
+                    // A known suffix leaves only the prefix unresolved. This
+                    // is the only non-prefix shape whose missing range is
+                    // uniquely derivable without inventing a second cursor.
+                    (0, known.start)
                 } else {
-                    (0, snapshot_len)
+                    return Err(TargetSourceReadError::InvalidRequest(
+                        "known_complete_range must describe a source prefix or suffix"
+                            .to_string(),
+                    ));
                 }
             } else if cursor_matches_active && let Some(cursor) = cursor {
-                if cursor.complete_range.start == 0 && cursor.complete_range.end < snapshot_len {
-                    (cursor.complete_range.end, snapshot_len)
+                if cursor.complete_range.start == 0 {
+                    (cursor.complete_range.end.min(snapshot_len), snapshot_len)
+                } else if cursor.complete_range.end == snapshot_len {
+                    (0, cursor.complete_range.start.min(snapshot_len))
                 } else {
-                    (0, snapshot_len)
+                    return Err(TargetSourceReadError::InvalidRequest(
+                        "backfill cursor range must describe a source prefix or suffix"
+                            .to_string(),
+                    ));
                 }
             } else {
                 (0, snapshot_len)
@@ -1139,8 +1419,12 @@ fn plan_active_source(
                     target_end
                 } else {
                     let candidate = current_start.saturating_add(max_segment);
-                    let line_start = find_previous_line_start(spec.path(), candidate)
-                        .map_err(|error| TargetSourceReadError::Read(error.to_string()))?;
+                    let line_start = find_previous_line_start(
+                        spec.path(),
+                        candidate,
+                        cancelled,
+                        deadline,
+                    )?;
                     if line_start <= current_start {
                         return Err(TargetSourceReadError::ResourceLimit(format!(
                             "single line in {} exceeds max_segment_bytes {}",
@@ -1385,5 +1669,29 @@ mod tests {
                 "unexpected retryability for {error:?}"
             );
         }
+    }
+
+    #[test]
+    fn boundary_scan_honors_cancellation_after_io_has_started() {
+        let path = std::env::temp_dir().join(format!(
+            "termlink-boundary-scan-test-{}-{}.jsonl",
+            std::process::id(),
+            RECORD_SPOOL_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::write(&path, vec![b'x'; 8192 * 3]).expect("boundary scan fixture writes");
+
+        let cancelled = AtomicBool::new(false);
+        let mut checks = 0_u8;
+        let result = find_previous_line_start_with_check(&path, 8192 * 3, || {
+            checks = checks.saturating_add(1);
+            if checks >= 2 {
+                cancelled.store(true, Ordering::Release);
+            }
+            check_control(&cancelled, Instant::now() + Duration::from_secs(1))
+        });
+
+        let _ = fs::remove_file(&path);
+        assert_eq!(result, Err(TargetSourceReadError::Cancelled));
+        assert!(checks >= 2, "cancellation must be checked after the first read");
     }
 }

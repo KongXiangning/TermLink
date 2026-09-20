@@ -5,7 +5,7 @@ document_id: doc-05c82c8a6e6c9181adfc2be2
 runtime_state:
   schema_version: 1
   kind: vnext-current-task-runtime-state
-  evidence_plan_revision: 6d88bddf460386620d751e6428795fbec1fb69f7fad4f04b67e8c935cc679c14
+  evidence_plan_revision: 98b2028a6421b96265d86fa20364870cc3277086fda439097675d4afb9a04e4b
   business_evidence_version: 1
   task_evolution_version: 2
   task_id: "002"
@@ -15,17 +15,215 @@ runtime_state:
   resume_requires_review: false
   resume_review_reasons: []
   active_step_id: S1
-  active_step_status: in-progress
-  finding_queue_revision: 0
+  active_step_status: completed
+  finding_queue_revision: 27
   review_cycle:
     id: review-cycle-0
     cycle_phase: discovery
-    repair_round: 0
-    counted_repair_wave_ids: []
-    active_repair_wave_id: null
+    repair_round: 7
+    max_repair_rounds: 7
+    counted_repair_wave_ids:
+      - repair-wave-df745a3cb80981aca4e2be1bc91519a2
+      - repair-wave-081841ae576c8feb9c0eb56cf8ebea06
+      - repair-wave-73cd28a4b838a6eec26c871c3e01ec8c
+      - repair-wave-9034c7b160e7ac8fce7b6feed52124c7
+      - repair-wave-f6d02733ead8043972fba29af0a77366
+      - repair-wave-c0c150db4833607e574635b228ad0a33
+      - repair-wave-ab176f9c5738bad4287f7a994bd447bf
+    active_repair_wave_id: repair-wave-ab176f9c5738bad4287f7a994bd447bf
     verification_new_finding_wave_used: false
     verification_new_finding_wave_id: null
-  findings: []
+  findings:
+    - fingerprint: finding-63fad9ec0fd6323304a2f9481d895779
+      category: backfill-range-progression
+      owner_task_id: "002"
+      scope: admitted
+      decision: mechanical
+      file: native/codex-rollout-collector/src/protocol/target_source.rs
+      failure_condition: When known_complete_range describes an incomplete prefix or
+        interior range, plan_target_source_read selects that already-known range
+        again (for example 0..known.end) instead of the missing physical range,
+        so repeated requests can replay old bytes and never progress coverage to
+        the full snapshot.
+      violated_invariant: Derive the next bounded read from the missing part of the
+        snapshot, advance the accumulated complete range monotonically, and
+        prove that a valid known_complete_range request reaches full-snapshot
+        coverage without replaying the old range.
+      root_cause_status: confirmed
+      status: in-progress
+      repair_attempts: 1
+      max_repair_attempts: 2
+      evidence_refs:
+        - native/codex-rollout-collector/src/protocol/target_source.rs
+        - native/codex-rollout-collector/tests/rollout_blockers.rs
+        - docs/codex/codex-rollout-collector-rust-issues-verification.md
+        - docs/workflow/CURRENT_TASK.md
+        - docs/codex/codex-rollout-isolated-closure-verification.md
+        - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+      review_cycle_id: review-cycle-0
+      last_repair_wave_id: repair-wave-df745a3cb80981aca4e2be1bc91519a2
+      admitted_at: 2026-09-19T17:29:30.056Z
+      updated_at: 2026-09-19T17:53:18.652Z
+    - fingerprint: finding-56ba22bcb8d74c533ab43a5d5e845535
+      category: resource-boundedness
+      owner_task_id: "002"
+      scope: admitted
+      decision: mechanical
+      file: native/codex-rollout-collector/src/protocol/target_source.rs
+      failure_condition: The multi-window loop appends every decoded SourceRecord into
+        one records Vec, and target mapping then clones and sorts that
+        cumulative set; a large but budget-valid backfill therefore retains the
+        full raw history in memory despite bounded I/O windows.
+      violated_invariant: Keep raw-record residency bounded to the current window and
+        carry only the formal adapter/reducer/checkpoint state needed across
+        windows, while preserving deterministic chronological output and stable
+        logical keys.
+      root_cause_status: confirmed
+      status: in-progress
+      repair_attempts: 7
+      max_repair_attempts: 7
+      evidence_refs:
+        - native/codex-rollout-collector/src/protocol/target_source.rs
+        - native/codex-rollout-collector/src/protocol/target_mapping.rs
+        - docs/codex/codex-rollout-collector-architecture.md
+        - docs/workflow/CURRENT_TASK.md
+        - docs/codex/codex-rollout-isolated-closure-verification.md
+        - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+        - execution-e782240e1850d53080ac47ad3d48a5f239e4d51057c8ca3d3e0ff806efedb5ec
+        - target-dir:$env:TEMP/termlink-rollout-blockers-target
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::5-tests-passed
+        - C1-rule-minimum-sufficient
+        - native/codex-rollout-collector/tests/conformance.rs::31-tests-passed
+        - native/codex-rollout-collector/tests/stage2_input.rs::3-tests-passed
+        - C2-rule-minimum-sufficient
+        - git-diff-check-clean
+        - actual-changed-paths-verified
+        - stage4-target-ordinary-regression
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_multi_window_tool_attribution_and_stable_keys
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_three_entrypoints
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_formal_promotion_to_forward_append_and_subsequent_append
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_fail_closed_negative_cases
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_multi_window_plain_jsonl_without_rejection
+        - native/codex-rollout-collector/tests/rollout_blockers.rs
+        - cargo-test:rollout_blockers:5-passed
+        - native/codex-rollout-collector/tests/conformance.rs
+        - native/codex-rollout-collector/tests/stage2_input.rs
+        - cargo-test:conformance+stage2_input:34-passed
+        - git-diff-name-only:repair-wave-report-only
+      review_cycle_id: review-cycle-0
+      last_repair_wave_id: repair-wave-ab176f9c5738bad4287f7a994bd447bf
+      admitted_at: 2026-09-19T17:29:30.197Z
+      updated_at: 2026-09-20T14:11:39.444Z
+    - fingerprint: finding-0d9e741858db75be08e2b837ca598acc
+      category: cancellation-deadline
+      owner_task_id: "002"
+      scope: admitted
+      decision: mechanical
+      file: native/codex-rollout-collector/src/protocol/target_source.rs
+      failure_condition: find_previous_line_start performs a potentially long backward
+        seek/read loop without receiving or checking cancellation/deadline
+        control; cancellation is checked only before entering it, so an
+        oversized line or long boundary scan can remain unresponsive during
+        boundary I/O.
+      violated_invariant: Thread request control through boundary discovery and check
+        cancellation/deadline within the backward scan so planning and boundary
+        I/O terminate promptly, with a test that changes control state during
+        the scan rather than only before the request.
+      root_cause_status: confirmed
+      status: in-progress
+      repair_attempts: 1
+      max_repair_attempts: 2
+      evidence_refs:
+        - native/codex-rollout-collector/src/protocol/target_source.rs
+        - native/codex-rollout-collector/tests/rollout_blockers.rs
+        - docs/codex/codex-rollout-collector-architecture.md
+        - docs/workflow/CURRENT_TASK.md
+        - docs/codex/codex-rollout-isolated-closure-verification.md
+        - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+      review_cycle_id: review-cycle-0
+      last_repair_wave_id: repair-wave-df745a3cb80981aca4e2be1bc91519a2
+      admitted_at: 2026-09-19T17:29:30.332Z
+      updated_at: 2026-09-19T17:53:18.328Z
+    - fingerprint: finding-f055a9eb19e6da4e496a31f4bea6b66a
+      category: persistent-test-oracle
+      owner_task_id: "002"
+      scope: admitted
+      decision: mechanical
+      file: native/codex-rollout-collector/tests/rollout_blockers.rs
+      failure_condition: The newly admitted P-12 test only checks non-empty tool
+        details, turn IDs, and keys, does not prove a tool begin/end straddles
+        windows or that logical keys remain equal across overlap/retry, and
+        explicitly asserts that known_complete_range rereads 0..known.end,
+        locking in the range-progression defect.
+      violated_invariant: Use independently specified assertions for exact
+        cross-window tool association, key equality across reread/overlap,
+        correct missing-range progression to terminal coverage, and the required
+        pending/gap/mutation/checkpoint fail-closed cases.
+      root_cause_status: confirmed
+      status: in-progress
+      repair_attempts: 1
+      max_repair_attempts: 2
+      evidence_refs:
+        - native/codex-rollout-collector/tests/rollout_blockers.rs
+        - native/codex-rollout-collector/tests/stage4_target_protocol.rs
+        - docs/codex/codex-rollout-collector-architecture.md
+        - docs/workflow/CURRENT_TASK.md
+        - docs/codex/codex-rollout-isolated-closure-verification.md
+        - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+      review_cycle_id: review-cycle-0
+      last_repair_wave_id: repair-wave-df745a3cb80981aca4e2be1bc91519a2
+      admitted_at: 2026-09-19T17:29:30.461Z
+      updated_at: 2026-09-19T17:53:18.944Z
+    - fingerprint: finding-76229f550e746d6e8e0aeedc7c79a1dc
+      category: validation-evidence-accuracy
+      owner_task_id: "002"
+      scope: admitted
+      decision: mechanical
+      file: docs/codex/codex-rollout-isolated-closure-verification.md
+      failure_condition: The verification report claims a 200-byte segment limit,
+        cross-window begin/end attribution, reproducible stable keys, and
+        incompatible-checkpoint/gap coverage, while the recorded test uses a
+        1000-byte limit and its assertions do not establish those claimed
+        behaviors or all listed negative cases.
+      violated_invariant: Make the report and CR state only behavior directly
+        established by the persisted tests and recorded commands, using the
+        actual fixture and segment parameters; add the missing assertions before
+        claiming the broader C1 evidence.
+      root_cause_status: confirmed
+      status: in-progress
+      repair_attempts: 7
+      max_repair_attempts: 7
+      evidence_refs:
+        - docs/codex/codex-rollout-isolated-closure-verification.md
+        - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+        - native/codex-rollout-collector/tests/rollout_blockers.rs
+        - docs/workflow/CURRENT_TASK.md
+        - execution-e782240e1850d53080ac47ad3d48a5f239e4d51057c8ca3d3e0ff806efedb5ec
+        - target-dir:$env:TEMP/termlink-rollout-blockers-target
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::5-tests-passed
+        - C1-rule-minimum-sufficient
+        - native/codex-rollout-collector/tests/conformance.rs::31-tests-passed
+        - native/codex-rollout-collector/tests/stage2_input.rs::3-tests-passed
+        - C2-rule-minimum-sufficient
+        - git-diff-check-clean
+        - actual-changed-paths-verified
+        - stage4-target-ordinary-regression
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_multi_window_tool_attribution_and_stable_keys
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_three_entrypoints
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_formal_promotion_to_forward_append_and_subsequent_append
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_fail_closed_negative_cases
+        - native/codex-rollout-collector/tests/rollout_blockers.rs::test_backfill_multi_window_plain_jsonl_without_rejection
+        - cargo-test:rollout_blockers:5-passed
+        - native/codex-rollout-collector/tests/conformance.rs
+        - native/codex-rollout-collector/tests/stage2_input.rs
+        - cargo-test:conformance+stage2_input:34-passed
+        - native/codex-rollout-collector/src/protocol/target_source.rs
+        - git-diff-name-only:repair-wave-report-only
+        - native/codex-rollout-collector/src/protocol/target_mapping.rs
+      review_cycle_id: review-cycle-0
+      last_repair_wave_id: repair-wave-ab176f9c5738bad4287f7a994bd447bf
+      admitted_at: 2026-09-19T17:29:30.596Z
+      updated_at: 2026-09-20T14:11:40.966Z
   claim_evidence_required: true
   claim_evidence:
     - claim_id: C1
@@ -36,18 +234,17 @@ runtime_state:
           disposition: missing
           evidence_refs: []
           check:
-            check_id: C1-rule-final
+            check_id: C1-rule-minimum-sufficient
             method: execution
             entry: cargo test --locked --manifest-path
-              native/codex-rollout-collector/Cargo.toml --lib --test conformance
-              --test stage2_input --test stage4_target_protocol --test
-              rollout_blockers
+              native/codex-rollout-collector/Cargo.toml --test rollout_blockers
             expected_observation: 最终源码公共 target：一个 backfill 请求执行多个受限物理窗口并完整正序归约；preview 后合法新
               intent、合法 backfill continuation、known_complete_range
               三条入口实际推进。精确正文、跨段 tool 归属和 stable key；formal promotion 后公共
               ForwardAppend 原样用于 append；兼容错误
               kind、pending/gap/partial/诊断/mutation 不产生不安全
               cursor。记录窗口/总预算证据及规划/边界 I/O 的取消超时检查。
+            boundary: local
             required_boundaries:
               - 真实 plain JSONL，单行小于段/行上限，总量大于段上限且小于请求预算
               - 公共 TargetAnalyzeRequest/read/map/runtime
@@ -74,8 +271,46 @@ runtime_state:
               - native/codex-rollout-collector/tests/rollout_blockers.rs
               - native/codex-rollout-collector/tests/stage4_target_protocol.rs
             expected_result: passed
+            selection:
+              granularity: target
+              selector: null
+              selection_reason: "Select the five existing rollout_blockers test instances as
+                the minimum-sufficient C1 local target:
+                test_backfill_multi_window_plain_jsonl_without_rejection covers
+                bounded multi-window assembly and promotion;
+                test_backfill_multi_window_tool_attribution_and_stable_keys
+                covers cross-window tool attribution and logical keys;
+                test_backfill_formal_promotion_to_forward_append_and_subsequent\
+                _append covers formal promotion and append continuity;
+                test_backfill_three_entrypoints covers preview, backfill and
+                continuation boundary behavior;
+                test_backfill_fail_closed_negative_cases covers incompatible
+                cursor, pending tail, budget, cancellation and deadline
+                fail-closed behavior. The complete stage4_target_protocol target
+                adds no independent C1 oracle and is therefore moved to ordinary
+                regression."
+              breadth_reason: The user explicitly authorized a minimum-sufficient evidence
+                reselection. These five existing test instances are the smallest
+                bounded C1 target that retains each distinct public-target
+                observation and independent oracle. The broad
+                stage4_target_protocol target duplicates those observations
+                without an independent acceptance oracle.
+              breadth_basis: explicit-user
+              breadth_source_ref: conversation:01a0a8a7-853d-7471-8180-3b6c3c5cc6cd/user@2026-09-20
+              invocation:
+                kind: structured
+                argv:
+                  - cargo
+                  - test
+                  - --locked
+                  - --manifest-path
+                  - native/codex-rollout-collector/Cargo.toml
+                  - --test
+                  - rollout_blockers
+                selector_arg_index: null
           due_step_id: S3
           applicability: current
+          report: null
         - slot_id: C1-flow
           minimum_type: targeted-execution/v1
           disposition: missing
@@ -148,15 +383,15 @@ runtime_state:
           disposition: missing
           evidence_refs: []
           check:
-            check_id: C2-rule-final
+            check_id: C2-rule-minimum-sufficient
             method: execution
             entry: cargo test --locked --manifest-path
-              native/codex-rollout-collector/Cargo.toml --lib --test conformance
-              --test stage2_input --test stage4_target_protocol --test
-              rollout_blockers
+              native/codex-rollout-collector/Cargo.toml --test conformance
+              --test stage2_input
             expected_observation: FileChange/CommandExecution 已知 item_completed
               的精确文件/diff/命令/输出/允许状态、conversation/turn/item/source 及 stable key
               与独立预期一致；与旧 carrier/重读/overlap 幂等；未知/缺字段负向对照保留诊断，不伪造；现有脱敏截断语义保持。
+            boundary: local
             required_boundaries:
               - 真实 vendored decode→现有 CodexEventAdapter→owned
                 event/projection/detail
@@ -183,8 +418,43 @@ runtime_state:
               - native/codex-rollout-collector/tests/rollout_blockers.rs
               - native/codex-rollout-collector/tests/stage4_target_protocol.rs
             expected_result: passed
+            selection:
+              granularity: target
+              selector: null
+              selection_reason: "Select the existing conformance and stage2_input targets as
+                the minimum-sufficient C2 local targets: conformance covers
+                FileChange and CommandExecution mapping, exact owned fields and
+                associations, stable keys, known and unknown or missing
+                variants, and independent redaction behavior; stage2_input
+                covers segmented adapter projection, replay equivalence,
+                duplicate and overlap idempotency, and plan association across
+                input boundaries. The complete stage4_target_protocol target
+                adds no independent C2 oracle and is therefore moved to ordinary
+                regression."
+              breadth_reason: The user explicitly authorized a minimum-sufficient evidence
+                reselection. These two existing targets retain the distinct C2
+                Adapter and segmented projection boundaries with independent
+                field and replay oracles. The C1 rollout_blockers target and
+                broad stage4_target_protocol target do not add independent C2
+                acceptance evidence.
+              breadth_basis: explicit-user
+              breadth_source_ref: conversation:01a0a8a7-853d-7471-8180-3b6c3c5cc6cd/user@2026-09-20
+              invocation:
+                kind: structured
+                argv:
+                  - cargo
+                  - test
+                  - --locked
+                  - --manifest-path
+                  - native/codex-rollout-collector/Cargo.toml
+                  - --test
+                  - conformance
+                  - --test
+                  - stage2_input
+                selector_arg_index: null
           due_step_id: S3
           applicability: current
+          report: null
         - slot_id: C2-flow
           minimum_type: targeted-execution/v1
           disposition: missing
@@ -362,158 +632,148 @@ runtime_state:
         终态冒充完整历史。仅证明采集模块在真实隔离链路可用，不接入产品 DB/业务入口/历史发布/App。
       source_ref: conversation:01a0a8a7-853d-7471-8180-3b6c3c5cc6cd/user@2026-09-17T17:07:57.191Z;
         rollout-2026-09-16T13-19-06-01a0a8a7-853d-7471-8180-3b6c3c5cc6cd.jsonl:3399#C3
+  evidence_carry_forward: []
   artifact_checkpoint_ids:
     - 0b862f6635b123471bb8e02d125584e7c2018d191b70c1bda51f931a541a84ad
     - a35aca7e343ac2c57eba17ee81231bb4b54ca739639abbb18902a440183d7ec1
+    - 1b5b62daff2ff01bfa74846542ad66401eb1c6d08fe64c2738c6b511c14aabbe
+    - 944d4309b87891d00d7bd605acdec2e636ded35caa215a5ff1f42e337a9fa77d
+    - d0b3be81a644206cfc512d2f725c1526b19c3c6bf6fd01df5f2b59c4a49d9607
+    - 9e7a4bdf6e9c5f2827e110f44eb27b51be5f0c663eaef5f1314a040de9155e62
+    - 33b8321dbd7fd13b835ed21b1e26bb994e5505c6dd76071b2df565fe85e9a23d
+    - de7466b842963f4484ef424349d4824ebbe456c09b78103af4522f01121160a4
+    - 5be911661e49ea05bd751b137ca425812385aac6c412607fba1e387571badd34
+    - 5e9abadf50651278dd36b89bc9766e5dd5cf6b8f73987eb0339b9bd14f6c6adc
+    - 24d6a1797b531adb38a1dcb2b1d01b20d95fb1d59921066e396301922b3b5e5f
+    - d874b33eff37a4bd62885c70f70a762c98af698aa4d563f2b39f53fdc38f1d05
+    - 4d693cf80b25abc742e14d3e00e5a0e5f1a3971e70fac476bb8941c07e5cf8a7
+    - ecb578c5c0fb91cb6d474b1c269f602b7a9cefd48287525ce9c3ae86baae7614
+    - 77a8dc8c2a88a256cec70294b5d0f515f7b8bd8cbfefacb6df7eee3f70086f00
+    - 4d457ef4e2ff5170db0830989148a4c3f5bc3285ca79798bea0c281c144d012a
   dynamic_review_required: false
   dynamic_expansions: []
+  execution_preflight:
+    execution_id: execution-9169abe076568cf932e73b96b169132ffad826d58bd7eaa1ce221654ae9878bd
+    preflight_id: preflight-65f39ff82a36c64b5c3216d383b6f7b12000314efbc10c4f4e042c1d74c1841c
+    mode: repair
+    step_id: S1
+    plan_revision: 9dc12e5f0d8b8aa3bc0792cbc355cd796aaec69d4240517510b43ef7e226b5a4
+    execution_phase: flexible
+    candidate_paths:
+      - native/codex-rollout-collector/tests/rollout_blockers.rs
+      - docs/codex/codex-rollout-isolated-closure-verification.md
+      - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+    change_set_id: change-set-6d88bddf460386620d751e6428795fbe
+    repair_fingerprints:
+      - finding-56ba22bcb8d74c533ab43a5d5e845535
+      - finding-76229f550e746d6e8e0aeedc7c79a1dc
+    repair_wave_id: repair-wave-ab176f9c5738bad4287f7a994bd447bf
+    review_id: review-058550fff6caf5f0706bf6a6b73a94a22b73c552
+    review_target_paths:
+      - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+      - docs/codex/codex-rollout-isolated-closure-verification.md
+      - native/codex-rollout-collector/src/protocol/target_mapping.rs
+      - native/codex-rollout-collector/src/protocol/target_source.rs
+      - native/codex-rollout-collector/src/source/mod.rs
+      - native/codex-rollout-collector/src/source/segment.rs
+      - native/codex-rollout-collector/tests/rollout_blockers.rs
+      - native/codex-rollout-collector/tests/stage4_target_protocol.rs
   pending_review_result:
     test_assessment:
       applicable: true
-      reason: S1 adds a newly admitted persistent test and changes an existing
-        protocol test; acceptance C1 depends on execution evidence.
+      reason: Current repair modifies existing admitted persistent tests and reports;
+        bounded review identifies unresolved convergence rather than certifying
+        entire cumulative source.
       evidence_refs:
-        - docs/workflow/CURRENT_TASK.md
-        - native/codex-rollout-collector/tests/rollout_blockers.rs
-        - native/codex-rollout-collector/tests/stage4_target_protocol.rs
-        - docs/codex/codex-rollout-isolated-closure-verification.md
-        - docs/codex/codex-rollout-collector-architecture.md
-      necessity: The new rollout_blockers test is justified because the existing Stage
-        4 suite does not exercise the public target across a large multi-window
-        backfill; this matches the recorded P-12 admission.
-      oracle: "The required oracle is independently defined by C1 and the
-        architecture: missing-range progression, exact cross-window
-        associations, stable keys, and fail-closed promotion. The current test
-        is insufficient because it uses weak non-empty checks and self-confirms
-        the repeated-range behavior."
-      boundary: The tests reach the formal public target over temporary JSONL and
-        exercise cursor and promotion behavior, but they do not establish
-        per-window streaming residency, mid-scan cancellation, exact
-        cross-window association, or the reported full negative matrix.
-      reuse: Reusing stage4_target_protocol for cursor-kind and promotion-shape
-        regression is appropriate, but it cannot substitute for the new C1
-        behavioral oracle; rollout_blockers must be strengthened rather than
-        relying on broad report claims.
-      applicability: All dimensions apply because the reviewed change set modifies
-        both persistent test files, adds a new admitted test, and cites their
-        execution as S1 acceptance evidence.
+        - execution
+          execute-step-result-14ef32a3e98a4ae3ea5d70717e8b8dcebcb7d7b9b0efce54;
+          target1f017575ca3959385f9d0372cc54e4931d00f5e6aa638f48bd7ef720f13fc96e;
+          actual changes only rollout_blockers.rs, report, CR
+        - current review-cycle-0 repair_round7/max7; f56 and f762
+          attempts7/max7; all other open findings retained
+        - review-read consumed complete current three changed files; source
+          hashes unchanged from previously reviewed acc81371 target
+        - independent frozen cargo test --locked --manifest-path
+          native/codex-rollout-collector/Cargo.toml --test rollout_blockers with
+          OS TEMP CARGO_TARGET_DIR:5passed0failed; other34passes
+          execution-reported only
+        - rollout_blockers.rs new single-window/multi-window comparison
+          establishes split invariance for same fixture and implementation, not
+          an independent correctness oracle against shared mapping bugs
+        - rollout_blockers.rs::test_backfill_three_entrypoints still ends after
+          p2 read, without p2 mapping or terminal convergence; exact overlap
+          test does not exercise conflicting payload; report section5 explicitly
+          does not claim either defect resolved
+        - "fresh task-context complete;
+          definition2d2885c4c2c017d1f6bc0a108e4b20a344809fbc2592e64aadbe55c4e27\
+          6c6c1 compared to visible prior: only Task Basis pointer differs;
+          evidence plan unchanged; final S3 slots not current blockers"
+      necessity: Reuses admitted C1 test asset, no new test count or broad suite
+        requirement.
+      oracle: Single-window/multi-window equality is a valid metamorphic
+        split-invariance check; both use the same mapper and cannot
+        independently prove correctness or conflict safety. Exact fixture
+        assertions from prior wave remain useful. Continuation terminal oracle
+        remains absent.
+      boundary: Independent current rollout_blockers5/5, real temporary JSONL with
+        public read/map. No fresh defect probe or complete source re-review;
+        unchanged source hashes and retained prior counterevidence reused. No
+        Node flow evidence.
+      reuse: Fresh receipt bound test/report/CR reads; existing fixture and frozen
+        command reused. No implementation/test changes made by reviewer.
+      applicability: Acknowledges resource/output invariance evidence and narrowed
+        reporting. Does not demand RSS tests or S3 evidence now. Budget and
+        retained functional blockers prevent clean; do not reset history or
+        advance S1.
     kind: review-result/v1
-    review_id: review-e7bce2c093f44ccca3c0ee4a53eb912ef246fd46
-    execution_id: execute-step-result-28b83f1ed43de37e901a79ea9eba98fe3e3f46e73566eec5
+    review_id: review-1dc3fbbbfaf5bffa86e95f695da8d8ceccdced5a
+    execution_id: execute-step-result-14ef32a3e98a4ae3ea5d70717e8b8dcebcb7d7b9b0efce54
     step_id: S1
     cycle_id: review-cycle-0
-    cycle_phase: discovery
+    cycle_phase: verification
     change_set_id: change-set-6d88bddf460386620d751e6428795fbe
-    review_target_revision: 39aec04709998f1c78ab051e037bb95591b07c7261b4f89157b04c347a4a4999
-    verdict: findings
-    findings:
-      - fingerprint: finding-63fad9ec0fd6323304a2f9481d895779
-        category: backfill-range-progression
-        file: native/codex-rollout-collector/src/protocol/target_source.rs
-        failure_condition: When known_complete_range describes an incomplete prefix or
-          interior range, plan_target_source_read selects that already-known
-          range again (for example 0..known.end) instead of the missing physical
-          range, so repeated requests can replay old bytes and never progress
-          coverage to the full snapshot.
-        required_behavior: Derive the next bounded read from the missing part of the
-          snapshot, advance the accumulated complete range monotonically, and
-          prove that a valid known_complete_range request reaches full-snapshot
-          coverage without replaying the old range.
-        root_cause_status: confirmed
-        evidence_refs:
-          - native/codex-rollout-collector/src/protocol/target_source.rs
-          - native/codex-rollout-collector/tests/rollout_blockers.rs
-          - docs/codex/codex-rollout-collector-rust-issues-verification.md
-          - docs/workflow/CURRENT_TASK.md
-      - fingerprint: finding-56ba22bcb8d74c533ab43a5d5e845535
-        category: resource-boundedness
-        file: native/codex-rollout-collector/src/protocol/target_source.rs
-        failure_condition: The multi-window loop appends every decoded SourceRecord into
-          one records Vec, and target mapping then clones and sorts that
-          cumulative set; a large but budget-valid backfill therefore retains
-          the full raw history in memory despite bounded I/O windows.
-        required_behavior: Keep raw-record residency bounded to the current window and
-          carry only the formal adapter/reducer/checkpoint state needed across
-          windows, while preserving deterministic chronological output and
-          stable logical keys.
-        root_cause_status: confirmed
-        evidence_refs:
-          - native/codex-rollout-collector/src/protocol/target_source.rs
-          - native/codex-rollout-collector/src/protocol/target_mapping.rs
-          - docs/codex/codex-rollout-collector-architecture.md
-          - docs/workflow/CURRENT_TASK.md
-      - fingerprint: finding-0d9e741858db75be08e2b837ca598acc
-        category: cancellation-deadline
-        file: native/codex-rollout-collector/src/protocol/target_source.rs
-        failure_condition: find_previous_line_start performs a potentially long backward
-          seek/read loop without receiving or checking cancellation/deadline
-          control; cancellation is checked only before entering it, so an
-          oversized line or long boundary scan can remain unresponsive during
-          boundary I/O.
-        required_behavior: Thread request control through boundary discovery and check
-          cancellation/deadline within the backward scan so planning and
-          boundary I/O terminate promptly, with a test that changes control
-          state during the scan rather than only before the request.
-        root_cause_status: confirmed
-        evidence_refs:
-          - native/codex-rollout-collector/src/protocol/target_source.rs
-          - native/codex-rollout-collector/tests/rollout_blockers.rs
-          - docs/codex/codex-rollout-collector-architecture.md
-          - docs/workflow/CURRENT_TASK.md
-      - fingerprint: finding-f055a9eb19e6da4e496a31f4bea6b66a
-        category: persistent-test-oracle
-        file: native/codex-rollout-collector/tests/rollout_blockers.rs
-        failure_condition: The newly admitted P-12 test only checks non-empty tool
-          details, turn IDs, and keys, does not prove a tool begin/end straddles
-          windows or that logical keys remain equal across overlap/retry, and
-          explicitly asserts that known_complete_range rereads 0..known.end,
-          locking in the range-progression defect.
-        required_behavior: Use independently specified assertions for exact cross-window
-          tool association, key equality across reread/overlap, correct
-          missing-range progression to terminal coverage, and the required
-          pending/gap/mutation/checkpoint fail-closed cases.
-        root_cause_status: confirmed
-        evidence_refs:
-          - native/codex-rollout-collector/tests/rollout_blockers.rs
-          - native/codex-rollout-collector/tests/stage4_target_protocol.rs
-          - docs/codex/codex-rollout-collector-architecture.md
-          - docs/workflow/CURRENT_TASK.md
-      - fingerprint: finding-76229f550e746d6e8e0aeedc7c79a1dc
-        category: validation-evidence-accuracy
-        file: docs/codex/codex-rollout-isolated-closure-verification.md
-        failure_condition: The verification report claims a 200-byte segment limit,
-          cross-window begin/end attribution, reproducible stable keys, and
-          incompatible-checkpoint/gap coverage, while the recorded test uses a
-          1000-byte limit and its assertions do not establish those claimed
-          behaviors or all listed negative cases.
-        required_behavior: Make the report and CR state only behavior directly
-          established by the persisted tests and recorded commands, using the
-          actual fixture and segment parameters; add the missing assertions
-          before claiming the broader C1 evidence.
-        root_cause_status: confirmed
-        evidence_refs:
-          - docs/codex/codex-rollout-isolated-closure-verification.md
-          - docs/changes/records/CR-20260916-rollout-blockers-s1.md
-          - native/codex-rollout-collector/tests/rollout_blockers.rs
-          - docs/workflow/CURRENT_TASK.md
+    review_target_revision: 1f017575ca3959385f9d0372cc54e4931d00f5e6aa638f48bd7ef720f13fc96e
+    verdict: blocked
+    findings: []
     unresolved_fingerprints: []
     evidence_refs:
-      - docs/workflow/CURRENT_TASK.md
-      - docs/workflow/CONTRACTS.md
-      - docs/workflow/DECISIONS.md
-      - docs/codex/codex-rollout-collector-architecture.md
-      - docs/codex/codex-rollout-collector-rust-issues-verification.md
-      - docs/codex/codex-rollout-isolated-closure-verification.md
-      - docs/changes/records/CR-20260916-rollout-blockers-s1.md
-      - native/codex-rollout-collector/src/protocol/target_source.rs
-      - native/codex-rollout-collector/src/protocol/target_mapping.rs
-      - native/codex-rollout-collector/tests/rollout_blockers.rs
-      - native/codex-rollout-collector/tests/stage4_target_protocol.rs
-    blocker: null
-    recorded_at: 2026-09-18T05:25:10.928Z
+      - execution
+        execute-step-result-14ef32a3e98a4ae3ea5d70717e8b8dcebcb7d7b9b0efce54;
+        target1f017575ca3959385f9d0372cc54e4931d00f5e6aa638f48bd7ef720f13fc96e;
+        actual changes only rollout_blockers.rs, report, CR
+      - current review-cycle-0 repair_round7/max7; f56 and f762 attempts7/max7;
+        all other open findings retained
+      - review-read consumed complete current three changed files; source hashes
+        unchanged from previously reviewed acc81371 target
+      - independent frozen cargo test --locked --manifest-path
+        native/codex-rollout-collector/Cargo.toml --test rollout_blockers with
+        OS TEMP CARGO_TARGET_DIR:5passed0failed; other34passes
+        execution-reported only
+      - rollout_blockers.rs new single-window/multi-window comparison
+        establishes split invariance for same fixture and implementation, not an
+        independent correctness oracle against shared mapping bugs
+      - rollout_blockers.rs::test_backfill_three_entrypoints still ends after p2
+        read, without p2 mapping or terminal convergence; exact overlap test
+        does not exercise conflicting payload; report section5 explicitly does
+        not claim either defect resolved
+      - "fresh task-context complete;
+        definition2d2885c4c2c017d1f6bc0a108e4b20a344809fbc2592e64aadbe55c4e276c\
+        6c1 compared to visible prior: only Task Basis pointer differs; evidence
+        plan unchanged; final S3 slots not current blockers"
+    blocker:
+      code: REPAIR_BUDGET_EXHAUSTED
+      summary: Current cycle exhausted7/7. New split-invariance assertion and report
+        clarification are useful evidence improvements, but no production change
+        or counterevidence resolves retained continuation/conflict issues;
+        continuation test still omits terminal mapping. Cumulative clean cannot
+        be established. Diagnose mismatch between repeatedly selected f56/f762
+        repair scope and outstanding functional findings before further budget
+        extension.
+      next_route: debug-task
+    recorded_at: 2026-09-20T14:15:34.106Z
   step_attempts:
     S1:
-      evidence_plan_revision: 6d88bddf460386620d751e6428795fbec1fb69f7fad4f04b67e8c935cc679c14
+      evidence_plan_revision: 98b2028a6421b96265d86fa20364870cc3277086fda439097675d4afb9a04e4b
       max_attempts: 3
       attempts:
         - attempt_id: attempt-7dbd7e3ab797be81a91b562e4f59378f04307a56
@@ -529,7 +789,7 @@ runtime_state:
     change_set_id: change-set-6d88bddf460386620d751e6428795fbe
     base:
       kind: runtime-file-manifest/v1
-      revision: a17985882ee812d68f76766c8690c9a8e9204799931c9a0b260613a26ff3389a
+      revision: 9b8b36bff3a2276626e41d5c5397d52a43203d36622729854221913d32da3079
       entries:
         - path: docs/changes/records/CR-20260916-rollout-blockers-s1.md
           state: absent
@@ -543,6 +803,12 @@ runtime_state:
         - path: native/codex-rollout-collector/src/protocol/target_source.rs
           state: file
           sha256: 485877fc216d9a99e075f874428e183cf8d4823b4cd0d041389a47869d32e899
+        - path: native/codex-rollout-collector/src/source/mod.rs
+          state: file
+          sha256: 367ab43a65b58f393099b2a5e5df1b56adccaef79fe89cb264cf953fba9464d7
+        - path: native/codex-rollout-collector/src/source/segment.rs
+          state: file
+          sha256: 66ffc289fc208bc718f8c2ffcb53d8189952c3688f0eef25fa00c157cef96846
         - path: native/codex-rollout-collector/tests/rollout_blockers.rs
           state: absent
           sha256: null
@@ -551,23 +817,29 @@ runtime_state:
           sha256: 7aebbcd6d4dd9184dd9fd921ef014d725dfae5c201325f173a63cae5d35e7e73
     target:
       kind: runtime-file-manifest/v1
-      revision: 39aec04709998f1c78ab051e037bb95591b07c7261b4f89157b04c347a4a4999
+      revision: 1f017575ca3959385f9d0372cc54e4931d00f5e6aa638f48bd7ef720f13fc96e
       entries:
         - path: docs/changes/records/CR-20260916-rollout-blockers-s1.md
           state: file
-          sha256: ab348a245917656e47f045c5a3525927263fe8ad8ec8b6da0ef6534cfb10e03f
+          sha256: 9432ff4bf483644f28689b1509023771f0e983b7e6de82d38e9c9fcdfc602be2
         - path: docs/codex/codex-rollout-isolated-closure-verification.md
           state: file
-          sha256: 383b33fb0562155fa53f9b58ad0f00e1418f573ffd8e74ca5951a46b2ac6c35d
+          sha256: b90c09cd670ce913274d136895e5fd21bdc79f77ea671d8caf1b8e4ec7e5166c
         - path: native/codex-rollout-collector/src/protocol/target_mapping.rs
           state: file
-          sha256: 679ed308f49db6ab5f7472b384400822a6d6a214d1a697cc7ab09e59b2b57f27
+          sha256: 4b5859bbb3b5d10dbf34f872cf202ba373cc70cadba81649c3644440c30faf35
         - path: native/codex-rollout-collector/src/protocol/target_source.rs
           state: file
-          sha256: 1a43863d52f5baa91a7b370518f7e57e732ac7a023ad12530c35a37c11e0d265
+          sha256: 48317594cd07611dc1b862eae92b5dd462de12e48f60a2d9be74a8d0e8289f4e
+        - path: native/codex-rollout-collector/src/source/mod.rs
+          state: file
+          sha256: 15ad2d0f0ae5abea90a143e04d843d28bde579a20d65f220934cd71fbe6591f6
+        - path: native/codex-rollout-collector/src/source/segment.rs
+          state: file
+          sha256: 254efe05c741fafb26b3fbb5f6c4c9ed9f00809cfed6a7a11cf56c8749aaedb6
         - path: native/codex-rollout-collector/tests/rollout_blockers.rs
           state: file
-          sha256: a68dac09ed578c1e385ea807374b48945d9854ad11657be4860c9516c192222e
+          sha256: 2b7e2679fc5e28e34e1f11755b841d6f29a4fabae06a49ffa9b14b55bcd63a37
         - path: native/codex-rollout-collector/tests/stage4_target_protocol.rs
           state: file
           sha256: 7530d0559ffacd956b5430116910670a378f836b50ef0d6a8b87908b7b4ca23d
@@ -584,6 +856,12 @@ runtime_state:
       - path: native/codex-rollout-collector/src/protocol/target_source.rs
         state: file
         sha256: 485877fc216d9a99e075f874428e183cf8d4823b4cd0d041389a47869d32e899
+      - path: native/codex-rollout-collector/src/source/mod.rs
+        state: file
+        sha256: 367ab43a65b58f393099b2a5e5df1b56adccaef79fe89cb264cf953fba9464d7
+      - path: native/codex-rollout-collector/src/source/segment.rs
+        state: file
+        sha256: 66ffc289fc208bc718f8c2ffcb53d8189952c3688f0eef25fa00c157cef96846
       - path: native/codex-rollout-collector/tests/rollout_blockers.rs
         state: absent
         sha256: null
@@ -595,6 +873,8 @@ runtime_state:
       - docs/codex/codex-rollout-isolated-closure-verification.md
       - native/codex-rollout-collector/src/protocol/target_mapping.rs
       - native/codex-rollout-collector/src/protocol/target_source.rs
+      - native/codex-rollout-collector/src/source/mod.rs
+      - native/codex-rollout-collector/src/source/segment.rs
       - native/codex-rollout-collector/tests/rollout_blockers.rs
       - native/codex-rollout-collector/tests/stage4_target_protocol.rs
     last_clean_revision: null
@@ -622,7 +902,7 @@ task_store:
 ## 任务输入依据
 
 - path: `docs/workflow/task-basis/TASK_BASIS-002.md`
-- revision: `e34835cfad07b3d8a1b8f6300d5d4ab0b4b9bb4038e93469a39be1945a02ab8a`
+- revision: `016b79fd8858b3fd5286ab884730c5d1f9faecca010d0c112f2de5486841d8e4`
 
 ## 背景与上下文
 
@@ -760,18 +1040,20 @@ task_store:
 ## 传播治理记录
 
 
-
 ## 实施步骤
 
 - S1: 修复公共 backfill 的缺失范围推进、有界窗口读取、历史正序归约和 formal safe promotion，完整 backfill 输出可直接用于 append 的公共 ForwardAppend/checkpoint；保留控制点、预算和失败边界。在 rollout_blockers.rs 新增公共 target 定向回归，同步 stage4_target_protocol.rs 的现行契约断言；写入 S1 报告/CR。
   - purpose: 修复公共 backfill 的缺失范围推进、有界窗口读取、历史正序归约和 formal safe promotion，完整 backfill 输出可直接用于 append 的公共 ForwardAppend/checkpoint；保留控制点、预算和失败边界。在 rollout_blockers.rs 新增公共 target 定向回归，同步 stage4_target_protocol.rs 的现行契约断言；写入 S1 报告/CR。
   - mutation_scope: native/codex-rollout-collector/src/analysis.rs, native/codex-rollout-collector/src/lib.rs, native/codex-rollout-collector/src/main.rs, native/codex-rollout-collector/src/protocol/mod.rs, native/codex-rollout-collector/src/protocol/target_mapping.rs, native/codex-rollout-collector/src/protocol/target_runtime.rs, native/codex-rollout-collector/src/protocol/target_source.rs, native/codex-rollout-collector/src/source/cursor.rs, native/codex-rollout-collector/src/source/jsonl.rs, native/codex-rollout-collector/src/source/mod.rs, native/codex-rollout-collector/src/source/read_plan.rs, native/codex-rollout-collector/src/source/record.rs, native/codex-rollout-collector/src/source/segment.rs, native/codex-rollout-collector/tests/rollout_blockers.rs, native/codex-rollout-collector/tests/stage4_target_protocol.rs, docs/codex/codex-rollout-isolated-closure-verification.md, docs/changes/records/CR-20260916-rollout-blockers-s1.md
-  - required_evidence: 运行 Rust lib + conformance + stage2_input + stage4_target_protocol + rollout_blockers，共五个目标；新增资产前执行允许失败且不得伪报通过。; 必须证明实际多窗口推进和正序归约，不只检查数组非空/complete；跨窗 tool begin/end、无显式 turn_id 的已有 carrier 归属按独立 fixture 检查。; stage4 完整 backfill 期待 ForwardAppend；backfill 拒绝不兼容 ForwardAppend；append 原样消费公共输出。pending tail/gap/诊断不可 promotion。; 新增用例兼容同 request 一个或多个 batch、逐 batch ACK 直到终态；规划循环和边界 I/O 的取消/timeout 约束有可核验证据。
+  - required_evidence: 运行 C1/C2 minimum-sufficient Rust targets：C1 为 rollout_blockers target，C2 为 conformance 与 stage2_input targets，完整 stage4_target_protocol target 移出 acceptance evidence 并保留为普通 regression，新增资产前执行允许失败且不得伪报通过。; 必须证明实际多窗口推进和正序归约，不只检查数组非空/complete；跨窗 tool begin/end、无显式 turn_id 的已有 carrier 归属按独立 fixture 检查。; stage4 完整 backfill 期待 ForwardAppend；backfill 拒绝不兼容 ForwardAppend；append 原样消费公共输出。pending tail/gap/诊断不可 promotion。; 新增用例兼容同 request 一个或多个 batch、逐 batch ACK 直到终态；规划循环和边界 I/O 的取消/timeout 约束有可核验证据。
   - review_checkpoint: required: 核心 source/cursor/预算/取消与 formal promotion 安全边界必审。
   - planned_command: $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'termlink-rollout-blockers-target'
     - expected_repo_writes: none
     - transformation_kind: localized
-  - planned_command: cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --lib --test conformance --test stage2_input --test stage4_target_protocol --test rollout_blockers
+  - planned_command: cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --test stage2_input
     - expected_repo_writes: none
     - transformation_kind: localized
   - planned_command: git diff --check
@@ -783,12 +1065,15 @@ task_store:
 - S2: 补齐已知 item_completed.FileChange/CommandExecution 的 Adapter→owned event→projection/detail 映射、精确字段/关联/stable key 和旧 carrier 去重；以 rollout_blockers.rs 验证重复/overlap/未知/缺字段/既有脱敏策略。仅必要 additive 内部扩展；保留全部 S1 文件定向修复权限，写入 S2 报告/CR。
   - purpose: 补齐已知 item_completed.FileChange/CommandExecution 的 Adapter→owned event→projection/detail 映射、精确字段/关联/stable key 和旧 carrier 去重；以 rollout_blockers.rs 验证重复/overlap/未知/缺字段/既有脱敏策略。仅必要 additive 内部扩展；保留全部 S1 文件定向修复权限，写入 S2 报告/CR。
   - mutation_scope: native/codex-rollout-collector/src/analysis.rs, native/codex-rollout-collector/src/lib.rs, native/codex-rollout-collector/src/main.rs, native/codex-rollout-collector/src/protocol/mod.rs, native/codex-rollout-collector/src/protocol/target_mapping.rs, native/codex-rollout-collector/src/protocol/target_runtime.rs, native/codex-rollout-collector/src/protocol/target_source.rs, native/codex-rollout-collector/src/source/cursor.rs, native/codex-rollout-collector/src/source/jsonl.rs, native/codex-rollout-collector/src/source/mod.rs, native/codex-rollout-collector/src/source/read_plan.rs, native/codex-rollout-collector/src/source/record.rs, native/codex-rollout-collector/src/source/segment.rs, native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/src/codex_adapter/field_mapping.rs, native/codex-rollout-collector/src/model/analysis_event.rs, native/codex-rollout-collector/tests/rollout_blockers.rs, native/codex-rollout-collector/tests/stage4_target_protocol.rs, docs/codex/codex-rollout-isolated-closure-verification.md, docs/changes/records/CR-20260916-rollout-blockers-s1.md, docs/changes/records/CR-20260916-rollout-blockers-s2.md
-  - required_evidence: 运行相同五目标 Rust 定向回归；FileChange/CommandExecution 精确字段及关联、重复/overlap/legacy carrier 幂等、unknown/missing 负向对照。; 既有 retention/truncation/redaction 不改变；C2 不引入 broad outcome/failed enum 或 vendor 变更。; 任何 S1 修复重跑相关回归，不借映射修改改变公共 cursor 安全契约。
+  - required_evidence: 运行 C1/C2 minimum-sufficient Rust 定向回归：C1 为 rollout_blockers target，C2 为 conformance 与 stage2_input targets，完整 stage4_target_protocol target 移出 acceptance evidence 并保留为普通 regression，FileChange/CommandExecution 精确字段及关联、重复/overlap/legacy carrier 幂等、unknown/missing 负向对照。; 既有 retention/truncation/redaction 不改变；C2 不引入 broad outcome/failed enum 或 vendor 变更。; 任何 S1 修复重跑相关回归，不借映射修改改变公共 cursor 安全契约。
   - review_checkpoint: not-required: 映射与去重变更执行定向验证后并入 S3 最终累计必审；不是最终豁免。
   - planned_command: $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'termlink-rollout-blockers-target'
     - expected_repo_writes: none
     - transformation_kind: localized
-  - planned_command: cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --lib --test conformance --test stage2_input --test stage4_target_protocol --test rollout_blockers
+  - planned_command: cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --test stage2_input
     - expected_repo_writes: none
     - transformation_kind: localized
   - planned_command: git diff --check
@@ -800,12 +1085,15 @@ task_store:
 - S3: 建立真实 Node→当前构建 Rust stdio→三个 File stores 隔离生命周期测试，覆盖补齐/append/Node及Rust重启/overlap/重复delivery/无增长/pending tail补齐/失败保护和富字段重开。修正 rust-target.js 尊重 CARGO_TARGET_DIR 并构建或核验当前 binary。Node 六个 consumer 文件仅修复真实联调复现的 C1–C3 缺陷；保留 S1/S2 全部集成修复权限。最终版本重跑六槽位并完成累计报告和 S3 CR。
   - purpose: 建立真实 Node→当前构建 Rust stdio→三个 File stores 隔离生命周期测试，覆盖补齐/append/Node及Rust重启/overlap/重复delivery/无增长/pending tail补齐/失败保护和富字段重开。修正 rust-target.js 尊重 CARGO_TARGET_DIR 并构建或核验当前 binary。Node 六个 consumer 文件仅修复真实联调复现的 C1–C3 缺陷；保留 S1/S2 全部集成修复权限。最终版本重跑六槽位并完成累计报告和 S3 CR。
   - mutation_scope: native/codex-rollout-collector/src/analysis.rs, native/codex-rollout-collector/src/lib.rs, native/codex-rollout-collector/src/main.rs, native/codex-rollout-collector/src/protocol/mod.rs, native/codex-rollout-collector/src/protocol/target_mapping.rs, native/codex-rollout-collector/src/protocol/target_runtime.rs, native/codex-rollout-collector/src/protocol/target_source.rs, native/codex-rollout-collector/src/source/cursor.rs, native/codex-rollout-collector/src/source/jsonl.rs, native/codex-rollout-collector/src/source/mod.rs, native/codex-rollout-collector/src/source/read_plan.rs, native/codex-rollout-collector/src/source/record.rs, native/codex-rollout-collector/src/source/segment.rs, native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/src/codex_adapter/field_mapping.rs, native/codex-rollout-collector/src/model/analysis_event.rs, src/services/codexRolloutCollector/index.js, src/services/codexRolloutCollector/analyzerProtocol.js, src/services/codexRolloutCollector/analyzerProcessManager.js, src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexRolloutCollector/analysisCheckpointStore.js, src/services/codexRolloutCollector/analysisRunStore.js, native/codex-rollout-collector/tests/rollout_blockers.rs, native/codex-rollout-collector/tests/stage4_target_protocol.rs, tests/codexRolloutCollector.isolatedLifecycle.test.js, tests/fixtures/codex-rollout-collector/rust-target.js, docs/codex/codex-rollout-isolated-closure-verification.md, docs/changes/records/CR-20260916-rollout-blockers-s1.md, docs/changes/records/CR-20260916-rollout-blockers-s2.md, docs/changes/records/CR-20260916-rollout-blockers-s3.md
-  - required_evidence: 设置 OS TEMP CARGO_TARGET_DIR 后构建当前 Rust binary，再执行六文件 Node 定向回归；最终重新执行 Rust 五目标回归。; 隔离测试以同一测试文件的 child-process 入口或 TEMP helper 实现真实 Node 重启，Rust 独立进程只走公开 stdio；不能用 fake analyzer/Memory store 冒充 C1–C3 flow。; 对补齐、append、重启、retry/重复、pending 后补齐、timeout/source/cursor 拒绝逐字段核对独立 fixture；pending/失败保留旧完整 checkpoint 和历史。; 六验收槽全部在 S3 绑定最终源文件快照；最后代码修复后相关槽重新取证，旧计数不继承。; 记录 source/binary/fixture 标识、精确命令、实际通过/失败/未执行计数和小型结果证据；执行 diff/check 与累计范围核对，无产品接入。
+  - required_evidence: 设置 OS TEMP CARGO_TARGET_DIR 后构建当前 Rust binary，再执行六文件 Node 定向回归，最终重新执行 C1/C2 minimum-sufficient Rust targets，完整 stage4_target_protocol target 不作为 acceptance evidence 但保留为普通 regression。; 隔离测试以同一测试文件的 child-process 入口或 TEMP helper 实现真实 Node 重启，Rust 独立进程只走公开 stdio；不能用 fake analyzer/Memory store 冒充 C1–C3 flow。; 对补齐、append、重启、retry/重复、pending 后补齐、timeout/source/cursor 拒绝逐字段核对独立 fixture；pending/失败保留旧完整 checkpoint 和历史。; 六验收槽全部在 S3 绑定最终源文件快照；最后代码修复后相关槽重新取证，旧计数不继承。; 记录 source/binary/fixture 标识、精确命令、实际通过/失败/未执行计数和小型结果证据；执行 diff/check 与累计范围核对，无产品接入。
   - review_checkpoint: required: 真实跨进程持久化与恢复及所有累计 C1–C3 改动必审，包括 S1/S2 后续集成修复。
   - planned_command: $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'termlink-rollout-blockers-target'
     - expected_repo_writes: none
     - transformation_kind: localized
-  - planned_command: cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --lib --test conformance --test stage2_input --test stage4_target_protocol --test rollout_blockers
+  - planned_command: cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers
+    - expected_repo_writes: none
+    - transformation_kind: localized
+  - planned_command: cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --test stage2_input
     - expected_repo_writes: none
     - transformation_kind: localized
   - planned_command: cargo build --locked --manifest-path native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector
@@ -890,9 +1178,7 @@ task_store:
 ## 设计约束
 
 
-
 ## 发布后验证
-
 
 
 ## 执行记录
@@ -900,7 +1186,12 @@ task_store:
 - Store-backed history is retained under task-data; use task-read for exact event, proposal, result, and report reads.
 - This section is a bounded navigation preview only; it is not the Runtime fact source.
 
-- create-draft | key=prepare-draft-commit-b95570f4fd68580b86a43c4bba7fa055317e197674c245dc | at=2026-09-18T04:19:30.902Z
-- confirm-draft | key=confirm-draft-0a1a0e3dc8704a6e4625f8015bf0f8a6589b2da2a5d84fad | at=2026-09-18T04:27:03.194Z
-- step-execution | key=execute-step-result-28b83f1ed43de37e901a79ea9eba98fe3e3f46e73566eec5 | step=S1 | status=in-progress | at=2026-09-18T05:07:30.997Z
+- extend-repair-budget | key=extend-repair-budget-4595df873be7116576d79a87d39e3f93245070ef | at=2026-09-20T10:46:02.549Z
+- step-execution | key=execute-step-result-f93cc6d8c5ff6b60afe91eb7a5a6554d22b9dc5c0f74d423 | step=S1 | status=completed | at=2026-09-20T10:58:49.539Z
+- extend-repair-budget | key=extend-repair-budget-a16443e5137cd5ee0dd7e1b61923983cc6b5ae50 | at=2026-09-20T11:07:11.051Z
+- step-execution | key=execute-step-result-6a6f2b01dacede22fce089860005f665bbcb973a87480cc9 | step=S1 | status=completed | at=2026-09-20T11:18:54.279Z
+- extend-repair-budget | key=extend-repair-budget-75d7a5ee728ec9c23b9af606b9deabe6d0eeebee | at=2026-09-20T13:44:08.672Z
+- step-execution | key=execute-step-result-407c38316a44d29c623dfb4b424c77ae34c29b64428833df | step=S1 | status=completed | at=2026-09-20T13:53:27.076Z
+- extend-repair-budget | key=extend-repair-budget-f06c1b7aa215d9f7311e341e88d481be66e708bb | at=2026-09-20T14:05:17.059Z
+- step-execution | key=execute-step-result-14ef32a3e98a4ae3ea5d70717e8b8dcebcb7d7b9b0efce54 | step=S1 | status=completed | at=2026-09-20T14:11:42.495Z
 

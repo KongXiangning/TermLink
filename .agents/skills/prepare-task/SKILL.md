@@ -355,6 +355,22 @@ evidence, then submit the caller/host readiness receipt bound to the exact task,
 document, source revision, and gate reasons through `clear-resume-review`. Do not
 redesign the task or reconstruct the receipt from current state.
 
+If the exact pending review is blocked with `REPAIR_BUDGET_EXHAUSTED`, do not
+route that state through correction replan: the pending review and in-progress
+findings are the repair authority that must be retained. After the user explicitly
+authorizes one additional bounded attempt for every currently exhausted finding,
+submit `extend-repair-budget` with exactly `{review_id, finding_fingerprints,
+additional_repair_attempts: 1, decision_source, decision_text}`. Runtime requires
+the exact pending review and exact exhausted set, appends the decision to Task
+Basis, increments each selected finding by one, and preserves attempts, statuses,
+review baseline, task definition, identity, and pending review. It never clears
+or resets the failed history. The default limits remain two attempts per finding
+and three repair waves per cycle; explicit extensions are capped at eight each.
+An unconsumed extension routes directly to `execute-step:repair`; the fresh repair
+result and verification consume it. A different or additional extension requires
+a later explicit decision after another real exhaustion. Without that decision,
+return the user-owned blocker and do not manufacture a replan candidate.
+
 In `confirm` mode, submit the user's explicit confirmation through
 `confirm-draft` with the exact confirmation receipt returned by the committed
 draft; do not reconstruct it from the current task. Report the result and stop.
@@ -499,3 +515,28 @@ Do not invent a final exemption: only an approved exemption of the entire target
 may use a reason starting with `final-exemption:`. Repair verification is never
 exempt. Read preimage size limits when planning large or binary changes; do not
 substitute Git HEAD for existing user changes.
+
+
+## Same-task user-authorized verification selection
+
+For an explicit user decision to change evidence selectors while retaining Goal,
+Acceptance, business boundaries and authority, use the internal
+`prepare-evidence-plan-amendment` / `confirm-evidence-plan-amendment` /
+`discard-evidence-plan-amendment` commands documented in CONTEXT_API.md.
+Missing slot reports and existing findings are not prerequisites for inventing
+an evidence challenge. Preparation writes only an immutable candidate; when the
+user requested a candidate, stop for confirmation of that exact candidate.
+Retain the user's original decision rather than asking them to rename it a new
+business requirement. Do not supersede this task or prepare a successor merely
+because selectors need changing. Confirmed changes preserve current findings,
+recorded pending findings review, task identity, scope, history and budgets;
+new checks require fresh evidence. Explain any explicit historical retention of
+an affected old clean review and the required fresh verification. No product or
+test deletion is authorized. Existing invocation-only replace-validation remains
+narrow; policy/contract/prerequisite requirements are not waived.
+
+When a frozen step label still names the former whole-suite invocation, include
+its selection-only `validation_replacements` in the same candidate instead of
+claiming the old suite ran. Bind the old check IDs, preserve independent behavior
+requirements and label ownership, and show the exact before/after description to
+the user. Do not treat a selector rename as a waiver of a business obligation.

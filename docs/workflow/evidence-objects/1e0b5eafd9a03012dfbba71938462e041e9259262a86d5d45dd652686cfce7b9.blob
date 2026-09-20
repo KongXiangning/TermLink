@@ -1,0 +1,1 @@
+用户要求对任务002、S1的整个Persistent Tests和evidence set进行vNext符合性历史审查，逐个映射claim到slot、test instance/function、oracle、boundary和validation result，分类keep、merge、redundant、insufficient，检查minimum-sufficient、独立oracle、业务边界和报告是否过度表述；不得新增测试、修改代码、修改CURRENT_TASK或直接写治理文件。

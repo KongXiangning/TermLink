@@ -16,6 +16,214 @@ pub enum SegmentCompleteness {
     Partial,
 }
 
+/// Bounded record-level proof collected while the target mapper replays a
+/// source spool.  Unlike `SegmentAssembly::records`, this summary never
+/// retains the raw record payloads, so formal promotion can validate the
+/// record boundary without rebuilding the whole source in memory.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct StreamingRecordSummary {
+    record_count: u64,
+    first_byte_start: Option<u64>,
+    last_byte_end: Option<u64>,
+    previous_byte_start: Option<u64>,
+    previous_byte_end: Option<u64>,
+    first_physical_line: Option<u64>,
+    last_physical_line: Option<u64>,
+    previous_physical_line: Option<u64>,
+    first_rollout_ordinal: Option<u64>,
+    last_rollout_ordinal: Option<u64>,
+    actual_last_rollout_ordinal: Option<u64>,
+    previous_rollout_ordinal: Option<u64>,
+    rollout_ordinals_present: bool,
+    rollout_ordinals_absent: bool,
+    rollout_ordinals_contiguous: bool,
+    byte_ordered: bool,
+    physical_ordered: bool,
+    byte_contiguous: bool,
+    physical_contiguous: bool,
+    source_identity: Option<String>,
+    source_identity_valid: bool,
+    parse_error_present: bool,
+    first_complete_line: Option<CompleteLineAnchor>,
+    last_complete_line: Option<CompleteLineAnchor>,
+}
+
+impl Default for StreamingRecordSummary {
+    fn default() -> Self {
+        Self {
+            record_count: 0,
+            first_byte_start: None,
+            last_byte_end: None,
+            previous_byte_start: None,
+            previous_byte_end: None,
+            first_physical_line: None,
+            last_physical_line: None,
+            previous_physical_line: None,
+            first_rollout_ordinal: None,
+            last_rollout_ordinal: None,
+            actual_last_rollout_ordinal: None,
+            previous_rollout_ordinal: None,
+            rollout_ordinals_present: false,
+            rollout_ordinals_absent: false,
+            rollout_ordinals_contiguous: true,
+            byte_ordered: true,
+            physical_ordered: true,
+            byte_contiguous: true,
+            physical_contiguous: true,
+            source_identity: None,
+            source_identity_valid: true,
+            parse_error_present: false,
+            first_complete_line: None,
+            last_complete_line: None,
+        }
+    }
+}
+
+impl StreamingRecordSummary {
+    pub(crate) fn observe(&mut self, record: &SourceRecord) -> Result<(), SegmentError> {
+        let line = line_anchor(record)?;
+        if let Some(previous_byte_start) = self.previous_byte_start {
+            if (record.byte_start, record.byte_end, record.physical_line_ordinal)
+                < (
+                    previous_byte_start,
+                    self.previous_byte_end.unwrap_or_default(),
+                    self.previous_physical_line.unwrap_or_default(),
+                )
+            {
+                self.byte_ordered = false;
+            }
+            if self.previous_byte_end != Some(record.byte_start) {
+                self.byte_contiguous = false;
+            }
+        }
+        if let Some(previous_physical_line) = self.previous_physical_line {
+            if record.physical_line_ordinal < previous_physical_line {
+                self.physical_ordered = false;
+            }
+            if record.physical_line_ordinal
+                != previous_physical_line.saturating_add(1)
+            {
+                self.physical_contiguous = false;
+            }
+        }
+
+        match (self.previous_rollout_ordinal, record.rollout_ordinal) {
+            (Some(previous), Some(current)) => {
+                if current != previous.saturating_add(1) {
+                    self.rollout_ordinals_contiguous = false;
+                }
+            }
+            (None, None) => {}
+            _ if self.record_count > 0 => {
+                self.rollout_ordinals_contiguous = false;
+            }
+            _ => {}
+        }
+        if let Some(ordinal) = record.rollout_ordinal {
+            self.rollout_ordinals_present = true;
+            self.first_rollout_ordinal = Some(
+                self.first_rollout_ordinal
+                    .map_or(ordinal, |value| value.min(ordinal)),
+            );
+            self.last_rollout_ordinal = Some(
+                self.last_rollout_ordinal
+                    .map_or(ordinal, |value| value.max(ordinal)),
+            );
+            self.actual_last_rollout_ordinal = Some(
+                self.actual_last_rollout_ordinal
+                    .map_or(ordinal, |value| value.max(ordinal)),
+            );
+        } else {
+            self.rollout_ordinals_absent = true;
+        }
+
+        if let Some(source_identity) = &self.source_identity {
+            if source_identity != &record.source_identity {
+                self.source_identity_valid = false;
+            }
+        } else {
+            self.source_identity = Some(record.source_identity.clone());
+        }
+        self.parse_error_present |= record.parse_error.is_some();
+
+        if self.record_count == 0 {
+            self.first_byte_start = Some(record.byte_start);
+            self.first_physical_line = Some(record.physical_line_ordinal);
+            self.first_complete_line = Some(line.clone());
+        }
+        self.last_byte_end = Some(record.byte_end);
+        self.last_physical_line = Some(record.physical_line_ordinal);
+        self.last_complete_line = Some(line);
+        self.previous_byte_start = Some(record.byte_start);
+        self.previous_byte_end = Some(record.byte_end);
+        self.previous_physical_line = Some(record.physical_line_ordinal);
+        self.previous_rollout_ordinal = record.rollout_ordinal;
+        self.record_count = self.record_count.saturating_add(1);
+        Ok(())
+    }
+
+    pub(crate) const fn record_count(&self) -> u64 {
+        self.record_count
+    }
+
+    pub(crate) const fn first_byte_start(&self) -> Option<u64> {
+        self.first_byte_start
+    }
+
+    pub(crate) const fn last_byte_end(&self) -> Option<u64> {
+        self.last_byte_end
+    }
+
+    pub(crate) const fn first_physical_line(&self) -> Option<u64> {
+        self.first_physical_line
+    }
+
+    pub(crate) const fn last_physical_line(&self) -> Option<u64> {
+        self.last_physical_line
+    }
+
+    pub(crate) fn first_complete_line(&self) -> Option<&CompleteLineAnchor> {
+        self.first_complete_line.as_ref()
+    }
+
+    pub(crate) fn last_complete_line(&self) -> Option<&CompleteLineAnchor> {
+        self.last_complete_line.as_ref()
+    }
+
+    pub(crate) const fn actual_last_rollout_ordinal(&self) -> Option<u64> {
+        self.actual_last_rollout_ordinal
+    }
+
+    pub(crate) const fn source_identity_valid(&self) -> bool {
+        self.source_identity_valid
+    }
+
+    pub(crate) const fn parse_error_present(&self) -> bool {
+        self.parse_error_present
+    }
+
+    pub(crate) const fn ordered_and_contiguous(&self) -> bool {
+        self.byte_ordered
+            && self.physical_ordered
+            && self.byte_contiguous
+            && self.physical_contiguous
+    }
+
+    pub(crate) const fn rollout_ordinals_valid(&self) -> bool {
+        !(self.rollout_ordinals_present && self.rollout_ordinals_absent)
+            && self.rollout_ordinals_contiguous
+    }
+
+    pub(crate) const fn normalized_rollout_ordinals(&self) -> Option<(u64, u64)> {
+        let (Some(first), Some(last)) = (self.first_rollout_ordinal, self.last_rollout_ordinal)
+        else {
+            return None;
+        };
+        let offset = if first == 0 { 1 } else { 0 };
+        Some((first.saturating_add(offset), last.saturating_add(offset)))
+    }
+}
+
 /// Metadata needed to place one acquired segment back into source order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SegmentDescriptor {
@@ -495,9 +703,25 @@ pub struct SegmentAssembly {
     completeness: SegmentCompleteness,
     gaps: Vec<SegmentGap>,
     duplicate_record_count: usize,
+    streaming_summary: Option<StreamingRecordSummary>,
 }
 
 impl SegmentAssembly {
+    pub(crate) fn from_streaming_summary(
+        descriptors: Vec<SegmentDescriptor>,
+        summary: StreamingRecordSummary,
+    ) -> Self {
+        Self {
+            records: Vec::new(),
+            carriers: Vec::new(),
+            descriptors,
+            completeness: SegmentCompleteness::Complete,
+            gaps: Vec::new(),
+            duplicate_record_count: 0,
+            streaming_summary: Some(summary),
+        }
+    }
+
     pub fn records(&self) -> &[SourceRecord] {
         &self.records
     }
@@ -636,6 +860,10 @@ impl SegmentAssembly {
             });
         }
 
+        if let Some(summary) = &self.streaming_summary {
+            return self.promote_streaming_summary(spec, snapshot, summary);
+        }
+
         let mut records = self.records.clone();
         records.sort_by(record_order);
         if records.is_empty() {
@@ -712,6 +940,74 @@ impl SegmentAssembly {
             range,
             Some(last_line),
             last.rollout_ordinal,
+        )
+    }
+
+    fn promote_streaming_summary(
+        &self,
+        spec: &SourceSpec,
+        snapshot: SnapshotBoundary,
+        summary: &StreamingRecordSummary,
+    ) -> Result<ForwardAppendCursor, CursorError> {
+        if summary.record_count() == 0 {
+            return Err(CursorError::PromotionNotSafe {
+                reason: "assembly_has_no_records".to_string(),
+            });
+        }
+        if summary.first_byte_start() != Some(0)
+            || summary.last_byte_end() != Some(snapshot.byte_length())
+        {
+            return Err(CursorError::PromotionNotSafe {
+                reason: "records_do_not_cover_snapshot".to_string(),
+            });
+        }
+        if !summary.source_identity_valid() {
+            return Err(CursorError::PromotionNotSafe {
+                reason: "record_source_identity_mismatch".to_string(),
+            });
+        }
+        if summary.parse_error_present() {
+            return Err(CursorError::PromotionNotSafe {
+                reason: "record_diagnostic_present".to_string(),
+            });
+        }
+        if !summary.ordered_and_contiguous() {
+            return Err(CursorError::PromotionNotSafe {
+                reason: "record_prefix_is_not_contiguous".to_string(),
+            });
+        }
+        if !summary.rollout_ordinals_valid() {
+            return Err(CursorError::PromotionNotSafe {
+                reason: "rollout_ordinals_are_not_contiguous".to_string(),
+            });
+        }
+
+        let last_line = self
+            .descriptors
+            .iter()
+            .filter_map(|descriptor| descriptor.last_complete_line().cloned())
+            .max_by_key(|line| line.byte_end())
+            .ok_or(CursorError::MissingLastCompleteLine)?;
+        if last_line.byte_end() != snapshot.byte_length()
+            || last_line.physical_line_ordinal()
+                != summary.last_physical_line().unwrap_or_default()
+        {
+            return Err(CursorError::PromotionNotSafe {
+                reason: "last_complete_line_anchor_mismatch".to_string(),
+            });
+        }
+
+        let range = SourceByteRange::new(0, snapshot.byte_length()).map_err(|_| {
+            CursorError::PromotionNotSafe {
+                reason: "invalid_promoted_range".to_string(),
+            }
+        })?;
+        ForwardAppendCursor::from_source(
+            spec,
+            snapshot,
+            range,
+            Some(last_line),
+            summary.actual_last_rollout_ordinal(),
         )
     }
 }
@@ -1092,6 +1388,7 @@ impl SegmentAssembler {
             completeness,
             gaps,
             duplicate_record_count,
+            streaming_summary: None,
         }
     }
 }

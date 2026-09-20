@@ -4,11 +4,13 @@ status: draft
 task_id: "002"
 step_id: S1
 owner: "@maintainer"
-last_updated: 2026-09-18
+last_updated: 2026-09-20
 source_of_truth: audit-evidence
 related_code:
   - native/codex-rollout-collector/src/protocol/target_source.rs
   - native/codex-rollout-collector/src/protocol/target_mapping.rs
+  - native/codex-rollout-collector/src/source/segment.rs
+  - native/codex-rollout-collector/src/source/mod.rs
   - native/codex-rollout-collector/tests/stage4_target_protocol.rs
   - native/codex-rollout-collector/tests/rollout_blockers.rs
 related_docs:
@@ -24,9 +26,9 @@ related_docs:
 
 - **任务与步骤**：Task `002`（`rollout`），Step `S1`。
 - **验收标准绑定**：`C1`（公共 backfill 有界补齐并安全衔接 append）。
-- **状态结论**：**S1 定向实施与测试验证全部通过**（5 个目标，共 109 项测试全部 PASS，0 失败）。
+- **状态结论**：**S1 repair wave 的定向实施与冻结测试全部通过**（1 个 C1 acceptance target 加 2 个兼容性/阶段 regression target，共 39 项测试全部 PASS，0 失败）；本波次同时把两个此前未落实的断言补实：最后物理窗口的 raw record 驻留上界，以及 append 实际归约追加 turn。本报告仍等待独立 `review-change`，不把本轮通过等同于完整 C1/C2 证明或最终收口。
 - **环境隔离说明**：编译产物使用 OS TEMP 独立目录（`$env:TEMP/termlink-rollout-blockers-target`），测试使用真实临时 plain JSONL 文件，严格执行 `--locked` 依赖锁定。
-- **修改范围合规**：代码与测试改动严格受限于 S1 授权白名单内的 4 个文件，未修改任何 Node、Android、IPC、数据库或未授权治理文件。
+- **修改范围合规**：代码、测试与本轮验证底稿改动严格受限于 Runtime repair preflight 登记的 candidate paths，未修改任何 Node、Android、IPC、数据库或未授权治理文件。
 
 ```json
 {
@@ -35,36 +37,44 @@ related_docs:
   "task_id": "002",
   "step_id": "S1",
   "claim_id": "C1",
-  "verified_at": "2026-09-18T13:02:00+08:00",
+  "repair_wave_id": "repair-wave-ab176f9c5738bad4287f7a994bd447bf",
+  "verified_at": "2026-09-20T22:10:33+08:00",
   "targets_summary": {
-    "lib": "3/3 passed",
     "conformance": "31/31 passed",
-    "stage2_input": "1/1 passed",
-    "stage4_target_protocol": "69/69 passed",
+    "stage2_input": "3/3 passed",
     "rollout_blockers": "5/5 passed",
-    "total_passed": 109,
-    "total_failed": 0
+    "c1_acceptance_target_passed": 5,
+    "compatibility_regression_passed": 34,
+    "total_target_tests_passed": 39,
+    "total_target_tests_failed": 0,
+    "ordinary_regression": {
+      "stage4_target_protocol": "historical 70/70 pass; not an S1 acceptance target and not rerun in this repair wave"
+    }
   },
-  "c1_acceptance_status": "satisfied"
+  "c1_acceptance_status": "targeted_evidence_only"
 }
 ```
+
+本记录只证明本 repair wave 的定向目标通过。`rollout_blockers` 是本波次的 C1 acceptance target；`conformance` 与 `stage2_input` 是兼容性/阶段 regression，`stage4_target_protocol` 仍保留为普通 regression，不作为本波次 acceptance evidence。本记录也不宣称已完成 C1/C2 的完整证明。source handoff 只保留最后一个物理窗口，mapping 通过 OS TEMP spool 重放并只保留每个 source 的有界 byte frontier、Adapter/Reducer 状态和用于公共 batch 的 TermLink-owned events；本波次固定 fixture 的 public 断言只证明 `TargetSourceRead` 驻留记录数不超过最后一个物理窗口的完整行数，没有测量峰值 RSS 或 allocator residency，因此不能单独推出完整资源上界证明。
 
 ---
 
 ## 2. S1 实施内容详解
 
 ### 2.1 多物理窗口有界切分与正序推进（`target_source.rs`）
-- **问题根因**：原 Backfill 规划在请求范围大于 `max_segment_bytes` 时直接报错拒绝（`SingleSegmentExceedsLimit`），导致超过段大小上限的历史文件无法读取；或者仅重复读取单个段，无法实现多窗口推进。
+ - **问题根因**：原 Backfill 规划在请求范围大于 `max_segment_bytes` 时缺少稳定的多窗口推进；`known_complete_range` 还可能重新选择已经完成的范围，导致重复读取而不推进覆盖。
 - **修复实现**：
-  - 在 `build_target_read_plan` 中针对 `TargetAnalyzeMode::Backfill`，当未读取范围跨度大于 `limits.max_segment_bytes` 时，利用 `find_previous_line_start` 寻找不超过单段预算的最近行起始位置，将整个范围划分为由旧到新的多个连续正序分段（`SegmentDescriptor`）。
-  - 在分段切分循环中按单段预算累加 `planned_bytes`，并在循环及分段 I/O 边界注入 `check_control(cancelled, deadline)` 和 `max_decoded_bytes` 检查，确保分段规划和实际读取能及时响应取消与超时。
+  - 在 `plan_active_source` 中针对 `TargetAnalyzeMode::Backfill`，只对缺失的 prefix/suffix 规划范围；interior `known_complete_range` 直接 fail-closed，不重放已知字节。
+  - 当缺失范围跨度大于 `limits.max_segment_bytes` 时，利用 `find_previous_line_start` 寻找不超过单段预算的最近行起始位置，将范围划分为由旧到新的多个连续正序分段。
+  - 分段切分循环以及 backward boundary seek/read 均注入 `check_control(cancelled, deadline)`，并保持 `max_decoded_bytes` 聚合预算。
   - 保证所有分段首尾相接、无缝覆盖请求范围，且每个分段大小均 $\le \text{max\_segment\_bytes}$。
 
 ### 2.2 历史正序归约与 Checkpoint 状态恢复隔离（`target_mapping.rs`）
 - **问题根因**：旧实现在 Backfill 过程中直接调用 `restore_checkpoint_state` 加载了旧 checkpoint 的 reducer 状态，导致部分重试或补齐时累积了旧的 turn/tool 归约状态，出现状态不一致甚至污染。
 - **修复实现**：
   - 在 `restore_checkpoint_state` 中，严格先校验 `reducer_id` 与 `reducer_version` 的兼容性（若不兼容则立即 fail-closed 报错）；
-  - 对 `TargetAnalyzeMode::Backfill`，在完成兼容性校验后跳过旧 checkpoint 的 reducer 状态恢复，令 Reducer 从零状态开始按时间正序重新归约当前完整历史，确保 turn 与 tool 事实的归属、顺序及 stable key 100% 幂等且准确。
+  - 对 `TargetAnalyzeMode::Backfill`，在完成兼容性校验后跳过旧 checkpoint 的 reducer 状态恢复，令 Reducer 从零状态按历史正序归约本次读取到的 fixture 行；本波次断言仅限于该固定 fixture 的 turn/tool 归属、`item_key` 相等性和 exact overlap 重放，不主张对任意输入达到完整历史或 100% 归属证明。
+- source bridge 只保留最后一个物理窗口；旧窗口写入 OS TEMP 下的短生命周期 spool，mapping 在同一次遍历中逐条去重、适配并归约，只跨窗口保留每个 source 的 byte frontier、adapter/reducer 与摘要化 cursor/checkpoint 元数据。formal promotion 仍通过 `SegmentAssembly::promote_to_forward_append`，并使用有界的 record summary；mapping 不再把全部 raw records 或其原始 key/digest 集合复制到内存，最终 batch 仍保留必要的 TermLink-owned events 作为公共输出。
 
 ### 2.3 Formal Safe Promotion 与公共 Cursor 生成（`target_mapping.rs`）
 - **契约与架构要求**：仅有 `SegmentAssembly::promote_to_forward_append` 提供安全证明且快照被完整覆盖后，才能输出公共 `ForwardAppend` cursor；调用方原样回传该 cursor/checkpoint 即可无缝衔接 `Append`。
@@ -74,24 +84,23 @@ related_docs:
   - 同步更新 `delivery_scope` 的 cursor kind 为 `ForwardAppend`；
   - 严格保留 fail-closed 边界：存在未换行尾部（pending tail）、不完整段（gap）、解析错误或非 snapshot 完整覆盖时，禁止 promotion，保持 `Backfill` cursor。
 
-### 2.4 测试套件同步与断言校准（`stage4_target_protocol.rs`）
+### 2.4 普通 regression 的断言校准（`stage4_target_protocol.rs`）
 - 在 `target_mapping_covers_mode_specific_gap_shrink_and_unfinished_tail_boundaries` 中区分完整 backfill（期望输出 `ForwardAppend` cursor）与未完成 tail（期望输出 `Backfill` cursor）；
-- 在 `target_mapping_projects_real_source_and_resumes_from_checkpoint` 中校准断言：完整 backfill 产出 `ForwardAppend` cursor；Backfill 模式传入不兼容的 `ForwardAppend` cursor 会被类型化拒绝（`InvalidRequest`）；后续 Append 模式原样消费该 `ForwardAppend` cursor 并成功推进。
+- 在 `target_mapping_projects_real_source_and_resumes_from_checkpoint` 中校准断言：完整 backfill 产出 `ForwardAppend` cursor；Backfill 模式传入不兼容的 `ForwardAppend` cursor 会被类型化拒绝（`InvalidRequest`）；后续 Append 模式原样消费该 `ForwardAppend` cursor 并成功推进。该 target 仅保留为普通 regression，不进入 S1 acceptance evidence。
 
 ### 2.5 阻断针对性集成回归（`rollout_blockers.rs`）
-新增 5 个高密度端到端测试用例：
-1. `test_backfill_multi_window_plain_jsonl_without_rejection`: 验证超过单段限制（`max_segment_bytes = 200`，总文件 ~700 字节）的 plain JSONL 文件不会被拒绝，成功规划为多个连续正序窗口，全部批次归约成功且 `is_complete = true`。
-2. `test_backfill_multi_window_tool_attribution_and_stable_keys`: 验证跨越物理分段边界的 turn 和 tool call（tool call 在 window 1 开始，在 window 2 结束）能正确关联归约，turn ID、tool call ID 归属正确，stable key 稳定可重现。
-3. `test_backfill_formal_promotion_to_forward_append_and_subsequent_append`: 验证完整 Backfill 产生经过 formal promotion 的公共 `ForwardAppend` cursor，后续 `Append` 请求原样传入该 cursor 和 checkpoint 即可成功追加新写入的数据。
-4. `test_backfill_three_entrypoints`: 验证 C1 规定的三条合法入口：
-   - 入口 1：Preview 后的新 Backfill intent；
-   - 入口 2：合法 Backfill continuation；
-   - 入口 3：带已知完整范围（`known_complete_range`）的 Backfill 重试。
-5. `test_backfill_fail_closed_negative_cases`: 验证负向边界严格 fail-closed：
+现有 5 个高密度端到端测试用例继续作为定向回归；本 repair wave 未新增或删除测试实例：
+1. `test_backfill_multi_window_plain_jsonl_without_rejection`: 验证 `max_segment_bytes = 1000` 的 plain JSONL 文件被规划为 4 个及以上连续窗口，完整映射成功，并按最后一个物理窗口范围独立推导行数后断言 `TargetSourceRead` 驻留 raw records 不超过该窗口行数、且严格少于全文件行数；随后以同一未变 fixture 的单窗口读取（`max_segment_bytes = 50000`，恰好 1 个 segment）作为独立 oracle，断言单窗口驻留记录数**严格更多**，而 `history_items` / `tool_details` / `mutations` / `completeness` 与多窗口结果**完全相等**（跨窗口切分保持确定性正序输出与稳定逻辑 key）。这不是峰值 RSS 或 allocator residency 测量。
+2. `test_backfill_multi_window_tool_attribution_and_stable_keys`: 将 `max_segment_bytes` 设置为 fixture 中 `call-1` output 行的起始偏移，使 begin/end 跨窗，断言 `turn-1` 归属、tool detail 的 input 与 fixture arguments 在脱敏策略下的精确值相等且不含本机工作区路径、output 精确值和相同 `item_key`；再用 exact overlap 重放比较 history/tool/mutation 结果。
+3. `test_backfill_formal_promotion_to_forward_append_and_subsequent_append`: 向 fixture 追加一个 ordinals 17..19 的完整增量 turn（`turn-3`：task_started、agent_message、task_complete），验证完整 Backfill 产生经过 formal promotion 的公共 `ForwardAppend` cursor，后续 `Append` 请求原样传入该 cursor 和 checkpoint 后读取范围严格为追加区间，且 append batch 实际归约出 `turn-3` 的 TurnStarted 与该追加 agent_message（断言文本与 turn 归属），而非只推进 cursor。
+4. `test_backfill_three_entrypoints`: 验证 Preview 后的新 Backfill、prefix/suffix 缺口推进和 interior 范围 fail-closed：
+   - Preview 后的新 Backfill intent；
+   - 带已知完整 prefix 的 Backfill 缺口读取，并由 suffix cursor 推导缺失 prefix；
+   - 带 interior `known_complete_range` 的请求安全拒绝，不把不明确范围当作合法入口。
+5. `test_backfill_fail_closed_negative_cases`: 验证该 target 明确覆盖的负向边界严格 fail-closed：
    - 存在未换行尾部（pending tail）时不进行 promotion；
-   - 存在 gap 或 partial 时不进行 promotion；
    - Backfill 模式传入 `ForwardAppend` cursor 时被类型化拒绝；
-   - 传入不兼容的 reducer version checkpoint 时被安全拒绝。
+   - 小段/总量预算超限、取消和 deadline 均被安全拒绝；gap/解析诊断/不兼容 reducer checkpoint 不计入本波次 acceptance evidence。
 
 ---
 
@@ -100,16 +109,18 @@ related_docs:
 ### 3.1 运行命令
 ```powershell
 $env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'termlink-rollout-blockers-target'
-cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --lib --test conformance --test stage2_input --test stage4_target_protocol --test rollout_blockers
+cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers
+cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --test stage2_input
 ```
 
 ### 3.2 运行结果汇总
-- **native/codex-rollout-collector (lib)**: `3 passed; 0 failed; 0 ignored`
 - **conformance (`tests/conformance.rs`)**: `31 passed; 0 failed; 0 ignored`
-- **stage2_input (`tests/stage2_input.rs`)**: `1 passed; 0 failed; 0 ignored`
-- **stage4_target_protocol (`tests/stage4_target_protocol.rs`)**: `69 passed; 0 failed; 0 ignored`
+- **stage2_input (`tests/stage2_input.rs`)**: `3 passed; 0 failed; 0 ignored`
 - **rollout_blockers (`tests/rollout_blockers.rs`)**: `5 passed; 0 failed; 0 ignored`
-- **总计**: **109 passed, 0 failed**。
+- **本 repair wave 定向 targets 总计**: **39 passed, 0 failed, 0 ignored**（其中 C1 acceptance 5 项，兼容性/阶段 regression 34 项）。
+- **stage4_target_protocol**：本轮未运行；历史 `70/70` 仅作普通 regression 记录，不计入 S1 acceptance evidence。
+- **本波次新增断言**：`test_backfill_multi_window_plain_jsonl_without_rejection` 增加窗口切分不变性 oracle（同一未变 fixture：多窗口有界驻留 vs 单窗口全量驻留，驻留记录数严格更少而 history/tool/mutations/completeness 完全相等），直接对应 `finding-56ba22bc…` 要求的“保持确定性正序输出与稳定逻辑 key”。
+- **断言校准说明**：上一波次把 tool detail input 的 `is_some()` 断言改为与 fixture arguments 的精确值比较；首次校准运行暴露该 adapter 会按 `codex_adapter` 的 `REDACTED_LOCAL_PATH` 策略替换绝对本机路径，随后断言按该策略的确定性结果固定为 `{"command":"cargo test","workdir":"<local-path-redacted>"}` 并追加“不得包含本机工作区路径”的负向检查。下表计数与状态来自最终源码的真实运行，失败中间态不并入结果汇总。
 
 ---
 
@@ -117,20 +128,18 @@ cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --
 
 | 验收条款 (C1) | 实施机制 | 验证证据 | 结论 |
 |---|---|---|---|
-| **总量超段 plain JSONL 分段读取** | `target_source.rs` 将超段范围按行边界切分为连续正序分段 | `test_backfill_multi_window_plain_jsonl_without_rejection`：`max_segment_bytes = 200`，文件 ~700 字节，生成 4 个分段依次读取归约 | 符合 |
-| **三条合法入口推进** | 支持无 cursor 新 backfill、合法 backfill continuation、带已知范围重试 | `test_backfill_three_entrypoints` 逐一测试三条路径，均成功归约 | 符合 |
-| **历史正序归约与事实归属** | 分段依序读取，Reducer 重建正序归约，无旧 checkpoint 状态残留 | `test_backfill_multi_window_tool_attribution_and_stable_keys`：验证跨窗 tool call 归属与 turn 关联完全正确 | 符合 |
-| **取消与超时控制** | 规划循环中与分段读取中注入 `check_control(cancelled, deadline)` | 代码检查与 `TargetSourceReadPlan::build` 控制点验证 | 符合 |
-| **Formal safe promotion** | `SegmentAssembly::promote_to_forward_append` 严格证明完整快照 | `test_backfill_formal_promotion_to_forward_append_and_subsequent_append`：返回 `ForwardAppend` cursor | 符合 |
-| **后续 Append 直接消费** | 公共 cursor/checkpoint 原样回传给 append 请求，无需外部改写 | 同上用例：回传 `cursor` + `checkpoint` 给 `Append` 请求，追加成功且包含增量 turn | 符合 |
-| **Fail-closed 负向边界保护** | 未换行尾部、非法 cursor、不兼容 checkpoint 严格报错或保持 backfill | `test_backfill_fail_closed_negative_cases` 覆盖 4 类负向场景，均安全拒绝或保持 `Backfill` | 符合 |
+| **总量超段 plain JSONL 分段读取** | `target_source.rs` 将缺失范围按行边界切分为连续正序分段；TEMP spool 与 mapper 的 streaming byte frontier 避免把完整 raw-record/key/digest 集合复制到内存，公共 batch 仅保留必要 owned events | `test_backfill_multi_window_plain_jsonl_without_rejection`：`max_segment_bytes = 1000`，生成 4 个及以上连续窗口，按最后窗口范围推导行数后断言 resident records 不超过该窗口行数且严格小于全文件行数；同一 fixture 的单窗口读取（50000 字节上限、1 个 segment）驻留记录严格更多，而 history/tool/mutations/completeness 与多窗口结果完全相等；未测量峰值 RSS 或 allocator residency | 定向通过；非完整资源上界证明 |
+| **缺口推进与三类入口** | prefix/suffix 只读缺失物理范围，interior range fail-closed | `test_backfill_three_entrypoints` 断言 suffix/prefix 方向及 interior 拒绝 | 定向通过；不外推为完整 C1 |
+| **历史正序归约与事实归属** | 分段依序流式适配，Reducer/Adapter 跨窗口保留状态，无旧 checkpoint 状态残留 | `test_backfill_multi_window_tool_attribution_and_stable_keys`：按 fixture output 偏移切窗，begin/output 跨窗，tool detail input 等于 fixture arguments 的脱敏精确值且不含本机路径、output 和两个事件 key/turn 精确相等，并比较 exact overlap 重放结果 | 定向通过 |
+| **取消与超时控制** | 规划循环、backward boundary seek/read 和分段读取均检查 `check_control(cancelled, deadline)` | 冻结的 `rollout_blockers` 命令覆盖入口 cancellation/deadline；本波次不把 source-module 的 after-I/O unit test 作为 acceptance evidence | 定向通过；after-I/O 边界不由本命令单独证明 |
+| **Formal safe promotion** | `SegmentAssembly::promote_to_forward_append` 严格证明完整快照，streaming summary 不绕过该入口 | `test_backfill_formal_promotion_to_forward_append_and_subsequent_append`：返回 `ForwardAppend` cursor | 定向通过；待独立 review |
+| **后续 Append 直接消费** | 公共 cursor/checkpoint 原样回传给 append 请求，无需外部改写 | 同上用例：回传 `cursor` + `checkpoint` 给 `Append` 请求，读取范围严格为追加区间，且 append batch 归约出追加 `turn-3` 的 TurnStarted 与 agent_message（文本与 turn 归属断言） | 定向通过 |
+| **Fail-closed 负向边界保护** | 本波次明确覆盖的未换行尾部、预算、取消、deadline 与不兼容 cursor 保持 fail-closed；gap/解析诊断/checkpoint 仅保留为未纳入本波次 acceptance 的边界 | `rollout_blockers.rs` 的冻结回归；`stage4_target_protocol.rs` 未在本波次运行，仅为普通 regression | 定向通过；不外推为完整 C1/C2 结论 |
 
 ---
 
 ## 5. 结论与下一步
 
-Step S1 已完成公共 Backfill 有界推进、历史正序归约、安全 promotion 与后续 append 衔接的全部功能实现和测试验证。全部 5 个测试目标 109 项测试 100% 通过。
+本 repair wave（`repair-wave-ab176f9c5738bad4287f7a994bd447bf`，findings `finding-56ba22bc…` 与 `finding-76229f55…`）在上一波证据之上补上**窗口切分不变性**：同一未变 fixture 以单窗口读取作为独立 oracle，多窗口（有界驻留）与单窗口（全量驻留）的 `history_items` / `tool_details` / `mutations` / `completeness` 完全相等，而多窗口驻留记录数严格更少——即“只保留最后一个物理窗口并跨窗携带 Adapter/Reducer 状态”不改变调用方可见的确定性正序输出与稳定逻辑 key。`TargetSourceRead` 驻留记录数仍按最后一个物理窗口独立推导上界，tool detail input 仍按脱敏策略精确断言且无本机路径泄漏，append 仍以真实增量 `turn-3` 证明追加内容被归约。报告与 CR 的口径继续只陈述这些断言直接建立的行为，不主张“完整历史/100% 归属”、不声称测量峰值 RSS，也不把本轮通过外推为 backfill 终端覆盖（continuation）或 conflicting-overlap fail-closed 已解决。定向 acceptance targets 的 39 项测试全部通过；`stage4_target_protocol` 未作为 acceptance evidence 运行。该结果是局部、目标化验证，不是完整 C1/C2 证明；最终是否收口仍需独立 `review-change` 按 Runtime review receipt 复核。
 
-后续步骤为 **Step S2**：
-- 补齐已知 `item_completed.FileChange` 与 `item_completed.CommandExecution` 的 Adapter→owned event→projection/detail 映射；
-- 保持 conversation/turn/item/source 精确关联与去重幂等。
+下一路由为 **`review-change`**；在 review clean 前不进入 S2，也不把本轮测试通过写成最终任务完成。

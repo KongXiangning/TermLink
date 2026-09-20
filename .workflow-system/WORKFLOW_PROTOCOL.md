@@ -431,6 +431,14 @@ Explicit human observations and risk waivers use the source-bound internal
 prepare-task commands defined in FILE_SCHEMAS.md. They are caller-reported:
 manual acceptance is not automated PASS, and waiver is not evidence. Critical
 invariants, prerequisites, policy, required review and findings are not bypassed.
+An exact pending `REPAIR_BUDGET_EXHAUSTED` review remains owned by its findings,
+not correction replan. With an explicit caller-reported user decision,
+`prepare-task:extend-repair-budget` adds exactly one attempt to every and only
+currently exhausted finding, records the decision/audit, and preserves the task,
+pending review, attempts, baseline, and evidence obligations. The retained review
+then routes directly to `execute-step:repair`; without that decision it remains a
+user-owned blocker. Default limits do not change, and explicit extensions are
+bounded by the Runtime absolute limits.
 Local equivalent read-only validation adjustments use execute-step's internal
 replace-validation, preserving the task and its obligations. Low-risk private
 same-domain discoveries do not add a review beyond the confirmed checkpoint;
@@ -440,3 +448,18 @@ Only a genuine task invalidation permits supersede. A later explicit replacement
 request may prepare a fresh successor with complete old-obligation disposition;
 it cannot erase unfinished facts or execute before ordinary draft confirmation.
 Supersede never automatically creates or approves a replacement.
+
+
+### Same-task evidence-selection amendment
+
+An explicit user decision may revise verification selection without replacing the
+task's goal, acceptance, authority or business boundary. The internal
+prepare/confirm/discard-evidence-plan-amendment commands are owned by prepare-task.
+Preparation preserves the live task; confirmation versions only admitted check
+selection and bound read-only current/future commands. It requires no challenge
+when no report exists. Findings, failures and budgets persist. Affected reports
+are historical, not new-plan evidence; a pending findings review remains active,
+while an affected clean review is retained explicitly as historical and requires
+fresh validation/review. Neither test deletion nor supersede follows from this
+operation. The existing equivalent-invocation and genuine counterevidence routes
+keep their original, narrower contracts.

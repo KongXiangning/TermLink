@@ -130,7 +130,55 @@ original_request:
     git diff --name-only
     fixture、日志、stores、编译产物放 OS TEMP。helper 必须尊重显式 CARGO\_TARGET\_DIR，构建或核验当前 binary，不能仅凭旧 exe 存在就跳过构建。
     报告保存精确命令、实际计数、源码/binary/fixture 标识及必要的小型结果证据。旧通过数不能继承为新验收结果。旧 draft 写过“Rust 六目标”，但列出的命令实际是 lib + 四个 integration test target，共五个目标；重建时应消除该文字矛盾。
-user_decisions: []
+user_decisions:
+  - source: conversation:01a0a8a7-853d-7471-8180-3b6c3c5cc6cd/user@2026-09-20
+    verbatim: >-
+      已修复Runtime 对旧 evidence check 的迁移兼容路径  。
+
+
+      调用 prepare-task，处理用户明确授权的任务 002/S1 evidence-selector 变更，直接处理，不做新需求。
+
+
+      用户决定：
+
+
+      - S1 不再把整个 stage4_target_protocol 测试目标作为 acceptance evidence；
+
+      - 重新选择 minimum-sufficient 的测试实例和精确 selector；
+
+      - 冗余测试默认保留为普通 regression，不立即物理删除；
+
+      - 不改变 C1/C2/C3 Goal、Acceptance 和总权限；
+
+      - 保留并承接当前 f56、f762 等既有 finding。
+
+
+      请根据当前 Runtime 状态判断合法路线：
+
+
+      - 如果可以作为同一任务的 correction-replan，生成 correction candidate；
+
+      - 如果 correction-replan 必须绑定既有 challenge_id，而当前没有可绑定 challenge，则不要伪造
+      challenge，说明需要走何种正式替代路线；
+
+      - 如必须替换任务定义，使用 successor 路径保留旧任务和完整历史。
+
+
+      不要直接修改 CURRENT_TASK，不要直接删除测试，不要清理 findings。
+
+      生成 candidate 后停止，等待对该精确 candidate 的确认。
+  - source: conversation:01a0a8a7-853d-7471-8180-3b6c3c5cc6cd/user@2026-09-20-confirm-e5e80dc4
+    verbatim: 对该精确 candidate 确认
+  - source: conversation:01a0bddb-8c7c-7760-b033-1a433747710e/user@2026-09-20
+    verbatim: 进行修复
+  - source: user:current-conversation/2026-09-20/reply-to-debug-result-review-8f8d870ce4298273c0e24e3c65585c7ce4f99dca
+    verbatim: 同意
+  - source: user:current-conversation/2026-09-20/reply-to-debug-result-review-15535e0cbbaae58878a7fbde5f1d8c0d4783819b
+    verbatim: 同意
+  - source: user:current-conversation/2026-09-20/reply-to-execute-step-repair-blocker
+    verbatim: 为当前两个耗尽预算的 finding各再追加 1 次机会，保留全部历史、范围和验收要求。
+  - source: user:current-conversation/2026-09-20/reply-to-debug-result-review-058550fff6caf5f0706bf6a6b73a94a22b73c552
+    verbatim: "/prepare-task : extend-repair-budget"
 ---
 # vNext TASK_BASIS
 
