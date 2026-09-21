@@ -1,4 +1,4 @@
-# Runtime source context (0.19.5)
+# Runtime source context (0.20.8)
 
 Use the installed Node CLI at `.workflow-system/runtime/dist/cli.js`. Pass `--root <project>` and JSON on stdin. These context commands do not write task state, admit tests, run checks, or certify evidence. For normal task inspection, use `validate --summary`; plain `validate` retains its full diagnostic output, including stored baselines.
 
@@ -418,13 +418,95 @@ adapter command `extend-repair-budget` with:
 The fingerprint array must contain every and only currently exhausted open
 finding in that pending review cycle. Runtime adds one maximum attempt to each,
 records a Task Basis decision and typed audit, and preserves prior attempts,
-statuses, pending review, review baseline, task definition, and identity. The
-ordinary defaults remain two attempts per finding and three repair waves per
-cycle; explicit extensions have absolute caps of eight each. On success the next
-entry is `execute-step:repair`, which consumes the retained review through a fresh
-execution and verification. An exact replay is a no-op; partial, stale, reset, or
-second unconsumed extensions fail closed. Without explicit authorization, stop at
-the user-owned blocker.
+statuses, pending review, review baseline, task definition, and identity. If the
+cycle repair-wave quota is exhausted while the findings still have attempts,
+submit the same bounded decision with `finding_fingerprints: []` and
+`extension_scope: "repair-round"`; this raises only the cycle quota and changes
+no finding attempt maximum. The ordinary defaults remain two attempts per
+finding and three repair waves per cycle; explicit extensions have absolute
+caps of eight each. Navigation and the transaction use the same qualification:
+the candidate next repair round must remain at or below eight, and every
+selected exhausted finding must remain below eight attempts. At either absolute
+limit `task-context` does not recommend `extend-repair-budget`; it returns the
+structured blocker reason and the user-owned diagnostic/controlled-recovery
+decision route instead. On success the next entry is `execute-step:repair`, which
+consumes the retained review through a fresh execution and verification. An
+exact replay is a no-op; partial, stale, reset, or second unconsumed extensions
+fail closed. Without explicit authorization, stop at the user-owned blocker. A
+budget-blocked review retains its structured `findings`,
+`unresolved_fingerprints`, and `resolved_fingerprints`; the extension set is
+only the subset authorized for extra attempts. A review-declared resolution is
+applied to the finding queue in the same Runtime transaction, so the retained
+review and queue cannot disagree. After extension, repair consumes the full
+current review set whose findings are admitted and in scope, so findings with
+remaining budget are not dropped and findings already marked resolved are not
+re-scheduled.
+
+### Controlled recovery at the absolute boundary
+
+When ordinary extension is no longer executable because the repair-wave or
+per-finding absolute limit has been reached, a latest blocked review may carry
+structured `finding_dispositions`:
+
+```json
+{
+  "fingerprint": "finding-...",
+  "disposition": "must-fix",
+  "basis": "critical-invariant",
+  "evidence_refs": ["evidence/..." ]
+}
+```
+
+Only `must-fix` findings are eligible for controlled recovery. The user then
+calls `prepare-task:authorize-controlled-repair-recovery` with the exact
+`review_id`, selected `recovery_fingerprints`, one closed-set `recovery_basis`,
+the decision source/text, evidence references, and an optional
+`additional_controlled_repair_waves` from 1 through 5 (default 1). Runtime
+derives the complete current repair set and binds task/document, execution,
+cycle, phase, change set, and review-target revision. The grant records a
+finite number of separately reviewable controlled repair waves and carries
+across the linked follow-up reviews; each selected finding keeps its original
+ordinary attempts and may consume at most the grant's finite wave quota. A
+legacy v1 grant remains one wave with its historical two-attempt cap. It
+never raises ordinary maxima, resets counters, clears a review, manufactures
+clean, or closes an unverified finding.
+
+`FORMAT_CHECK_SCOPE_BLOCKED` is reserved for a format failure reported inside
+the authorized mutable business/product scope. A whole-tree whitespace result
+that points only at immutable or hash-bound governance evidence is not a
+business blocker: preserve the exact bytes and hash, retain the original failed
+invocation as historical evidence, and review the authorized mutable paths with
+a scoped check when the plan requires one. Do not create this blocker, request
+an evidence-plan amendment, or require a waiver solely because retained
+authorization text has trailing whitespace. The byte-level hash protects the
+integrity of that authorization record; it does not turn incidental whitespace
+into a product acceptance obligation. A failure in an authorized mutable path
+remains a real finding/blocker. A previously recorded format blocker remains
+truthful historical state and may be reconciled by a fresh scoped review; it is
+not a reason to rewrite the protected evidence.
+
+The authorization set is not the repair set. Findings with remaining ordinary
+budget stay in the full repair wave, verified resolutions stay out, and a new
+finding must pass normal admission before it can execute. Exact replay is a
+no-op; stale review identity, cross-task or cross-review targets, duplicate
+grants, and controlled-quota overflow fail closed. Legacy blocked reviews that
+lack dispositions may use only an explicit exact-target `legacy-explicit-user`
+authorization; that target must cover every existing unresolved finding in the
+full repair set with no ordinary attempt remaining. A partial legacy request
+fails before the one-per-review grant is persisted, so the complete
+authorization can still be submitted afterward. Runtime never infers a target
+from prose.
+
+For a legacy 0.20.5 budget-blocked state whose stored review has empty
+`findings`/`unresolved_fingerprints`, the upgrade is intentionally fail-closed:
+it does not infer targets from prose and does not rewrite `CURRENT_TASK.md`.
+After the formal distribution `upgrade`, obtain a fresh `review-context` receipt,
+re-run the review against the recorded execution and exact review target, and
+submit a new structured `record-review-result` with evidence references. Only
+that bound review may be used for `extend-repair-budget`; stale receipts,
+changed source/task identity, mismatched execution or target paths require a
+new review. This is a recovery write through the Runtime transaction boundary,
+not a direct task-status edit.
 
 Ordinary `prepare-draft` remains closed for a superseded task
 (`REPLACEMENT_OUTCOME_UNSUPPORTED`), so unfinished obligations cannot be hidden by
@@ -824,6 +906,11 @@ Agent/Runtime, never constructed by the user):
   "command_replacements": [{
     "step_id": "S1", "old_command": "<exact old read-only planned command>",
     "new_commands": ["<exact replacement check entry>"]
+  }],
+  "unbound_read_only_command_replacements": [{
+    "step_id": "S1", "old_command": "<exact planned read-only command with no slot>",
+    "new_commands": ["<exact scoped read-only command>"],
+    "reason": "<why this unbound planned command needs a scope correction>"
   }]
 }
 ```
@@ -837,6 +924,15 @@ For a confirmed legacy check that predates the modern `boundary` and
 amendment. Every obligation that the legacy check actually represented remains
 an exact comparison; compatibility does not permit changing its observation,
 required boundaries, subjects, result, substitutes or validation ownership.
+If a planned read-only invocation was never bound to a claim-evidence slot, use
+`unbound_read_only_command_replacements` instead of inventing a replacement slot
+or borrowing another slot's authority. The old and new commands must be absent
+from every existing slot (and from the new bound replacements), must be exact
+active/future planned invocations with `expected_repo_writes: none`, and must be
+covered by an explicit per-command reason. This route changes only the planned
+read-only scope; it does not create evidence, a waiver, a report, or a new
+permission to modify product files. The old failed execution remains immutable
+history and the amended command requires fresh execution and review.
 Every removed shared invocation must retain all its claim consumers; a command
 may split into several bound invocations or merge into an already planned
 read-only invocation. Include the affected current and future step invocations

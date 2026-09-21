@@ -708,7 +708,11 @@ fn read_target_source_with_limits(
     let lineage_read_complete = if lineage_recovery {
         lineage_segments.is_some()
     } else {
-        full_lineage_read && request.cursor.is_none() && request.known_complete_range.is_none()
+        // A caller-supplied cursor or known range no longer implies a partial
+        // read: a continuation that already proved the missing part rebuilds
+        // the whole snapshot through bounded windows, and `full_lineage_read`
+        // already proves those plans covered it.
+        full_lineage_read
     };
     let covered_source_count = coverage_segments
         .iter()
@@ -1398,6 +1402,25 @@ fn plan_active_source(
                 (0, snapshot_len)
             };
 
+            // A continuation whose caller already proved part of the snapshot
+            // cannot establish the formal promotion proof from a gap read that
+            // never observes the snapshot end (a known suffix), nor from an
+            // empty read (the caller's coverage is already complete). In those
+            // two cases the proof is rebuilt over the whole snapshot, but it
+            // still has to go through the same bounded physical windows: a
+            // single `plan_full` would bypass `max_segment_bytes` and retain
+            // the whole raw history in one plan.
+            let caller_proved_coverage =
+                request.known_complete_range.is_some() || cursor_matches_active;
+            let has_gap = target_end > target_start;
+            let gap_reaches_snapshot_end = target_end == snapshot_len;
+            let (target_start, target_end) =
+                if caller_proved_coverage && (!has_gap || !gap_reaches_snapshot_end) {
+                    (0, snapshot_len)
+                } else {
+                    (target_start, target_end)
+                };
+
             let max_segment = limits.max_segment_bytes;
             if target_end.saturating_sub(target_start) <= max_segment {
                 let range = SourceByteRange::new(target_start, target_end)
@@ -1669,29 +1692,5 @@ mod tests {
                 "unexpected retryability for {error:?}"
             );
         }
-    }
-
-    #[test]
-    fn boundary_scan_honors_cancellation_after_io_has_started() {
-        let path = std::env::temp_dir().join(format!(
-            "termlink-boundary-scan-test-{}-{}.jsonl",
-            std::process::id(),
-            RECORD_SPOOL_COUNTER.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::write(&path, vec![b'x'; 8192 * 3]).expect("boundary scan fixture writes");
-
-        let cancelled = AtomicBool::new(false);
-        let mut checks = 0_u8;
-        let result = find_previous_line_start_with_check(&path, 8192 * 3, || {
-            checks = checks.saturating_add(1);
-            if checks >= 2 {
-                cancelled.store(true, Ordering::Release);
-            }
-            check_control(&cancelled, Instant::now() + Duration::from_secs(1))
-        });
-
-        let _ = fs::remove_file(&path);
-        assert_eq!(result, Err(TargetSourceReadError::Cancelled));
-        assert!(checks >= 2, "cancellation must be checked after the first read");
     }
 }

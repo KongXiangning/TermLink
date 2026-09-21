@@ -11,7 +11,7 @@ runtime_distribution:
   package_manifest: .workflow-system/runtime/package.json
   lockfile: .workflow-system/runtime/package-lock.json
   package_name: vibe-coding-vnext-runtime
-  package_version: 0.20.5
+  package_version: 0.20.14
   node_min_version: ">=20.0.0"
 
 task_context:
@@ -155,7 +155,7 @@ proposal:
       - review_cycle_id
       - repair_wave_id
   process_control:
-    evidence_plan_amendment: prepare-confirm-discard-evidence-plan-amendment; explicit-user; same-task-no-challenge-required; preserve-goal-acceptance-authority-findings-history-budgets; fresh-checks-and-affected-review-revalidation
+    evidence_plan_amendment: prepare-confirm-discard-evidence-plan-amendment; explicit-user; same-task-no-challenge-required; preserve-goal-acceptance-authority-findings-history-budgets; fresh-checks-and-affected-review-revalidation; unbound-planned-read-only-command-scope-correction-without-slot-or-waiver
     user_evidence: exact-frozen-slot-and-subject; append-verbatim-Task-Basis; caller-reported-not-authenticated
     waiver: user-owned-current-obligation-only; preserve-failed-or-missing-report; exact-result-waiver-decision-id; validation-labels-require-exclusive-frozen-check-ownership-at-record-and-consume; no-review-or-policy-bypass
     successor: explicit-predecessor-decision-and-complete-obligation-map; fresh-draft-identity; predecessor-remains-superseded; exact-prepared-orphan-retry-only; ordinary-confirmation-required
@@ -169,6 +169,8 @@ proposal:
       - consume-retained-review
       - record-user-evidence
       - clear-resume-review-gate
+      - extend-repair-budget
+      - authorize-controlled-repair-recovery
       - create-draft
       - update-draft
       - confirm-draft
@@ -227,6 +229,7 @@ proposal:
         - repair_fingerprint
         - repair_fingerprints
         - repair_wave_id
+        - controlled_recovery_grant_id
         - change_set_id
         - review_receipt
         - claim_evidence
@@ -253,6 +256,7 @@ proposal:
           - execution_phase
           - repair_wave_id
           - review_id
+          - controlled_recovery_grant_id
         same_attempt: true
         plan_revision_change: forbidden
         retry_budget_change: forbidden
@@ -378,6 +382,12 @@ proposal:
         - latest_execution_id
         - change_set_id
         - review_target_revision
+      blocked_diagnostics:
+        - findings
+        - unresolved_fingerprints
+        - resolved_fingerprints
+        - finding_dispositions
+        - blocker
       consumed_by:
         clean: execute-step:complete-reviewed-step
         findings: execute-step:begin-repair
@@ -518,7 +528,7 @@ proposal:
         - record-evidence-challenge
         - dismiss-evidence-challenge
       context_source: latest-recorded-execution
-      reviewable_execution: implemented-or-test-red-awaiting-required-checkpoint-or-dynamic-review-or-repair-verification
+      reviewable_execution: implemented-or-test-red-awaiting-required-checkpoint-or-dynamic-review-or-repair-verification-or-blocked-repair-remediation-review
       change_set: runtime-owned-stable-id
       review_target: runtime-cumulative-before-after-file-delta
       result_storage: canonical-pending-review-result
@@ -539,6 +549,7 @@ proposal:
         - confirm-draft
         - clear-resume-review
         - extend-repair-budget
+        - authorize-controlled-repair-recovery
         - replan
         - prepare-replan
         - confirm-replan
@@ -635,6 +646,7 @@ proposal:
       - record-user-evidence
       - clear-resume-review-gate
       - extend-repair-budget
+      - authorize-controlled-repair-recovery
       - create-draft
       - update-draft
       - confirm-draft
@@ -662,10 +674,19 @@ proposal:
       - commit-scope-amendment
     repair_budget_extension:
       route: extend-repair-budget
-      increment: exactly-one-attempt-for-each-exhausted-finding
-      eligibility: exact-pending-REPAIR_BUDGET_EXHAUSTED-review
-      preserves: pending-review-findings-attempt-counts-review-baseline-task-definition-and-identity
+      increment: one-bounded-continuation-unit-finding-or-repair-round
+      scopes: finding-attempts-or-repair-round
+      eligibility: exact-pending-REPAIR_BUDGET_EXHAUSTED-review-and-latest-review-repair-set
+      preserves: pending-review-findings-resolved-queue-state-attempt-counts-review-baseline-task-definition-and-identity
       absolute_limits: eight-attempts-per-finding-and-eight-repair-rounds-per-cycle
+    controlled_repair_recovery:
+      route: authorize-controlled-repair-recovery
+      trigger: exact-pending-REPAIR_BUDGET_EXHAUSTED-or-FORMAT_CHECK_SCOPE_BLOCKED-review-where-ordinary-extension-is-not-executable
+      authorization: explicit-structured-must-fix-targets-plus-basis-evidence-and-user-decision
+      legacy_coverage: exact-explicit-target-must-cover-every-existing-unresolved-finding-with-no-ordinary-budget-before-grant-persistence
+      quota: up-to-five-review-bound-controlled-repair-waves-with-at-most-five-attempts-per-selected-finding
+      preserves: ordinary-maxima-cumulative-attempts-review-history-resolved-findings-task-identity-and-change-set-binding
+      stops: no-free-text-inference-no-new-task-no-supersede-no-reset-no-clean-or-close
     direct_replan_result: REPLAN_CONFIRMATION_REQUIRED
     task_history:
       initialization_preimage: exact-current-task-and-linked-task-basis-before-version-marker
@@ -1069,6 +1090,7 @@ canonical_current_task:
       - finding_queue_revision
       - review_cycle
       - findings
+      - controlled_repair_grants
       - execution_log
       - applied_proposals
       - claim_evidence_required
@@ -1348,7 +1370,6 @@ bootstrap_project:
       - docs/designs/
       - docs/adoption/
       - AGENTS.md
-      - CLAUDE.md
     forbidden_targets:
       - .git/
       - product source directories
@@ -1424,14 +1445,14 @@ bootstrap_project:
       atomic: true
       idempotence: fail-closed
       conflict_policy: fail-closed
-    - id: paired-host-guidance-transaction
+    - id: host-guidance-transaction
       status: bound
       binding: vnext-runtime
-      operation: paired-host-guidance-transaction
+      operation: host-guidance-transaction
       source_targets:
         - target host guidance
       write_targets:
-        - paired host guidance
+        - AGENTS.md
       allowed_callers:
         - bootstrap-project
       result_states:

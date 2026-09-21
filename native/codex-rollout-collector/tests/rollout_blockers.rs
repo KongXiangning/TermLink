@@ -4,6 +4,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use codex_rollout_collector::model::AnalysisEvent;
+use codex_rollout_collector::source::LineageError;
 use codex_rollout_collector::protocol::{
     map_target_source_read, parse_startup_args, read_target_source,
     read_target_source_with_deadline, StartupMode, TargetAnalyzeMode, TargetAnalyzeRequest,
@@ -461,6 +462,126 @@ fn test_backfill_multi_window_tool_attribution_and_stable_keys() {
     assert_eq!(retried.batch.payload.history_items, mapped.batch.payload.history_items);
     assert_eq!(retried.batch.payload.tool_details, mapped.batch.payload.tool_details);
     assert_eq!(retried.batch.payload.mutations, mapped.batch.payload.mutations);
+
+    // A conflicting record at an already accepted position is not a proven
+    // duplicate: it must fail closed instead of being silently dropped and
+    // promoted.
+    let mut conflicting_source = source.clone();
+    let mut conflicted = source
+        .records
+        .first()
+        .cloned()
+        .expect("resident window record");
+    conflicted.timestamp = Some("2026-08-26T00:00:00.999Z".to_string());
+    conflicting_source.records.push(conflicted);
+    let conflicted_mapped = map_target_source_read(&request, &conflicting_source)
+        .expect("conflicting overlap is still mapped with diagnostics");
+    assert_eq!(
+        conflicted_mapped.batch.payload.completeness,
+        TargetCompleteness::Partial,
+        "a conflicting overlap must not report canonical completeness"
+    );
+    assert!(
+        conflicted_mapped
+            .batch
+            .payload
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "overlap_conflict"),
+        "a conflicting overlap must emit an overlap_conflict diagnostic"
+    );
+    assert_ne!(
+        conflicted_mapped
+            .batch
+            .payload
+            .next_cursor
+            .map(|cursor| cursor.cursor_kind),
+        Some(TargetCursorKind::ForwardAppend),
+        "a conflicting overlap must never promote to ForwardAppend"
+    );
+
+    // Regression: an altered overlap inserted *before* the accepted record is
+    // the first match in the retained window. Identity must be proven by a
+    // different accepted occurrence, never by the candidate itself, so this
+    // stays a conflict instead of validating its own content.
+    let mut self_match_source = source.clone();
+    let mut tampered = source
+        .records
+        .first()
+        .cloned()
+        .expect("resident window record");
+    tampered.timestamp = Some("2026-08-26T00:00:00.111Z".to_string());
+    self_match_source.records.insert(0, tampered);
+    let self_match_mapped = map_target_source_read(&request, &self_match_source)
+        .expect("self-match overlap is mapped with diagnostics");
+    assert_eq!(
+        self_match_mapped.batch.payload.completeness,
+        TargetCompleteness::Partial,
+        "a self-matching overlap must not report canonical completeness"
+    );
+    assert!(
+        self_match_mapped
+            .batch
+            .payload
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "overlap_conflict"),
+        "a self-matching overlap must emit an overlap_conflict diagnostic"
+    );
+    assert_ne!(
+        self_match_mapped
+            .batch
+            .payload
+            .next_cursor
+            .map(|cursor| cursor.cursor_kind),
+        Some(TargetCursorKind::ForwardAppend),
+        "a self-matching overlap must never promote to ForwardAppend"
+    );
+
+    // A conflicting overlap whose accepted original was replayed from the
+    // spooled earlier windows: the two identical altered copies must not prove
+    // each other, because only previously accepted content may prove identity.
+    let first_line_end = contents
+        .find('\n')
+        .map(|index| index as u64 + 1)
+        .expect("fixture first line ends with a newline");
+    let mut altered = source
+        .records
+        .first()
+        .cloned()
+        .expect("resident window record");
+    altered.byte_start = 0;
+    altered.byte_end = first_line_end;
+    altered.rollout_ordinal = Some(999);
+    altered.timestamp = Some("2026-08-26T00:00:00.333Z".to_string());
+    let mut spool_conflict_source = source.clone();
+    spool_conflict_source.records.push(altered.clone());
+    spool_conflict_source.records.push(altered);
+    let spool_conflict_mapped = map_target_source_read(&request, &spool_conflict_source)
+        .expect("spooled-original conflict is mapped with diagnostics");
+    assert_eq!(
+        spool_conflict_mapped.batch.payload.completeness,
+        TargetCompleteness::Partial,
+        "an unprovable overlap must not report canonical completeness"
+    );
+    assert!(
+        spool_conflict_mapped
+            .batch
+            .payload
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "overlap_conflict"),
+        "an unprovable overlap must emit an overlap_conflict diagnostic"
+    );
+    assert_ne!(
+        spool_conflict_mapped
+            .batch
+            .payload
+            .next_cursor
+            .map(|cursor| cursor.cursor_kind),
+        Some(TargetCursorKind::ForwardAppend),
+        "an unprovable overlap must never promote to ForwardAppend"
+    );
 }
 
 #[test]
@@ -601,6 +722,34 @@ fn test_backfill_formal_promotion_to_forward_append_and_subsequent_append() {
         Some(appended_turn),
         "appended assistant message must be attributed to the appended turn"
     );
+
+    // A conflicting overlap in an append read must not republish the persisted
+    // ForwardAppend cursor, even though the append path returns it directly.
+    let mut conflicting_append_source = append_source.clone();
+    let mut conflicted_append = append_source
+        .records
+        .first()
+        .cloned()
+        .expect("append resident record");
+    conflicted_append.timestamp = Some("2026-08-26T00:00:00.777Z".to_string());
+    conflicting_append_source.records.push(conflicted_append);
+    let conflicted_append_mapped =
+        map_target_source_read(&append_req, &conflicting_append_source)
+            .expect("conflicting append is mapped with diagnostics");
+    assert_eq!(
+        conflicted_append_mapped.batch.payload.completeness,
+        TargetCompleteness::Partial,
+        "a conflicting append must not report canonical completeness"
+    );
+    assert_ne!(
+        conflicted_append_mapped
+            .batch
+            .payload
+            .next_cursor
+            .map(|cursor| cursor.cursor_kind),
+        Some(TargetCursorKind::ForwardAppend),
+        "a conflicting append must not publish ForwardAppend"
+    );
 }
 
 #[test]
@@ -614,16 +763,37 @@ fn test_backfill_three_entrypoints() {
         .collect();
     assert!(line_offsets.len() >= 8);
 
-    write_fixture_file(&root, TEST_CONVERSATION_ID, &contents);
+    let fixture_path = write_fixture_file(&root, TEST_CONVERSATION_ID, &contents);
     let config = target_config(&root);
 
+    // Bound every physical window so the continuation branches have to prove
+    // they stay bounded instead of rereading the snapshot as one plan.
+    let windowed = |request: &mut TargetAnalyzeRequest| {
+        request.resource_limits = Some(TargetResourceLimits {
+            max_line_bytes: Some(1000),
+            max_segment_bytes: Some(1000),
+            max_decoded_bytes: Some(50_000),
+            tail_bytes: Some(1000),
+            ..TargetResourceLimits::default()
+        });
+    };
+
     // Entrypoint 1: Preview followed by Backfill
-    let preview_req = TargetAnalyzeRequest::new(
+    let mut preview_req = TargetAnalyzeRequest::new(
         "req-preview-entry",
         "job-preview-entry",
         TEST_CONVERSATION_ID,
         TargetAnalyzeMode::Preview,
     );
+    // The preview tail plan sizes its window from `tail_bytes`, so it keeps a
+    // wider segment budget; only the continuation branches must stay bounded.
+    preview_req.resource_limits = Some(TargetResourceLimits {
+        max_line_bytes: Some(1000),
+        max_segment_bytes: Some(50_000),
+        max_decoded_bytes: Some(50_000),
+        tail_bytes: Some(2000),
+        ..TargetResourceLimits::default()
+    });
     let preview_source = read_target_source(&preview_req, &config, &AtomicBool::new(false))
         .expect("preview source read succeeds");
     let preview_mapped = map_target_source_read(&preview_req, &preview_source)
@@ -632,12 +802,13 @@ fn test_backfill_three_entrypoints() {
     assert_eq!(preview_cursor.cursor_kind, TargetCursorKind::TailPreview);
 
     // New backfill request after preview
-    let backfill_from_preview = TargetAnalyzeRequest::new(
+    let mut backfill_from_preview = TargetAnalyzeRequest::new(
         "req-backfill-from-preview",
         "job-preview-entry",
         TEST_CONVERSATION_ID,
         TargetAnalyzeMode::Backfill,
     );
+    windowed(&mut backfill_from_preview);
     let bf_source = read_target_source(&backfill_from_preview, &config, &AtomicBool::new(false))
         .expect("backfill from preview source read succeeds");
     let bf_mapped = map_target_source_read(&backfill_from_preview, &bf_source)
@@ -656,6 +827,7 @@ fn test_backfill_three_entrypoints() {
         TEST_CONVERSATION_ID,
         TargetAnalyzeMode::Backfill,
     );
+    windowed(&mut first_part_req);
     first_part_req.known_complete_range = Some(TargetSourceByteRange { start: 0, end: p1_end });
     let p1_source = read_target_source(&first_part_req, &config, &AtomicBool::new(false))
         .expect("p1 read succeeds");
@@ -683,25 +855,170 @@ fn test_backfill_three_entrypoints() {
         .all(|segment| segment.requested_range.start >= p1_end));
     let p1_mapped = map_target_source_read(&first_part_req, &p1_source).expect("p1 mapping");
     let p1_cursor = p1_mapped.batch.payload.next_cursor.expect("p1 cursor");
-    assert_eq!(p1_cursor.cursor_kind, TargetCursorKind::Backfill);
-    assert_eq!(p1_cursor.complete_range.start, p1_end);
+    // The returned cursor must carry the accumulated coverage (known prefix
+    // unioned with this read's suffix) instead of only this read's window.
+    assert_eq!(p1_cursor.complete_range.start, 0);
     assert_eq!(p1_cursor.complete_range.end, total_len);
 
-    // A cursor describing a known suffix can likewise derive only the missing
-    // prefix. The source must not silently fall back to the already-known
-    // suffix or to the entire file.
+    // Continuing from a complete-coverage cursor has no gap left to fill, so
+    // it rebuilds the full promotion proof. With max_segment_bytes = 1000 that
+    // rebuild must still be read through bounded physical windows and must not
+    // retain the whole raw history.
+    let mut p1_continue = TargetAnalyzeRequest::new(
+        "req-part1-continue",
+        "job-part",
+        TEST_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    windowed(&mut p1_continue);
+    p1_continue.cursor = Some(p1_cursor);
+    let p1_continue_source = read_target_source(&p1_continue, &config, &AtomicBool::new(false))
+        .expect("continuation promotion read succeeds");
+    assert!(
+        p1_continue_source.segments.len() >= 2,
+        "the promotion read must be split into bounded physical windows"
+    );
+    assert!(
+        p1_continue_source
+            .segments
+            .iter()
+            .all(|segment| segment.requested_range.end - segment.requested_range.start <= 1000),
+        "a promotion window exceeded max_segment_bytes"
+    );
+    assert_eq!(
+        p1_continue_source
+            .segments
+            .first()
+            .expect("promotion segment")
+            .requested_range
+            .start,
+        0
+    );
+    assert_eq!(
+        p1_continue_source
+            .segments
+            .last()
+            .expect("promotion segment")
+            .requested_range
+            .end,
+        total_len
+    );
+    assert!(
+        p1_continue_source.records.len() < contents.lines().count(),
+        "the promotion read must not retain the whole raw history"
+    );
+    let p1_continue_mapped =
+        map_target_source_read(&p1_continue, &p1_continue_source).expect("continuation mapping");
+    let p1_continue_cursor = p1_continue_mapped
+        .batch
+        .payload
+        .next_cursor
+        .clone()
+        .expect("continuation must reach a terminal cursor");
+    assert_eq!(
+        p1_continue_cursor.cursor_kind,
+        TargetCursorKind::ForwardAppend,
+        "a completed continuation must promote instead of stalling at an empty read"
+    );
+    assert_eq!(p1_continue_cursor.complete_range.start, 0);
+    assert_eq!(p1_continue_cursor.complete_range.end, total_len);
+
+    // The bounded rebuild must reduce exactly the same complete history as a
+    // single-window read, so the continuation is a proof rebuild rather than a
+    // different result.
+    let mut baseline_req = TargetAnalyzeRequest::new(
+        "req-part1-baseline",
+        "job-part",
+        TEST_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    baseline_req.resource_limits = Some(TargetResourceLimits {
+        max_line_bytes: Some(1000),
+        max_segment_bytes: Some(50_000),
+        max_decoded_bytes: Some(50_000),
+        ..TargetResourceLimits::default()
+    });
+    let baseline_source = read_target_source(&baseline_req, &config, &AtomicBool::new(false))
+        .expect("baseline read succeeds");
+    let baseline_mapped =
+        map_target_source_read(&baseline_req, &baseline_source).expect("baseline mapping succeeds");
+    assert_eq!(
+        p1_continue_mapped.batch.payload.history_items,
+        baseline_mapped.batch.payload.history_items,
+        "the promotion rebuild must reduce the same complete history"
+    );
+    assert_eq!(
+        p1_continue_mapped.batch.payload.tool_details,
+        baseline_mapped.batch.payload.tool_details
+    );
+    assert_eq!(
+        p1_continue_mapped.batch.payload.mutations,
+        baseline_mapped.batch.payload.mutations
+    );
+    let continuation_checkpoint = p1_continue_mapped.complete.checkpoint;
+
+    // Entrypoint 3: a caller-proved suffix cannot carry end-line evidence for
+    // the snapshot tail, so it rebuilds the full proof in one bounded
+    // promotion read and terminates instead of emitting no cursor at all.
     let mut p2_req = TargetAnalyzeRequest::new(
         "req-part2",
         "job-part",
         TEST_CONVERSATION_ID,
         TargetAnalyzeMode::Backfill,
     );
-    p2_req.cursor = Some(p1_cursor);
+    windowed(&mut p2_req);
+    p2_req.known_complete_range = Some(TargetSourceByteRange {
+        start: p1_end,
+        end: total_len,
+    });
     let p2_source = read_target_source(&p2_req, &config, &AtomicBool::new(false))
         .expect("p2 read succeeds");
-    let p2_seg = p2_source.segments.first().expect("p2 seg");
-    assert_eq!(p2_seg.requested_range.start, 0);
-    assert_eq!(p2_seg.requested_range.end, p1_end);
+    assert_eq!(
+        p2_source
+            .segments
+            .first()
+            .expect("p2 seg")
+            .requested_range
+            .start,
+        0
+    );
+    assert_eq!(
+        p2_source
+            .segments
+            .last()
+            .expect("p2 seg")
+            .requested_range
+            .end,
+        total_len
+    );
+    assert!(
+        p2_source.segments.len() >= 2,
+        "the suffix promotion read must be split into bounded physical windows"
+    );
+    assert!(
+        p2_source
+            .segments
+            .iter()
+            .all(|segment| segment.requested_range.end - segment.requested_range.start <= 1000),
+        "a suffix promotion window exceeded max_segment_bytes"
+    );
+    assert!(
+        p2_source.records.len() < contents.lines().count(),
+        "the suffix promotion read must not retain the whole raw history"
+    );
+    let p2_mapped = map_target_source_read(&p2_req, &p2_source).expect("p2 mapping");
+    let p2_cursor = p2_mapped
+        .batch
+        .payload
+        .next_cursor
+        .expect("a suffix continuation must emit a terminal cursor");
+    assert_eq!(
+        p2_cursor.cursor_kind,
+        TargetCursorKind::ForwardAppend,
+        "a suffix continuation must terminate instead of dropping the cursor"
+    );
+    assert_eq!(p2_cursor.complete_range.start, 0);
+    assert_eq!(p2_cursor.complete_range.end, total_len);
 
     // Entrypoint 3: an interior range is ambiguous and must fail closed; it
     // cannot be used as an excuse to replay the known bytes.
@@ -712,6 +1029,7 @@ fn test_backfill_three_entrypoints() {
         TEST_CONVERSATION_ID,
         TargetAnalyzeMode::Backfill,
     );
+    windowed(&mut kcr_req);
     kcr_req.known_complete_range = Some(TargetSourceByteRange {
         start: p1_end,
         end: kcr_end,
@@ -719,6 +1037,51 @@ fn test_backfill_three_entrypoints() {
     let kcr_error = read_target_source(&kcr_req, &config, &AtomicBool::new(false))
         .expect_err("interior known range must fail closed");
     assert!(matches!(kcr_error, TargetSourceReadError::InvalidRequest(_)));
+
+    // The terminal cursor/checkpoint produced by the bounded continuation path
+    // must be directly consumable by an append request for the appended range.
+    let appended_line = "{\"timestamp\":\"2026-08-26T00:00:30.000Z\",\"ordinal\":17,\"type\":\"event_msg\",\"payload\":{\"type\":\"agent_message\",\"message\":\"continuation append\"}}\n";
+    {
+        use std::io::Write;
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(&fixture_path)
+            .expect("open fixture for append");
+        file.write_all(appended_line.as_bytes()).expect("append line");
+    }
+    let appended_len = total_len + appended_line.len() as u64;
+    let mut continuation_append = TargetAnalyzeRequest::new(
+        "req-part1-append",
+        "job-part",
+        TEST_CONVERSATION_ID,
+        TargetAnalyzeMode::Append,
+    );
+    windowed(&mut continuation_append);
+    continuation_append.cursor = Some(p1_continue_cursor);
+    continuation_append.persisted_anchor = Some(continuation_checkpoint);
+    let continuation_append_source =
+        read_target_source(&continuation_append, &config, &AtomicBool::new(false))
+            .expect("continuation append read succeeds");
+    let continuation_append_segment = continuation_append_source
+        .segments
+        .iter()
+        .rev()
+        .find(|segment| segment.source_id == continuation_append_source.source_id)
+        .expect("append active segment");
+    assert_eq!(continuation_append_segment.requested_range.start, total_len);
+    assert_eq!(continuation_append_segment.requested_range.end, appended_len);
+    let continuation_append_mapped =
+        map_target_source_read(&continuation_append, &continuation_append_source)
+            .expect("continuation append mapping succeeds");
+    assert_eq!(
+        continuation_append_mapped
+            .batch
+            .payload
+            .next_cursor
+            .map(|cursor| cursor.cursor_kind),
+        Some(TargetCursorKind::ForwardAppend),
+        "the continuation cursor must keep the append path working"
+    );
 }
 
 #[test]
@@ -843,4 +1206,51 @@ fn test_backfill_fail_closed_negative_cases() {
     )
     .expect_err("expired deadline must fail");
     assert_eq!(timeout_err, TargetSourceReadError::Timeout);
+}
+
+/// The shared deadline must stop a large multi-window read while it is still
+/// doing I/O (source discovery, planning and the backward boundary scan), not
+/// only before the request starts. This is the public-boundary counterpart of
+/// the removed production-source unit check.
+#[test]
+fn test_backfill_deadline_stops_io_in_flight() {
+    let root = unique_temp_root("deadline-in-flight");
+    let mut contents = generate_clean_rollout(TEST_CONVERSATION_ID);
+    // One oversized line makes every window boundary scan walk a long way
+    // backwards before it can place a segment edge.
+    contents.push_str(&"x".repeat(8 * 1024 * 1024));
+    contents.push('\n');
+    write_fixture_file(&root, TEST_CONVERSATION_ID, &contents);
+    let config = target_config(&root);
+
+    let mut request = TargetAnalyzeRequest::new(
+        "req-deadline-in-flight",
+        "job-deadline-in-flight",
+        TEST_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    request.resource_limits = Some(TargetResourceLimits {
+        max_line_bytes: Some(512 * 1024),
+        max_segment_bytes: Some(2 * 1024 * 1024),
+        max_decoded_bytes: Some(32 * 1024 * 1024),
+        ..TargetResourceLimits::default()
+    });
+
+    let result = read_target_source_with_deadline(
+        &request,
+        &config,
+        &AtomicBool::new(false),
+        Instant::now() + Duration::from_millis(1),
+    );
+    // The read must be interrupted while it is still doing I/O. The first
+    // phase the shared deadline can catch on a large source is discovery,
+    // then planning/boundary scanning; both outcomes prove the control is
+    // checked in flight rather than only before the request starts.
+    match result.err() {
+        Some(TargetSourceReadError::Timeout)
+        | Some(TargetSourceReadError::Discovery(LineageError::DiscoveryTimeout)) => {}
+        other => panic!(
+            "an in-flight multi-window read must stop on the shared deadline, got {other:?}"
+        ),
+    }
 }

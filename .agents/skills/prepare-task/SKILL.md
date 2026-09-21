@@ -366,10 +366,58 @@ Basis, increments each selected finding by one, and preserves attempts, statuses
 review baseline, task definition, identity, and pending review. It never clears
 or resets the failed history. The default limits remain two attempts per finding
 and three repair waves per cycle; explicit extensions are capped at eight each.
-An unconsumed extension routes directly to `execute-step:repair`; the fresh repair
-result and verification consume it. A different or additional extension requires
-a later explicit decision after another real exhaustion. Without that decision,
-return the user-owned blocker and do not manufacture a replan candidate.
+If only the repair-wave quota is exhausted and every current repair target still
+has a finding attempt available, submit the same decision with
+`finding_fingerprints: []` and `extension_scope: "repair-round"`; Runtime raises
+only the cycle quota and preserves every finding's attempt count. An unconsumed
+extension routes directly to `execute-step:repair`; the fresh repair result and
+verification consume it. A different or additional extension requires a later
+explicit decision after another real exhaustion. Without that decision, return
+the user-owned blocker and do not manufacture a replan candidate. A review may
+also carry `resolved_fingerprints`; Runtime applies those verified resolutions to
+the finding queue atomically with the retained review, so they are not required
+to be submitted again as unresolved and are not scheduled for repair.
+
+The ordinary extension route is not available beyond the absolute limit: the
+candidate next repair round must be no greater than eight and every selected
+exhausted finding must be below eight attempts. `task-context` and the Runtime
+transaction use this same qualification. At the limit, report the structured
+reason and the user-owned diagnostic/controlled-recovery decision route; do not
+recommend an extension that the transaction will reject.
+
+For a confirmed must-fix blocker at that boundary, the separate
+`authorize-controlled-repair-recovery` command accepts
+`{review_id, recovery_fingerprints, recovery_basis, decision_source,
+decision_text, evidence_refs}` plus optional
+`additional_controlled_repair_waves` from 1 through 5 (default 1). The latest
+review must provide the structured finding disposition, unless this is an old
+state using the explicit `legacy-explicit-user` bridge. Runtime binds the
+entire current repair set and all task/review/execution/cycle/change-set/target
+identities, records the finite number of separately reviewable controlled
+repair waves, and carries the grant across the linked follow-up reviews. Each
+selected finding preserves its ordinary attempts and cannot consume more than
+the finite grant quota; a legacy v1 grant remains one wave with its historical
+two-attempt cap. It retains ordinary maxima, cumulative attempts,
+resolved findings, pending review, evidence and Task Basis history. A
+normally-budgeted finding is not dropped, an already resolved finding is not
+requeued, and a new review finding must complete normal admission. Exact
+replay is a no-op; stale, duplicate, cross-task, over-target and over-quota
+requests stop at the transaction gate.
+
+`FORMAT_CHECK_SCOPE_BLOCKED` is reserved for a format failure reported inside
+the authorized mutable business/product scope. A whole-tree format check that
+reports only immutable or hash-bound governance evidence—such as Task Basis,
+task data, Runtime-managed task state, or retained authorization text—does not
+block business review. Preserve those exact bytes, hashes, and the original
+failed invocation as historical evidence; do not create this blocker, demand a
+waiver, or route the user through evidence-plan amendment solely to exclude
+those paths. Re-run the hygiene check against the authorized mutable paths when
+the confirmed plan requires it. Historical blocked reviews remain truthful and
+may be reviewed as legacy state, but a fresh review must use this scope rule.
+For the legacy bridge, the explicit recovery target must cover every existing
+unresolved finding in the complete repair set with no ordinary attempt
+remaining; a partial request is rejected before the one-per-review grant is
+persisted.
 
 In `confirm` mode, submit the user's explicit confirmation through
 `confirm-draft` with the exact confirmation receipt returned by the committed
@@ -534,6 +582,14 @@ new checks require fresh evidence. Explain any explicit historical retention of
 an affected old clean review and the required fresh verification. No product or
 test deletion is authorized. Existing invocation-only replace-validation remains
 narrow; policy/contract/prerequisite requirements are not waived.
+
+If a planned read-only command has no claim-evidence slot, use the same
+amendment with `unbound_read_only_command_replacements` and an explicit reason
+per command. Do not invent a slot, borrow another slot's authority, create a
+waiver, or claim evidence from the old failed invocation. Runtime accepts only
+an exact active/future planned command with `expected_repo_writes: none`; the
+old result remains history and the replacement requires fresh execution and
+review.
 
 When a frozen step label still names the former whole-suite invocation, include
 its selection-only `validation_replacements` in the same candidate instead of

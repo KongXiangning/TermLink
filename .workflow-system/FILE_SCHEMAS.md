@@ -275,12 +275,48 @@ decision_source, decision_text}`. The fingerprint set must equal every and only
 currently exhausted open finding in that review cycle. Runtime appends the exact
 caller-reported decision to Task Basis, increments each bound finding maximum by
 one, and retains its attempts/status plus the pending review, cumulative review
-baseline, task definition, and identity. The ordinary defaults remain two attempts
-per finding and three repair waves per cycle; an optional Runtime-owned
-`review_cycle.max_repair_rounds` records explicit extension, with absolute caps of
-eight attempts and eight waves. A matching unconsumed audit authorizes only the
+baseline, task definition, and identity. If only the cycle repair-wave quota is
+exhausted, the explicit `extension_scope: repair-round` form with an empty
+fingerprint set raises only `review_cycle.max_repair_rounds` and preserves all
+finding attempt counts. The ordinary defaults remain two attempts per finding
+and three repair waves per cycle; explicit extensions have absolute caps of
+eight attempts and eight waves. Navigation and the transaction share the same
+qualification: the candidate next repair round must remain at or below eight,
+and every selected exhausted finding must remain below eight attempts. At
+either absolute limit task-context must not recommend extend-repair-budget; it
+must expose the structured blocker and the user-owned diagnostic or explicitly
+approved controlled-recovery route. A matching unconsumed audit authorizes only the
 next exact `begin-repair`; different, stale, partial, reset, or bulk extensions
 fail closed. This route does not create a correction-replan candidate.
+When a review is blocked by convergence or budget, its structured findings,
+unresolved fingerprints, and resolved fingerprints remain in the pending result.
+Verified resolutions update the finding queue in the same Runtime transaction;
+the extension audit is only an authorization set. Repair preflight recomputes
+the full current review set and excludes findings already marked resolved.
+
+At the ordinary absolute boundary, a blocked review may include structured
+`finding_dispositions` for unresolved Runtime-admitted findings. The closed
+dispositions are `must-fix`, `normal-fix`, and `defer`; each record also carries
+one basis (`acceptance`, `critical-invariant`, `release-gate`, `risk-reduction`,
+or `user-decision`) and non-empty evidence references. Only an explicit
+`must-fix` disposition can authorize the independent
+`prepare-task:authorize-controlled-repair-recovery` route. Its semantic input
+is `{review_id, recovery_fingerprints, recovery_basis, decision_source,
+decision_text, evidence_refs}`. Runtime binds the complete latest repair set
+and task/execution/cycle/change-set/review-target identity, issues one exact
+repair wave, and allows at most two separate controlled attempts per selected
+finding. Ordinary maxima, cumulative attempts, repair rounds, pending review,
+resolved findings, history and evidence are retained. The selected recovery
+set is not a replacement for the full repair set: normally-budgeted findings
+remain in scope, resolved findings are excluded, and review-new findings still
+require normal admission. Exact replay is idempotent; stale, cross-task,
+over-target, duplicate or over-quota requests fail closed. A legacy blocked
+review without dispositions may use only the explicit exact-target
+`legacy-explicit-user` bridge; that target must cover every existing unresolved
+finding in the full repair set with no ordinary attempt remaining. A partial
+legacy request fails before the one-per-review grant is persisted, so the
+complete authorization can still be submitted afterward. Prose is never
+interpreted as a finding decision.
 
 Persistent Tests retain exact path + stable claim IDs in `proves`, plus `owner`,
 `owner_source`, `source_ref`, `basis` (acceptance/regression/critical-invariant/
@@ -604,7 +640,7 @@ no selected sources. The normal prepare adapter writes affected contracts to the
 existing affected-contracts section. Confirmation binds both sections; subsequent
 reads expose the saved metadata without loading the referenced documents.
 
-## Task aggregate and bounded context (0.19.5)
+## Task aggregate and bounded context (0.20.8)
 
 CURRENT_TASK.md carries one aggregate submission head with exact source_revision,
 definition_revision, state_revision, and committed event range. The head is
@@ -793,7 +829,13 @@ An explicit user decision may revise verification selection without replacing th
 task's goal, acceptance, authority or business boundary. The internal
 prepare/confirm/discard-evidence-plan-amendment commands are owned by prepare-task.
 Preparation preserves the live task; confirmation versions only admitted check
-selection and bound read-only current/future commands. It requires no challenge
+selection and bound read-only current/future commands. A planned read-only
+command with no evidence slot may instead use the explicit
+`unbound_read_only_command_replacements` field: it must not match any existing
+or newly bound slot command, must remain an exact active/future command with
+`expected_repo_writes: none`, and requires a per-command reason. This changes
+only the planned command scope; it creates no slot, waiver, report or product
+write permission. It requires no challenge
 when no report exists. Findings, failures and budgets persist. Affected reports
 are historical, not new-plan evidence; a pending findings review remains active,
 while an affected clean review is retained explicitly as historical and requires

@@ -20,7 +20,12 @@ import {
   evaluateEvidenceSlotForContext,
   dynamicReviewRequiredForCurrentExecution,
   repairBudgetContinuationForPendingReview,
-  repairBudgetExtensionTargets,
+  repairBudgetExtensionEligibility,
+  controlledRepairContinuationForPendingReview,
+  controlledRepairRecoveryEligibility,
+  isRepairRecoveryReviewBlocked,
+  currentDefinitionExecutionLog,
+  outstandingRepairPreflight,
   readCanonicalCurrentTask,
   recoverPendingTaskStoreCommit,
   type CanonicalCurrentTask,
@@ -471,6 +476,20 @@ function latestExecution(current: CanonicalCurrentTask): AnyRecord | null {
   };
 }
 
+function latestReviewableUnreviewedExecution(current: CanonicalCurrentTask): AnyRecord | null {
+  const pendingReview = current.runtimeState.pending_review_result;
+  const entry = currentDefinitionExecutionLog(current).findLast(item =>
+    !('action' in item)
+    && item.step_id === current.runtimeState.active_step_id
+    && item.execution_result !== undefined
+    && item.review_receipt === undefined
+    && item.idempotency_key.startsWith('execute-step-result-'),
+  );
+  if (!entry || pendingReview?.execution_id === entry.idempotency_key
+    || (entry.execution_result?.outcome === 'blocked' && entry.mode !== 'repair')) return null;
+  return entry;
+}
+
 function pendingReplanCandidateCount(current: CanonicalCurrentTask): number {
   const entries = Array.isArray(current.runtimeState.execution_log) ? current.runtimeState.execution_log.filter(record) : [];
   const lastReplan = entries.findLastIndex(item => item.action === 'commit-replan');
@@ -538,10 +557,22 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
     : 0;
   const pendingReview = record(state.pending_review_result) ? state.pending_review_result : null;
   const budgetContinuation = repairBudgetContinuationForPendingReview(current);
+  const controlledRecoveryContinuation = controlledRepairContinuationForPendingReview(current);
   const budgetExhausted = pendingReview?.verdict === 'blocked'
     && record(pendingReview.blocker)
     && pendingReview.blocker.code === 'REPAIR_BUDGET_EXHAUSTED';
-  const budgetExtensionAvailable = budgetExhausted && repairBudgetExtensionTargets(current) !== null;
+  const repairRecoveryBlocked = isRepairRecoveryReviewBlocked(pendingReview);
+  const formatScopeBlocked = pendingReview?.verdict === 'blocked'
+    && record(pendingReview.blocker)
+    && pendingReview.blocker.code === 'FORMAT_CHECK_SCOPE_BLOCKED';
+  const budgetExtensionEligibility = budgetExhausted ? repairBudgetExtensionEligibility(current) : null;
+  const budgetExtensionAvailable = budgetExtensionEligibility?.eligible === true;
+  const controlledRecoveryEligibility = repairRecoveryBlocked ? controlledRepairRecoveryEligibility(current) : null;
+  const controlledRecoveryAvailable = controlledRecoveryEligibility?.eligible === true;
+  const outstandingRepair = outstandingRepairPreflight(current);
+  const reviewableUnreviewedExecution = latestReviewableUnreviewedExecution(current);
+  const pendingRepair = pendingReview?.verdict === 'findings';
+  const repairExecutionRequired = outstandingRepair !== null || pendingRepair;
   const retainedCleanReview = pendingReview?.verdict === 'clean' && state.scope_amendment_pending_review_step_id !== undefined;
   const retainedFindingReview = pendingReview?.verdict === 'findings' && state.scope_amendment_pending_review_step_id !== undefined;
   const dynamicReviewReady = dynamicReviewRequiredForCurrentExecution(current)
@@ -550,13 +581,21 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
     && latest?.execution_result_status !== undefined;
   const nextEntry = state.resume_requires_review
     ? 'prepare-task:clear-resume-review'
-    : budgetContinuation
+    : reviewableUnreviewedExecution !== null
+      ? 'review-change'
+    : budgetContinuation || controlledRecoveryContinuation
       ? 'execute-step:repair'
+      : repairExecutionRequired
+        ? 'execute-step:repair'
       : budgetExtensionAvailable
         ? 'prepare-task:extend-repair-budget'
-        : budgetExhausted
-          ? 'debug-task'
-          : retainedCleanReview
+        : controlledRecoveryAvailable
+        ? 'prepare-task:authorize-controlled-repair-recovery'
+      : budgetExhausted
+        ? 'debug-task'
+        : formatScopeBlocked
+          ? 'prepare-task:prepare-evidence-plan-amendment'
+        : retainedCleanReview
             ? 'execute-step:complete-reviewed-step'
             : retainedFindingReview
               ? 'execute-step:repair'
@@ -567,12 +606,20 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
                   : dynamicReviewReady
                     ? 'review-change'
                     : 'preflight-step';
-  const nextOptions = budgetContinuation
+  const nextOptions = reviewableUnreviewedExecution !== null
+    ? ['review-change']
+    : budgetContinuation || controlledRecoveryContinuation
     ? ['execute-step:repair']
+    : repairExecutionRequired
+      ? ['execute-step:repair']
     : budgetExtensionAvailable
       ? ['prepare-task:extend-repair-budget', 'debug-task']
+      : controlledRecoveryAvailable
+        ? ['prepare-task:authorize-controlled-repair-recovery', 'debug-task']
       : budgetExhausted
         ? ['debug-task']
+        : formatScopeBlocked
+          ? ['prepare-task:prepare-evidence-plan-amendment', 'debug-task']
         : state.workflow_status === 'blocked_by_replan'
           ? ['prepare-task:amend-scope', 'prepare-task:prepare-replan', 'debug-task']
           : state.active_step_status === 'blocked'
@@ -653,6 +700,64 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
       dynamic_expansion_count: state.dynamic_expansions?.length ?? 0,
     },
     latest_execution: latestIndex,
+    repair_execution_recovery: outstandingRepair === null ? null : {
+      required: true,
+      action: 'record-step-result',
+      exact_retry: true,
+      preflight_id: outstandingRepair.preflight_id,
+      execution_id: outstandingRepair.execution_id,
+      review_id: outstandingRepair.review_id,
+      repair_wave_id: outstandingRepair.repair_wave_id,
+      change_set_id: outstandingRepair.change_set_id,
+      candidate_paths: [...outstandingRepair.candidate_paths],
+      repair_fingerprints: [...(outstandingRepair.repair_fingerprints ?? [])],
+      next_route: 'execute-step:repair',
+    },
+    budget_extension: budgetExtensionEligibility === null ? null : {
+      eligible: budgetExtensionEligibility.eligible,
+      extension_scope: budgetExtensionEligibility.extension_scope,
+      repair_fingerprints: budgetExtensionEligibility.repair_fingerprints,
+      finding_fingerprints: budgetExtensionEligibility.finding_fingerprints,
+      repair_round: budgetExtensionEligibility.repair_round,
+      repair_round_limit: budgetExtensionEligibility.repair_round_limit,
+      next_repair_round_limit: budgetExtensionEligibility.next_repair_round_limit,
+      absolute_limits: budgetExtensionEligibility.absolute_limits,
+      blocking_reasons: budgetExtensionEligibility.blocking_reasons,
+      user_decision_route: budgetExtensionEligibility.eligible
+        ? 'prepare-task:extend-repair-budget'
+        : controlledRecoveryAvailable
+          ? 'prepare-task:authorize-controlled-repair-recovery'
+          : 'user-owned-blocker:diagnose-or-request-controlled-recovery-authorization',
+    },
+    controlled_recovery: controlledRecoveryEligibility === null ? null : {
+      eligible: controlledRecoveryEligibility.eligible,
+      review_blocker_code: controlledRecoveryEligibility.review_blocker_code,
+      recovery_scope: controlledRecoveryEligibility.recovery_scope,
+      repair_fingerprints: controlledRecoveryEligibility.repair_fingerprints,
+      recovery_fingerprints: controlledRecoveryEligibility.recovery_fingerprints,
+      candidate_recovery_fingerprints: controlledRecoveryEligibility.candidate_recovery_fingerprints,
+      disposition_source: controlledRecoveryEligibility.disposition_source,
+      repair_round: controlledRecoveryEligibility.repair_round,
+      repair_round_limit: controlledRecoveryEligibility.repair_round_limit,
+      controlled_attempt_limit: controlledRecoveryEligibility.controlled_attempt_limit,
+      authorized_repair_waves: controlledRecoveryEligibility.authorized_repair_waves,
+      remaining_repair_waves: controlledRecoveryEligibility.remaining_repair_waves,
+      blocking_reasons: controlledRecoveryEligibility.blocking_reasons,
+      user_decision_route: controlledRecoveryEligibility.eligible
+        ? 'prepare-task:authorize-controlled-repair-recovery'
+        : 'user-owned-blocker:record-structured-review-disposition-or-stop',
+    },
+    ...(formatScopeBlocked ? {
+      format_scope_blocker: {
+        present: true,
+        blocker: pendingReview?.blocker ?? null,
+        preserves_business_findings: true,
+        user_decision_route: 'prepare-task:prepare-evidence-plan-amendment',
+        controlled_recovery_route: controlledRecoveryAvailable
+          ? 'prepare-task:authorize-controlled-repair-recovery'
+          : null,
+      },
+    } : {}),
     storage: storeNavigation(root, current, manifest),
   };
 }

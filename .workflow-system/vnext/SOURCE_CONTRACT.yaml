@@ -372,7 +372,7 @@ capabilities:
       - 'only Runtime-derived carry-forward may satisfy an unchanged old report under a new plan; challenged, stale-subject and before-step receipts cannot be silently reused'
       - 'upgrade preserves the old CURRENT_TASK bytes; explicit initialize-preservation saves exact task and Task Basis preimages before adding a version marker, and missing or unknown protection versions cannot authorize task replacement'
       - 'supersede preserves unfinished obligations and never authorizes a successor by itself; ordinary prepare-draft remains blocked, while explicit prepare-successor binds the retained predecessor, verbatim user decision, complete obligation disposition and a fresh draft that still needs ordinary confirmation'
-      - 'same-task user-authorized evidence-plan amendment prepares an immutable candidate and confirms exact selection changes without requiring a report challenge; goal, acceptance, boundaries, authority, findings, failures and budgets are retained, affected evidence requires revalidation, and supersede is not a fallback for a missing selection route'
+      - 'same-task user-authorized evidence-plan amendment prepares an immutable candidate and confirms exact selection changes without requiring a report challenge; goal, acceptance, boundaries, authority, findings, failures and budgets are retained, affected evidence requires revalidation, and supersede is not a fallback for a missing selection route; a planned read-only invocation with no evidence slot may use the explicit unbound command scope-correction route only when it cannot borrow or merge with any slot or waiver'
       - 'ordinary execute-step results preserve the frozen claim/slot/check plan; replace-validation may replace one read-only invocation under unchanged observation, boundary, subjects, validation ownership, exact granularity, selector, authority and retained budgets, without a whole-task replan'
       - 'record-human-acceptance records an explicit Task Basis user observation for a frozen human check; record-evidence-waiver discharges only an exact user-owned current obligation and its exclusively bound validation labels, rechecked at record and consumption, without rewriting failed/missing reports as PASS; both are caller-reported and cannot authorize administrative realign'
       - 'user evidence decisions remain source/subject/plan bound and visible in context and archive; raw progress cannot manufacture them, prerequisites and policy/contract obligations are not waived, and required review/findings remain intact'
@@ -560,7 +560,7 @@ capabilities:
     trigger:
       - bootstrap or synchronization may touch a host guidance surface
     input_contract:
-      - target host and paired guidance paths
+      - target host guidance path
       - target-owned, native, frozen, and workflow-owned asset classification
       - explicit host selection and conflict evidence
     output_contract:
@@ -570,7 +570,7 @@ capabilities:
     stop_conditions:
       - host ownership cannot be established
       - a native or frozen asset would be overwritten
-      - paired host guidance would become semantically divergent
+      - host guidance ownership cannot be established
 
   - id: generation-atomicity-policy
     exposure: internal
@@ -617,6 +617,7 @@ runtime_operations:
       - review-change:default:dismiss-evidence-challenge
       - prepare-task:default:clear-resume-review-gate
       - prepare-task:default:extend-repair-budget
+      - prepare-task:default:authorize-controlled-repair-recovery
       - prepare-task:default:create-draft
       - prepare-task:default:update-draft
       - prepare-task:confirm:confirm-draft
@@ -791,14 +792,14 @@ runtime_operations:
       - bootstrap-project:realign:decision
       - close-task:default:decision
 
-  - id: paired-host-guidance-transaction
+  - id: host-guidance-transaction
     status: bound
     binding: vnext-runtime
     implementation_phase: Phase 2
     source_targets:
       - target host guidance
     write_targets:
-      - paired host guidance
+      - AGENTS.md
     allowed_callers:
       - bootstrap-project
     bound_callers:

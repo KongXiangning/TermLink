@@ -114,6 +114,10 @@ material contested until assessed; dismissal requires evidence, not convenience.
 1. For an ordinary checkpoint, ask Runtime `review-context` for the successful `implemented` or `test-red` execution awaiting a required review checkpoint, the semantic boundary of Runtime-recorded cumulative change set, complete file index and bounded text diff, acceptance, validation evidence, the v1 mutation scope or v2 authority envelope, planned targets, current-execution dynamic expansions, Persistent Tests, and any admitted findings. The index and summaries are delivered in bounded form; if `complete_for_operation` is false, read every named block through `task-read`/`review-read` before judging the change. A summary omission is not a clean result. Review only that target and context. A blocked execution, a step without a review checkpoint, or an already completed step is not reviewable. When Runtime classifies a v2 expansion as requiring dynamic review, that cumulative review is mandatory even when the ordinary step checkpoint is `not-required`; a clean review consumes only the expansions bound to this execution identity and retains their review association in history. For new counterevidence to a previously completed result, inspect the exact claim/slot/result and retained source, then use `record-evidence-challenge` with a repository-relative evidence file and its SHA-256. This records `contested`, not an automatic invalidation or a new review verdict. If a contested challenge is demonstrably not substantiated, use `dismiss-evidence-challenge` with a hashed assessment file explaining why; retain the old report and challenge. Do not call `record-review-result` for a nonexistent current execution.
 2. Check step compliance, planned-vs-actual footprint, authority admission, every dynamic assessment, implementation or test correctness, acceptance coverage, validation evidence, unauthorized persistent-test changes, and regression risk. For historical `test-red`, verify that only frozen test assets were admitted, the assertions encode the required behavior, and the recorded failure is caused by missing behavior rather than syntax, type, import, fixture, tool, unrelated-test, or environment failure; Red carries no final acceptance evidence. New flexible execution requires no Red; explicit prerequisites use S2 bound reports and consumption receipts and must not be waived by review.
 3. In discovery, report all clear repairable findings together. In verification, verify the admitted findings and affected regression surface; report any newly discovered issue without widening the repair yourself.
+   When the review verifies an admitted finding is resolved, include its exact
+   fingerprint in `resolved_fingerprints`; do not report it as unresolved merely
+   to compensate for a stale queue projection. New findings remain pending
+   normal Runtime admission.
 4. Return exactly one verdict:
    - `clean`: the recorded change is acceptable.
    - `findings`: include specific file, failure condition, required behavior, root-cause confidence, and evidence for each repairable issue.
@@ -134,6 +138,23 @@ parameters; distinguish caller reports from independently executed observations.
 Do not demand more tests, mandatory mutation testing or E2E when the existing
 minimum evidence already detects the relevant failure. Apply materiality and the
 existing repair scope, not a new gate for formatting or an inefficient extra PASS.
+
+### Format hygiene scope
+
+`git diff --check` and equivalent whitespace-only checks are hygiene checks, not
+independent business acceptance evidence. They are blocking only when the
+reported offending path is inside the current step's authorized mutable
+business/product scope. If every reported path is immutable or hash-bound
+governance evidence—such as `docs/workflow/task-basis/**`,
+`docs/workflow/task-data/**`, `docs/workflow/evidence-objects/**`,
+`docs/workflow/CURRENT_TASK.md`, `.workflow-system/**`, or retained
+authorization text—preserve the exact bytes and hash, retain the failed
+whole-tree invocation as historical evidence, and continue the review against
+the authorized mutable paths. Do not emit `FORMAT_CHECK_SCOPE_BLOCKED`, request
+an evidence-plan amendment, or require a waiver solely for that out-of-scope
+whitespace. When a format gate is part of the confirmed plan, run or inspect a
+scoped check for the mutable paths. A failure reported for an authorized
+mutable path remains a real finding or blocker.
 
 Verify actual evidence against `frozen_invocation` and its selector arguments.
 For opaque invocation, compare the verbatim frozen command and inspect the wrapper's

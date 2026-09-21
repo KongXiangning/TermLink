@@ -1,0 +1,1 @@
+审查当前 002/S1 已恢复登记的 repair，仅核验：1. continuation 完整补齐与安全衔接 append；2. 冲突去重及不安全 Canonical/ForwardAppend 输出；3. 对上述行为的测试有效性。本次按已安装 Runtime 契约执行 blocked repair 的 remediation review，覆盖技能中禁止审查 blocked execution 的旧限制。逐项登记 resolved_fingerprints 或 unresolved_fingerprints。格式检查范围问题单独保留为阻断，不作为业务 finding。不调查或修改 Runtime，不修复业务代码，不追加预算，不直接 clean。

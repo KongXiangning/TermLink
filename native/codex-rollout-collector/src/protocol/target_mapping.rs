@@ -144,13 +144,30 @@ fn map_target_source_read_inner(
 
     let overlap_conflict = record_summary.overlap_conflict;
     let source_read_complete = source_read_complete && !overlap_conflict;
-    let formal_cursor = formal_next_append_cursor(
-        source,
-        active_segment,
-        &record_summary.active_promotion,
-        cancelled,
-        deadline,
-    )?;
+    let accumulated_coverage = accumulated_source_coverage(request, source, active_segment);
+    // Promotion is judged on the accumulated coverage the caller proved plus
+    // the bytes this read observed. A conflicting overlap is never promotable,
+    // even when the byte ranges look complete; the formal assembly still
+    // validates the snapshot evidence before any cursor is published.
+    let promotion_coverage = if overlap_conflict {
+        None
+    } else {
+        accumulated_coverage
+    };
+    // A conflicting overlap must never publish ForwardAppend on any cursor
+    // path, including the append ForwardRange that returns a persisted cursor.
+    let formal_cursor = if overlap_conflict {
+        None
+    } else {
+        formal_next_append_cursor(
+            source,
+            active_segment,
+            &record_summary.active_promotion,
+            promotion_coverage,
+            cancelled,
+            deadline,
+        )?
+    };
     check_mapping_control(cancelled, deadline)?;
     let cursor = build_next_cursor(
         request,
@@ -158,6 +175,7 @@ fn map_target_source_read_inner(
         active_segment,
         &record_summary.active,
         formal_cursor.as_ref(),
+        accumulated_coverage,
     );
     let source_range = cursor
         .as_ref()
@@ -540,12 +558,22 @@ struct SourceRecordFrontier {
     byte_end: u64,
 }
 
+/// Upper bound on retained accepted-record identities. Evidence beyond this
+/// bound is dropped oldest-first, and an overlap that can no longer be proven
+/// stays a conflict instead of being silently dropped.
+const MAX_TRACKED_ACCEPTED_IDENTITIES: usize = 4096;
+
 #[derive(Debug, Default)]
 struct StreamingRecordDeduplicator {
+    /// Identity evidence for records this replay already *accepted*, keyed by
+    /// source then physical byte range. Only previously accepted content may
+    /// prove a later record is a duplicate; copies that were never accepted
+    /// must not prove each other, and once the original comparison evidence is
+    /// gone the overlap fails closed.
+    accepted: BTreeMap<String, BTreeMap<(u64, u64), u128>>,
     /// Keep one compact position frontier per physical source.  The source
     /// bridge replays windows in source order, so a record wholly below this
-    /// frontier is an overlap retry and can be dropped without retaining
-    /// prior raw records or a cumulative record-key set.
+    /// frontier is an overlap candidate.
     frontiers: BTreeMap<String, SourceRecordFrontier>,
 }
 
@@ -554,6 +582,43 @@ enum RecordDisposition {
     New,
     Duplicate,
     ConflictingOverlap,
+}
+
+/// Deterministic 128-bit content identity for one source record. Records with
+/// identical content always hash equally, and the digest is only ever compared
+/// between records at the same source position.
+fn record_identity_digest(record: &SourceRecord) -> u128 {
+    fn fnv1a(bytes: &[u8], seed: u64) -> u64 {
+        let mut hash = seed;
+        for byte in bytes {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        hash
+    }
+    let mut canonical = format!(
+        "{}\u{1f}{}\u{1f}{}\u{1f}{}\u{1f}{:?}\u{1f}{:?}\u{1f}",
+        record.source_identity,
+        record.byte_start,
+        record.byte_end,
+        record.physical_line_ordinal,
+        record.rollout_ordinal,
+        record.timestamp,
+    )
+    .into_bytes();
+    canonical.extend_from_slice(
+        record
+            .raw
+            .as_ref()
+            .map(std::string::ToString::to_string)
+            .unwrap_or_default()
+            .as_bytes(),
+    );
+    canonical.push(0x1f);
+    canonical.extend_from_slice(record.parse_error.as_deref().unwrap_or("").as_bytes());
+    let low = fnv1a(&canonical, 0xcbf2_9ce4_8422_2325);
+    let high = fnv1a(&canonical, 0x9e37_79b9_7f4a_7c15);
+    (u128::from(high) << 64) | u128::from(low)
 }
 
 impl StreamingRecordDeduplicator {
@@ -565,12 +630,42 @@ impl StreamingRecordDeduplicator {
         if !frontier.initialized || record.byte_start >= frontier.byte_end {
             frontier.initialized = true;
             frontier.byte_end = frontier.byte_end.max(record.byte_end);
+            self.remember(record);
             return RecordDisposition::New;
         }
-        if record.byte_end <= frontier.byte_end {
-            return RecordDisposition::Duplicate;
+        let digest = record_identity_digest(record);
+        match self
+            .accepted
+            .get(&record.source_identity)
+            .and_then(|ranges| ranges.get(&(record.byte_start, record.byte_end)))
+        {
+            // Proven identical overlap: the same accepted content at the same
+            // position, so dropping it stays idempotent.
+            Some(known) if *known == digest => RecordDisposition::Duplicate,
+            // Different content at an accepted position, or no retained
+            // accepted evidence to compare against: fail closed.
+            _ => RecordDisposition::ConflictingOverlap,
         }
-        RecordDisposition::ConflictingOverlap
+    }
+
+    fn remember(&mut self, record: &SourceRecord) {
+        let tracked: usize = self.accepted.values().map(BTreeMap::len).sum();
+        if tracked >= MAX_TRACKED_ACCEPTED_IDENTITIES
+            && let Some(oldest_source) = self.accepted.keys().next().cloned()
+            && let Some(ranges) = self.accepted.get_mut(&oldest_source)
+        {
+            ranges.pop_first();
+            if ranges.is_empty() {
+                self.accepted.remove(&oldest_source);
+            }
+        }
+        self.accepted
+            .entry(record.source_identity.clone())
+            .or_default()
+            .insert(
+                (record.byte_start, record.byte_end),
+                record_identity_digest(record),
+            );
     }
 }
 
@@ -599,6 +694,9 @@ fn adapt_records(
     };
 
     let mut summary = RecordPassSummary::default();
+    // Identity evidence comes from what this replay already accepted, so the
+    // deduplicator carries its own bounded evidence instead of looking up the
+    // resident window (whose copies were never proven).
     let mut deduplicator = StreamingRecordDeduplicator::default();
     source.for_each_record(lineage, |record| {
         check_mapping_control(cancelled, deadline)?;
@@ -983,6 +1081,7 @@ fn build_next_cursor(
     active_segment: &TargetSourceSegmentEvidence,
     active_records: &ActiveRecordSummary,
     formal_append_cursor: Option<&ForwardAppendCursor>,
+    accumulated_coverage: Option<TargetSourceByteRange>,
 ) -> Option<TargetAnalyzerCursor> {
     if active_segment.compression != TargetSourceCompression::PlainJsonl {
         return None;
@@ -1010,24 +1109,42 @@ fn build_next_cursor(
         TargetAnalyzeMode::Backfill => {
             if let Some(formal_cursor) = formal_append_cursor
                 && active_segment.complete
-                && active_source_covers_full_snapshot(source, active_segment)
             {
                 TargetAnalyzerCursor::from_source_metadata(formal_cursor.metadata()).ok()
             } else {
-                let effective_range =
-                    active_source_complete_range(source).unwrap_or(complete_range);
+                // Report the accumulated coverage, not only this read's bytes:
+                // a continuation that keeps replaying the already-known range
+                // never reaches terminal coverage.
+                let effective_range = accumulated_coverage.unwrap_or(complete_range);
                 let last_line = active_records
                     .last_complete_line
                     .as_ref()
                     .filter(|line| line.byte_end == effective_range.end)
-                    .cloned()?;
+                    .cloned()
+                    .or_else(|| {
+                        // The accumulated range can end inside a part the
+                        // caller proved earlier; reuse its own boundary rather
+                        // than inventing one or dropping the cursor.
+                        request.cursor.as_ref().and_then(|cursor| {
+                            (cursor.complete_range.end == effective_range.end)
+                                .then(|| cursor.last_complete_line.clone())
+                                .flatten()
+                        })
+                    })?;
+                let last_rollout_ordinal = active_records.last_rollout_ordinal.or_else(|| {
+                    request
+                        .cursor
+                        .as_ref()
+                        .filter(|cursor| cursor.complete_range.end == effective_range.end)
+                        .and_then(|cursor| cursor.last_rollout_ordinal)
+                });
                 manual_cursor(
                     TargetCursorKind::Backfill,
                     source,
                     active_segment,
                     effective_range,
                     Some(last_line),
-                    active_records.last_rollout_ordinal,
+                    last_rollout_ordinal,
                 )
             }
         }
@@ -1119,14 +1236,73 @@ fn active_source_complete_range(source: &TargetSourceRead) -> Option<TargetSourc
     })
 }
 
-fn active_source_covers_full_snapshot(
+/// Union the caller-proven coverage with the bytes this read observed.
+///
+/// Only a contiguous prefix/suffix extension is provable. An ambiguous union
+/// returns `None` so an unproven range is never reported as complete, and the
+/// accumulated range can only ever grow monotonically.
+fn accumulated_complete_range(
+    known: Option<TargetSourceByteRange>,
+    read: TargetSourceByteRange,
+) -> Option<TargetSourceByteRange> {
+    let Some(known) = known else {
+        return Some(read);
+    };
+    if known.end == read.start {
+        Some(TargetSourceByteRange {
+            start: known.start,
+            end: read.end,
+        })
+    } else if read.end == known.start {
+        Some(TargetSourceByteRange {
+            start: read.start,
+            end: known.end,
+        })
+    } else if known.start <= read.start && read.end <= known.end {
+        Some(known)
+    } else if read.start <= known.start && known.end <= read.end {
+        Some(read)
+    } else {
+        None
+    }
+}
+
+/// Coverage the caller already proved for this exact source epoch.
+fn caller_known_complete_range(
+    request: &TargetAnalyzeRequest,
+    source: &TargetSourceRead,
+) -> Option<TargetSourceByteRange> {
+    if let Some(known) = request.known_complete_range {
+        return Some(known);
+    }
+    request.cursor.as_ref().and_then(|cursor| {
+        (cursor.conversation_id == request.conversation_id
+            && cursor.source_id == source.source_id
+            && cursor.source_epoch == source.source_epoch)
+            .then_some(cursor.complete_range)
+    })
+}
+
+/// Coverage proven complete for the active source: the caller's known range
+/// unioned with what this read observed.
+fn accumulated_source_coverage(
+    request: &TargetAnalyzeRequest,
     source: &TargetSourceRead,
     active_segment: &TargetSourceSegmentEvidence,
+) -> Option<TargetSourceByteRange> {
+    let read = active_source_complete_range(source).or(active_segment.complete_range)?;
+    accumulated_complete_range(caller_known_complete_range(request, source), read)
+}
+
+fn coverage_covers_full_snapshot(
+    source: &TargetSourceRead,
+    active_segment: &TargetSourceSegmentEvidence,
+    coverage: Option<TargetSourceByteRange>,
 ) -> bool {
     if !cursor_boundary_is_safe(source, active_segment) {
         return false;
     }
-    active_source_complete_range(source).is_some_and(|range| {
+    coverage.is_some_and(|range| {
         range.start == 0 && range.end == active_segment.snapshot_boundary.byte_length
     })
 }
@@ -1135,6 +1311,7 @@ fn formal_next_append_cursor(
     source: &TargetSourceRead,
     active_segment: &TargetSourceSegmentEvidence,
     active_summary: &StreamingRecordSummary,
+    coverage: Option<TargetSourceByteRange>,
     cancelled: Option<&AtomicBool>,
     deadline: Option<Instant>,
 ) -> Result<Option<ForwardAppendCursor>, TargetSourceReadError> {
@@ -1143,7 +1320,7 @@ fn formal_next_append_cursor(
     }
     if (active_segment.mode == crate::source::SourceReadMode::FullRead
         || active_segment.mode == crate::source::SourceReadMode::BackwardRange)
-        && active_source_covers_full_snapshot(source, active_segment)
+        && coverage_covers_full_snapshot(source, active_segment, coverage)
     {
         check_mapping_control(cancelled, deadline)?;
         return Ok(promote_full_snapshot_formal(

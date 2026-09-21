@@ -14,23 +14,15 @@ runtime_state:
   lifecycle_state: active
   resume_requires_review: false
   resume_review_reasons: []
-  active_step_id: S1
-  active_step_status: completed
-  finding_queue_revision: 27
+  active_step_id: S2
+  active_step_status: ready
+  finding_queue_revision: 42
   review_cycle:
-    id: review-cycle-0
+    id: review-cycle-4c1c04de34ac5fd629fa75c2f2d5e02e
     cycle_phase: discovery
-    repair_round: 7
-    max_repair_rounds: 7
-    counted_repair_wave_ids:
-      - repair-wave-df745a3cb80981aca4e2be1bc91519a2
-      - repair-wave-081841ae576c8feb9c0eb56cf8ebea06
-      - repair-wave-73cd28a4b838a6eec26c871c3e01ec8c
-      - repair-wave-9034c7b160e7ac8fce7b6feed52124c7
-      - repair-wave-f6d02733ead8043972fba29af0a77366
-      - repair-wave-c0c150db4833607e574635b228ad0a33
-      - repair-wave-ab176f9c5738bad4287f7a994bd447bf
-    active_repair_wave_id: repair-wave-ab176f9c5738bad4287f7a994bd447bf
+    repair_round: 0
+    counted_repair_wave_ids: []
+    active_repair_wave_id: null
     verification_new_finding_wave_used: false
     verification_new_finding_wave_id: null
   findings:
@@ -50,9 +42,10 @@ runtime_state:
         prove that a valid known_complete_range request reaches full-snapshot
         coverage without replaying the old range.
       root_cause_status: confirmed
-      status: in-progress
-      repair_attempts: 1
+      status: resolved
+      repair_attempts: 2
       max_repair_attempts: 2
+      controlled_repair_attempts: 2
       evidence_refs:
         - native/codex-rollout-collector/src/protocol/target_source.rs
         - native/codex-rollout-collector/tests/rollout_blockers.rs
@@ -60,10 +53,15 @@ runtime_state:
         - docs/workflow/CURRENT_TASK.md
         - docs/codex/codex-rollout-isolated-closure-verification.md
         - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+        - native/codex-rollout-collector/src/protocol/target_mapping.rs
+        - docs/workflow/task-basis/TASK_BASIS-002.md
+        - docs/workflow/evidence-objects/5a8a3aaf98d04e05537fa61f359c891f3c69247921265dac671eb0d9e77a83d0.blob
+        - native/codex-rollout-collector/src/source/segment.rs
+        - native/codex-rollout-collector/tests/stage4_target_protocol.rs
       review_cycle_id: review-cycle-0
-      last_repair_wave_id: repair-wave-df745a3cb80981aca4e2be1bc91519a2
+      last_repair_wave_id: controlled-repair-wave-b30254c7e204ea56a7adcf07a5691647
       admitted_at: 2026-09-19T17:29:30.056Z
-      updated_at: 2026-09-19T17:53:18.652Z
+      updated_at: 2026-09-21T16:41:29.550Z
     - fingerprint: finding-56ba22bcb8d74c533ab43a5d5e845535
       category: resource-boundedness
       owner_task_id: "002"
@@ -79,7 +77,7 @@ runtime_state:
         windows, while preserving deterministic chronological output and stable
         logical keys.
       root_cause_status: confirmed
-      status: in-progress
+      status: resolved
       repair_attempts: 7
       max_repair_attempts: 7
       evidence_refs:
@@ -110,10 +108,14 @@ runtime_state:
         - native/codex-rollout-collector/tests/stage2_input.rs
         - cargo-test:conformance+stage2_input:34-passed
         - git-diff-name-only:repair-wave-report-only
+        - native/codex-rollout-collector/src/source/segment.rs
+        - native/codex-rollout-collector/tests/stage4_target_protocol.rs
+        - docs/workflow/task-basis/TASK_BASIS-002.md
+        - docs/workflow/evidence-objects/1401c4b69053689813059bfda8b93e2859ca6f8795bb917074591d75a655d1a8.blob
       review_cycle_id: review-cycle-0
       last_repair_wave_id: repair-wave-ab176f9c5738bad4287f7a994bd447bf
       admitted_at: 2026-09-19T17:29:30.197Z
-      updated_at: 2026-09-20T14:11:39.444Z
+      updated_at: 2026-09-21T04:29:42.521Z
     - fingerprint: finding-0d9e741858db75be08e2b837ca598acc
       category: cancellation-deadline
       owner_task_id: "002"
@@ -130,7 +132,7 @@ runtime_state:
         I/O terminate promptly, with a test that changes control state during
         the scan rather than only before the request.
       root_cause_status: confirmed
-      status: in-progress
+      status: resolved
       repair_attempts: 1
       max_repair_attempts: 2
       evidence_refs:
@@ -140,10 +142,15 @@ runtime_state:
         - docs/workflow/CURRENT_TASK.md
         - docs/codex/codex-rollout-isolated-closure-verification.md
         - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+        - native/codex-rollout-collector/src/protocol/target_mapping.rs
+        - native/codex-rollout-collector/src/source/segment.rs
+        - native/codex-rollout-collector/tests/stage4_target_protocol.rs
+        - docs/workflow/task-basis/TASK_BASIS-002.md
+        - docs/workflow/evidence-objects/1401c4b69053689813059bfda8b93e2859ca6f8795bb917074591d75a655d1a8.blob
       review_cycle_id: review-cycle-0
       last_repair_wave_id: repair-wave-df745a3cb80981aca4e2be1bc91519a2
       admitted_at: 2026-09-19T17:29:30.332Z
-      updated_at: 2026-09-19T17:53:18.328Z
+      updated_at: 2026-09-21T04:29:42.521Z
     - fingerprint: finding-f055a9eb19e6da4e496a31f4bea6b66a
       category: persistent-test-oracle
       owner_task_id: "002"
@@ -160,9 +167,10 @@ runtime_state:
         correct missing-range progression to terminal coverage, and the required
         pending/gap/mutation/checkpoint fail-closed cases.
       root_cause_status: confirmed
-      status: in-progress
-      repair_attempts: 1
+      status: resolved
+      repair_attempts: 2
       max_repair_attempts: 2
+      controlled_repair_attempts: 2
       evidence_refs:
         - native/codex-rollout-collector/tests/rollout_blockers.rs
         - native/codex-rollout-collector/tests/stage4_target_protocol.rs
@@ -170,10 +178,15 @@ runtime_state:
         - docs/workflow/CURRENT_TASK.md
         - docs/codex/codex-rollout-isolated-closure-verification.md
         - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+        - native/codex-rollout-collector/src/protocol/target_mapping.rs
+        - docs/workflow/task-basis/TASK_BASIS-002.md
+        - native/codex-rollout-collector/src/protocol/target_source.rs
+        - docs/workflow/evidence-objects/5a8a3aaf98d04e05537fa61f359c891f3c69247921265dac671eb0d9e77a83d0.blob
+        - native/codex-rollout-collector/src/source/segment.rs
       review_cycle_id: review-cycle-0
-      last_repair_wave_id: repair-wave-df745a3cb80981aca4e2be1bc91519a2
+      last_repair_wave_id: controlled-repair-wave-b30254c7e204ea56a7adcf07a5691647
       admitted_at: 2026-09-19T17:29:30.461Z
-      updated_at: 2026-09-19T17:53:18.944Z
+      updated_at: 2026-09-21T16:41:29.550Z
     - fingerprint: finding-76229f550e746d6e8e0aeedc7c79a1dc
       category: validation-evidence-accuracy
       owner_task_id: "002"
@@ -190,7 +203,7 @@ runtime_state:
         actual fixture and segment parameters; add the missing assertions before
         claiming the broader C1 evidence.
       root_cause_status: confirmed
-      status: in-progress
+      status: resolved
       repair_attempts: 7
       max_repair_attempts: 7
       evidence_refs:
@@ -220,10 +233,165 @@ runtime_state:
         - native/codex-rollout-collector/src/protocol/target_source.rs
         - git-diff-name-only:repair-wave-report-only
         - native/codex-rollout-collector/src/protocol/target_mapping.rs
+        - native/codex-rollout-collector/src/source/segment.rs
+        - native/codex-rollout-collector/tests/stage4_target_protocol.rs
+        - docs/workflow/task-basis/TASK_BASIS-002.md
+        - docs/workflow/evidence-objects/1401c4b69053689813059bfda8b93e2859ca6f8795bb917074591d75a655d1a8.blob
       review_cycle_id: review-cycle-0
       last_repair_wave_id: repair-wave-ab176f9c5738bad4287f7a994bd447bf
       admitted_at: 2026-09-19T17:29:30.596Z
-      updated_at: 2026-09-20T14:11:40.966Z
+      updated_at: 2026-09-21T04:29:42.521Z
+    - fingerprint: finding-910c21597a109a7f4018404e778c8ca6
+      category: conflicting-overlap-deduplication
+      owner_task_id: "002"
+      scope: admitted
+      decision: mechanical
+      file: native/codex-rollout-collector/src/protocol/target_mapping.rs
+      failure_condition: "P1: StreamingRecordDeduplicator::observe (559-574) treats
+        every record wholly behind the byte frontier as Duplicate without
+        comparing payload, ordinal or parse_error. A conflicting record at an
+        already accepted source position is discarded before diagnostics and
+        promotion summary observe it (603-610). With otherwise complete valid
+        records, overlap_conflict remains false and Canonical/ForwardAppend can
+        still be published despite the conflict."
+      violated_invariant: Deduplicate only proven-identical overlap; preserve or
+        reject conflicting payload, ordinal and parse diagnostics and prevent
+        canonical completeness/ForwardAppend promotion. Keep raw-record
+        residency bounded and add a conflicting-overlap negative control
+        alongside exact-duplicate equality.
+      root_cause_status: confirmed
+      status: resolved
+      repair_attempts: 2
+      max_repair_attempts: 2
+      controlled_repair_attempts: 1
+      evidence_refs:
+        - native/codex-rollout-collector/src/protocol/target_mapping.rs
+        - native/codex-rollout-collector/src/source/segment.rs
+        - native/codex-rollout-collector/tests/rollout_blockers.rs
+        - docs/workflow/CURRENT_TASK.md
+        - docs/codex/codex-rollout-isolated-closure-verification.md
+        - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+        - docs/workflow/task-basis/TASK_BASIS-002.md
+        - native/codex-rollout-collector/src/protocol/target_source.rs
+        - docs/workflow/evidence-objects/5a8a3aaf98d04e05537fa61f359c891f3c69247921265dac671eb0d9e77a83d0.blob
+        - native/codex-rollout-collector/tests/stage4_target_protocol.rs
+      review_cycle_id: review-cycle-0
+      last_repair_wave_id: controlled-repair-wave-b30254c7e204ea56a7adcf07a5691647
+      admitted_at: 2026-09-21T04:34:58.880Z
+      updated_at: 2026-09-21T16:41:29.550Z
+    - fingerprint: finding-a5686f5254ba15463145ec33a46e0c1f
+      category: persistent-test-admission
+      owner_task_id: "002"
+      scope: admitted
+      decision: mechanical
+      file: native/codex-rollout-collector/src/protocol/target_source.rs
+      failure_condition: "P2: The cumulative delta adds
+        boundary_scan_honors_cancellation_after_io_has_started at lines
+        1674-1697 inside production source. The confirmed decision closes
+        persistent test admission to four named assets and explicitly excludes
+        new test assets in production source; allowing implementation edits to
+        this file does not authorize this new persistent test."
+      violated_invariant: Restore the confirmed persistent-test boundary, keeping
+        necessary cancellation-after-I/O evidence in admitted test assets or
+        obtaining explicit admission before retaining a new production-source
+        test. Preserve the working cancellation/deadline control checks.
+      root_cause_status: confirmed
+      status: resolved
+      repair_attempts: 1
+      max_repair_attempts: 2
+      evidence_refs:
+        - native/codex-rollout-collector/src/protocol/target_source.rs
+        - docs/workflow/CURRENT_TASK.md
+        - docs/workflow/task-basis/TASK_BASIS-002.md
+        - docs/codex/codex-rollout-isolated-closure-verification.md
+        - native/codex-rollout-collector/tests/rollout_blockers.rs
+        - native/codex-rollout-collector/src/protocol/target_mapping.rs
+        - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+        - native/codex-rollout-collector/src/source/mod.rs
+        - native/codex-rollout-collector/src/source/segment.rs
+        - native/codex-rollout-collector/tests/stage4_target_protocol.rs
+        - docs/workflow/evidence-objects/3bdaed1d0e97c1518f0868cf82288b2c88a39a7c778947b74a54ac9d4a11a634.blob
+      review_cycle_id: review-cycle-0
+      last_repair_wave_id: repair-wave-1dee2536c1013076d679a1fc237ce7d5
+      admitted_at: 2026-09-21T04:35:00.121Z
+      updated_at: 2026-09-21T04:48:56.971Z
+  controlled_repair_grants:
+    - kind: controlled-repair-recovery/v1
+      grant_id: controlled-recovery-ce3cbf8dc256ae8612c9831ba28f769a992b7269
+      task_id: "002"
+      task_slug: rollout
+      document_id: doc-05c82c8a6e6c9181adfc2be2
+      review_id: review-c283c72c319763c7f034e06a6bc0fa9bf9bb3280
+      execution_id: execute-step-result-003e38e72b1aff95e0d79fda4ce5196514df185da37eace2
+      cycle_id: review-cycle-0
+      cycle_phase: verification
+      change_set_id: change-set-6d88bddf460386620d751e6428795fbe
+      review_target_revision: b83b86939582fa1194ca392b39b8d4ff40b3a8aee0992772630b49dc3d5dc1a6
+      repair_fingerprints:
+        - finding-63fad9ec0fd6323304a2f9481d895779
+        - finding-910c21597a109a7f4018404e778c8ca6
+        - finding-f055a9eb19e6da4e496a31f4bea6b66a
+      recovery_fingerprints:
+        - finding-63fad9ec0fd6323304a2f9481d895779
+        - finding-f055a9eb19e6da4e496a31f4bea6b66a
+      recovery_scope: mixed
+      disposition_source: legacy-explicit-user
+      recovery_basis: acceptance
+      repair_wave_id: repair-wave-90f4a5700928ad2cb9916b68f4612cdf
+      decision_source: user:current-conversation/2026-09-21/reply-to-review-c283c72c319763c7f034e06a6bc0fa9bf9bb3280-authorize-controlled-repair-recovery
+      decision_sha256: dfd1a981834feb2017a541bc010648b78e4b299cd26a8d2287447ace75057e48
+      evidence_refs:
+        - docs/workflow/task-basis/TASK_BASIS-002.md
+        - docs/workflow/CURRENT_TASK.md
+        - docs/codex/codex-rollout-isolated-closure-verification.md
+        - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+        - review:review-c283c72c319763c7f034e06a6bc0fa9bf9bb3280
+      issued_source_revision: f775949ef5001e33b2b7b21b56427d59dad9cce8d4815e1a2115eed7585f635b
+      status: consumed
+      consumed_fingerprints:
+        - finding-63fad9ec0fd6323304a2f9481d895779
+        - finding-910c21597a109a7f4018404e778c8ca6
+        - finding-f055a9eb19e6da4e496a31f4bea6b66a
+      issued_at: 2026-09-21T10:02:43.673Z
+      consumed_at: 2026-09-21T10:58:36.141Z
+    - kind: controlled-repair-recovery/v2
+      grant_id: controlled-recovery-98d8f15d9f5140046d9d7bbc31534c1b83d650e1
+      task_id: "002"
+      task_slug: rollout
+      document_id: doc-05c82c8a6e6c9181adfc2be2
+      review_id: review-3fc008d9e5dae10f6c1cfa33a4dc335fd7d15b9e
+      execution_id: execute-step-result-f3ba78f3d501e625493954b32c6c3391f172ad3b539129e0
+      cycle_id: review-cycle-0
+      cycle_phase: verification
+      change_set_id: change-set-6d88bddf460386620d751e6428795fbe
+      review_target_revision: 2ed92fff8db5278f975b71019f919f645c0edd7872189e652a05ea4c483f37ee
+      repair_fingerprints:
+        - finding-63fad9ec0fd6323304a2f9481d895779
+        - finding-910c21597a109a7f4018404e778c8ca6
+        - finding-f055a9eb19e6da4e496a31f4bea6b66a
+      recovery_fingerprints:
+        - finding-63fad9ec0fd6323304a2f9481d895779
+        - finding-910c21597a109a7f4018404e778c8ca6
+        - finding-f055a9eb19e6da4e496a31f4bea6b66a
+      recovery_scope: mixed
+      disposition_source: review-disposition
+      recovery_basis: acceptance
+      repair_wave_id: repair-wave-7056920e562e78a00444885d34b09637
+      decision_source: user:current-conversation/2026-09-22/prepare-task-additional_controlled_repair_waves-5
+      decision_sha256: 029d030770a0202c87da7c5498a0c5fbfd2fdfe7c87241ed71e2aedd2f6f9a76
+      evidence_refs:
+        - docs/workflow/task-basis/TASK_BASIS-002.md
+        - docs/workflow/evidence-objects/de60216299553e675deeb0b75cec13d9b9159e7fdc1aeafc2c1f85b788d42970.blob
+      issued_source_revision: e3b3d4112f7436b4aa0d63594450887252333558ad8bd1b9f7dcf303d5001eec
+      status: issued
+      consumed_fingerprints:
+        - finding-63fad9ec0fd6323304a2f9481d895779
+        - finding-910c21597a109a7f4018404e778c8ca6
+        - finding-f055a9eb19e6da4e496a31f4bea6b66a
+      authorized_repair_waves: 5
+      consumed_repair_wave_ids:
+        - controlled-repair-wave-b30254c7e204ea56a7adcf07a5691647
+      issued_at: 2026-09-21T16:17:28.729Z
   claim_evidence_required: true
   claim_evidence:
     - claim_id: C1
@@ -650,127 +818,15 @@ runtime_state:
     - ecb578c5c0fb91cb6d474b1c269f602b7a9cefd48287525ce9c3ae86baae7614
     - 77a8dc8c2a88a256cec70294b5d0f515f7b8bd8cbfefacb6df7eee3f70086f00
     - 4d457ef4e2ff5170db0830989148a4c3f5bc3285ca79798bea0c281c144d012a
+    - 8aa8579cb6027183898ee70398b0541b2b7fb83d148ec9c5c57b54a4d21dc7ae
+    - 5e05ed938a2004afaf0e0e1449bf5d30103f379514b3e7863e9738dff33970cd
+    - 8635cfbc376639de4f4bba7b900807016c153cf28a4066b84408b6db402781a2
+    - d126460cf1432e60345cfda229c3630f3ba3b5813d928b33093b239d966425a0
+    - 666af0ef0ab04b34d1f06f10e0090ca1bfae2bfe5d7512337f40097dafea4eaf
+    - c227eb84071daee9401fb4fe53001a250cfd099528ec9124872b7ad87fd74968
   dynamic_review_required: false
   dynamic_expansions: []
-  execution_preflight:
-    execution_id: execution-9169abe076568cf932e73b96b169132ffad826d58bd7eaa1ce221654ae9878bd
-    preflight_id: preflight-65f39ff82a36c64b5c3216d383b6f7b12000314efbc10c4f4e042c1d74c1841c
-    mode: repair
-    step_id: S1
-    plan_revision: 9dc12e5f0d8b8aa3bc0792cbc355cd796aaec69d4240517510b43ef7e226b5a4
-    execution_phase: flexible
-    candidate_paths:
-      - native/codex-rollout-collector/tests/rollout_blockers.rs
-      - docs/codex/codex-rollout-isolated-closure-verification.md
-      - docs/changes/records/CR-20260916-rollout-blockers-s1.md
-    change_set_id: change-set-6d88bddf460386620d751e6428795fbe
-    repair_fingerprints:
-      - finding-56ba22bcb8d74c533ab43a5d5e845535
-      - finding-76229f550e746d6e8e0aeedc7c79a1dc
-    repair_wave_id: repair-wave-ab176f9c5738bad4287f7a994bd447bf
-    review_id: review-058550fff6caf5f0706bf6a6b73a94a22b73c552
-    review_target_paths:
-      - docs/changes/records/CR-20260916-rollout-blockers-s1.md
-      - docs/codex/codex-rollout-isolated-closure-verification.md
-      - native/codex-rollout-collector/src/protocol/target_mapping.rs
-      - native/codex-rollout-collector/src/protocol/target_source.rs
-      - native/codex-rollout-collector/src/source/mod.rs
-      - native/codex-rollout-collector/src/source/segment.rs
-      - native/codex-rollout-collector/tests/rollout_blockers.rs
-      - native/codex-rollout-collector/tests/stage4_target_protocol.rs
-  pending_review_result:
-    test_assessment:
-      applicable: true
-      reason: Current repair modifies existing admitted persistent tests and reports;
-        bounded review identifies unresolved convergence rather than certifying
-        entire cumulative source.
-      evidence_refs:
-        - execution
-          execute-step-result-14ef32a3e98a4ae3ea5d70717e8b8dcebcb7d7b9b0efce54;
-          target1f017575ca3959385f9d0372cc54e4931d00f5e6aa638f48bd7ef720f13fc96e;
-          actual changes only rollout_blockers.rs, report, CR
-        - current review-cycle-0 repair_round7/max7; f56 and f762
-          attempts7/max7; all other open findings retained
-        - review-read consumed complete current three changed files; source
-          hashes unchanged from previously reviewed acc81371 target
-        - independent frozen cargo test --locked --manifest-path
-          native/codex-rollout-collector/Cargo.toml --test rollout_blockers with
-          OS TEMP CARGO_TARGET_DIR:5passed0failed; other34passes
-          execution-reported only
-        - rollout_blockers.rs new single-window/multi-window comparison
-          establishes split invariance for same fixture and implementation, not
-          an independent correctness oracle against shared mapping bugs
-        - rollout_blockers.rs::test_backfill_three_entrypoints still ends after
-          p2 read, without p2 mapping or terminal convergence; exact overlap
-          test does not exercise conflicting payload; report section5 explicitly
-          does not claim either defect resolved
-        - "fresh task-context complete;
-          definition2d2885c4c2c017d1f6bc0a108e4b20a344809fbc2592e64aadbe55c4e27\
-          6c6c1 compared to visible prior: only Task Basis pointer differs;
-          evidence plan unchanged; final S3 slots not current blockers"
-      necessity: Reuses admitted C1 test asset, no new test count or broad suite
-        requirement.
-      oracle: Single-window/multi-window equality is a valid metamorphic
-        split-invariance check; both use the same mapper and cannot
-        independently prove correctness or conflict safety. Exact fixture
-        assertions from prior wave remain useful. Continuation terminal oracle
-        remains absent.
-      boundary: Independent current rollout_blockers5/5, real temporary JSONL with
-        public read/map. No fresh defect probe or complete source re-review;
-        unchanged source hashes and retained prior counterevidence reused. No
-        Node flow evidence.
-      reuse: Fresh receipt bound test/report/CR reads; existing fixture and frozen
-        command reused. No implementation/test changes made by reviewer.
-      applicability: Acknowledges resource/output invariance evidence and narrowed
-        reporting. Does not demand RSS tests or S3 evidence now. Budget and
-        retained functional blockers prevent clean; do not reset history or
-        advance S1.
-    kind: review-result/v1
-    review_id: review-1dc3fbbbfaf5bffa86e95f695da8d8ceccdced5a
-    execution_id: execute-step-result-14ef32a3e98a4ae3ea5d70717e8b8dcebcb7d7b9b0efce54
-    step_id: S1
-    cycle_id: review-cycle-0
-    cycle_phase: verification
-    change_set_id: change-set-6d88bddf460386620d751e6428795fbe
-    review_target_revision: 1f017575ca3959385f9d0372cc54e4931d00f5e6aa638f48bd7ef720f13fc96e
-    verdict: blocked
-    findings: []
-    unresolved_fingerprints: []
-    evidence_refs:
-      - execution
-        execute-step-result-14ef32a3e98a4ae3ea5d70717e8b8dcebcb7d7b9b0efce54;
-        target1f017575ca3959385f9d0372cc54e4931d00f5e6aa638f48bd7ef720f13fc96e;
-        actual changes only rollout_blockers.rs, report, CR
-      - current review-cycle-0 repair_round7/max7; f56 and f762 attempts7/max7;
-        all other open findings retained
-      - review-read consumed complete current three changed files; source hashes
-        unchanged from previously reviewed acc81371 target
-      - independent frozen cargo test --locked --manifest-path
-        native/codex-rollout-collector/Cargo.toml --test rollout_blockers with
-        OS TEMP CARGO_TARGET_DIR:5passed0failed; other34passes
-        execution-reported only
-      - rollout_blockers.rs new single-window/multi-window comparison
-        establishes split invariance for same fixture and implementation, not an
-        independent correctness oracle against shared mapping bugs
-      - rollout_blockers.rs::test_backfill_three_entrypoints still ends after p2
-        read, without p2 mapping or terminal convergence; exact overlap test
-        does not exercise conflicting payload; report section5 explicitly does
-        not claim either defect resolved
-      - "fresh task-context complete;
-        definition2d2885c4c2c017d1f6bc0a108e4b20a344809fbc2592e64aadbe55c4e276c\
-        6c1 compared to visible prior: only Task Basis pointer differs; evidence
-        plan unchanged; final S3 slots not current blockers"
-    blocker:
-      code: REPAIR_BUDGET_EXHAUSTED
-      summary: Current cycle exhausted7/7. New split-invariance assertion and report
-        clarification are useful evidence improvements, but no production change
-        or counterevidence resolves retained continuation/conflict issues;
-        continuation test still omits terminal mapping. Cumulative clean cannot
-        be established. Diagnose mismatch between repeatedly selected f56/f762
-        repair scope and outstanding functional findings before further budget
-        extension.
-      next_route: debug-task
-    recorded_at: 2026-09-20T14:15:34.106Z
+  pending_review_result: null
   step_attempts:
     S1:
       evidence_plan_revision: 98b2028a6421b96265d86fa20364870cc3277086fda439097675d4afb9a04e4b
@@ -817,20 +873,20 @@ runtime_state:
           sha256: 7aebbcd6d4dd9184dd9fd921ef014d725dfae5c201325f173a63cae5d35e7e73
     target:
       kind: runtime-file-manifest/v1
-      revision: 1f017575ca3959385f9d0372cc54e4931d00f5e6aa638f48bd7ef720f13fc96e
+      revision: e991d3bd9273ddf1c711898e249b23c3b1232def7ec6491d11e9fea79dbedf9f
       entries:
         - path: docs/changes/records/CR-20260916-rollout-blockers-s1.md
           state: file
-          sha256: 9432ff4bf483644f28689b1509023771f0e983b7e6de82d38e9c9fcdfc602be2
+          sha256: 49161c735ad8879a0c763f6875879a14c48d48c4f1b7a37344c4411a338840fb
         - path: docs/codex/codex-rollout-isolated-closure-verification.md
           state: file
-          sha256: b90c09cd670ce913274d136895e5fd21bdc79f77ea671d8caf1b8e4ec7e5166c
+          sha256: c61572ea9ba613d63d4d69126d968e9dce196d147bfac64f92c286b8003a8110
         - path: native/codex-rollout-collector/src/protocol/target_mapping.rs
           state: file
-          sha256: 4b5859bbb3b5d10dbf34f872cf202ba373cc70cadba81649c3644440c30faf35
+          sha256: 8e3ce6a8dd634b4c21b1644649ee9600ce7e4a45eb308b77fab244565532d422
         - path: native/codex-rollout-collector/src/protocol/target_source.rs
           state: file
-          sha256: 48317594cd07611dc1b862eae92b5dd462de12e48f60a2d9be74a8d0e8289f4e
+          sha256: 16fcd1064c078967a029e753e83eaf8cfacc79a11d5f1b981f220409e4e29de3
         - path: native/codex-rollout-collector/src/source/mod.rs
           state: file
           sha256: 15ad2d0f0ae5abea90a143e04d843d28bde579a20d65f220934cd71fbe6591f6
@@ -839,7 +895,7 @@ runtime_state:
           sha256: 254efe05c741fafb26b3fbb5f6c4c9ed9f00809cfed6a7a11cf56c8749aaedb6
         - path: native/codex-rollout-collector/tests/rollout_blockers.rs
           state: file
-          sha256: 2b7e2679fc5e28e34e1f11755b841d6f29a4fabae06a49ffa9b14b55bcd63a37
+          sha256: f4e7d1f4a023fc5a54b2a0e9fef986b13bc25aaa82be82655c90df2fc87c35dd
         - path: native/codex-rollout-collector/tests/stage4_target_protocol.rs
           state: file
           sha256: 7530d0559ffacd956b5430116910670a378f836b50ef0d6a8b87908b7b4ca23d
@@ -868,16 +924,8 @@ runtime_state:
       - path: native/codex-rollout-collector/tests/stage4_target_protocol.rs
         state: file
         sha256: 7aebbcd6d4dd9184dd9fd921ef014d725dfae5c201325f173a63cae5d35e7e73
-    pending_paths:
-      - docs/changes/records/CR-20260916-rollout-blockers-s1.md
-      - docs/codex/codex-rollout-isolated-closure-verification.md
-      - native/codex-rollout-collector/src/protocol/target_mapping.rs
-      - native/codex-rollout-collector/src/protocol/target_source.rs
-      - native/codex-rollout-collector/src/source/mod.rs
-      - native/codex-rollout-collector/src/source/segment.rs
-      - native/codex-rollout-collector/tests/rollout_blockers.rs
-      - native/codex-rollout-collector/tests/stage4_target_protocol.rs
-    last_clean_revision: null
+    pending_paths: []
+    last_clean_revision: e991d3bd9273ddf1c711898e249b23c3b1232def7ec6491d11e9fea79dbedf9f
 task_store:
   schema_version: 1
   kind: vnext-current-task-store-binding
@@ -902,7 +950,7 @@ task_store:
 ## 任务输入依据
 
 - path: `docs/workflow/task-basis/TASK_BASIS-002.md`
-- revision: `016b79fd8858b3fd5286ab884730c5d1f9faecca010d0c112f2de5486841d8e4`
+- revision: `bb349c34df07400cfd1275fee9c280c6b4303ae02ec15c88e4510b9d69ee6749`
 
 ## 背景与上下文
 
@@ -1186,12 +1234,12 @@ task_store:
 - Store-backed history is retained under task-data; use task-read for exact event, proposal, result, and report reads.
 - This section is a bounded navigation preview only; it is not the Runtime fact source.
 
-- extend-repair-budget | key=extend-repair-budget-4595df873be7116576d79a87d39e3f93245070ef | at=2026-09-20T10:46:02.549Z
-- step-execution | key=execute-step-result-f93cc6d8c5ff6b60afe91eb7a5a6554d22b9dc5c0f74d423 | step=S1 | status=completed | at=2026-09-20T10:58:49.539Z
-- extend-repair-budget | key=extend-repair-budget-a16443e5137cd5ee0dd7e1b61923983cc6b5ae50 | at=2026-09-20T11:07:11.051Z
-- step-execution | key=execute-step-result-6a6f2b01dacede22fce089860005f665bbcb973a87480cc9 | step=S1 | status=completed | at=2026-09-20T11:18:54.279Z
-- extend-repair-budget | key=extend-repair-budget-75d7a5ee728ec9c23b9af606b9deabe6d0eeebee | at=2026-09-20T13:44:08.672Z
-- step-execution | key=execute-step-result-407c38316a44d29c623dfb4b424c77ae34c29b64428833df | step=S1 | status=completed | at=2026-09-20T13:53:27.076Z
-- extend-repair-budget | key=extend-repair-budget-f06c1b7aa215d9f7311e341e88d481be66e708bb | at=2026-09-20T14:05:17.059Z
 - step-execution | key=execute-step-result-14ef32a3e98a4ae3ea5d70717e8b8dcebcb7d7b9b0efce54 | step=S1 | status=completed | at=2026-09-20T14:11:42.495Z
+- extend-repair-budget | key=extend-repair-budget-0184a7c117fbdf3fdd54ccc00f4293b3dde01900 | at=2026-09-21T04:32:52.059Z
+- step-execution | key=execute-step-result-003e38e72b1aff95e0d79fda4ce5196514df185da37eace2 | step=S1 | status=completed | at=2026-09-21T04:42:52.377Z
+- authorize-controlled-repair-recovery | key=authorize-controlled-repair-recovery-52ee044f52c7f8fb710bb7d637c4f1eb4e6ea013 | at=2026-09-21T10:02:43.673Z
+- step-execution | key=execute-step-result-f3ba78f3d501e625493954b32c6c3391f172ad3b539129e0 | step=S1 | status=completed | at=2026-09-21T14:06:01.477Z
+- authorize-controlled-repair-recovery | key=authorize-controlled-repair-recovery-1fce8a5a86067c09df8784cd3f26cbf01525900e | at=2026-09-21T16:17:28.729Z
+- step-execution | key=execute-step-result-94ec0b5036ea580f3c885c23e36b1e213e72b532e1549384 | step=S1 | status=completed | at=2026-09-21T16:24:43.862Z
+- step-execution | key=execute-reviewed-step-b714fc922d6108afcc771a442fa43b2ae030399fbafe9759 | step=S1 | status=completed | at=2026-09-21T17:11:51.432Z
 

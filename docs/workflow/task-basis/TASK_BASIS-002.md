@@ -179,6 +179,53 @@ user_decisions:
     verbatim: 为当前两个耗尽预算的 finding各再追加 1 次机会，保留全部历史、范围和验收要求。
   - source: user:current-conversation/2026-09-20/reply-to-debug-result-review-058550fff6caf5f0706bf6a6b73a94a22b73c552
     verbatim: "/prepare-task : extend-repair-budget"
+  - source: user:current-conversation/2026-09-20/reply-to-review-42bf32dffe49c110b94b6cf793795fb3470f8248
+    verbatim: >-
+      /prepare-task extend-repair-budget
+
+      已完成 002/S1 的累计 8 文件审查，结构化结论已由 Runtime 写入并回读验证。本轮未修复、未追加预算。
+
+      仍需处理：
+
+      - P1：continuation 不收敛。返回游标只包含本轮范围，未累计已有覆盖，仍可能前缀、后缀循环。
+
+      - P1：冲突被当作重复吞掉。去重只比较字节位置，不核对内容或诊断，可能错误输出 Canonical/ForwardAppend。
+
+      - 测试有效性未结案：未验证 continuation 最终补齐，也没有冲突重叠负向断言。
+
+      - 新增范围问题：生产源码中新加的持久化测试不在确认的测试资产范围内。
+
+      已明确登记解决：资源有界性 56ba22…、取消/超时控制 0d9e74…、报告准确性 76229…。
+
+      独立验证：专项测试 5/5、读盘中取消测试 1/1 通过，但不能覆盖上述剩余缺陷。
+
+      此前“旧问题反复占据修复目标”的审查状态已重建；两项旧问题保留未解决，两项新问题已进入结构化结论，不再只留在文字说明中。
+
+      Runtime 最终状态仍为
+      blocked。下一建议路线：prepare-task:extend-repair-budget，需你另行明确授权，本轮已停止。
+
+      我授权
+  - source: user:current-conversation/2026-09-21/reply-to-review-c283c72c319763c7f034e06a6bc0fa9bf9bb3280-authorize-controlled-repair-recovery
+    verbatim: |-
+      /prepare-task 
+      授权对当前任务 002/S1 的最新预算阻断审查执行
+      authorize-controlled-repair-recovery，允许一轮受控修复。
+
+      目标包括：
+      1. continuation 完整补齐与安全衔接 append；
+      2. 冲突记录去重及不安全 Canonical/ForwardAppend 输出；
+      3. 对上述业务行为缺少有效断言的测试问题。
+
+      以当前 Runtime 返回的精确 review_id 和 finding fingerprints 绑定授权，
+      覆盖全部已耗尽的未解决目标，保留仍有普通额度的修复项。
+      依据为已确认验收标准及最新审查证据。
+
+      不重置累计次数、不重新加入已解决项、不扩大任务范围。
+      本轮只登记授权，完成后停止，不执行修复。
+  - source: user:current-conversation/2026-09-22/prepare-task-additional_controlled_repair_waves-5
+    verbatim: |-
+      [$prepare-task](E:\coding\TermLink-rust-source-resolution-codex\\.agents\skills\prepare-task\SKILL.md)&#x20;
+      申请当前 002/S1 三个 unresolved finding 明确授权 `additional_controlled_repair_waves:`  5
 ---
 # vNext TASK_BASIS
 
