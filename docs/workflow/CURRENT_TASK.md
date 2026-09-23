@@ -14,11 +14,11 @@ runtime_state:
   lifecycle_state: active
   resume_requires_review: false
   resume_review_reasons: []
-  active_step_id: S2
+  active_step_id: S3
   active_step_status: ready
   finding_queue_revision: 42
   review_cycle:
-    id: review-cycle-4c1c04de34ac5fd629fa75c2f2d5e02e
+    id: review-cycle-0bcfa0267f49cdf28a57c7203ace2a3f
     cycle_phase: discovery
     repair_round: 0
     counted_repair_wave_ids: []
@@ -824,6 +824,12 @@ runtime_state:
     - d126460cf1432e60345cfda229c3630f3ba3b5813d928b33093b239d966425a0
     - 666af0ef0ab04b34d1f06f10e0090ca1bfae2bfe5d7512337f40097dafea4eaf
     - c227eb84071daee9401fb4fe53001a250cfd099528ec9124872b7ad87fd74968
+    - 7d9af5583702bd97e76e1cf4288e5984eecc0b02b6c1a2b2d29643a4f23e713c
+    - 15278eb956ce4bf8125aa16a732e14854bd27d700e8eae34dd9e120c768d1acf
+    - bbacc85ef37ed860376740b4e78ad67b81317c937d6d008d592119de7fb4d6f3
+    - 7aebefb75938fc00c2374bb1cfffa2163f5aa4c32fa803c54d236c09ab0deb94
+    - afa7a9367a8b49c5d92ec1b7abfa8a245cf4ea52c46b97095882aafb3479de7a
+    - 6f8085672918bced46ce57e5e63499e2c643f886f0c38234cbfb40feafbdfd57
   dynamic_review_required: false
   dynamic_expansions: []
   pending_review_result: null
@@ -841,18 +847,523 @@ runtime_state:
             - docs/workflow/CURRENT_TASK.md
             - docs/codex/codex-rollout-isolated-closure-verification.md
             - docs/changes/records/CR-20260916-rollout-blockers-s1.md
+    S2:
+      evidence_plan_revision: 98b2028a6421b96265d86fa20364870cc3277086fda439097675d4afb9a04e4b
+      max_attempts: 3
+      attempts:
+        - attempt_id: attempt-35ad53a8ea81f360302c33f2ea73b1f9ddfeb35e
+          idempotency_key: preflight-a2fefcb1e82056eecfeffb7f784630f460ada22c288ad9b6b3e6a3b3a37bb0ad
+          request_digest: null
+          status: blocked
+          blocker:
+            kind: unknown
+            execution_result:
+              attempt_id: attempt-35ad53a8ea81f360302c33f2ea73b1f9ddfeb35e
+              outcome: blocked
+              change_set_id: change-set-6d88bddf460386620d751e6428795fbe
+              review_base:
+                kind: runtime-file-manifest/v1
+                revision: 11f458b947b4b43ff1b4efc7619baedd58243ff9745d618bafa63a0521cafa10
+                entries:
+                  - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
+                    state: absent
+                    sha256: null
+                  - path: docs/codex/codex-rollout-isolated-closure-verification.md
+                    state: file
+                    sha256: c61572ea9ba613d63d4d69126d968e9dce196d147bfac64f92c286b8003a8110
+                  - path: native/codex-rollout-collector/src/analysis.rs
+                    state: file
+                    sha256: 48b7b60fd6f5c5a767252b3eb5be06de09451ca6bbb877231be54a1cbb381aac
+                  - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+                    state: file
+                    sha256: 1064d98ed68810bbf747ae24eccf180bcb29690d30e55d00bd586a7181b28725
+                  - path: native/codex-rollout-collector/src/model/analysis_event.rs
+                    state: file
+                    sha256: f834302029777936f6ef4b59d641d9876306cd00e826363c594a4bf6e10bebc2
+                  - path: native/codex-rollout-collector/tests/rollout_blockers.rs
+                    state: file
+                    sha256: f4e7d1f4a023fc5a54b2a0e9fef986b13bc25aaa82be82655c90df2fc87c35dd
+              review_target:
+                kind: runtime-file-manifest/v1
+                revision: e6f8203ad0ca3bdb48cf0e2bd2303698afe008a11372d8b261b3d7d7d708fd9e
+                entries:
+                  - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
+                    state: absent
+                    sha256: null
+                  - path: docs/codex/codex-rollout-isolated-closure-verification.md
+                    state: file
+                    sha256: c61572ea9ba613d63d4d69126d968e9dce196d147bfac64f92c286b8003a8110
+                  - path: native/codex-rollout-collector/src/analysis.rs
+                    state: file
+                    sha256: bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52
+                  - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+                    state: file
+                    sha256: eb7e4eac5fdc1319a34e184a8e61b88c889687af4bf60e1e677990befe5cf9d0
+                  - path: native/codex-rollout-collector/src/model/analysis_event.rs
+                    state: file
+                    sha256: cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55
+                  - path: native/codex-rollout-collector/tests/rollout_blockers.rs
+                    state: file
+                    sha256: 4a2f05f1327b5e415679a490eba99ec9afffae612aaf707680409b6d285fa425
+              change_delta:
+                kind: runtime-file-delta/v1
+                base_revision: 11f458b947b4b43ff1b4efc7619baedd58243ff9745d618bafa63a0521cafa10
+                target_revision: e6f8203ad0ca3bdb48cf0e2bd2303698afe008a11372d8b261b3d7d7d708fd9e
+                entries:
+                  - path: native/codex-rollout-collector/src/analysis.rs
+                    before_state: file
+                    before_sha256: 48b7b60fd6f5c5a767252b3eb5be06de09451ca6bbb877231be54a1cbb381aac
+                    after_state: file
+                    after_sha256: bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52
+                  - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+                    before_state: file
+                    before_sha256: 1064d98ed68810bbf747ae24eccf180bcb29690d30e55d00bd586a7181b28725
+                    after_state: file
+                    after_sha256: eb7e4eac5fdc1319a34e184a8e61b88c889687af4bf60e1e677990befe5cf9d0
+                  - path: native/codex-rollout-collector/src/model/analysis_event.rs
+                    before_state: file
+                    before_sha256: f834302029777936f6ef4b59d641d9876306cd00e826363c594a4bf6e10bebc2
+                    after_state: file
+                    after_sha256: cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55
+                  - path: native/codex-rollout-collector/tests/rollout_blockers.rs
+                    before_state: file
+                    before_sha256: f4e7d1f4a023fc5a54b2a0e9fef986b13bc25aaa82be82655c90df2fc87c35dd
+                    after_state: file
+                    after_sha256: 4a2f05f1327b5e415679a490eba99ec9afffae612aaf707680409b6d285fa425
+              actual_changed_paths:
+                - native/codex-rollout-collector/src/analysis.rs
+                - native/codex-rollout-collector/src/codex_adapter/mod.rs
+                - native/codex-rollout-collector/src/model/analysis_event.rs
+                - native/codex-rollout-collector/tests/rollout_blockers.rs
+              command_results:
+                - command: $env:CARGO_TARGET_DIR = Join-Path $env:TEMP
+                    'termlink-rollout-blockers-target'
+                  status: passed
+                  observed_repo_writes: []
+                  evidence_refs:
+                    - C:\Users\kongx\AppData\Local\Temp\termlink-002-s2-compile-failure.txt
+                - command: cargo test --locked --manifest-path
+                    native/codex-rollout-collector/Cargo.toml --test
+                    rollout_blockers
+                  status: failed
+                  observed_repo_writes: []
+                  evidence_refs:
+                    - C:\Users\kongx\AppData\Local\Temp\termlink-002-s2-compile-failure.txt
+                - command: cargo test --locked --manifest-path
+                    native/codex-rollout-collector/Cargo.toml --test conformance
+                    --test stage2_input
+                  status: not-run
+                  observed_repo_writes: []
+                  evidence_refs: []
+                - command: git diff --check
+                  status: not-run
+                  observed_repo_writes: []
+                  evidence_refs: []
+                - command: git diff --name-only
+                  status: not-run
+                  observed_repo_writes: []
+                  evidence_refs: []
+              validation_results:
+                - validation: 运行 C1/C2 minimum-sufficient Rust 定向回归：C1 为 rollout_blockers
+                    target，C2 为 conformance 与 stage2_input targets，完整
+                    stage4_target_protocol target 移出 acceptance evidence 并保留为普通
+                    regression，FileChange/CommandExecution
+                    精确字段及关联、重复/overlap/legacy carrier 幂等、unknown/missing 负向对照。
+                  status: blocked
+                  evidence_refs:
+                    - C:\Users\kongx\AppData\Local\Temp\termlink-002-s2-compile-failure.txt
+                - validation: 既有 retention/truncation/redaction 不改变；C2 不引入 broad outcome/failed
+                    enum 或 vendor 变更。
+                  status: not-run
+                  evidence_refs: []
+                - validation: 任何 S1 修复重跑相关回归，不借映射修改改变公共 cursor 安全契约。
+                  status: not-run
+                  evidence_refs: []
+              acceptance_evidence: []
+              blocker: "S2 test harness compile error E0609: public target projection is
+                serde_json::Value, not AnalysisProjection. Both typed field
+                accesses must deserialize the public JSON first; no behavioral
+                assertion ran."
+            subject_snapshot:
+              kind: runtime-file-manifest/v1
+              revision: 22bd0835a2748269f5e1da79a53b01273dbd0a6e1996e0a084465971f7e2f529
+              entries:
+                - path: docs/changes/records/CR-20260916-rollout-blockers-s1.md
+                  state: file
+                  sha256: 49161c735ad8879a0c763f6875879a14c48d48c4f1b7a37344c4411a338840fb
+                - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
+                  state: absent
+                  sha256: null
+                - path: docs/changes/records/CR-20260916-rollout-blockers-s3.md
+                  state: absent
+                  sha256: null
+                - path: docs/codex/codex-rollout-isolated-closure-verification.md
+                  state: file
+                  sha256: c61572ea9ba613d63d4d69126d968e9dce196d147bfac64f92c286b8003a8110
+                - path: native/codex-rollout-collector/src/analysis.rs
+                  state: file
+                  sha256: bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52
+                - path: native/codex-rollout-collector/src/codex_adapter/field_mapping.rs
+                  state: file
+                  sha256: 90eaf496dcd9bac6bc8ea8ddea56485bf1de370b626f4b6339e4396792457673
+                - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+                  state: file
+                  sha256: eb7e4eac5fdc1319a34e184a8e61b88c889687af4bf60e1e677990befe5cf9d0
+                - path: native/codex-rollout-collector/src/lib.rs
+                  state: file
+                  sha256: 64c95eca399c7558d9d1ac79085d764738caec8ef06eb8734b7af78bf5ad8962
+                - path: native/codex-rollout-collector/src/main.rs
+                  state: file
+                  sha256: dccfeca907a792a7e6b21d264a21bbd4ffd647b36ce0d15b96d606e6542ad887
+                - path: native/codex-rollout-collector/src/model/analysis_event.rs
+                  state: file
+                  sha256: cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55
+                - path: native/codex-rollout-collector/src/protocol/mod.rs
+                  state: file
+                  sha256: b3d3b90c31b1fffda9b0d2ed6bce2756f06226097136e52fb15cab4ac2b07938
+                - path: native/codex-rollout-collector/src/protocol/target_mapping.rs
+                  state: file
+                  sha256: 8e3ce6a8dd634b4c21b1644649ee9600ce7e4a45eb308b77fab244565532d422
+                - path: native/codex-rollout-collector/src/protocol/target_runtime.rs
+                  state: file
+                  sha256: a416fdd2f9508c9fa90318a072ed79d83fa87d5d0cc762a8505ce32e1580a2df
+                - path: native/codex-rollout-collector/src/protocol/target_source.rs
+                  state: file
+                  sha256: 16fcd1064c078967a029e753e83eaf8cfacc79a11d5f1b981f220409e4e29de3
+                - path: native/codex-rollout-collector/src/source/cursor.rs
+                  state: file
+                  sha256: f3cea0285ec4d0b79f7ab6079d511b96cb548bcd40913d3b73bd0f481d50f9f8
+                - path: native/codex-rollout-collector/src/source/jsonl.rs
+                  state: file
+                  sha256: 8d8b4abc75598d6de679d8ddba3845da20cc4f01c905e0456994527a474148e1
+                - path: native/codex-rollout-collector/src/source/mod.rs
+                  state: file
+                  sha256: 15ad2d0f0ae5abea90a143e04d843d28bde579a20d65f220934cd71fbe6591f6
+                - path: native/codex-rollout-collector/src/source/read_plan.rs
+                  state: file
+                  sha256: ed69275e7dfe05815ff69c481e4f48592b4228c6e0ea8d99420daa83ef284faa
+                - path: native/codex-rollout-collector/src/source/record.rs
+                  state: file
+                  sha256: f80bc3bca2f3f753442f10d6c46e3eeb22897760a931278b5844588a7fba3c08
+                - path: native/codex-rollout-collector/src/source/segment.rs
+                  state: file
+                  sha256: 254efe05c741fafb26b3fbb5f6c4c9ed9f00809cfed6a7a11cf56c8749aaedb6
+                - path: native/codex-rollout-collector/tests/rollout_blockers.rs
+                  state: file
+                  sha256: 4a2f05f1327b5e415679a490eba99ec9afffae612aaf707680409b6d285fa425
+                - path: native/codex-rollout-collector/tests/stage4_target_protocol.rs
+                  state: file
+                  sha256: 7530d0559ffacd956b5430116910670a378f836b50ef0d6a8b87908b7b4ca23d
+                - path: src/services/codexRolloutCollector/analysisBatchImporter.js
+                  state: file
+                  sha256: adfc7891058abb63a24228e4f7a77ba9a263f68370f25bb47bc0990f2ee57f89
+                - path: src/services/codexRolloutCollector/analysisCheckpointStore.js
+                  state: file
+                  sha256: 495286171b5ad11ff13e5a3ce52e36bf7c055940630ade9c60d5430f525ee167
+                - path: src/services/codexRolloutCollector/analysisRunStore.js
+                  state: file
+                  sha256: 84f0273c1faf06f8fbc048cd3b61c3ae60b3940d034c0aca70271ffe11c5cf0f
+                - path: src/services/codexRolloutCollector/analyzerProcessManager.js
+                  state: file
+                  sha256: 970a5349009ada36f11f06cd3bfcb45bac5f757c772baf858d80c379234a42e6
+                - path: src/services/codexRolloutCollector/analyzerProtocol.js
+                  state: file
+                  sha256: 068024352b46db9519bcb5e9bf814a9fa6830701c5b51a27684f44d9900dc379
+                - path: src/services/codexRolloutCollector/index.js
+                  state: file
+                  sha256: 7f49006715e92e38cfb78896c58b78a580756c48e617439ae5b897c175251d1d
+                - path: tests/codexRolloutCollector.isolatedLifecycle.test.js
+                  state: absent
+                  sha256: null
+                - path: tests/fixtures/codex-rollout-collector/rust-target.js
+                  state: file
+                  sha256: 26478bfda67b03518e6a628652baee7ba48dee441380f779118ea638011fe589
+          evidence_refs:
+            - docs/workflow/CURRENT_TASK.md
+            - C:\Users\kongx\AppData\Local\Temp\termlink-002-s2-compile-failure.txt
+        - attempt_id: attempt-9c812c5bb78f9aa9ac234d7e0c5ce60bc8e87c2a
+          idempotency_key: s2-retry-projection-json-20260922
+          request_digest: b5334b70718b50edc7fc303150843d78fd3fd2f854e0bc828f13a138c37dd156
+          status: blocked
+          blocker:
+            kind: unknown
+            execution_result:
+              execution_id: execution-a5693fd2e9e10b02c1a09a299ded6c529dc9ca3ad6a43f319ae823971d41e1ec
+              attempt_id: attempt-9c812c5bb78f9aa9ac234d7e0c5ce60bc8e87c2a
+              outcome: blocked
+              change_set_id: change-set-6d88bddf460386620d751e6428795fbe
+              review_base:
+                kind: runtime-file-manifest/v1
+                revision: e6f8203ad0ca3bdb48cf0e2bd2303698afe008a11372d8b261b3d7d7d708fd9e
+                entries:
+                  - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
+                    state: absent
+                    sha256: null
+                  - path: docs/codex/codex-rollout-isolated-closure-verification.md
+                    state: file
+                    sha256: c61572ea9ba613d63d4d69126d968e9dce196d147bfac64f92c286b8003a8110
+                  - path: native/codex-rollout-collector/src/analysis.rs
+                    state: file
+                    sha256: bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52
+                  - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+                    state: file
+                    sha256: eb7e4eac5fdc1319a34e184a8e61b88c889687af4bf60e1e677990befe5cf9d0
+                  - path: native/codex-rollout-collector/src/model/analysis_event.rs
+                    state: file
+                    sha256: cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55
+                  - path: native/codex-rollout-collector/tests/rollout_blockers.rs
+                    state: file
+                    sha256: 4a2f05f1327b5e415679a490eba99ec9afffae612aaf707680409b6d285fa425
+              review_target:
+                kind: runtime-file-manifest/v1
+                revision: c4daec0eb51c8564f78eaa738619a8fb4e8e1af8011a032dea885c41f473e12b
+                entries:
+                  - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
+                    state: file
+                    sha256: 4bb8e8bdf1de023d965a5d5d763acbac3129654c78067fa8586bf20948a7e53e
+                  - path: docs/codex/codex-rollout-isolated-closure-verification.md
+                    state: file
+                    sha256: a9ab9306eaf0e16f92df0ec395c5bbb882a6bc31994c79f3fa108639af96f774
+                  - path: native/codex-rollout-collector/src/analysis.rs
+                    state: file
+                    sha256: bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52
+                  - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+                    state: file
+                    sha256: eb7e4eac5fdc1319a34e184a8e61b88c889687af4bf60e1e677990befe5cf9d0
+                  - path: native/codex-rollout-collector/src/model/analysis_event.rs
+                    state: file
+                    sha256: cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55
+                  - path: native/codex-rollout-collector/tests/rollout_blockers.rs
+                    state: file
+                    sha256: 03a8d24e033c46347e4f893fb06feff9fbf817343ae8ea17067724f46dd6c741
+              change_delta:
+                kind: runtime-file-delta/v1
+                base_revision: e6f8203ad0ca3bdb48cf0e2bd2303698afe008a11372d8b261b3d7d7d708fd9e
+                target_revision: c4daec0eb51c8564f78eaa738619a8fb4e8e1af8011a032dea885c41f473e12b
+                entries:
+                  - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
+                    before_state: absent
+                    before_sha256: null
+                    after_state: file
+                    after_sha256: 4bb8e8bdf1de023d965a5d5d763acbac3129654c78067fa8586bf20948a7e53e
+                  - path: docs/codex/codex-rollout-isolated-closure-verification.md
+                    before_state: file
+                    before_sha256: c61572ea9ba613d63d4d69126d968e9dce196d147bfac64f92c286b8003a8110
+                    after_state: file
+                    after_sha256: a9ab9306eaf0e16f92df0ec395c5bbb882a6bc31994c79f3fa108639af96f774
+                  - path: native/codex-rollout-collector/tests/rollout_blockers.rs
+                    before_state: file
+                    before_sha256: 4a2f05f1327b5e415679a490eba99ec9afffae612aaf707680409b6d285fa425
+                    after_state: file
+                    after_sha256: 03a8d24e033c46347e4f893fb06feff9fbf817343ae8ea17067724f46dd6c741
+              actual_changed_paths:
+                - docs/changes/records/CR-20260916-rollout-blockers-s2.md
+                - docs/codex/codex-rollout-isolated-closure-verification.md
+                - native/codex-rollout-collector/tests/rollout_blockers.rs
+              command_results:
+                - command: $env:CARGO_TARGET_DIR = Join-Path $env:TEMP
+                    'termlink-rollout-blockers-target'
+                  status: passed
+                  observed_repo_writes: []
+                  evidence_refs:
+                    - docs/codex/codex-rollout-isolated-closure-verification.md
+                - command: cargo test --locked --manifest-path
+                    native/codex-rollout-collector/Cargo.toml --test
+                    rollout_blockers
+                  status: failed
+                  observed_repo_writes: []
+                  evidence_refs:
+                    - docs/codex/codex-rollout-isolated-closure-verification.md
+                - command: cargo test --locked --manifest-path
+                    native/codex-rollout-collector/Cargo.toml --test conformance
+                    --test stage2_input
+                  status: passed
+                  observed_repo_writes: []
+                  evidence_refs:
+                    - docs/codex/codex-rollout-isolated-closure-verification.md
+                - command: git diff --check
+                  status: passed
+                  observed_repo_writes: []
+                  evidence_refs:
+                    - docs/codex/codex-rollout-isolated-closure-verification.md
+                - command: git diff --name-only
+                  status: passed
+                  observed_repo_writes: []
+                  evidence_refs:
+                    - docs/codex/codex-rollout-isolated-closure-verification.md
+              validation_results:
+                - validation: 运行 C1/C2 minimum-sufficient Rust 定向回归：C1 为 rollout_blockers
+                    target，C2 为 conformance 与 stage2_input targets，完整
+                    stage4_target_protocol target 移出 acceptance evidence 并保留为普通
+                    regression，FileChange/CommandExecution
+                    精确字段及关联、重复/overlap/legacy carrier 幂等、unknown/missing 负向对照。
+                  status: failed
+                  evidence_refs:
+                    - docs/codex/codex-rollout-isolated-closure-verification.md
+                - validation: 既有 retention/truncation/redaction 不改变；C2 不引入 broad outcome/failed
+                    enum 或 vendor 变更。
+                  status: blocked
+                  evidence_refs:
+                    - docs/codex/codex-rollout-isolated-closure-verification.md
+                - validation: 任何 S1 修复重跑相关回归，不借映射修改改变公共 cursor 安全契约。
+                  status: failed
+                  evidence_refs:
+                    - docs/codex/codex-rollout-isolated-closure-verification.md
+              acceptance_evidence: []
+              blocker: S2 negative fixture remains partial but publishes ForwardAppend;
+                target_mapping formal promotion ignores Adapter incompleteness.
+                7/8 rollout_blockers pass, conformance 31/31 and stage2_input
+                3/3 pass. Post-failure negative assertions were not reached.
+            subject_snapshot:
+              kind: runtime-file-manifest/v1
+              revision: e1fe74265319c7d4c36cc049bfa388eb49ebd6de2c7a169602929a89cfc6853a
+              entries:
+                - path: docs/changes/records/CR-20260916-rollout-blockers-s1.md
+                  state: file
+                  sha256: 49161c735ad8879a0c763f6875879a14c48d48c4f1b7a37344c4411a338840fb
+                - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
+                  state: file
+                  sha256: 4bb8e8bdf1de023d965a5d5d763acbac3129654c78067fa8586bf20948a7e53e
+                - path: docs/changes/records/CR-20260916-rollout-blockers-s3.md
+                  state: absent
+                  sha256: null
+                - path: docs/codex/codex-rollout-isolated-closure-verification.md
+                  state: file
+                  sha256: a9ab9306eaf0e16f92df0ec395c5bbb882a6bc31994c79f3fa108639af96f774
+                - path: native/codex-rollout-collector/src/analysis.rs
+                  state: file
+                  sha256: bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52
+                - path: native/codex-rollout-collector/src/codex_adapter/field_mapping.rs
+                  state: file
+                  sha256: 90eaf496dcd9bac6bc8ea8ddea56485bf1de370b626f4b6339e4396792457673
+                - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+                  state: file
+                  sha256: eb7e4eac5fdc1319a34e184a8e61b88c889687af4bf60e1e677990befe5cf9d0
+                - path: native/codex-rollout-collector/src/lib.rs
+                  state: file
+                  sha256: 64c95eca399c7558d9d1ac79085d764738caec8ef06eb8734b7af78bf5ad8962
+                - path: native/codex-rollout-collector/src/main.rs
+                  state: file
+                  sha256: dccfeca907a792a7e6b21d264a21bbd4ffd647b36ce0d15b96d606e6542ad887
+                - path: native/codex-rollout-collector/src/model/analysis_event.rs
+                  state: file
+                  sha256: cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55
+                - path: native/codex-rollout-collector/src/protocol/mod.rs
+                  state: file
+                  sha256: b3d3b90c31b1fffda9b0d2ed6bce2756f06226097136e52fb15cab4ac2b07938
+                - path: native/codex-rollout-collector/src/protocol/target_mapping.rs
+                  state: file
+                  sha256: 8e3ce6a8dd634b4c21b1644649ee9600ce7e4a45eb308b77fab244565532d422
+                - path: native/codex-rollout-collector/src/protocol/target_runtime.rs
+                  state: file
+                  sha256: a416fdd2f9508c9fa90318a072ed79d83fa87d5d0cc762a8505ce32e1580a2df
+                - path: native/codex-rollout-collector/src/protocol/target_source.rs
+                  state: file
+                  sha256: 16fcd1064c078967a029e753e83eaf8cfacc79a11d5f1b981f220409e4e29de3
+                - path: native/codex-rollout-collector/src/source/cursor.rs
+                  state: file
+                  sha256: f3cea0285ec4d0b79f7ab6079d511b96cb548bcd40913d3b73bd0f481d50f9f8
+                - path: native/codex-rollout-collector/src/source/jsonl.rs
+                  state: file
+                  sha256: 8d8b4abc75598d6de679d8ddba3845da20cc4f01c905e0456994527a474148e1
+                - path: native/codex-rollout-collector/src/source/mod.rs
+                  state: file
+                  sha256: 15ad2d0f0ae5abea90a143e04d843d28bde579a20d65f220934cd71fbe6591f6
+                - path: native/codex-rollout-collector/src/source/read_plan.rs
+                  state: file
+                  sha256: ed69275e7dfe05815ff69c481e4f48592b4228c6e0ea8d99420daa83ef284faa
+                - path: native/codex-rollout-collector/src/source/record.rs
+                  state: file
+                  sha256: f80bc3bca2f3f753442f10d6c46e3eeb22897760a931278b5844588a7fba3c08
+                - path: native/codex-rollout-collector/src/source/segment.rs
+                  state: file
+                  sha256: 254efe05c741fafb26b3fbb5f6c4c9ed9f00809cfed6a7a11cf56c8749aaedb6
+                - path: native/codex-rollout-collector/tests/rollout_blockers.rs
+                  state: file
+                  sha256: 03a8d24e033c46347e4f893fb06feff9fbf817343ae8ea17067724f46dd6c741
+                - path: native/codex-rollout-collector/tests/stage4_target_protocol.rs
+                  state: file
+                  sha256: 7530d0559ffacd956b5430116910670a378f836b50ef0d6a8b87908b7b4ca23d
+                - path: src/services/codexRolloutCollector/analysisBatchImporter.js
+                  state: file
+                  sha256: adfc7891058abb63a24228e4f7a77ba9a263f68370f25bb47bc0990f2ee57f89
+                - path: src/services/codexRolloutCollector/analysisCheckpointStore.js
+                  state: file
+                  sha256: 495286171b5ad11ff13e5a3ce52e36bf7c055940630ade9c60d5430f525ee167
+                - path: src/services/codexRolloutCollector/analysisRunStore.js
+                  state: file
+                  sha256: 84f0273c1faf06f8fbc048cd3b61c3ae60b3940d034c0aca70271ffe11c5cf0f
+                - path: src/services/codexRolloutCollector/analyzerProcessManager.js
+                  state: file
+                  sha256: 970a5349009ada36f11f06cd3bfcb45bac5f757c772baf858d80c379234a42e6
+                - path: src/services/codexRolloutCollector/analyzerProtocol.js
+                  state: file
+                  sha256: 068024352b46db9519bcb5e9bf814a9fa6830701c5b51a27684f44d9900dc379
+                - path: src/services/codexRolloutCollector/index.js
+                  state: file
+                  sha256: 7f49006715e92e38cfb78896c58b78a580756c48e617439ae5b897c175251d1d
+                - path: tests/codexRolloutCollector.isolatedLifecycle.test.js
+                  state: absent
+                  sha256: null
+                - path: tests/fixtures/codex-rollout-collector/rust-target.js
+                  state: file
+                  sha256: 26478bfda67b03518e6a628652baee7ba48dee441380f779118ea638011fe589
+          recovery:
+            kind: same-plan-repair/v1
+            status: confirmed
+            owner: current-step
+            failed_check: cargo test --locked --manifest-path
+              native/codex-rollout-collector/Cargo.toml --test rollout_blockers
+            cause: The public TargetAnalysisBatch.projection is serde_json::Value; the test
+              must deserialize it to the owned AnalysisProjection before
+              field-level assertions.
+            repair_paths:
+              - native/codex-rollout-collector/tests/rollout_blockers.rs
+          evidence_refs:
+            - C:\Users\kongx\AppData\Local\Temp\termlink-002-s2-compile-failure.txt
+            - docs/codex/codex-rollout-isolated-closure-verification.md
+        - attempt_id: attempt-dedc5868353878cc6a1b4a3f9674ff3a8f3f4b82
+          idempotency_key: s2-retry-partial-cursor-20260923-v2
+          request_digest: b1d929ed31a8905a245c0c60817273bc9e909bc4b58913b1bbe4d5e3da3274e7
+          status: implemented
+          blocker: null
+          recovery:
+            kind: same-plan-repair/v1
+            status: confirmed
+            owner: current-step
+            failed_check: cargo test --locked --manifest-path
+              native/codex-rollout-collector/Cargo.toml --test rollout_blockers
+            cause: Adapter diagnostics or non-present availability make the batch partial,
+              but formal_next_append_cursor can promote using only physical
+              source evidence before adapter completeness is considered.
+            repair_paths:
+              - native/codex-rollout-collector/src/protocol/target_mapping.rs
+          evidence_refs:
+            - docs/codex/codex-rollout-isolated-closure-verification.md
   review_coverage:
     change_set_id: change-set-6d88bddf460386620d751e6428795fbe
     base:
       kind: runtime-file-manifest/v1
-      revision: 9b8b36bff3a2276626e41d5c5397d52a43203d36622729854221913d32da3079
+      revision: 6e8b684e37b1d969028e731dd030b1dd85908136f189d6c3b3dd274aa742307c
       entries:
         - path: docs/changes/records/CR-20260916-rollout-blockers-s1.md
+          state: absent
+          sha256: null
+        - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
           state: absent
           sha256: null
         - path: docs/codex/codex-rollout-isolated-closure-verification.md
           state: absent
           sha256: null
+        - path: native/codex-rollout-collector/src/analysis.rs
+          state: file
+          sha256: 48b7b60fd6f5c5a767252b3eb5be06de09451ca6bbb877231be54a1cbb381aac
+        - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+          state: file
+          sha256: 1064d98ed68810bbf747ae24eccf180bcb29690d30e55d00bd586a7181b28725
+        - path: native/codex-rollout-collector/src/model/analysis_event.rs
+          state: file
+          sha256: f834302029777936f6ef4b59d641d9876306cd00e826363c594a4bf6e10bebc2
         - path: native/codex-rollout-collector/src/protocol/target_mapping.rs
           state: file
           sha256: 22f4ba5078c39b4cfa822c55726b8a356703af73bba0e38a856656ca7e98e7fb
@@ -873,17 +1384,29 @@ runtime_state:
           sha256: 7aebbcd6d4dd9184dd9fd921ef014d725dfae5c201325f173a63cae5d35e7e73
     target:
       kind: runtime-file-manifest/v1
-      revision: e991d3bd9273ddf1c711898e249b23c3b1232def7ec6491d11e9fea79dbedf9f
+      revision: 2aadd92926c0790334ac7b2e1d490f08698c73fda958eb20023d97e1282e18cb
       entries:
         - path: docs/changes/records/CR-20260916-rollout-blockers-s1.md
           state: file
           sha256: 49161c735ad8879a0c763f6875879a14c48d48c4f1b7a37344c4411a338840fb
+        - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
+          state: file
+          sha256: 851b33e5d32521d8b601a0a0edaf25adc4a4d2c61ae96ac0d00ed7c287a906db
         - path: docs/codex/codex-rollout-isolated-closure-verification.md
           state: file
-          sha256: c61572ea9ba613d63d4d69126d968e9dce196d147bfac64f92c286b8003a8110
+          sha256: a775db43efc58881559792bdb52369a75ff38b475b7858e5c3c5c9fa3b044ae0
+        - path: native/codex-rollout-collector/src/analysis.rs
+          state: file
+          sha256: bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52
+        - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+          state: file
+          sha256: eb7e4eac5fdc1319a34e184a8e61b88c889687af4bf60e1e677990befe5cf9d0
+        - path: native/codex-rollout-collector/src/model/analysis_event.rs
+          state: file
+          sha256: cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55
         - path: native/codex-rollout-collector/src/protocol/target_mapping.rs
           state: file
-          sha256: 8e3ce6a8dd634b4c21b1644649ee9600ce7e4a45eb308b77fab244565532d422
+          sha256: 71bdb3c7a6df786e18ed7709fac7ed4f82f02303ce4d190b7bd4a9f5c4c20995
         - path: native/codex-rollout-collector/src/protocol/target_source.rs
           state: file
           sha256: 16fcd1064c078967a029e753e83eaf8cfacc79a11d5f1b981f220409e4e29de3
@@ -895,7 +1418,7 @@ runtime_state:
           sha256: 254efe05c741fafb26b3fbb5f6c4c9ed9f00809cfed6a7a11cf56c8749aaedb6
         - path: native/codex-rollout-collector/tests/rollout_blockers.rs
           state: file
-          sha256: f4e7d1f4a023fc5a54b2a0e9fef986b13bc25aaa82be82655c90df2fc87c35dd
+          sha256: d97ebdc566e0aae19c17c541d922e5606b610fd1c6cdf2f9eef7f9f8bbb57a8f
         - path: native/codex-rollout-collector/tests/stage4_target_protocol.rs
           state: file
           sha256: 7530d0559ffacd956b5430116910670a378f836b50ef0d6a8b87908b7b4ca23d
@@ -903,9 +1426,21 @@ runtime_state:
       - path: docs/changes/records/CR-20260916-rollout-blockers-s1.md
         state: absent
         sha256: null
+      - path: docs/changes/records/CR-20260916-rollout-blockers-s2.md
+        state: absent
+        sha256: null
       - path: docs/codex/codex-rollout-isolated-closure-verification.md
         state: absent
         sha256: null
+      - path: native/codex-rollout-collector/src/analysis.rs
+        state: file
+        sha256: 48b7b60fd6f5c5a767252b3eb5be06de09451ca6bbb877231be54a1cbb381aac
+      - path: native/codex-rollout-collector/src/codex_adapter/mod.rs
+        state: file
+        sha256: 1064d98ed68810bbf747ae24eccf180bcb29690d30e55d00bd586a7181b28725
+      - path: native/codex-rollout-collector/src/model/analysis_event.rs
+        state: file
+        sha256: f834302029777936f6ef4b59d641d9876306cd00e826363c594a4bf6e10bebc2
       - path: native/codex-rollout-collector/src/protocol/target_mapping.rs
         state: file
         sha256: 22f4ba5078c39b4cfa822c55726b8a356703af73bba0e38a856656ca7e98e7fb
@@ -924,8 +1459,15 @@ runtime_state:
       - path: native/codex-rollout-collector/tests/stage4_target_protocol.rs
         state: file
         sha256: 7aebbcd6d4dd9184dd9fd921ef014d725dfae5c201325f173a63cae5d35e7e73
-    pending_paths: []
-    last_clean_revision: e991d3bd9273ddf1c711898e249b23c3b1232def7ec6491d11e9fea79dbedf9f
+    pending_paths:
+      - docs/changes/records/CR-20260916-rollout-blockers-s2.md
+      - docs/codex/codex-rollout-isolated-closure-verification.md
+      - native/codex-rollout-collector/src/analysis.rs
+      - native/codex-rollout-collector/src/codex_adapter/mod.rs
+      - native/codex-rollout-collector/src/model/analysis_event.rs
+      - native/codex-rollout-collector/src/protocol/target_mapping.rs
+      - native/codex-rollout-collector/tests/rollout_blockers.rs
+    last_clean_revision: null
 task_store:
   schema_version: 1
   kind: vnext-current-task-store-binding
@@ -1234,12 +1776,12 @@ task_store:
 - Store-backed history is retained under task-data; use task-read for exact event, proposal, result, and report reads.
 - This section is a bounded navigation preview only; it is not the Runtime fact source.
 
-- step-execution | key=execute-step-result-14ef32a3e98a4ae3ea5d70717e8b8dcebcb7d7b9b0efce54 | step=S1 | status=completed | at=2026-09-20T14:11:42.495Z
-- extend-repair-budget | key=extend-repair-budget-0184a7c117fbdf3fdd54ccc00f4293b3dde01900 | at=2026-09-21T04:32:52.059Z
-- step-execution | key=execute-step-result-003e38e72b1aff95e0d79fda4ce5196514df185da37eace2 | step=S1 | status=completed | at=2026-09-21T04:42:52.377Z
 - authorize-controlled-repair-recovery | key=authorize-controlled-repair-recovery-52ee044f52c7f8fb710bb7d637c4f1eb4e6ea013 | at=2026-09-21T10:02:43.673Z
 - step-execution | key=execute-step-result-f3ba78f3d501e625493954b32c6c3391f172ad3b539129e0 | step=S1 | status=completed | at=2026-09-21T14:06:01.477Z
 - authorize-controlled-repair-recovery | key=authorize-controlled-repair-recovery-1fce8a5a86067c09df8784cd3f26cbf01525900e | at=2026-09-21T16:17:28.729Z
 - step-execution | key=execute-step-result-94ec0b5036ea580f3c885c23e36b1e213e72b532e1549384 | step=S1 | status=completed | at=2026-09-21T16:24:43.862Z
 - step-execution | key=execute-reviewed-step-b714fc922d6108afcc771a442fa43b2ae030399fbafe9759 | step=S1 | status=completed | at=2026-09-21T17:11:51.432Z
+- step-execution | key=execute-step-result-e99031dca2960ea109d067cc60600868c1d11e0f5762492a | step=S2 | status=blocked | at=2026-09-22T11:37:29.435Z
+- step-execution | key=execute-step-result-8f7455cda29346d462a7fa6d17b5ae7fa1782122cc9b5b66 | step=S2 | status=blocked | at=2026-09-22T22:59:20.087Z
+- step-execution | key=execute-step-result-00f778f015a81ddc23e8578563f9194002645a33bf490c7c | step=S2 | status=completed | at=2026-09-23T00:27:12.109Z
 

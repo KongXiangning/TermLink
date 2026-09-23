@@ -154,9 +154,9 @@ fn map_target_source_read_inner(
     } else {
         accumulated_coverage
     };
-    // A conflicting overlap must never publish ForwardAppend on any cursor
-    // path, including the append ForwardRange that returns a persisted cursor.
-    let formal_cursor = if overlap_conflict {
+    // Physical continuity alone cannot prove the adapted history complete.
+    // Diagnostics and non-present events must also prevent append promotion.
+    let mut formal_cursor = if !source_read_complete || !legacy_batch.complete {
         None
     } else {
         formal_next_append_cursor(
@@ -169,7 +169,7 @@ fn map_target_source_read_inner(
         )?
     };
     check_mapping_control(cancelled, deadline)?;
-    let cursor = build_next_cursor(
+    let mut cursor = build_next_cursor(
         request,
         source,
         active_segment,
@@ -243,6 +243,17 @@ fn map_target_source_read_inner(
         check_mapping_control(cancelled, deadline)?;
         reducer.apply_batch(&legacy_batch);
         projection = reducer.snapshot();
+    }
+
+    // Projection coverage can fail after the physical cursor was assembled.
+    // A partial batch may retain a recovery boundary, but never ForwardAppend.
+    if completeness != TargetCompleteness::Canonical
+        && cursor
+            .as_ref()
+            .is_some_and(|value| value.cursor_kind == TargetCursorKind::ForwardAppend)
+    {
+        cursor = None;
+        formal_cursor = None;
     }
 
     let effective_replacements = if completeness == TargetCompleteness::Canonical {

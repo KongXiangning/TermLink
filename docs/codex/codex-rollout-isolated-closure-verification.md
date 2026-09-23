@@ -1,10 +1,10 @@
 ---
-title: Codex Rollout 隔离闭环验证报告（Step S1 验证底稿）
+title: Codex Rollout 隔离闭环验证报告（S1 与 S2 实施证据）
 status: draft
 task_id: "002"
-step_id: S1
+step_id: S2
 owner: "@maintainer"
-last_updated: 2026-09-20
+last_updated: 2026-09-23
 source_of_truth: audit-evidence
 related_code:
   - native/codex-rollout-collector/src/protocol/target_source.rs
@@ -157,3 +157,18 @@ cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --
 本波次修改 5 个文件（`target_mapping.rs`、`target_source.rs`、`rollout_blockers.rs`、本报告、CR），未新增测试文件；定向 acceptance targets 的 **40 项测试全部通过**（`rollout_blockers` 6、`conformance` 31、`stage2_input` 3，0 失败）；`stage4_target_protocol` 未作为 acceptance evidence 运行。整树 `git diff --check` 仍因保护的 Task Basis 行尾空白失败，按 remediation review 的结论作为 `FORMAT_CHECK_SCOPE_BLOCKED` 的非业务阻断保留，不计入业务结论。
 
 下一路由为 **`review-change`**；在 review clean 前不进入 S2，也不把本轮测试通过写成最终任务完成。
+
+## S2 定向实施与恢复证据（2026-09-23）
+
+- 本轮先核验旧 preflight：旧 E0609 编译失败已记录，retry 已成功，S2 ready；Runtime 0.21.0 新 preflight `preflight-9e307a2d01e246499b55eed839aafb0705c84b8a2164286089949313d5b6f59c` 准入原六文件。
+- 修复 `rollout_blockers.rs` 两处测试：将公共 `serde_json::Value` projection 反序列化为自有 `AnalysisProjection` 后检查字段。未改变预期业务结果。
+- `$env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'termlink-rollout-blockers-target'`；构建和真实合成 JSONL 均在 OS TEMP。
+- `cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers`：退出 1，8 项中 7 通过、1 失败。已知 completion 正向用例通过：三个精确文件内容、legacy/completion/subset 重合去重、命令状态和输出、conversation/turn/source 关联、native stable key、重复事件归约及重读一致性。
+- 失败为 `test_item_completed_negative_and_retention_boundaries` 第 1405 行：batch 已非 Canonical，但 next_cursor 仍为 ForwardAppend。该断言之后的失败命令、缺字段、截断、私有路径内容等断言未到达，不能算通过。
+- `cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --test stage2_input`：退出 0，conformance 31 通过，stage2_input 3 通过，无失败。
+- 根因：`target_mapping.rs` 的 adapt_records 将 Adapter diagnostic/non-present availability 写为不完整 batch；formal cursor 在判断 adapter_complete 之前只根据 physical source summary/overlap 生成，不能阻止本 fixture 的语义 partial 结果发布 ForwardAppend。独立预期来自当前 C1 fail-closed 要求和 CONTRACTS 的 promotion 边界；保留断言，不将实际结果复制成预期。
+- 旧 Runtime 0.21.0 的 same-plan retry 拒绝将已授权的 `target_mapping.rs` 作为新增修复目标；该拒绝未提交。Runtime 0.21.1 复核本步精确范围后成功 retry，新的 preflight `preflight-bfacbc8ec44df6aa8635c1e1e82fe5244111794d2087f1be88125fb5be9b50b0` 准入七文件，再修改 `target_mapping.rs`。
+- 约束依据：架构 §4.4–4.6、§5.4；CONTRACTS Rollout Collector / IPC 冻结边界；AD-004、AD-018–022；保留已确认的现行 retention/截断/脱敏选择。本次未变更共享契约或 source discovery/lineage。
+- 修复后 `formal_next_append_cursor` 仅在 source 与 Adapter 都完整时调用；projection 降为非 canonical 时，清除已经生成的 ForwardAppend 及关联 formal checkpoint cursor。未修改 `SegmentAssembly::promote_to_forward_append`、cursor 类型或其他 source 边界。
+- 新 preflight 的 `rollout_blockers` 8/8，通过已知 completion 精确字段/关联/legacy 重合、重复归约与重读，以及 failed/in-progress/缺字段/unknown/脱敏/UTF-8 截断负向断言；`conformance` 31/31，`stage2_input` 3/3。该负向用例还核验 batch、complete、checkpoint 均不发布 partial 的 ForwardAppend。
+- 本节为 caller-reported 执行证据；S2 定向测试通过。C1/C2/C3 最终六槽仍 due S3，不将此轮测试通过等同于最终隔离闭环。

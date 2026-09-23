@@ -811,20 +811,109 @@ impl CodexEventAdapter {
         record: &SourceRecord,
         payload: &protocol::ItemCompletedEvent,
     ) -> Vec<AnalysisEvent> {
-        let TurnItem::UserMessage(item) = &payload.item else {
-            return vec![self.diagnostic(
+        match &payload.item {
+            TurnItem::UserMessage(item) => self.adapt_user_message(
+                record,
+                item.client_id.clone().or_else(|| Some(item.id.clone())),
+                item.message(),
+                Some(payload.turn_id.clone()),
+            ),
+            TurnItem::FileChange(item) => {
+                if item.id.trim().is_empty() || payload.turn_id.trim().is_empty() {
+                    return vec![self.parse_gap(record, "file_completion_missing_identity", 0)];
+                }
+                let status = item
+                    .status
+                    .as_ref()
+                    .map(debug_name)
+                    .unwrap_or_else(|| "unknown".to_string());
+                let mut events = self.adapt_file_changes(
+                    record,
+                    &item.id,
+                    Some(payload.turn_id.as_str()),
+                    &item.changes,
+                    &format!("item_completed:{status}"),
+                );
+                if item.status.is_none() {
+                    for event in &mut events {
+                        event.metadata_mut().availability = Availability::PartialRollout;
+                    }
+                }
+                events
+            }
+            TurnItem::CommandExecution(item) => {
+                if item.id.trim().is_empty() || payload.turn_id.trim().is_empty() {
+                    return vec![self.parse_gap(record, "command_completion_missing_identity", 0)];
+                }
+                let turn = non_empty(payload.turn_id.clone());
+                let status = debug_name(&item.status);
+                let input = Some(compact_sanitized_json(&serde_json::json!({
+                    "command": item.command,
+                    // PathUri is absolute; retain the existing local-path policy.
+                    "cwd": REDACTED_LOCAL_PATH,
+                })));
+                let canonical_output = item
+                    .aggregated_output
+                    .as_deref()
+                    .filter(|value| !value.is_empty())
+                    .or(item.formatted_output.as_deref().filter(|value| !value.is_empty()))
+                    .map(ToOwned::to_owned)
+                    .or_else(|| match (item.stdout.as_deref(), item.stderr.as_deref()) {
+                        (Some(stdout), Some(stderr)) if !stdout.is_empty() && !stderr.is_empty() && stdout != stderr => {
+                            Some(format!("stdout:\n{stdout}\nstderr:\n{stderr}"))
+                        }
+                        (Some(stdout), _) if !stdout.is_empty() => Some(stdout.to_string()),
+                        (_, Some(stderr)) if !stderr.is_empty() => Some(stderr.to_string()),
+                        _ => None,
+                    });
+                let mut output = format!("status={status}");
+                if let Some(code) = item.exit_code {
+                    output.push_str(&format!("; exit_code={code}"));
+                }
+                if let Some(duration) = item.duration {
+                    output.push_str(&format!("; duration_ms={}", duration.as_millis()));
+                }
+                if let Some(raw) = canonical_output {
+                    output.push_str(&format!("; output={}", sanitize_tool_text(&raw)));
+                }
+                let mut events = vec![AnalysisEvent::ToolStarted {
+                        metadata: metadata(
+                            record,
+                            "tool_started",
+                            0,
+                            Some(item.id.clone()),
+                            turn.clone(),
+                            if status == "inprogress" { Availability::PartialRollout } else { Availability::Present },
+                        ),
+                        tool_kind: "local_shell".to_string(),
+                        tool_name: Some("shell_command".to_string()),
+                        call_id: item.id.clone(),
+                        input,
+                    }];
+                if status != "inprogress" {
+                    events.push(AnalysisEvent::ToolCompleted {
+                        metadata: metadata(
+                            record,
+                            "tool_completed",
+                            1,
+                            Some(item.id.clone()),
+                            turn,
+                            Availability::Present,
+                        ),
+                        tool_kind: "local_shell".to_string(),
+                        call_id: item.id.clone(),
+                        output: Some(bounded_text(output)),
+                    });
+                }
+                events
+            }
+            _ => vec![self.diagnostic(
                 record,
                 "item_completed_non_user",
                 Some("recognized completion metadata is not a canonical history item"),
                 0,
-            )];
-        };
-        self.adapt_user_message(
-            record,
-            item.client_id.clone().or_else(|| Some(item.id.clone())),
-            item.message(),
-            Some(payload.turn_id.clone()),
-        )
+            )],
+        }
     }
 
     fn adapt_user_message(
@@ -1190,23 +1279,38 @@ impl CodexEventAdapter {
                 ),
                 path: None,
                 summary: Some(phase.to_string()),
+                diff: None,
             }];
         }
         entries
             .into_iter()
             .enumerate()
-            .map(|(index, (path, change))| AnalysisEvent::FileChanged {
-                metadata: metadata(
+            .map(|(index, (path, change))| {
+                let mut metadata = metadata(
                     record,
                     "file_changed",
                     index as u64,
                     Some(call_id.to_string()),
                     turn_id.and_then(|value| non_empty(value.to_string())),
                     Availability::Present,
-                ),
+                );
+                if !call_id.trim().is_empty() {
+                    // Native patch/item identity plus the original changed-path
+                    // discriminator. Never use the redacted display path, map
+                    // iteration index, source position or diff content as identity.
+                    let mut discriminator = 0xcbf29ce484222325_u64;
+                    for byte in path.to_string_lossy().as_bytes() {
+                        discriminator ^= u64::from(*byte);
+                        discriminator = discriminator.wrapping_mul(0x100000001b3);
+                    }
+                    metadata.item_key = format!("file:{}:{discriminator:016x}", call_id.trim());
+                }
+                AnalysisEvent::FileChanged {
+                metadata,
                 path: Some(safe_path_display(path)),
                 summary: Some(format!("{phase}:{}", file_change_kind(change))),
-            })
+                diff: file_change_detail(change),
+            }})
             .collect()
     }
 
@@ -1406,6 +1510,9 @@ fn logical_identity(
             let key = source_key("plan-action");
             (key.0, key.1, metadata.related_item_key.clone())
         }
+        AnalysisEvent::FileChanged { .. } if !metadata.item_key.is_empty() => {
+            no_relation((metadata.item_key.clone(), IdentityOrigin::NativeStableId))
+        }
         AnalysisEvent::FileChanged { .. } => no_relation(source_key("file")),
         AnalysisEvent::WebSearchFound { .. } => {
             let key = metadata
@@ -1532,6 +1639,18 @@ fn web_search_query(action: &models::WebSearchAction) -> Option<String> {
         | models::WebSearchAction::FindInPage { url, .. } => url.clone(),
         models::WebSearchAction::Other => None,
     }
+}
+
+/// Exact allowed change body: added/deleted content or the unified diff, under
+/// the existing truncation and redaction policy.
+fn file_change_detail(change: &protocol::FileChange) -> Option<String> {
+    let raw = match change {
+        protocol::FileChange::Add { content } | protocol::FileChange::Delete { content } => {
+            content.clone()
+        }
+        protocol::FileChange::Update { unified_diff, .. } => unified_diff.clone(),
+    };
+    non_empty(bounded_text(sanitize_tool_text(&raw)))
 }
 
 fn file_change_kind(change: &protocol::FileChange) -> &'static str {

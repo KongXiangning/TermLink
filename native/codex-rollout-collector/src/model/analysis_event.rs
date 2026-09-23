@@ -143,6 +143,10 @@ pub enum AnalysisEvent {
         metadata: EventMetadata,
         path: Option<String>,
         summary: Option<String>,
+        /// Exact allowed change content: added/deleted content or the unified
+        /// diff, already bounded and redacted by the adapter policy.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        diff: Option<String>,
     },
     WebSearchFound {
         metadata: EventMetadata,

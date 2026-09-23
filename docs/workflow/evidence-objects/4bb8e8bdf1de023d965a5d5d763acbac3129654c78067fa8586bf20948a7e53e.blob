@@ -1,0 +1,25 @@
+---
+title: Rollout S2 item_completed 映射与定向验证
+status: draft
+record_id: CR-20260916-rollout-blockers-s2
+req_id: C2
+commit_ref: TBD
+owner: '@maintainer'
+last_updated: 2026-09-23
+source_of_truth: code
+related_docs:
+  - docs/codex/codex-rollout-isolated-closure-verification.md
+  - docs/codex/codex-rollout-collector-architecture.md
+---
+
+# S2 变更记录
+
+当前为未完成实施，未提交 Git，不能作为 C2 最终验收。
+
+已有改动为 FileChange/CommandExecution completion 经 Adapter 映射到自有事件和 projection/detail；FileChanged additive diff 字段使用现有脱敏和截断策略，命令使用现有 tool 模型。文件逻辑 key 使用 native item/call id 与原 changed path 的稳定区分值，避免 legacy/completion 重合及脱敏路径碰撞造成重复。未修改 vendor、Node、IPC 或产品数据库。
+
+2026-09-23 恢复 S2 后，修复两个测试将公共 JSON projection 直接当 typed projection 使用的 E0609 编译问题。新的 preflight 保留全部六个 S2 候选文件。
+
+定向结果：rollout_blockers 7 通过、1 失败；conformance 31 通过；stage2_input 3 通过。失败位于 negative_and_retention_boundaries 的公共 cursor 断言：partial batch 仍输出 ForwardAppend。后续负向字段/截断断言尚未执行，不报告通过。详情、命令与根因见关联报告 S2 节。
+
+修复需在本步原有授权范围内处理 target_mapping.rs 的 promotion gate，但该文件不在本次失败 preflight 的候选列表中；必须取得 Runtime 的有效恢复准入后才能修改。保留失败及累计改动，S3 最终槽位和累计审查仍待执行。

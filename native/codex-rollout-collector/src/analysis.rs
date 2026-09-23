@@ -919,11 +919,12 @@ impl AnalysisReducer {
                 item.summary = Some(format!("plan action: {action}"));
                 self.upsert_item(turn_id, item);
             }
-            AnalysisEvent::FileChanged { path, summary, .. } => {
+            AnalysisEvent::FileChanged { path, summary, diff, .. } => {
                 let turn_id = self.turn_id_for_event(&metadata);
                 let mut item = base_item(&metadata, &turn_id, "file_change", true);
                 item.path = path.clone();
                 item.summary = summary.clone();
+                item.content = diff.clone();
                 self.upsert_item(turn_id, item);
             }
             AnalysisEvent::WebSearchFound { query, result, .. } => {
@@ -1342,7 +1343,9 @@ fn plan_state(steps: &[PlanStep]) -> String {
 }
 
 fn tool_outcome(output: Option<&str>) -> String {
-    if output.is_some_and(|value| value.contains("success=false") || value.contains("error=")) {
+    if output.is_some_and(|value| value.starts_with("status=failed;") || value == "status=failed"
+        || value.starts_with("status=declined;") || value == "status=declined"
+        || value.contains("success=false") || value.contains("error=")) {
         "failed".to_string()
     } else {
         "completed".to_string()

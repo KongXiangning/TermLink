@@ -1254,3 +1254,179 @@ fn test_backfill_deadline_stops_io_in_flight() {
         ),
     }
 }
+
+// S2 fixtures use the vendored wire shape, independent expected values, and
+// the public target read/map path. All source writes stay in OS TEMP.
+fn append_s2_event(contents: &mut String, payload: serde_json::Value) {
+    let ordinal = contents.lines().count();
+    contents.push_str(&serde_json::json!({
+        "timestamp": "2026-08-26T00:00:40.000Z", "ordinal": ordinal,
+        "type": "event_msg", "payload": payload
+    }).to_string());
+    contents.push('\n');
+}
+
+fn s2_completion(item: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "type": "item_completed", "thread_id": TEST_CONVERSATION_ID,
+        "turn_id": "turn-2", "item": item
+    })
+}
+
+fn s2_command(id: &str, status: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "CommandExecution", "id": id, "command": ["cargo", "test"],
+        "cwd": "file:///synthetic/private/workspace", "parsed_cmd": [], "source": "agent",
+        "status": status, "stdout": "stdout-only", "stderr": "stderr-only",
+        "aggregated_output": "ok 3 passed\n", "exit_code": 0,
+        "duration": { "secs": 1, "nanos": 500000000 }
+    })
+}
+
+#[test]
+fn test_item_completed_file_change_and_command_execution_mapping() {
+    use serde_json::json;
+    use codex_rollout_collector::analysis::AnalysisReducer;
+    use codex_rollout_collector::model::IdentityOrigin;
+
+    let root = unique_temp_root("item-completed");
+    let mut contents = generate_clean_rollout(TEST_CONVERSATION_ID);
+    let changes = json!({
+        "src/app.rs": {"type": "update", "unified_diff": "@@ -1 +1 @@\n-old\n+new\n", "move_path": null},
+        "src/new.rs": {"type": "add", "content": "new file\n"},
+        "src/old.rs": {"type": "delete", "content": "old file\n"}
+    });
+    append_s2_event(&mut contents, json!({
+        "type": "patch_apply_end", "call_id": "fc-item-1", "turn_id": "turn-2",
+        "stdout": "Success", "stderr": "", "success": true, "status": "completed", "changes": changes
+    }));
+    let file = s2_completion(json!({"type": "FileChange", "id": "fc-item-1", "status": "completed", "changes": changes}));
+    append_s2_event(&mut contents, file.clone());
+    append_s2_event(&mut contents, file);
+    // A subset carrier must preserve the same file identity even when its
+    // sorted index changes, and two redacted paths must never collide.
+    append_s2_event(&mut contents, s2_completion(json!({
+        "type": "FileChange", "id": "fc-item-1", "status": "completed",
+        "changes": {"src/old.rs": {"type": "delete", "content": "old file\n"}}
+    })));
+    append_s2_event(&mut contents, json!({
+        "type": "exec_command_begin", "call_id": "cmd-item-1", "turn_id": "turn-2",
+        "command": ["cargo", "test"], "cwd": "file:///synthetic/private/workspace",
+        "parsed_cmd": [], "source": "agent"
+    }));
+    let command = s2_completion(s2_command("cmd-item-1", "completed"));
+    append_s2_event(&mut contents, command.clone());
+    append_s2_event(&mut contents, command);
+    let path = write_fixture_file(&root, TEST_CONVERSATION_ID, &contents);
+    let config = target_config(&root);
+    let request = TargetAnalyzeRequest::new("req-s2", "job-s2", TEST_CONVERSATION_ID, TargetAnalyzeMode::Backfill);
+    let source = read_target_source(&request, &config, &AtomicBool::new(false)).expect("source");
+    let mapped = map_target_source_read(&request, &source).expect("map");
+    let batch = &mapped.batch.payload;
+    assert!(batch.diagnostics.is_empty(), "{:?}", batch.diagnostics);
+    assert_eq!(batch.completeness, TargetCompleteness::Canonical);
+    let projection: codex_rollout_collector::analysis::AnalysisProjection =
+        serde_json::from_value(batch.projection.clone()).expect("owned projection");
+    let turn = projection.turns.iter().find(|turn| turn.turn_id == "turn-2").unwrap();
+    let files: Vec<_> = turn.items.iter().filter(|item| item.kind == "file_change").collect();
+    assert_eq!(files.len(), 3, "legacy/completed/repeated/subset carriers merge");
+    for (path, content) in [("src/app.rs", "@@ -1 +1 @@\n-old\n+new\n"), ("src/new.rs", "new file\n"), ("src/old.rs", "old file\n")] {
+        let item = files.iter().find(|item| item.path.as_deref() == Some(path)).unwrap();
+        assert_eq!(item.content.as_deref(), Some(content));
+        assert_eq!(item.correlation_id.as_deref(), Some("fc-item-1"));
+        assert!(item.item_key.starts_with("file:fc-item-1:"));
+        assert!(item.summary.as_deref().unwrap().starts_with("item_completed:completed:"));
+    }
+    let tools: Vec<_> = turn.items.iter().filter(|item| item.item_key == "tool:cmd-item-1").collect();
+    assert_eq!(tools.len(), 1);
+    let tool = tools[0].tool.as_ref().unwrap();
+    assert!(tool.started && tool.completed);
+    assert_eq!(tool.input.as_deref(), Some("cargo test")); // legacy carrier already supplied it
+    assert_eq!(tool.outcome.as_deref(), Some("completed"));
+    let detail = batch.tool_details.iter().find(|detail| detail.call_id == "cmd-item-1").unwrap();
+    assert_eq!(detail.item_key, "tool:cmd-item-1");
+    assert_eq!(detail.output.as_deref(), Some("status=completed; exit_code=0; duration_ms=1500; output=ok 3 passed\n"));
+    let events: Vec<_> = batch.history_items.iter().filter(|event| event.metadata().correlation_id.as_deref() == Some("fc-item-1") || event.metadata().correlation_id.as_deref() == Some("cmd-item-1")).collect();
+    for event in &events {
+        let meta = event.metadata();
+        assert_eq!(meta.conversation_id.as_deref(), Some(TEST_CONVERSATION_ID));
+        assert_eq!(meta.turn_id.as_deref(), Some("turn-2"));
+        assert_eq!(meta.identity_origin, IdentityOrigin::NativeStableId);
+        assert_eq!(meta.source_ref.source_identity, TEST_CONVERSATION_ID);
+        assert!(meta.source_ref.byte_end > meta.source_ref.byte_start);
+        assert_eq!(meta.source_ref.rollout_ordinal, Some(meta.source_ref.physical_line_ordinal - 1));
+    }
+    // Re-delivery/overlap of the same owned events must not change projection.
+    let mut reducer = AnalysisReducer::new(Some(TEST_CONVERSATION_ID.to_string()));
+    for event in &batch.history_items { reducer.apply(event); }
+    let before = reducer.clone().finish();
+    for event in &batch.history_items { reducer.apply(event); }
+    assert_eq!(reducer.finish(), before);
+    let reread = read_target_source(&request, &config, &AtomicBool::new(false)).unwrap();
+    let remapped = map_target_source_read(&request, &reread).unwrap();
+    assert_eq!(remapped.batch.payload.projection, batch.projection);
+    assert!(path.starts_with(std::env::temp_dir()));
+}
+
+#[test]
+fn test_item_completed_negative_and_retention_boundaries() {
+    use serde_json::json;
+    use codex_rollout_collector::model::Availability;
+    let root = unique_temp_root("item-completed-negative");
+    let mut contents = generate_clean_rollout(TEST_CONVERSATION_ID);
+    let mut failed = s2_command("cmd-failed", "failed");
+    failed["exit_code"] = json!(7);
+    failed["aggregated_output"] = json!("");
+    append_s2_event(&mut contents, s2_completion(failed));
+    let mut absent = s2_command("cmd-absent", "completed");
+    for field in ["stdout", "stderr", "aggregated_output", "exit_code", "duration"] { absent.as_object_mut().unwrap().remove(field); }
+    append_s2_event(&mut contents, s2_completion(absent));
+    append_s2_event(&mut contents, s2_completion(s2_command("cmd-running", "in_progress")));
+    let mut missing = s2_command("cmd-missing", "completed");
+    missing.as_object_mut().unwrap().remove("command");
+    append_s2_event(&mut contents, s2_completion(missing));
+    append_s2_event(&mut contents, s2_completion(json!({"type": "FutureItem", "id": "unknown"})));
+    let mut long = s2_command("cmd-long", "completed");
+    long["aggregated_output"] = json!("界".repeat(30_000));
+    append_s2_event(&mut contents, s2_completion(long));
+    append_s2_event(&mut contents, s2_completion(json!({
+        "type": "FileChange", "id": "fc-private", "changes": {
+            "/synthetic/private/a.rs": {"type": "add", "content": "read /synthetic/private/token"},
+            "/synthetic/private/b.rs": {"type": "delete", "content": "allowed"}
+        }
+    })));
+    write_fixture_file(&root, TEST_CONVERSATION_ID, &contents);
+    let config = target_config(&root);
+    let request = TargetAnalyzeRequest::new("req-s2-negative", "job-s2-negative", TEST_CONVERSATION_ID, TargetAnalyzeMode::Backfill);
+    let source = read_target_source(&request, &config, &AtomicBool::new(false)).unwrap();
+    let mapped = map_target_source_read(&request, &source).unwrap();
+    let batch = &mapped.batch.payload;
+    assert_ne!(batch.completeness, TargetCompleteness::Canonical);
+    assert!(!matches!(batch.next_cursor.as_ref().map(|cursor| cursor.cursor_kind), Some(TargetCursorKind::ForwardAppend)));
+    assert_ne!(mapped.complete.completeness, TargetCompleteness::Canonical);
+    assert!(!matches!(mapped.complete.next_cursor.as_ref().map(|cursor| cursor.cursor_kind), Some(TargetCursorKind::ForwardAppend)));
+    assert!(!matches!(mapped.complete.checkpoint.cursor.as_ref().map(|cursor| cursor.cursor_kind), Some(TargetCursorKind::ForwardAppend)));
+    let projection: codex_rollout_collector::analysis::AnalysisProjection =
+        serde_json::from_value(batch.projection.clone()).expect("owned projection");
+    let turn = projection.turns.iter().find(|turn| turn.turn_id == "turn-2").unwrap();
+    let find = |id: &str| turn.items.iter().find(|item| item.item_key == format!("tool:{id}")).unwrap().tool.as_ref().unwrap();
+    assert_eq!(find("cmd-failed").outcome.as_deref(), Some("failed"));
+    assert_eq!(find("cmd-failed").output.as_deref(), Some("status=failed; exit_code=7; duration_ms=1500; output=stdout:\nstdout-only\nstderr:\nstderr-only"));
+    assert_eq!(find("cmd-absent").output.as_deref(), Some("status=completed"));
+    assert!(!find("cmd-running").completed);
+    assert_eq!(find("cmd-running").availability, Availability::PartialRollout);
+    let long_output = find("cmd-long").output.as_ref().unwrap();
+    assert!(long_output.len() <= 64 * 1024);
+    assert!(long_output.ends_with("…<truncated>"));
+    let input: serde_json::Value = serde_json::from_str(find("cmd-absent").input.as_ref().unwrap()).unwrap();
+    assert_eq!(input["command"], json!(["cargo", "test"]));
+    assert!(!input["cwd"].as_str().unwrap().contains("private"));
+    assert!(!turn.items.iter().any(|item| item.item_key == "tool:cmd-missing"));
+    assert!(batch.history_items.iter().any(|event| matches!(event, AnalysisEvent::UnknownEvent { .. } | AnalysisEvent::ParseGap { .. })));
+    let files: Vec<_> = turn.items.iter().filter(|item| item.correlation_id.as_deref() == Some("fc-private")).collect();
+    assert_eq!(files.len(), 2);
+    assert_ne!(files[0].item_key, files[1].item_key);
+    assert!(files.iter().all(|item| item.path.as_deref() == Some("<local-path-redacted>")));
+    assert!(files.iter().any(|item| item.content.as_deref() == Some("<local-path-redacted>")));
+    assert!(files.iter().any(|item| item.content.as_deref() == Some("allowed")));
+}
