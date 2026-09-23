@@ -1,0 +1,28 @@
+---
+title: Rollout S3 真实跨进程隔离闭环验证
+status: draft
+record_id: CR-20260916-rollout-blockers-s3
+req_id: C3
+commit_ref: TBD
+owner: '@maintainer'
+last_updated: 2026-09-23
+source_of_truth: code
+related_code:
+  - native/codex-rollout-collector/src/protocol/target_mapping.rs
+  - src/services/codexRolloutCollector/analysisBatchImporter.js
+  - tests/codexRolloutCollector.isolatedLifecycle.test.js
+  - tests/fixtures/codex-rollout-collector/rust-target.js
+related_docs:
+  - docs/workflow/CURRENT_TASK.md
+  - docs/workflow/task-basis/TASK_BASIS-002.md
+  - docs/codex/codex-rollout-collector-architecture.md
+  - docs/codex/codex-rollout-isolated-closure-verification.md
+---
+
+# S3 变更记录
+
+S3 建立真实 Node child-process → 当前 Rust stdio binary → Analysis、Checkpoint、Run 三个 File stores 的隔离生命周期测试，以合成 plain JSONL 核验 C1/C2/C3 的跨进程交付和重开后状态。测试覆盖 preview/backfill/append、重叠与重复交付、无增长、pending tail 补齐、超时及 source/cursor 拒绝。未扩展到产品入口、IPC、Android 或数据库。
+
+联调发现 provisional batch 的 formal cursor 在重放时变化，以及 importer 对同一逻辑事件的 turn 归属补全、同一 mutation 的单调完整度提升误判为冲突。Rust 在非 Canonical 结果中清除 formal cursor；Node 仅接受同一身份且其他内容不变的升级并替换旧 mutation 证据。真实冲突仍拒绝，旧 checkpoint 和历史在失败路径保持不变。`rust-target.js` 按显式 `CARGO_TARGET_DIR` 构建当前源码，避免旧 binary 干扰。
+
+最终定向结果：`rollout_blockers` 8/8、`conformance` 31/31、`stage2_input` 3/3、六文件 Node 148/148，Rust binary 构建通过，`git diff --check` 退出 0。精确命令、fixture/binary 标识、证据边界见关联验证报告。Runtime 六验收槽与累计审查独立处理；`commit_ref: TBD` 待实际本地 Git 提交后更新。

@@ -1,0 +1,931 @@
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+/// The kind of source selected by the caller.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceKind {
+    Rollout,
+    Manifest,
+    Index,
+}
+
+impl SourceKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Rollout => "rollout",
+            Self::Manifest => "manifest",
+            Self::Index => "index",
+        }
+    }
+}
+
+/// Compression as observed from the selected source path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceCompression {
+    PlainJsonl,
+    Zstd,
+}
+
+impl SourceCompression {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PlainJsonl => "plain_jsonl",
+            Self::Zstd => "zstd",
+        }
+    }
+
+    fn from_path(path: &Path) -> Self {
+        let is_zstd = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("zst"));
+        if is_zstd {
+            Self::Zstd
+        } else {
+            Self::PlainJsonl
+        }
+    }
+}
+
+/// A caller-provided, versioned source fingerprint.
+///
+/// The fingerprint algorithm is intentionally opaque to the binding layer. A
+/// later reader step can compute it without changing the source identity API.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceFingerprint {
+    algorithm: String,
+    digest: String,
+    covered_bytes: u64,
+}
+
+impl SourceFingerprint {
+    pub fn new(
+        algorithm: impl Into<String>,
+        digest: impl Into<String>,
+        covered_bytes: u64,
+    ) -> Result<Self, SourceBindingError> {
+        let algorithm = algorithm.into();
+        if algorithm.is_empty() {
+            return Err(SourceBindingError::EmptyFingerprintAlgorithm);
+        }
+        let digest = digest.into();
+        if digest.is_empty() {
+            return Err(SourceBindingError::EmptyFingerprintDigest);
+        }
+        Ok(Self {
+            algorithm,
+            digest,
+            covered_bytes,
+        })
+    }
+
+    pub fn algorithm(&self) -> &str {
+        &self.algorithm
+    }
+
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+
+    pub fn covered_bytes(&self) -> u64 {
+        self.covered_bytes
+    }
+}
+
+/// A stable digest for the complete prefix ending at `end_offset`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourcePrefixAnchor {
+    algorithm: String,
+    digest: String,
+    end_offset: u64,
+}
+
+impl SourcePrefixAnchor {
+    pub fn new(
+        algorithm: impl Into<String>,
+        digest: impl Into<String>,
+        end_offset: u64,
+    ) -> Result<Self, SourceBindingError> {
+        let algorithm = algorithm.into();
+        if algorithm.is_empty() {
+            return Err(SourceBindingError::EmptyAnchorAlgorithm);
+        }
+        let digest = digest.into();
+        if digest.is_empty() {
+            return Err(SourceBindingError::EmptyAnchorDigest);
+        }
+        Ok(Self {
+            algorithm,
+            digest,
+            end_offset,
+        })
+    }
+
+    pub fn algorithm(&self) -> &str {
+        &self.algorithm
+    }
+
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+
+    pub fn end_offset(&self) -> u64 {
+        self.end_offset
+    }
+}
+
+/// The physical source boundary captured by a reader.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SnapshotBoundary {
+    byte_length: u64,
+}
+
+impl SnapshotBoundary {
+    pub const fn new(byte_length: u64) -> Self {
+        Self { byte_length }
+    }
+
+    pub const fn byte_length(self) -> u64 {
+        self.byte_length
+    }
+}
+
+/// A candidate supplied by the caller or by a source manifest/index.
+///
+/// Candidate metadata is only used to select a physical source. It can never
+/// replace the target conversation ID passed to `SourceLocator::from_candidates`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceCandidate {
+    path: PathBuf,
+    target_conversation_id: Option<String>,
+    source_id: Option<String>,
+    source_kind: SourceKind,
+    priority: u16,
+    source_epoch: Option<String>,
+    fingerprint: Option<SourceFingerprint>,
+    prefix_anchor: Option<SourcePrefixAnchor>,
+}
+
+impl SourceCandidate {
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            target_conversation_id: None,
+            source_id: None,
+            source_kind: SourceKind::Rollout,
+            priority: 0,
+            source_epoch: None,
+            fingerprint: None,
+            prefix_anchor: None,
+        }
+    }
+
+    pub fn with_target_conversation_id(mut self, value: impl Into<String>) -> Self {
+        self.target_conversation_id = Some(value.into());
+        self
+    }
+
+    pub fn with_source_id(mut self, value: impl Into<String>) -> Self {
+        self.source_id = Some(value.into());
+        self
+    }
+
+    pub const fn with_source_kind(mut self, value: SourceKind) -> Self {
+        self.source_kind = value;
+        self
+    }
+
+    pub const fn with_priority(mut self, value: u16) -> Self {
+        self.priority = value;
+        self
+    }
+
+    pub fn with_source_epoch(mut self, value: impl Into<String>) -> Self {
+        self.source_epoch = Some(value.into());
+        self
+    }
+
+    pub fn with_fingerprint(mut self, value: SourceFingerprint) -> Self {
+        self.fingerprint = Some(value);
+        self
+    }
+
+    pub fn with_prefix_anchor(mut self, value: SourcePrefixAnchor) -> Self {
+        self.prefix_anchor = Some(value);
+        self
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+/// Fail-closed errors raised while binding an explicit source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SourceBindingError {
+    EmptyTargetConversationId,
+    EmptySourceId,
+    EmptySourceEpoch,
+    EmptyPath,
+    NoCandidates,
+    NoCandidateForTarget,
+    AmbiguousCandidates { count: usize },
+    EmptyFingerprintAlgorithm,
+    EmptyFingerprintDigest,
+    EmptyAnchorAlgorithm,
+    EmptyAnchorDigest,
+}
+
+impl fmt::Display for SourceBindingError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyTargetConversationId => {
+                write!(formatter, "target conversation ID must not be empty")
+            }
+            Self::EmptySourceId => write!(formatter, "source ID must not be empty"),
+            Self::EmptySourceEpoch => write!(formatter, "source epoch must not be empty"),
+            Self::EmptyPath => write!(formatter, "source path must not be empty"),
+            Self::NoCandidates => write!(formatter, "at least one source candidate is required"),
+            Self::NoCandidateForTarget => {
+                write!(
+                    formatter,
+                    "no source candidate matches the target conversation"
+                )
+            }
+            Self::AmbiguousCandidates { count } => {
+                write!(
+                    formatter,
+                    "source candidate selection is ambiguous: {count} candidates"
+                )
+            }
+            Self::EmptyFingerprintAlgorithm => {
+                write!(formatter, "source fingerprint algorithm must not be empty")
+            }
+            Self::EmptyFingerprintDigest => {
+                write!(formatter, "source fingerprint digest must not be empty")
+            }
+            Self::EmptyAnchorAlgorithm => {
+                write!(
+                    formatter,
+                    "source prefix anchor algorithm must not be empty"
+                )
+            }
+            Self::EmptyAnchorDigest => {
+                write!(formatter, "source prefix anchor digest must not be empty")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SourceBindingError {}
+
+/// An explicit rollout source selected by the caller.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceLocator {
+    path: PathBuf,
+    source_id: String,
+    target_conversation_id: Option<String>,
+    source_kind: SourceKind,
+    compression: SourceCompression,
+    source_epoch: Option<String>,
+    fingerprint: Option<SourceFingerprint>,
+    prefix_anchor: Option<SourcePrefixAnchor>,
+}
+
+impl SourceLocator {
+    /// Bind one concrete path. The backend never searches for or discovers a source.
+    ///
+    /// The path is retained for I/O, while the externally visible identity is
+    /// limited to the final path component so local directories cannot cross
+    /// the analysis boundary.
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        let path = path.into();
+        let source_id = safe_source_identity(&path.to_string_lossy());
+        Self {
+            compression: SourceCompression::from_path(&path),
+            path,
+            source_id,
+            target_conversation_id: None,
+            source_kind: SourceKind::Rollout,
+            source_epoch: None,
+            fingerprint: None,
+            prefix_anchor: None,
+        }
+    }
+
+    /// Bind one caller-selected source to an explicit conversation ID.
+    pub fn bind(
+        target_conversation_id: impl Into<String>,
+        source_id: impl Into<String>,
+        path: impl Into<PathBuf>,
+    ) -> Result<Self, SourceBindingError> {
+        let target_conversation_id = target_conversation_id.into();
+        let candidate = SourceCandidate::new(path)
+            .with_target_conversation_id(target_conversation_id.clone())
+            .with_source_id(source_id);
+        Self::from_candidates(target_conversation_id, [candidate])
+    }
+
+    /// Resolve a deterministic physical source without allowing candidate
+    /// metadata to override the caller's target conversation ID.
+    pub fn from_candidates(
+        target_conversation_id: impl Into<String>,
+        candidates: impl IntoIterator<Item = SourceCandidate>,
+    ) -> Result<Self, SourceBindingError> {
+        let target_conversation_id = target_conversation_id.into();
+        if target_conversation_id.is_empty() {
+            return Err(SourceBindingError::EmptyTargetConversationId);
+        }
+
+        let candidates: Vec<_> = candidates.into_iter().collect();
+        if candidates.is_empty() {
+            return Err(SourceBindingError::NoCandidates);
+        }
+
+        let exact = candidates
+            .iter()
+            .filter(|candidate| {
+                candidate.target_conversation_id.as_deref() == Some(target_conversation_id.as_str())
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let unbound = candidates
+            .iter()
+            .filter(|candidate| candidate.target_conversation_id.is_none())
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut eligible = if exact.is_empty() { unbound } else { exact };
+        if eligible.is_empty() {
+            return Err(SourceBindingError::NoCandidateForTarget);
+        }
+
+        eligible.sort_by(|left, right| {
+            right
+                .priority
+                .cmp(&left.priority)
+                .then_with(|| candidate_sort_key(left).cmp(&candidate_sort_key(right)))
+        });
+
+        let highest_priority = eligible[0].priority;
+        let highest_priority_candidates = eligible
+            .iter()
+            .filter(|candidate| candidate.priority == highest_priority)
+            .collect::<Vec<_>>();
+        if highest_priority_candidates.len() > 1 {
+            let source_ids = highest_priority_candidates
+                .iter()
+                .map(|candidate| candidate_source_id(candidate))
+                .collect::<Result<Vec<_>, _>>()?;
+            let has_different_source_ids =
+                source_ids.windows(2).any(|window| window[0] != window[1]);
+            let has_conflicting_duplicate = highest_priority_candidates
+                .windows(2)
+                .zip(source_ids.windows(2))
+                .any(|(candidate_window, source_id_window)| {
+                    source_id_window[0] == source_id_window[1]
+                        && candidate_window[0].path == candidate_window[1].path
+                        && candidate_window[0] != candidate_window[1]
+                });
+            if has_different_source_ids || has_conflicting_duplicate {
+                return Err(SourceBindingError::AmbiguousCandidates {
+                    count: highest_priority_candidates.len(),
+                });
+            }
+        }
+
+        Self::from_candidate(target_conversation_id, eligible.remove(0))
+    }
+
+    fn from_candidate(
+        target_conversation_id: String,
+        candidate: SourceCandidate,
+    ) -> Result<Self, SourceBindingError> {
+        if candidate.path.as_os_str().is_empty() {
+            return Err(SourceBindingError::EmptyPath);
+        }
+        let source_id = candidate_source_id(&candidate)?;
+        if candidate.source_epoch.as_deref().is_some_and(str::is_empty) {
+            return Err(SourceBindingError::EmptySourceEpoch);
+        }
+        Ok(Self {
+            compression: SourceCompression::from_path(&candidate.path),
+            path: candidate.path,
+            source_id,
+            target_conversation_id: Some(target_conversation_id),
+            source_kind: candidate.source_kind,
+            source_epoch: candidate.source_epoch,
+            fingerprint: candidate.fingerprint,
+            prefix_anchor: candidate.prefix_anchor,
+        })
+    }
+
+    pub fn with_source_epoch(
+        mut self,
+        source_epoch: impl Into<String>,
+    ) -> Result<Self, SourceBindingError> {
+        let source_epoch = source_epoch.into();
+        if source_epoch.is_empty() {
+            return Err(SourceBindingError::EmptySourceEpoch);
+        }
+        self.source_epoch = Some(source_epoch);
+        Ok(self)
+    }
+
+    pub fn with_fingerprint(mut self, fingerprint: SourceFingerprint) -> Self {
+        self.fingerprint = Some(fingerprint);
+        self
+    }
+
+    pub fn with_prefix_anchor(mut self, prefix_anchor: SourcePrefixAnchor) -> Self {
+        self.prefix_anchor = Some(prefix_anchor);
+        self
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Legacy alias retained for existing full-read and model-boundary callers.
+    pub fn identity(&self) -> &str {
+        self.source_id()
+    }
+
+    pub fn source_id(&self) -> &str {
+        &self.source_id
+    }
+
+    pub fn target_conversation_id(&self) -> Option<&str> {
+        self.target_conversation_id.as_deref()
+    }
+
+    pub const fn source_kind(&self) -> SourceKind {
+        self.source_kind
+    }
+
+    pub const fn compression(&self) -> SourceCompression {
+        self.compression
+    }
+
+    pub fn source_epoch(&self) -> Option<&str> {
+        self.source_epoch.as_deref()
+    }
+
+    pub fn fingerprint(&self) -> Option<&SourceFingerprint> {
+        self.fingerprint.as_ref()
+    }
+
+    pub fn prefix_anchor(&self) -> Option<&SourcePrefixAnchor> {
+        self.prefix_anchor.as_ref()
+    }
+}
+
+fn candidate_source_id(candidate: &SourceCandidate) -> Result<String, SourceBindingError> {
+    let source_id = candidate
+        .source_id
+        .clone()
+        .unwrap_or_else(|| safe_source_identity(&candidate.path.to_string_lossy()));
+    if source_id.is_empty() {
+        return Err(SourceBindingError::EmptySourceId);
+    }
+    Ok(source_id)
+}
+
+fn candidate_sort_key(candidate: &SourceCandidate) -> String {
+    format!(
+        "{}::{}",
+        candidate_source_id(candidate).unwrap_or_default(),
+        candidate.path.to_string_lossy().replace('\\', "/")
+    )
+}
+
+pub(crate) fn safe_source_identity(identity: &str) -> String {
+    identity
+        .rsplit(|separator| matches!(separator, '/' | '\\'))
+        .find(|component| !component.is_empty() && *component != "." && *component != "..")
+        .unwrap_or("rollout-source")
+        .to_string()
+}
+
+/// Limits applied before a source record enters the wire decoder.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceSpec {
+    locator: SourceLocator,
+    max_decoded_bytes: u64,
+    max_line_bytes: usize,
+    max_segment_bytes: u64,
+    snapshot_boundary: Option<SnapshotBoundary>,
+}
+
+impl SourceSpec {
+    pub const DEFAULT_MAX_DECODED_BYTES: u64 = 32 * 1024 * 1024;
+    pub const DEFAULT_MAX_LINE_BYTES: usize = 512 * 1024;
+    pub const DEFAULT_MAX_SEGMENT_BYTES: u64 = 4 * 1024 * 1024;
+
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self {
+            locator: SourceLocator::new(path),
+            max_decoded_bytes: Self::DEFAULT_MAX_DECODED_BYTES,
+            max_line_bytes: Self::DEFAULT_MAX_LINE_BYTES,
+            max_segment_bytes: Self::DEFAULT_MAX_SEGMENT_BYTES,
+            snapshot_boundary: None,
+        }
+    }
+
+    pub fn from_locator(locator: SourceLocator) -> Self {
+        Self {
+            locator,
+            max_decoded_bytes: Self::DEFAULT_MAX_DECODED_BYTES,
+            max_line_bytes: Self::DEFAULT_MAX_LINE_BYTES,
+            max_segment_bytes: Self::DEFAULT_MAX_SEGMENT_BYTES,
+            snapshot_boundary: None,
+        }
+    }
+
+    pub fn bind(
+        target_conversation_id: impl Into<String>,
+        source_id: impl Into<String>,
+        path: impl Into<PathBuf>,
+    ) -> Result<Self, SourceBindingError> {
+        Ok(Self::from_locator(SourceLocator::bind(
+            target_conversation_id,
+            source_id,
+            path,
+        )?))
+    }
+
+    pub fn from_candidates(
+        target_conversation_id: impl Into<String>,
+        candidates: impl IntoIterator<Item = SourceCandidate>,
+    ) -> Result<Self, SourceBindingError> {
+        Ok(Self::from_locator(SourceLocator::from_candidates(
+            target_conversation_id,
+            candidates,
+        )?))
+    }
+
+    pub fn with_limits(mut self, max_decoded_bytes: u64, max_line_bytes: usize) -> Self {
+        self.max_decoded_bytes = max_decoded_bytes;
+        self.max_line_bytes = max_line_bytes;
+        self
+    }
+
+    /// Bound a physical tail/range plan without changing the legacy full-read
+    /// limits. The value is validated when a segmented plan is created.
+    pub fn with_segment_limit(mut self, max_segment_bytes: u64) -> Self {
+        self.max_segment_bytes = max_segment_bytes;
+        self
+    }
+
+    pub fn with_snapshot_boundary(mut self, snapshot_boundary: SnapshotBoundary) -> Self {
+        self.snapshot_boundary = Some(snapshot_boundary);
+        self
+    }
+
+    pub fn with_source_epoch(
+        mut self,
+        source_epoch: impl Into<String>,
+    ) -> Result<Self, SourceBindingError> {
+        self.locator = self.locator.with_source_epoch(source_epoch)?;
+        Ok(self)
+    }
+
+    pub fn with_fingerprint(mut self, fingerprint: SourceFingerprint) -> Self {
+        self.locator = self.locator.with_fingerprint(fingerprint);
+        self
+    }
+
+    pub fn with_prefix_anchor(mut self, prefix_anchor: SourcePrefixAnchor) -> Self {
+        self.locator = self.locator.with_prefix_anchor(prefix_anchor);
+        self
+    }
+
+    pub fn locator(&self) -> &SourceLocator {
+        &self.locator
+    }
+
+    pub fn path(&self) -> &Path {
+        self.locator.path()
+    }
+
+    pub fn source_identity(&self) -> &str {
+        self.locator.identity()
+    }
+
+    pub fn source_id(&self) -> &str {
+        self.locator.source_id()
+    }
+
+    pub fn target_conversation_id(&self) -> Option<&str> {
+        self.locator.target_conversation_id()
+    }
+
+    pub const fn source_kind(&self) -> SourceKind {
+        self.locator.source_kind()
+    }
+
+    pub const fn compression(&self) -> SourceCompression {
+        self.locator.compression()
+    }
+
+    pub fn source_epoch(&self) -> Option<&str> {
+        self.locator.source_epoch()
+    }
+
+    pub fn fingerprint(&self) -> Option<&SourceFingerprint> {
+        self.locator.fingerprint()
+    }
+
+    pub fn prefix_anchor(&self) -> Option<&SourcePrefixAnchor> {
+        self.locator.prefix_anchor()
+    }
+
+    pub fn snapshot_boundary(&self) -> Option<SnapshotBoundary> {
+        self.snapshot_boundary
+    }
+
+    pub fn max_decoded_bytes(&self) -> u64 {
+        self.max_decoded_bytes
+    }
+
+    pub fn max_line_bytes(&self) -> usize {
+        self.max_line_bytes
+    }
+
+    pub fn max_segment_bytes(&self) -> u64 {
+        self.max_segment_bytes
+    }
+}
+
+/// One complete physical JSONL record or one bounded source diagnostic.
+///
+/// `raw` is deliberately optional: malformed input is still represented so
+/// the adapter can emit a `ParseGap` without stopping later records.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SourceRecord {
+    pub source_identity: String,
+    pub byte_start: u64,
+    pub byte_end: u64,
+    pub physical_line_ordinal: u64,
+    pub rollout_ordinal: Option<u64>,
+    pub timestamp: Option<String>,
+    pub raw: Option<Value>,
+    pub parse_error: Option<String>,
+}
+
+impl SourceRecord {
+    pub fn is_valid_json(&self) -> bool {
+        self.raw.is_some() && self.parse_error.is_none()
+    }
+
+    pub fn type_name(&self) -> Option<String> {
+        let object = self.raw.as_ref()?.as_object()?;
+        let outer = object.get("type")?.as_str()?;
+        let nested = object
+            .get("payload")
+            .and_then(Value::as_object)
+            .and_then(|payload| payload.get("type"))
+            .and_then(Value::as_str);
+        Some(match nested {
+            Some(nested) => format!("{outer}/{nested}"),
+            None => outer.to_string(),
+        })
+    }
+}
+
+/// Summary of one bounded source pass.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SourceReadReport {
+    pub source_bytes: u64,
+    pub decoded_bytes: u64,
+    pub physical_line_count: u64,
+    pub valid_record_count: u64,
+    pub parse_gap_count: u64,
+    pub blank_line_count: u64,
+    pub budget_exceeded: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        SnapshotBoundary, SourceBindingError, SourceCandidate, SourceCompression,
+        SourceFingerprint, SourceKind, SourceLocator, SourcePrefixAnchor, SourceSpec,
+    };
+
+    #[test]
+    fn legacy_locator_keeps_filename_identity_without_inventing_target_binding() {
+        let locator = SourceLocator::new(r"C:\rollouts\legacy.jsonl");
+
+        assert_eq!(locator.identity(), "legacy.jsonl");
+        assert_eq!(locator.source_id(), "legacy.jsonl");
+        assert_eq!(locator.target_conversation_id(), None);
+        assert_eq!(locator.source_kind(), SourceKind::Rollout);
+        assert_eq!(locator.compression(), SourceCompression::PlainJsonl);
+    }
+
+    #[test]
+    fn explicit_binding_preserves_caller_conversation_and_logical_source_id() {
+        let locator = SourceLocator::bind(
+            "conversation-explicit",
+            "logical-rollout",
+            "rollout-current.jsonl",
+        )
+        .expect("explicit source binding succeeds");
+
+        assert_eq!(
+            locator.target_conversation_id(),
+            Some("conversation-explicit")
+        );
+        assert_eq!(locator.source_id(), "logical-rollout");
+        assert_eq!(locator.identity(), "logical-rollout");
+    }
+
+    #[test]
+    fn candidate_metadata_cannot_override_the_explicit_target() {
+        let locator = SourceLocator::from_candidates(
+            "conversation-wanted",
+            [
+                SourceCandidate::new("other.jsonl")
+                    .with_target_conversation_id("conversation-other")
+                    .with_source_id("other-source")
+                    .with_priority(100),
+                SourceCandidate::new("wanted.jsonl")
+                    .with_target_conversation_id("conversation-wanted")
+                    .with_source_id("wanted-source")
+                    .with_priority(1),
+            ],
+        )
+        .expect("matching candidate resolves");
+
+        assert_eq!(
+            locator.target_conversation_id(),
+            Some("conversation-wanted")
+        );
+        assert_eq!(locator.source_id(), "wanted-source");
+        assert_eq!(locator.path().to_string_lossy(), "wanted.jsonl");
+    }
+
+    #[test]
+    fn unbound_candidate_is_only_a_fallback_after_mismatched_candidates_are_removed() {
+        let locator = SourceLocator::from_candidates(
+            "conversation-wanted",
+            [
+                SourceCandidate::new("other.jsonl")
+                    .with_target_conversation_id("conversation-other")
+                    .with_source_id("other-source")
+                    .with_priority(100),
+                SourceCandidate::new("fallback.jsonl")
+                    .with_source_id("fallback-source")
+                    .with_priority(1),
+            ],
+        )
+        .expect("unbound fallback resolves");
+
+        assert_eq!(
+            locator.target_conversation_id(),
+            Some("conversation-wanted")
+        );
+        assert_eq!(locator.source_id(), "fallback-source");
+    }
+
+    #[test]
+    fn same_logical_source_id_survives_candidate_path_rename() {
+        let old_path = SourceLocator::from_candidates(
+            "conversation-renamed",
+            [SourceCandidate::new("rollout-old.jsonl")
+                .with_target_conversation_id("conversation-renamed")
+                .with_source_id("stable-source")
+                .with_source_epoch("epoch-1")],
+        )
+        .expect("old path binds");
+        let new_path = SourceLocator::from_candidates(
+            "conversation-renamed",
+            [SourceCandidate::new("rollout-new.jsonl")
+                .with_target_conversation_id("conversation-renamed")
+                .with_source_id("stable-source")
+                .with_source_epoch("epoch-1")],
+        )
+        .expect("new path binds");
+
+        assert_eq!(old_path.source_id(), new_path.source_id());
+        assert_eq!(old_path.source_epoch(), new_path.source_epoch());
+        assert_ne!(old_path.path(), new_path.path());
+    }
+
+    #[test]
+    fn different_logical_candidates_at_the_same_priority_fail_closed() {
+        let error = SourceLocator::from_candidates(
+            "conversation-ambiguous",
+            [
+                SourceCandidate::new("a.jsonl")
+                    .with_target_conversation_id("conversation-ambiguous")
+                    .with_source_id("source-a"),
+                SourceCandidate::new("b.jsonl")
+                    .with_target_conversation_id("conversation-ambiguous")
+                    .with_source_id("source-b"),
+            ],
+        )
+        .expect_err("different source identities must not be guessed");
+
+        assert_eq!(error, SourceBindingError::AmbiguousCandidates { count: 2 });
+    }
+
+    #[test]
+    fn same_logical_candidates_use_a_deterministic_path_tie_breaker() {
+        let locator = SourceLocator::from_candidates(
+            "conversation-same-source",
+            [
+                SourceCandidate::new("b.jsonl")
+                    .with_target_conversation_id("conversation-same-source")
+                    .with_source_id("same-source"),
+                SourceCandidate::new("a.jsonl")
+                    .with_target_conversation_id("conversation-same-source")
+                    .with_source_id("same-source"),
+            ],
+        )
+        .expect("same logical source uses deterministic tie-breaker");
+
+        assert_eq!(locator.path().to_string_lossy(), "a.jsonl");
+    }
+
+    #[test]
+    fn conflicting_metadata_for_same_candidate_fails_closed_independent_of_order() {
+        let first = SourceCandidate::new("same.jsonl")
+            .with_target_conversation_id("conversation-conflict")
+            .with_source_id("stable-source")
+            .with_source_epoch("epoch-a");
+        let second = SourceCandidate::new("same.jsonl")
+            .with_target_conversation_id("conversation-conflict")
+            .with_source_id("stable-source")
+            .with_source_epoch("epoch-b");
+
+        let forward = SourceLocator::from_candidates(
+            "conversation-conflict",
+            [first.clone(), second.clone()],
+        )
+        .expect_err("conflicting source metadata must fail closed");
+        let reverse = SourceLocator::from_candidates("conversation-conflict", [second, first])
+            .expect_err("reordered conflicting metadata must fail closed");
+
+        assert_eq!(
+            forward,
+            SourceBindingError::AmbiguousCandidates { count: 2 }
+        );
+        assert_eq!(reverse, forward);
+    }
+
+    #[test]
+    fn source_metadata_is_additive_and_available_to_later_reader_steps() {
+        let fingerprint =
+            SourceFingerprint::new("sha256-v1", "digest-1", 128).expect("fingerprint is valid");
+        let anchor =
+            SourcePrefixAnchor::new("sha256-v1", "anchor-1", 96).expect("prefix anchor is valid");
+        let spec = SourceSpec::bind(
+            "conversation-metadata",
+            "logical-source",
+            "rollout.jsonl.zst",
+        )
+        .expect("explicit spec binds")
+        .with_source_epoch("epoch-1")
+        .expect("source epoch is valid")
+        .with_fingerprint(fingerprint.clone())
+        .with_prefix_anchor(anchor.clone())
+        .with_snapshot_boundary(SnapshotBoundary::new(128));
+
+        assert_eq!(spec.target_conversation_id(), Some("conversation-metadata"));
+        assert_eq!(spec.source_id(), "logical-source");
+        assert_eq!(spec.source_kind(), SourceKind::Rollout);
+        assert_eq!(spec.compression(), SourceCompression::Zstd);
+        assert_eq!(spec.source_epoch(), Some("epoch-1"));
+        assert_eq!(spec.fingerprint(), Some(&fingerprint));
+        assert_eq!(spec.prefix_anchor(), Some(&anchor));
+        assert_eq!(spec.snapshot_boundary(), Some(SnapshotBoundary::new(128)));
+    }
+
+    #[test]
+    fn invalid_explicit_binding_metadata_fails_closed() {
+        assert_eq!(
+            SourceLocator::bind("", "source", "rollout.jsonl").expect_err("empty target fails"),
+            SourceBindingError::EmptyTargetConversationId
+        );
+        assert_eq!(
+            SourceLocator::bind("conversation", "", "rollout.jsonl")
+                .expect_err("empty source ID fails"),
+            SourceBindingError::EmptySourceId
+        );
+        assert_eq!(
+            SourceFingerprint::new("", "digest", 1).expect_err("empty algorithm fails"),
+            SourceBindingError::EmptyFingerprintAlgorithm
+        );
+        assert_eq!(
+            SourcePrefixAnchor::new("sha256-v1", "", 1).expect_err("empty anchor fails"),
+            SourceBindingError::EmptyAnchorDigest
+        );
+    }
+}

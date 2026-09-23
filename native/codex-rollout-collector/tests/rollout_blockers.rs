@@ -1347,6 +1347,8 @@ fn test_item_completed_file_change_and_command_execution_mapping() {
     assert_eq!(detail.item_key, "tool:cmd-item-1");
     assert_eq!(detail.output.as_deref(), Some("status=completed; exit_code=0; duration_ms=1500; output=ok 3 passed\n"));
     let events: Vec<_> = batch.history_items.iter().filter(|event| event.metadata().correlation_id.as_deref() == Some("fc-item-1") || event.metadata().correlation_id.as_deref() == Some("cmd-item-1")).collect();
+    assert!(events.iter().any(|event| event.metadata().correlation_id.as_deref() == Some("fc-item-1")));
+    assert!(events.iter().any(|event| event.metadata().correlation_id.as_deref() == Some("cmd-item-1")));
     for event in &events {
         let meta = event.metadata();
         assert_eq!(meta.conversation_id.as_deref(), Some(TEST_CONVERSATION_ID));

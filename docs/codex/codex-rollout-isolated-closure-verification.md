@@ -1,8 +1,8 @@
 ---
-title: Codex Rollout 隔离闭环验证报告（S1 与 S2 实施证据）
+title: Codex Rollout 隔离闭环验证报告（S1–S3 实施证据）
 status: draft
 task_id: "002"
-step_id: S2
+step_id: S3
 owner: "@maintainer"
 last_updated: 2026-09-23
 source_of_truth: audit-evidence
@@ -13,6 +13,9 @@ related_code:
   - native/codex-rollout-collector/src/source/mod.rs
   - native/codex-rollout-collector/tests/stage4_target_protocol.rs
   - native/codex-rollout-collector/tests/rollout_blockers.rs
+  - src/services/codexRolloutCollector/analysisBatchImporter.js
+  - tests/codexRolloutCollector.isolatedLifecycle.test.js
+  - tests/fixtures/codex-rollout-collector/rust-target.js
 related_docs:
   - docs/workflow/CURRENT_TASK.md
   - docs/workflow/task-basis/TASK_BASIS-002.md
@@ -172,3 +175,27 @@ cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --
 - 修复后 `formal_next_append_cursor` 仅在 source 与 Adapter 都完整时调用；projection 降为非 canonical 时，清除已经生成的 ForwardAppend 及关联 formal checkpoint cursor。未修改 `SegmentAssembly::promote_to_forward_append`、cursor 类型或其他 source 边界。
 - 新 preflight 的 `rollout_blockers` 8/8，通过已知 completion 精确字段/关联/legacy 重合、重复归约与重读，以及 failed/in-progress/缺字段/unknown/脱敏/UTF-8 截断负向断言；`conformance` 31/31，`stage2_input` 3/3。该负向用例还核验 batch、complete、checkpoint 均不发布 partial 的 ForwardAppend。
 - 本节为 caller-reported 执行证据；S2 定向测试通过。C1/C2/C3 最终六槽仍 due S3，不将此轮测试通过等同于最终隔离闭环。
+
+## S3 真实跨进程闭环与最终定向验证（2026-09-23）
+
+S3 使用 `tests/codexRolloutCollector.isolatedLifecycle.test.js` 的独立 Node child-process 入口，逐次启动当前构建的 Rust stdio binary，并在每次重开后读取三个 File stores。fixture 是测试代码生成的合成 plain JSONL；断言覆盖多窗口 preview→backfill、文件 diff 和命令输出的精确值、conversation/turn/item key、重叠重读和重复 delivery、append、无增长、Node/Rust 重启后的持久状态、pending tail 补齐、超时、非法 cursor、source 前缀变化及失败后旧完整 checkpoint/历史不回退。`rust-target.js` 尊重显式 `CARGO_TARGET_DIR`，每个 Node 测试进程构建当前源码后使用 binary，避免复用旧产物。
+
+真实联调定位两处仅在该链路出现的兼容问题。Rust 的 provisional 重放会因已提供覆盖而附带 formal cursor，导致同一 delivery 的语义 payload 变化；现在非 Canonical 结果始终清除 formal cursor。Node importer 原来将 provisional→canonical 的同一 `event_id`/`item_key` 的 turn 归属补全，以及同一 mutation identity 的 completeness/content hash 单调提升视作冲突；现在仅在这些字段按已知完整度提升、其余内容完全一致时接受并替换旧证据，其他冲突仍 fail-closed。初期失败、修复和重试均留在 Task 002 的 Runtime attempt 历史中。
+
+最终验证在 OS TEMP 的 `CARGO_TARGET_DIR=termlink-rollout-blockers-target` 运行，Rust binary SHA-256 为 `307c9a05feca9846d79fc5f4117a2f64edc2a63a22409f4ca8ad0ede524dccf2`，合成 fixture/测试源 SHA-256 为 `1fc9e57e0265132edb911ed64b522a862b3ff1b0bec933dcc0390a968e144155`；基础提交为 `d596bf62`。本次补充工具重开断言后，重新执行冻结命令的输出保存在 OS TEMP `termlink-s3-third-repair-c1.txt`、`termlink-s3-third-repair-c2.txt`、`termlink-s3-third-repair-build.txt`、`termlink-s3-third-repair-node.txt`。结果如下：
+
+| 冻结命令 | 实际结果 |
+|---|---|
+| `cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers` | 8/8 通过 |
+| `cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --test stage2_input --test rollout_blockers` | 31/31 + 3/3 + 8/8 通过；C2-rule 直接执行 `item_completed` 正反向用例，原先两 target 的结果仅保留为历史记录 |
+| `cargo build --locked --manifest-path native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector` | 通过 |
+| `node --test tests/codexRolloutCollector.test.js tests/codexRolloutCollector.recovery.test.js tests/codexRolloutCollector.realRust.test.js tests/codexRolloutCollector.defaultHome.test.js tests/codexRolloutCollector.checkpointJobs.test.js tests/codexRolloutCollector.isolatedLifecycle.test.js` | 148/148 通过，0 失败、0 跳过 |
+| `git diff --check`、`git diff --name-only` | 均退出 0；name-only 同时列出先存 Runtime distribution 与治理状态改动，不能当作 S3 产品改动清单 |
+
+`stage4_target_protocol` 完整 target 本步未运行，也未作为六个验收槽的证据。上述计数和通过结论是 caller-reported 执行证据；六槽的 Runtime 绑定及累计 `review-change` 仍分别处理，不把测试退出码代替独立审查或产品集成结论。S3 产品改动仅限 Rust `target_mapping.rs`、Node `analysisBatchImporter.js`、Rust binary 测试 helper、`rollout_blockers.rs` 的 S2 元数据断言与新增隔离生命周期测试；没有改动 IPC、Android、数据库或产品入口。
+
+### 审查 finding 修复与重验
+
+- `C2-rule` 原冻结选择仅运行 `conformance` 与 `stage2_input`，无法直接证明本任务新增的 `item_completed.FileChange/CommandExecution` 映射。Runtime 已在同一 Task 002 中修正证据计划：保留这两组兼容/分段回归，并加入现有 `rollout_blockers` target；`C1-rule` 与 `C2-rule` 仍是不同槽位。最终 C2 命令 42/42 通过，其中 S2 正反向完成事件用例均通过；`rollout_blockers.rs` 另断言 file 和 command 两类历史事件确实存在后才检查 conversation/turn/source 元数据，避免空循环误报。
+- `C2-flow` 的仅重开 File stores 的 Node child 在导入进程关闭后、任何全量重读前，对两个 file diff、命令输入 JSON（含脱敏 cwd）、输出及 tool kind 按独立 fixture 预期比较；同时确认 `ToolStarted`/`ToolCompleted` 两条落盘事件的 conversation、turn、逻辑 key、source identity 与各自输入/输出。另核对文件关联、历史顺序和 key、完整 checkpoint 与 run 状态，之后才执行 full backfill overlap。`C3-flow` 在另两个 Node child 中用同一 job/source scope、不同 request_id 重试 preview，原样传回持久化 cursor/checkpoint 和 `segment_id/batch_id`，核对新请求的 wire 身份、相同 delivery 身份、去重历史与旧 checkpoint watermark；旧 checkpoint 保留首次 request_id，新的 run 记录完成。补强断言后的六文件 Node 选择集 148/148 通过。
+- 修复期间一次中间 repair result 如实记录为 `blocked`：旧 C2 选择器尚未改写、未宣称验收通过。Runtime remediation review 已确认上述两个跨进程 finding 的测试修复；本轮按新选择器重跑 Rust、Node 与构建并重新提交最终槽位证据。最终独立累计审查尚待 `review-change`。

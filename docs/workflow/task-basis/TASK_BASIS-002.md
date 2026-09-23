@@ -226,6 +226,12 @@ user_decisions:
     verbatim: |-
       [$prepare-task](E:\coding\TermLink-rust-source-resolution-codex\\.agents\skills\prepare-task\SKILL.md)&#x20;
       申请当前 002/S1 三个 unresolved finding 明确授权 `additional_controlled_repair_waves:`  5
+  - source: current-user-message
+    verbatim: "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.\
+      agents\\skills\\execute-step\\SKILL.md) 继续"
+  - source: conversation:current-turn/user@2026-09-23#execute-step-repair
+    verbatim: "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\
+      \\.agents\\skills\\execute-step\\SKILL.md) repair"
 ---
 # vNext TASK_BASIS
 

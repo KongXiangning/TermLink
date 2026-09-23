@@ -819,10 +819,23 @@ function assertCollectionHasNoConflict(values, keyOf, kind) {
     }
 }
 
+function isTurnAttributionPromotion(existing, incoming) {
+    if (completenessRank(incoming.completeness) <= completenessRank(existing.completeness)
+        || existing.event_id !== incoming.event_id
+        || existing.item_key !== incoming.item_key) return false;
+    const previous = clone(existing.event);
+    const oldTurnId = previous?.payload?.metadata?.turn_id;
+    const newTurnId = incoming.event?.payload?.metadata?.turn_id;
+    if (oldTurnId != null || typeof newTurnId !== 'string' || !newTurnId.trim()) return false;
+    previous.payload.metadata.turn_id = newTurnId;
+    return sameJson(previous, incoming.event);
+}
+
 function assertExistingContent(existing, incoming, kind, key) {
     if (!existing) return;
     const existingHash = existing.content_hash || contentHash(existing.event || existing);
-    if (existingHash !== incoming.content_hash) {
+    if (existingHash !== incoming.content_hash
+        && !(kind === 'history event' && isTurnAttributionPromotion(existing, incoming))) {
         throw batchConflict(
             `${kind} content conflicts with an existing staged item`,
             { kind, key }
@@ -838,6 +851,17 @@ function mutationIdentityOf(mutation) {
         mutation?.replacement?.replacement_key || '',
         stableStringify(mutation?.source_range || null)
     ].join('\u0000');
+}
+
+function isUpsertMutationPromotion(existing, incoming) {
+    if (!['upsert_item', 'upsert_detail', 'upsert_usage', 'upsert_outcome'].includes(existing?.mutation)
+        || existing.mutation !== incoming?.mutation
+        || completenessRank(incoming.item?.completeness)
+            <= completenessRank(existing.item?.completeness)) return false;
+    const previous = clone(existing);
+    previous.item.completeness = incoming.item.completeness;
+    previous.item.content_hash = incoming.item.content_hash;
+    return sameJson(previous, incoming);
 }
 
 function replacementValuesOf(payload) {
@@ -889,19 +913,20 @@ function preflightTargetState(state, batch) {
 
     const mutationByIdentity = new Map();
     for (const entry of state.mutations) {
-        mutationByIdentity.set(mutationIdentityOf(entry.mutation), entry.content_hash);
+        mutationByIdentity.set(mutationIdentityOf(entry.mutation), entry);
     }
     for (const mutation of payload.mutations) {
         const identity = mutationIdentityOf(mutation);
         const hash = contentHash(mutation);
-        const existingHash = mutationByIdentity.get(identity);
-        if (existingHash && existingHash !== hash) {
+        const existing = mutationByIdentity.get(identity);
+        if (existing && existing.content_hash !== hash
+            && !isUpsertMutationPromotion(existing.mutation, mutation)) {
             throw batchConflict(
                 'mutation evidence conflicts with an existing staged mutation',
                 { mutation: mutation.mutation, identity }
             );
         }
-        mutationByIdentity.set(identity, hash);
+        mutationByIdentity.set(identity, { content_hash: hash, mutation });
     }
 
     const replacements = replacementValuesOf(payload);
@@ -1005,7 +1030,13 @@ function applyTargetState(state, batch, preflight) {
     }
     for (const mutation of payload.mutations) {
         const hash = contentHash(mutation);
-        if (!state.mutations.some((entry) => entry.content_hash === hash)) {
+        const identity = mutationIdentityOf(mutation);
+        const priorIndex = state.mutations.findIndex(
+            (entry) => mutationIdentityOf(entry.mutation) === identity
+        );
+        if (priorIndex >= 0 && state.mutations[priorIndex].content_hash !== hash) {
+            state.mutations[priorIndex] = { content_hash: hash, mutation: clone(mutation) };
+        } else if (priorIndex < 0) {
             state.mutations.push({ content_hash: hash, mutation: clone(mutation) });
         }
     }

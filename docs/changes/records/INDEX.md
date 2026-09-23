@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260916-rollout-blockers-s3 | C3 | draft | TBD | @maintainer | 2026-09-23 |  | `docs/changes/records/CR-20260916-rollout-blockers-s3.md` |
 | CR-20260916-rollout-blockers-s2 | C2 | draft | TBD | @maintainer | 2026-09-23 |  | `docs/changes/records/CR-20260916-rollout-blockers-s2.md` |
 | CR-20260916-rollout-blockers-s1 | C1 | draft | TBD | @maintainer | 2026-09-20 |  | `docs/changes/records/CR-20260916-rollout-blockers-s1.md` |
 | CR-20260914-rust-issues-audit-s4 | TASK-001 | draft | TBD | @maintainer | 2026-09-15 |  | `docs/changes/records/CR-20260914-rust-issues-audit-s4.md` |

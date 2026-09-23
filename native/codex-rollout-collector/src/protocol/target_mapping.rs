@@ -253,6 +253,11 @@ fn map_target_source_read_inner(
             .is_some_and(|value| value.cursor_kind == TargetCursorKind::ForwardAppend)
     {
         cursor = None;
+    }
+    // A provisional delivery must not gain a formal append checkpoint on
+    // replay merely because the caller supplied coverage from the first
+    // attempt. Its batch identity and semantic payload must stay stable.
+    if completeness != TargetCompleteness::Canonical {
         formal_cursor = None;
     }
 
