@@ -370,18 +370,16 @@ fn test_backfill_multi_window_tool_attribution_and_stable_keys() {
         .find(|tool| tool.call_id == "call-1")
         .expect("cross-window tool detail exists");
     assert_eq!(tool.tool_kind, "function_call");
-    // The fixture declares workdir E:\coding\TermLink. The adapter's sanitize
-    // policy replaces absolute local paths with REDACTED_LOCAL_PATH while
-    // keeping the rest of the arguments; the window split must not change
-    // either part.
+    // The fixture declares workdir E:\coding\TermLink. The adapter must
+    // preserve the original path and other arguments across the window split.
     assert_eq!(
         tool.input.as_deref(),
-        Some(r#"{"command":"cargo test","workdir":"<local-path-redacted>"}"#),
-        "tool begin input must survive the window split with the sanitized fixture arguments"
+        Some(r#"{"command":"cargo test","workdir":"E:\\coding\\TermLink"}"#),
+        "tool begin input must survive the window split with the original fixture arguments"
     );
     assert!(
-        !tool.input.as_deref().unwrap_or_default().contains("TermLink"),
-        "tool begin input must not leak the local workspace path"
+        tool.input.as_deref().unwrap_or_default().contains("TermLink"),
+        "tool begin input must preserve the local workspace path"
     );
     assert_eq!(tool.output.as_deref(), Some("Exit code: 0\npass"));
 
@@ -1304,7 +1302,7 @@ fn test_item_completed_file_change_and_command_execution_mapping() {
     append_s2_event(&mut contents, file.clone());
     append_s2_event(&mut contents, file);
     // A subset carrier must preserve the same file identity even when its
-    // sorted index changes, and two redacted paths must never collide.
+    // sorted index changes, and two absolute paths must never collide.
     append_s2_event(&mut contents, s2_completion(json!({
         "type": "FileChange", "id": "fc-item-1", "status": "completed",
         "changes": {"src/old.rs": {"type": "delete", "content": "old file\n"}}
@@ -1391,6 +1389,21 @@ fn test_item_completed_negative_and_retention_boundaries() {
     let mut long = s2_command("cmd-long", "completed");
     long["aggregated_output"] = json!("界".repeat(30_000));
     append_s2_event(&mut contents, s2_completion(long));
+    let long_mcp_error = "界".repeat(30_000);
+    append_s2_event(
+        &mut contents,
+        json!({
+            "type": "mcp_tool_call_end",
+            "call_id": "mcp-error-long",
+            "invocation": {
+                "server": "memory",
+                "tool": "search",
+                "arguments": {"path": "/synthetic/private/mcp-error"}
+            },
+            "duration": {"secs": 0, "nanos": 5_000_000},
+            "result": {"Err": long_mcp_error}
+        }),
+    );
     append_s2_event(&mut contents, s2_completion(json!({
         "type": "FileChange", "id": "fc-private", "changes": {
             "/synthetic/private/a.rs": {"type": "add", "content": "read /synthetic/private/token"},
@@ -1420,15 +1433,30 @@ fn test_item_completed_negative_and_retention_boundaries() {
     let long_output = find("cmd-long").output.as_ref().unwrap();
     assert!(long_output.len() <= 64 * 1024);
     assert!(long_output.ends_with("…<truncated>"));
+    let long_mcp_output = batch.history_items.iter().find_map(|event| match event {
+        AnalysisEvent::ToolCompleted {
+            call_id,
+            output: Some(output),
+            ..
+        } if call_id == "mcp-error-long" => Some(output),
+        _ => None,
+    }).expect("long MCP failure remains in the AnalysisBatch");
+    assert!(long_mcp_output.starts_with(&format!(
+        "success=false; error={}",
+        "界".repeat(64)
+    )));
+    assert!(long_mcp_output.len() <= 64 * 1024);
+    assert!(long_mcp_output.ends_with("…<truncated>"));
     let input: serde_json::Value = serde_json::from_str(find("cmd-absent").input.as_ref().unwrap()).unwrap();
     assert_eq!(input["command"], json!(["cargo", "test"]));
-    assert!(!input["cwd"].as_str().unwrap().contains("private"));
+    assert_eq!(input["cwd"], json!("file:///synthetic/private/workspace"));
     assert!(!turn.items.iter().any(|item| item.item_key == "tool:cmd-missing"));
     assert!(batch.history_items.iter().any(|event| matches!(event, AnalysisEvent::UnknownEvent { .. } | AnalysisEvent::ParseGap { .. })));
     let files: Vec<_> = turn.items.iter().filter(|item| item.correlation_id.as_deref() == Some("fc-private")).collect();
     assert_eq!(files.len(), 2);
     assert_ne!(files[0].item_key, files[1].item_key);
-    assert!(files.iter().all(|item| item.path.as_deref() == Some("<local-path-redacted>")));
-    assert!(files.iter().any(|item| item.content.as_deref() == Some("<local-path-redacted>")));
+    assert!(files.iter().any(|item| item.path.as_deref() == Some("/synthetic/private/a.rs")));
+    assert!(files.iter().any(|item| item.path.as_deref() == Some("/synthetic/private/b.rs")));
+    assert!(files.iter().any(|item| item.content.as_deref() == Some("read /synthetic/private/token")));
     assert!(files.iter().any(|item| item.content.as_deref() == Some("allowed")));
 }
