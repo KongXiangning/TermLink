@@ -46,13 +46,14 @@ entry_contract:
     - review-convergence-policy
   runtime_operations:
     - task-state-transaction
+  # Candidate interruptions: apply run-entry internal recovery before any terminal result.
   stop_conditions:
     - task ownership is required for a task-state proposal or resolve route but is missing or conflicted
-    - reproduction cannot be established within the bounded investigation budget
-    - root cause remains a hypothesis after the allowed attempts
-    - the proposed route requires scope widening, another owner, or user authority
+    - reproduction prerequisites remain unavailable after evidence-backed probe reassessment and supported internal recovery
+    - root cause remains unproven and the investigation identifies a concrete evidence gap that cannot be resolved internally
+    - the proposed route requires a new ownership or scope choice not determined by the existing instruction
     - a claim or evidence plan is missing its stable identity, closed claim fields, minimum-sufficient evidence, or disposition
-    - exploratory evidence is requested without a bounded probe budget and cleanup/audit rule
+    - exploratory evidence is requested without a bounded probe budget and cleanup/audit rule; this bound applies to the probe, never to the host invocation itself
     - a persistent test is proposed without a complete P-12 admission record, including assertion boundary and failure disposition
     - an evidence plan that must survive a turn, session, delegation, pause, or interruption has no typed proposal into an existing canonical task record
     - the request uses an old or unsupported workflow schema
@@ -60,6 +61,77 @@ entry_contract:
 ---
 
 # vNext Skill: debug-task
+
+## Invocation authority and internal recovery
+
+recovery_boundary: entry-recovery/v1
+
+The caller's explicit invocation authorizes this entry's stated intent and its
+necessary internal recovery within the existing authority. This entry owns that
+recovery until its requested result is produced or a genuinely undecidable choice
+requires the caller. A Runtime rejection interrupts a candidate operation; it is
+not, by itself, a terminal Skill result, even when listed under stop_conditions.
+
+Read retained state and the rejection, correct stale identity or request shape,
+then use typed diagnostic, review-consumption, preflight, retry or amendment
+operations as needed and resume the original intent. Calling an internal capability
+does not require the user to invoke another public Skill. Do not repeat an unchanged
+rejected request. Preserve failed evidence, findings and disposition history.
+
+Attempt and repair quotas are analysis checkpoints. Inspect previous failures,
+reassess the cause, necessity and next approach, and record the analysis. When the
+existing explicit instruction covers continuation, use its original source/text
+for the supported continuation or budget-extension transaction and proceed; do not
+ask for renewed authorization merely because a counter is exhausted. Keep the
+analysis distinct from the user's words and retain cumulative attempt counts.
+Do not invent risk acceptance, a waiver, or permission beyond that instruction.
+Ask only for a choice or authority that cannot be determined from the instruction
+and available evidence; report the concrete unresolved choice, not just a gate code.
+
+A read-only, review-only or investigate-only entry completes with its requested
+facts/verdict; recovery does not authorize unrelated implementation. For actual
+unavailable dependencies or damaged state, attempt the supported recovery first,
+then report the precise external prerequisite if it cannot be restored internally.
+Never fabricate success or bypass an incomplete atomic commit.
+
+### Shared internal recovery driver
+
+Use Runtime `run-entry --root <project>` for Runtime operations in this entry.
+Send `invocation` (stable `id`, this public `entry`, requested `intent`, original
+`decision_source` and verbatim `decision_text`) and `operation` (`command`,
+optional `args`, semantic JSON `input`). Keep this invocation identity throughout
+internal recovery. The driver executes existing typed Runtime commands, not public
+Skills or product shell commands. Read-only context reads may still be direct.
+
+The driver returns a compact summary and `outcome_ref` / `detail_ref`. Read needed
+full receipts with Runtime `entry-output-read`, supplying the returned `reference`,
+`offset: 0` and `max_bytes: 8192`; follow `next_offset` until null. A page boundary
+is not an execution limit. Do not reconstruct receipts from shortened messages.
+
+An `entry-operation-result/v1` with `recovery-required` is addressed to the agent:
+inspect its original `outcome`, code, commit facts and concrete routes, perform
+analysis, then submit corrected input or a `recovery` plan with `reason` and
+`operations`. The driver stops at the first unresolved operation and returns
+`recovery-applied` after successful recovery operations. Read canonical state and
+the retained receipts, then resume only an original operation still needed for
+this invocation. Never replay an operation reported as committed merely because
+its reply was interrupted; reconcile that transaction first.
+`operation-complete` means that operation finished, not that this Skill's intent
+is complete. Continue until its actual requested result is available.
+
+For ordinary execute-step retry budget exhaustion, supply `budget_analysis` with
+`document_id`, `plan_revision`, the proposed `attempt_id` from global-gates, and
+`evidence_refs` to retained analysis of failures, necessity and the next approach.
+The driver records continuation using the original instruction, increases the
+attempt allowance through the existing transaction, and retries the operation
+with the resulting decision ID. No renewed user instruction is needed. Other
+repair/wave quotas use their typed extension operations in `recovery.operations`.
+Evidence and analysis are the agent's responsibility, never invented user speech.
+
+Before returning any blocked result, classify it: an internal operation awaiting
+recovery stays in this invocation; an unresolved user choice must state the actual
+alternatives; an unavailable external prerequisite must name what internal
+recovery could not restore. Completed reports/verdicts remain legitimate outcomes.
 
 ## Historical execution recovery
 
@@ -83,37 +155,45 @@ with `task-read`; use `file-context` for source inspection. Definition reuse is
 valid only in the same visible session with the exact task/document and
 `definition_revision`. A receipt is not permission, execution proof, or proof
 that the model retained the text. On compression, a new session, a revision
-change, or a compact/store integrity error, reread or report a blocker instead
+change, or a compact/store integrity error, reread and use supported store recovery; report a concrete external prerequisite only if recovery cannot restore it, instead
 of bypassing the store with the full CURRENT_TASK history.
 
 ## Operating rules
 
 1. Resolve the relevant project context and affected target before forming a repair hypothesis. Read/discovery may inspect broader callers, consumers, types, configuration, tests, and governance context, but it never grants write permission. For a current-task proposal or `resolve`, verify task identity, current workflow/lifecycle tuple, route owner, and authority. An ordinary execution or finding repair additionally requires an active owner, admitted scope, and a read-only Runtime `scope-check` for the exact repair target; a superseded task has no execution authority.
-2. Reproduce the symptom or establish a bounded, evidence-backed reason reproduction is unavailable. Represent the reproduction/bug claim with a stable identity, closed kind/owner/certainty/impact fields, and existing evidence. Separate observed facts from hypotheses and validate each hypothesis against the smallest useful probe. Each temporary probe declares bounded duration, tool/run count, permitted temporary artifact locations, and cleanup/audit rule. A validation obligation or temporary probe does not automatically justify a persistent automated test; any persistent test requires P-12 admission.
-3. In `investigate-only`, return a terminal diagnostic result without proposing a repair route that has not passed evidence and authority checks. In `resolve`, require a confirmed root cause, current-owner route, exact scope-check admission, and an available repair budget before recommending the repair intent. If the repair would widen scope, return a terminal result with an optional user/replan recommendation for a later caller invocation instead of editing or invoking another public entry. Validation, reuse of an existing check, and persistent-test creation remain separate dispositions; a model-generated hypothesis, code change, coverage request, or speculative edge is not test admission.
+2. Reproduce the symptom or establish a bounded, evidence-backed reason reproduction is unavailable. Represent the reproduction/bug claim with a stable identity, closed kind/owner/certainty/impact fields, and existing evidence. Separate observed facts from hypotheses and validate each hypothesis against the smallest useful probe. Each temporary probe declares bounded duration, tool/run count, permitted temporary artifact locations, and cleanup/audit rule. These limits protect the probe and repository; they are not a per-invocation agent token/time/tool quota. A validation obligation or temporary probe does not automatically justify a persistent automated test; any persistent test requires P-12 admission.
+3. In `investigate-only`, return a terminal diagnostic result without proposing a repair route that has not passed evidence and authority checks. In `resolve`, require a confirmed root cause, current-owner route, exact scope-check admission, and a recorded budget reassessment when due before recommending the repair intent. If the repair needs scope widening not determined by the current instruction, ask for the concrete scope choice. Already-authorized internal preparation may proceed; product edits remain outside this diagnostic entry. Validation, reuse of an existing check, and persistent-test creation remain separate dispositions; a model-generated hypothesis, code change, coverage request, or speculative edge is not test admission.
 4. Persistent-test disposition defaults to `persistent_test: false`. If a persistent test is proposed, require an explicit owner, concrete proved claim or failure, existing-evidence insufficiency reason, exactly one basis from `acceptance`, `regression`, `critical-invariant`, or `critical-risk`, an assertion at the behavioral or contract boundary, and a clear expected failure disposition. A `risk-analysis` owner must be anchored to an identified changed behavior, known failure model, and admitted task scope. Provisional or exploratory certainty permits temporary probes only; explicitly reclassify the claim as confirmed before any persistent admission. `test_write_policy: deny` forbids creating or changing it while existing validation remains allowed; report any authoritative Contract/Decision conflict.
-5. Use current external documentation only when dependency behavior affects correctness. Return a terminal result with an optional owner-route recommendation for a later caller invocation when the issue belongs to another owner, requires scope widening, depends on a user-owned choice, or is unrelated work; do not treat it as a current-task repair or invoke another public entry.
+5. Use current external documentation only when dependency behavior affects correctness. Return a terminal result with an optional owner-route recommendation for a later caller invocation when the issue belongs to another owner, needs scope authority absent from the instruction, depends on an undetermined user-owned choice, or is unrelated work; do not treat it as a current-task repair or invoke another public entry.
 6. Before a turn, session, delegation, pause, interruption, or session-end boundary, carry claim identity, owner, certainty, admitted evidence types, and completion state through a typed proposal into the existing canonical task record; harness memory cannot reset or widen the plan.
-7. Read a fresh Runtime `validate --summary` and the relevant failed attempt/review state before selecting a route; bind the diagnostic result to the observed task identity and source tuple. An active current task with a retained blocked failed check, confirmed current-step cause, unchanged plan/scope, no pending review or admitted finding, and remaining retry budget may recommend ordinary `execute-step` same-plan recovery. An admitted review finding with its repair gate satisfied may recommend `execute-step:repair`. When the exact pending review is blocked by `REPAIR_BUDGET_EXHAUSTED`, preserve that review and its in-progress findings: without a new explicit user decision, report the user-owned blocker; with an exact decision authorizing one additional attempt for every currently exhausted finding, recommend `prepare-task:extend-repair-budget`, never correction replan. If only the repair-wave quota is exhausted and the current review targets still have finding attempts, the same decision may use `extension_scope: repair-round` with an empty finding set; Runtime must preserve all finding attempt counts. A review's `resolved_fingerprints` are structured queue conclusions, not prose hints; they must not be reintroduced as unresolved. A task already `superseded` may recommend a fresh successor only when the caller has an explicit replacement request; the later `prepare-task` invocation must use its internal `prepare-successor` route and normal draft confirmation rather than generic replan. A `blocked_by_replan` task with an exact caller-reported authorization for new paths may recommend the independent `prepare-task:amend-scope` route with those paths and the original source/text, while other blocked tasks still need a readiness/correction/invalidation decision and cannot execute. Only confirmed invalidation of goal, scope, or acceptance may recommend `task-lifecycle:supersede`; supersede itself never authorizes replacement. An unknown cause, stale identity, any other exhausted budget, missing authority, or failed Runtime admission is a blocker, not a reason to invent invalidation. A current-task diagnostic evidence update may be described as a `task-state-transaction` proposal, but this entry never claims that task state was written. After a correction, failed checks and due evidence must be rerun; finding repair also requires verification of the same logical diff and fingerprint.
+7. Read a fresh Runtime `validate --summary` and the relevant failed attempt/review state before selecting a route; bind the diagnostic result to the observed task identity and source tuple. An active current task with a retained blocked failed check, confirmed current-step cause, unchanged plan/scope, no pending review or admitted finding, and remaining retry budget may recommend ordinary `execute-step` same-plan recovery. An admitted review finding with its repair gate satisfied may recommend `execute-step:repair`. When the exact pending review is blocked by `REPAIR_BUDGET_EXHAUSTED`, preserve that review and its in-progress findings: use the existing explicit instruction when it covers continued repair, record reassessment and the exact continuation decision, then use `prepare-task:extend-repair-budget`, never correction replan. If only the repair-wave quota is exhausted and the current review targets still have finding attempts, the same decision may use `extension_scope: repair-round` with an empty finding set; Runtime must preserve all finding attempt counts. A review's `resolved_fingerprints` are structured queue conclusions, not prose hints; they must not be reintroduced as unresolved. A task already `superseded` may recommend a fresh successor only when the caller has an explicit replacement request; the later `prepare-task` invocation must use its internal `prepare-successor` route and normal draft confirmation rather than generic replan. A `blocked_by_replan` task with an exact caller-reported authorization for new paths may recommend the independent `prepare-task:amend-scope` route with those paths and the original source/text, while other blocked tasks still need a readiness/correction/invalidation decision and cannot execute. Only confirmed invalidation of goal, scope, or acceptance may recommend `task-lifecycle:supersede`; supersede itself never authorizes replacement. An unknown cause, stale identity, missing authority, or failed Runtime admission requires internal diagnosis and recovery, not invented invalidation; an exhausted budget requires reassessment and in-scope continuation. A current-task diagnostic evidence update may be described as a `task-state-transaction` proposal, but this entry never claims that task state was written. After a correction, failed checks and due evidence must be rerun; finding repair also requires verification of the same logical diff and fingerprint.
 The ordinary extension route is unavailable when the candidate next repair round
 would exceed the absolute limit of eight or a selected finding is already at the
 absolute eight-attempt limit. In that case, follow the structured blocker and
 user-owned diagnostic/controlled-recovery decision route emitted by task-context;
 never recommend a transaction that will fail.
 
-Controlled recovery is a separate, finite route at that boundary. It requires a
-blocked review with a structured `finding_dispositions` entry whose disposition
-is `must-fix`, or an explicit exact-target legacy authorization when that field
-does not exist. Recommend `prepare-task:authorize-controlled-repair-recovery`
-only with the exact review identity and user decision; Runtime derives the full
-repair set, preserves ordinary counters and history, and limits the grant to
-one wave and two controlled attempts per selected finding. For the legacy
-bridge, the explicit target must cover every existing unresolved finding in
-the full repair set with no ordinary attempt remaining; a partial request is
-rejected before the one-per-review grant is persisted. Findings with
+Controlled recovery is a separate, finite route at that boundary. Recommend
+`prepare-task:authorize-controlled-repair-recovery` with the exact review
+identity, a nonempty user-selected subset of admitted unresolved findings,
+decision basis, source, text and evidence. Runtime derives the full repair set
+and preserves ordinary counters and history. A grant has a positive finite
+wave count and carries across linked reviews. Unselected exhausted findings
+remain open until explicitly disposed or separately budgeted; findings with
 ordinary budget remain in scope, resolved findings stay out, and newly found
-items still need normal admission. Never infer a target from prose or use a
-new task, supersede, reset, or direct status edit as recovery.
+items still need normal admission. Five waves per grant, five controlled
+attempts per finding and one grant per review are warning thresholds. Crossing
+one requires a separate `continue-after-warning` decision bound to the exact
+review, change set, selected finding targets and requested wave count; pass its
+unused ID with the new grant. Never infer a target from prose or use a new
+task, supersede, reset, or direct status edit as recovery.
+
+A pending review may retain a finding with
+`repair_scope_hint: outside-current-authority`. Keep the finding as an observed
+fact. The user may record a terminal disposition without changing scope, or
+record a separate `authorize-mutation` decision for its exact path and pass
+that decision ID to `prepare-task:amend-scope`. Do not claim the decision alone
+permits an execution preflight.
 
 An external counterexample to an earlier completed claim is a reviewable
 evidence challenge, not automatic goal invalidation. Identify its exact

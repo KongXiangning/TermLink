@@ -512,6 +512,10 @@ fn segment_is_complete(segment: &TargetSourceSegmentEvidence) -> bool {
         && !segment.source_shrank_during_read
 }
 
+fn has_usable_line_anchor(record: &SourceRecord) -> bool {
+    record.byte_start < record.byte_end && record.physical_line_ordinal != 0
+}
+
 #[derive(Debug, Default)]
 struct ActiveRecordSummary {
     first_physical_line: Option<u64>,
@@ -725,6 +729,15 @@ fn adapt_records(
             }
         }
         summary.unique_records = summary.unique_records.saturating_add(1);
+        // Zero-length mutation/budget diagnostics are read-level markers, not
+        // physical source lines. Keep them out of the promotion proof and out
+        // of adapter/history output so a recovered canonical source cannot
+        // retain a durable ParseGap item; the segment-level parse_gap
+        // diagnostic below still marks this mapping Partial.
+        if record.parse_error.is_some() && !has_usable_line_anchor(record) {
+            batch.complete = false;
+            return Ok(());
+        }
         if record.source_identity == source.source_id {
             summary.active.observe(record);
             summary

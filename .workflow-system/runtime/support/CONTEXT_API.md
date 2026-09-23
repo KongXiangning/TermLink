@@ -52,6 +52,25 @@ means the operation context is incomplete. Context/read receipts prove only the
 version and returned range; they are read-only and do not authorize a write.
 Repeated reads do not append audit events.
 
+After `preflight-step` has committed an execution admission, `resume-preflight`
+accepts `{}` and returns the exact current receipt without creating an attempt,
+consuming retry/repair/finding budget, or changing task state. Use it when a
+host/session call ended before the receipt was returned. Runtime persists the
+ordinary execution identity for new tasks; upgraded legacy tasks are recovered
+only from the exact committed preflight proposal and current source revision.
+If that proof is unavailable, `resume-preflight` returns a structured
+`execute-step-preflight-decision` result instead of becoming a dead end. After
+the caller explicitly chooses `not-started` or `started-unknown`, send
+`reconcile-preflight` with the exact `current_preflight_id`, `step_id`,
+`mode`, decision source/text, and evidence references. This append-only audit
+clears only the dangling admission and reopens the same logical attempt; it
+does not infer candidate paths, fabricate a result, add an attempt, consume a
+repair/finding grant, or alter pending review, findings, or budgets. The caller
+then obtains a fresh `preflight-step` or `begin-repair` receipt.
+Runtime has no per-invocation token, wall-clock,
+or tool-count quota; context page limits below are transport limits and require
+continuation, not task splitting or budget consumption.
+
 New transaction events keep `transaction.proposal` and `transaction.result` as
 exact committed object references. Read them with `kind:proposal` or
 `kind:result`; `kind:semantic-delta` restores the semantic delta from the
@@ -312,8 +331,11 @@ First commit the truthful blocked result. Send `retry-step` the retained
 `repair_diagnosis: {kind:"same-plan-repair/v1",status:"confirmed",owner:"current-step",failed_check,cause,repair_paths}`.
 `failed_check` must be the exact failed command or validation; every repair path
 must already be in that failed attempt's preflight candidates. The diagnosis is
-caller-reported and persists in the attempt ledger. Runtime preserves the failed
-attempt and allows at most two retries. A successful recovery returns `ready`
+caller-reported and persists in the attempt ledger. It identifies correction
+paths; the fresh preflight may also retain other paths already authorized for
+the current step and must include every diagnosed repair path. Runtime preserves
+the failed attempt and records an exact warning decision when continuation
+crosses the ordinary attempt threshold. A successful recovery returns `ready`
 only: obtain a fresh preflight before editing, rerun the failed check and due
 evidence, and keep any required review. If subjects drifted, scope changed, or
 the cause is unconfirmed, report the blocker; do not supersede a task solely
@@ -397,6 +419,161 @@ preflight.
 The legacy `prepare-task:prepare-replan` / `correction-replan/v2` route keeps
 `permission_change: none` and cannot consume a scope-amendment receipt.
 
+### Review finding disposition and user decision
+
+`record-review-result` records review facts; it does not itself decide whether a
+finding is repaired, deferred, rejected, or accepted as risk. When the caller
+has an explicit user decision, submit one atomic internal
+`record-user-decision` transaction. The decision text is retained verbatim and
+must bind the current task and source revision; a repair/reopen effect also
+requires the finding admission and the exact execution/review/change-set
+context when one exists. Runtime stores the decision event, Task Basis
+reference, finding status transition, pending-review consumption or repair
+handoff, and audit projection together. Runtime never infers an effect from
+free text.
+
+For a mixed review, repair only the still-open admitted fingerprints and dispose
+the other findings in the same decision. A `defer-finding`, `reject-finding`, or
+`accept-finding-risk` effect is a real terminal finding state, not an implicit
+repair permission. A disposition alone preserves the pending review and step.
+When all current review findings have durable dispositions and the user also
+authorizes advancement, use `advance-with-exceptions`, explicitly naming each
+exceptional `finding:<fingerprint>` and `blocker:<code>`; the step
+receives a `disposition` receipt with
+`completion_disposition: user-directed-with-exceptions`, while failed and
+blocked facts remain unchanged and explicitly skipped checks are recorded as
+`not-run`. Do not call
+`complete-reviewed-step` with `clean` for that path. A later
+`reopen-finding` decision preserves attempts and evidence and creates an
+explicitly bound repair handoff; it does not reuse the previous clean review.
+Exact replay is a no-op, while stale, cross-task, cross-review, or mismatched
+source/change-set requests are integrity errors.
+
+Example (the caller supplies the exact source text and stable idempotency key;
+it does not construct receipts or edit task files):
+
+```json
+{
+  "decision_source": "user:conversation-2026-09-22#42",
+  "decision_text": "修复 A；C 暂缓，保留风险记录。",
+  "task_id": "task-...",
+  "source_revision": "sha256:...",
+  "review_id": "review-...",
+  "change_set_id": "change-set-...",
+  "effects": [
+    {"kind": "repair-finding", "fingerprint": "finding-A", "continuation": "once"},
+    {"kind": "defer-finding", "fingerprint": "finding-C"}
+  ],
+  "idempotency_key": "decision-...",
+  "evidence_refs": ["evidence/..." ]
+}
+```
+
+`task-context` exposes `record-user-decision` whenever a pending findings or
+blocked review needs an explicit disposition. It must resolve to this real
+command, not a descriptive pseudo-route. A decision effect does not by itself
+widen mutation authority. Review facts for an out-of-scope path are still
+recorded with `repair_scope_hint: outside-current-authority` and may receive a
+terminal finding disposition. To repair that path, record a separate
+`authorize-mutation` decision with sorted `exact_paths` drawn from the pending
+review's findings, and bind its exact `review_id` and `change_set_id`. Then
+call `prepare-task:amend-scope` with
+`authorization: {"decision_id":"<decision idempotency_key>"}`; Runtime reuses
+the retained source and text and checks the exact paths in the ordinary
+amendment transaction. A terminal close uses a separately bound `close-with-exceptions`
+effect and durable decision IDs. Its `target_ids` must cover every remaining
+closure obligation (for example `step:<id>`, `task-complete`, `acceptance`,
+`validation`, or `remaining-risks`), and it records
+`completed-with-exceptions` or `stopped-by-user` without changing false
+acceptance or validation facts.
+Discovery disposition receipts retain an empty `admitted_fingerprints`; their
+disposed findings and blocker remain in the decision audit's `consumed_review`.
+Deferred, rejected and accepted-risk findings block ordinary `verified` closure. Each
+requires an exact `finding:<fingerprint>` target in the close decision and an
+exact entry in `remaining_risks`. The `rejected` disposition means declining
+repair, not proving a false positive. The Runtime-generated
+`closure_obligation_snapshot` binds the definition, runtime facts, reviewed file
+contents and evidence satisfaction; changed or missing snapshots require a new
+close decision. It is not a caller-supplied field.
+
+For a stop, the `close-with-exceptions` effect explicitly targets
+`gate:stopped-by-user`, `review:<review_id>` and `blocker:<code>` when pending,
+and every remaining finding. Then submit an archive with
+`completion_disposition: stopped-by-user` and that decision ID. The archive
+preserves pending review, open findings and unfinished progress; a prior advance
+or repair is not required. Closure evidence must retain the actual queue,
+blocker, acceptance and validation facts. A disposition alone authorizes neither
+advancement nor closure. `continue-after-warning` records an exact recovery
+warning acknowledgement, without spending a repair wave or claiming clean.
+`authorize-mutation` records a review-bound exact-path authorization; the
+separate scope amendment must still commit before execution may use the path.
+
+### Process-policy gates are warnings; facts remain hard
+
+The Runtime publishes one policy-gate directory in the contract. Every entry
+has a real `task-context.next_entry`/result route and canonical `target_ids`.
+Budget, retry, review/checkpoint, test-strategy, and user-directed exception
+gates therefore have two outcomes: without an exact caller-reported
+`record-user-decision`, return the pending gate and stop; with a decision bound
+to the current task, source revision, active step, and—when present—pending
+`review_id`/`change_set_id`, record the warning and execute the authorized
+operation. The decision ID is copied into the consuming preflight, attempt,
+finding-queue delta, or execution record.
+One decision may contain distinct `continue-after-warning` effects for
+several gates encountered by the same operation; each gate checks its own
+exact targets. A blocked review caused by repair or new-finding budget
+exhaustion can be resumed for explicitly selected repair findings under its
+matching warning decision. The decision ID remains on the preflight,
+replacement receipt and result; the review is not relabeled clean.
+An actual `test-red` result must submit a new report for the exact unconsumed
+before-step non-acceptance reproduction check in `acceptance_evidence`.
+Positive acceptance evidence remains forbidden. In a Red preflight it
+needs no extra policy decision. Outside Red, an exact
+`TEST_STRATEGY_SEQUENCE_INVALID` warning decision permits recording and
+reviewing the result as `test-red`; it never converts that failure into PASS
+or positive acceptance.
+If the decision is recorded after preflight, call `resume-preflight` to obtain
+the current source revision for the same durable execution identity, then
+pass the decision ID as `record-step-result.policy_decision_id`. The result
+audit retains the decision ID without replacing the original admission.
+`blocked_by_replan + active` can record a separate `cancel-replan-block`
+effect with `target_ids: ["gate:blocked-by-replan"]`. This restores active
+workflow status while preserving pending review, findings and evidence, so a
+subsequent `close-with-exceptions` decision can authorize stopped-by-user
+archival.
+
+This does not waive facts. Wrong task identity, stale revision, forged/stale
+receipt, changed review target, cross-execution binding, replay conflict, and
+target-set conflict remain hard rejects and require a fresh correctly bound
+request. A decision never produces `clean` or PASS. If the user explicitly
+chooses to advance without running a check, preserve the original failure or
+blocked result and record an applicable evidence report with
+`status: not-run`; advancement uses a `disposition` receipt and
+`completion_disposition: user-directed-with-exceptions`. `next_entry` must
+always be one of the declared executable commands; a prose-only recommendation
+is a Runtime contract error.
+
+### Retry after a blocked ordinary review
+
+For an ordinary failed attempt with a pending blocked review, use
+`task-context.overview.gates.review_retry` to obtain the exact retry binding.
+After resolving the blocker and disposing any findings, record the user's
+existing retry instruction as `continue-after-warning` with
+`gate_code: RETRY_REVIEW_REQUIRED`, naming `step:<id>`, `review:<id>` and
+`blocker:<code>` when present. Bind `review_id` and `change_set_id`. If the retry
+budget is exhausted, include its `RETRY_BUDGET_EXHAUSTED` effect in the same
+decision. Pass the decision ID as `policy_decision_id` to `retry-step` alongside
+its normal resolution evidence. Runtime preserves the consumed review in the
+new attempt and returns the same step to ready without changing prior failures.
+If the user chooses to skip instead, `advance-with-exceptions` accepts a blocked
+step and retains the failure under an exception receipt.
+
+`reopen-finding` also accepts a terminal user disposition in the current pending
+findings/blocked review. It binds that review and unchanged execution target,
+restores admission, preserves attempts and leaves the review pending for repair.
+It does not require a preceding advance. A resolved finding outside that pending
+review still needs its own fresh review handoff.
+
 ### Exact repair-budget continuation
 
 When `task-context.next_entry` is `prepare-task:extend-repair-budget`, the exact
@@ -457,11 +634,13 @@ structured `finding_dispositions`:
 }
 ```
 
-Only `must-fix` findings are eligible for controlled recovery. The user then
-calls `prepare-task:authorize-controlled-repair-recovery` with the exact
+Review dispositions inform the user's budget decision. Runtime accepts a
+nonempty, exact subset of admitted unresolved repair targets for controlled
+recovery, including a subset of exhausted findings. The user calls
+`prepare-task:authorize-controlled-repair-recovery` with the exact
 `review_id`, selected `recovery_fingerprints`, one closed-set `recovery_basis`,
 the decision source/text, evidence references, and an optional
-`additional_controlled_repair_waves` from 1 through 5 (default 1). Runtime
+`additional_controlled_repair_waves` as a positive integer (default 1). Runtime
 derives the complete current repair set and binds task/document, execution,
 cycle, phase, change set, and review-target revision. The grant records a
 finite number of separately reviewable controlled repair waves and carries
@@ -469,7 +648,30 @@ across the linked follow-up reviews; each selected finding keeps its original
 ordinary attempts and may consume at most the grant's finite wave quota. A
 legacy v1 grant remains one wave with its historical two-attempt cap. It
 never raises ordinary maxima, resets counters, clears a review, manufactures
-clean, or closes an unverified finding.
+clean, or closes an unverified finding. An exhausted finding outside the grant
+remains open. `begin-repair` may explicitly select the authorized controlled
+targets together with any still-ordinary-budgeted targets; it does not force an
+unselected exhausted finding into that execution. The unselected finding stays
+open and must later receive a disposition or separate applicable budget before
+it can be repaired. A finding with ordinary budget stays eligible without
+consuming controlled quota.
+
+The historical limits of five waves per grant, five controlled attempts per
+finding, and one grant per review are warning thresholds. When a requested
+grant crosses any of them, first call `record-user-decision` with a separate
+`continue-after-warning` effect, `gate_code: "CONTROLLED_RECOVERY_LIMIT"`,
+`review_id` and `change_set_id` for the pending review, and sorted
+`target_ids` containing exactly the selected `finding:<fingerprint>` values,
+and `authorized_repair_waves` equal to the exact requested wave count.
+The decision must retain the user's wording and evidence. Pass its
+`idempotency_key` as `warning_decision_id` to
+`authorize-controlled-repair-recovery`. Runtime records the raised cumulative
+attempt limit and finite wave quota in the new grant, binds the warning
+decision ID for audit, and preserves all previous grants, attempts, review facts,
+and source revisions. An active unconsumed grant or unfinished repair preflight
+must finish or be reconciled before issuing another grant. Ordinary 8-attempt
+and 8-round limits still route to this controlled continuation; they do not
+force a new task, reset a counter, or end the user's repair decision.
 
 `FORMAT_CHECK_SCOPE_BLOCKED` is reserved for a format failure reported inside
 the authorized mutable business/product scope. A whole-tree whitespace result
@@ -489,13 +691,11 @@ The authorization set is not the repair set. Findings with remaining ordinary
 budget stay in the full repair wave, verified resolutions stay out, and a new
 finding must pass normal admission before it can execute. Exact replay is a
 no-op; stale review identity, cross-task or cross-review targets, duplicate
-grants, and controlled-quota overflow fail closed. Legacy blocked reviews that
-lack dispositions may use only an explicit exact-target `legacy-explicit-user`
-authorization; that target must cover every existing unresolved finding in the
-full repair set with no ordinary attempt remaining. A partial legacy request
-fails before the one-per-review grant is persisted, so the complete
-authorization can still be submitted afterward. Runtime never infers a target
-from prose.
+grants, and unacknowledged warning thresholds fail closed. Legacy blocked
+reviews without dispositions still require an explicit exact-target user
+authorization; they do not infer targets from prose. A user may select a
+nonempty subset of admitted unresolved findings, while the complete repair set
+remains intact. Runtime never infers a target from prose.
 
 For a legacy 0.20.5 budget-blocked state whose stored review has empty
 `findings`/`unresolved_fingerprints`, the upgrade is intentionally fail-closed:
@@ -627,6 +827,13 @@ Read returns `sha256`. Subsequent pages must send it back; a changed file requir
 For a line range, pass optional 1-based inclusive `start_line` and `end_line` to either read command; for `diff`, these count rendered diff lines. Keep the same range on subsequent pages. Byte offsets and `total_bytes` are relative to the selected range. Text pages use UTF-8 byte offsets, never split a character, and return `next_offset`, `total_bytes`, and `truncated`. Send `next_offset` as the next `offset` with the same file/view and receipt or file hash. Default text budget is 16 KiB; callers may request 4 bytes–64 KiB. The complete review file index is separate from this text budget. Even a single very long line is bounded.
 
 Search defaults to 50 hits (maximum 200), uses the same byte budget, and stops after 10 seconds. Partial results exit 2 with a reason; narrow the scope/query or read a known candidate. Exit 0 with no hits means no match in that searched scope, not that no relevant tests exist. Tool errors, unreadable output and timeouts must not be treated as clean results. Metadata and JSON escaping add overhead beyond the text budget.
+
+These text, hit-count, and search-duration bounds limit one context page or
+probe response, not an agent invocation or a business execution. A partial
+page/search result must be continued or narrowed; it must not be converted into
+a failed task attempt, a consumed repair budget, or a reason to split one
+confirmed step. If the host call ends, resume the admitted execution with
+`resume-preflight` and the same receipt identity.
 
 ## rg dependency
 
@@ -987,3 +1194,136 @@ behavioral requirement. The Agent must justify that distinction and the user
 confirms the exact old/new text. Runtime verifies the structural ownership and
 keeps every frozen claim observation/boundary unchanged; semantic sufficiency is
 caller-reported, not inferred from label text or a green aggregate command.
+
+### Continuing with an unresolved evidence challenge
+
+An `advance-with-exceptions` decision covering `challenge:<id>` (or all current
+challenges via `gate:evidence-challenge`) preserves a Runtime-owned snapshot of
+those challenges. Subsequent ordinary preflight and step review recognize this
+continuation only while each challenge is unchanged in the current task definition.
+The challenge and any unsatisfied evidence remain visible; no passed report or
+prerequisite receipt is fabricated. New challenges are not covered by old decisions.
+To close with unresolved challenges, record a separate `close-with-exceptions`
+decision naming each exact `challenge:<id>` and include those IDs in `remaining_risks`.
+Other incomplete closure obligations still need their corresponding exceptions.
+
+Ordinary retry binds its failed attempt to the original execution while binding
+its pending review to the cumulative review target. A multi-step task does not
+need to make its latest execution path set equal the cumulative task path set.
+
+Retry budget decisions retain Runtime-derived `retry_budget_binding` with the
+step, evidence plan revision, failed attempt (when present), and the single
+`authorized_attempt_id`. Callers still supply the user's decision and canonical
+targets; they do not construct this binding. Admission records
+`retry_budget_decision_id` on the authorized attempt and preserves it through
+preflight and execution results. The same attempt may continue and an exact
+retry request may replay, but a later failure or changed plan cannot reuse the
+old decision to create another attempt. Legacy decisions without this binding
+remain readable audit history and require a freshly recorded decision before
+new budget admission; retained user instructions need not be requested again
+when they already authorize that operation.
+
+
+## Entry-owned recovery (`entry-recovery/v1`)
+
+Runtime blocked/conflict results with a code expose `entry_recovery`; coded CLI
+errors retain the original first line and append the same guidance as JSON.
+`skill_terminal: false` means the rejection itself does not finish the invocation,
+not that every external failure can be repaired automatically. The host must inspect
+state, use supported typed recovery and resume the original intent. Existing
+`policy_route` and `recovery_route` supply concrete operations where available.
+Ask only for an undetermined choice/authority or a concrete external prerequisite
+that internal recovery cannot restore. Never treat guidance as a committed mutation.
+
+`global-gates.ordinary_attempt_admission` exposes the effective attempt identity,
+its blocked predecessor, whether a new attempt is needed, whether budget
+continuation is due, and the inherited step. This same computation binds budget
+decisions and preflight admission, including scope-amendment inheritance. A ready
+attempt already admitted before an amendment is reused without another budget grant.
+Engineering invocation replacement and confirmed evidence-plan amendment extend
+capacity for their required revalidation within their existing atomic transaction;
+the old attempts and the amendment's reason/approval remain in history.
+
+
+## Shared driver: `run-entry`
+
+`node .workflow-system/vnext/runtime/cli.js run-entry --root .` accepts JSON:
+
+```json
+{
+  "invocation": {
+    "id": "caller-stable-invocation-id",
+    "entry": "execute-step",
+    "intent": "Implement the confirmed current step",
+    "decision_source": "current-user-message",
+    "decision_text": "Execute the current step."
+  },
+  "operation": {
+    "command": "preflight-step",
+    "input": {"candidate_paths": ["src/example.ts"]}
+  }
+}
+```
+
+The driver runs the existing local CLI with an argument array, no shell, using
+the same project root. `operation.args` carries existing command flags and cannot
+change the root. Nested `run-entry` is unavailable. Existing Runtime checks and
+atomic writers remain authoritative. This wrapper does not execute product commands
+or infer natural-language choices; the invoking agent supplies those judgments.
+
+The result is `entry-operation-result/v1`: `operation-complete` or
+`recovery-required`, the original operation, full underlying result, and an ordered
+`recovery_history`. Neither status alone marks the Skill complete. For recovery,
+supply `recovery: {reason, operations: [{command, args?, input?}]}` with the next
+operation. The driver executes the recovery actions in order and then that operation;
+a failed action returns to the agent within the same invocation. For dependencies
+on freshly returned candidate/receipt IDs, use successive driver calls, consuming
+the returned result before preparing the next call. Never resend already completed
+non-idempotent actions just because a later action failed. Use stable keys supported
+by the underlying operations. No parallel canonical task store is introduced.
+
+For ordinary `execute-step` preflight/retry budget exhaustion, the agent supplies
+`budget_analysis: {document_id, plan_revision, attempt_id, evidence_refs}`. Obtain
+the proposed attempt from `global-gates.ordinary_attempt_admission`; write the
+failure/necessity/changed-approach analysis to ordinary task evidence and reference
+it here. References must name nonempty local files. The driver checks the task,
+plan and attempt, records the existing instruction through the user-decision
+transaction, and retries with its decision ID. A pending eligible blocked review
+is included in the same decision. Existing recorded continuation is reused after
+interruption, rather than manufacturing a new grant. Analysis is caller-reported
+agent evidence, not new user speech. The driver does not ask the user to renew
+an instruction merely because a counter is exhausted. Repair-wave/finding quotas
+retain their existing extension commands, selected by the agent in recovery actions.
+
+Errors crossing the execute adapter retain the original Kernel code, routes and
+commit information. Recovery guidance does not assert that an error means no write
+occurred: inspect/reconcile retained transactions before replaying business work.
+
+
+### Bounded driver receipts
+
+`run-entry` sends child stdout/stderr directly to files, without an `execFile`
+output-buffer quota. Large output does not terminate the child at a fixed byte
+threshold. Internal JSON parsing still uses memory; this is not a claim of bounded
+internal hydration cost or immunity to disk/memory exhaustion.
+
+The default response is a compact summary, `outcome_ref` for the full outcome and
+`detail_ref` for invocation/recovery metadata. Recovery history contains references
+instead of repeating operation inputs and outcomes. Full receipts remain in private
+per-run directories under the host temporary directory's `vnext-entry-results`.
+These are transport artifacts, not canonical task state or permanent evidence.
+Do not rerun business operations merely because a temporary artifact was removed;
+recover the original result from canonical Runtime state using its original key.
+
+Use `entry-output-read` with stdin:
+
+```json
+{"reference": {"path": "<returned path>", "sha256": "<returned digest>", "bytes": 12345}, "offset": 0, "max_bytes": 8192}
+```
+
+Read `content` pages and continue with `next_offset` until null. Offsets preserve
+UTF-8 boundaries; the reference digest prevents mixing changed receipts. Page size
+is between 256 and 65536 bytes of content, with an 8192-byte default. This controls
+only the read response, never business execution, recovery attempts, or output
+retention. The full Kernel result and its routes are in `outcome_ref`; read them
+before constructing dependent requests instead of relying on shortened messages.

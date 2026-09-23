@@ -10,8 +10,8 @@ runtime_state:
   task_evolution_version: 2
   task_id: "002"
   task_slug: rollout
-  workflow_status: active
-  lifecycle_state: active
+  workflow_status: closed
+  lifecycle_state: archived
   resume_requires_review: false
   resume_review_reasons: []
   active_step_id: S3
@@ -4493,8 +4493,8 @@ task_store:
 - 任务 ID：002
 - 任务标题：修复 rollout 采集阻断并验证隔离闭环。
 - 任务 slug：rollout
-- 当前状态：active
-- 生命周期状态：active
+- 当前状态：closed
+- 生命周期状态：archived
 - 恢复需审查：false
 - 恢复审查原因：
 
@@ -4785,7 +4785,6 @@ task_store:
 - Store-backed history is retained under task-data; use task-read for exact event, proposal, result, and report reads.
 - This section is a bounded navigation preview only; it is not the Runtime fact source.
 
-- record-user-decision | key=entry-budget-c4390383b9ee0e9e490311a937d8e01b3235c18b | at=2026-09-23T01:46:54.636Z
 - step-execution | key=execute-step-result-dc094f9be6d8b45ff6ee84cf43054f604bc82d098b043b63 | step=S3 | status=blocked | at=2026-09-23T01:48:25.305Z
 - record-user-decision | key=entry-budget-090ab6fac1f276e0e21df73258113b6e01264c98 | at=2026-09-23T01:48:51.825Z
 - step-execution | key=execute-step-result-9164b4c577313057945cf5521ffff605bf6af59ecec6a202 | step=S3 | status=in-progress | at=2026-09-23T01:54:20.258Z
@@ -4793,4 +4792,5 @@ task_store:
 - step-execution | key=execute-step-result-a9bd12c81c1666e0722bd8f171e55e0c143e686dcfe219e1 | step=S3 | status=completed | at=2026-09-23T02:19:46.644Z
 - step-execution | key=execute-step-result-5764bc5e970cc8cd6be60dcd31d07dd75804a90d6d2d4dd5 | step=S3 | status=completed | at=2026-09-23T02:33:13.937Z
 - step-execution | key=execute-reviewed-step-01730c5f2375f814b4cb7419727ceebe917a20769e772415 | step=S3 | status=completed | at=2026-09-23T02:42:25.509Z
+- archive | key=close-002-rollout-f8a6635c-20260923 | at=2026-09-23T03:45:00.111Z
 

@@ -30,21 +30,87 @@ entry_contract:
     - mutation-authority-policy
   runtime_operations:
     - task-state-transaction
+    - user-decision-transaction
+  # Candidate interruptions: apply run-entry internal recovery before any terminal result.
   stop_conditions:
     - ordinary checkpoint review lacks a current executed step and verified review target
     - the review cannot be completed read-only
-    - Runtime rejects the review result
+    - after read-back and supported internal recovery, a required external fact or unrecoverable integrity conflict still prevents recording the truthful review result
   output_kind: review-result
 ---
 
 # vNext Skill: review-change
 
+## Invocation authority and internal recovery
 
-The compact-v3 CURRENT_TASK file is only an active navigation projection. Read
-exact definition, authority, obligations and reports through the bounded Runtime
-context/read APIs; do not treat summary text as the complete task or hand-edit
-its immutable task-data material. Legacy task compaction uses the existing
-explicit storage-migration route, never task replan or a size-based blocker.
+recovery_boundary: entry-recovery/v1
+
+The caller's explicit invocation authorizes this entry's stated intent and its
+necessary internal recovery within the existing authority. This entry owns that
+recovery until its requested result is produced or a genuinely undecidable choice
+requires the caller. A Runtime rejection interrupts a candidate operation; it is
+not, by itself, a terminal Skill result, even when listed under stop_conditions.
+
+Read retained state and the rejection, correct stale identity or request shape,
+then use typed diagnostic, review-consumption, preflight, retry or amendment
+operations as needed and resume the original intent. Calling an internal capability
+does not require the user to invoke another public Skill. Do not repeat an unchanged
+rejected request. Preserve failed evidence, findings and disposition history.
+
+Attempt and repair quotas are analysis checkpoints. Inspect previous failures,
+reassess the cause, necessity and next approach, and record the analysis. When the
+existing explicit instruction covers continuation, use its original source/text
+for the supported continuation or budget-extension transaction and proceed; do not
+ask for renewed authorization merely because a counter is exhausted. Keep the
+analysis distinct from the user's words and retain cumulative attempt counts.
+Do not invent risk acceptance, a waiver, or permission beyond that instruction.
+Ask only for a choice or authority that cannot be determined from the instruction
+and available evidence; report the concrete unresolved choice, not just a gate code.
+
+A read-only, review-only or investigate-only entry completes with its requested
+facts/verdict; recovery does not authorize unrelated implementation. For actual
+unavailable dependencies or damaged state, attempt the supported recovery first,
+then report the precise external prerequisite if it cannot be restored internally.
+Never fabricate success or bypass an incomplete atomic commit.
+
+### Shared internal recovery driver
+
+Use Runtime `run-entry --root <project>` for Runtime operations in this entry.
+Send `invocation` (stable `id`, this public `entry`, requested `intent`, original
+`decision_source` and verbatim `decision_text`) and `operation` (`command`,
+optional `args`, semantic JSON `input`). Keep this invocation identity throughout
+internal recovery. The driver executes existing typed Runtime commands, not public
+Skills or product shell commands. Read-only context reads may still be direct.
+
+The driver returns a compact summary and `outcome_ref` / `detail_ref`. Read needed
+full receipts with Runtime `entry-output-read`, supplying the returned `reference`,
+`offset: 0` and `max_bytes: 8192`; follow `next_offset` until null. A page boundary
+is not an execution limit. Do not reconstruct receipts from shortened messages.
+
+An `entry-operation-result/v1` with `recovery-required` is addressed to the agent:
+inspect its original `outcome`, code, commit facts and concrete routes, perform
+analysis, then submit corrected input or a `recovery` plan with `reason` and
+`operations`. The driver stops at the first unresolved operation and returns
+`recovery-applied` after successful recovery operations. Read canonical state and
+the retained receipts, then resume only an original operation still needed for
+this invocation. Never replay an operation reported as committed merely because
+its reply was interrupted; reconcile that transaction first.
+`operation-complete` means that operation finished, not that this Skill's intent
+is complete. Continue until its actual requested result is available.
+
+For ordinary execute-step retry budget exhaustion, supply `budget_analysis` with
+`document_id`, `plan_revision`, the proposed `attempt_id` from global-gates, and
+`evidence_refs` to retained analysis of failures, necessity and the next approach.
+The driver records continuation using the original instruction, increases the
+attempt allowance through the existing transaction, and retries the operation
+with the resulting decision ID. No renewed user instruction is needed. Other
+repair/wave quotas use their typed extension operations in `recovery.operations`.
+Evidence and analysis are the agent's responsibility, never invented user speech.
+
+Before returning any blocked result, classify it: an internal operation awaiting
+recovery stays in this invocation; an unresolved user choice must state the actual
+alternatives; an unavailable external prerequisite must name what internal
+recovery could not restore. Completed reports/verdicts remain legitimate outcomes.
 
 ## Intent
 
@@ -113,7 +179,7 @@ material contested until assessed; dismissal requires evidence, not convenience.
 
 1. For an ordinary checkpoint, ask Runtime `review-context` for the successful `implemented` or `test-red` execution awaiting a required review checkpoint, the semantic boundary of Runtime-recorded cumulative change set, complete file index and bounded text diff, acceptance, validation evidence, the v1 mutation scope or v2 authority envelope, planned targets, current-execution dynamic expansions, Persistent Tests, and any admitted findings. The index and summaries are delivered in bounded form; if `complete_for_operation` is false, read every named block through `task-read`/`review-read` before judging the change. A summary omission is not a clean result. Review only that target and context. A blocked execution, a step without a review checkpoint, or an already completed step is not reviewable. When Runtime classifies a v2 expansion as requiring dynamic review, that cumulative review is mandatory even when the ordinary step checkpoint is `not-required`; a clean review consumes only the expansions bound to this execution identity and retains their review association in history. For new counterevidence to a previously completed result, inspect the exact claim/slot/result and retained source, then use `record-evidence-challenge` with a repository-relative evidence file and its SHA-256. This records `contested`, not an automatic invalidation or a new review verdict. If a contested challenge is demonstrably not substantiated, use `dismiss-evidence-challenge` with a hashed assessment file explaining why; retain the old report and challenge. Do not call `record-review-result` for a nonexistent current execution.
 2. Check step compliance, planned-vs-actual footprint, authority admission, every dynamic assessment, implementation or test correctness, acceptance coverage, validation evidence, unauthorized persistent-test changes, and regression risk. For historical `test-red`, verify that only frozen test assets were admitted, the assertions encode the required behavior, and the recorded failure is caused by missing behavior rather than syntax, type, import, fixture, tool, unrelated-test, or environment failure; Red carries no final acceptance evidence. New flexible execution requires no Red; explicit prerequisites use S2 bound reports and consumption receipts and must not be waived by review.
-3. In discovery, report all clear repairable findings together. In verification, verify the admitted findings and affected regression surface; report any newly discovered issue without widening the repair yourself.
+3. In discovery, report all clear repairable findings together, including a finding whose file lies outside current mutation or step authority. Runtime records that finding with `repair_scope_hint: outside-current-authority`; the warning is not mutation permission. In verification, verify the admitted findings and affected regression surface; report any newly discovered issue without widening the repair yourself.
    When the review verifies an admitted finding is resolved, include its exact
    fingerprint in `resolved_fingerprints`; do not report it as unresolved merely
    to compensate for a stale queue projection. New findings remain pending
@@ -122,7 +188,23 @@ material contested until assessed; dismissal requires evidence, not convenience.
    - `clean`: the recorded change is acceptable.
    - `findings`: include specific file, failure condition, required behavior, root-cause confidence, and evidence for each repairable issue.
    - `blocked`: include the blocker and recommended route when review or convergence cannot proceed safely.
-5. Include `test_assessment: {applicable,reason,evidence_refs,necessity,oracle,boundary,reuse,applicability}` with explicit conclusions and supporting references. Read the cumulative delta; use `review-read` with its context receipt for unexpanded files and needed before/after ranges. Follow continuations before judging the relevant content; unavailable content is not clean. Do not replace dirty baselines with Git HEAD. Use `file-context` to locate/read reused tests and their dependencies; see `.workflow-system/runtime/support/CONTEXT_API.md` for inputs and limits. Check the original request and P-12 necessity/owner; whether expectations are independently specified; weak assertions and self-validation; mocks/fixtures versus real integration; reused test/claim mappings; current report and fixture versions. For an existing test file admitted through v2 discovery, explicitly assess oracle/reuse/boundary and any changed assertion oracle. A production constant can supply input, but an expectation that changes with the same defective constant cannot independently detect that defect. Test files need not change for reused checks or fixture changes to trigger these dimensions. Verify that each report is bound to its exact claim/slot/check: many PASS results, or one command PASS, do not increase assurance for an unrelated claim. Check the frozen selection remains minimum-sufficient, flag broad/whole-target/E2E evidence without its recorded basis, and reject a business-flow claim whose real boundary was bypassed by unit tests, mocks, or fixtures. Local rule success cannot replace missing/failed required flow evidence. Use one verdict for the mixed diff. Runtime validates structure and binding, not the truth of this caller-reported judgment.
+   `record-review-result` records these facts only. If the user chooses what to
+   do with a finding, use the internal `record-user-decision` transaction with
+   the exact task/source revision and, when applicable, review/change-set and
+   finding fingerprints. `repair-finding`, `defer-finding`, `reject-finding`,
+   `accept-finding-risk`, `reopen-finding`, and exact-path `authorize-mutation` are distinct audited effects;
+   Runtime must not infer them from prose. A mixed decision may repair A and
+   defer C. A disposition alone preserves the pending review and step. Only
+   when the user separately authorizes advancement, use
+   `advance-with-exceptions`, naming every remaining finding and blocker after
+   all current review findings have durable dispositions; it produces a disposition receipt, never a
+   fabricated `clean` result. A reopened finding must receive a fresh repair
+   handoff and cannot reuse an old clean review. To repair a range-out finding,
+   record a separate `authorize-mutation` decision for sorted exact paths from
+   the pending review, then pass its decision ID to `prepare-task:amend-scope`.
+   A defer/reject/accepted-risk disposition needs no scope amendment.
+5. Treat process-policy blockers as explicit decision points, not as evidence that the review has no conclusion. Preserve every finding, unresolved/resolved fingerprint, failed or not-run check, and blocker in the structured review. If the user authorizes continuation, use the Runtime-declared `record-user-decision` route and bind the exact task/source revision plus review/change-set and target IDs; Runtime may continue only that operation. Fact, identity, receipt, target, and replay conflicts remain hard rejects. A skipped check remains `not-run` (or its actual failed/blocked result) and any advancement is a disposition with exceptions, never `clean`.
+6. Include `test_assessment: {applicable,reason,evidence_refs,necessity,oracle,boundary,reuse,applicability}` with explicit conclusions and supporting references. Read the cumulative delta; use `review-read` with its context receipt for unexpanded files and needed before/after ranges. Follow continuations before judging the relevant content; unavailable content is not clean. Do not replace dirty baselines with Git HEAD. Use `file-context` to locate/read reused tests and their dependencies; see `.workflow-system/runtime/support/CONTEXT_API.md` for inputs and limits. Check the original request and P-12 necessity/owner; whether expectations are independently specified; weak assertions and self-validation; mocks/fixtures versus real integration; reused test/claim mappings; current report and fixture versions. For an existing test file admitted through v2 discovery, explicitly assess oracle/reuse/boundary and any changed assertion oracle. A production constant can supply input, but an expectation that changes with the same defective constant cannot independently detect that defect. Test files need not change for reused checks or fixture changes to trigger these dimensions. Verify that each report is bound to its exact claim/slot/check: many PASS results, or one command PASS, do not increase assurance for an unrelated claim. Check the frozen selection remains minimum-sufficient, flag broad/whole-target/E2E evidence without its recorded basis, and reject a business-flow claim whose real boundary was bypassed by unit tests, mocks, or fixtures. Local rule success cannot replace missing/failed required flow evidence. Use one verdict for the mixed diff. Runtime validates structure and binding, not the truth of this caller-reported judgment.
 6. Send an ordinary verdict to Runtime `record-review-result` on stdin. For an earlier-result challenge, record the challenge or its evidence-bound dismissal through the corresponding Runtime action; a confirmed error requires correction. Do not create proposal or helper files in the project.
 7. Do not repair code or advance the step. A recommendation must not invoke another public Skill.
 

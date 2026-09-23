@@ -34,15 +34,88 @@ entry_contract:
     - resume-review-gate
   runtime_operations:
     - task-state-transaction
+    - user-decision-transaction
+  # Candidate interruptions: apply run-entry internal recovery before any terminal result.
   stop_conditions:
     - the goal, acceptance, or mutation boundary is too unclear to form a bounded draft
     - confirmation is requested while a user-owned design choice remains unresolved
     - a known scope, command, or authority blocker prevents an executable plan
-    - Runtime rejects the proposal or the current task state is not eligible for the requested mode
+    - after read-back and supported internal recovery, a required external fact, genuinely new caller choice, or unrecoverable integrity conflict still prevents the requested mode
   output_kind: prepared-task
 ---
 
 # vNext Skill: prepare-task
+
+## Invocation authority and internal recovery
+
+recovery_boundary: entry-recovery/v1
+
+The caller's explicit invocation authorizes this entry's stated intent and its
+necessary internal recovery within the existing authority. This entry owns that
+recovery until its requested result is produced or a genuinely undecidable choice
+requires the caller. A Runtime rejection interrupts a candidate operation; it is
+not, by itself, a terminal Skill result, even when listed under stop_conditions.
+
+Read retained state and the rejection, correct stale identity or request shape,
+then use typed diagnostic, review-consumption, preflight, retry or amendment
+operations as needed and resume the original intent. Calling an internal capability
+does not require the user to invoke another public Skill. Do not repeat an unchanged
+rejected request. Preserve failed evidence, findings and disposition history.
+
+Attempt and repair quotas are analysis checkpoints. Inspect previous failures,
+reassess the cause, necessity and next approach, and record the analysis. When the
+existing explicit instruction covers continuation, use its original source/text
+for the supported continuation or budget-extension transaction and proceed; do not
+ask for renewed authorization merely because a counter is exhausted. Keep the
+analysis distinct from the user's words and retain cumulative attempt counts.
+Do not invent risk acceptance, a waiver, or permission beyond that instruction.
+Ask only for a choice or authority that cannot be determined from the instruction
+and available evidence; report the concrete unresolved choice, not just a gate code.
+
+A read-only, review-only or investigate-only entry completes with its requested
+facts/verdict; recovery does not authorize unrelated implementation. For actual
+unavailable dependencies or damaged state, attempt the supported recovery first,
+then report the precise external prerequisite if it cannot be restored internally.
+Never fabricate success or bypass an incomplete atomic commit.
+
+### Shared internal recovery driver
+
+Use Runtime `run-entry --root <project>` for Runtime operations in this entry.
+Send `invocation` (stable `id`, this public `entry`, requested `intent`, original
+`decision_source` and verbatim `decision_text`) and `operation` (`command`,
+optional `args`, semantic JSON `input`). Keep this invocation identity throughout
+internal recovery. The driver executes existing typed Runtime commands, not public
+Skills or product shell commands. Read-only context reads may still be direct.
+
+The driver returns a compact summary and `outcome_ref` / `detail_ref`. Read needed
+full receipts with Runtime `entry-output-read`, supplying the returned `reference`,
+`offset: 0` and `max_bytes: 8192`; follow `next_offset` until null. A page boundary
+is not an execution limit. Do not reconstruct receipts from shortened messages.
+
+An `entry-operation-result/v1` with `recovery-required` is addressed to the agent:
+inspect its original `outcome`, code, commit facts and concrete routes, perform
+analysis, then submit corrected input or a `recovery` plan with `reason` and
+`operations`. The driver stops at the first unresolved operation and returns
+`recovery-applied` after successful recovery operations. Read canonical state and
+the retained receipts, then resume only an original operation still needed for
+this invocation. Never replay an operation reported as committed merely because
+its reply was interrupted; reconcile that transaction first.
+`operation-complete` means that operation finished, not that this Skill's intent
+is complete. Continue until its actual requested result is available.
+
+For ordinary execute-step retry budget exhaustion, supply `budget_analysis` with
+`document_id`, `plan_revision`, the proposed `attempt_id` from global-gates, and
+`evidence_refs` to retained analysis of failures, necessity and the next approach.
+The driver records continuation using the original instruction, increases the
+attempt allowance through the existing transaction, and retries the operation
+with the resulting decision ID. No renewed user instruction is needed. Other
+repair/wave quotas use their typed extension operations in `recovery.operations`.
+Evidence and analysis are the agent's responsibility, never invented user speech.
+
+Before returning any blocked result, classify it: an internal operation awaiting
+recovery stays in this invocation; an unresolved user choice must state the actual
+alternatives; an unavailable external prerequisite must name what internal
+recovery could not restore. Completed reports/verdicts remain legitimate outcomes.
 
 ## Bounded task context protocol
 
@@ -385,13 +458,14 @@ transaction use this same qualification. At the limit, report the structured
 reason and the user-owned diagnostic/controlled-recovery decision route; do not
 recommend an extension that the transaction will reject.
 
-For a confirmed must-fix blocker at that boundary, the separate
+At that boundary, the separate
 `authorize-controlled-repair-recovery` command accepts
 `{review_id, recovery_fingerprints, recovery_basis, decision_source,
 decision_text, evidence_refs}` plus optional
-`additional_controlled_repair_waves` from 1 through 5 (default 1). The latest
-review must provide the structured finding disposition, unless this is an old
-state using the explicit `legacy-explicit-user` bridge. Runtime binds the
+`additional_controlled_repair_waves` as a positive integer (default 1). The user
+names a nonempty subset of admitted unresolved repair targets; review
+dispositions inform that decision but do not force every exhausted finding
+into the grant. Runtime binds the
 entire current repair set and all task/review/execution/cycle/change-set/target
 identities, records the finite number of separately reviewable controlled
 repair waves, and carries the grant across the linked follow-up reviews. Each
@@ -402,7 +476,24 @@ resolved findings, pending review, evidence and Task Basis history. A
 normally-budgeted finding is not dropped, an already resolved finding is not
 requeued, and a new review finding must complete normal admission. Exact
 replay is a no-op; stale, duplicate, cross-task, over-target and over-quota
-requests stop at the transaction gate.
+requests stop at the transaction gate. An unselected exhausted finding stays
+open; before the full repair wave can execute, record its defer, reject, or
+accepted-risk decision through `record-user-decision` or provide a separate
+applicable budget.
+
+Five waves per grant, five controlled attempts per finding, and one grant per
+review are warning thresholds, not terminal repair limits. To cross one, first
+record a separate `continue-after-warning` user decision bound to the exact
+pending `review_id` and `change_set_id`, with
+`gate_code: CONTROLLED_RECOVERY_LIMIT`, sorted `target_ids` for precisely
+the selected `finding:<fingerprint>` values, and `authorized_repair_waves`
+equal to the requested wave count. Then pass that decision's
+`idempotency_key` as `warning_decision_id` to the grant command. Runtime records
+the raised cumulative controlled-attempt limit, the new finite wave quota and
+the prior grant history. Do not issue a second grant while a prior applicable
+grant still has waves or a repair preflight remains unfinished. Ordinary
+eight-attempt/eight-round limits continue through this controlled route with
+an explicit user authorization; no task reset or fabricated clean is needed.
 
 `FORMAT_CHECK_SCOPE_BLOCKED` is reserved for a format failure reported inside
 the authorized mutable business/product scope. A whole-tree format check that
@@ -414,10 +505,9 @@ waiver, or route the user through evidence-plan amendment solely to exclude
 those paths. Re-run the hygiene check against the authorized mutable paths when
 the confirmed plan requires it. Historical blocked reviews remain truthful and
 may be reviewed as legacy state, but a fresh review must use this scope rule.
-For the legacy bridge, the explicit recovery target must cover every existing
-unresolved finding in the complete repair set with no ordinary attempt
-remaining; a partial request is rejected before the one-per-review grant is
-persisted.
+Legacy reviews without structured dispositions also require an explicit
+nonempty selected target set; Runtime preserves the complete repair set and
+does not infer selection from free text.
 
 In `confirm` mode, submit the user's explicit confirmation through
 `confirm-draft` with the exact confirmation receipt returned by the committed
@@ -474,7 +564,15 @@ paths and, for any absent new persistent test, a complete caller-provided
 `owner_source`, `source_ref`, `basis`, `existing_evidence_insufficiency`,
 `assertion_boundary`, and `failure_disposition`; pass the user's original
 decision source and verbatim text only when authority actually expands to
-another domain or exact exception. Runtime computes and verifies its immutable
+another domain or exact exception. If `record-user-decision` already retained
+a review-bound `authorize-mutation` for the requested finding paths, pass
+`authorization: {decision_id: <idempotency_key>}` instead of re-entering the
+decision text. Runtime verifies the recorded exact paths and that the
+decision's `review_id` and `change_set_id` still identify the current pending
+review, then preserves the decision ID and binding in the candidate, receipt,
+and commit audit. The same binding is revalidated at commit; after the review
+ends or changes, record a new review-bound decision instead of reusing the old
+one. Runtime reuses that authorization in the same scope-amendment transaction. Runtime computes and verifies its immutable
 candidate internally, preserves old definitions/findings/obligations and
 budget, and retains the existing v1 pending-review preservation behavior. An
 in-envelope P-12-only transition has `authority_diff: none`; it is a real
