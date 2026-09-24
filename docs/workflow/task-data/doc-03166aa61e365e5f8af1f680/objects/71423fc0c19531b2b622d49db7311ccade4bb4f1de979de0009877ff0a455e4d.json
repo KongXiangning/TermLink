@@ -1,0 +1,1 @@
+{"document_id":"doc-03166aa61e365e5f8af1f680","kind":"vnext-task-object","object_type":"other","payload":{"kind":"vnext-task-material/v1","value":"## 受影响的契约\n\n- docs/codex/codex-history-product-contract.md#历史 DTO 与路径策略 — 新增当前产品历史存储/读取契约；旧 DTO 草案保留历史参考\n\n"},"schema_version":1}

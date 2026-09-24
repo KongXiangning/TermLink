@@ -1,0 +1,1 @@
+{"document_id":"doc-03166aa61e365e5f8af1f680","kind":"vnext-task-object","object_type":"result","payload":{"committed":true,"idempotency_key":"task003-v1-to-v2-96d3019c2e6a0e56a5a4","message":"Task 003 authority model converted to v2; step, evidence, and history retained.","operation_kind":"task-state-transaction","status":"success"},"schema_version":1}
