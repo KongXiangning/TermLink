@@ -1,0 +1,77 @@
+---
+title: Node Codex 产品历史 Gateway 只读接入 - 变更记录
+status: draft
+record_id: CR-20260923-codex-history-product-gateway-s3
+req_id: none
+commit_ref: TBD
+owner: @maintainer
+last_updated: 2026-09-24
+source_of_truth: code
+related_code: [src/services/codexHistoryProductProvider.js, src/services/codexHistorySyncService.js, src/ws/terminalGateway.js, src/server.js, tests/codexHistoryProductFlow.test.js]
+related_docs: [docs/codex/codex-history-product-contract.md, docs/codex/codex-rollout-collector-architecture.md, docs/workflow/task-basis/TASK_BASIS-003.md]
+---
+
+# CR-20260923-codex-history-product-gateway-s3
+
+## 1. 变更意图（Compact Summary）
+
+- 背景：S2 已提供 Node canonical SQLite projection，但历史 Gateway 尚未从产品数据库读取，分页与工具详情也未接通。
+- 目标：完成 S3 产品 DB 只读 provider 接入，支持 range tail/older page、详情分块、路径保留与大 payload 边界。
+- 本次边界：只读 `readConversation()`；不触发 Rust/source read、不改健康 IPC authority、follower lifecycle、Android 或既有 history 控制消息。
+
+## 2. 实施内容（What changed）
+
+1. 新增产品历史 provider：映射 baseline item 与 tool detail refs，使用绑定 conversation/range/anchor 的分页 cursor，详情按 UTF-8 分块并过滤采集内部元数据与内联图片 data URL。
+2. Gateway 优先读取已存在的产品 canonical 行；查无行时保留原 snapshot/recovery 路由，产品 DB 读取错误则 fail closed。older page 复用既有控制协议，详情通过同一已鉴权 WebSocket session 和 selection-generation fence 提供。
+3. 启动时初始化 S2 Store；同步服务将 detail refs 纳入 DTO，并对不支持 chunk 的旧客户端拒绝超 inline limit 的单项。
+4. 更新产品历史契约并增加 provider、Gateway、分页、详情、路径过滤与 payload 上限验证。
+
+## 3. 影响范围（Files/Modules/Runtime）
+
+- `src/services/codexHistoryProductProvider.js`：产品 projection 映射、range cursor、详情分页与路径/媒体策略。
+- `src/services/codexHistorySyncService.js`：wire detail refs/availability，旧客户端大 item fail closed。
+- `src/ws/terminalGateway.js`：产品 baseline、older page 与详情请求路由；保留 realtime IPC surface 独立投递。
+- `src/server.js`：启动初始化 SQLite Store 并注入 Gateway。
+- `tests/codexHistoryProductFlow.test.js`：产品历史 Provider/Gateway 与边界测试。
+- `docs/codex/codex-history-product-contract.md`：记录 S3 读取、分页、详情、路径和大小边界。
+- `docs/changes/records/CR-20260923-codex-history-product-gateway-s3.md`：本变更记录。
+
+## 4. 回滚方案（命令级）
+
+```powershell
+# 恢复承载本变更的提交
+git revert <commit_ref>
+
+# 如只需恢复单文件，按该提交的实际文件列表逐一恢复
+git restore --source=<commit_ref>^ -- src/services/codexHistoryProductProvider.js src/services/codexHistorySyncService.js src/ws/terminalGateway.js src/server.js tests/codexHistoryProductFlow.test.js docs/codex/codex-history-product-contract.md docs/changes/records/CR-20260923-codex-history-product-gateway-s3.md
+```
+
+不得删除或覆盖已有产品数据库；回滚只撤销 provider/Gateway 代码，不回滚持久化数据。
+
+## 5. 验证记录（Tests/Checks）
+
+- `node --test --test-name-pattern=product-history-read tests/codexHistoryProductFlow.test.js`：通过，5 passed / 0 failed。覆盖 canonical tail 与 older page、真实事件路径保留/内部 source metadata 过滤、详情 cursor 分块与 image data URL 移除、最多 64 个 detail refs、约 192 KiB 页估算，以及不支持 chunks 的旧客户端 fail closed。Gateway 集成请求返回 `product_db` range 与详情页，且没有调用 `thread/read`。
+- `node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js`：通过，139 passed / 0 failed。既有 Owner/IPC surface 回归保持通过。
+- 首次冻结的 Android JDK 21 JVM 命令：失败于 Gradle 配置，exit 1；`android/app/capacitor.build.gradle` 无法读取缺失的 `android/capacitor-cordova-android-plugins/cordova.variables.gradle`，未进入指定 JVM 测试类执行。该次尝试没有写入工作区 `android/**`。
+- 重试（2026-09-24；`attempt-cae1880c99c282101a2ca1edf8ac3dbd9a2cee6f`）：经用户授权，`npm run android:sync` 在隔离临时工程副本 `C:\Users\kongx\AppData\Local\Temp\termlink-s3-android-sync-d41880d6558d4b14a6d870e31d1a633d` 中成功，生成缺失的 Cordova Gradle 输入；工作区 `android/**` 未写入，缺失文件在工作区仍不存在。随后在全新临时 TEMP/build 根目录执行同一冻结 JDK 21 JVM 命令，Gradle `BUILD SUCCESSFUL`，55 项任务实际执行、1 项 up-to-date；六个指定测试 suite 共 261 tests，0 failures / 0 errors / 0 skipped。此次 fresh-root 结果是 Android 门禁通过证据；此前 `UP-TO-DATE` 的运行不作为通过证据。临时测试 XML 位于 `C:\Users\kongx\AppData\Local\Temp\termlink-task003-fresh-jvm-cc99410309dc401aa3de9534adbea95d\termlink-task003-android-build\_app\test-results\testDebugUnitTest`。
+- 环境恢复报告：`docs/changes/records/evidence/task003-s3-android-environment-restored-20260924.json`。
+- 证据引用：本节记录了本步骤三项冻结验证的首次失败与重试实际结果；Android 环境恢复事实另见上述报告。
+
+### S3 review finding repair（2026-09-24）
+
+- 修复 `finding-6c4a8b51e3251ed7bbdf3fb45f8f62f6`：仅在 item/detail payload 顶层剔除采集元数据；嵌套工具输出中的 `requestId`、`diagnostic`、`sourcePath`、`checkpoint` 和 `source_ref` 作为事件事实保留。新增定向断言同时验证顶层内部字段仍被剔除。
+- 修复 `finding-c2c8050bb1f1544ada9961c723ca8de7`：过滤带 MIME 参数的 base64 及 percent-encoded 的 image data URL；item 和详情正文均以 `null` 占位，并标记 partial / unsupported。产品契约明确这两种形式和顶层元数据边界。
+- `node --test --test-name-pattern=product-history-read tests/codexHistoryProductFlow.test.js`：7 passed / 0 failed，含两项 finding 的新业务断言。
+- `node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js`：139 passed / 0 failed。
+- 冻结 JDK 21 Android JVM 命令在已完成 `android:sync` 的隔离工程中重新执行，使用全新 `TEMP` / Gradle / build 根目录 `C:\Users\kongx\AppData\Local\Temp\termlink-task003-s3-repair-jvm-78281dd9cff54766b636fa265b7dab6f`：`BUILD SUCCESSFUL`，55 项任务实际执行、1 项 up-to-date；6 个指定测试 suite 共 261 tests，0 failures / 0 errors / 0 skipped。工作区 `android/**` 未写入。
+
+## 6. 后续修改入口（How to continue）
+
+- S4 从 `src/services/codexHistoryProductStore.js` 与现有采集 service 接通 Rust complete/coverage/checkpoint 校验、ACK 和 canonical publication。
+- App 后续读取仍应遵循本契约中的现有 history DTO 与控制协议边界。
+
+## 7. 风险与注意事项
+
+1. Store 当前 `readConversation()` 将该 conversation 的 canonical projection 载入内存；本步骤限制 WebSocket 响应页和 chunk 大小，不改变 SQLite 读取实现。
+2. 详情读取仅限已鉴权 WebSocket session 与当前 selection generation；cursor 变化、锚点丢失或超限均 fail closed。
+3. `commit_ref` 提交前保持 `TBD`；本执行步骤不创建提交。

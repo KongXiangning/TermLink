@@ -21,6 +21,10 @@ const {
 } = require('../services/codexWsSnapshotScheduler');
 const { CodexHistorySyncService, toWireItem } = require('../services/codexHistorySyncService');
 const { CodexHistoryBaselineProvider } = require('../services/codexHistoryBaselineProvider');
+const {
+    CodexHistoryProductProvider,
+    PRODUCT_HISTORY_PROVIDER_IDENTITY
+} = require('../services/codexHistoryProductProvider');
 const { CodexHistorySnapshotStore } = require('../services/codexHistorySnapshotStore');
 const {
     projectMobileSurface,
@@ -1356,7 +1360,9 @@ function registerTerminalGateway(wss, {
     // Route 3 is an additive, one-shot replay/gap assessment. It may reuse
     // already cached server data but never starts a new canonical source read.
     historyLiveReplayEnabled = true,
-    historySnapshotStore = null
+    historySnapshotStore = null,
+    historyProductStore = null,
+    historyProductProvider = null
 }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
@@ -1704,6 +1710,7 @@ function registerTerminalGateway(wss, {
     };
 
     const _shouldPreserveRecoveryBaseline = (baseline, incomingSurface) => {
+        if (baseline?.sourceKind === 'product_history') return true;
         if (!baseline || baseline.sourceKind !== 'history_recovery') return false;
         // An owner/IPC surface is a bounded live tail. It is never allowed to
         // replace a full recovery baseline; the live tail is delivered through
@@ -1757,7 +1764,9 @@ function registerTerminalGateway(wss, {
                 existingItemCount: Array.isArray(existingBaseline.items) ? existingBaseline.items.length : 0,
                 incomingSourceKind: sourceKind,
                 incomingItemCount: Array.isArray(surface?.items) ? surface.items.length : 0,
-                reason: 'realtime_surface_cannot_replace_recovery_baseline'
+                reason: existingBaseline.sourceKind === 'product_history'
+                    ? 'realtime_surface_cannot_replace_product_history'
+                    : 'realtime_surface_cannot_replace_recovery_baseline'
             }, 'info');
             return Promise.resolve({ skipped: true, preserved: true });
         }
@@ -1790,7 +1799,9 @@ function registerTerminalGateway(wss, {
                         existingItemCount: Array.isArray(currentBaseline.items) ? currentBaseline.items.length : 0,
                         incomingSourceKind: pendingSourceKind,
                         incomingItemCount: Array.isArray(pendingSurface?.items) ? pendingSurface.items.length : 0,
-                        reason: 'realtime_projection_completed_after_recovery'
+                        reason: currentBaseline.sourceKind === 'product_history'
+                            ? 'realtime_projection_cannot_replace_product_history'
+                            : 'realtime_projection_completed_after_recovery'
                     }, 'info');
                     return;
                 }
@@ -1946,6 +1957,14 @@ function registerTerminalGateway(wss, {
         readPaginatedTurns: (conversationId, options) => requestHistoryTurns(conversationId, options),
         mediaStore
     });
+    const productHistoryProvider = historyProductProvider || (
+        historyProductStore
+            ? new CodexHistoryProductProvider({
+                store: historyProductStore,
+                detailEnvelopeBytes: 112 * 1024
+            })
+            : null
+    );
 
     const _getHistorySelectionCycle = (ws) => _ipcHistorySelectionCycles.get(ws) || null;
 
@@ -2074,6 +2093,106 @@ function registerTerminalGateway(wss, {
             selectionGeneration: context.selectionGeneration,
             clientSelectionGeneration
         });
+    };
+
+    const _tryStartProductHistorySync = async ({
+        ws,
+        conversationId,
+        syncId,
+        checkpoint,
+        cacheSchemaVersion,
+        rangeSegments,
+        selectionGeneration,
+        clientSelectionGeneration
+    }) => {
+        if (!productHistoryProvider) return false;
+        const context = {
+            syncId,
+            conversationId,
+            selectionGeneration,
+            clientSelectionGeneration
+        };
+        let productHistory;
+        try {
+            productHistory = await withHistoryRecoveryTimeout(
+                productHistoryProvider.readInitial(conversationId, {
+                    rangeEnabled: rangeSegments.enabled === true
+                }),
+                HISTORY_RECOVERY_TIMEOUT_MS
+            );
+        } catch (error) {
+            const detailCode = error?.code === 'HISTORY_RECOVERY_TIMEOUT'
+                ? 'history_product_timeout'
+                : 'history_product_read_failed';
+            _sendHistorySyncFailure(ws, context, detailCode);
+            diagnosticLog.error('server', 'server.codex.history.product_read.failed', error, {
+                conversationKey: diagnosticKey(conversationId),
+                syncId,
+                selectionGeneration,
+                detailCode
+            });
+            return true;
+        }
+        if (!productHistory) return false;
+
+        const cycle = _getHistorySelectionCycle(ws);
+        if (!cycle || !_isCurrentHistorySelectionCycle(ws, conversationId, selectionGeneration) || cycle.deadlineReached) {
+            _sendHistorySyncFailure(ws, context, cycle?.deadlineReached ? 'history_selection_deadline' : 'stale_selection');
+            return true;
+        }
+
+        cycle.staticSnapshotActive = true;
+        cycle.recoveryState = 'static_snapshot';
+        _clearHistorySelectionDeadlineTimer(cycle);
+        cycle.deadlineAt = Number.POSITIVE_INFINITY;
+        _ipcHistorySyncContexts.set(ws, context);
+
+        try {
+            historySyncService.registerBaselineItems(conversationId, productHistory.items, {
+                complete: productHistory.complete === true,
+                baselineSourceKind: 'product_history',
+                resultKind: productHistory.resultKind,
+                rangeMetadata: productHistory.range,
+                hasMoreBefore: productHistory.range?.hasMoreBefore === true,
+                coverageComplete: productHistory.coverageComplete === true,
+                syncOutcome: productHistory.coverageComplete === true ? 'synced' : 'partial',
+                syncOutcomeDetail: productHistory.coverageComplete === true ? null : 'product_history_partial'
+            });
+            const started = historySyncService.startSync({
+                ws,
+                conversationId,
+                syncId,
+                checkpoint: checkpoint || {},
+                cacheSchemaVersion,
+                rangeSegments,
+                selectionGeneration,
+                clientSelectionGeneration
+            });
+            diagnosticLog.event('server', 'server.codex.history.product_read.started', {
+                conversationKey: diagnosticKey(conversationId),
+                syncId,
+                selectionGeneration,
+                itemCount: productHistory.items.length,
+                resultKind: productHistory.resultKind,
+                rangeEnabled: rangeSegments.enabled === true,
+                ok: started.ok,
+                state: started.state || null,
+                detailCode: started.detailCode || null
+            }, started.ok ? 'info' : 'warn');
+            if (!started.ok) {
+                _ipcHistorySyncContexts.delete(ws);
+                _sendHistorySyncFailure(ws, context, started.detailCode || 'history_product_sync_failed');
+            }
+        } catch (error) {
+            _ipcHistorySyncContexts.delete(ws);
+            _sendHistorySyncFailure(ws, context, 'history_product_sync_failed');
+            diagnosticLog.error('server', 'server.codex.history.product_sync.failed', error, {
+                conversationKey: diagnosticKey(conversationId),
+                syncId,
+                selectionGeneration
+            });
+        }
+        return true;
     };
 
     // This shares the backward-compatible history state envelope but never
@@ -7461,6 +7580,17 @@ function registerTerminalGateway(wss, {
                                 selectionGeneration: currentSelectionGeneration,
                                 clientSelectionGeneration
                             }, 'stale_selection');
+                        } else if (productHistoryProvider && await _tryStartProductHistorySync({
+                            ws,
+                            conversationId,
+                            syncId,
+                            checkpoint: envelope.checkpoint || {},
+                            cacheSchemaVersion: envelope.cacheSchemaVersion,
+                            rangeSegments,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration
+                        })) {
+                            return;
                         } else if (snapshotSegments.enabled) {
                             const cycle = _getHistorySelectionCycle(ws);
                             if (!cycle || !_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
@@ -7817,6 +7947,9 @@ function registerTerminalGateway(wss, {
                             hasRangeId: Boolean(rangeId)
                         }, 'info');
                         const failOlder = (detailCode) => _sendHistorySyncFailure(ws, context, detailCode);
+                        const expectedProviderIdentity = providerMode === 'product_db'
+                            ? PRODUCT_HISTORY_PROVIDER_IDENTITY
+                            : HISTORY_RECOVERY_PROVIDER_IDENTITY;
                         if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
                             failOlder('conversation_not_active');
                         } else if (!_clientSelectionGenerationMatches(
@@ -7828,9 +7961,13 @@ function registerTerminalGateway(wss, {
                             failOlder('stale_selection');
                         } else if (!rangeSegments.enabled || !cursor || checkpoint.hasMoreBefore !== true || !rangeId) {
                             failOlder('history_older_unavailable');
-                        } else if (providerMode && providerMode !== 'paginated') {
+                        } else if (providerMode && providerMode !== 'paginated' && providerMode !== 'product_db') {
                             failOlder('history_older_unsupported');
-                        } else if (providerIdentityHash && providerIdentityHash !== HISTORY_RECOVERY_PROVIDER_IDENTITY) {
+                        } else if (providerMode === 'product_db' && (
+                            !productHistoryProvider || providerIdentityHash !== PRODUCT_HISTORY_PROVIDER_IDENTITY
+                        )) {
+                            failOlder('history_older_provider_mismatch');
+                        } else if (providerIdentityHash && providerIdentityHash !== expectedProviderIdentity) {
                             failOlder('history_older_provider_mismatch');
                         } else {
                             const cycle = _getHistorySelectionCycle(ws);
@@ -7838,18 +7975,20 @@ function registerTerminalGateway(wss, {
                                 failOlder('stale_selection');
                                 return;
                             }
-                            const flightKey = `${conversationId}\u0000${rangeId}\u0000${cursor}`;
+                            const flightKey = `${providerMode || 'paginated'}\u0000${conversationId}\u0000${rangeId}\u0000${cursor}`;
                             let flight = _historyOlderFlights.get(flightKey);
                             if (!flight) {
                                 const providerPromise = withHistoryRecoveryTimeout(
-                                    historyBaselineProvider.build(conversationId, {
-                                        historyMode: 'paginated',
-                                        cursor,
-                                        rangeKind: 'older',
-                                        rangeSegments,
-                                        providerIdentityHash: HISTORY_RECOVERY_PROVIDER_IDENTITY,
-                                        timeoutMs: HISTORY_RECOVERY_TIMEOUT_MS
-                                    }),
+                                    providerMode === 'product_db'
+                                        ? productHistoryProvider.readOlderPage(conversationId, { cursor, rangeId })
+                                        : historyBaselineProvider.build(conversationId, {
+                                            historyMode: 'paginated',
+                                            cursor,
+                                            rangeKind: 'older',
+                                            rangeSegments,
+                                            providerIdentityHash: HISTORY_RECOVERY_PROVIDER_IDENTITY,
+                                            timeoutMs: HISTORY_RECOVERY_TIMEOUT_MS
+                                        }),
                                     HISTORY_RECOVERY_TIMEOUT_MS
                                 );
                                 flight = providerPromise;
@@ -7875,6 +8014,10 @@ function registerTerminalGateway(wss, {
                                     failOlder(sameAnchor ? 'history_older_anchor_conflict' : 'history_older_page_invalid');
                                     return;
                                 }
+                                if (providerMode && resultRange.providerMode !== providerMode) {
+                                    failOlder('history_older_provider_mismatch');
+                                    return;
+                                }
                                 const nextOlderCursor = resultRange.nextOlderCursor;
                                 const cursorShapeValid = nextOlderCursor === null || (
                                     typeof nextOlderCursor === 'string' && nextOlderCursor.trim().length > 0
@@ -7890,7 +8033,11 @@ function registerTerminalGateway(wss, {
                                     failOlder('history_older_cursor_repeat');
                                     return;
                                 }
-                                if (resultRange.providerIdentityHash && resultRange.providerIdentityHash !== HISTORY_RECOVERY_PROVIDER_IDENTITY) {
+                                if (providerMode === 'product_db' && resultRange.providerIdentityHash !== PRODUCT_HISTORY_PROVIDER_IDENTITY) {
+                                    failOlder('history_older_provider_mismatch');
+                                    return;
+                                }
+                                if (resultRange.providerIdentityHash && resultRange.providerIdentityHash !== expectedProviderIdentity) {
                                     failOlder('history_older_provider_mismatch');
                                     return;
                                 }
@@ -7918,6 +8065,12 @@ function registerTerminalGateway(wss, {
                             } catch (error) {
                                 failOlder(error?.code === 'HISTORY_RECOVERY_TIMEOUT'
                                     ? 'history_older_timeout'
+                                    : error?.code === 'history_older_cursor_invalid'
+                                        ? 'history_older_cursor_invalid'
+                                        : error?.code === 'history_older_cursor_stale'
+                                            ? 'history_older_cursor_stale'
+                                            : error?.code === 'history_product_not_found'
+                                                ? 'history_older_unavailable'
                                     : error?.code === 'HISTORY_RECOVERY_OLDER_UNSUPPORTED'
                                         ? 'history_older_unsupported'
                                         : error?.code === 'HISTORY_RECOVERY_OLDER_CURSOR_INVALID'
@@ -7926,6 +8079,86 @@ function registerTerminalGateway(wss, {
                                 diagnosticLog.error('server', 'server.codex.history.older.failed', error, {
                                     conversationKey: diagnosticKey(conversationId),
                                     syncId,
+                                    selectionGeneration: currentSelectionGeneration
+                                });
+                            }
+                        }
+                    } else if (type === 'conversation_history_detail_request') {
+                        const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
+                        const refId = isNonEmptyString(envelope.refId) ? envelope.refId.trim() : '';
+                        const requestId = isNonEmptyString(envelope.requestId) ? envelope.requestId.trim() : null;
+                        const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
+                        const hasClientSelectionGeneration = Object.prototype.hasOwnProperty.call(envelope, 'selectionGeneration');
+                        const clientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
+                            ? envelope.selectionGeneration
+                            : currentSelectionGeneration;
+                        const sendDetailFailure = (detailCode) => sendWsEnvelope(ws, {
+                            type: 'conversation_history_detail_response',
+                            requestId,
+                            conversationId,
+                            state: 'failed',
+                            detailCode,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration
+                        });
+                        const current = Boolean(
+                            conversationId &&
+                            _isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)
+                        );
+                        if (!productHistoryProvider) {
+                            sendDetailFailure('history_detail_unavailable');
+                        } else if (!current) {
+                            sendDetailFailure('stale_selection');
+                        } else if (!_clientSelectionGenerationMatches(
+                            ws,
+                            hasClientSelectionGeneration,
+                            clientSelectionGeneration,
+                            currentSelectionGeneration
+                        )) {
+                            sendDetailFailure('stale_selection');
+                        } else if (!/^[a-f0-9]{64}$/i.test(refId)) {
+                            sendDetailFailure('history_detail_unavailable');
+                        } else {
+                            try {
+                                const page = await withHistoryRecoveryTimeout(
+                                    productHistoryProvider.readDetailPage(conversationId, {
+                                        refId,
+                                        cursor: typeof envelope.cursor === 'string' ? envelope.cursor : null,
+                                        maxBytes: envelope.maxBytes
+                                    }),
+                                    HISTORY_RECOVERY_TIMEOUT_MS
+                                );
+                                if (!_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
+                                    sendDetailFailure('stale_selection');
+                                } else if (!page) {
+                                    sendDetailFailure('history_detail_unavailable');
+                                } else {
+                                    sendWsEnvelope(ws, {
+                                        type: 'conversation_history_detail_response',
+                                        requestId,
+                                        conversationId,
+                                        state: 'ok',
+                                        refId: page.refId,
+                                        contentHash: page.contentHash,
+                                        byteSize: page.byteSize,
+                                        byteOffset: page.byteOffset,
+                                        nextCursor: page.nextCursor,
+                                        content: page.content,
+                                        selectionGeneration: currentSelectionGeneration,
+                                        clientSelectionGeneration
+                                    });
+                                }
+                            } catch (error) {
+                                sendDetailFailure(error?.code === 'HISTORY_RECOVERY_TIMEOUT'
+                                    ? 'history_detail_timeout'
+                                    : error?.code === 'history_detail_cursor_invalid'
+                                        ? 'history_detail_cursor_invalid'
+                                        : error?.code === 'history_detail_page_too_large'
+                                            ? 'history_detail_page_too_large'
+                                            : 'history_detail_failed');
+                                diagnosticLog.error('server', 'server.codex.history.detail.failed', error, {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    requestId,
                                     selectionGeneration: currentSelectionGeneration
                                 });
                             }

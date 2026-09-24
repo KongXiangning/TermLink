@@ -1,0 +1,1 @@
+{"kind":"ingested-evidence/v1","source_revision":"a752de1f62887654722407d6d254145e3657c5e9023666b76152160447f68697","task_id":"003","document_id":"doc-03166aa61e365e5f8af1f680","source_locator":"second execution attempt of planned Cargo check CK-C1-RUST-PATH output","evidence_sha256":"e3db504b6e35962e1d9dec3bbf7c320fe73d808df778209a09ab65bc0d9aa4f5","assurance":"caller-reported"}

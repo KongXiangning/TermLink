@@ -27,6 +27,7 @@ const { createConnectionSecurityMiddleware } = require('./utils/connectionSecuri
 const createCodexMediaRouter = require('./routes/codexMedia');
 const { CodexMediaStore } = require('./services/codexMediaStore');
 const { CodexHistorySnapshotStore } = require('./services/codexHistorySnapshotStore');
+const { CodexHistoryProductStore } = require('./services/codexHistoryProductStore');
 
 // Parse privilege configuration
 const privilegeConfig = parsePrivilegeConfig();
@@ -117,6 +118,8 @@ const codexHistorySnapshotStore = historySnapshotSegmentsEnabled
 const codexHistorySnapshotStoreReady = codexHistorySnapshotStore
     ? codexHistorySnapshotStore.init()
     : Promise.resolve(null);
+const codexHistoryProductStore = new CodexHistoryProductStore();
+const codexHistoryProductStoreReady = codexHistoryProductStore.init();
 const server = tlsConfig.enabled
     ? https.createServer(buildHttpsOptions(tlsConfig), app)
     : http.createServer(app);
@@ -164,7 +167,8 @@ registerTerminalGateway(wss, {
     registrationManager: clientRegistrationManager,
     historyRangeSegmentsEnabled,
     historySnapshotSegmentsEnabled,
-    historySnapshotStore: codexHistorySnapshotStore
+    historySnapshotStore: codexHistorySnapshotStore,
+    historyProductStore: codexHistoryProductStore
 });
 
 // Start IPC feed first, then listen — avoids a race where the feed's
@@ -178,7 +182,11 @@ function listen(callback) {
 }
 
 Promise.resolve()
-    .then(() => Promise.all([codexMediaStoreReady, codexHistorySnapshotStoreReady]))
+    .then(() => Promise.all([
+        codexMediaStoreReady,
+        codexHistorySnapshotStoreReady,
+        codexHistoryProductStoreReady
+    ]))
     .then(() => ipcFeed.start().catch((err) => {
         console.warn('[server] IPC feed start failed:', err.message);
         return null;
@@ -193,5 +201,5 @@ Promise.resolve()
         });
     })
     .catch((err) => {
-        console.error('[server] Media store initialization failed; server not started:', err && err.message ? err.message : String(err));
+        console.error('[server] Local store initialization failed; server not started:', err && err.message ? err.message : String(err));
     });

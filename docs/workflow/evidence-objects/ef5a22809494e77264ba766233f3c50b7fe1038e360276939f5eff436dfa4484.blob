@@ -1,0 +1,68 @@
+---
+title: Rust rollout AnalysisBatch 保留真实路径与内容 - 变更记录
+status: draft
+record_id: CR-20260923-rust-path-preservation-s1
+req_id: none
+commit_ref: TBD
+owner: @maintainer
+last_updated: 2026-09-23
+source_of_truth: code
+related_code: [native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/tests/conformance.rs, native/codex-rollout-collector/tests/rollout_blockers.rs]
+related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/workflow/task-basis/TASK_BASIS-003.md]
+---
+
+# CR-20260923-rust-path-preservation-s1
+
+## 1. 变更意图（Compact Summary）
+
+- 背景：Rust rollout 适配层曾将事件中的绝对路径和相关内容替换为统一占位符，导致 AnalysisBatch 丢失源事件事实。
+- 目标：保留事件原有的 cwd、文件与 artifact 路径、工具输入/输出和差异内容，同时维持 64 KiB 正文预算与 source 访问边界。
+- 本次边界：仅修改 Rust adapter 与对应 Rust conformance/blocker tests；不改变 rollout 读取、cursor/checkpoint、Node、Android、IPC 或产品数据库边界。
+
+## 2. 实施内容（What changed）
+
+1. 移除对事件路径、结构化工具 JSON 的路径脱敏，保留原值并继续执行 UTF-8 安全的正文长度截断。
+2. 保持文件变更逻辑身份仍以原始路径区分，避免绝对路径相互映射到占位符后发生身份碰撞。
+3. 更新 Rust 验收断言，覆盖绝对路径、嵌套工具值与对象键、跨窗口原值、输出预算及稳定键。
+
+## 3. 影响范围（Files/Modules/Runtime）
+
+- 文件：
+  - `native/codex-rollout-collector/src/codex_adapter/mod.rs`
+  - `native/codex-rollout-collector/tests/conformance.rs`
+  - `native/codex-rollout-collector/tests/rollout_blockers.rs`
+- 模块：
+  - Rust `CodexEventAdapter` 到 `AnalysisEvent` / `AnalysisBatch` 的内容适配。
+- 运行时行为：
+  - AnalysisBatch 保留源事件提供的路径及工具内容；source locator、cursor、checkpoint 等内部采集元数据仍不进入产品接口。
+
+## 4. 回滚方案（命令级）
+
+```bash
+# 方案 A：回滚承载本变更的提交
+git revert <commit_ref>
+
+# 方案 B：仅恢复本次 Rust adapter 与验收测试
+git checkout <commit_ref>^ -- native/codex-rollout-collector/src/codex_adapter/mod.rs native/codex-rollout-collector/tests/conformance.rs native/codex-rollout-collector/tests/rollout_blockers.rs
+```
+
+## 5. 验证记录（Tests/Checks）
+
+- 校验命令：
+  - `$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task003-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact`
+  - `$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task003-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact`
+  - `$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task003-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact`
+  - `$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task003-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact`
+- 结果：待本步骤执行后据实补录。
+
+## 6. 后续修改入口（How to continue）
+
+- 下次修改建议从以下文件继续：
+  - `native/codex-rollout-collector/src/codex_adapter/mod.rs`
+  - Rust → Node 原值重开检查仍按当前任务后续步骤执行。
+- 如本记录后续被替代，请填写：`替代记录: CR-YYYYMMDD-HHMM-<slug>`
+
+## 7. 风险与注意事项
+
+1. 事件原值可能含机器本地路径或工具内容；后续展示仍须遵循已鉴权的历史读取边界。
+2. source identity、内部采集路径及 cursor/checkpoint 不因本次适配层变化而公开。

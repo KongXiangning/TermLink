@@ -389,6 +389,11 @@ function toWireItemWithChunks(item, {
     }
     const payloadBytes = Buffer.byteLength(payloadJson, 'utf8');
     const forcePayloadChunk = forcePayloadChunkItems instanceof Set && forcePayloadChunkItems.has(item.itemKey);
+    if (payloadBytes > payloadInlineMaxBytes && !enablePayloadChunks) {
+        const error = new Error('History payload exceeds the inline limit and this client cannot receive payload chunks.');
+        error.code = 'history_payload_chunks_unsupported';
+        throw error;
+    }
     const shouldChunk = enablePayloadChunks && payloadBytes > 0 && (payloadBytes > payloadInlineMaxBytes || forcePayloadChunk);
     const chunks = shouldChunk ? splitUtf8(payloadJson, payloadChunkBytes) : [];
     const wire = {
@@ -401,6 +406,9 @@ function toWireItemWithChunks(item, {
         payloadJson: shouldChunk ? '' : payloadJson,
         contentHash: item.contentHash
     };
+    if (Array.isArray(item.detailRefs) && item.detailRefs.length > 0) wire.detailRefs = item.detailRefs;
+    if (item.detailRefsTruncated === true) wire.detailRefsTruncated = true;
+    if (typeof item.availability === 'string' && item.availability) wire.availability = item.availability;
     if (shouldChunk || Number(item.payloadChunkCount) > 0) {
         wire.payloadHash = shouldChunk ? hashPayload(payloadJson) : item.payloadHash;
         wire.payloadBytes = shouldChunk ? payloadBytes : item.payloadBytes;

@@ -713,7 +713,7 @@ fn file_search_artifact_mapping() {
 }
 
 #[test]
-fn analysis_batch_redacts_local_paths_at_the_boundary() {
+fn analysis_batch_preserves_local_paths_at_the_boundary() {
     let marker = format!("termlink-f011-path-{}", std::process::id());
     let root = std::env::temp_dir().join(&marker);
     let source_path = root.join("rollout.jsonl");
@@ -842,14 +842,14 @@ fn analysis_batch_redacts_local_paths_at_the_boundary() {
         AnalysisEvent::SessionContext {
             cwd: Some(cwd),
             ..
-        } if cwd == "<local-path-redacted>"
+        } if cwd.as_str() == root.to_string_lossy().as_ref()
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
         AnalysisEvent::FileChanged {
             path: Some(path),
             ..
-        } if path == "<local-path-redacted>"
+        } if path.as_str() == absolute_file.to_string_lossy().as_ref()
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
@@ -863,7 +863,7 @@ fn analysis_batch_redacts_local_paths_at_the_boundary() {
         AnalysisEvent::ArtifactFound {
             name: Some(name),
             ..
-        } if name == "<local-path-redacted>"
+        } if name.as_str() == absolute_artifact.to_string_lossy().as_ref()
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
@@ -872,7 +872,7 @@ fn analysis_batch_redacts_local_paths_at_the_boundary() {
             input: Some(input),
             ..
         } if call_id == "call-function-f011"
-            && !input.contains(&marker)
+            && input.contains(&marker)
             && input.contains("src/lib.rs")
     )));
     assert!(batch.items.iter().any(|event| matches!(
@@ -882,7 +882,7 @@ fn analysis_batch_redacts_local_paths_at_the_boundary() {
             input: Some(input),
             ..
         } if call_id == "call-custom-f011"
-            && !input.contains(&marker)
+            && input.contains(&marker)
             && input.contains("src/lib.rs")
     )));
     assert!(batch.items.iter().any(|event| matches!(
@@ -892,19 +892,16 @@ fn analysis_batch_redacts_local_paths_at_the_boundary() {
             input: Some(input),
             ..
         } if call_id == "call-search-f011"
-            && !input.contains(&marker)
+            && input.contains(&marker)
             && input.contains("src/lib.rs")
     )));
     assert!(encoded.contains("rollout.jsonl"));
-    assert!(!encoded.contains(&marker));
-    let drive_prefix = root.to_string_lossy().chars().take(2).collect::<String>();
-    assert!(!encoded.contains(&format!("{drive_prefix}\\\\")));
-    assert!(!encoded.contains(":/"));
-    assert!(!encoded.contains("/tmp/"));
+    assert!(encoded.contains(&marker));
+    assert!(!encoded.contains("<local-path-redacted>"));
 }
 
 #[test]
-fn structured_tool_payloads_redact_nested_values_and_object_keys() {
+fn structured_tool_payloads_preserve_nested_values_and_object_keys() {
     let batch = analyze(
         "current/tool-path-redaction.jsonl",
         CompatibilityProfile::Current,
@@ -920,7 +917,8 @@ fn structured_tool_payloads_redact_nested_values_and_object_keys() {
             ..
         } if call_id == "call-function-f022"
             && input.contains("src/lib.rs")
-            && input.contains("<local-path-redacted>")
+            && input.contains("/tmp/termlink-f022-value")
+            && input.contains("/tmp/termlink-f022-object-key")
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
@@ -930,7 +928,8 @@ fn structured_tool_payloads_redact_nested_values_and_object_keys() {
             ..
         } if call_id == "call-custom-f022"
             && input.contains("src/lib.rs")
-            && input.contains("<local-path-redacted>")
+            && input.contains("/tmp/termlink-f022-nested")
+            && input.contains("/tmp/termlink-f022-custom-key")
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
@@ -940,7 +939,7 @@ fn structured_tool_payloads_redact_nested_values_and_object_keys() {
             ..
         } if call_id == "call-search-f022"
             && input.contains("src/lib.rs")
-            && input.contains("<local-path-redacted>")
+            && input.contains("/tmp/termlink-f022-search-key")
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
@@ -949,7 +948,7 @@ fn structured_tool_payloads_redact_nested_values_and_object_keys() {
             output: Some(output),
             ..
         } if call_id == "call-function-f022"
-            && output.contains("<local-path-redacted>")
+            && output.contains("/tmp/termlink-f022-output")
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
@@ -958,7 +957,7 @@ fn structured_tool_payloads_redact_nested_values_and_object_keys() {
             output: Some(output),
             ..
         } if call_id == "call-custom-f022"
-            && output.contains("<local-path-redacted>")
+            && output.contains("/tmp/termlink-f022-custom-output")
     )));
     for marker in [
         "/tmp/termlink-f022-value",
@@ -969,9 +968,10 @@ fn structured_tool_payloads_redact_nested_values_and_object_keys() {
         "/tmp/termlink-f022-output",
         "/tmp/termlink-f022-custom-output",
     ] {
-        assert!(!encoded.contains(marker), "raw path leaked: {marker}");
+        assert!(encoded.contains(marker), "raw path missing: {marker}");
     }
     assert!(encoded.contains("src/lib.rs"));
+    assert!(!encoded.contains("<local-path-redacted>"));
     assert!(!batch.items.iter().any(|event| matches!(
         event,
         AnalysisEvent::UnknownEvent { .. } | AnalysisEvent::ParseGap { .. }

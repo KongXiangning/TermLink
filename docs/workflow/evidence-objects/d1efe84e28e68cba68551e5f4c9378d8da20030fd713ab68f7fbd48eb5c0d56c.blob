@@ -1,0 +1,163 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const { CodexHistoryProductStore } = require('../src/services/codexHistoryProductStore');
+
+const CONVERSATION_ID = 'conversation-product-store';
+const NOW = 1_790_000_000_000;
+
+function makeStore(databasePath) {
+    return new CodexHistoryProductStore({ databasePath, now: () => NOW });
+}
+
+function stagedBatch(batchId, payload = { history_items: [{ item_key: 'item-1' }] }) {
+    return {
+        conversationId: CONVERSATION_ID,
+        batchId,
+        deliveryIdentity: {
+            request_id: `request-${batchId}`,
+            job_id: 'job-1',
+            segment_id: `segment-${batchId}`,
+            batch_id: batchId,
+            source_scope: {
+                conversation_id: CONVERSATION_ID,
+                source_id: 'source-internal-1',
+                source_epoch: 'epoch-internal-1',
+                source_path: 'E:\\Codex\\sessions\\rollout-internal.jsonl'
+            }
+        },
+        payload
+    };
+}
+
+function canonicalProjection({ itemKey = 'item-1', text = 'Hello from Codex', coverageState = 'canonical' } = {}) {
+    return {
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1',
+        items: [{
+            itemKey,
+            eventId: `event-${itemKey}`,
+            turnId: 'turn-1',
+            itemType: 'message',
+            ordinal: 0,
+            payload: {
+                text,
+                eventFilePath: 'C:\\Users\\example\\.codex\\sessions\\rollout-1.jsonl',
+                cwd: 'E:\\work\\termlink',
+                command: ['rg', '--files', 'src'],
+                artifactPath: 'E:\\work\\termlink\\output.diff'
+            }
+        }],
+        toolDetails: [{
+            detailKey: 'tool-call-1',
+            itemKey,
+            payload: { output: 'two files', command: ['rg', '--files', 'src'] }
+        }],
+        usage: [{ usageKey: 'turn-1', payload: { inputTokens: 12, outputTokens: 8 } }],
+        taskOutcomes: [{ outcomeKey: 'turn-1', payload: { status: 'completed' } }],
+        coverage: { completeness: coverageState, itemCount: 1, coverageComplete: true },
+        checkpoint: {
+            conversation_id: CONVERSATION_ID,
+            source_id: 'source-internal-1',
+            source_epoch: 'epoch-internal-1',
+            next_cursor: { kind: 'internal-cursor', path: 'E:\\Codex\\sessions\\rollout-internal.jsonl' }
+        }
+    };
+}
+
+async function makeTemporaryDatabase(t) {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-product-history-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+    return path.join(root, 'history.sqlite');
+}
+
+test('product-history-store durably stages, publishes, reopens, and ignores an exact duplicate delivery', async (t) => {
+    const databasePath = await makeTemporaryDatabase(t);
+    const firstStore = await makeStore(databasePath).init();
+
+    assert.deepEqual(await firstStore.stageBatch(stagedBatch('batch-1')), {
+        status: 'staged',
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1'
+    });
+
+    const reopenedForPublish = await makeStore(databasePath).init();
+    const staged = await reopenedForPublish.readStagedBatch(CONVERSATION_ID, 'batch-1');
+    assert.equal(staged.payload.history_items[0].item_key, 'item-1');
+    assert.equal(staged.deliveryIdentity.source_scope.source_epoch, 'epoch-internal-1');
+    assert.equal(staged.publishedAt, null);
+
+    const projection = canonicalProjection();
+    assert.deepEqual(await reopenedForPublish.publishCanonical(projection), {
+        status: 'published',
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1',
+        itemCount: 1
+    });
+
+    const reopened = await makeStore(databasePath).init();
+    assert.deepEqual(await reopened.stageBatch(stagedBatch('batch-1')), {
+        status: 'already-staged',
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1'
+    });
+    assert.deepEqual(await reopened.publishCanonical(projection), {
+        status: 'already-published',
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1',
+        itemCount: 1
+    });
+
+    const history = await makeStore(databasePath).readConversation(CONVERSATION_ID);
+    assert.equal(history.items.length, 1);
+    assert.equal(history.items[0].payload.eventFilePath, 'C:\\Users\\example\\.codex\\sessions\\rollout-1.jsonl');
+    assert.equal(history.items[0].payload.cwd, 'E:\\work\\termlink');
+    assert.deepEqual(history.items[0].payload.command, ['rg', '--files', 'src']);
+    assert.equal(history.items[0].payload.artifactPath, 'E:\\work\\termlink\\output.diff');
+    assert.deepEqual(history.coverage, projection.coverage);
+    assert.equal(history.toolDetails.length, 1);
+    assert.equal(history.usage.length, 1);
+    assert.equal(history.taskOutcomes.length, 1);
+    assert.equal(Object.hasOwn(history, 'checkpoint'), false);
+    assert.equal(Object.hasOwn(history, 'sourceEpoch'), false);
+    assert.deepEqual(await reopened.readCheckpoint(CONVERSATION_ID), projection.checkpoint);
+});
+
+test('product-history-store rolls back a failed replacement and preserves the previous canonical data after reopen', async (t) => {
+    const databasePath = await makeTemporaryDatabase(t);
+    const store = await makeStore(databasePath).init();
+    const original = canonicalProjection({ text: 'previous canonical' });
+    await store.stageBatch(stagedBatch('batch-1'));
+    await store.publishCanonical(original);
+
+    await store.stageBatch(stagedBatch('batch-2', { history_items: [{ item_key: 'item-2' }] }));
+    const invalidReplacement = {
+        ...canonicalProjection({ itemKey: 'item-2', text: 'should roll back', coverageState: 'partial' }),
+        batchId: 'batch-2',
+        toolDetails: [
+            { detailKey: 'duplicate-key', itemKey: 'item-2', payload: { ordinal: 1 } },
+            { detailKey: 'duplicate-key', itemKey: 'item-2', payload: { ordinal: 2 } }
+        ],
+        checkpoint: { conversation_id: CONVERSATION_ID, marker: 'must-not-publish' }
+    };
+
+    await assert.rejects(
+        () => store.publishCanonical(invalidReplacement),
+        (error) => error.code === 'CODEX_HISTORY_PRODUCT_TRANSACTION_FAILED'
+    );
+
+    const reopened = await makeStore(databasePath).init();
+    const history = await reopened.readConversation(CONVERSATION_ID);
+    assert.equal(history.items.length, 1);
+    assert.equal(history.items[0].itemKey, 'item-1');
+    assert.equal(history.items[0].payload.text, 'previous canonical');
+    assert.deepEqual(history.coverage, original.coverage);
+    assert.deepEqual(await reopened.readCheckpoint(CONVERSATION_ID), original.checkpoint);
+    assert.equal((await reopened.readStagedBatch(CONVERSATION_ID, 'batch-2')).publishedAt, null);
+});
+

@@ -204,7 +204,7 @@ impl CodexEventAdapter {
                 Availability::Present,
             ),
             session_id: Some(session_id),
-            cwd: Some(safe_path_display(&payload.meta.cwd)),
+            cwd: Some(path_display(&payload.meta.cwd)),
             source: Some(debug_name(&payload.meta.source)),
             model_provider: payload.meta.model_provider.clone(),
             history_base: history_base.cloned(),
@@ -284,7 +284,7 @@ impl CodexEventAdapter {
                     tool_name,
                     call_id,
                     input: input
-                        .map(|value| sanitize_tool_text(&value))
+                        .map(bounded_text)
                         .or_else(|| Some(debug_name(status))),
                 }]
             }
@@ -306,7 +306,7 @@ impl CodexEventAdapter {
                 tool_kind: "function_call".to_string(),
                 tool_name: Some(qualified_name(namespace.as_deref(), name)),
                 call_id: call_id.clone(),
-                input: Some(sanitize_tool_input(arguments)),
+                input: Some(compact_tool_input(arguments)),
             }],
             models::ResponseItem::FunctionCallOutput {
                 call_id, output, ..
@@ -329,7 +329,7 @@ impl CodexEventAdapter {
                 tool_kind: "custom_tool_call".to_string(),
                 tool_name: Some(qualified_name(namespace.as_deref(), name)),
                 call_id: call_id.clone(),
-                input: Some(sanitize_tool_input(input)),
+                input: Some(compact_tool_input(input)),
             }],
             models::ResponseItem::CustomToolCallOutput {
                 call_id, output, ..
@@ -355,7 +355,7 @@ impl CodexEventAdapter {
                     tool_kind: "tool_search".to_string(),
                     tool_name: Some(execution.clone()),
                     call_id,
-                    input: Some(compact_sanitized_json(arguments)),
+                    input: Some(compact_json(arguments)),
                 }]
             }
             models::ResponseItem::ToolSearchOutput {
@@ -374,7 +374,7 @@ impl CodexEventAdapter {
                 };
                 let output = format!(
                     "status={status}; execution={execution}; tools={}",
-                    compact_sanitized_json(tools)
+                    compact_json(tools)
                 );
                 vec![AnalysisEvent::ToolCompleted {
                     metadata: metadata(
@@ -495,8 +495,8 @@ impl CodexEventAdapter {
         tool_kind: &str,
     ) -> Vec<AnalysisEvent> {
         let output_text = match output.content_items() {
-            Some(items) => compact_sanitized_json(items),
-            None => sanitize_tool_input(&output.body.to_text().unwrap_or_default()),
+            Some(items) => compact_json(items),
+            None => compact_tool_input(&output.body.to_text().unwrap_or_default()),
         };
         let pending_turn_id = self.pending_plan_turn_id(call_id);
         if let Some(answers) = parse_plan_answers(&output_text)
@@ -587,16 +587,16 @@ impl CodexEventAdapter {
                     .invocation
                     .arguments
                     .as_ref()
-                    .map(compact_sanitized_json),
+                    .map(compact_json),
             }],
             protocol::EventMsg::McpToolCallEnd(payload) => {
                 let output = match &payload.result {
                     Ok(result) => format!(
                         "success={}; result={}",
                         payload.is_success(),
-                        compact_sanitized_json(result)
+                        compact_json(result)
                     ),
-                    Err(error) => format!("success=false; error={}", sanitize_tool_text(error)),
+                    Err(error) => format!("success=false; error={error}"),
                 };
                 vec![AnalysisEvent::ToolCompleted {
                     metadata: metadata(
@@ -624,15 +624,15 @@ impl CodexEventAdapter {
                 tool_kind: "local_shell".to_string(),
                 tool_name: Some("shell_command".to_string()),
                 call_id: payload.call_id.clone(),
-                input: non_empty(sanitize_tool_text(&payload.command.join(" "))),
+                input: non_empty(bounded_text(payload.command.join(" "))),
             }],
             protocol::EventMsg::ExecCommandOutputDelta(payload) => {
-                let message = format!(
+                let message = bounded_text(format!(
                     "call_id={}; stream={}; chunk={}",
                     payload.call_id,
                     debug_name(&payload.stream),
-                    sanitize_tool_text(&String::from_utf8_lossy(&payload.chunk))
-                );
+                    String::from_utf8_lossy(&payload.chunk)
+                ));
                 vec![self.diagnostic(record, "exec_command_output_delta", Some(&message), 0)]
             }
             protocol::EventMsg::ExecCommandEnd(payload) => vec![AnalysisEvent::ToolCompleted {
@@ -661,7 +661,7 @@ impl CodexEventAdapter {
                     tool_kind: "dynamic_tool".to_string(),
                     tool_name: Some(qualified_name(payload.namespace.as_deref(), &payload.tool)),
                     call_id: payload.call_id.clone(),
-                    input: Some(compact_sanitized_json(&payload.arguments)),
+                    input: Some(compact_json(&payload.arguments)),
                 }]
             }
             protocol::EventMsg::DynamicToolCallResponse(payload) => {
@@ -671,9 +671,9 @@ impl CodexEventAdapter {
                     payload
                         .error
                         .as_deref()
-                        .map(sanitize_tool_text)
+                        .map(|error| bounded_text(error.to_string()))
                         .unwrap_or_default(),
-                    compact_sanitized_json(&payload.content_items)
+                    compact_json(&payload.content_items)
                 );
                 vec![AnalysisEvent::ToolCompleted {
                     metadata: metadata(
@@ -741,7 +741,7 @@ impl CodexEventAdapter {
                     name: payload
                         .saved_path
                         .as_ref()
-                        .map(|path| safe_path_display(path.as_path()))
+                        .map(|path| path_display(path.as_path()))
                         .or_else(|| payload.revised_prompt.clone()),
                 }]
             }
@@ -847,10 +847,9 @@ impl CodexEventAdapter {
                 }
                 let turn = non_empty(payload.turn_id.clone());
                 let status = debug_name(&item.status);
-                let input = Some(compact_sanitized_json(&serde_json::json!({
+                let input = Some(compact_json(&serde_json::json!({
                     "command": item.command,
-                    // PathUri is absolute; retain the existing local-path policy.
-                    "cwd": REDACTED_LOCAL_PATH,
+                    "cwd": item.cwd,
                 })));
                 let canonical_output = item
                     .aggregated_output
@@ -874,7 +873,7 @@ impl CodexEventAdapter {
                     output.push_str(&format!("; duration_ms={}", duration.as_millis()));
                 }
                 if let Some(raw) = canonical_output {
-                    output.push_str(&format!("; output={}", sanitize_tool_text(&raw)));
+                    output.push_str(&format!("; output={raw}"));
                 }
                 let mut events = vec![AnalysisEvent::ToolStarted {
                         metadata: metadata(
@@ -1296,8 +1295,8 @@ impl CodexEventAdapter {
                 );
                 if !call_id.trim().is_empty() {
                     // Native patch/item identity plus the original changed-path
-                    // discriminator. Never use the redacted display path, map
-                    // iteration index, source position or diff content as identity.
+                    // discriminator. Never use the output path, map iteration
+                    // index, source position or diff content as identity.
                     let mut discriminator = 0xcbf29ce484222325_u64;
                     for byte in path.to_string_lossy().as_bytes() {
                         discriminator ^= u64::from(*byte);
@@ -1307,7 +1306,7 @@ impl CodexEventAdapter {
                 }
                 AnalysisEvent::FileChanged {
                 metadata,
-                path: Some(safe_path_display(path)),
+                path: Some(path_display(path)),
                 summary: Some(format!("{phase}:{}", file_change_kind(change))),
                 diff: file_change_detail(change),
             }})
@@ -1650,7 +1649,7 @@ fn file_change_detail(change: &protocol::FileChange) -> Option<String> {
         }
         protocol::FileChange::Update { unified_diff, .. } => unified_diff.clone(),
     };
-    non_empty(bounded_text(sanitize_tool_text(&raw)))
+    non_empty(bounded_text(raw))
 }
 
 fn file_change_kind(change: &protocol::FileChange) -> &'static str {
@@ -1688,7 +1687,7 @@ fn exec_command_output(payload: &protocol::ExecCommandEndEvent) -> String {
         "status={}; exit_code={}; output={}",
         debug_name(&payload.status),
         payload.exit_code,
-        sanitize_tool_text(&output)
+        output
     ))
 }
 
@@ -1696,27 +1695,8 @@ fn debug_name<T: Debug>(value: &T) -> String {
     format!("{value:?}").to_lowercase()
 }
 
-const REDACTED_LOCAL_PATH: &str = "<local-path-redacted>";
-
-fn safe_path_display(path: &Path) -> String {
-    let value = path.to_string_lossy();
-    if path.is_absolute()
-        || looks_like_windows_absolute_path(&value)
-        || value.starts_with('/')
-        || value.starts_with('\\')
-    {
-        REDACTED_LOCAL_PATH.to_string()
-    } else {
-        value.into_owned()
-    }
-}
-
-fn looks_like_windows_absolute_path(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    bytes.len() >= 3
-        && bytes[0].is_ascii_alphabetic()
-        && bytes[1] == b':'
-        && matches!(bytes[2], b'\\' | b'/')
+fn path_display(path: &Path) -> String {
+    path.to_string_lossy().into_owned()
 }
 
 fn non_empty(value: String) -> Option<String> {
@@ -1728,65 +1708,11 @@ fn compact_json<T: Serialize + ?Sized>(value: &T) -> String {
     bounded_text(output)
 }
 
-fn compact_sanitized_json<T: Serialize + ?Sized>(value: &T) -> String {
-    let value = serde_json::to_value(value)
-        .unwrap_or_else(|_| Value::String("<unserializable>".to_string()));
-    let sanitized = sanitize_tool_value(value);
-    let output =
-        serde_json::to_string(&sanitized).unwrap_or_else(|_| "<unserializable>".to_string());
-    bounded_text(output)
-}
-
-fn sanitize_tool_input(input: &str) -> String {
+fn compact_tool_input(input: &str) -> String {
     match serde_json::from_str::<Value>(input) {
-        Ok(value) => {
-            let sanitized = sanitize_tool_value(value);
-            let output = serde_json::to_string(&sanitized)
-                .unwrap_or_else(|_| "<unserializable>".to_string());
-            bounded_text(output)
-        }
-        Err(_) => sanitize_tool_text(input),
+        Ok(value) => compact_json(&value),
+        Err(_) => bounded_text(input.to_string()),
     }
-}
-
-fn sanitize_tool_value(value: Value) -> Value {
-    match value {
-        Value::String(text) => Value::String(sanitize_tool_text(&text)),
-        Value::Array(values) => Value::Array(values.into_iter().map(sanitize_tool_value).collect()),
-        Value::Object(values) => Value::Object(
-            values
-                .into_iter()
-                .map(|(key, value)| (sanitize_tool_text(&key), sanitize_tool_value(value)))
-                .collect(),
-        ),
-        other => other,
-    }
-}
-
-fn sanitize_tool_text(input: &str) -> String {
-    let trimmed = input.trim();
-    if looks_like_absolute_path_text(trimmed)
-        || contains_windows_absolute_path(input)
-        || input.split_whitespace().any(|token| {
-            looks_like_absolute_path_text(token.trim_matches(|character: char| {
-                matches!(character, '"' | '\'' | ',' | ';' | ')' | ']')
-            }))
-        })
-    {
-        REDACTED_LOCAL_PATH.to_string()
-    } else {
-        bounded_text(input.to_string())
-    }
-}
-
-fn looks_like_absolute_path_text(value: &str) -> bool {
-    value.starts_with('/') || value.starts_with('\\') || looks_like_windows_absolute_path(value)
-}
-
-fn contains_windows_absolute_path(value: &str) -> bool {
-    value.as_bytes().windows(3).any(|window| {
-        window[0].is_ascii_alphabetic() && window[1] == b':' && matches!(window[2], b'\\' | b'/')
-    })
 }
 
 fn bounded_text(output: String) -> String {
@@ -1795,7 +1721,7 @@ fn bounded_text(output: String) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{CodexEventAdapter, compact_json, safe_path_display, sanitize_tool_input};
+    use super::{CodexEventAdapter, compact_json, compact_tool_input, path_display};
     use crate::codex_wire::{CompatibilityProfile, DecodedRecord, decode_value};
     use crate::model::AnalysisEvent;
     use crate::source::SourceRecord;
@@ -1812,25 +1738,26 @@ mod tests {
     }
 
     #[test]
-    fn safe_path_display_redacts_local_paths_but_keeps_logical_paths() {
+    fn path_display_preserves_absolute_and_logical_paths() {
         assert_eq!(
-            safe_path_display(Path::new(r"E:\coding\TermLink\src\lib.rs")),
-            "<local-path-redacted>"
+            path_display(Path::new(r"E:\coding\TermLink\src\lib.rs")),
+            r"E:\coding\TermLink\src\lib.rs"
         );
         assert_eq!(
-            safe_path_display(Path::new("/tmp/termlink/src/lib.rs")),
-            "<local-path-redacted>"
+            path_display(Path::new("/tmp/termlink/src/lib.rs")),
+            "/tmp/termlink/src/lib.rs"
         );
-        assert_eq!(safe_path_display(Path::new("src/lib.rs")), "src/lib.rs");
+        assert_eq!(path_display(Path::new("src/lib.rs")), "src/lib.rs");
     }
 
     #[test]
-    fn sanitize_tool_input_redacts_nested_absolute_paths_but_keeps_logical_paths() {
-        let output = sanitize_tool_input(
+    fn compact_tool_input_preserves_nested_absolute_paths_and_object_keys() {
+        let output = compact_tool_input(
             r#"{"workdir":"E:\\coding\\TermLink","path":"src/lib.rs","nested":["/tmp/private"],"/tmp/private/key":"src/lib.rs"}"#,
         );
-        assert!(!output.contains("E:\\coding\\TermLink"));
-        assert!(!output.contains("/tmp/private"));
+        assert!(output.contains("E:\\coding\\TermLink"));
+        assert!(output.contains("/tmp/private"));
+        assert!(output.contains("/tmp/private/key"));
         assert!(output.contains("src/lib.rs"));
     }
 
