@@ -80,6 +80,29 @@ confirmation is promoted into the canonical `PROJECT_PROFILE.yaml` map.
 it for an individual task. A simple project may confirm one broad application
 domain, but it still follows the same admission route.
 
+For a new task, the Agent derives one proposed write scope from the user's
+request, authoritative design and relevant code. Selected domains cover durable
+responsibility; a necessary one-off path outside them may be proposed as an
+exact task exception. The Agent records why the path is required and presents
+the complete draft for normal task confirmation. It does not ask for a separate
+pre-draft approval of each ordinary file. An explicit exclusion, changed goal
+or unresolved authority choice still needs a concrete user decision. Several
+uncovered files in one stable module call for one bounded project-domain
+proposal and owner confirmation, not a permanent map assembled from the last
+task's file list. Drafting a task exception never updates the project map.
+
+For an already installed project, `authority-domain-update` is a narrow,
+project-owner-confirmed transaction. It accepts a missing map as initialization
+or adds domains/roots to an existing map, preserving an immutable before/after
+decision receipt. `prepare-task` and `execute-step` may use it internally while
+continuing the invoking instruction; `bootstrap-project` exposes independent
+project maintenance without ordinary realignment. A task instruction is not by
+itself a permanent project-wide grant. Rebind an affected active v2 task with
+`authority-domain-rebind`; unchanged selected domains are revalidated, while a
+newly selected domain or widened root needs an exact task decision. The old
+task, attempts, findings, and pending review remain; new mutation targets still
+require a fresh preflight.
+
 Every confirmed v2 task records the stable revision/digest of the canonical
 domain map in Runtime state. If the profile map changes, the active task fails
 closed before execution admission and requires explicit authority
@@ -138,9 +161,16 @@ the assessment and review must cover oracle/reuse/boundary changes. A new
 persistent test whose first-touch state is absent still requires the full P-12
 admission record. This preserves `new persistent test != ordinary file`.
 
-Only a real authority change—such as Node to Rust/shared-protocol or a new
-cross-domain exact exception—uses `prepare-task:amend-scope` with explicit
-user authorization. An absent new persistent test inside an already
+For an **already confirmed task**, only a real authority change—such as Node to
+Rust/shared-protocol or a new cross-domain exact exception—uses
+`prepare-task:amend-scope` with explicit
+user authorization. The existing task instruction may supply that authority
+when the Agent can show how it entails every exact newly required path and no
+explicit task limit excludes them; retain its verbatim source and the
+path-by-path derivation. If it does not decide the scope, ask for one bounded
+choice. A Runtime rejection of the old envelope is never a write receipt;
+commit the amendment and obtain a fresh preflight before touching the path.
+An absent new persistent test inside an already
 authorized domain uses the same infrastructure with a complete typed P-12
 record and `authority_diff: none`; it is a real admission, not a no-op.
 Same-envelope implementation discovery still uses `extend-preflight`. The
@@ -148,9 +178,11 @@ authority amendment settlement gate blocks only a preflighted attempt without
 its matching recorded result; ready retries, settled blocked/repair results,
 and pending review/findings may be preserved. The route keeps the old
 immutable candidate, history/findings/review/budget lineage and continuation
-semantics, and a committed candidate cannot be discarded. Tasks without the
-v2 marker, or with version 1, retain legacy exact step-scope semantics and are
-not silently reinterpreted.
+semantics, and a committed candidate cannot be discarded. Existing tasks without
+the v2 marker, or with version 1, retain legacy exact step-scope semantics and
+are not silently reinterpreted. Every new vNext task identity must use v2 and
+the project authority-domain map; a missing map starts owner-confirmed
+initialization within the invoking Skill, never another v1 task.
 For a v1 task, a path already declared in the current step and Conditional Files
 may enter a fresh execution preflight when the caller records the exact trigger
 evidence and task authority. The authorization is bound to the current
@@ -173,6 +205,17 @@ current state before submitting the original operation again. `recovery-applied`
 is an internal checkpoint, never proof that the original operation completed.
 If the original result reports `committed: true`, reconcile its read-back instead
 of replaying it. Preserve the original operation key and failure history.
+
+Execution and review failures are diagnosed from the retained output and project
+context by the invoking AI. A known project-owned cause is corrected within
+current authority and given fresh execution admission; a known unavailable
+external condition is recorded with its owner and exact resume condition. Either
+may remain blocked while that condition is absent, without a risk-acceptance
+decision or automatic `debug-task` route. An uncertain cause, or evidence that
+contradicts attempted corrections, calls for deeper diagnosis. Attempt counts
+prompt reassessment but do not classify the cause. Runtime checks identity,
+authority, evidence binding and replay; it does not decide the cause from an
+error string or turn an old failed execution into a clean result.
 
 Budget thresholds require the AI to review retained failures, necessity and the
 next approach. They are not a limit on an explicit user instruction. When that

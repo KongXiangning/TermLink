@@ -39,7 +39,7 @@ entry_contract:
   stop_conditions:
     - the goal, acceptance, or mutation boundary is too unclear to form a bounded draft
     - confirmation is requested while a user-owned design choice remains unresolved
-    - a known scope, command, or authority blocker prevents an executable plan
+    - after proposing the complete new-task scope, a genuine user-owned scope choice or permanent project-domain grant remains unresolved; an ordinary exact task exception is not by itself such a choice
     - after read-back and supported internal recovery, a required external fact, genuinely new caller choice, or unrecoverable integrity conflict still prevents the requested mode
   output_kind: prepared-task
 ---
@@ -159,7 +159,8 @@ executable `CURRENT_TASK` draft containing:
 - necessary resolved **Design decisions**, unresolved user-owned choices, and
   any conflict with existing design
 - **Mutation Authority**: v2 authority envelope (domains / exact exceptions /
-  forbidden) or the legacy Allowed / Conditional / Forbidden scope
+  forbidden) for every new task identity; retain the legacy Allowed /
+  Conditional / Forbidden scope only when refining an existing v1 draft
 - one explicit **Test Strategy** with mode, selection source, task
   classification, and rationale
 - ordered **Implementation steps** that say what to change, the
@@ -267,39 +268,81 @@ meaning. Never invent a user decision, policy, release gate, or authority source
 
 ## Mutation Authority v2
 
-When the project profile declares `mutation_authority.domains`, select v2
-explicitly by submitting `mutation_authority_version: 2` together with a
-positive `mutation_authority` object. Choose the smallest responsibility
+For `default` preparation of a **new task**, the authority envelope is a
+proposal, not an already confirmed limit. If the request selects a planned
+stage and its authoritative plan requires modifying an existing component,
+identify the necessary path from code and include it in the proposed draft.
+When that single path is outside the selected project domains, propose it as
+an exact task exception and continue to `prepare-draft`; do not request a
+second user instruction naming the file. The user confirms or rejects the
+complete draft afterward. This rule does not grant permission to edit the file
+during preparation. For a **confirmed active task**, additions outside the
+frozen envelope instead require the recorded authority-amendment transaction
+and a fresh execution preflight. Do not apply that active-task rule to a new
+draft that has not yet been submitted.
+
+Every new task identity, including a successor, must select v2 explicitly by
+submitting `mutation_authority_version: 2` together with a positive
+`mutation_authority` object. If the project profile has no
+`mutation_authority.domains`, inspect the project and use the internal
+`authority-domain-context` → `authority-domain-update` route to establish the
+project-owned map in this invocation. Bind the exact proposed IDs/roots to an
+existing project-owner instruction when it supplies them; otherwise request
+confirmation of that concrete permanent project grant, then continue the
+draft. Do not route the user to another public Skill or fall back to v1.
+Choose the smallest responsibility
 domains that own the requested change; do not grant a whole project merely
-because its callers or dependencies were read. `exact_exceptions` is for a
-specific user-authorized cross-domain path, and `forbidden` remains explicit
-task-level denial. Read, grep, caller/consumer tracing and root-cause analysis
-may cross domains, but they never become mutation authority.
+because its callers or dependencies were read. Before requesting any authority
+choice, inspect the request, authoritative design, relevant code and project
+map together; form one reasoned task scope covering the ordinary files needed
+for the requested behavior. Record in the draft why each selected domain and
+any exceptional path belongs to that behavior. A one-off path outside the
+selected domains may be proposed as a task-level `exact_exceptions` entry when the
+existing request and design clearly entail its change. Preparing that proposal
+does not require a separate user message naming each file: the exact draft is
+still subject to normal task confirmation. Do not treat an unrelated dependency,
+an explicit exclusion, or a materially different goal as implicitly authorized.
+Ask for the concrete scope choice only when the existing instruction cannot
+decide it; present all related paths together rather than asking path by path.
+`forbidden` remains explicit task-level denial. Read, grep, caller/consumer
+tracing and root-cause analysis may cross domains, but they never become
+mutation authority.
 
 Do not use the v2 task authority envelope as a predicted file inventory. Each
 implementation step uses `planned_mutation_targets` for initial direction and
 planned-vs-actual review. A same-domain target discovered later may be
 self-admitted only after a bounded blast-radius assessment; it does not need a
-user scope amendment. A target outside the envelope is a hard authority
-decision and must use the explicit `amend-scope` route. If the project has no
-domain map, preserve legacy/v1 semantics; do not silently infer domains or
-upgrade an existing task.
+user scope amendment. A target outside an already confirmed envelope is a hard
+authority decision and must use the explicit `amend-scope` route; a new draft
+first selects its proposed envelope. Existing v1 tasks keep
+their recorded semantics unless explicitly converted; do not silently infer
+domains or rewrite their history.
 
 Before accepting a v2 draft, prove the complete executable declaration set:
 every `planned_mutation_targets`, exact `expected_repo_writes`, bounded command
 footprint, and persistent-test path must be inside one selected project domain
-or an exact exception, and must not overlap Forbidden, governance, or
-`unclassified` paths. Planned targets do not need a blast-radius assessment;
+or an exact exception, and must not overlap Forbidden or governance paths.
+An `unclassified` exact path is valid only when named in `exact_exceptions`;
+an unclassified directory glob remains blocked. Planned targets do not need a blast-radius assessment;
 they still need this structural proof. For a command `literal/path/**`, use the
 deterministic pattern-subset relation against the granted domain root. Never
 use a synthetic probe path, and never use an exact exception to authorize a
 directory glob. Resolve these blockers during `prepare-draft`, `update-draft`,
 replan/correction, or confirmation rather than deferring them to execution.
 
-Consume the project-owner-confirmed domain map produced by
-`bootstrap-project` inventory/adoption/realignment. Domain candidates are
-evidence only until explicitly confirmed; this entry does not guess ownership,
-rebuild the map per task, or widen a task because a dependency was read.
+Consume the project-owner-confirmed domain map produced by Bootstrap or the
+narrow `authority-domain-update` transaction. Domain candidates are evidence
+only until explicitly confirmed. Assess the complete proposed file set against
+the project map once. Domains describe durable module responsibility, not the
+last task's file inventory: if a stable new module is absent, propose one
+bounded domain update for owner confirmation and then resume this draft. Do not
+expand the permanent map for an occasional exact cross-domain file; keep that
+path in the proposed task exception instead. A project update alone never widens
+an active task: use `authority-domain-rebind` to validate its existing grant,
+and require an exact task decision before adding a domain or inheriting a new
+root in a selected domain. Retain the old task and review history; new paths
+still need a fresh execution preflight. Do not rebuild the map per task or
+widen a task because a dependency was read.
 
 For every possible in-envelope expansion, the transient assessment must name
 the exact target (and optional symbol), reason, locality, visibility,
@@ -550,8 +593,12 @@ not a completed old task. Use the normal draft confirmation once for that exact
 new plan. Never infer a replacement request from a bug, review finding or
 supersede alone; do not edit canonical task/Basis files to bypass these routes.
 
-When the user has already explicitly authorized a true v2 authority expansion
-for the current task, use the independent `amend-scope` route. It is reserved
+When the retained user instruction clearly authorizes a necessary true v2
+authority expansion for the current task, use the independent `amend-scope`
+route with its verbatim source and a reason for each exact added path in the
+amendment step description. Do not fabricate a path-specific user statement;
+ask for one bounded scope decision
+if the existing instruction does not decide the expansion. The route is reserved
 for paths outside the task envelope, such as Node → Rust/shared protocol; an
 omitted same-domain helper or existing test uses `execute-step`'s internal
 `extend-preflight` instead. Before a v2 authority amendment, settle the
@@ -614,6 +661,14 @@ These operations do not redesign Goal, Acceptance, scope or steps and do not
 supersede the task. They do not relax the Trusted Authority Channel for realign.
 
 ## Required result
+
+In new-task preparation, a path outside the existing project map is not a
+terminal authorization blocker when it is a necessary, exact task exception
+grounded in the request and authoritative design. Submit that complete draft
+through Runtime and present its confirmation receipt. Do not end with “reply
+to authorize this ordinary file so I can start the draft.” Stop before draft
+submission only for a genuinely undetermined goal, exclusion, authority choice,
+or owner-confirmed permanent project-domain update.
 
 Submit the draft's semantic content, including `task_basis`, to Runtime through
 `prepare-draft` on stdin;

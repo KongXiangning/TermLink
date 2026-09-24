@@ -154,6 +154,39 @@ validation:
       phase: P9
       owner: workflow-system
 kind: vnext-project-profile
+mutation_authority:
+  domains:
+    - id: node-application
+      roots:
+        - src/**
+    - id: rust-collector
+      roots:
+        - native/codex-rollout-collector/**
+    - id: android-app
+      roots:
+        - android/**
+    - id: web-assets
+      roots:
+        - public/**
+    - id: node-tests
+      roots:
+        - tests/**
+    - id: project-build
+      roots:
+        - scripts/**
+        - package.json
+        - package-lock.json
+    - id: product-docs
+      roots:
+        - docs/changes/**
+        - docs/codex/**
+        - docs/product/**
+        - docs/architecture/**
+        - docs/adoption/**
+        - docs/README.md
+        - README.md
+        - ARCHITECTURE.md
+        - DATABASE.md
 vnext:
   bootstrap_mode: adopt
   target_identity: 422aec7bf194cc99ac59c0d71a605b4c
