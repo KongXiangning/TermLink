@@ -755,6 +755,18 @@ proposal:
         - commit-scope-amendment-audit
       preparation_and_commit: revalidate-against-current-pending-review
       stale_route: record-new-review-bound-decision
+    scope_amendment_review_target_reconciliation:
+      route: typed-scope-amendment-only
+      authorization: exact-stale-paths-and-expected-old-target-revision
+      eligibility: existing-base-target-pending-paths-only
+      preserves: first-touch-base-preimages-change-set-and-review-cycle
+      pending: reconciled-paths-remain-pending-fresh-review
+      revalidation: exact-stale-set-at-preparation-and-commit
+      persisted_in:
+        - scope-amendment-candidate
+        - scope-amendment-candidate-receipt
+        - task-basis-user-decision
+        - commit-scope-amendment-audit
     repair_budget_extension:
       route: extend-repair-budget
       increment: one-bounded-continuation-unit-finding-or-repair-round

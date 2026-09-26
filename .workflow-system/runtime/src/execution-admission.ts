@@ -229,11 +229,15 @@ export function evaluateExecutionTargetAdmission(input: ExecutionAdmissionInput)
   } catch (error) {
     return blocked(input.target, 'blocked-authority', error instanceof Error ? error.message : String(error));
   }
-  const explicitlyForbidden = input.task_authority?.forbidden.some(pattern => {
-    try { return mutationScopePatternMatchesPath(target, pattern); } catch { return false; }
-  }) ?? input.legacy_scope?.forbidden.some(pattern => {
-    try { return mutationScopePatternMatchesPath(target, pattern.pattern); } catch { return false; }
-  }) ?? false;
+  const exactTaskException = input.version === 2
+    && input.task_authority?.exact_exceptions.includes(target) === true;
+  const explicitlyForbidden = !exactTaskException && (
+    input.task_authority?.forbidden.some(pattern => {
+      try { return mutationScopePatternMatchesPath(target, pattern); } catch { return false; }
+    }) ?? input.legacy_scope?.forbidden.some(pattern => {
+      try { return mutationScopePatternMatchesPath(target, pattern.pattern); } catch { return false; }
+    }) ?? false
+  );
   if (explicitlyForbidden) {
     return blocked(target, 'blocked-governance', 'target is explicitly forbidden by the current task.');
   }

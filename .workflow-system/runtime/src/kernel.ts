@@ -14,7 +14,7 @@ import { authorityDomainChangesSince, assertAuthorityDomainWritable } from './au
 import { readProjectDocuments } from './project-documents';
 import { taskStorageMetrics } from './task-storage-metrics';
 import { TASK_RECOVERY_PROTOCOL } from './task-recovery';
-import { describeEvidenceObjects, preserveEvidenceObjects, verifyEvidenceObject, safeRepositoryFile, type EvidenceObject } from './evidence-lineage';
+import { describeEvidenceObjects, maxEvidenceObjectBytes, preserveEvidenceObjects, verifyEvidenceObject, safeRepositoryFile, type EvidenceObject } from './evidence-lineage';
 import { captureArtifactImages, saveArtifactCheckpoint, prepareArtifactRestore, applyArtifactRestore, assertNoArtifactPublication, type ArtifactRestorePlan } from './artifact-checkpoints';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -3513,7 +3513,7 @@ export function validateVNextRuntimeContract(root: string, requireDependencies =
   expectSetEqual(expectStringArray(reviewChangeAdapter.commands, 'Runtime contract review-change commands'), ['review-context', 'review-read', 'record-review-result', 'record-evidence-challenge', 'dismiss-evidence-challenge'], 'Runtime contract review-change commands');
   expectSetEqual(expectStringArray(reviewChangeContract.bound_actions, 'Runtime contract review-change actions'), ['record-review-result', 'record-evidence-challenge', 'dismiss-evidence-challenge'], 'Runtime contract review-change actions');
   const prepareTaskContract = expectRecord(proposal.prepare_task, 'Runtime contract.proposal.prepare_task');
-  expectExactKeys(prepareTaskContract, ['semantic_adapter', 'bound_actions', 'draft_mode', 'draft_actions', 'confirm_mode', 'confirm_actions', 'migration_mode', 'migration_actions', 'replan_mode', 'replan_actions', 'scope_amendment_mode', 'scope_amendment_actions', 'scope_amendment_authorization', 'repair_budget_extension', 'controlled_repair_recovery', 'direct_replan_result', 'task_history'], 'Runtime contract.proposal.prepare_task');
+  expectExactKeys(prepareTaskContract, ['semantic_adapter', 'bound_actions', 'draft_mode', 'draft_actions', 'confirm_mode', 'confirm_actions', 'migration_mode', 'migration_actions', 'replan_mode', 'replan_actions', 'scope_amendment_mode', 'scope_amendment_actions', 'scope_amendment_authorization', 'scope_amendment_review_target_reconciliation', 'repair_budget_extension', 'controlled_repair_recovery', 'direct_replan_result', 'task_history'], 'Runtime contract.proposal.prepare_task');
   const prepareTaskAdapter = expectRecord(prepareTaskContract.semantic_adapter, 'Runtime contract.proposal.prepare_task.semantic_adapter');
   expectExactKeys(
     prepareTaskAdapter,
@@ -3694,6 +3694,17 @@ export function validateVNextRuntimeContract(root: string, requireDependencies =
     ['scope-amendment-candidate', 'scope-amendment-candidate-receipt', 'commit-scope-amendment-audit'],
     'Runtime scope-amendment authorization persistence',
   );
+  const reviewTargetReconciliation = expectRecord(prepareTaskContract.scope_amendment_review_target_reconciliation, 'Runtime contract.proposal.prepare_task.scope_amendment_review_target_reconciliation');
+  expectExactKeys(reviewTargetReconciliation, ['route', 'authorization', 'eligibility', 'preserves', 'pending', 'revalidation', 'persisted_in'], 'Runtime scope-amendment review-target reconciliation contract');
+  if (reviewTargetReconciliation.route !== 'typed-scope-amendment-only'
+    || reviewTargetReconciliation.authorization !== 'exact-stale-paths-and-expected-old-target-revision'
+    || reviewTargetReconciliation.eligibility !== 'existing-base-target-pending-paths-only'
+    || reviewTargetReconciliation.preserves !== 'first-touch-base-preimages-change-set-and-review-cycle'
+    || reviewTargetReconciliation.pending !== 'reconciled-paths-remain-pending-fresh-review'
+    || reviewTargetReconciliation.revalidation !== 'exact-stale-set-at-preparation-and-commit') {
+    fail('RUNTIME_CONTRACT_INVALID', 'Runtime scope-amendment review-target reconciliation contract is invalid.');
+  }
+  expectSetEqual(expectStringArray(reviewTargetReconciliation.persisted_in, 'Runtime scope-amendment review-target reconciliation persisted_in'), ['scope-amendment-candidate', 'scope-amendment-candidate-receipt', 'task-basis-user-decision', 'commit-scope-amendment-audit'], 'Runtime scope-amendment review-target reconciliation persistence');
   const repairBudgetExtension = expectRecord(prepareTaskContract.repair_budget_extension, 'Runtime contract.proposal.prepare_task.repair_budget_extension');
   expectExactKeys(repairBudgetExtension, ['route', 'increment', 'scopes', 'eligibility', 'preserves', 'absolute_limits'], 'Runtime contract.proposal.prepare_task.repair_budget_extension');
   if (repairBudgetExtension.route !== 'extend-repair-budget'
@@ -8766,8 +8777,9 @@ function validateEvidenceCarryForward(value: unknown, location: string): Evidenc
   const objects = carriesContext ? (item.evidence_objects as unknown[]).map(raw => {
     const object = expectRecord(raw, 'evidence object');
     expectExactKeys(object, ['path', 'sha256', 'size'], 'evidence object');
-    if (!Number.isInteger(object.size) || (object.size as number) < 0 || (object.size as number) > 1048576) fail('RUNTIME_SCHEMA_INVALID', 'Evidence object size is invalid.');
-    return { path: normalizeRepoPath(expectString(object.path, 'evidence object.path'), 'evidence object.path'),
+    const objectPath = normalizeRepoPath(expectString(object.path, 'evidence object.path'), 'evidence object.path');
+    if (!Number.isInteger(object.size) || (object.size as number) < 0 || (object.size as number) > maxEvidenceObjectBytes(objectPath)) fail('RUNTIME_SCHEMA_INVALID', 'Evidence object size is invalid.');
+    return { path: objectPath,
       sha256: expectString(object.sha256, 'evidence object.sha256', /^[a-f0-9]{64}$/), size: object.size as number };
   }) : undefined;
   return {
@@ -12864,7 +12876,8 @@ export function rebindTaskAuthorityDomains(root: string, rawInput: unknown, opti
     for (const target of current.runtimeState.execution_preflight?.candidate_paths ?? []) {
       const domain = authorityDomainForPath(project, target);
       if (isMutationAuthorityGovernanceBoundary(target)
-        || taskAuthority.forbidden.some(pattern => mutationScopePatternMatchesPath(target, pattern))
+        || (!taskAuthority.exact_exceptions.includes(target)
+          && taskAuthority.forbidden.some(pattern => mutationScopePatternMatchesPath(target, pattern)))
         || (!taskAuthority.exact_exceptions.includes(target) && (!domain || !taskAuthority.domains.includes(domain)))) {
         fail('AUTHORITY_DOMAIN_PREFLIGHT_STALE', `The retained preflight target ${target} is outside the rebound task authority.`);
       }
@@ -13789,13 +13802,13 @@ function normalizeCorrectionInput(input: unknown): CorrectionCandidateInput {
     pending_step_changes: pending, obligation_map: obligationMap };
 }
 
-function normalizeCorrectionStep(raw: unknown, options: { allowExistingWildcardScope?: boolean } = {}): CorrectionStepInput {
+function normalizeCorrectionStep(raw: unknown, options: { allowExistingWildcardScope?: boolean; maxMutationScope?: number; maxExpectedWrites?: number } = {}): CorrectionStepInput {
   const step = expectRecord(raw, 'correction_step');
   expectExactKeys(step, ['id', 'description', 'mutation_scope', 'required_evidence', 'commands'], 'correction_step');
   const id = expectString(step.id, 'correction_step.id', STEP_ID_PATTERN);
   const description = expectText(step.description, 'correction_step.description', 512);
   if (/[\r\n]/u.test(description)) fail('REPLAN_CORRECTION_INVALID', 'Correction description must be one line.');
-  const mutationScope = expectStringArray(step.mutation_scope, 'correction_step.mutation_scope', false, 32).map(item => normalizeRepoPath(item, 'correction_step.mutation_scope'));
+  const mutationScope = expectStringArray(step.mutation_scope, 'correction_step.mutation_scope', false, options.maxMutationScope ?? 32).map(item => normalizeRepoPath(item, 'correction_step.mutation_scope'));
   if (mutationScope.some(item => item.includes('*')) && !options.allowExistingWildcardScope) fail('REPLAN_SCOPE_EXPANSION', 'Correction writes require exact authorized non-executable paths.');
   const requiredEvidence = expectStringArray(step.required_evidence, 'correction_step.required_evidence', false, 32);
   if (requiredEvidence.some(item => /[\r\n]/u.test(item))) fail('REPLAN_CORRECTION_INVALID', 'Required evidence must use one line per item.');
@@ -13806,7 +13819,7 @@ function normalizeCorrectionStep(raw: unknown, options: { allowExistingWildcardS
     const text = expectText(command.command, `correction_step.commands[${index}].command`, 2048);
     if (/[\r\n]/u.test(text)) fail('REPLAN_CORRECTION_INVALID', 'Command must be one line.');
     const writes = command.expected_repo_writes === 'none' ? 'none' as const
-      : expectStringArray(command.expected_repo_writes, `correction_step.commands[${index}].expected_repo_writes`, false, 32).map(item => normalizeRepoPath(item, 'expected_repo_writes'));
+      : expectStringArray(command.expected_repo_writes, `correction_step.commands[${index}].expected_repo_writes`, false, options.maxExpectedWrites ?? 32).map(item => normalizeRepoPath(item, 'expected_repo_writes'));
     if (writes !== 'none' && writes.some(item => !mutationScope.includes(item)
       && !(options.allowExistingWildcardScope && mutationScope.some(pattern => pattern.includes('*') && mutationScopePatternMatchesPath(item, pattern))))) {
       fail('REPLAN_SCOPE_EXPANSION', 'Command writes must be exact members of the correction step scope.');
@@ -14005,6 +14018,20 @@ type ScopeAmendmentAuthorization = {
   change_set_id?: string;
 };
 
+type ReviewTargetReconciliationAuthorization = {
+  expected_target_revision: string;
+  decision_source: string;
+  decision_text: string;
+  authorized_paths: string[];
+};
+
+type ScopeAmendmentReviewTargetReconciliation = {
+  previous_target_revision: string;
+  reconciled_target_revision: string;
+  paths: string[];
+  authorization_digest: string;
+};
+
 export type PersistentTestAdmission = {
   path: string;
   proves: string[];
@@ -14023,6 +14050,7 @@ type ScopeAmendmentCandidateInput = {
   persistent_test_paths?: string[];
   persistent_test_admissions?: PersistentTestAdmission[];
   authorization: ScopeAmendmentAuthorization | null;
+  review_target_reconciliation?: ReviewTargetReconciliationAuthorization;
   amendment_step: CorrectionStepInput;
 };
 
@@ -14047,6 +14075,7 @@ type ScopeAmendmentCandidate = {
     pending_review_preserved: boolean;
   };
   workspace_target: ReviewTarget;
+  review_target_reconciliation?: ScopeAmendmentReviewTargetReconciliation;
   authorization: (ScopeAmendmentAuthorization & { kind: 'caller-reported-existing-decision'; digest: string }) | null;
   input: ScopeAmendmentCandidateInput;
   definition: DraftTaskDefinition;
@@ -14147,6 +14176,7 @@ export type ScopeAmendmentCandidateReceipt = {
   persistent_test_admission?: {
     added_paths: string[];
   };
+  review_target_reconciliation?: ScopeAmendmentReviewTargetReconciliation;
 };
 
 function normalizeScopeAmendmentInput(input: unknown, options: { allowExistingWildcardScope?: boolean } = {}): ScopeAmendmentCandidateInput {
@@ -14157,6 +14187,7 @@ function normalizeScopeAmendmentInput(input: unknown, options: { allowExistingWi
     ...(value.persistent_test_paths === undefined ? [] : ['persistent_test_paths']),
     ...(value.persistent_test_admissions === undefined ? [] : ['persistent_test_admissions']),
     ...(value.authorization === undefined ? [] : ['authorization']),
+    ...(value.review_target_reconciliation === undefined ? [] : ['review_target_reconciliation']),
     ...(stepKey ? [stepKey] : []),
   ], 'prepare-scope-amendment input');
   if (!stepKey) fail('SCOPE_AMENDMENT_STEP_REQUIRED', 'prepare-scope-amendment requires an amendment step definition.');
@@ -14224,12 +14255,87 @@ function normalizeScopeAmendmentInput(input: unknown, options: { allowExistingWi
       ...(decisionId === undefined ? {} : { decision_id: decisionId, review_id: reviewId!, change_set_id: changeSetId! }),
     };
   }
+  let reviewTargetReconciliation: ReviewTargetReconciliationAuthorization | undefined;
+  if (value.review_target_reconciliation !== undefined) {
+    const reconciliation = expectRecord(value.review_target_reconciliation, 'review_target_reconciliation');
+    expectExactKeys(reconciliation, ['expected_target_revision', 'decision_source', 'decision_text', 'authorized_paths'], 'review_target_reconciliation');
+    const expectedTargetRevision = expectString(reconciliation.expected_target_revision, 'review_target_reconciliation.expected_target_revision', /^[a-f0-9]{64}$/u);
+    const decisionSource = expectText(reconciliation.decision_source, 'review_target_reconciliation.decision_source', 512);
+    if (/[\r\n]/u.test(decisionSource)) fail('REVIEW_TARGET_RECONCILIATION_INVALID', 'decision_source must be one line.');
+    const decisionText = expectVerbatim(reconciliation.decision_text, 'review_target_reconciliation.decision_text', 32768);
+    const authorizedPaths = expectStringArray(reconciliation.authorized_paths, 'review_target_reconciliation.authorized_paths', false, 256).map(item => normalizeRepoPath(item, 'review_target_reconciliation.authorized_paths'));
+    if (new Set(authorizedPaths).size !== authorizedPaths.length || authorizedPaths.some(item => item.includes('*'))) {
+      fail('REVIEW_TARGET_RECONCILIATION_INVALID', 'authorized_paths must contain unique exact paths.');
+    }
+    reviewTargetReconciliation = {
+      expected_target_revision: expectedTargetRevision,
+      decision_source: decisionSource,
+      decision_text: decisionText,
+      authorized_paths: [...authorizedPaths].sort(),
+    };
+  }
+  const exactAuthorizedExpansion = authorization !== null
+    && addedPaths.length > 32
+    && addedPaths.every(item => authorization!.authorized_paths.includes(item));
   return {
     added_paths: [...addedPaths].sort(),
     ...(persistentTestPaths === undefined ? {} : { persistent_test_paths: [...new Set(persistentTestPaths)].sort() }),
     ...(persistentTestAdmissions === undefined ? {} : { persistent_test_admissions: persistentTestAdmissions.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0) }),
     authorization,
-    amendment_step: normalizeCorrectionStep(value[stepKey], options),
+    ...(reviewTargetReconciliation === undefined ? {} : { review_target_reconciliation: reviewTargetReconciliation }),
+    amendment_step: normalizeCorrectionStep(value[stepKey], {
+      ...options,
+      ...(exactAuthorizedExpansion ? { maxMutationScope: 64, maxExpectedWrites: 64 } : {}),
+    }),
+  };
+}
+
+function reconcileScopeAmendmentReviewTarget(
+  root: string,
+  current: CanonicalCurrentTask,
+  authorization: ReviewTargetReconciliationAuthorization,
+): { current: CanonicalCurrentTask; reconciliation: ScopeAmendmentReviewTargetReconciliation } {
+  const old = current.runtimeState.review_coverage;
+  if (!old) fail('REVIEW_TARGET_RECONCILIATION_NOT_AVAILABLE', 'Review-target reconciliation requires an existing cumulative review target.');
+  if (authorization.expected_target_revision !== old.target.revision) {
+    fail('REVIEW_TARGET_RECONCILIATION_STALE', 'The authorized previous target revision no longer matches Runtime state.');
+  }
+  const live = captureReviewTarget(root, old.target.entries.map(entry => entry.path));
+  const liveByPath = new Map(live.entries.map(entry => [entry.path, entry]));
+  const stalePaths = old.target.entries
+    .filter(entry => {
+      const observed = liveByPath.get(entry.path);
+      return !observed || entry.state !== observed.state || entry.sha256 !== observed.sha256;
+    })
+    .map(entry => entry.path)
+    .sort();
+  if (stalePaths.length === 0) fail('REVIEW_TARGET_RECONCILIATION_NOT_REQUIRED', 'The cumulative review target has no stale paths to reconcile.');
+  if (digest(stalePaths) !== digest(authorization.authorized_paths)) {
+    fail('REVIEW_TARGET_RECONCILIATION_AUTHORIZATION_MISMATCH', 'Authorization must name exactly the currently stale paths in the cumulative review target.');
+  }
+  for (const file of stalePaths) {
+    if (!old.base.entries.some(entry => entry.path === file)
+      || !old.target.entries.some(entry => entry.path === file)
+      || !old.pending_paths.includes(file)) {
+      fail('REVIEW_TARGET_RECONCILIATION_SCOPE_INVALID', `Stale path is not already in the first-touch base, target, and pending review set: ${file}`);
+    }
+  }
+  const coverage = validateReviewCoverage({
+    ...old,
+    // The first-touch base and preimages are immutable. Only this explicitly
+    // authorized cumulative target and its pending status may be reconciled.
+    target: live,
+    pending_paths: [...new Set([...old.pending_paths, ...stalePaths])].sort(),
+    last_clean_revision: null,
+  });
+  return {
+    current: { ...current, runtimeState: { ...current.runtimeState, review_coverage: coverage } },
+    reconciliation: {
+      previous_target_revision: old.target.revision,
+      reconciled_target_revision: live.revision,
+      paths: stalePaths,
+      authorization_digest: digest(authorization),
+    },
   };
 }
 
@@ -14267,6 +14373,7 @@ function scopeAmendmentCandidateReceipt(candidate: ScopeAmendmentCandidate, cand
     added_paths: [...candidate.input.added_paths], permission_change: 'additive-scope',
     ...(candidate.authority_diff ? { authority_diff: structuredClone(candidate.authority_diff) } : {}),
     ...(candidate.persistent_test_admission ? { persistent_test_admission: { added_paths: candidate.persistent_test_admission.added.map(item => item.path) } } : {}),
+    ...(candidate.review_target_reconciliation ? { review_target_reconciliation: structuredClone(candidate.review_target_reconciliation) } : {}),
   };
 }
 
@@ -14278,11 +14385,13 @@ function scopeAmendmentRequestMatchesCandidate(input: ScopeAmendmentCandidateInp
     persistent_test_paths: input.persistent_test_paths ?? null,
     persistent_test_admissions: input.persistent_test_admissions ?? null,
     authorization: input.authorization,
+    review_target_reconciliation: input.review_target_reconciliation ?? null,
   }) === digest({
     added_paths: candidate.input.added_paths,
     persistent_test_paths: candidate.input.persistent_test_paths ?? null,
     persistent_test_admissions: candidate.input.persistent_test_admissions ?? null,
     authorization: candidate.input.authorization,
+    review_target_reconciliation: candidate.input.review_target_reconciliation ?? null,
     })
     && requestedStep.id === committedStep.id
     && requestedStep.description === committedStep.description
@@ -14469,8 +14578,14 @@ function replaceScopeAmendmentStep(definition: DraftTaskDefinition, previousStep
   return next;
 }
 
-function assertScopeAmendmentPathSafe(root: string, current: CanonicalCurrentTask, paths: readonly string[]): void {
+function assertScopeAmendmentPathSafe(
+  root: string,
+  current: CanonicalCurrentTask,
+  paths: readonly string[],
+  authorizedExactPaths: readonly string[] = [],
+): void {
   const legacyScope = current.mutationAuthority ? null : parseMutationScope(current.body);
+  const exactExceptions = new Set(current.mutationAuthority ? authorizedExactPaths : []);
   for (const file of paths) {
     if (file === current.relativePath || file.startsWith('.workflow-system/') || file.startsWith('.git/')
       || file.startsWith('.agents/') || file.startsWith('.claude/') || file.startsWith('.codex/')
@@ -14481,7 +14596,7 @@ function assertScopeAmendmentPathSafe(root: string, current: CanonicalCurrentTas
     const forbidden = current.mutationAuthority
       ? current.mutationAuthority.forbidden.some(pattern => mutationScopePatternMatchesPath(file, pattern))
       : legacyScope!.forbidden.some(entry => mutationScopePatternMatchesPath(file, entry.pattern));
-    if (forbidden) {
+    if (forbidden && !exactExceptions.has(file)) {
       fail('SCOPE_AMENDMENT_SCOPE_INVALID', `Scope amendment path ${file} is already forbidden.`);
     }
     const absolute = path.resolve(root, ...file.split('/'));
@@ -14535,6 +14650,9 @@ function assertV2AuthorityAmendmentExecutionSettled(current: CanonicalCurrentTas
 
 function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTask, input: ScopeAmendmentCandidateInput): ScopeAmendmentCandidate {
   assertV2AuthorityDomainRevisionFreshForTransition(root, current, 'Scope amendment');
+  const reviewTargetReconciliation = input.review_target_reconciliation === undefined
+    ? undefined
+    : reconcileScopeAmendmentReviewTarget(root, current, input.review_target_reconciliation).reconciliation;
   if (!['active', 'blocked_by_replan'].includes(current.runtimeState.workflow_status) || current.runtimeState.lifecycle_state !== 'active') {
     fail('SCOPE_AMENDMENT_STATE_INVALID', 'Scope amendment requires an active or blocked_by_replan task with an active lifecycle.');
   }
@@ -14545,7 +14663,10 @@ function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTas
   if (!['ready', 'in-progress', 'completed', 'blocked'].includes(current.runtimeState.active_step_status)) fail('SCOPE_AMENDMENT_STATE_INVALID', 'Scope amendment requires a usable current step.');
   assertBusinessEvidenceVersion(current);
   assertTestStrategySequenceReady(current);
-  assertScopeAmendmentPathSafe(root, current, input.added_paths);
+  const authorizedExactPaths = current.mutationAuthority && input.authorization !== null
+    ? input.added_paths.filter(target => input.authorization!.authorized_paths.includes(target))
+    : [];
+  assertScopeAmendmentPathSafe(root, current, input.added_paths, authorizedExactPaths);
   const legacyPersistentTestPaths = input.persistent_test_paths ?? [];
   const persistentTestAdmissions = input.persistent_test_admissions ?? [];
   if (legacyPersistentTestPaths.some(item => !isLikelyPersistentTestPath(item))) {
@@ -14559,8 +14680,9 @@ function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTas
     if (!projectAuthority) fail('MUTATION_AUTHORITY_PROJECT_REQUIRED', 'v2 scope amendment requires PROJECT_PROFILE.yaml.mutation_authority.domains.');
     authorityExpansionPaths = input.added_paths.filter(target => {
       const domain = authorityDomainForPath(projectAuthority, target);
+      const explicitlyForbidden = current.mutationAuthority!.forbidden.some(pattern => mutationScopePatternMatchesPath(target, pattern));
       return !current.mutationAuthority!.exact_exceptions.includes(target)
-        && (domain === null || !current.mutationAuthority!.domains.includes(domain));
+        && (explicitlyForbidden || domain === null || !current.mutationAuthority!.domains.includes(domain));
     });
     const admissionPaths = persistentTestAdmissions.map(item => item.path);
     for (const admission of persistentTestAdmissions) {
@@ -14614,7 +14736,7 @@ function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTas
         && existingTaskScope.allowed.some(entry => mutationScopePatternMatchesPath(item.file, entry.pattern))))
     .map(item => item.file) ?? [];
   const requiredPaths = [...new Set([...input.added_paths, ...pendingFindingPaths, ...pendingReviewFindingPaths])];
-  assertScopeAmendmentPathSafe(root, current, requiredPaths);
+  assertScopeAmendmentPathSafe(root, current, requiredPaths, authorizedExactPaths);
   const activeStep = resolveCanonicalTaskStep(current).current;
   const currentStepScope = (activeStep.mutation_scope ?? '').split(',').map(value => value.trim().replace(/^`|`$/g, '')).filter(Boolean);
   const taskScope = parseMutationScope(current.body);
@@ -14747,8 +14869,9 @@ function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTas
       ...currentStepScope.filter(item => !item.includes('*')),
       ...requiredPaths,
     ])]),
+    ...(reviewTargetReconciliation ? { review_target_reconciliation: reviewTargetReconciliation } : {}),
     authorization,
-    input: { ...input, amendment_step: normalizedStep },
+    input: structuredClone(input),
     definition: amendedDefinition,
     claim_evidence: claims,
     new_plan_revision: newPlanRevision,
@@ -14875,6 +14998,7 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
     'added_paths', 'permission_change',
     ...(receipt.authority_diff === undefined ? [] : ['authority_diff']),
     ...(receipt.persistent_test_admission === undefined ? [] : ['persistent_test_admission']),
+    ...(receipt.review_target_reconciliation === undefined ? [] : ['review_target_reconciliation']),
   ], 'candidate_receipt');
   if (receipt.kind !== 'scope-amendment-candidate-receipt/v1' || receipt.permission_change !== 'additive-scope') fail('SCOPE_AMENDMENT_CONFIRMATION_INVALID', 'Receipt kind or permission change is invalid.');
   const candidateDigest = expectString(receipt.candidate_digest, 'candidate_receipt.candidate_digest', SHA256_PATTERN);
@@ -14901,6 +15025,19 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
     const persistentAdmission = expectRecord(receipt.persistent_test_admission, 'candidate_receipt.persistent_test_admission');
     expectExactKeys(persistentAdmission, ['added_paths'], 'candidate_receipt.persistent_test_admission');
     expectStringArray(persistentAdmission.added_paths, 'candidate_receipt.persistent_test_admission.added_paths', false, 64).forEach(item => normalizeRepoPath(item, 'candidate_receipt.persistent_test_admission.added_paths'));
+  }
+  let receiptReviewTargetReconciliation: ScopeAmendmentReviewTargetReconciliation | undefined;
+  if (receipt.review_target_reconciliation !== undefined) {
+    const reconciliation = expectRecord(receipt.review_target_reconciliation, 'candidate_receipt.review_target_reconciliation');
+    expectExactKeys(reconciliation, ['previous_target_revision', 'reconciled_target_revision', 'paths', 'authorization_digest'], 'candidate_receipt.review_target_reconciliation');
+    const paths = expectStringArray(reconciliation.paths, 'candidate_receipt.review_target_reconciliation.paths', false, 256).map(item => normalizeRepoPath(item, 'candidate_receipt.review_target_reconciliation.paths'));
+    if (new Set(paths).size !== paths.length || paths.some(item => item.includes('*'))) fail('SCOPE_AMENDMENT_CONFIRMATION_INVALID', 'Review-target reconciliation receipt paths must be unique exact paths.');
+    receiptReviewTargetReconciliation = {
+      previous_target_revision: expectString(reconciliation.previous_target_revision, 'candidate_receipt.review_target_reconciliation.previous_target_revision', SHA256_PATTERN),
+      reconciled_target_revision: expectString(reconciliation.reconciled_target_revision, 'candidate_receipt.review_target_reconciliation.reconciled_target_revision', SHA256_PATTERN),
+      paths: [...paths].sort(),
+      authorization_digest: expectString(reconciliation.authorization_digest, 'candidate_receipt.review_target_reconciliation.authorization_digest', SHA256_PATTERN),
+    };
   }
   const approval = source.authorization === null ? null : expectRecord(source.authorization, 'authorization');
   const decisionSource = approval ? expectText(approval.decision_source, 'authorization.decision_source', 512) : null;
@@ -14962,6 +15099,7 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
   if (digest(rebuilt) !== candidateDigest || rebuilt.new_plan_revision !== newPlanRevision || rebuilt.old_plan_revision !== oldPlanRevision || rebuilt.basis_revision !== basisRevision
     || (rebuilt.authorization?.digest ?? digest(null)) !== authorizationDigest
     || digest(rebuilt.input.added_paths) !== digest(addedPaths)
+    || digest(receiptReviewTargetReconciliation ?? null) !== digest(rebuilt.review_target_reconciliation ?? null)
     || (receipt.authority_diff !== undefined && digest(receipt.authority_diff) !== digest(rebuiltAuthorityDiff))
     || (receipt.persistent_test_admission !== undefined && digest(receipt.persistent_test_admission) !== digest(rebuiltPersistentAdmissionPaths))) {
     fail('SCOPE_AMENDMENT_CANDIDATE_STALE', 'Candidate no longer matches the Runtime-computed source, scope, obligations, and plan.');
@@ -14984,11 +15122,19 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
   if (decisionId !== undefined) {
     assertCurrentScopeAmendmentDecisionBinding(root, current, decisionId, reviewId, changeSetId);
   }
+  const nextUserDecisions = [...basis.basis.user_decisions];
+  const recordDecision = (source: string, verbatim: string) => {
+    if (!nextUserDecisions.some(item => item.source === source && item.verbatim === verbatim)) {
+      nextUserDecisions.push({ source, verbatim });
+    }
+  };
+  if (approval) recordDecision(decisionSource!, decisionText!);
+  if (rebuilt.input.review_target_reconciliation) {
+    recordDecision(rebuilt.input.review_target_reconciliation.decision_source, rebuilt.input.review_target_reconciliation.decision_text);
+  }
   const nextBasis: TaskBasis = {
     original_request: basis.basis.original_request,
-    user_decisions: !approval || basis.basis.user_decisions.some(item => item.source === decisionSource && item.verbatim === decisionText)
-      ? [...basis.basis.user_decisions]
-      : [...basis.basis.user_decisions, { source: decisionSource!, verbatim: decisionText! }],
+    user_decisions: nextUserDecisions,
   };
   const nextBasisArtifact = materializeTaskBasis(root, current, { task_id: current.runtimeState.task_id, task_slug: current.runtimeState.task_slug, task_title: extractTaskIdentityFromCurrentTask(current.body).title, document_id: current.sourceTuple.document_id }, nextBasis);
   const evidenceRefs = [
@@ -14996,6 +15142,7 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
     ...(approval ? [`caller-reported-scope-authorization:${digest({ decisionSource, decisionText })}`] : []),
     ...(rebuilt.authorization?.decision_id ? [`user-decision:${rebuilt.authorization.decision_id}`] : []),
     ...(rebuilt.persistent_test_admission ? [`persistent-test-admission:${digest(rebuilt.persistent_test_admission.added)}`] : []),
+    ...(rebuilt.review_target_reconciliation ? [`review-target-reconciliation:${digest(rebuilt.review_target_reconciliation)}`] : []),
   ];
   const authorityEvidenceKinds = approval
     ? (['active-task-owner', 'scope-admission', 'evidence-admission', 'authorized-caller'] as const)
@@ -15013,8 +15160,11 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
       .filter((item): item is string => Boolean(item)),
     ...((oldState.pending_review_result?.findings ?? []).map(item => item.file)),
   ])].sort();
+  const reviewAdmissionCurrent = rebuilt.input.review_target_reconciliation
+    ? reconcileScopeAmendmentReviewTarget(root, current, rebuilt.input.review_target_reconciliation).current
+    : current;
   const amendedReviewAdmission = oldState.review_coverage
-    ? registerReviewCoverage(root, current, amendmentReviewPaths)
+    ? registerReviewCoverage(root, reviewAdmissionCurrent, amendmentReviewPaths)
     : undefined;
   const amendedReviewCoverage = amendedReviewAdmission?.coverage;
   const retainedPendingPaths = amendedReviewCoverage
@@ -15046,9 +15196,13 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
     ...(amendedReviewCoverage && retainedPendingPaths ? { review_coverage: { ...amendedReviewCoverage, pending_paths: retainedPendingPaths } } : {}),
     applied_proposals: appendAppliedProposal(oldState, proposal, current.sourceTuple.revision),
   };
-  const correctionReason = rebuilt.authorization
+  const correctionReasons = [rebuilt.authorization
     ? `caller-reported scope amendment: ${decisionText!}`
-    : `persistent-test admission: ${rebuilt.persistent_test_admission!.added.map(item => item.path).join(', ')}`;
+    : `persistent-test admission: ${rebuilt.persistent_test_admission!.added.map(item => item.path).join(', ')}`];
+  if (rebuilt.review_target_reconciliation) {
+    correctionReasons.push(`authorized cumulative review-target reconciliation: ${rebuilt.review_target_reconciliation.paths.join(', ')}`);
+  }
+  const correctionReason = correctionReasons.join('; ');
   const audit: ReplanAuditLogEntry = {
     ...makeReplanAudit(current, proposal, nextWithoutAudit, options.now?.() ?? new Date().toISOString()),
     candidate_digest: candidateDigest,

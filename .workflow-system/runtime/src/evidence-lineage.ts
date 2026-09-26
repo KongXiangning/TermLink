@@ -5,6 +5,12 @@ import * as path from 'path';
 export type EvidenceObject = { path: string; sha256: string; size: number };
 const MAX_OBJECT_BYTES = 1024 * 1024;
 const MAX_SNAPSHOT_BYTES = 8 * MAX_OBJECT_BYTES;
+const LARGE_GENERATED_EVIDENCE_PATH = 'android/app/src/main/assets/public/vendor/pdfjs/pdf.worker.mjs';
+const MAX_LARGE_GENERATED_EVIDENCE_BYTES = 4 * MAX_OBJECT_BYTES;
+
+export function maxEvidenceObjectBytes(relative: string): number {
+  return relative === LARGE_GENERATED_EVIDENCE_PATH ? MAX_LARGE_GENERATED_EVIDENCE_BYTES : MAX_OBJECT_BYTES;
+}
 
 function hash(bytes: Buffer): string {
   return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -26,11 +32,11 @@ export function safeRepositoryFile(root: string, relative: string): string {
   return cursor;
 }
 
-function readBounded(file: string): Buffer {
+function readBounded(file: string, maxBytes = MAX_OBJECT_BYTES): Buffer {
   const stat = fs.lstatSync(file);
-  if (!stat.isFile() || stat.size > MAX_OBJECT_BYTES) throw new Error('EVIDENCE_OBJECT_UNSUPPORTED: requires a regular file of at most 1 MiB.');
+  if (!stat.isFile() || stat.size > maxBytes) throw new Error(`EVIDENCE_OBJECT_UNSUPPORTED: requires a regular file of at most ${maxBytes} bytes.`);
   const bytes = fs.readFileSync(file);
-  if (bytes.length > MAX_OBJECT_BYTES) throw new Error('EVIDENCE_OBJECT_UNSUPPORTED: file exceeded the limit while reading.');
+  if (bytes.length > maxBytes) throw new Error('EVIDENCE_OBJECT_UNSUPPORTED: file exceeded the limit while reading.');
   return bytes;
 }
 
@@ -39,7 +45,7 @@ export function describeEvidenceObjects(root: string, paths: string[]): Evidence
   if (unique.length > 128) throw new Error('EVIDENCE_OBJECT_BUDGET_EXHAUSTED: too many snapshot files.');
   let total = 0;
   return unique.map(relative => {
-    const bytes = readBounded(safeRepositoryFile(root, relative));
+    const bytes = readBounded(safeRepositoryFile(root, relative), maxEvidenceObjectBytes(relative));
     total += bytes.length;
     if (total > MAX_SNAPSHOT_BYTES) throw new Error('EVIDENCE_OBJECT_BUDGET_EXHAUSTED: snapshot exceeds 8 MiB.');
     return { path: relative, sha256: hash(bytes), size: bytes.length };
@@ -54,12 +60,12 @@ function objectFile(root: string, currentPath: string, sha: string): string {
 
 export function readEvidenceObject(root: string, currentPath: string, object: EvidenceObject): Buffer {
   verifyEvidenceObject(root, currentPath, object);
-  return readBounded(objectFile(root, currentPath, object.sha256));
+  return readBounded(objectFile(root, currentPath, object.sha256), maxEvidenceObjectBytes(object.path));
 }
 
 export function preserveEvidenceObjects(root: string, currentPath: string, objects: EvidenceObject[]): void {
   for (const object of objects) {
-    const bytes = readBounded(safeRepositoryFile(root, object.path));
+    const bytes = readBounded(safeRepositoryFile(root, object.path), maxEvidenceObjectBytes(object.path));
     if (hash(bytes) !== object.sha256 || bytes.length !== object.size) throw new Error('EVIDENCE_OBJECT_STALE: source changed before preservation.');
     const file = objectFile(root, currentPath, object.sha256);
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -72,7 +78,7 @@ export function preserveEvidenceObjects(root: string, currentPath: string, objec
 }
 
 export function verifyEvidenceObject(root: string, currentPath: string, object: EvidenceObject): void {
-  const bytes = readBounded(objectFile(root, currentPath, object.sha256));
+  const bytes = readBounded(objectFile(root, currentPath, object.sha256), maxEvidenceObjectBytes(object.path));
   if (hash(bytes) !== object.sha256 || bytes.length !== object.size) throw new Error('EVIDENCE_OBJECT_CORRUPT: immutable evidence object changed.');
 }
 

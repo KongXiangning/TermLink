@@ -616,6 +616,23 @@ retain each invocation's actual writes; the review context projects one cumulati
 delta and supplies review-readable baseline identities. Pure audit changes do not
 change its target.
 
+Automatic artifact checkpoints preserve admitted regular-file outputs as
+content-addressed evidence. Ordinary evidence files remain limited to 1 MiB
+each and each checkpoint remains limited to 8 MiB total. The generated
+`android/app/src/main/assets/public/vendor/pdfjs/pdf.worker.mjs` output has a
+path-specific 4 MiB limit so its exact before/after bytes can be checkpointed;
+this does not broaden Android mutation authority. The bundled PDF.js `LICENSE`
+may be read for checkpoint evidence when its Apache notice contains “do not
+modify the License”; restore and publication still reject its freeze marker.
+
+The only stale-target recovery is an explicitly authorized scope-amendment
+transaction. It binds the previous target revision and the exact current stale
+path set; every path must already belong to the base, target, and pending review
+set. Candidate preparation and commit revalidate that same set. Reconciliation
+preserves the first-touch base, preimages, change-set identity, and review cycle,
+sets the clean revision to null, and leaves every reconciled path pending a fresh
+review. It never silently refreshes review coverage.
+
 `test_assessment: {applicable,reason,evidence_refs,necessity,oracle,boundary,reuse,
 applicability}` accompanies cumulative review results, bound by the enclosing
 execution/change-set/target identity. Every field must be explicit and referenced.
