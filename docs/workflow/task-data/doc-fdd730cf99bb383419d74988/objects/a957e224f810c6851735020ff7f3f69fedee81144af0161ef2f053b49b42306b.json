@@ -1,0 +1,1 @@
+{"document_id":"doc-fdd730cf99bb383419d74988","kind":"vnext-task-object","object_type":"other","payload":{"kind":"vnext-task-material/v1","value":"## 任务信息\n\n- 任务 ID：004\n- 任务标题：承接 Task 003：完成 Rust 历史内容保留、Node 产品历史持久化与历史接口剩余修复及整体验收\n- 任务 slug：task-003-rust-node\n- 当前状态：active\n- 生命周期状态：active\n- 恢复需审查：false\n- 恢复审查原因：\n\n"},"schema_version":1}

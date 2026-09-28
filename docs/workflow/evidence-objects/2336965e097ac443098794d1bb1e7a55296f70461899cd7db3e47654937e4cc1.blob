@@ -1,0 +1,41 @@
+---
+title: Task 004 S1 历史链路核验与契约同步
+status: draft
+record_id: CR-20260928-task004-s1
+req_id: none
+commit_ref: TBD
+owner: @maintainer
+last_updated: 2026-09-28
+source_of_truth: code
+related_code: [native/codex-rollout-collector/src/codex_adapter/mod.rs, src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexHistoryProductStore.js, src/services/codexHistoryReconciliationScheduler.js, src/ws/terminalGateway.js]
+related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-history-product-contract.md]
+---
+
+# CR-20260928-task004-s1
+
+## 1. 变更意图
+
+Task 004 承接已归档且未完成的 Task 003。本批按已确认 S1 核验 Rust 事件内容保留与 Node staging、ACK、complete、产品事务、鉴权历史读取和无人在线重启链路；只修复实际发现的缺陷。
+
+## 2. 实施内容
+
+- 四个 Rust 定向用例与两个 Node 整组用例均通过，当前没有发现 S1 范围内需修改的产品代码。
+- 更新产品契约 §5.1.7，记录代码中已有的包内 analyzer 默认查找、显式覆盖及 `persistent/data` 路由，同时明确这些包级行为仍待 Task 004 S2 的真实进程 smoke 验证。
+- 保留 healthy IPC surface 的实时权威、单例 Node→Rust 采集链与内部 source/checkpoint 边界。本批没有修改这些实现。
+
+## 3. 验证记录
+
+- `cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact`：1 通过、0 失败，真实事件路径原值通过。
+- 同一 `conformance` target 的 `structured_tool_payloads_preserve_nested_values_and_object_keys`：1 通过、0 失败，嵌套值与对象键通过。
+- `rollout_blockers` 的 `test_item_completed_negative_and_retention_boundaries`：1 通过、0 失败，正文预算与负向边界通过。
+- `rollout_blockers` 的 `test_backfill_multi_window_tool_attribution_and_stable_keys`：1 通过、0 失败，跨窗口工具归属与稳定键通过。
+- `node --test tests/codexRolloutCollector.isolatedLifecycle.test.js`：1 通过、0 失败，真实 Node/Rust 子进程与 File store 重开通过。
+- `node --test tests/codexHistoryProductFlow.test.js`：16 通过、0 失败，涵盖 durable staging、canonical complete 发布、鉴权 Gateway、分页/详情、失败保旧值、无人在线 intent 与重启恢复；其中真实 server 重开 pending job/receipt 用例通过。
+- `git diff --check -- src native/codex-rollout-collector tests scripts package.json package-lock.json docs/codex docs/changes`：exit 0；只有 Git 的 LF→CRLF 提示，无空白错误。
+- Cargo 产物位于系统临时目录 `termlink-task004-cargo`，没有作为仓库变更。
+
+这些是 S1 初验，不替代 S2 包 smoke 或 S3 对最新累计代码的全部冻结 claim 与 IPC/Android 回归。未进行部署、安装或真机验证。
+
+## 4. 影响与回退
+
+本批只改变产品契约文档与本 CR。若文档描述需回退，仅撤销本批文档差异；不删除产品库、recovery 状态或已有历史证据。没有真实提交前保持 `draft` 和 `commit_ref: TBD`。
