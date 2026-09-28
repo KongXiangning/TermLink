@@ -17,6 +17,7 @@ entry_contract:
       - relevant_design
       - caller_context
       - operation_receipt
+      - executor_mode
   authority_owner: user
   mutation_boundary:
     product_files: []
@@ -145,7 +146,15 @@ explicit storage-migration route, never task replan or a size-based blocker.
 
 
 For an existing task, begin with `validate --summary`, then call the read-only
-`task-context` for the selected entry and mode. Follow every required
+`task-context` for the selected entry and mode. For a new unrelated task use
+`purpose:"prepare-new"`; to carry unfinished archived work forward use
+`purpose:"archive-handoff"`. Preparation entries on a terminal task default to
+the latter. Refinement/replan keeps the full context. Read complete `value` or
+`records[].value` records directly and pass the returned continuation unchanged;
+only oversized individual records require byte-fragment reconstruction. Use
+`selection.full_context` when more history/definition is needed. A selected view
+does not count as a fully visible definition or grant inherited authority.
+Follow every required
 continuation before deciding that the context is complete; use `task-read` for
 exact definitions, prior results, findings, receipts, and history. Use
 `file-context` or `review-read` for source files and diffs. A context/read
@@ -184,6 +193,38 @@ executable `CURRENT_TASK` draft containing:
   `planned_mutation_targets`, and how to validate the result
 - **Validation plan**
 - **Persistent Tests** explicitly allowed to be created or modified
+
+### Executor guidance (Skill-only)
+
+Use optional `executor_mode: guided | autonomous` as an authoring preference.
+Read it from the invocation (for example, `--executor-mode autonomous`) or
+explicit caller context; the invocation takes precedence. Default to `guided`
+without asking. Do not infer it from model names or require model profiles.
+
+Apply it only to guidance being prepared or explicitly revised. Do not rewrite
+unrelated or confirmed steps merely to change this preference. `confirm` still
+confirms the retained draft unchanged.
+
+- `guided`: Within each logical step, preserve the concrete change direction,
+  already-resolved design choices, necessary dependencies, relevant invariants,
+  expected resulting state, and minimum-sufficient validation. Include useful
+  paths or symbols grounded in the inspected repository; do not invent decisions
+  or prescribe routine code edits.
+- `autonomous`: Keep concise objectives, essential decisions and constraints,
+  necessary dependencies, planned targets, and validation; leave routine
+  implementation details to the executor.
+
+Use existing step descriptions, `planned_mutation_targets`, and validation
+content; retain all required task fields in both modes. Prefer richer guidance
+inside a step to more Runtime step IDs. Split only for real execution or
+dependency boundaries, not merely because `guided` was selected. Neither mode
+adds or exempts tests, evidence obligations, review checkpoints, approvals, or
+blockers; those remain governed by the existing task and project requirements.
+
+Consume this preference in the Skill only. Do not forward a new Runtime argument
+or semantic input field, persist a new task field, or create separate scaffold
+artifacts, profiles, transitions, or gates. An omitted or unrecorded mode is not
+a blocker.
 
 ## Test planning and necessity review
 

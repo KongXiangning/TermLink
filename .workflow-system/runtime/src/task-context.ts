@@ -84,8 +84,10 @@ export type TaskContextReference = {
 };
 
 type AnyRecord = Record<string, unknown>;
+export type TaskContextPurpose = 'prepare-new' | 'execute' | 'review' | 'archive-handoff' | 'full';
 
 export type TaskContextInput = {
+  purpose?: TaskContextPurpose;
   entry?: string;
   mode?: string;
   step_id?: string;
@@ -98,12 +100,18 @@ export type TaskContextInput = {
 };
 
 export type TaskContextContinuation = {
-  kind: 'task-context-page/v1';
+  kind: 'task-context-page/v2';
+  entry: string;
+  mode: string;
+  purpose: TaskContextPurpose;
+  definition_reused: boolean;
+  content_revision: string;
   source_revision: string;
   definition_revision: string;
   state_revision: string;
   step_id?: string;
   block_index: number;
+  record_index: number;
   byte_offset: number;
 };
 
@@ -116,6 +124,10 @@ export type TaskContextBlock = {
   byte_offset?: number;
   total_bytes?: number;
   truncated?: boolean;
+  records?: Array<{ path: Array<string | number>; value: unknown }>;
+  record_offset?: number;
+  total_records?: number;
+  record_path?: Array<string | number>;
 };
 
 export type TaskContextResponse = {
@@ -134,6 +146,9 @@ export type TaskContextResponse = {
   selection: {
     entry: string;
     mode: string;
+    purpose: TaskContextPurpose;
+    full_context: { command: 'task-context'; purpose: 'full'; entry: string; mode: string; step_id?: string };
+    definition_coverage: 'full' | 'selected' | 'reused-full';
     required: string[];
     optional: string[];
     definition_reused: boolean;
@@ -156,7 +171,7 @@ export type TaskContextResponse = {
     source_revision: string;
     definition_revision: string;
     state_revision: string;
-    selection: { entry: string; mode: string };
+    selection: { entry: string; mode: string; purpose: TaskContextPurpose };
     returned_block_ids: string[];
     complete_for_operation: boolean;
   };
@@ -309,7 +324,11 @@ function parseContinuation<T extends TaskContextContinuation | TaskReadContinuat
   if (!record(parsed) || parsed.kind !== expectedKind || typeof parsed.source_revision !== 'string') throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: continuation has an invalid binding.');
   if (!Number.isSafeInteger(parsed.byte_offset) || parsed.byte_offset < 0) throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: byte_offset is invalid.');
   if (parsed.content_revision !== undefined && (typeof parsed.content_revision !== 'string' || !/^[a-f0-9]{64}$/u.test(parsed.content_revision))) throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: content_revision is invalid.');
-  if (expectedKind === 'task-context-page/v1' && (!Number.isSafeInteger(parsed.block_index) || parsed.block_index < 0 || typeof parsed.definition_revision !== 'string' || typeof parsed.state_revision !== 'string')) throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: task context cursor is invalid.');
+  if (expectedKind === 'task-context-page/v2' && (!Number.isSafeInteger(parsed.block_index) || parsed.block_index < 0
+    || !Number.isSafeInteger(parsed.record_index) || parsed.record_index < 0
+    || typeof parsed.entry !== 'string' || typeof parsed.mode !== 'string' || !CONTEXT_PURPOSES.includes(parsed.purpose as TaskContextPurpose)
+    || typeof parsed.content_revision !== 'string' || !/^[a-f0-9]{64}$/u.test(parsed.content_revision)
+    || typeof parsed.definition_reused !== 'boolean' || typeof parsed.definition_revision !== 'string' || typeof parsed.state_revision !== 'string')) throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: task context cursor is invalid; restart task-context.');
   if (expectedKind === 'task-read-page/v1' && (typeof parsed.reference !== 'string' || typeof parsed.definition_revision !== 'string' || !/^[a-f0-9]{64}$/u.test(parsed.definition_revision) || typeof parsed.state_revision !== 'string' || !/^[a-f0-9]{64}$/u.test(parsed.state_revision))) throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: task read cursor is invalid.');
   return parsed as T;
 }
@@ -560,7 +579,12 @@ function executableContextEntry(route: string | undefined): string | undefined {
   return route === 'user' ? 'record-user-decision' : route;
 }
 
+function isTerminalContext(current: CanonicalCurrentTask): boolean {
+  return current.runtimeState.workflow_status === 'closed' || current.runtimeState.lifecycle_state === 'archived';
+}
+
 function policyGatesForCurrent(current: CanonicalCurrentTask, root: string): AnyRecord[] {
+  if (isTerminalContext(current)) return [];
   const state = current.runtimeState;
   const pendingReview = record(state.pending_review_result) ? state.pending_review_result : null;
   const policyGates: AnyRecord[] = [];
@@ -619,6 +643,7 @@ function policyGatesForCurrent(current: CanonicalCurrentTask, root: string): Any
 
 function contextOverview(root: string, current: CanonicalCurrentTask, manifest: TaskStoreManifest | null): AnyRecord {
   const state = current.runtimeState;
+  const terminal = isTerminalContext(current);
   const retryReview = pendingReviewForOrdinaryRetry(current);
   const retryGates = ['RETRY_REVIEW_REQUIRED', ...(ordinaryRetryBudgetExhausted(current, root) ? ['RETRY_BUDGET_EXHAUSTED'] : [])];
   const retryDecision = retryReview ? state.execution_log.findLast(item => 'action' in item
@@ -681,7 +706,7 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
   const pendingPolicy = policyGateDescriptor(pendingReview?.blocker?.code);
   const outstandingRepair = outstandingRepairPreflight(current);
   const reviewableUnreviewedExecution = latestReviewableUnreviewedExecution(current);
-  const blockedRepairContinuation = blockedRepairContinuationForPendingReview(current);
+  const blockedRepairContinuation = terminal ? null : blockedRepairContinuationForPendingReview(current);
   const pendingRepair = pendingReview?.verdict === 'findings';
   const repairExecutionRequired = outstandingRepair !== null || pendingRepair;
   const pendingDispositionRequired = pendingReview !== null
@@ -702,7 +727,7 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
   const pendingPolicyEntry = executableContextEntry(pendingPolicy?.route);
   const exemptCompletionReady = !pendingReview && !reviewableUnreviewedExecution
     && state.active_step_status === 'in-progress' && latestReviewableUnreviewedExecution(current, true) !== null;
-  const nextEntry = state.workflow_status === 'blocked_by_replan'
+  const nextEntry = terminal ? null : state.workflow_status === 'blocked_by_replan'
     ? 'record-user-decision'
     : state.resume_requires_review
       ? 'prepare-task:clear-resume-review'
@@ -743,7 +768,7 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
                 : dynamicReviewReady
                   ? 'review-change'
                   : 'preflight-step';
-  const nextOptions = state.workflow_status === 'blocked_by_replan'
+  const nextOptions = terminal ? [] : state.workflow_status === 'blocked_by_replan'
     ? ['record-user-decision', 'prepare-task:amend-scope', 'prepare-task:prepare-replan', 'debug-task']
     : reviewableUnreviewedExecution !== null
     ? ['review-change']
@@ -804,33 +829,14 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
       },
     pending_scope_findings: {
       findings: pendingScopeFindings,
-      decision_route: pendingScopeFindings.length > 0 ? 'record-user-decision' : null,
-      authorization_effect: pendingScopeFindings.length > 0 ? 'authorize-mutation' : null,
-      amendment_route: pendingScopeFindings.length > 0 ? 'prepare-task:amend-scope' : null,
+      decision_route: !terminal && pendingScopeFindings.length > 0 ? 'record-user-decision' : null,
+      authorization_effect: !terminal && pendingScopeFindings.length > 0 ? 'authorize-mutation' : null,
+      amendment_route: !terminal && pendingScopeFindings.length > 0 ? 'prepare-task:amend-scope' : null,
     },
     dynamic_mutation: {
       review_required: dynamicReviewRequiredForCurrentExecution(current),
-      expansions: (state.dynamic_expansions ?? []).slice(0, 64).map(item => ({
-        path: item.path,
-        domain: item.domain,
-        assessment: item.assessment,
-        first_touch_state: item.first_touch_state,
-        admitted_at: item.admitted_at,
-        ...(item.execution_id === undefined ? {} : {
-          execution_id: item.execution_id,
-          preflight_id: item.preflight_id,
-          step_id: item.step_id,
-          plan_revision: item.plan_revision,
-          change_set_id: item.change_set_id,
-          mode: item.mode,
-        }),
-        ...(item.reviewed_by_review_id === undefined ? {} : {
-          reviewed_by_review_id: item.reviewed_by_review_id,
-          reviewed_at: item.reviewed_at,
-        }),
-      })),
+      expansions_block: { kind: 'task-context-block', reference: 'global-gates' },
       expansion_count: state.dynamic_expansions?.length ?? 0,
-      expansions_truncated: (state.dynamic_expansions?.length ?? 0) > 64,
     },
     next_entry_kind: 'runtime-command',
     next_entry: nextEntry,
@@ -871,7 +877,7 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
       dynamic_expansion_count: state.dynamic_expansions?.length ?? 0,
     },
     latest_execution: latestIndex,
-    repair_execution_recovery: outstandingRepair === null ? null : {
+    repair_execution_recovery: terminal || outstandingRepair === null ? null : {
       required: true,
       action: 'record-step-result',
       exact_retry: true,
@@ -884,7 +890,7 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
       repair_fingerprints: [...(outstandingRepair.repair_fingerprints ?? [])],
       recovery_command: 'execute-step:repair',
     },
-    budget_extension: budgetExtensionEligibility === null ? null : {
+    budget_extension: terminal || budgetExtensionEligibility === null ? null : {
       eligible: budgetExtensionEligibility.eligible,
       extension_scope: budgetExtensionEligibility.extension_scope,
       repair_fingerprints: budgetExtensionEligibility.repair_fingerprints,
@@ -900,7 +906,7 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
           ? 'prepare-task:authorize-controlled-repair-recovery'
           : 'record-user-decision',
     },
-    controlled_recovery: controlledRecoveryEligibility === null ? null : {
+    controlled_recovery: terminal || controlledRecoveryEligibility === null ? null : {
       eligible: controlledRecoveryEligibility.eligible,
       review_blocker_code: controlledRecoveryEligibility.review_blocker_code,
       recovery_scope: controlledRecoveryEligibility.recovery_scope,
@@ -931,7 +937,7 @@ function contextOverview(root: string, current: CanonicalCurrentTask, manifest: 
         ? 'prepare-task:authorize-controlled-repair-recovery'
         : 'record-user-decision',
     },
-    ...(formatScopeBlocked ? {
+    ...(!terminal && formatScopeBlocked ? {
       format_scope_blocker: {
         present: true,
         blocker: pendingReview?.blocker ?? null,
@@ -961,7 +967,7 @@ function compactContextOverviewForSmallPage(overview: AnyRecord): AnyRecord {
   }
   const dynamicMutation = record(compact.dynamic_mutation) ? compact.dynamic_mutation : null;
   if (dynamicMutation && dynamicMutation.review_required === false
-    && Array.isArray(dynamicMutation.expansions) && dynamicMutation.expansions.length === 0) {
+    && dynamicMutation.expansion_count === 0) {
     delete compact.dynamic_mutation;
   }
   for (const key of ['latest_execution', 'repair_execution_recovery', 'budget_extension', 'controlled_recovery'] as const) {
@@ -991,7 +997,7 @@ function compactContextOverviewForSmallPage(overview: AnyRecord): AnyRecord {
   return compact;
 }
 
-function operationBlocks(root: string, current: CanonicalCurrentTask, entry: string, mode: string, definitionReused: boolean, manifest: TaskStoreManifest | null, stepId?: string): { blocks: TaskContextBlock[]; required: string[]; optional: string[] } {
+function fullOperationBlocks(root: string, current: CanonicalCurrentTask, entry: string, mode: string, definitionReused: boolean, manifest: TaskStoreManifest | null, stepId?: string): { blocks: TaskContextBlock[]; required: string[]; optional: string[] } {
   const definitionAlgorithm = manifest?.definition_revision_algorithm;
   const definition = taskStoreDefinitionPayload(asStoreCurrent(current), definitionAlgorithm);
   const blocks: TaskContextBlock[] = [];
@@ -1019,7 +1025,7 @@ function operationBlocks(root: string, current: CanonicalCurrentTask, entry: str
     })),
     required_action: 'Read the complete current definition and perform the bounded dependency check before skipping a gate.',
   });
-  const admission = ordinaryAttemptAdmission(current, root);
+  const admission = isTerminalContext(current) ? null : ordinaryAttemptAdmission(current, root);
   add('global-gates', true, {
     resume_requires_review: current.runtimeState.resume_requires_review,
     resume_review_reasons: current.runtimeState.resume_review_reasons,
@@ -1033,7 +1039,7 @@ function operationBlocks(root: string, current: CanonicalCurrentTask, entry: str
     unresolved_evidence_challenges: Array.isArray(current.runtimeState.evidence_challenges) ? current.runtimeState.evidence_challenges.filter(record).filter(item => item.status !== 'resolved').map(item => ({ challenge_id: item.challenge_id ?? null, status: item.status ?? null, claim_id: item.claim_id ?? null, slot_id: item.slot_id ?? null, result_id: item.result_id ?? null })) : [],
     active_attempt: record(current.runtimeState.step_attempts) && record(current.runtimeState.step_attempts[current.runtimeState.active_step_id]) ? current.runtimeState.step_attempts[current.runtimeState.active_step_id] : null,
     policy_gates: policyGatesForCurrent(current, root),
-    ordinary_attempt_admission: {
+    ordinary_attempt_admission: admission === null ? null : {
       attempt_id: admission.authorized_attempt_id,
       blocked_attempt_id: admission.blocked_attempt_id,
       creates_attempt: admission.creates_attempt,
@@ -1047,6 +1053,124 @@ function operationBlocks(root: string, current: CanonicalCurrentTask, entry: str
   if (entry === 'review-change' || entry === 'review-context' || entry === 'review' || entry.includes('review') || mode === 'review') add('cumulative-review-target', true, reviewTarget(current));
   add('history-navigation', false, storeNavigation(root, current, manifest));
   return { blocks, required: blocks.filter(block => block.required).map(block => block.id), optional: blocks.filter(block => !block.required).map(block => block.id) };
+}
+
+const CONTEXT_PURPOSES: TaskContextPurpose[] = ['prepare-new', 'execute', 'review', 'archive-handoff', 'full'];
+
+function contextPurpose(current: CanonicalCurrentTask, entry: string, mode: string): TaskContextPurpose {
+  if (['prepare-task', 'prepare-draft'].includes(entry) && ['default', 'draft', 'prepare-draft'].includes(mode)) {
+    return isTerminalContext(current) ? 'archive-handoff' : 'prepare-new';
+  }
+  if (['preflight-step', 'execute-step', 'begin-repair', 'resume-preflight', 'evidence-context'].includes(entry)) return 'execute';
+  if (['review-context', 'review-change', 'review'].includes(entry)) return 'review';
+  return 'full';
+}
+
+function archiveOutcome(root: string, current: CanonicalCurrentTask): AnyRecord {
+  const archive = current.runtimeState.execution_log.findLast(item => 'action' in item && item.action === 'archive');
+  if (!archive || !('archive_path' in archive)) return { status: 'not-recorded' };
+  const file = contextPath(root, archive.archive_path);
+  if (!fs.existsSync(file.absolute)) throw new Error(`TASK_CONTEXT_ARCHIVE_UNAVAILABLE: retained archive is missing: ${file.relative}`);
+  const bytes = fs.readFileSync(file.absolute);
+  const raw = bytes.toString('utf8');
+  const revision = createHash('sha256').update(bytes).digest('hex');
+  return {
+    status: 'available', path: file.relative, sha256: revision,
+    recorded_sha256: archive.archive_revision, matches_recorded_revision: revision === archive.archive_revision,
+    full_read: { command: 'file-context', operation: 'read', path: file.relative, sha256: revision },
+    sections: sectionList(raw).filter(section => !['原始任务包快照', 'original task package snapshot'].includes(section.title.toLowerCase())),
+  };
+}
+
+function concernsStep(slot: AnyRecord, step: string): boolean {
+  return slot.due_step_id === step || slot.before_step_id === step || slot.before_step_id == null;
+}
+
+function operationBlocks(root: string, current: CanonicalCurrentTask, entry: string, mode: string, definitionReused: boolean, manifest: TaskStoreManifest | null, purpose: TaskContextPurpose, stepId?: string): { blocks: TaskContextBlock[]; required: string[]; optional: string[] } {
+  const full = fullOperationBlocks(root, current, entry, mode, definitionReused, manifest, stepId);
+  if (purpose === 'full') return full;
+  const selected: TaskContextBlock[] = [];
+  const add = (id: string, value: unknown) => selected.push({ id, required: true, value });
+  const select = (id: string) => {
+    const block = full.blocks.find(item => item.id === id);
+    if (block) selected.push(block);
+  };
+  const state = current.runtimeState;
+  const step = stepId ?? state.active_step_id;
+  const handoff = purpose === 'archive-handoff';
+  const preparing = purpose === 'prepare-new' || handoff;
+  const definition = taskStoreDefinitionPayload(asStoreCurrent(current), manifest?.definition_revision_algorithm);
+  const sections = (definition.sections as Array<{ title: string; text: string }>).filter(section =>
+    !['实施步骤', 'implementation steps', 'implementation_steps', 'steps', '执行记录', 'execution log', '传播治理记录', 'propagation governance', '审查问题队列', 'review queue'].includes(section.title.toLowerCase()));
+  if (preparing) {
+    add('task-origin', {
+      task_id: state.task_id, task_slug: state.task_slug, title: taskTitle(current.body),
+      workflow_status: state.workflow_status, lifecycle_state: state.lifecycle_state,
+      historical_only: isTerminalContext(current), inherits_authority: false,
+      definition_read: { command: 'task-read', kind: 'definition' },
+      task_basis: sectionText(current.body, ['任务输入依据', 'Task Basis']),
+      archive: state.execution_log.findLast(item => 'action' in item && item.action === 'archive') ?? null,
+    });
+    if (handoff) {
+      add('archive-outcome', archiveOutcome(root, current));
+      add('handoff-requirements', sections.filter(section => !['mutation authority', '允许修改范围', '禁止修改范围', 'allowed files', 'forbidden files', 'mutation scope'].includes(section.title.toLowerCase())));
+      add('unfinished-steps', resolveTaskStep(current.body, step).steps.map(item => currentStep(current, item.id))
+        .filter(item => item.status !== 'completed')
+        .map(item => ({ step_id: item.step_id, status: item.status, description: item.description, purpose: item.purpose, required_evidence: item.required_evidence })));
+      select('unfinished-obligations');
+      select('required-dependencies');
+      select('unknown-dependencies');
+      add('unresolved-findings', unresolvedFindings(current));
+      add('pending-review', state.pending_review_result);
+      add('evidence-challenges', state.evidence_challenges ?? []);
+    }
+    add('preparation-status', {
+      resume_requires_review: state.resume_requires_review, resume_review_reasons: state.resume_review_reasons,
+      unfinished_obligation_count: unfinishedObligations(root, current).length,
+      unresolved_finding_count: unresolvedFindings(current).length,
+      handoff_read: isTerminalContext(current) ? { command: 'task-context', purpose: 'archive-handoff' } : null,
+      history: storeNavigation(root, current, manifest),
+    });
+  } else {
+    select('current-step');
+    select('mutation-authority');
+    if (!definitionReused) {
+      add('task-constraints', sections);
+      const claims = definition.claim_evidence_plan as AnyRecord[];
+      add('evidence-plan', claims.map(claim => ({ ...claim, slots: (claim.slots as AnyRecord[]).filter(slot => purpose === 'review' || concernsStep(slot, step)) })).filter(claim => claim.slots.length > 0));
+    }
+    for (const id of ['unfinished-obligations', 'required-dependencies', 'unknown-dependencies', 'global-gates', 'latest-execution']) select(id);
+    if (purpose === 'execute') {
+      for (const block of selected) {
+        if (['unfinished-obligations', 'required-dependencies'].includes(block.id) && Array.isArray(block.value)) {
+          block.value = block.value.filter(item => concernsStep(item, step));
+        }
+      }
+    }
+    const gates = selected.find(block => block.id === 'global-gates')!.value as AnyRecord;
+    const pendingPaths = new Set(state.review_coverage?.pending_paths ?? []);
+    add('unreviewed-expansions', (state.dynamic_expansions ?? []).filter(item => item.reviewed_by_review_id === undefined || pendingPaths.has(item.path)));
+    delete gates.dynamic_expansions;
+    add('pending-review', state.pending_review_result);
+    if (purpose === 'review') {
+      add('review-plan', resolveTaskStep(current.body, step).steps.map(item => ({ step_id: item.id, description: item.description, plan_text: item.plan_text })));
+      add('review-evidence', (state.claim_evidence ?? []).flatMap(claim => claim.slots.map(slot => slotSummary(claim as unknown as AnyRecord, slot as unknown as AnyRecord))));
+      add('cumulative-review-target', reviewTarget(current));
+    }
+  }
+  return { blocks: selected, required: selected.filter(block => block.required).map(block => block.id), optional: selected.filter(block => !block.required).map(block => block.id) };
+}
+
+// Array members and named fields remain complete semantic records. Only an
+// individual oversized record falls back to UTF-8 chunks; other records do not.
+function contextRecords(value: unknown): Array<{ path: Array<string | number>; value: unknown }> {
+  if (Array.isArray(value)) return value.length ? value.map((item, index) => ({ path: [index], value: item })) : [{ path: [], value }];
+  if (!record(value)) return [{ path: [], value }];
+  const entries = Object.entries(value).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) return [{ path: [], value }];
+  return entries.flatMap(([key, item]) => Array.isArray(item) && item.length > 0
+    ? item.map((member, index) => ({ path: [key, index], value: member }))
+    : [{ path: [key], value: item }]);
 }
 
 function fits<T>(base: T, maxBytes: number): boolean {
@@ -1096,21 +1220,29 @@ function utf8Boundary(bytes: Buffer, requested: number): number {
 }
 
 function contextPage(root: string, current: CanonicalCurrentTask, input: TaskContextInput): TaskContextResponse {
-  const entry = typeof input.entry === 'string' && input.entry.trim() ? input.entry.trim() : typeof input.operation === 'string' && input.operation.trim() ? input.operation.trim() : 'validate';
-  const mode = typeof input.mode === 'string' && input.mode.trim() ? input.mode.trim() : 'default';
-  const stepId = typeof input.step_id === 'string' && input.step_id.trim() ? input.step_id.trim() : undefined;
+  const continuation = parseContinuation<TaskContextContinuation>(input.continuation, 'task-context-page/v2');
+  const entry = input.entry?.trim() || input.operation?.trim() || continuation?.entry || 'validate';
+  const mode = input.mode?.trim() || continuation?.mode || 'default';
+  const stepId = input.step_id?.trim() || continuation?.step_id;
   if (stepId && !(entry === 'review-context' && mode === 'review')) throw new Error('TASK_CONTEXT_INPUT_INVALID: step_id override is reserved for review-context mode.');
+  const purpose = input.purpose ?? continuation?.purpose ?? contextPurpose(current, entry, mode);
+  if (!CONTEXT_PURPOSES.includes(purpose)) throw new Error('TASK_CONTEXT_INPUT_INVALID: unknown purpose.');
+  if (purpose === 'archive-handoff' && !isTerminalContext(current)) throw new Error('TASK_CONTEXT_INPUT_INVALID: archive-handoff requires a closed or archived task.');
   const maxBytes = integer(input.max_bytes, 16 * 1024, 256, 64 * 1024);
   const manifest = manifestForContext(root, current);
   const definitionRevision = taskStoreDefinitionRevisionForManifest(asStoreCurrent(current), manifest);
   const stateRevision = taskStoreStateRevision(asStoreCurrent(current));
   const visibleRevision = input.visible_definition_revision ?? input.known_definition_revision;
-  const definitionReused = input.definition_visible === true && visibleRevision === definitionRevision;
-  const continuation = parseContinuation<TaskContextContinuation>(input.continuation, 'task-context-page/v1');
+  const definitionReused = input.definition_visible === undefined && visibleRevision === undefined
+    ? continuation?.definition_reused ?? false
+    : input.definition_visible === true && visibleRevision === definitionRevision;
   if (continuation && (continuation.source_revision !== current.sourceTuple.revision || continuation.definition_revision !== definitionRevision || continuation.state_revision !== stateRevision)) {
     throw new Error('TASK_CONTEXT_STALE: current definition/state changed; start a fresh task-context read.');
   }
-  if (continuation && continuation.step_id !== stepId) throw new Error('TASK_CONTEXT_STALE: step_id changed while paging task context; start a fresh task-context read.');
+  if (continuation && (continuation.entry !== entry || continuation.mode !== mode || continuation.purpose !== purpose
+    || continuation.step_id !== stepId || continuation.definition_reused !== definitionReused)) {
+    throw new Error('TASK_CONTEXT_STALE: selection changed while paging task context; start a fresh read.');
+  }
   const aggregate = {
     document_id: current.sourceTuple.document_id,
     task_id: current.runtimeState.task_id,
@@ -1120,144 +1252,125 @@ function contextPage(root: string, current: CanonicalCurrentTask, input: TaskCon
     state_revision: stateRevision,
     storage_manifest_path: `${taskStorePaths(root, current.sourceTuple.document_id).relativeRoot}/manifest.json`,
   };
-  const selection = { entry, mode, ...(stepId ? { step_id: stepId } : {}), required: [] as string[], optional: [] as string[], definition_reused: definitionReused };
-  const built = operationBlocks(root, current, entry, mode, definitionReused, manifest, stepId);
-  selection.required = built.required;
-  selection.optional = built.optional;
-  const overview = maxBytes <= 4096
-    ? compactContextOverviewForSmallPage(contextOverview(root, current, manifest))
-    : contextOverview(root, current, manifest);
-  const base: AnyRecord = {
-    status: 'success',
-    operation_kind: TASK_CONTEXT_OPERATION,
-    committed: false,
-    aggregate,
-    selection,
-    overview,
-    blocks: [],
-    returned: { block_count: 0, total_block_count: built.blocks.length, byte_count: 0, required_complete: false },
-    required_unexpanded: built.required,
-    optional_unexpanded: built.optional,
-    complete_for_operation: false,
-    continuation: null,
-  };
-  let blockIndex = continuation?.block_index ?? 0;
-  let byteOffset = continuation?.byte_offset ?? 0;
-  if (blockIndex > built.blocks.length) throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: block_index is outside the selected operation.');
-  if (blockIndex < built.blocks.length) {
-    const blockBytes = Buffer.byteLength(stableJson(built.blocks[blockIndex]!.value), 'utf8');
-    if (byteOffset > blockBytes) throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: byte_offset is outside the selected block.');
-  } else if (byteOffset !== 0) {
-    throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: terminal cursor must have byte_offset 0.');
+  const built = operationBlocks(root, current, entry, mode, definitionReused, manifest, purpose, stepId);
+  let details = contextOverview(root, current, manifest);
+  if (purpose === 'prepare-new' || purpose === 'archive-handoff') {
+    details = {
+      identity: details.identity, status: details.status,
+      next_entry_kind: details.next_entry_kind, next_entry: details.next_entry, next_options: details.next_options,
+      user_decision_options: details.user_decision_options,
+      historical_only: isTerminalContext(current), inherits_authority: false,
+    };
+  } else if (purpose !== 'full') {
+    details.mutation_authority = { kind: 'task-context-block', reference: 'mutation-authority' };
+    const selectedCount = (id: string): number => (built.blocks.find(block => block.id === id)!.value as unknown[]).length;
+    const dynamic = details.dynamic_mutation as AnyRecord;
+    details.dynamic_mutation = { ...dynamic, total_expansion_count: dynamic.expansion_count,
+      expansion_count: selectedCount('unreviewed-expansions'), expansions_block: { kind: 'task-context-block', reference: 'unreviewed-expansions' } };
+    const obligations = details.obligations as AnyRecord;
+    details.obligations = { ...obligations,
+      total_unfinished_count: obligations.unfinished_count, unfinished_count: selectedCount('unfinished-obligations'),
+      total_dependencies_recorded_count: obligations.dependencies_recorded_count, dependencies_recorded_count: selectedCount('required-dependencies') };
   }
-  const returned: TaskContextBlock[] = [];
-  let next: TaskContextContinuation | null = null;
-  const makePage = (pageBlocks: TaskContextBlock[], cursor: TaskContextContinuation | null): AnyRecord => {
-    const unexpandedIds = built.blocks.slice(cursor ? cursor.block_index : built.blocks.length).map(block => block.id);
-    const requiredUnexpanded = unexpandedIds.filter(id => built.required.includes(id));
-    const optionalUnexpanded = unexpandedIds.filter(id => built.optional.includes(id));
-    const complete = cursor === null && requiredUnexpanded.length === 0 && optionalUnexpanded.length === 0;
+  built.blocks.push({ id: 'overview-details', required: true, value: details });
+  built.required.push('overview-details');
+  const contentRevision = sha256(stableJson(built.blocks));
+  if (continuation && continuation.content_revision !== contentRevision) throw new Error('TASK_CONTEXT_STALE: selected content changed; start a fresh task-context read.');
+  const selection = {
+    entry, mode, purpose, ...(stepId ? { step_id: stepId } : {}),
+    required: built.required, optional: built.optional, definition_reused: definitionReused,
+    full_context: { command: 'task-context' as const, purpose: 'full' as const, entry, mode, ...(stepId ? { step_id: stepId } : {}) },
+    definition_coverage: definitionReused ? 'reused-full' as const : purpose === 'full' ? 'full' as const : 'selected' as const,
+  };
+  let overview = maxBytes <= 4096 ? compactContextOverviewForSmallPage(details) : details;
+  const overviewLimit = Math.min(4096, Math.floor(maxBytes / 4));
+  if (byteLength(JSON.stringify(overview)) > overviewLimit) {
+    overview = {
+      status: { workflow_status: current.runtimeState.workflow_status, lifecycle_state: current.runtimeState.lifecycle_state, active_step_status: current.runtimeState.active_step_status },
+      next_entry_kind: details.next_entry_kind, next_entry: details.next_entry, next_options: details.next_options,
+      details_block: { kind: 'task-context-block', reference: 'overview-details' },
+    };
+  }
+  if (byteLength(JSON.stringify(overview)) > overviewLimit) throw new Error('TASK_CONTEXT_BUDGET_EXHAUSTED: page budget is too small for the bounded overview.');
+  const base = { operation_kind: TASK_CONTEXT_OPERATION, committed: false, aggregate, selection, overview };
+  const records = built.blocks.map(block => contextRecords(block.value));
+  let blockIndex = continuation?.block_index ?? 0;
+  let recordIndex = continuation?.record_index ?? 0;
+  let byteOffset = continuation?.byte_offset ?? 0;
+  if (blockIndex >= built.blocks.length || recordIndex >= records[blockIndex]!.length
+    || byteOffset >= byteLength(stableJson(records[blockIndex]![recordIndex]!.value))) {
+    throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: cursor is outside the selected content.');
+  }
+  if (utf8Boundary(Buffer.from(stableJson(records[blockIndex]![recordIndex]!.value)), byteOffset) !== byteOffset) {
+    throw new Error('TASK_CONTEXT_CONTINUATION_INVALID: cursor splits a UTF-8 character.');
+  }
+  const cursorAt = (block: number, item = 0, offset = 0): TaskContextContinuation | null => block < built.blocks.length ? {
+    kind: 'task-context-page/v2', entry, mode, purpose, definition_reused: definitionReused, content_revision: contentRevision,
+    source_revision: aggregate.source_revision, definition_revision: definitionRevision, state_revision: stateRevision,
+    ...(stepId ? { step_id: stepId } : {}), block_index: block, record_index: item, byte_offset: offset,
+  } : null;
+  const makePage = (blocks: TaskContextBlock[], cursor: TaskContextContinuation | null): TaskContextResponse => {
+    const remaining = cursor ? built.blocks.slice(cursor.block_index).map(block => block.id) : [];
+    const required = remaining.filter(id => built.required.includes(id));
+    const optional = remaining.filter(id => built.optional.includes(id));
     return {
-      ...base,
-      status: complete ? 'success' : 'partial',
-      blocks: pageBlocks,
-      returned: {
-        block_count: pageBlocks.length,
-        total_block_count: built.blocks.length,
-        byte_count: byteLength(JSON.stringify(pageBlocks)),
-        required_complete: requiredUnexpanded.length === 0,
-      },
-      required_unexpanded: requiredUnexpanded,
-      optional_unexpanded: optionalUnexpanded,
-      complete_for_operation: complete,
+      ...base, committed: false,
+      status: cursor ? 'partial' : 'success', blocks,
+      returned: { block_count: blocks.length, total_block_count: built.blocks.length, byte_count: byteLength(JSON.stringify(blocks)), required_complete: required.length === 0 },
+      required_unexpanded: required, optional_unexpanded: optional, complete_for_operation: cursor === null,
       continuation: cursor,
-      receipt: {
-        kind: TASK_CONTEXT_RECEIPT_KIND,
-        document_id: current.sourceTuple.document_id,
-        source_revision: current.sourceTuple.revision,
-        definition_revision: definitionRevision,
-        state_revision: stateRevision,
-        selection: { entry, mode, ...(stepId ? { step_id: stepId } : {}) },
-        returned_block_ids: pageBlocks.map(block => block.id),
-        complete_for_operation: complete,
-      },
+      receipt: { kind: TASK_CONTEXT_RECEIPT_KIND, document_id: aggregate.document_id, source_revision: aggregate.source_revision,
+        definition_revision: definitionRevision, state_revision: stateRevision, selection: { entry, mode, purpose, ...(stepId ? { step_id: stepId } : {}) },
+        returned_block_ids: [...new Set(blocks.map(block => block.id))], complete_for_operation: cursor === null },
     };
   };
+  const returned: TaskContextBlock[] = [];
   while (blockIndex < built.blocks.length) {
     const original = built.blocks[blockIndex]!;
-    const serialized = stableJson(original.value);
-    const full: TaskContextBlock = { id: original.id, required: original.required, value: original.value };
-    const fullCursor = blockIndex + 1 < built.blocks.length
-      ? { kind: 'task-context-page/v1' as const, source_revision: current.sourceTuple.revision, definition_revision: definitionRevision, state_revision: stateRevision, ...(stepId ? { step_id: stepId } : {}), block_index: blockIndex + 1, byte_offset: 0 }
-      : null;
-    const candidate = makePage([...returned, full], fullCursor);
-    if (fits(candidate, maxBytes)) {
-      returned.push(full);
+    const items = records[blockIndex]!;
+    const fullCursor = cursorAt(blockIndex + 1);
+    if (recordIndex === 0 && byteOffset === 0 && fits(makePage([...returned, original], fullCursor), maxBytes)) {
+      returned.push(original);
       blockIndex++;
-      byteOffset = 0;
       continue;
     }
-    const serializedBytes = Buffer.byteLength(serialized, 'utf8');
-    const deferredCursor = {
-      kind: 'task-context-page/v1' as const,
-      source_revision: current.sourceTuple.revision,
-      definition_revision: definitionRevision,
-      state_revision: stateRevision,
-      ...(stepId ? { step_id: stepId } : {}),
-      block_index: blockIndex,
-      byte_offset: byteOffset,
-    };
-    // A valid page may have no room for even one byte of the next required
-    // block after an earlier block was returned.  Defer that block to the
-    // continuation instead of treating the caller's small page budget as a
-    // malformed context request.
-    const minimalBlock: TaskContextBlock = {
-      id: original.id,
-      required: original.required,
-      value: undefined,
-      encoding: 'json',
-      text: '',
-      byte_offset: byteOffset,
-      total_bytes: serializedBytes,
-      truncated: true,
-    };
-    if (returned.length > 0 && !fits(makePage([...returned, minimalBlock], deferredCursor), maxBytes)) {
-      next = deferredCursor;
-      break;
+    if (recordIndex === 0 && byteOffset === 0 && returned.length > 0 && fits(makePage([original], fullCursor), maxBytes)) {
+      return makePage(returned, cursorAt(blockIndex));
     }
-    const chunked = jsonChunk(
-      serialized,
-      byteOffset,
-      { ...base, blocks: returned },
-      original,
-      maxBytes,
-      (candidateBlock, candidateOffset) => {
-        const candidateNext = candidateOffset < serializedBytes
-          ? { kind: 'task-context-page/v1' as const, source_revision: current.sourceTuple.revision, definition_revision: definitionRevision, state_revision: stateRevision, ...(stepId ? { step_id: stepId } : {}), block_index: blockIndex, byte_offset: candidateOffset }
-          : blockIndex + 1 < built.blocks.length
-            ? { kind: 'task-context-page/v1' as const, source_revision: current.sourceTuple.revision, definition_revision: definitionRevision, state_revision: stateRevision, ...(stepId ? { step_id: stepId } : {}), block_index: blockIndex + 1, byte_offset: 0 }
-            : null;
-        return fits(makePage([...returned, candidateBlock], candidateNext), maxBytes);
-      },
-    );
-    returned.push(chunked.block);
-    const after = chunked.nextOffset;
-    if (after < Buffer.byteLength(serialized, 'utf8')) next = { kind: 'task-context-page/v1', source_revision: current.sourceTuple.revision, definition_revision: definitionRevision, state_revision: stateRevision, ...(stepId ? { step_id: stepId } : {}), block_index: blockIndex, byte_offset: after };
-    else if (blockIndex + 1 < built.blocks.length) next = { kind: 'task-context-page/v1', source_revision: current.sourceTuple.revision, definition_revision: definitionRevision, state_revision: stateRevision, ...(stepId ? { step_id: stepId } : {}), block_index: blockIndex + 1, byte_offset: 0 };
-    blockIndex = built.blocks.length;
-    break;
+    const afterRecord = recordIndex + 1 < items.length ? cursorAt(blockIndex, recordIndex + 1) : fullCursor;
+    const item = items[recordIndex]!;
+    const last = returned.at(-1);
+    const appendRecord = (): TaskContextBlock[] => {
+      if (last?.id === original.id && last.records) return [...returned.slice(0, -1), { ...last, records: [...last.records, item] }];
+      return [...returned, { id: original.id, required: original.required, records: [item], record_offset: recordIndex, total_records: items.length }];
+    };
+    const candidate = appendRecord();
+    if (byteOffset === 0 && fits(makePage(candidate, afterRecord), maxBytes)) {
+      returned.splice(0, returned.length, ...candidate);
+      recordIndex++;
+      if (recordIndex === items.length) { blockIndex++; recordIndex = 0; }
+      continue;
+    }
+    // Do not split the next record merely to fill this page's leftover space.
+    if (returned.length > 0) return makePage(returned, cursorAt(blockIndex, recordIndex, byteOffset));
+    const serialized = stableJson(item.value);
+    const total = byteLength(serialized);
+    const fragment: TaskContextBlock = { id: original.id, required: original.required, record_path: item.path, record_offset: recordIndex, total_records: items.length };
+    const chunk = jsonChunk(serialized, byteOffset, { ...base, blocks: [] }, fragment, maxBytes,
+      (part, offset) => fits(makePage([part], offset < total ? cursorAt(blockIndex, recordIndex, offset) : afterRecord), maxBytes));
+    if (chunk.nextOffset <= byteOffset) throw new Error('TASK_CONTEXT_BUDGET_EXHAUSTED: page budget leaves no room for a complete UTF-8 character.');
+    return makePage([chunk.block], chunk.nextOffset < total ? cursorAt(blockIndex, recordIndex, chunk.nextOffset) : afterRecord);
   }
-  const response = makePage(returned, next);
-  if (!fits(response, maxBytes)) {
-    // The chunk calculation includes the base response.  This guard catches
-    // metadata growth caused by a very large overview and fails explicitly.
-    throw new Error('TASK_CONTEXT_BUDGET_EXHAUSTED: task-context metadata exceeds the requested page budget.');
-  }
-  return response as TaskContextResponse;
+  const response = makePage(returned, null);
+  if (!fits(response, maxBytes)) throw new Error('TASK_CONTEXT_BUDGET_EXHAUSTED: task-context metadata exceeds the requested page budget.');
+  return response;
 }
 
 export function taskContext(root: string, input: unknown = {}): TaskContextResponse {
-  const value = contextInput(input, ['entry', 'mode', 'step_id', 'operation', 'definition_visible', 'visible_definition_revision', 'known_definition_revision', 'continuation', 'max_bytes']) as TaskContextInput;
+  const value = contextInput(input, ['purpose', 'entry', 'mode', 'step_id', 'operation', 'definition_visible', 'visible_definition_revision', 'known_definition_revision', 'continuation', 'max_bytes']) as TaskContextInput;
+  for (const field of ['purpose', 'entry', 'mode', 'step_id', 'operation'] as const) {
+    if (value[field] !== undefined && (typeof value[field] !== 'string' || !value[field]!.trim())) throw new Error(`TASK_CONTEXT_INPUT_INVALID: ${field} must be a non-empty string.`);
+  }
   if (value.definition_visible !== undefined && typeof value.definition_visible !== 'boolean') throw new Error('TASK_CONTEXT_INPUT_INVALID: definition_visible must be boolean.');
   if (value.visible_definition_revision !== undefined && (typeof value.visible_definition_revision !== 'string' || !/^[a-f0-9]{64}$/u.test(value.visible_definition_revision))) throw new Error('TASK_CONTEXT_INPUT_INVALID: visible_definition_revision must be SHA-256.');
   if (value.known_definition_revision !== undefined && (typeof value.known_definition_revision !== 'string' || !/^[a-f0-9]{64}$/u.test(value.known_definition_revision))) throw new Error('TASK_CONTEXT_INPUT_INVALID: known_definition_revision must be SHA-256.');
@@ -1711,7 +1824,9 @@ export async function runTaskContextCli(command: 'task-context' | 'task-read' | 
     if (command === 'task-context') {
       const result = taskContext(root, readCliInput());
       console.log(JSON.stringify(result, null, 2));
-      return result.complete_for_operation ? 0 : 2;
+      // A delivered page is a successful read. Completion remains explicit in
+      // the payload; run-entry must not turn an ordinary continuation into recovery.
+      return 0;
     }
     if (command === 'task-read') {
       const result = taskRead(root, readCliInput());
