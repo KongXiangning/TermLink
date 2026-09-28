@@ -102,7 +102,7 @@ Store 只提供本地 durable/transaction/idempotency 原语。调用者必须�
 4. 只有既有 importer 将 `complete`、checkpoint watermark、accepted delivery、batch scope 和 target coverage 全部绑定验证后，才构造产品投影并调用 `publishCanonical()`。产品投影以 Rust reduced turns/items 为主要视图，附带已验证 `AnalysisEvent` 的业务字段以保留路径、cwd、命令与输出原值；只去除 schema 明确属于内部来源信息的 event metadata 与 `source_ref`，不得按业务键名过滤。
 5. partial、provisional、unknown 或 coverage 不完整的 complete 不替换已有 canonical。scheduler 不能把 `analyze()` 正常返回等同于 canonical 发布：partial/provisional 返回仍保留 durable intent，解除该终态的内存去重，等待终态事实重放或服务重启；若已有更新的 intent 则继续处理它，不对未变化的 source 热循环。只有 importer canonical publication gate 成功后的 canonical 返回才清除匹配 intent。新 publication 将 items、details、usage、outcomes、coverage 与内部 checkpoint 放进同一个产品事务；`readConversation()` 仍不返回 checkpoint 或 staging。
 6. 服务启动时，collector 先恢复 File Analysis Run Store 中的可恢复任务；scheduler 等待这些恢复请求结束后读取 durable intent，随后与 cached terminal snapshot 合并，继续触发基于产品 canonical checkpoint 的 backfill/append。恢复中的 job 保留 job/source/delivery scope、使用新 request_id；新的 scheduler 请求不会抢先替换该恢复任务。若进程在产品事务提交后、run completion 记录前退出，恢复时已发布 staging receipt 阻止重复发布同一批次的瞬时 `request_id` 差异。
-7. 服务优先使用显式 `TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH`；未设置时，按运行平台查找包内 `app/native/codex-rollout-collector/bin` 的 analyzer。未找到可执行文件时不启动 collector。包布局存在时，产品库和 analysis、checkpoint、run 恢复状态使用同一安装根下的 `persistent/data`；显式 `TERMLINK_PERSISTENT_ROOT` 保持优先，开发目录沿用 `cwd/data`。这些是当前代码接线；Task 004 S2 仍需以真实包内 server→Rust→产品库→鉴权历史读取及重启 smoke 验证发布行为。
+7. 服务优先使用显式 `TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH`；未设置时，按运行平台查找包内 `app/native/codex-rollout-collector/bin` 的 analyzer。未找到可执行文件时不启动 collector。包布局存在时，产品库和 analysis、checkpoint、run 恢复状态使用同一安装根下的 `persistent/data`；显式 `TERMLINK_PERSISTENT_ROOT` 保持优先，开发目录沿用 `cwd/data`。Task 004 S2 的 package smoke 使用复制后的 server、生产依赖安装和包内真实 Rust analyzer：终态 IPC 事实触发读取，正 ACK 前可从持久目录读取 staged batch、receipt、job 与 intent，重启以原 job/batch 和新 request 恢复，随后 canonical、checkpoint 与鉴权 WebSocket 历史可读。smoke 仅替换外部 Codex IPC/app-server transport，并不代表真实外部宿主或 Android 已回归。
 
 ## 6. S3 历史 Gateway 读取
 
@@ -138,4 +138,4 @@ Gateway 的产品历史 provider 只调用 `CodexHistoryProductStore.readConvers
 - `docs/codex/codex-concept-layer-status-registry.md` §3、§5a：排除产品 `source_epoch`、泛化 revision 与 `serverRevision`。
 - `docs/workflow/CONTRACTS.md`「Codex IPC 实时同步核心 / P0-RC.1」及 `docs/workflow/DECISIONS.md` AD-004、AD-018–AD-022：保持健康 IPC 权威、单例 collector 与 source epoch 内部边界。
 
-本文件范围：S2 产品 DTO/路径契约与 Node SQLite Store、S3 产品历史只读 Gateway 接入、S4 Rust `complete` 后 durable publication 与终态唤醒/启动恢复，以及 S5 包启动与持久目录的当前接线。Task 004 S1 已重新核验 Rust 原值边界和 Node 主链定向检查；包级真实进程 smoke 与最终累计验收分别属于 Task 004 S2、S3。
+本文件范围：S2 产品 DTO/路径契约与 Node SQLite Store、S3 产品历史只读 Gateway 接入、S4 Rust `complete` 后 durable publication 与终态唤醒/启动恢复，以及 S5 包启动与持久目录的当前接线。Task 004 S1 已重新核验 Rust 原值边界和 Node 主链定向检查；Task 004 S2 已增加并通过包内真实进程 smoke；最终累计验收属于 Task 004 S3。

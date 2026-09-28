@@ -8,10 +8,12 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
+const WebSocket = require('ws');
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(__dirname, '..');
 const platformKey = process.platform === 'win32' ? 'win' : 'linux';
+const conversationId = '019b2b40-beb6-7b23-bed0-37d570e76816';
 
 const {
     copyAllowedApplicationFiles
@@ -43,39 +45,6 @@ async function installPackagedDependencies(appRoot) {
     });
 }
 
-function waitForPackagedServer(child, { timeoutMs = 30000 } = {}) {
-    return new Promise((resolve, reject) => {
-        let output = '';
-        let settled = false;
-        const timer = setTimeout(() => {
-            const error = new Error(`packaged server did not start within ${timeoutMs}ms`);
-            error.output = output;
-            finish(error);
-        }, timeoutMs);
-        const finish = (error) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            if (error) {
-                if (!error.output) error.output = output;
-                reject(error);
-            } else {
-                resolve(output);
-            }
-        };
-        const capture = (chunk) => {
-            output += chunk.toString();
-            if (output.includes('Server started')) finish();
-        };
-        child.stdout.on('data', capture);
-        child.stderr.on('data', capture);
-        child.once('error', finish);
-        child.once('exit', (code, signal) => {
-            if (!settled) finish(new Error(`packaged server exited before startup (code=${code}, signal=${signal})`));
-        });
-    });
-}
-
 async function waitForPath(target, { timeoutMs = 15000 } = {}) {
     const deadline = Date.now() + timeoutMs;
     while (!fs.existsSync(target)) {
@@ -104,6 +73,139 @@ async function stopPackagedServer(child) {
     });
 }
 
+async function waitUntil(predicate, label, timeoutMs = 20000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const value = await predicate();
+        if (value) return value;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    throw new Error(`timed out waiting for ${label}`);
+}
+
+function rolloutLine(ordinal, type, payload) {
+    return JSON.stringify({
+        timestamp: `2026-08-18T10:00:${String(ordinal).padStart(2, '0')}.000Z`,
+        ordinal,
+        type,
+        payload
+    }) + '\n';
+}
+
+function packageRollout() {
+    return [
+        ['session_meta', {
+            id: conversationId, timestamp: '2026-08-18T10:00:00.000Z',
+            cwd: 'file:///synthetic/package/workspace', originator: 'codex_cli',
+            cli_version: '0.70.0', source: 'cli', model_provider: 'openai', git: {}
+        }],
+        ['event_msg', { type: 'task_started', turn_id: 'package-turn-1', model_context_window: 258400 }],
+        ['event_msg', { type: 'user_message', client_id: 'package-client-1', message: 'packaged real history', images: [] }],
+        ['event_msg', { type: 'agent_message', message: 'packaged Rust response', phase: 'commentary' }],
+        ['event_msg', { type: 'task_complete', turn_id: 'package-turn-1', last_agent_message: 'packaged Rust response', duration_ms: 500 }]
+    ].map(([type, payload], ordinal) => rolloutLine(ordinal, type, payload)).join('');
+}
+
+// The child runs the copied server and all of its internal modules. Only the
+// external Codex IPC/app-server transports are replaced. holdAck injects a
+// crash window after durable staging and before the real Rust ACK write.
+function packagedServerChild(appRoot, holdAck) {
+    const path = require('node:path');
+    const http = require('node:http');
+    const { EventEmitter } = require('node:events');
+    const local = (name) => require(path.join(appRoot, name));
+    const replace = (name, exports) => {
+        const id = require.resolve(path.join(appRoot, name));
+        require.cache[id] = { id, filename: id, loaded: true, exports };
+    };
+    let ipcClient;
+    class ExternalIpcTransport extends EventEmitter {
+        constructor() {
+            super();
+            ipcClient = this;
+            this.clientId = 'package-external-owner';
+            const config = local('src/services/codexIpcConfig.js').readIpcConfig();
+            this.enabled = config.enabled;
+            this.allowActive = config.allowActive;
+            this.confirmSend = config.confirmSend;
+        }
+        async connect() { this.initialized = true; this.emit('connect', {}); }
+        close() { this.initialized = false; }
+        addRequestHandler() { return () => {}; }
+        sendBroadcast() { return true; }
+        async request() { return {}; }
+    }
+    replace('src/services/codexIpcClient.js', { CodexIpcClient: ExternalIpcTransport });
+    class ExternalAppServer extends EventEmitter {
+        start() { return Promise.resolve(); }
+        ensureStarted() { return Promise.resolve(false); }
+        stop() {}
+        request(method, params) {
+            return Promise.resolve(method === 'thread/resume' || method === 'thread/read'
+                ? { thread: { id: params.threadId, turns: [], historyMode: 'legacy' } } : { ok: true });
+        }
+        respondToServerRequest() {}
+        static extractThreadId(message) { return message?.params?.threadId || message?.params?.conversationId || null; }
+    }
+    replace('src/services/codexAppServerService.js', ExternalAppServer);
+
+    const { AnalyzerProcessManager } = local('src/services/codexRolloutCollector/analyzerProcessManager.js');
+    const send = AnalyzerProcessManager.prototype.send;
+    let manager;
+    AnalyzerProcessManager.prototype.send = function (message) {
+        manager = this;
+        if (message.message_type === 'analyze') process.send({ type: 'analyze', message });
+        if (holdAck && message.message_type === 'ack' && message.accepted) {
+            process.send({ type: 'held-ack', message });
+            return;
+        }
+        return send.call(this, message);
+    };
+    const listen = http.Server.prototype.listen;
+    http.Server.prototype.listen = function (...args) {
+        this.once('listening', () => process.send({ type: 'listening', port: this.address().port }));
+        return listen.apply(this, args);
+    };
+    process.on('message', async (message) => {
+        if (message.type === 'broadcast') ipcClient.emit('broadcast', message.value);
+        if (message.type === 'exit') {
+            await manager?.stop();
+            process.exit(0);
+        }
+    });
+    local('src/server.js');
+}
+
+async function startPackagedServer(appRoot, env, holdAck) {
+    const child = spawn(process.execPath, ['-e', `(${packagedServerChild.toString()})(${JSON.stringify(appRoot)}, ${holdAck})`], {
+        cwd: appRoot, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true
+    });
+    const messages = [];
+    let output = '';
+    child.on('message', (message) => messages.push(message));
+    child.stdout.on('data', (chunk) => { output += chunk; });
+    child.stderr.on('data', (chunk) => { output += chunk; });
+    const close = async () => {
+        if (child.exitCode !== null || child.signalCode !== null) return;
+        const exited = new Promise((resolve) => child.once('exit', resolve));
+        child.send({ type: 'exit' });
+        await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 5000))]);
+        await stopPackagedServer(child);
+    };
+    try {
+        const listening = await waitUntil(() => messages.find((message) => message.type === 'listening'), 'packaged server startup');
+        return { child, messages, close, port: listening.port, output: () => output };
+    } catch (error) {
+        await close();
+        error.message += `\n${output}`;
+        throw error;
+    }
+}
+
+async function waitForWebSocketMessage(messages, predicate) {
+    return waitUntil(() => messages.find(predicate), 'authenticated history response');
+}
+
 test('product-history-package stages the real Rust analyzer and reopens SQLite after an ignore-scripts install', async (t) => {
     const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'termlink-product-history-package-'));
     t.after(() => fsp.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
@@ -121,20 +223,25 @@ test('product-history-package stages the real Rust analyzer and reopens SQLite a
     assert.equal(path.basename(application.analyzer.source), getAnalyzerBinaryName(platformKey));
     await installPackagedDependencies(appRoot);
 
-    const packagedAnalyzer = path.join(appRoot, ...getAnalyzerBinaryTarget(platformKey).split('/'));
     const persistentRoot = path.join(stageRoot, 'persistent');
     const persistentDataRoot = path.join(persistentRoot, 'data');
     const codexHome = path.join(persistentRoot, 'codex-home');
-    await fsp.mkdir(path.join(codexHome, 'sessions'), { recursive: true });
+    const sessionDirectory = path.join(codexHome, 'sessions', '2026', '08', '18');
+    await fsp.mkdir(sessionDirectory, { recursive: true });
+    const sourcePath = path.join(sessionDirectory, `rollout-2026-08-18T10-00-00-${conversationId}.jsonl`);
+    await fsp.writeFile(sourcePath, packageRollout(), 'utf8');
 
     const serverEnv = {
         ...process.env,
         PORT: '0',
         TERMLINK_BIND_HOST: '127.0.0.1',
-        AUTH_ENABLED: 'false',
-        TERMLINK_CODEX_IPC_ENABLED: '0',
-        TERMLINK_CODEX_IPC_ALLOW_ACTIVE: '0',
-        TERMLINK_CODEX_IPC_CONFIRM_SEND: '0',
+        AUTH_ENABLED: 'true',
+        AUTH_USER: 'package-test',
+        AUTH_PASS: 'package-test-password',
+        SESSION_PERSIST_ENABLED: 'false',
+        TERMLINK_CODEX_IPC_ENABLED: '1',
+        TERMLINK_CODEX_IPC_ALLOW_ACTIVE: '1',
+        TERMLINK_CODEX_IPC_CONFIRM_SEND: '1',
         TERMLINK_DIAGNOSTICS_ENABLED: 'false',
         TERMLINK_TLS_ENABLED: 'false',
         CODEX_HOME: codexHome
@@ -142,15 +249,15 @@ test('product-history-package stages the real Rust analyzer and reopens SQLite a
     delete serverEnv.TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH;
     delete serverEnv.TERMLINK_PERSISTENT_ROOT;
 
-    const packagedServer = spawn(process.execPath, [path.join(appRoot, 'src', 'server.js')], {
-        cwd: appRoot,
-        env: serverEnv,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true
-    });
+    const packagedStore = require(path.join(appRoot, 'src/services/codexHistoryProductStore.js'));
+    const databasePath = path.join(persistentDataRoot, 'codex-history.sqlite');
+    const productStore = new packagedStore.CodexHistoryProductStore({ databasePath });
+    let first;
+    let restarted;
+    let ws;
     try {
-        const serverOutput = await waitForPackagedServer(packagedServer);
-        assert.doesNotMatch(serverOutput, /Codex rollout history collection is disabled/);
+        first = await startPackagedServer(appRoot, serverEnv, true);
+        assert.doesNotMatch(first.output(), /Codex rollout history collection is disabled/);
         for (const directory of [
             'codex-rollout-analysis',
             'codex-rollout-checkpoints',
@@ -158,58 +265,97 @@ test('product-history-package stages the real Rust analyzer and reopens SQLite a
         ]) {
             await waitForPath(path.join(persistentDataRoot, directory));
         }
-        await waitForPath(path.join(persistentDataRoot, 'codex-history.sqlite'));
+        await waitForPath(databasePath);
+        assert.equal(first.messages.filter((message) => message.type === 'analyze').length, 0,
+            'without a terminal source-ready fact the packaged server must not collect');
+        assert.equal(await productStore.readConversation(conversationId), null);
+
+        first.child.send({ type: 'broadcast', value: {
+            method: 'thread-stream-state-changed', sourceClientId: 'package-external-owner', params: {
+                conversationId, change: { type: 'snapshot', revision: 1, conversationState: {
+                    turns: [{ turnId: 'package-turn-1', status: 'completed', items: [{ type: 'userMessage', content: 'terminal fact' }] }]
+                } }
+            }
+        } });
+        const held = await waitUntil(() => first.messages.find((message) => message.type === 'held-ack'), 'durable staging before ACK');
+        const originalRequest = first.messages.find((message) => message.type === 'analyze').message;
+        const staged = await productStore.readStagedBatch(conversationId, held.message.batch_id);
+        assert.ok(staged, 'the real packaged collector must stage its Rust batch');
+        assert.equal(staged.publishedAt, null);
+        assert.equal(await productStore.readCheckpoint(conversationId), null);
+        assert.equal(await productStore.readConversation(conversationId), null);
+        assert.equal((await productStore.readReconciliationIntents()).length, 1);
+        const analysisFiles = await fsp.readdir(path.join(persistentDataRoot, 'codex-rollout-analysis'));
+        assert.ok(analysisFiles.length > 0, 'the durable batch receipt must live in persistent/data');
+        assert.ok((await fsp.readFile(path.join(persistentDataRoot, 'codex-rollout-analysis', analysisFiles[0]), 'utf8'))
+            .includes(held.message.batch_id));
+        assert.ok((await fsp.readdir(path.join(persistentDataRoot, 'codex-rollout-runs'))).length > 0,
+            'the pending analyzer job must live in persistent/data');
+        await first.close();
+
+        restarted = await startPackagedServer(appRoot, serverEnv, false);
+        const history = await waitUntil(() => productStore.readConversation(conversationId), 'canonical package history');
+        const recoveredRequest = restarted.messages.find((message) => message.type === 'analyze')?.message;
+        assert.ok(recoveredRequest, 'the packaged server must recover the pending job');
+        assert.equal(recoveredRequest.job_id, originalRequest.job_id);
+        assert.notEqual(recoveredRequest.request_id, originalRequest.request_id);
+        assert.equal(recoveredRequest.recovery.batch_id, held.message.batch_id);
+        assert.equal(history.coverage.completeness, 'canonical');
+        assert.ok(JSON.stringify(history.items).includes('packaged real history'));
+        assert.ok(JSON.stringify(history.items).includes('packaged Rust response'));
+        assert.equal(new Set(history.items.map((item) => item.itemKey)).size, history.items.length);
+        assert.equal((await productStore.readCheckpoint(conversationId)).completeness, 'canonical');
+        assert.ok((await fsp.readdir(path.join(persistentDataRoot, 'codex-rollout-checkpoints'))).length > 0,
+            'the analyzer checkpoint must live in persistent/data');
+        await waitUntil(async () => (await productStore.readReconciliationIntents()).length === 0, 'settled durable intent');
+        for (const name of [
+            'codex-history.sqlite',
+            'codex-rollout-analysis',
+            'codex-rollout-checkpoints',
+            'codex-rollout-runs'
+        ]) {
+            assert.equal(fs.existsSync(path.join(appRoot, 'data', name)), false,
+                `${name} must not be written under packaged app/data`);
+        }
+
+        const authorization = `Basic ${Buffer.from('package-test:package-test-password').toString('base64')}`;
+        assert.equal((await fetch(`http://127.0.0.1:${restarted.port}/api/sessions`)).status, 401);
+        const sessionResponse = await fetch(`http://127.0.0.1:${restarted.port}/api/sessions`, {
+            method: 'POST', headers: { Authorization: authorization, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'package-history', sessionMode: 'codex', cwd: appRoot })
+        });
+        assert.equal(sessionResponse.status, 200, await sessionResponse.clone().text());
+        const session = await sessionResponse.json();
+        ws = new WebSocket(`ws://127.0.0.1:${restarted.port}/ws?sessionId=${encodeURIComponent(session.id)}`, {
+            headers: { Authorization: authorization }
+        });
+        const messages = [];
+        ws.on('message', (data) => {
+            try { messages.push(JSON.parse(data.toString())); } catch (_) { /* malformed test output */ }
+        });
+        await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
+        await waitForWebSocketMessage(messages, (message) => message.type === 'session_info');
+        ws.send(JSON.stringify({ type: 'set_active_follower_mode', enabled: true }));
+        await waitForWebSocketMessage(messages, (message) => message.type === 'follower_mode_changed' && message.enabled);
+        ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId, selectionGeneration: 61 }));
+        await waitUntil(() => messages.find((message) => message.type === 'session_codex_thread_bound'
+            && message.conversationId === conversationId), 'active package conversation');
+        const syncId = '123e4567-e89b-12d3-a456-426614174300';
+        ws.send(JSON.stringify({ type: 'conversation_history_sync_request', syncId, conversationId,
+            selectionGeneration: 61, cacheSchemaVersion: 3,
+            checkpoint: { rootHash: null, itemCount: 0, complete: false } }));
+        await waitForWebSocketMessage(messages, (message) => message.type === 'conversation_history_manifest_required' && message.syncId === syncId);
+        ws.send(JSON.stringify({ type: 'conversation_history_manifest_page', syncId, conversationId,
+            clientSelectionGeneration: 61, pageIndex: 0, lastPage: true, items: [] }));
+        const delta = await waitForWebSocketMessage(messages, (message) => message.type === 'conversation_history_delta' && message.syncId === syncId);
+        assert.deepEqual(delta.upserts.map((item) => item.itemKey), history.items.map((item) => item.itemKey));
+        assert.ok(JSON.stringify(delta).includes('packaged real history'));
+        assert.equal(JSON.stringify(delta).includes(sourcePath), false);
     } finally {
-        await stopPackagedServer(packagedServer);
+        ws?.terminate();
+        await restarted?.close();
+        await first?.close();
     }
-
-    const packagedManager = require(path.join(appRoot, 'src/services/codexRolloutCollector/analyzerProcessManager.js'));
-    const relativeAnalyzerPath = path.relative(appRoot, packagedAnalyzer);
-    const resolvedAnalyzer = packagedManager.resolveAnalyzerExecutable(relativeAnalyzerPath, { cwd: appRoot });
-    assert.equal(resolvedAnalyzer, packagedAnalyzer);
-
-    const manager = new packagedManager.AnalyzerProcessManager({
-        analyzerPath: resolvedAnalyzer,
-        cwd: appRoot,
-        env: { CODEX_HOME: codexHome },
-        requestTimeoutMs: 15000
-    });
-    try {
-        await manager.start();
-        assert.ok(manager.readyGeneration > 0, 'the analyzer must complete its package-relative hello handshake');
-    } finally {
-        await manager.stop();
-    }
-
-    const packagedStore = require(path.join(appRoot, 'src/services/codexHistoryProductStore.js'));
-    const databasePath = path.join(persistentDataRoot, 'codex-history.sqlite');
-    const conversationId = 'package-history-conversation';
-    const first = new packagedStore.CodexHistoryProductStore({ databasePath });
-    await first.stageBatch({
-        conversationId,
-        batchId: 'package-batch-1',
-        deliveryIdentity: { request_id: 'package-request-1', job_id: 'package-job-1', segment_id: 'package-segment-1' },
-        payload: { history_items: [{ item_key: 'package-item-1' }] }
-    });
-    await first.publishCanonical({
-        conversationId,
-        batchId: 'package-batch-1',
-        items: [{
-            itemKey: 'package-item-1',
-            eventId: 'package-event-1',
-            turnId: 'package-turn-1',
-            itemType: 'message',
-            ordinal: 0,
-            payload: { text: 'packaged sqlite write' }
-        }],
-        coverage: { state: 'canonical', complete: true },
-        checkpoint: { cursor: 'package-cursor-1' }
-    });
-
-    const reopened = new packagedStore.CodexHistoryProductStore({ databasePath });
-    const history = await reopened.readConversation(conversationId);
-    assert.equal(history.items[0].payload.text, 'packaged sqlite write');
-    assert.deepEqual(history.coverage, { state: 'canonical', complete: true });
 
     const missingPath = path.join(root, 'missing', getAnalyzerBinaryName(platformKey));
     assert.throws(

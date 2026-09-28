@@ -16,14 +16,14 @@ task_store:
       sha256: 6cb25d0f874bf7bc5680033426d38f3cd27a9c5d15b1588420ec5adb463ba647
     state:
       object_type: state
-      sha256: 655ea4656d158c37aba6883e2112ab9a0d6002a67bf71361d6f0322ec8e9246d
+      sha256: 61538710c8b686dec06ad2f7ffecf693f48c4f1b2ae927c981be789e3fc017a6
 runtime_state:
   schema_version: 1
   task_id: "004"
   task_slug: task-003-rust-node
   workflow_status: active
   lifecycle_state: active
-  active_step_id: S2
+  active_step_id: S3
   active_step_status: ready
   finding_queue_revision: 0
   resume_requires_review: false
@@ -35,11 +35,23 @@ runtime_state:
 > This summary is not an execution grant. Use task-context/task-read for exact obligations, authority and evidence.
 
 ## 当前步骤
-- S2
+- S3
 - workflow: active; lifecycle: active; step: ready
 
 ## 当前到期证据
-- none; inspect task-context for prerequisites and remaining obligations
+- C1 / C1-rust-path / T004-CK-C1-RUST-PATH: missing
+- C1 / C1-rust-nested / T004-CK-C1-RUST-NESTED: missing
+- C1 / C1-rust-budget / T004-CK-C1-RUST-BUDGET: missing
+- C1 / C1-rust-window / T004-CK-C1-RUST-WINDOW: missing
+- C1 / C1-node-final / T004-CK-C1-NODE-FINAL: missing
+- C2 / C2-store-final / T004-CK-C2-STORE-FINAL: missing
+- C2 / C2-publish / T004-CK-C2-PUBLISH: missing
+- C3 / C3-read-final / T004-CK-C3-READ-FINAL: missing
+- C4 / C4-flow-final / T004-CK-C4-FLOW-FINAL: missing
+- C4 / C4-unattended / T004-CK-C4-UNATTENDED: missing
+- C4 / C4-package / T004-CK-C4-PACKAGE: missing
+- C5 / C5-gateway / T004-CK-C5-GATEWAY: missing
+- C5 / C5-android / T004-CK-C5-ANDROID: missing
 
 ## 任务输入依据
 

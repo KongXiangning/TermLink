@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260928-task004-s2 | none | draft | TBD | @maintainer | 2026-09-28 |  | `docs/changes/records/CR-20260928-task004-s2.md` |
 | CR-20260928-task004-s1 | none | draft | TBD | @maintainer | 2026-09-28 |  | `docs/changes/records/CR-20260928-task004-s1.md` |
 | CR-20260926-task003-s5 |  | unknown | TBD | @maintainer |  |  | `docs/changes/records/CR-20260926-task003-s5.md` |
 | CR-20260926-task003-s4 | none | draft | TBD | @maintainer | 2026-09-26 |  | `docs/changes/records/CR-20260926-task003-s4.md` |
