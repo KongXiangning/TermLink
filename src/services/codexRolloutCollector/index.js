@@ -181,6 +181,12 @@ class CodexRolloutCollector {
         });
     }
 
+    async waitForRecovery() {
+        await Promise.allSettled([...this.intentsByRequestId.values()]
+            .filter((intent) => intent.restored)
+            .map((intent) => intent.recoveryCompletion));
+    }
+
     cancel(requestId, reason) {
         const intent = this.intentsByRequestId.get(requestId);
         if (!intent || intent.settled) return false;
@@ -417,6 +423,11 @@ class CodexRolloutCollector {
                     beginContext: null, resolve: () => {}, reject: () => {},
                     persistPromise: Promise.resolve(), restored: true
                 };
+                intent.recoveryCompletion = new Promise((resolve, reject) => {
+                    intent.resolve = resolve;
+                    intent.reject = reject;
+                });
+                intent.recoveryCompletion.catch(() => {});
                 if (this.stopping || generation !== this.lifecycleGeneration) return;
                 if (hasNewerLive()) {
                     throw coordinatorError('ANALYZER_PENDING_REPLACED', 'new live intent superseded the persisted recovery job');

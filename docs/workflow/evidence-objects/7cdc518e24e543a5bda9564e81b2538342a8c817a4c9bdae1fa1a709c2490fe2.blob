@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#0b0f14">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101820'/%3E%3Cpath d='m17 20 13 12-13 12M33 44h14' fill='none' stroke='%2356d6b0' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <title data-i18n="login.meta.title">Sign in · TermLink</title>
+    <link rel="stylesheet" href="/ui-foundation.css?v=2">
+    <link rel="stylesheet" href="/login.css">
+    <script defer src="/i18n/i18n.js"></script>
+    <script defer src="/login.js"></script>
+</head>
+<body>
+    <main class="login-shell">
+        <section class="login-story" aria-labelledby="login-story-title">
+            <a class="brand-lockup" href="/login.html" aria-label="TermLink">
+                <span class="brand-mark" aria-hidden="true"><span>&gt;</span><span>_</span></span>
+                <span class="brand-copy">
+                    <strong>TermLink</strong>
+                    <span data-i18n="login.brand.tagline">Secure terminal access</span>
+                </span>
+            </a>
+
+            <div class="story-copy">
+                <p class="eyebrow" data-i18n="login.hero.eyebrow">REMOTE WORKSPACE</p>
+                <h1 id="login-story-title" data-i18n="login.hero.title">Your terminal, right where you left it.</h1>
+                <p class="story-summary" data-i18n="login.hero.body">Reconnect to active sessions, manage your workspace, and keep command-line work moving from any screen.</p>
+            </div>
+
+            <ul class="feature-list">
+                <li><span class="feature-icon" aria-hidden="true">↻</span><span data-i18n="login.feature.reconnect">Fast session reconnect</span></li>
+                <li><span class="feature-icon" aria-hidden="true">⌘</span><span data-i18n="login.feature.keyboard">Keyboard-first controls</span></li>
+                <li><span class="feature-icon" aria-hidden="true">◇</span><span data-i18n="login.feature.private">Credentials stay on this server</span></li>
+            </ul>
+        </section>
+
+        <section class="login-stage" aria-labelledby="login-title">
+            <div class="mobile-brand" aria-hidden="true">
+                <span class="brand-mark"><span>&gt;</span><span>_</span></span>
+                <strong>TermLink</strong>
+            </div>
+
+            <article class="login-card">
+                <header class="card-header">
+                    <div>
+                        <p class="eyebrow" data-i18n="login.card.eyebrow">TERMLINK ACCESS</p>
+                        <h2 id="login-title" data-i18n="login.card.title">Welcome back</h2>
+                    </div>
+                    <div id="transport-status" class="transport-status" role="status">
+                        <span class="transport-dot" aria-hidden="true"></span>
+                        <span id="transport-label" data-i18n="login.status.checking">Checking your session…</span>
+                    </div>
+                </header>
+
+                <p class="card-subtitle" data-i18n="login.card.subtitle">Sign in with the credentials configured on your TermLink server.</p>
+
+                <form id="login-form" novalidate>
+                    <div class="field-group">
+                        <label for="username" data-i18n="login.field.username">Username</label>
+                        <div class="field-control">
+                            <span class="field-glyph" aria-hidden="true">@</span>
+                            <input id="username" name="username" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="username-hint login-error">
+                        </div>
+                        <span id="username-hint" class="field-hint" data-i18n="login.field.usernameHint">Server account name</span>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="password" data-i18n="login.field.password">Password</label>
+                        <div class="field-control field-control-password">
+                            <span class="field-glyph" aria-hidden="true">••</span>
+                            <input id="password" name="password" type="password" required autocomplete="current-password" aria-describedby="login-error">
+                            <button id="toggle-password" class="password-toggle" type="button" aria-pressed="false" data-i18n="login.action.showPassword">Show password</button>
+                        </div>
+                    </div>
+
+                    <div id="login-error" class="form-message" role="alert" aria-live="polite" hidden></div>
+
+                    <button id="login-submit" class="submit-button" type="submit">
+                        <span class="submit-label" data-i18n="login.action.submit">Continue to TermLink</span>
+                        <span class="submit-spinner" aria-hidden="true"></span>
+                    </button>
+                </form>
+
+                <p id="transport-hint" class="transport-hint" hidden data-i18n="login.status.insecureHint">Use HTTPS when accessing TermLink over a network.</p>
+                <footer class="card-footer">
+                    <span class="privacy-mark" aria-hidden="true">⌁</span>
+                    <span data-i18n="login.footer.privacy">Your password is sent only to this TermLink server and is never stored in browser storage.</span>
+                </footer>
+            </article>
+        </section>
+    </main>
+</body>
+</html>

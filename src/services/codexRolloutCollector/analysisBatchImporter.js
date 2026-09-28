@@ -1524,10 +1524,178 @@ class FileAnalysisStore extends MemoryAnalysisStore {
     }
 }
 
+function sourceOrderOf(record) {
+    const event = record?.event || {};
+    const metadata = event.payload?.metadata || {};
+    const sourceRef = record?.source_ref || metadata.source_ref || {};
+    return [
+        Number.isSafeInteger(sourceRef.rollout_ordinal) ? sourceRef.rollout_ordinal : -1,
+        Number.isSafeInteger(sourceRef.physical_line_ordinal)
+            ? sourceRef.physical_line_ordinal
+            : (Number.isSafeInteger(metadata.sequence) ? metadata.sequence : 0),
+        Number.isSafeInteger(sourceRef.byte_start) ? sourceRef.byte_start : 0
+    ];
+}
+
+function compareSourceOrder(left, right) {
+    const a = left.order;
+    const b = right.order;
+    return a[0] - b[0] || a[1] - b[1] || a[2] - b[2]
+        || left.itemKey.localeCompare(right.itemKey);
+}
+
+function productEventFact(record) {
+    const event = record?.event || {};
+    const eventPayload = isObject(event.payload) ? clone(event.payload) : {};
+    const metadata = isObject(eventPayload.metadata) ? eventPayload.metadata : {};
+    delete eventPayload.metadata;
+
+    return {
+        ...(typeof event.event_type === 'string' ? { event_type: event.event_type } : {}),
+        ...(typeof metadata.timestamp === 'string' ? { timestamp: metadata.timestamp } : {}),
+        ...(typeof metadata.correlation_id === 'string' ? { correlation_id: metadata.correlation_id } : {}),
+        ...(typeof metadata.related_item_key === 'string' ? { related_item_key: metadata.related_item_key } : {}),
+        payload: eventPayload
+    };
+}
+
+function productRowsFromSnapshot(snapshot) {
+    const projection = snapshot?.projection;
+    if (!projection || !Array.isArray(projection.turns)) return null;
+
+    const projectedByKey = new Map();
+    for (const turn of projection.turns) {
+        for (const item of Array.isArray(turn.items) ? turn.items : []) {
+            if (typeof item?.item_key === 'string' && item.item_key) {
+                projectedByKey.set(item.item_key, item);
+            }
+        }
+    }
+
+    const eventGroups = new Map();
+    for (const record of Array.isArray(snapshot.items) ? snapshot.items : []) {
+        const event = record?.event || {};
+        const metadata = event.payload?.metadata || {};
+        const itemKey = record?.item_key || metadata.item_key;
+        if (typeof itemKey !== 'string' || !itemKey) continue;
+        const group = eventGroups.get(itemKey) || [];
+        group.push(record);
+        eventGroups.set(itemKey, group);
+    }
+
+    const keys = new Set([...eventGroups.keys(), ...projectedByKey.keys()]);
+    const ordered = [...keys].map((itemKey) => {
+        const records = eventGroups.get(itemKey) || [];
+        const projected = projectedByKey.get(itemKey) || null;
+        const first = records[0] || null;
+        const metadata = first?.event?.payload?.metadata || {};
+        return {
+            itemKey,
+            records,
+            projected,
+            order: first ? sourceOrderOf(first) : [
+                -1,
+                Number.isSafeInteger(projected?.sequence) ? projected.sequence : 0,
+                0
+            ],
+            turnId: projected?.turn_id || metadata.turn_id || null
+        };
+    }).sort(compareSourceOrder);
+
+    return ordered.map((entry, ordinal) => {
+        const first = entry.records[0];
+        const projectedPayload = entry.projected ? clone(entry.projected) : {};
+        // SourceRef is Rust's internal locator/cursor provenance. Preserve the
+        // event's business path fields while keeping this internal field out
+        // of the product DTO.
+        delete projectedPayload.source_ref;
+        const eventFacts = entry.records.map(productEventFact);
+        const eventIds = entry.records.map((record) => (
+            record?.event_id || record?.event?.payload?.metadata?.event_id || null
+        )).filter(Boolean);
+        const itemType = entry.projected?.kind
+            || first?.event?.event_type
+            || 'event';
+
+        return {
+            itemKey: entry.itemKey,
+            eventId: entry.records.length === 1 && eventIds.length === 1 ? eventIds[0] : null,
+            turnId: entry.turnId,
+            itemType,
+            ordinal,
+            payload: {
+                ...projectedPayload,
+                eventFacts
+            }
+        };
+    });
+}
+
+function productDetailsFromSnapshot(snapshot) {
+    return (Array.isArray(snapshot?.tool_details) ? snapshot.tool_details : []).map((detail) => {
+        const payload = clone(detail);
+        delete payload.item_key;
+        delete payload.completeness;
+        delete payload.source_epoch;
+        delete payload.revision;
+        delete payload.source_ref;
+        return {
+            detailKey: detail.item_key || detail.call_id,
+            itemKey: detail.item_key || null,
+            payload
+        };
+    });
+}
+
+function productUsageFromSnapshot(snapshot) {
+    if (!snapshot?.usage || !isObject(snapshot.usage)) return [];
+    const payload = clone(snapshot.usage);
+    delete payload.completeness;
+    delete payload.source_epoch;
+    delete payload.revision;
+    return [{ usageKey: 'conversation', payload }];
+}
+
+function productOutcomesFromSnapshot(snapshot) {
+    return (Array.isArray(snapshot?.task_outcomes) ? snapshot.task_outcomes : []).map((outcome) => {
+        const payload = clone(outcome);
+        delete payload.item_key;
+        delete payload.completeness;
+        delete payload.source_epoch;
+        delete payload.revision;
+        return { outcomeKey: outcome.item_key, payload };
+    });
+}
+
+function productProjectionFromSnapshot(snapshot, checkpoint) {
+    const projection = snapshot?.projection;
+    if (!snapshot?.canonical || !snapshot?.complete || snapshot?.provisional !== false
+        || !projection || projection.complete !== true || projection.provisional === true
+        || projection.coverage !== 'complete') {
+        return null;
+    }
+    const items = productRowsFromSnapshot(snapshot);
+    if (!items) return null;
+    return {
+        items,
+        toolDetails: productDetailsFromSnapshot(snapshot),
+        usage: productUsageFromSnapshot(snapshot),
+        taskOutcomes: productOutcomesFromSnapshot(snapshot),
+        coverage: {
+            completeness: 'canonical',
+            coverageComplete: true,
+            itemCount: items.length,
+            turnCount: projection.turns.length
+        },
+        checkpoint: clone(checkpoint)
+    };
+}
+
 class AnalysisBatchImporter {
-    constructor({ store = new MemoryAnalysisStore(), checkpointStore = null } = {}) {
+    constructor({ store = new MemoryAnalysisStore(), checkpointStore = null, productStore = null } = {}) {
         this.store = store;
         this.checkpointStore = checkpointStore;
+        this.productStore = productStore;
     }
 
     async init() {
@@ -1558,7 +1726,7 @@ class AnalysisBatchImporter {
                 normalizedCheckpoint
             );
         }
-        return {
+        const imported = {
             accepted: true,
             persisted: true,
             duplicate: result.duplicate,
@@ -1573,6 +1741,24 @@ class AnalysisBatchImporter {
             staging: result.staging,
             state: await this.store.snapshot(normalized.scope)
         };
+        if (this.productStore) {
+            await this.productStore.stageBatch({
+                conversationId: normalized.scope.conversationId,
+                batchId: normalized.identity.batch_id,
+                deliveryIdentity: {
+                    job_id: normalized.identity.job_id,
+                    segment_id: normalized.identity.segment_id,
+                    batch_id: normalized.identity.batch_id,
+                    source_scope: {
+                        conversation_id: normalized.scope.conversationId,
+                        source_id: normalized.scope.sourceId,
+                        source_epoch: normalized.scope.sourceEpoch
+                    }
+                },
+                payload: normalized.staged_payload
+            });
+        }
+        return imported;
     }
 
     async commitComplete(complete, {
@@ -1659,7 +1845,46 @@ class AnalysisBatchImporter {
                 normalizedCheckpoint
             );
         }
-        return this.store.snapshot(normalizedScope);
+        const finalSnapshot = await this.store.snapshot(normalizedScope);
+        if (this.productStore && complete.completeness === 'canonical') {
+            const projection = productProjectionFromSnapshot(finalSnapshot, normalizedCheckpoint);
+            if (!projection) {
+                throw importerError(
+                    'ANALYSIS_PRODUCT_PROJECTION_INCOMPLETE',
+                    'canonical complete did not produce a complete product projection'
+                );
+            }
+            const batchId = normalizedDelivery?.batch_id
+                || normalizedCheckpoint.projection_watermark?.batch_id;
+            if (!batchId) {
+                throw importerError(
+                    'ANALYSIS_PRODUCT_DELIVERY_MISSING',
+                    'canonical product publication requires its accepted batch identity'
+                );
+            }
+            const stagedProductBatch = await this.productStore.readStagedBatch(
+                normalizedScope.conversationId,
+                batchId
+            );
+            if (!stagedProductBatch) {
+                throw importerError(
+                    'ANALYSIS_PRODUCT_STAGING_MISSING',
+                    'canonical product publication requires durable product staging'
+                );
+            }
+            // A process may stop after the product transaction commits but
+            // before the run receipt is marked complete. The repeated Rust
+            // complete can carry a fresh request_id for the same durable
+            // batch; the already-published product projection remains valid.
+            if (!stagedProductBatch.publishedAt) {
+                await this.productStore.publishCanonical({
+                    conversationId: normalizedScope.conversationId,
+                    batchId,
+                    ...projection
+                });
+            }
+        }
+        return finalSnapshot;
     }
 
     _normalizeCheckpoint(checkpoint) {

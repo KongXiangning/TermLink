@@ -36,9 +36,26 @@ entry_contract:
 
 # vNext Skill: git-commit
 
+## Authorized intent and truthful outcomes
+
+Apply the shared Authorized Intent section in `.workflow-system/WORKFLOW_PROTOCOL.md`.
+Separate execution facts from completion qualification and user disposition.
+Same-intent internal recovery needs no repeated permission. Explain material
+consequences before a new user-owned decision; never invent permission or PASS.
+Read-only intent stays read-only. A suggested next route is not the user's only
+choice. An unknown Runtime rejection is diagnosis, not a proven recovery path.
+
 ## Invocation authority and internal recovery
 
 recovery_boundary: entry-recovery/v1
+
+Public result routing: `next_route` (or `recommended_route.entry`) is `null` or a
+declared public Skill base name. Put a declared public mode in `next_mode`
+separately. Choose it only from the verified terminal result. Never copy
+`task-context.overview.next_entry` / `next_options`, review
+`blocker.next_route`, or a `run-entry` recovery command into the public route.
+Complete same-intent internal recovery here; report a new user choice separately
+with `next_route: null`.
 
 The caller's explicit invocation authorizes this entry's stated intent and its
 necessary internal recovery within the existing authority. This entry owns that

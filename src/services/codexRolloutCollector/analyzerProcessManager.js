@@ -25,6 +25,45 @@ const STARTUP_CONFIG_FLAGS = Object.freeze([
     '--sessions-root'
 ]);
 
+function resolveAnalyzerExecutable(configuredPath, {
+    cwd = process.cwd(),
+    fsModule = fs
+} = {}) {
+    if (typeof configuredPath !== 'string' || !configuredPath.trim()) {
+        const error = new Error('TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH must identify a packaged analyzer executable.');
+        error.code = 'ANALYZER_BINARY_NOT_CONFIGURED';
+        throw error;
+    }
+    const resolved = path.isAbsolute(configuredPath)
+        ? path.normalize(configuredPath)
+        : path.resolve(cwd, configuredPath);
+    let stat;
+    try {
+        stat = fsModule.statSync(resolved);
+    } catch (cause) {
+        const error = new Error(`Configured Rust analyzer executable is missing: ${resolved}`);
+        error.code = 'ANALYZER_BINARY_MISSING';
+        error.cause = cause;
+        throw error;
+    }
+    if (!stat.isFile()) {
+        const error = new Error(`Configured Rust analyzer path is not a file: ${resolved}`);
+        error.code = 'ANALYZER_BINARY_INVALID';
+        throw error;
+    }
+    if (process.platform !== 'win32') {
+        try {
+            fsModule.accessSync(resolved, fs.constants.X_OK);
+        } catch (cause) {
+            const error = new Error(`Configured Rust analyzer executable is not executable: ${resolved}`);
+            error.code = 'ANALYZER_BINARY_NOT_EXECUTABLE';
+            error.cause = cause;
+            throw error;
+        }
+    }
+    return resolved;
+}
+
 class AnalyzerStartupError extends Error {
     constructor(code, message, details = undefined) {
         super(message || code);
@@ -1127,5 +1166,6 @@ module.exports = {
     AnalyzerStartupError,
     STARTUP_CONFIG_VERSION,
     resolveSessionsRoot,
-    buildStartupArgs
+    buildStartupArgs,
+    resolveAnalyzerExecutable
 };

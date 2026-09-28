@@ -7,6 +7,7 @@ const express = require('express');
 const http = require('http');
 const https = require('https');
 const WebSocket = require('ws');
+const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const basicAuth = require('./auth/basicAuth');
@@ -28,6 +29,15 @@ const createCodexMediaRouter = require('./routes/codexMedia');
 const { CodexMediaStore } = require('./services/codexMediaStore');
 const { CodexHistorySnapshotStore } = require('./services/codexHistorySnapshotStore');
 const { CodexHistoryProductStore } = require('./services/codexHistoryProductStore');
+const {
+    CodexRolloutCollector,
+    AnalysisBatchImporter,
+    FileAnalysisStore,
+    FileCheckpointStore,
+    FileAnalysisRunStore
+} = require('./services/codexRolloutCollector');
+const { resolveAnalyzerExecutable } = require('./services/codexRolloutCollector/analyzerProcessManager');
+const { CodexHistoryReconciliationScheduler } = require('./services/codexHistoryReconciliationScheduler');
 
 // Parse privilege configuration
 const privilegeConfig = parsePrivilegeConfig();
@@ -68,6 +78,37 @@ const authEnabled = process.env.AUTH_ENABLED === undefined
     : process.env.AUTH_ENABLED.toLowerCase() !== 'false';
 const authUser = process.env.AUTH_USER || 'admin';
 const authPass = process.env.AUTH_PASS || 'admin';
+
+function resolveRuntimePersistentRoot({ env = process.env, cwd = process.cwd(), fsModule = fs } = {}) {
+    const configuredRoot = typeof env.TERMLINK_PERSISTENT_ROOT === 'string'
+        ? env.TERMLINK_PERSISTENT_ROOT.trim()
+        : '';
+    if (configuredRoot) return path.resolve(cwd, configuredRoot);
+
+    // Windows release launchers run the server from <installRoot>\app while
+    // durable state lives beside it in <installRoot>\persistent. Keep the
+    // repository's cwd/data defaults when that package layout is absent.
+    const packagedRoot = path.resolve(cwd, '..', 'persistent');
+    return fsModule.existsSync(packagedRoot) ? packagedRoot : null;
+}
+
+function resolvePackagedAnalyzerPath({ env = process.env, cwd = process.cwd(), platform = process.platform, fsModule = fs } = {}) {
+    const configuredPath = typeof env.TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH === 'string'
+        ? env.TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH.trim()
+        : '';
+    if (configuredPath) return configuredPath;
+
+    const binaryName = platform === 'win32'
+        ? 'codex-rollout-collector.exe'
+        : 'codex-rollout-collector';
+    const packagedPath = path.join(cwd, 'native', 'codex-rollout-collector', 'bin', binaryName);
+    return fsModule.existsSync(packagedPath) ? packagedPath : null;
+}
+
+const runtimePersistentRoot = resolveRuntimePersistentRoot();
+const runtimeDataRoot = runtimePersistentRoot
+    ? path.join(runtimePersistentRoot, 'data')
+    : path.resolve(process.cwd(), 'data');
 
 diagnosticLog.event('server', 'server.process.started', {
     nodeEnv: process.env.NODE_ENV || 'development',
@@ -118,7 +159,9 @@ const codexHistorySnapshotStore = historySnapshotSegmentsEnabled
 const codexHistorySnapshotStoreReady = codexHistorySnapshotStore
     ? codexHistorySnapshotStore.init()
     : Promise.resolve(null);
-const codexHistoryProductStore = new CodexHistoryProductStore();
+const codexHistoryProductStore = new CodexHistoryProductStore({
+    databasePath: path.join(runtimeDataRoot, 'codex-history.sqlite')
+});
 const codexHistoryProductStoreReady = codexHistoryProductStore.init();
 const server = tlsConfig.enabled
     ? https.createServer(buildHttpsOptions(tlsConfig), app)
@@ -156,6 +199,46 @@ app.get('/api/ws-ticket', (req, res) => {
 
 // ── IPC feed: connect to codex-ipc when enabled ──
 const ipcFeed = new CodexIpcFeed();
+const configuredRolloutAnalyzerPath = resolvePackagedAnalyzerPath();
+const codexRolloutCollector = configuredRolloutAnalyzerPath
+    ? (() => {
+        const analyzerPath = resolveAnalyzerExecutable(configuredRolloutAnalyzerPath, {
+            cwd: process.cwd()
+        });
+        const store = new FileAnalysisStore({
+            rootDir: path.join(runtimeDataRoot, 'codex-rollout-analysis')
+        });
+        const checkpointStore = new FileCheckpointStore({
+            rootDir: path.join(runtimeDataRoot, 'codex-rollout-checkpoints')
+        });
+        const runStore = new FileAnalysisRunStore({
+            rootDir: path.join(runtimeDataRoot, 'codex-rollout-runs')
+        });
+        const importer = new AnalysisBatchImporter({
+            store,
+            checkpointStore,
+            productStore: codexHistoryProductStore
+        });
+        return new CodexRolloutCollector({
+            analyzerPath,
+            analyzerCwd: process.cwd(),
+            importer,
+            store,
+            checkpointStore,
+            runStore
+        });
+    })()
+    : null;
+const codexHistoryReconciliationScheduler = codexRolloutCollector
+    ? new CodexHistoryReconciliationScheduler({
+        ipcFeed,
+        collector: codexRolloutCollector,
+        productStore: codexHistoryProductStore,
+        onError(error, context) {
+            console.warn('[server] Codex history reconciliation failed:', error?.message || String(error), context || {});
+        }
+    })
+    : null;
 
 registerTerminalGateway(wss, {
     sessionManager,
@@ -187,10 +270,17 @@ Promise.resolve()
         codexHistorySnapshotStoreReady,
         codexHistoryProductStoreReady
     ]))
-    .then(() => ipcFeed.start().catch((err) => {
+    .then(() => {
+        if (codexHistoryReconciliationScheduler) {
+            codexHistoryReconciliationScheduler.start();
+        } else {
+            console.info('[server] Codex rollout history collection is disabled; configure a packaged analyzer or set TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH to enable it.');
+        }
+        return ipcFeed.start().catch((err) => {
         console.warn('[server] IPC feed start failed:', err.message);
         return null;
-    }))
+        });
+    })
     .then(() => {
         listen(() => {
             if (authEnabled && authUser === 'admin' && authPass === 'admin') {

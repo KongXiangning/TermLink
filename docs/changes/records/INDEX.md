@@ -23,6 +23,8 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260926-task003-s5 |  | unknown | TBD | @maintainer |  |  | `docs/changes/records/CR-20260926-task003-s5.md` |
+| CR-20260926-task003-s4 | none | draft | TBD | @maintainer | 2026-09-26 |  | `docs/changes/records/CR-20260926-task003-s4.md` |
 | CR-20260923-rust-path-preservation-s1 | none | draft | TBD | @maintainer | 2026-09-23 |  | `docs/changes/records/CR-20260923-rust-path-preservation-s1.md` |
 | CR-20260923-codex-history-product-store-s2 | none | draft | TBD | @maintainer | 2026-09-23 |  | `docs/changes/records/CR-20260923-codex-history-product-store-s2.md` |
 | CR-20260923-codex-history-product-gateway-s3 | none | draft | TBD | @maintainer | 2026-09-24 |  | `docs/changes/records/CR-20260923-codex-history-product-gateway-s3.md` |

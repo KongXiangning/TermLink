@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TermLink Mobile</title>
+    <script>
+        (function redirectToTerminal() {
+            var target = 'terminal.html' + window.location.search + window.location.hash;
+            window.location.replace(target);
+        })();
+    </script>
+</head>
+<body>
+    <noscript>
+        <p>JavaScript is required. Open <a href="terminal.html">terminal.html</a>.</p>
+    </noscript>
+</body>
+</html>

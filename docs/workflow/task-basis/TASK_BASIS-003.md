@@ -25,6 +25,20 @@ user_decisions:
       或 vNext 文件。"
   - source: user:compatible-upgrade-2026-09-24
     verbatim: 好，按这个建议进行实施
+  - source: current-user-message
+    verbatim: 授权窄治理修复（推荐）
+  - source: current-user-message
+    verbatim: 授权窄治理续接（推荐）
+  - source: current-user-message:execute-step-task003-s4-20260926-01
+    verbatim: 继续
+  - source: current-user-message:2026-09-26:execute-step-repair
+    verbatim: "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\
+      \\.agents\\skills\\execute-step\\SKILL.md) repair"
+  - source: current-user-message:prepare-task-task003-extend-repair-budget-20260926-01
+    verbatim: "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\
+      \\.agents\\skills\\prepare-task\\SKILL.md) :`extend-repair-budget`"
+  - source: user question reply 2026-09-28
+    verbatim: 确认按未完成停止归档
 ---
 # vNext TASK_BASIS
 

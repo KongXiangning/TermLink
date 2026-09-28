@@ -46,9 +46,26 @@ entry_contract:
 
 # vNext Skill: prepare-task
 
+## Authorized intent and truthful outcomes
+
+Apply the shared Authorized Intent section in `.workflow-system/WORKFLOW_PROTOCOL.md`.
+Separate execution facts from completion qualification and user disposition.
+Same-intent internal recovery needs no repeated permission. Explain material
+consequences before a new user-owned decision; never invent permission or PASS.
+Read-only intent stays read-only. A suggested next route is not the user's only
+choice. An unknown Runtime rejection is diagnosis, not a proven recovery path.
+
 ## Invocation authority and internal recovery
 
 recovery_boundary: entry-recovery/v1
+
+Public result routing: `next_route` (or `recommended_route.entry`) is `null` or a
+declared public Skill base name. Put a declared public mode in `next_mode`
+separately. Choose it only from the verified terminal result. Never copy
+`task-context.overview.next_entry` / `next_options`, review
+`blocker.next_route`, or a `run-entry` recovery command into the public route.
+Complete same-intent internal recovery here; report a new user choice separately
+with `next_route: null`.
 
 The caller's explicit invocation authorizes this entry's stated intent and its
 necessary internal recovery within the existing authority. This entry owns that
@@ -167,6 +184,40 @@ executable `CURRENT_TASK` draft containing:
   `planned_mutation_targets`, and how to validate the result
 - **Validation plan**
 - **Persistent Tests** explicitly allowed to be created or modified
+
+## Test planning and necessity review
+
+### Required policy
+
+在本次调用中，规划测试实施工作及生成 Validation plan / Evidence 前，
+必须读取目标项目根目录下的：
+
+`docs/workflow/test-admission-policy.md`
+
+该文件是本阶段的必读 workflow policy，不是可选参考资料。
+路径相对于目标项目根目录解析，不相对于当前工作目录或 skill 目录。
+
+不能以仅引用文件路径或记得此前内容代替读取。
+文件缺失或无法读取时，应明确报告，不得声称已完成依据该 policy 的检查。
+
+### Planning responsibilities
+
+按 Test Admission Policy 规划验证：
+
+- 从真实业务行为、稳定契约和具体风险出发，先检查相关已有测试
+  与夹具，再决定复用、扩展或新增；不要从实现步骤、函数、
+  分支或覆盖率机械派生测试。
+- 保留关键公共函数、共享能力和重要不变量所需的聚焦单元测试；
+  不得将“业务相关”收窄为只允许业务入口或 E2E 测试。
+- 选择 minimum-sufficient verification，区分长期测试资产与
+  本次 acceptance evidence，避免不必要地扩大测试工作和执行范围。
+
+将筛选后的方案直接写入现有 Implementation steps、
+Validation plan / Evidence。只记录影响决策的关键取舍，
+不新增逐测试准入表、逐用例理由或独立审批材料。
+
+没有必要新增持久测试时，可以明确采用已有检查或其他充分证据；
+存在关键保护缺口时，也不能仅为节省测试数量而省略。
 
 Identify the business failure and required observation below before searching tests. Then use Runtime `file-context` to find/read relevant existing tests, helpers, fixtures and configuration before deciding reuse or new tests. Search results are candidates, not evidence of passing checks; unchanged reused tests need no creation/modification admission. For normal Runtime state inspection use `validate --summary`. Read `.workflow-system/runtime/support/CONTEXT_API.md` for inputs and limits.
 
@@ -749,3 +800,16 @@ its selection-only `validation_replacements` in the same candidate instead of
 claiming the old suite ran. Bind the old check IDs, preserve independent behavior
 requirements and label ownership, and show the exact before/after description to
 the user. Do not treat a selector rename as a waiver of a business obligation.
+
+## Preservation while preparing a new decision
+
+A correction candidate need not wait for pending review/findings to disappear.
+Preserve those obligations and their exact old execution lineage; they must not
+qualify new code or a changed evidence plan as reviewed. Confirmation settles
+only a preflight lacking its actual execution result: record what happened, or
+reconcile a demonstrably unexecuted admission. Do not require every historical
+attempt to be clean. A dirty workspace is not itself permission to erase history.
+When suspended state needs a resume package for renewed execution, keep that
+separate from the user's independent ability to terminate without resuming.
+A bounded selector/evidence-plan change with unchanged goal/acceptance/authority
+uses the existing same-task amendment route, not a fabricated challenge or successor.

@@ -2,9 +2,9 @@
 title: Node Codex 产品历史 DTO 与路径策略
 status: active
 owner: @maintainer
-last_updated: 2026-09-23
+last_updated: 2026-09-26
 source_of_truth: product
-related_code: [src/services/codexHistoryProductStore.js]
+related_code: [src/services/codexHistoryProductStore.js, src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexHistoryReconciliationScheduler.js, src/server.js]
 related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/codex/codex-history-sync-dto-contract-draft.md, docs/codex/codex-concept-layer-status-registry.md]
 ---
 
@@ -12,9 +12,9 @@ related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/co
 
 ## 1. 适用范围
 
-本文冻结 Node 产品历史的 canonical read model、真实事件事实的路径保留规则、S2 SQLite Store 的事务边界，以及 S3 鉴权 Gateway 的只读 provider。Rust `AnalysisBatch` 是内部输入协议；本文的 Node product DTO 不等于 Rust 原生类型，也不等于 Android cache schema。
+本文冻结 Node 产品历史的 canonical read model、真实事件事实的路径保留规则、S2 SQLite Store 的事务边界、S3 鉴权 Gateway 的只读 provider，以及 S4 Rust→Node durable staging / canonical publication / source-ready 恢复顺序。Rust `AnalysisBatch` 是内部输入协议；本文的 Node product DTO 不等于 Rust 原生类型，也不等于 Android cache schema。
 
-S2 实现 SQLite Store 的迁移、durable staging、本地事务、幂等和重开读取。S3 通过 `readConversation()` 接入已有 history Gateway，提供初始读取、older page 与详情分块读取；它不触发 Rust source read，不改变采集与 publication 顺序，也不改变 IPC 实时 authority。
+S2 实现 SQLite Store 的迁移、durable staging、本地事务、幂等和重开读取。S3 通过 `readConversation()` 接入已有 history Gateway，提供初始读取、older page 与详情分块读取；它不触发 Rust source read，也不改变 IPC 实时 authority。S4 由唯一 Node collector 在正 ACK 前完成产品库 durable staging，只在已验证 canonical `complete` 后原子发布，并从终态 IPC surface 唤醒采集与启动恢复。
 
 ## 2. Node canonical read model
 
@@ -78,6 +78,8 @@ S2 v1 schema 包含：
 | `staging_batches` | ACK 前 durable 保存的内部交付 payload 与身份 |
 | `publication_receipts` | 已提交 batch 的幂等收据 |
 
+S4 v2 前向迁移新增 `reconciliation_intents`：每 conversation 保存最新已接受终态的内部 intent token 与 IPC 唤醒去重值。它与 canonical 历史独立，不进入 App DTO，也不构成产品 revision 或 source identity。
+
 S2 使用 `sql.js`（SQLite WebAssembly）并把导出的数据库字节写入同目录临时文件、flush 文件句柄后再 rename 替换正式库。进程内按数据库绝对路径串行化写事务，避免同一个 Node 进程中的打开/导出互相覆盖。该边界依赖单 Node writer 约束，不引入多 worker lease、产品 fencing token 或跨进程竞争协议。
 
 进程级原子替换与文件 flush 是本地 Store 的 durability 实现；S2 不声称完成跨设备、跨文件系统或掉电恢复的发布验证。数据库损坏、迁移失败、冲突交付或提交失败必须 fail closed；不得把损坏库当空库覆盖。
@@ -90,7 +92,17 @@ S2 使用 `sql.js`（SQLite WebAssembly）并把导出的数据库字节写入�
 4. 任意 SQL 写入失败先 rollback；只有 transaction 成功后才导出快照并原子替换磁盘库。SQL 失败或临时快照持久化失败时，先前磁盘 canonical 与 checkpoint 保持可重开读取。
 5. `item_key`、详情键在各 conversation 表内唯一；数据库约束发现重复键时整笔 publication 失败，不得部分发布。
 
-Store 只提供本地 durable/transaction/idempotency 原语。调用者必须先完成其拥有的 `complete`、coverage 与 checkpoint 校验，再调用 canonical publication；S2 不会自行校验 Rust `complete`，也未把该校验与 Node→Rust ACK 生产链连接起来。该顺序及真实采集接线由后续任务步骤负责。
+Store 只提供本地 durable/transaction/idempotency 原语。调用者必须先完成其拥有的 `complete`、coverage 与 checkpoint 校验，再调用 canonical publication；S2 不会自行校验 Rust `complete`，也未在 S2 阶段把该校验连接到 Node→Rust ACK 生产链。S4 将这个调用顺序接入真实采集链。
+
+### 5.1 S4 Rust→Node publication 与恢复
+
+1. `CodexHistoryReconciliationScheduler` 只订阅 `CodexIpcFeed` 的非 desynced terminal snapshot，并在服务启动时检查已缓存的终态 snapshot。接受的终态先持久化 intent 再发起采集；前一次请求失败后仍处理更新的已接受终态，失败的最后一个 intent 保留供事实重放或重启恢复，不进行失败热循环。成功只删除匹配 token 的 intent，不能删除并发到达的新终态。采集不依赖 App/WebSocket 客户端；没有终态 source-ready 事实或其 durable intent 时不扫描、猜测或轮询 rollout 路径。
+2. 无产品 checkpoint 时提交 `backfill` 请求；存在 canonical checkpoint 时提交 `append`，并将该 checkpoint 与 cursor 原样作为内部 Rust 恢复输入。Rust 仍负责定位 source。
+3. `AnalysisBatchImporter` 先完成既有 durable File Store staging，再将验证过的 target batch 与稳定 delivery identity 持久化到产品 `staging_batches`，两者都成功后才返回可产生正 ACK 的结果。重复 delivery 可以使用新的 `request_id`，但同一 conversation、job、segment、batch 和 source scope 的相同 payload 必须幂等；冲突内容 fail closed。
+4. 只有既有 importer 将 `complete`、checkpoint watermark、accepted delivery、batch scope 和 target coverage 全部绑定验证后，才构造产品投影并调用 `publishCanonical()`。产品投影以 Rust reduced turns/items 为主要视图，附带已验证 `AnalysisEvent` 的业务字段以保留路径、cwd、命令与输出原值；只去除 schema 明确属于内部来源信息的 event metadata 与 `source_ref`，不得按业务键名过滤。
+5. partial、provisional、unknown 或 coverage 不完整的 complete 不替换已有 canonical。scheduler 不能把 `analyze()` 正常返回等同于 canonical 发布：partial/provisional 返回仍保留 durable intent，解除该终态的内存去重，等待终态事实重放或服务重启；若已有更新的 intent 则继续处理它，不对未变化的 source 热循环。只有 importer canonical publication gate 成功后的 canonical 返回才清除匹配 intent。新 publication 将 items、details、usage、outcomes、coverage 与内部 checkpoint 放进同一个产品事务；`readConversation()` 仍不返回 checkpoint 或 staging。
+6. 服务启动时，collector 先恢复 File Analysis Run Store 中的可恢复任务；scheduler 等待这些恢复请求结束后读取 durable intent，随后与 cached terminal snapshot 合并，继续触发基于产品 canonical checkpoint 的 backfill/append。恢复中的 job 保留 job/source/delivery scope、使用新 request_id；新的 scheduler 请求不会抢先替换该恢复任务。若进程在产品事务提交后、run completion 记录前退出，恢复时已发布 staging receipt 阻止重复发布同一批次的瞬时 `request_id` 差异。
+7. 服务通过 `TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH` 指定 analyzer executable。发布包对平台 binary 的 staging 与该路径配置属于 S5；路径未配置时，S4 collector 不启动。
 
 ## 6. S3 历史 Gateway 读取
 
@@ -126,4 +138,4 @@ Gateway 的产品历史 provider 只调用 `CodexHistoryProductStore.readConvers
 - `docs/codex/codex-concept-layer-status-registry.md` §3、§5a：排除产品 `source_epoch`、泛化 revision 与 `serverRevision`。
 - `docs/workflow/CONTRACTS.md`「Codex IPC 实时同步核心 / P0-RC.1」及 `docs/workflow/DECISIONS.md` AD-004、AD-018–AD-022：保持健康 IPC 权威、单例 collector 与 source epoch 内部边界。
 
-本文件范围：S2 产品 DTO/路径契约与 Node SQLite Store，以及 S3 产品历史只读 Gateway 接入。Rust `complete` 后 durable publication 与启动恢复属于 S4，平台 analyzer/SQLite 发布 staging 属于 S5。
+本文件范围：S2 产品 DTO/路径契约与 Node SQLite Store、S3 产品历史只读 Gateway 接入，以及 S4 Rust `complete` 后 durable publication 与终态唤醒/启动恢复。平台 analyzer/SQLite 发布 staging 属于 S5。

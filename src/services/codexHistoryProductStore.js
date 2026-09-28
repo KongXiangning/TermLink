@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const initSqlJs = require('sql.js');
 
-const CURRENT_SCHEMA_VERSION = 1;
+const CURRENT_SCHEMA_VERSION = 2;
 const DATABASE_FILENAME = 'codex-history.sqlite';
 const WRITE_QUEUES = new Map();
 let sqlModulePromise;
@@ -109,6 +109,31 @@ class CodexHistoryProductStore {
                 db.close();
             }
             return this;
+        });
+    }
+
+    // Internal scheduling intent, independent of published history. The token
+    // only identifies the accepted wake-up; it is not a product revision.
+    async saveReconciliationIntent({ conversationId, intentId, revision }) {
+        return this.writeTransaction((db) => {
+            db.run('INSERT INTO reconciliation_intents (conversation_id, intent_id, revision) VALUES (?, ?, ?) ON CONFLICT(conversation_id) DO UPDATE SET intent_id = excluded.intent_id, revision = excluded.revision',
+                [requiredString(conversationId, 'conversationId'), requiredString(intentId, 'intentId'), requiredString(revision, 'revision')]);
+        });
+    }
+
+    async readReconciliationIntents() {
+        await this.init();
+        const db = await this.openDatabase();
+        try {
+            return queryAll(db, 'SELECT conversation_id, intent_id, revision FROM reconciliation_intents').map((row) => ({
+                conversationId: row.conversation_id, intentId: row.intent_id, revision: row.revision
+            }));
+        } finally { db.close(); }
+    }
+
+    async completeReconciliationIntent({ conversationId, intentId }) {
+        return this.writeTransaction((db) => {
+            db.run('DELETE FROM reconciliation_intents WHERE conversation_id = ? AND intent_id = ?', [conversationId, intentId]);
         });
     }
 
@@ -386,6 +411,20 @@ class CodexHistoryProductStore {
             } catch (error) {
                 try { db.run('ROLLBACK'); } catch (_) { /* preserve the migration error */ }
                 throw storeError('CODEX_HISTORY_PRODUCT_MIGRATION_FAILED', 'SQLite schema migration 1 failed.', error);
+            }
+            this.applyMigrations(db);
+            return true;
+        }
+        if (version === 1) {
+            db.run('BEGIN IMMEDIATE');
+            try {
+                db.run('CREATE TABLE reconciliation_intents (conversation_id TEXT PRIMARY KEY, intent_id TEXT NOT NULL, revision TEXT NOT NULL)');
+                db.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [2, normalizeTimestamp(this.now())]);
+                db.run('PRAGMA user_version = 2');
+                db.run('COMMIT');
+            } catch (error) {
+                try { db.run('ROLLBACK'); } catch (_) { /* preserve migration failure */ }
+                throw error;
             }
             return true;
         }

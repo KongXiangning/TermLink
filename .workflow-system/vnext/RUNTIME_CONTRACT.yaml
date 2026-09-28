@@ -1,3 +1,9 @@
+# Authorized-intent invariant: state chooses a legal transaction path, not user authority.
+# Execution facts are recorded before completion qualification. User-confirmed
+# disposition preserves false/missing facts; it never fabricates PASS or scope.
+# See docs/product/vnext-authorized-intent.md and agent-side validation in
+# docs/ops/vnext-authorized-intent-validation.md. No whole-lifecycle verification
+# is claimed until those behavioral checks run against the rebuilt distribution.
 # All public entries use the internal run-entry driver for typed operations.
 # entry-operation-result/v1 carries invocation, recovery history and original
 # outcome; recovery-required is an agent continuation, not a user-facing terminal.
@@ -26,7 +32,7 @@ runtime_distribution:
   package_manifest: .workflow-system/runtime/package.json
   lockfile: .workflow-system/runtime/package-lock.json
   package_name: vibe-coding-vnext-runtime
-  package_version: 0.21.8
+  package_version: 0.21.19
   node_min_version: ">=20.0.0"
 
 task_context:
@@ -441,7 +447,7 @@ proposal:
       target_verification: runtime-file-manifest
     review_result:
       test_assessment: [applicable, reason, evidence_refs, necessity, oracle, boundary, reuse, applicability]
-      stored_in: canonical CURRENT_TASK.runtime_state.pending_review_result
+      stored_in: canonical-pending-review-result-for-findings; completed-step-clean-or-blocked-recheck-retained-in-task-store-event
       verdicts:
         - clean
         - findings
@@ -452,6 +458,8 @@ proposal:
         - latest_execution_id
         - change_set_id
         - review_target_revision
+        - entry_mode
+        - completion_record_id
       blocked_diagnostics:
         - findings
         - unresolved_fingerprints
@@ -459,8 +467,8 @@ proposal:
         - finding_dispositions
         - blocker
       consumed_by:
-        clean: execute-step:complete-reviewed-step
-        findings: execute-step:begin-repair
+        clean: default->execute-step:complete-reviewed-step; recheck-completed-step->no-step-transition
+        findings: default-or-recheck-completed-step->execute-step:begin-repair
         blocked: record-user-decision-or-caller-route
     draft:
       mode: default
@@ -549,6 +557,7 @@ proposal:
         - replace-validation
         - begin-repair
         - record-step-result
+        - complete-executed-step
         - complete-reviewed-step
       step_source: confirmed-current-task
       scope_enforcement: task-authority-envelope-with-v1-step-compatibility
@@ -594,17 +603,20 @@ proposal:
   review_change:
     semantic_adapter:
       input: stdin-json
+      modes:
+        - default
+        - recheck-completed-step
       commands:
         - review-context
         - review-read
         - record-review-result
         - record-evidence-challenge
         - dismiss-evidence-challenge
-      context_source: latest-recorded-execution
-      reviewable_execution: implemented-or-test-red-awaiting-required-checkpoint-or-dynamic-review-or-repair-verification-or-blocked-repair-remediation-review
+      context_source: latest-recorded-execution; explicit-recheck-binds-immediately-previous-clean-completion
+      reviewable_execution: implemented-or-test-red-awaiting-required-checkpoint-or-dynamic-review-or-repair-verification-or-blocked-repair-remediation-review; recheck-requires-active-ready-successor-or-open-final-completion-with-no-later-runtime-action
       change_set: runtime-owned-stable-id
       review_target: runtime-cumulative-before-after-file-delta
-      result_storage: canonical-pending-review-result
+      result_storage: canonical-pending-review-result-for-findings; completed-step-clean-or-blocked-recheck-retained-in-task-store-event
       direct_product_writes: deny
       advancement_owner: execute-step
     bound_actions:
@@ -755,18 +767,6 @@ proposal:
         - commit-scope-amendment-audit
       preparation_and_commit: revalidate-against-current-pending-review
       stale_route: record-new-review-bound-decision
-    scope_amendment_review_target_reconciliation:
-      route: typed-scope-amendment-only
-      authorization: exact-stale-paths-and-expected-old-target-revision
-      eligibility: existing-base-target-pending-paths-only
-      preserves: first-touch-base-preimages-change-set-and-review-cycle
-      pending: reconciled-paths-remain-pending-fresh-review
-      revalidation: exact-stale-set-at-preparation-and-commit
-      persisted_in:
-        - scope-amendment-candidate
-        - scope-amendment-candidate-receipt
-        - task-basis-user-decision
-        - commit-scope-amendment-audit
     repair_budget_extension:
       route: extend-repair-budget
       increment: one-bounded-continuation-unit-finding-or-repair-round
@@ -906,6 +906,15 @@ proposal:
     preview_mode: preview
     terminal_from:
       - active + active
+    exceptional_terminal_from:
+      - draft + active
+      - active + active
+      - blocked_by_replan + active
+      - superseded + active
+      - replaced + active
+      - suspended + paused_pending_closure
+      - suspended + paused_blocked
+      - suspended + interrupted
     terminal_to:
       - closed + archived
     completion_disposition:

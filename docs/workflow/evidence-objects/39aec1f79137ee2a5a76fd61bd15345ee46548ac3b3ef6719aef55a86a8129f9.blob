@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TermLink Workspace</title>
+    <link rel="stylesheet" href="ui-foundation.css?v=2">
+    <link rel="stylesheet" href="vendor/highlightjs/github-dark.min.css">
+    <link rel="stylesheet" href="workspace.css?v=9">
+</head>
+<body>
+    <div class="workspace-shell">
+        <header class="workspace-header" id="workspace-header">
+            <div class="workspace-header-main">
+                <div class="workspace-kicker" data-copy="branding">DOCUMENT WORKSPACE</div>
+                <h1 id="workspace-title">Loading</h1>
+                <p id="workspace-subtitle">Connecting to workspace</p>
+            </div>
+            <div class="workspace-header-status" id="workspace-header-status">
+                <span class="connection-dot"></span>
+                <span data-copy="readonly">Read only</span>
+            </div>
+        </header>
+
+        <div class="workspace-toolbar" aria-label="Workspace navigation">
+            <button id="btn-mobile-back" class="icon-button mobile-only" type="button" aria-label="Back">←</button>
+            <div id="workspace-mobile-title" class="workspace-mobile-title" aria-live="polite">Workspace</div>
+            <button id="btn-workspace-more" class="icon-button mobile-only" type="button" aria-label="More">⋮</button>
+            <nav id="workspace-breadcrumbs" class="breadcrumbs" aria-label="Breadcrumb"></nav>
+            <div class="toolbar-actions">
+                <button id="btn-search" class="icon-button" type="button" aria-label="Search">⌕</button>
+                <button id="btn-docs" class="compact-button" type="button" data-copy="docs">Docs</button>
+                <button id="btn-root" class="compact-button" type="button" data-copy="root">Root</button>
+                <button id="btn-up" class="compact-button desktop-only" type="button" data-copy="up">Up</button>
+                <button id="btn-refresh" class="icon-button" type="button" aria-label="Refresh">↻</button>
+                <label class="toggle compact-toggle" title="Show hidden files">
+                    <input id="toggle-hidden" type="checkbox" checked>
+                    <span>·</span>
+                    <span data-copy="hidden">Hidden</span>
+                </label>
+            </div>
+        </div>
+
+        <div id="workspace-banner" class="workspace-banner" hidden></div>
+
+        <main id="workspace-main" class="workspace-main" data-page="browser">
+            <section class="workspace-pane workspace-browser" aria-label="Directory">
+                <div class="pane-header browser-header">
+                    <div>
+                        <div class="pane-eyebrow" data-copy="directory">Directory</div>
+                        <div id="current-dir-label" class="pane-title">/</div>
+                    </div>
+                    <div id="browser-count" class="count-pill">0</div>
+                </div>
+                <div id="browser-status" class="pane-status" hidden></div>
+                <div id="browser-empty" class="empty-state" hidden>
+                    <span class="empty-icon">◇</span>
+                    <strong data-copy="emptyDirectory">This directory is empty</strong>
+                </div>
+                <div id="browser-list" class="browser-list" aria-live="polite"></div>
+            </section>
+
+            <section class="workspace-pane workspace-viewer" aria-label="Viewer">
+                <div class="pane-header viewer-header">
+                    <div class="viewer-heading">
+                        <div id="viewer-kind" class="pane-eyebrow" data-copy="preview">Preview</div>
+                        <div id="viewer-title" class="pane-title">No file selected</div>
+                        <div id="viewer-meta" class="pane-meta">Open a file to preview it</div>
+                        <div id="viewer-path" class="viewer-path" hidden>
+                            <button id="viewer-path-toggle" class="path-disclosure" type="button" aria-expanded="false">
+                                <span class="path-disclosure-label" data-copy="path">Path</span>
+                                <span id="viewer-path-summary" class="path-disclosure-summary"></span>
+                                <span class="path-disclosure-chevron" aria-hidden="true">⌄</span>
+                            </button>
+                            <div id="viewer-path-details" class="viewer-path-details" hidden>
+                                <code id="viewer-path-text"></code>
+                                <button id="btn-copy-path" class="compact-button" type="button" data-copy="copyPath">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pane-actions viewer-primary-actions">
+                        <button id="btn-view-content" type="button" class="active" data-copy="content">Content</button>
+                        <button id="btn-view-diff" type="button" data-copy="headDiff">HEAD diff</button>
+                        <button id="btn-compare-files" type="button" data-copy="compare">Compare</button>
+                        <button id="btn-reload-file" class="icon-button" type="button" aria-label="Reload">↻</button>
+                    </div>
+                </div>
+
+                <div id="viewer-status" class="pane-status" hidden></div>
+                <div id="viewer-mode-note" class="viewer-mode-note" role="status" aria-live="polite" hidden></div>
+                <div id="viewer-empty" class="empty-state">
+                    <span class="empty-icon">▤</span>
+                    <strong data-copy="selectFile">Select a file to preview</strong>
+                    <span data-copy="selectFileHint">Text, Markdown, images and PDF are supported.</span>
+                </div>
+
+                <div id="viewer-surface" class="viewer-surface" hidden>
+                    <div id="text-toolbar" class="content-toolbar" hidden>
+                        <div class="segmented-control" id="markdown-mode" hidden>
+                            <button id="btn-markdown-preview" class="active" type="button" data-copy="rendered">Preview</button>
+                            <button id="btn-markdown-source" type="button" data-copy="source">Source</button>
+                        </div>
+                        <button id="btn-copy" type="button" data-copy="copy">Copy</button>
+                    </div>
+                    <div id="text-viewer" class="code-viewer" hidden>
+                        <ol id="line-numbers" class="line-numbers" aria-hidden="true"></ol>
+                        <pre id="viewer-body" class="viewer-body"><code id="viewer-code"></code></pre>
+                    </div>
+                    <article id="markdown-viewer" class="markdown-viewer" hidden></article>
+                    <div id="image-viewer" class="media-viewer" hidden>
+                        <div class="media-toolbar">
+                            <button id="btn-image-minus" type="button">−</button>
+                            <button id="btn-image-fit" type="button" data-copy="fit">Fit</button>
+                            <button id="btn-image-actual" type="button">100%</button>
+                            <button id="btn-image-plus" type="button">＋</button>
+                        </div>
+                        <div class="image-stage"><img id="viewer-image" alt=""></div>
+                    </div>
+                    <div id="pdf-viewer" class="media-viewer" hidden>
+                        <div class="media-toolbar">
+                            <button id="btn-pdf-prev" type="button">←</button>
+                            <span><span id="pdf-page">1</span> / <span id="pdf-pages">1</span></span>
+                            <button id="btn-pdf-next" type="button">→</button>
+                            <button id="btn-pdf-minus" type="button">−</button>
+                            <button id="btn-pdf-fit" type="button" data-copy="fitWidth">Fit width</button>
+                            <button id="btn-pdf-plus" type="button">＋</button>
+                        </div>
+                        <div class="pdf-stage"><canvas id="pdf-canvas"></canvas></div>
+                    </div>
+                    <div id="binary-viewer" class="binary-viewer" hidden>
+                        <div class="binary-icon">⬡</div>
+                        <strong id="binary-name"></strong>
+                        <span id="binary-meta"></span>
+                        <button id="btn-open-binary" class="primary-button" type="button" data-copy="openExternal">Download / open</button>
+                    </div>
+                    <div id="diff-viewer" class="diff-viewer" hidden>
+                        <div class="diff-toolbar">
+                            <div id="diff-summary" class="diff-summary"></div>
+                            <div class="segmented-control">
+                                <button id="btn-diff-unified" type="button" data-copy="unified">Unified</button>
+                                <button id="btn-diff-split" type="button" data-copy="split">Side by side</button>
+                            </div>
+                        </div>
+                        <div id="diff-body" class="diff-body"></div>
+                    </div>
+                </div>
+
+                <div id="viewer-actions" class="viewer-actions" hidden>
+                    <button id="btn-load-more" type="button" hidden data-copy="loadMore">Load more</button>
+                    <button id="btn-prev-segment" type="button" hidden data-copy="previous">Previous</button>
+                    <button id="btn-next-segment" type="button" hidden data-copy="next">Next</button>
+                    <button id="btn-limited-head" type="button" hidden data-copy="head">Head</button>
+                    <button id="btn-limited-tail" type="button" hidden data-copy="tail">Tail</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <dialog id="search-dialog" class="workspace-dialog">
+        <form method="dialog" class="dialog-card">
+            <div class="dialog-handle"></div>
+            <div class="dialog-header">
+                <div><div class="pane-eyebrow" data-copy="workspace">Workspace</div><h2 data-copy="searchFiles">Search files</h2></div>
+                <button class="icon-button" value="cancel" aria-label="Close">×</button>
+            </div>
+            <input id="search-input" class="search-input" type="search" autocomplete="off" data-copy-placeholder="searchPlaceholder" placeholder="Search by file name or path">
+            <div id="search-status" class="pane-status" hidden></div>
+            <div id="search-results" class="picker-list"></div>
+        </form>
+    </dialog>
+
+    <dialog id="compare-dialog" class="workspace-dialog">
+        <form method="dialog" class="dialog-card">
+            <div class="dialog-handle"></div>
+            <div class="dialog-header">
+                <div><div class="pane-eyebrow" data-copy="compare">Compare</div><h2 data-copy="chooseRightFile">Choose another file</h2></div>
+                <button class="icon-button" value="cancel" aria-label="Close">×</button>
+            </div>
+            <div id="compare-left-label" class="selected-file-chip"></div>
+            <input id="compare-search-input" class="search-input" type="search" autocomplete="off" data-copy-placeholder="searchPlaceholder" placeholder="Search by file name or path">
+            <div id="compare-status" class="pane-status" hidden></div>
+            <div id="compare-results" class="picker-list"></div>
+        </form>
+    </dialog>
+
+    <dialog id="workspace-more-dialog" class="workspace-dialog workspace-more-dialog">
+        <form method="dialog" class="dialog-card">
+            <div class="dialog-handle"></div>
+            <div class="dialog-header">
+                <div><div class="pane-eyebrow" data-copy="workspace">Workspace</div><h2 data-copy="more">More</h2></div>
+                <button class="icon-button" value="cancel" aria-label="Close">×</button>
+            </div>
+
+            <section class="more-section" aria-labelledby="more-directory-title">
+                <h3 id="more-directory-title" data-copy="directoryActions">Directory</h3>
+                <div class="more-action-grid">
+                    <button id="btn-more-search" type="button" data-copy="searchFiles">Search files</button>
+                    <button id="btn-more-docs" type="button" data-copy="docs">Docs</button>
+                    <button id="btn-more-root" type="button" data-copy="root">Root</button>
+                    <button id="btn-more-up" type="button" data-copy="up">Up</button>
+                    <button id="btn-more-refresh" type="button" data-copy="refresh">Refresh</button>
+                    <label class="more-toggle">
+                        <input id="toggle-more-hidden" type="checkbox" checked>
+                        <span data-copy="hidden">Hidden</span>
+                    </label>
+                </div>
+            </section>
+
+            <section id="more-file-section" class="more-section" aria-labelledby="more-file-title" hidden>
+                <h3 id="more-file-title" data-copy="fileActions">File</h3>
+                <div class="more-action-grid">
+                    <button id="btn-more-content" type="button" data-copy="content">Content</button>
+                    <button id="btn-more-head-diff" type="button" data-copy="headDiff">HEAD diff</button>
+                    <button id="btn-more-compare" type="button" data-copy="compare">Compare</button>
+                    <button id="btn-more-reload" type="button" data-copy="reload">Reload</button>
+                </div>
+            </section>
+
+            <section id="more-content-section" class="more-section" aria-labelledby="more-content-title" hidden>
+                <h3 id="more-content-title" data-copy="contentActions">Current content</h3>
+                <div id="more-text-actions" class="more-action-grid" hidden>
+                    <button id="btn-more-markdown-preview" type="button" data-copy="rendered">Preview</button>
+                    <button id="btn-more-markdown-source" type="button" data-copy="source">Source</button>
+                    <button id="btn-more-copy" type="button" data-copy="copy">Copy</button>
+                </div>
+                <div id="more-image-actions" class="more-action-grid" hidden>
+                    <button id="btn-more-image-minus" type="button">−</button>
+                    <button id="btn-more-image-fit" type="button" data-copy="fit">Fit</button>
+                    <button id="btn-more-image-actual" type="button">100%</button>
+                    <button id="btn-more-image-plus" type="button">＋</button>
+                </div>
+                <div id="more-pdf-actions" class="more-action-grid" hidden>
+                    <button id="btn-more-pdf-prev" type="button">←</button>
+                    <button id="btn-more-pdf-fit" type="button" data-copy="fitWidth">Fit width</button>
+                    <button id="btn-more-pdf-next" type="button">→</button>
+                    <button id="btn-more-pdf-minus" type="button">−</button>
+                    <button id="btn-more-pdf-plus" type="button">＋</button>
+                </div>
+                <div id="more-diff-actions" class="more-action-grid" hidden>
+                    <button id="btn-more-diff-unified" type="button" data-copy="unified">Unified</button>
+                    <button id="btn-more-diff-split" type="button" data-copy="split">Side by side</button>
+                </div>
+            </section>
+        </form>
+    </dialog>
+
+    <script src="i18n/i18n.js"></script>
+    <script src="vendor/markdown-it/markdown-it.min.js"></script>
+    <script src="vendor/highlightjs/highlight.min.js"></script>
+    <script src="workspace.js?v=6"></script>
+</body>
+</html>

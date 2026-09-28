@@ -1,0 +1,1061 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const http = require('node:http');
+const os = require('node:os');
+const path = require('node:path');
+const { EventEmitter } = require('node:events');
+const WebSocket = require('ws');
+const { WebSocketServer } = WebSocket;
+
+const { CodexHistoryProductStore } = require('../src/services/codexHistoryProductStore');
+const { CodexHistoryProductProvider } = require('../src/services/codexHistoryProductProvider');
+const { canonicalize } = require('../src/services/codexHistoryCanonicalizer');
+const { buildDeltaPages, toWireItem } = require('../src/services/codexHistorySyncService');
+const {
+    CodexRolloutCollector,
+    AnalysisBatchImporter,
+    FileAnalysisStore,
+    FileCheckpointStore,
+    FileAnalysisRunStore
+} = require('../src/services/codexRolloutCollector');
+const { createAnalyzeRequest } = require('../src/services/codexRolloutCollector/analyzerProtocol');
+const { CodexHistoryReconciliationScheduler } = require('../src/services/codexHistoryReconciliationScheduler');
+const { nativeRoot, resolveRustTargetBinary } = require('./fixtures/codex-rollout-collector/rust-target');
+
+const CONVERSATION_ID = 'conversation-product-store';
+const NOW = 1_790_000_000_000;
+const RUST_CONVERSATION_ID = '019b2b40-beb6-7b23-bed0-37d570e76816';
+
+function makeStore(databasePath) {
+    return new CodexHistoryProductStore({ databasePath, now: () => NOW });
+}
+
+function rolloutLine(ordinal, type, payload) {
+    return JSON.stringify({
+        timestamp: `2026-08-18T10:00:${String(ordinal).padStart(2, '0')}.000Z`,
+        ordinal,
+        type,
+        payload
+    }) + '\n';
+}
+
+function productRolloutFixture(conversationId = RUST_CONVERSATION_ID) {
+    const events = [
+        ['session_meta', {
+            id: conversationId,
+            timestamp: '2026-08-18T10:00:00.000Z',
+            cwd: 'file:///synthetic/private/workspace',
+            originator: 'codex_cli',
+            cli_version: '0.70.0',
+            source: 'cli',
+            model_provider: 'openai',
+            git: {}
+        }],
+        ['event_msg', {
+            type: 'task_started',
+            turn_id: 'turn-1',
+            model_context_window: 258400,
+            collaboration_mode_kind: 'default'
+        }],
+        ['event_msg', {
+            type: 'user_message',
+            client_id: 'client-1',
+            message: 'product history initial message',
+            images: []
+        }],
+        ['event_msg', { type: 'agent_message', message: 'initial assistant response', phase: 'commentary' }],
+        ['event_msg', {
+            type: 'item_completed',
+            thread_id: conversationId,
+            turn_id: 'turn-1',
+            item: {
+                type: 'FileChange',
+                id: 'file-1',
+                status: 'completed',
+                changes: {
+                    'src/product-history.rs': {
+                        type: 'update',
+                        unified_diff: '@@ -1 +1 @@\n-old\n+new\n',
+                        move_path: null
+                    }
+                }
+            }
+        }],
+        ['event_msg', {
+            type: 'item_completed',
+            thread_id: conversationId,
+            turn_id: 'turn-1',
+            item: {
+                type: 'CommandExecution',
+                id: 'command-1',
+                command: ['cargo', 'test', '--locked'],
+                cwd: 'file:///synthetic/private/workspace',
+                parsed_cmd: [],
+                source: 'agent',
+                status: 'completed',
+                stdout: 'product history verification output',
+                stderr: '',
+                aggregated_output: '1 passed\n',
+                exit_code: 0,
+                duration: { secs: 1, nanos: 0 }
+            }
+        }],
+        ['event_msg', {
+            type: 'task_complete',
+            turn_id: 'turn-1',
+            last_agent_message: 'initial assistant response',
+            duration_ms: 1000
+        }]
+    ];
+    return events.map(([type, payload], ordinal) => rolloutLine(ordinal, type, payload)).join('');
+}
+
+function appendedProductTurn(ordinalStart = 7) {
+    const events = [
+        ['event_msg', { type: 'task_started', turn_id: 'turn-2', model_context_window: 258400 }],
+        ['event_msg', { type: 'user_message', client_id: 'client-2', message: 'restart append message', images: [] }],
+        ['event_msg', { type: 'agent_message', message: 'restart append response', phase: 'final' }],
+        ['event_msg', { type: 'task_complete', turn_id: 'turn-2', last_agent_message: 'restart append response', duration_ms: 500 }]
+    ];
+    return events.map(([type, payload], index) => rolloutLine(ordinalStart + index, type, payload)).join('');
+}
+
+async function createRealProductCollector(root, productStore, analyzerPath, suffix = 'first') {
+    const codexHome = path.join(root, 'codex-home');
+    const sessionDirectory = path.join(codexHome, 'sessions', '2026', '08', '18');
+    await fs.promises.mkdir(sessionDirectory, { recursive: true });
+    const sourcePath = path.join(
+        sessionDirectory,
+        `rollout-2026-08-18T10-00-00-${RUST_CONVERSATION_ID}.jsonl`
+    );
+    if (!await fs.promises.access(sourcePath).then(() => true, () => false)) {
+        await fs.promises.writeFile(sourcePath, productRolloutFixture(), 'utf8');
+    }
+
+    const store = new FileAnalysisStore({ rootDir: path.join(root, 'analysis') });
+    const checkpointStore = new FileCheckpointStore({ rootDir: path.join(root, 'checkpoints') });
+    const runStore = new FileAnalysisRunStore({ rootDir: path.join(root, 'runs') });
+    const importer = new AnalysisBatchImporter({ store, checkpointStore, productStore });
+    const collector = new CodexRolloutCollector({
+        analyzerPath,
+        analyzerCwd: root,
+        analyzerEnv: { CODEX_HOME: codexHome },
+        store,
+        checkpointStore,
+        runStore,
+        importer,
+        requestTimeoutMs: 30000,
+        processRestartRetries: 0
+    });
+    collector.testSuffix = suffix;
+    return { collector, sourcePath, store, checkpointStore, runStore };
+}
+
+function stagedBatch(batchId, payload = { history_items: [{ item_key: 'item-1' }] }) {
+    return {
+        conversationId: CONVERSATION_ID,
+        batchId,
+        deliveryIdentity: {
+            request_id: `request-${batchId}`,
+            job_id: 'job-1',
+            segment_id: `segment-${batchId}`,
+            batch_id: batchId,
+            source_scope: {
+                conversation_id: CONVERSATION_ID,
+                source_id: 'source-internal-1',
+                source_epoch: 'epoch-internal-1',
+                source_path: 'E:\\Codex\\sessions\\rollout-internal.jsonl'
+            }
+        },
+        payload
+    };
+}
+
+function canonicalProjection({ itemKey = 'item-1', text = 'Hello from Codex', coverageState = 'canonical' } = {}) {
+    return {
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1',
+        items: [{
+            itemKey,
+            eventId: `event-${itemKey}`,
+            turnId: 'turn-1',
+            itemType: 'message',
+            ordinal: 0,
+            payload: {
+                text,
+                eventFilePath: 'C:\\Users\\example\\.codex\\sessions\\rollout-1.jsonl',
+                cwd: 'E:\\work\\termlink',
+                command: ['rg', '--files', 'src'],
+                artifactPath: 'E:\\work\\termlink\\output.diff'
+            }
+        }],
+        toolDetails: [{
+            detailKey: 'tool-call-1',
+            itemKey,
+            payload: { output: 'two files', command: ['rg', '--files', 'src'] }
+        }],
+        usage: [{ usageKey: 'turn-1', payload: { inputTokens: 12, outputTokens: 8 } }],
+        taskOutcomes: [{ outcomeKey: 'turn-1', payload: { status: 'completed' } }],
+        coverage: { completeness: coverageState, itemCount: 1, coverageComplete: true },
+        checkpoint: {
+            conversation_id: CONVERSATION_ID,
+            source_id: 'source-internal-1',
+            source_epoch: 'epoch-internal-1',
+            next_cursor: { kind: 'internal-cursor', path: 'E:\\Codex\\sessions\\rollout-internal.jsonl' }
+        }
+    };
+}
+
+async function makeTemporaryDatabase(t) {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-product-history-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+    return path.join(root, 'history.sqlite');
+}
+
+test('product-history-store durably stages, publishes, reopens, and ignores an exact duplicate delivery', async (t) => {
+    const databasePath = await makeTemporaryDatabase(t);
+    const firstStore = await makeStore(databasePath).init();
+
+    assert.deepEqual(await firstStore.stageBatch(stagedBatch('batch-1')), {
+        status: 'staged',
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1'
+    });
+
+    const reopenedForPublish = await makeStore(databasePath).init();
+    const staged = await reopenedForPublish.readStagedBatch(CONVERSATION_ID, 'batch-1');
+    assert.equal(staged.payload.history_items[0].item_key, 'item-1');
+    assert.equal(staged.deliveryIdentity.source_scope.source_epoch, 'epoch-internal-1');
+    assert.equal(staged.publishedAt, null);
+
+    const projection = canonicalProjection();
+    assert.deepEqual(await reopenedForPublish.publishCanonical(projection), {
+        status: 'published',
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1',
+        itemCount: 1
+    });
+
+    const reopened = await makeStore(databasePath).init();
+    assert.deepEqual(await reopened.stageBatch(stagedBatch('batch-1')), {
+        status: 'already-staged',
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1'
+    });
+    assert.deepEqual(await reopened.publishCanonical(projection), {
+        status: 'already-published',
+        conversationId: CONVERSATION_ID,
+        batchId: 'batch-1',
+        itemCount: 1
+    });
+
+    const history = await makeStore(databasePath).readConversation(CONVERSATION_ID);
+    assert.equal(history.items.length, 1);
+    assert.equal(history.items[0].payload.eventFilePath, 'C:\\Users\\example\\.codex\\sessions\\rollout-1.jsonl');
+    assert.equal(history.items[0].payload.cwd, 'E:\\work\\termlink');
+    assert.deepEqual(history.items[0].payload.command, ['rg', '--files', 'src']);
+    assert.equal(history.items[0].payload.artifactPath, 'E:\\work\\termlink\\output.diff');
+    assert.deepEqual(history.coverage, projection.coverage);
+    assert.equal(history.toolDetails.length, 1);
+    assert.equal(history.usage.length, 1);
+    assert.equal(history.taskOutcomes.length, 1);
+    assert.equal(Object.hasOwn(history, 'checkpoint'), false);
+    assert.equal(Object.hasOwn(history, 'sourceEpoch'), false);
+    assert.deepEqual(await reopened.readCheckpoint(CONVERSATION_ID), projection.checkpoint);
+    const productRead = await new CodexHistoryProductProvider({ store: reopened }).readInitial(CONVERSATION_ID);
+    assert.equal(JSON.stringify(productRead.items).includes('rollout-internal.jsonl'), false);
+});
+
+test('product-history-real-rust stages before ACK, publishes validated canonical output, and reaches the history Gateway', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-product-history-rust-'));
+    const productStore = makeStore(path.join(root, 'history.sqlite'));
+    const analyzerPath = await resolveRustTargetBinary();
+    await productStore.init();
+    const { collector } = await createRealProductCollector(root, productStore, analyzerPath);
+    t.after(async () => {
+        await collector.stop();
+        await fs.promises.rm(root, { recursive: true, force: true });
+    });
+
+    const result = await collector.analyze(createAnalyzeRequest({
+        requestId: 'product-history-real-rust-request',
+        jobId: 'product-history-real-rust-job',
+        conversationId: RUST_CONVERSATION_ID,
+        mode: 'backfill',
+        priority: 'background'
+    }));
+    assert.equal(result.complete.completeness, 'canonical', JSON.stringify({
+        state: result.state.canonical,
+        projection: {
+            complete: result.state.projection?.complete,
+            provisional: result.state.projection?.provisional,
+            coverage: result.state.projection?.coverage,
+            availability: result.state.projection?.availability,
+            diagnostics: result.state.projection?.diagnostics
+        },
+        diagnostics: result.state.diagnostics.map((entry) => entry.diagnostic)
+    }));
+    assert.equal(result.state.canonical, true);
+    assert.equal(result.state.projection.coverage, 'complete');
+
+    const batchId = result.complete.checkpoint.projection_watermark.batch_id;
+    const staged = await productStore.readStagedBatch(RUST_CONVERSATION_ID, batchId);
+    assert.ok(staged, 'the Rust batch must be durably staged before the collector acknowledges it');
+    assert.ok(staged.payload.history_items.length > 0);
+    assert.equal(staged.deliveryIdentity.source_scope.conversation_id, RUST_CONVERSATION_ID);
+    assert.ok(staged.publishedAt, 'validated complete must publish the staged batch');
+
+    const history = await productStore.readConversation(RUST_CONVERSATION_ID);
+    assert.ok(history);
+    assert.equal(history.coverage.completeness, 'canonical');
+    assert.equal(history.coverage.coverageComplete, true);
+    assert.ok(history.items.length > 0);
+    const storedPayloads = JSON.stringify(history.items.map((item) => item.payload));
+    assert.ok(storedPayloads.includes('product history initial message'));
+    assert.ok(storedPayloads.includes('file:///synthetic/private/workspace'));
+    assert.ok(storedPayloads.includes('src/product-history.rs'));
+    assert.equal(storedPayloads.includes('source_ref'), false);
+    assert.equal(storedPayloads.includes(path.join(root, 'codex-home', 'sessions')), false);
+    assert.equal(Object.hasOwn(history, 'checkpoint'), false);
+    const productCheckpoint = await productStore.readCheckpoint(RUST_CONVERSATION_ID);
+    assert.equal(productCheckpoint.completeness, 'canonical');
+
+    const provider = new CodexHistoryProductProvider({ store: productStore, pageItems: 100 });
+    const gateway = await setupProductReadGateway(t, { historyProductProvider: provider });
+    const session = await gateway.sessionManager.createSession({ name: 'product-history-real-rust' });
+    const client = await connectProductReadGateway(gateway.port, session.id);
+    await waitForProductReadMessage(client.messages, (message) => message.type === 'session_info');
+
+    client.ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: RUST_CONVERSATION_ID,
+        selectionGeneration: 41
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const syncId = '123e4567-e89b-12d3-a456-426614174212';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId,
+        conversationId: RUST_CONVERSATION_ID,
+        selectionGeneration: 41,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    await waitForProductReadMessage(client.messages, (message) =>
+        message.type === 'conversation_history_manifest_required' && message.syncId === syncId);
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page',
+        syncId,
+        conversationId: RUST_CONVERSATION_ID,
+        clientSelectionGeneration: 41,
+        pageIndex: 0,
+        lastPage: true,
+        items: []
+    }));
+    const delta = await waitForProductReadMessage(client.messages, (message) =>
+        message.type === 'conversation_history_delta' && message.syncId === syncId);
+    assert.equal(delta.range.providerMode, 'product_db');
+    const gatewayPayload = JSON.stringify(delta);
+    assert.ok(gatewayPayload.includes('product history initial message'));
+    assert.ok(gatewayPayload.includes('file:///synthetic/private/workspace'));
+    assert.equal(gatewayPayload.includes('source_ref'), false);
+    assert.equal(gatewayPayload.includes(path.join(root, 'codex-home', 'sessions')), false);
+    assert.equal(gateway.codexService.requests.some((entry) => entry.method === 'thread/read'), false);
+    client.ws.close();
+});
+
+test('product-history-unattended wakes on cached terminal source-ready state and resumes from the product checkpoint after restart', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-product-history-unattended-'));
+    const productStore = makeStore(path.join(root, 'history.sqlite'));
+    const analyzerPath = await resolveRustTargetBinary();
+    await productStore.init();
+    const collectors = [];
+    const schedulers = [];
+    t.after(async () => {
+        await Promise.all(schedulers.map((scheduler) => scheduler.stop()));
+        await Promise.all(collectors.map((collector) => collector.stop()));
+        await fs.promises.rm(root, { recursive: true, force: true });
+    });
+
+    const errors = [];
+    const feedFor = (revision) => {
+        const feed = new EventEmitter();
+        feed.getRecentSnapshots = () => [{
+            conversationId: RUST_CONVERSATION_ID,
+            revision,
+            surface: { conversationId: RUST_CONVERSATION_ID, status: 'completed', revision, desynced: false }
+        }];
+        return feed;
+    };
+
+    const first = await createRealProductCollector(root, productStore, analyzerPath, 'startup');
+    collectors.push(first.collector);
+    const firstScheduler = new CodexHistoryReconciliationScheduler({
+        ipcFeed: feedFor(1),
+        collector: first.collector,
+        productStore,
+        onError: (error) => errors.push(error)
+    });
+    schedulers.push(firstScheduler);
+    firstScheduler.start();
+    await firstScheduler.waitForIdle(RUST_CONVERSATION_ID);
+    assert.deepEqual(errors, []);
+    const beforeRestart = await productStore.readConversation(RUST_CONVERSATION_ID);
+    assert.ok(beforeRestart?.items.length > 0, 'a cached terminal source-ready snapshot must start collection without an App client');
+    assert.equal((await productStore.readCheckpoint(RUST_CONVERSATION_ID)).completeness, 'canonical');
+    await firstScheduler.stop();
+    await first.collector.stop();
+
+    await fs.promises.appendFile(first.sourcePath, appendedProductTurn(), 'utf8');
+    const restarted = await createRealProductCollector(root, productStore, analyzerPath, 'restart');
+    collectors.push(restarted.collector);
+    const requests = [];
+    const originalRequest = restarted.collector.processManager.request.bind(restarted.collector.processManager);
+    restarted.collector.processManager.request = (request, options) => {
+        requests.push(request);
+        return originalRequest(request, options);
+    };
+    const restartedScheduler = new CodexHistoryReconciliationScheduler({
+        ipcFeed: feedFor(2),
+        collector: restarted.collector,
+        productStore,
+        onError: (error) => errors.push(error)
+    });
+    schedulers.push(restartedScheduler);
+    restartedScheduler.start();
+    await restartedScheduler.waitForIdle(RUST_CONVERSATION_ID);
+    assert.deepEqual(errors, []);
+    assert.ok(requests.some((request) => (
+        request.mode === 'append'
+        && request.persisted_anchor?.completeness === 'canonical'
+        && request.cursor
+    )), 'service restart must resume from the durable canonical checkpoint');
+
+    const afterRestart = await productStore.readConversation(RUST_CONVERSATION_ID);
+    assert.ok(afterRestart.items.length > beforeRestart.items.length);
+    const afterPayloads = JSON.stringify(afterRestart.items.map((item) => item.payload));
+    assert.ok(afterPayloads.includes('restart append message'));
+    assert.ok(afterPayloads.includes('restart append response'));
+    assert.equal(new Set(afterRestart.items.map((item) => item.itemKey)).size, afterRestart.items.length);
+});
+
+test('product-history-read preserves __proto__ event fields through product-history-store reopen', async (t) => {
+    const databasePath = await makeTemporaryDatabase(t);
+    const store = await makeStore(databasePath).init();
+    const projection = canonicalProjection({ text: 'special JSON key' });
+    projection.items[0].payload = JSON.parse('{"text":"special JSON key","__proto__":{"sourceFact":"event"}}');
+    assert.equal(Object.hasOwn(projection.items[0].payload, '__proto__'), true);
+
+    await store.stageBatch(stagedBatch('batch-1'));
+    await store.publishCanonical(projection);
+
+    const reopened = await makeStore(databasePath).init();
+    const history = await reopened.readConversation(CONVERSATION_ID);
+    assert.equal(Object.hasOwn(history.items[0].payload, '__proto__'), true);
+    assert.deepEqual(history.items[0].payload.__proto__, { sourceFact: 'event' });
+});
+
+test('product-history-store rolls back a failed replacement and preserves the previous canonical data after reopen', async (t) => {
+    const databasePath = await makeTemporaryDatabase(t);
+    const store = await makeStore(databasePath).init();
+    const original = canonicalProjection({ text: 'previous canonical' });
+    await store.stageBatch(stagedBatch('batch-1'));
+    await store.publishCanonical(original);
+
+    await store.stageBatch(stagedBatch('batch-2', { history_items: [{ item_key: 'item-2' }] }));
+    const invalidReplacement = {
+        ...canonicalProjection({ itemKey: 'item-2', text: 'should roll back', coverageState: 'partial' }),
+        batchId: 'batch-2',
+        toolDetails: [
+            { detailKey: 'duplicate-key', itemKey: 'item-2', payload: { ordinal: 1 } },
+            { detailKey: 'duplicate-key', itemKey: 'item-2', payload: { ordinal: 2 } }
+        ],
+        checkpoint: { conversation_id: CONVERSATION_ID, marker: 'must-not-publish' }
+    };
+
+    await assert.rejects(
+        () => store.publishCanonical(invalidReplacement),
+        (error) => error.code === 'CODEX_HISTORY_PRODUCT_TRANSACTION_FAILED'
+    );
+
+    const reopened = await makeStore(databasePath).init();
+    const history = await reopened.readConversation(CONVERSATION_ID);
+    assert.equal(history.items.length, 1);
+    assert.equal(history.items[0].itemKey, 'item-1');
+    assert.equal(history.items[0].payload.text, 'previous canonical');
+    assert.deepEqual(history.coverage, original.coverage);
+    assert.deepEqual(await reopened.readCheckpoint(CONVERSATION_ID), original.checkpoint);
+    assert.equal((await reopened.readStagedBatch(CONVERSATION_ID, 'batch-2')).publishedAt, null);
+});
+
+test('product-history-read pages canonical rows and preserves product event fields', async () => {
+    const history = productReadHistory();
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(history), pageItems: 3 });
+
+    const initial = await provider.readInitial(history.conversationId, { rangeEnabled: true });
+    assert.deepEqual(initial.items.map((item) => item.itemKey), ['item-4', 'item-5', 'item-6']);
+    assert.equal(initial.range.providerMode, 'product_db');
+    assert.equal(initial.range.hasMoreBefore, true);
+    assert.ok(initial.range.nextOlderCursor);
+
+    const newestPayload = JSON.parse(initial.items[0].payloadJson);
+    assert.equal(newestPayload.eventFilePath, 'C:\\events\\rollout-4.jsonl');
+    assert.equal(newestPayload.cwd, 'E:\\workspace\\termlink');
+    assert.deepEqual(newestPayload.command, ['cargo', 'test', '-p', 'collector']);
+    assert.equal(newestPayload.artifactPath, 'E:\\workspace\\termlink\\target\\report.txt');
+    assert.equal(newestPayload.cursor, 'business-event-cursor');
+    assert.equal(newestPayload.requestId, 'event-request-4');
+    assert.equal(newestPayload.diagnostic, 'event diagnostic 4');
+    assert.equal(newestPayload.sourcePath, 'src/event-4.rs');
+    assert.equal(initial.items[1].availability, 'partial');
+    assert.equal(initial.items[1].payloadJson.includes('data:image/'), false);
+
+    const older = await provider.readOlderPage(history.conversationId, {
+        cursor: initial.range.nextOlderCursor,
+        rangeId: initial.range.rangeId
+    });
+    assert.deepEqual(older.items.map((item) => item.itemKey), ['item-2', 'item-3', 'item-4']);
+    assert.equal(older.range.rangeKind, 'older');
+    assert.equal(older.range.hasMoreBefore, true);
+    assert.equal(older.coverageComplete, false);
+
+    const oldest = await provider.readOlderPage(history.conversationId, {
+        cursor: older.range.nextOlderCursor,
+        rangeId: older.range.rangeId
+    });
+    assert.deepEqual(oldest.items.map((item) => item.itemKey), ['item-0', 'item-1', 'item-2']);
+    assert.equal(oldest.range.hasMoreBefore, false);
+    history.items[0].payload.text = 'changed after the cursor was issued';
+    await assert.rejects(
+        () => provider.readOlderPage(history.conversationId, {
+            cursor: older.range.nextOlderCursor,
+            rangeId: older.range.rangeId
+        }),
+        (error) => error.code === 'history_older_cursor_stale'
+    );
+    await assert.rejects(
+        () => provider.readOlderPage('another-conversation', {
+            cursor: initial.range.nextOlderCursor,
+            rangeId: initial.range.rangeId
+        }),
+        (error) => error.code === 'history_older_cursor_invalid'
+    );
+});
+
+test('product-history-read preserves top-level and nested tool facts with collection-like field names', async () => {
+    const history = productReadHistory();
+    history.items[6].payload.requestId = 'event-request-42';
+    history.items[6].payload.diagnostic = 'compiler diagnostic';
+    history.items[6].payload.sourcePath = 'src/main.rs';
+    history.items[6].payload.toolOutput = {
+        requestId: 'event-request-42',
+        diagnostic: 'compiler diagnostic',
+        sourcePath: 'src/main.rs'
+    };
+    history.toolDetails[0].payload.requestId = 'tool-request-42';
+    history.toolDetails[0].payload.diagnostic = 'tool diagnostic';
+    history.toolDetails[0].payload.sourcePath = 'src/generated.rs';
+    history.toolDetails[0].payload.toolOutput = {
+        checkpoint: 'application checkpoint',
+        source_ref: { path: 'src/generated.rs' }
+    };
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(history) });
+
+    const initial = await provider.readInitial(history.conversationId);
+    const item = initial.items.find((entry) => entry.itemKey === 'item-6');
+    const payload = JSON.parse(item.payloadJson);
+    assert.equal(payload.requestId, 'event-request-42');
+    assert.equal(payload.diagnostic, 'compiler diagnostic');
+    assert.equal(payload.sourcePath, 'src/main.rs');
+    assert.deepEqual(payload.toolOutput, {
+        requestId: 'event-request-42',
+        diagnostic: 'compiler diagnostic',
+        sourcePath: 'src/main.rs'
+    });
+    const page = await provider.readDetailPage(history.conversationId, {
+        refId: item.detailRefs[0].refId
+    });
+    const detail = JSON.parse(page.content);
+    assert.equal(detail.requestId, 'tool-request-42');
+    assert.equal(detail.diagnostic, 'tool diagnostic');
+    assert.equal(detail.sourcePath, 'src/generated.rs');
+    assert.deepEqual(detail.toolOutput, {
+        checkpoint: 'application checkpoint',
+        source_ref: { path: 'src/generated.rs' }
+    });
+});
+
+test('product-history-read omits parameterized and percent-encoded inline image data URLs', async () => {
+    const history = productReadHistory();
+    history.items[5].payload.imageData = 'data:image/png;charset=utf-8;base64,AAAA';
+    history.items[5].payload.attachments = ['data:image/svg+xml,%3Csvg%3E'];
+    history.toolDetails[0].payload.imageData = 'data:image/svg+xml,%3Csvg%3E';
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(history) });
+
+    const initial = await provider.readInitial(history.conversationId);
+    const item = initial.items.find((entry) => entry.itemKey === 'item-5');
+    const payload = JSON.parse(item.payloadJson);
+    assert.equal(item.availability, 'partial');
+    assert.equal(payload.imageData, null);
+    assert.deepEqual(payload.attachments, [null]);
+    assert.equal(payload.mediaAvailability, 'unsupported');
+    assert.equal(item.payloadJson.includes('data:image/'), false);
+
+    const detailRef = initial.items.find((entry) => entry.itemKey === 'item-6').detailRefs[0];
+    assert.equal(detailRef.availability, 'partial');
+    const page = await provider.readDetailPage(history.conversationId, { refId: detailRef.refId });
+    const detail = JSON.parse(page.content);
+    assert.equal(detail.imageData, null);
+    assert.equal(detail.mediaAvailability, 'unsupported');
+    assert.equal(page.content.includes('data:image/'), false);
+});
+
+test('product-history-read detail pages are authenticated-provider-ready, bounded, and path preserving', async () => {
+    const history = productReadHistory({ detailTextBytes: 150_000 });
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(history) });
+    const initial = await provider.readInitial(history.conversationId);
+    const item = initial.items.find((entry) => entry.itemKey === 'item-6');
+    const detailRef = item.detailRefs[0];
+    assert.equal(detailRef.kind, 'tool_detail');
+    assert.equal(detailRef.availability, 'partial');
+    assert.ok(detailRef.byteSize > 128 * 1024);
+
+    let cursor = null;
+    let content = '';
+    let pageCount = 0;
+    do {
+        const page = await provider.readDetailPage(history.conversationId, {
+            refId: detailRef.refId,
+            cursor,
+            maxBytes: 12 * 1024
+        });
+        assert.equal(page.contentHash, detailRef.contentHash);
+        assert.ok(Buffer.byteLength(JSON.stringify({
+            type: 'conversation_history_detail_response',
+            conversationId: history.conversationId,
+            ...page,
+            selectionGeneration: 1,
+            clientSelectionGeneration: 1
+        }), 'utf8') <= 128 * 1024);
+        content += page.content;
+        cursor = page.nextCursor;
+        pageCount += 1;
+    } while (cursor);
+
+    assert.ok(pageCount > 2);
+    const detail = JSON.parse(content);
+    assert.equal(detail.eventFilePath, 'C:\\events\\tool-output.jsonl');
+    assert.equal(detail.cwd, 'E:\\workspace\\termlink');
+    assert.equal(detail.command[0], 'cargo');
+    assert.equal(detail.output.length, 150_000);
+    assert.equal(detail.requestId, 'tool-request-6');
+    assert.equal(detail.diagnostic, 'tool diagnostic 6');
+    assert.equal(detail.sourcePath, 'src/tool-6.rs');
+    assert.equal(detail.imageData, null);
+    assert.equal(detail.mediaAvailability, 'unsupported');
+    assert.equal(content.includes('data:image/'), false);
+    assert.equal(content, canonicalize({
+        command: ['cargo', 'test', '-p', 'collector'],
+        cwd: 'E:\\workspace\\termlink',
+        eventFilePath: 'C:\\events\\tool-output.jsonl',
+        imageData: null,
+        mediaAvailability: 'unsupported',
+        output: 'z'.repeat(150_000),
+        requestId: 'tool-request-6',
+        diagnostic: 'tool diagnostic 6',
+        sourcePath: 'src/tool-6.rs'
+    }));
+});
+
+test('product-history-read uses bounded payload chunks and fails closed for clients without chunk support', () => {
+    const item = {
+        itemKey: 'large-item',
+        turnId: 'turn-large',
+        position: 0,
+        itemType: 'message',
+        role: 'assistant',
+        clientRequestId: null,
+        payloadJson: JSON.stringify({ text: 'x'.repeat(8_000) }),
+        contentHash: 'a'.repeat(64)
+    };
+
+    assert.throws(
+        () => toWireItem(item, { payloadInlineMaxBytes: 512 }),
+        (error) => error.code === 'history_payload_chunks_unsupported'
+    );
+
+    const pages = buildDeltaPages({
+        syncId: '123e4567-e89b-12d3-a456-426614174209',
+        targetRoot: 'target-root',
+        upserts: [item],
+        baselineComplete: true,
+        enablePayloadChunks: true,
+        payloadInlineMaxBytes: 512,
+        payloadChunkBytes: 256,
+        maxBytes: 24 * 1024,
+        envelopeContext: {
+            conversationId: 'conversation-large',
+            selectionGeneration: 1,
+            clientSelectionGeneration: 1
+        }
+    });
+    assert.equal(pages[0].upserts[0].payloadJson, '');
+    assert.ok(pages[0].upserts[0].payloadChunkCount > 1);
+    assert.ok(pages[0].payloadChunks.length > 1);
+    assert.ok(pages.every((page) => Buffer.byteLength(JSON.stringify(page), 'utf8') <= 256 * 1024));
+});
+
+test('product-history-read bounds detail references and range page estimates', async () => {
+    const history = productReadHistory();
+    history.toolDetails = Array.from({ length: 70 }, (_, index) => ({
+        detailKey: `detail-${String(index).padStart(3, '0')}`,
+        itemKey: 'item-6',
+        payload: { output: `detail-${index}` }
+    }));
+    const provider = new CodexHistoryProductProvider({
+        store: createProductReadStore(history),
+        pageItems: 3
+    });
+    const initial = await provider.readInitial(history.conversationId, { rangeEnabled: true });
+    const lastItem = initial.items.find((item) => item.itemKey === 'item-6');
+    assert.equal(lastItem.detailRefs.length, 64);
+    assert.equal(lastItem.detailRefsTruncated, true);
+    assert.equal(lastItem.availability, 'partial');
+    assert.equal(initial.range.hasMoreBefore, true);
+
+    const rangeHistory = productReadHistory();
+    for (const item of rangeHistory.items) item.payload.text = 'x'.repeat(1_200);
+    const byteLimitedProvider = new CodexHistoryProductProvider({
+        store: createProductReadStore(rangeHistory),
+        rangePageBytes: 4 * 1024
+    });
+    const byteLimited = await byteLimitedProvider.readInitial(rangeHistory.conversationId, { rangeEnabled: true });
+    const estimatedPageBytes = byteLimited.items.reduce((total, item) => total + Buffer.byteLength(JSON.stringify({
+        itemKey: item.itemKey,
+        payloadJson: item.payloadJson,
+        detailRefs: item.detailRefs,
+        detailRefsTruncated: item.detailRefsTruncated,
+        availability: item.availability
+    }), 'utf8'), 0);
+    assert.ok(byteLimited.items.length < rangeHistory.items.length);
+    assert.ok(estimatedPageBytes <= 4 * 1024);
+});
+
+test('product-history-read Gateway serves product baseline, older pages, and details without a source read', async (t) => {
+    const history = productReadHistory();
+    const store = createProductReadStore(history);
+    const provider = new CodexHistoryProductProvider({ store, pageItems: 3, detailEnvelopeBytes: 112 * 1024 });
+    const gateway = await setupProductReadGateway(t, { historyProductProvider: provider });
+    const session = await gateway.sessionManager.createSession({ name: 'product-history-read' });
+    const client = await connectProductReadGateway(gateway.port, session.id);
+    await waitForProductReadMessage(client.messages, (message) => message.type === 'session_info');
+
+    client.ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: history.conversationId,
+        selectionGeneration: 31
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const syncId = '123e4567-e89b-12d3-a456-426614174210';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId,
+        conversationId: history.conversationId,
+        selectionGeneration: 31,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    const required = await waitForProductReadMessage(client.messages, (message) =>
+        message.type === 'conversation_history_manifest_required' && message.syncId === syncId);
+    assert.ok(required);
+
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page',
+        syncId,
+        conversationId: history.conversationId,
+        clientSelectionGeneration: 31,
+        pageIndex: 0,
+        lastPage: true,
+        items: []
+    }));
+    const initialDelta = await waitForProductReadMessage(client.messages, (message) =>
+        message.type === 'conversation_history_delta' && message.syncId === syncId);
+    assert.ok(initialDelta);
+    assert.equal(initialDelta.range.providerMode, 'product_db');
+    assert.equal(initialDelta.range.providerIdentityHash.length, 64);
+    assert.equal(initialDelta.range.hasMoreBefore, true);
+    assert.deepEqual(initialDelta.upserts.map((item) => item.itemKey), ['item-4', 'item-5', 'item-6']);
+    const lastItem = initialDelta.upserts.find((item) => item.itemKey === 'item-6');
+    assert.equal(lastItem.detailRefs[0].kind, 'tool_detail');
+
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_sync_ack',
+        syncId,
+        conversationId: history.conversationId,
+        targetRoot: initialDelta.targetRoot,
+        sequence: initialDelta.sequence,
+        pageIndex: initialDelta.pageIndex,
+        clientSelectionGeneration: 31
+    }));
+    await waitForProductReadMessage(client.messages, (message) =>
+        message.type === 'conversation_history_sync_state' && message.syncId === syncId);
+
+    const detailRequestId = 'detail-request-1';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_detail_request',
+        requestId: detailRequestId,
+        conversationId: history.conversationId,
+        selectionGeneration: 31,
+        refId: lastItem.detailRefs[0].refId,
+        maxBytes: 1024
+    }));
+    const detailResponse = await waitForProductReadMessage(client.messages, (message) =>
+        message.type === 'conversation_history_detail_response' && message.requestId === detailRequestId);
+    assert.equal(detailResponse.state, 'ok');
+    const detail = JSON.parse(detailResponse.content);
+    assert.equal(detail.eventFilePath, 'C:\\events\\tool-output.jsonl');
+    assert.equal(detail.requestId, 'tool-request-6');
+    assert.ok(Buffer.byteLength(JSON.stringify(detailResponse), 'utf8') <= 128 * 1024);
+
+    const olderSyncId = '123e4567-e89b-12d3-a456-426614174211';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_older_request',
+        syncId: olderSyncId,
+        conversationId: history.conversationId,
+        selectionGeneration: 31,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: {
+            nextOlderCursor: initialDelta.range.nextOlderCursor,
+            hasMoreBefore: true,
+            rangeId: initialDelta.range.rangeId,
+            providerMode: initialDelta.range.providerMode,
+            providerIdentityHash: initialDelta.range.providerIdentityHash,
+            oldestAnchorKey: initialDelta.range.oldestAnchor.key,
+            oldestAnchorHash: initialDelta.range.oldestAnchor.hash
+        }
+    }));
+    const olderDelta = await waitForProductReadMessage(client.messages, (message) =>
+        message.type === 'conversation_history_delta' && message.syncId === olderSyncId);
+    assert.equal(olderDelta.range.rangeKind, 'older');
+    assert.equal(olderDelta.range.providerMode, 'product_db');
+    assert.deepEqual(olderDelta.upserts.map((item) => item.itemKey), ['item-2', 'item-3', 'item-4']);
+    assert.equal(store.calls.filter((id) => id === history.conversationId).length, 3);
+    assert.equal(gateway.codexService.requests.some((entry) => entry.method === 'thread/read'), false);
+
+    client.ws.close();
+});
+
+function productReadHistory({ detailTextBytes = 64 } = {}) {
+    const conversationId = 'conversation-product-read';
+    const items = Array.from({ length: 7 }, (_, index) => ({
+        itemKey: `item-${index}`,
+        eventId: `event-${index}`,
+        turnId: 'turn-product',
+        itemType: 'message',
+        ordinal: index,
+        payload: {
+            role: 'assistant',
+            text: `message-${index}`,
+            eventFilePath: `C:\\events\\rollout-${index}.jsonl`,
+            cwd: 'E:\\workspace\\termlink',
+            command: ['cargo', 'test', '-p', 'collector'],
+            artifactPath: 'E:\\workspace\\termlink\\target\\report.txt',
+            cursor: 'business-event-cursor',
+            requestId: `event-request-${index}`,
+            diagnostic: `event diagnostic ${index}`,
+            sourcePath: `src/event-${index}.rs`,
+            ...(index === 5 ? { imageData: 'data:image/png;base64,AAAA' } : {})
+        }
+    }));
+    return {
+        conversationId,
+        items,
+        toolDetails: [{
+            detailKey: 'tool-detail-6',
+            itemKey: 'item-6',
+            payload: {
+                output: 'z'.repeat(detailTextBytes),
+                eventFilePath: 'C:\\events\\tool-output.jsonl',
+                cwd: 'E:\\workspace\\termlink',
+                command: ['cargo', 'test', '-p', 'collector'],
+                requestId: 'tool-request-6',
+                diagnostic: 'tool diagnostic 6',
+                sourcePath: 'src/tool-6.rs',
+                imageData: 'data:image/png;base64,BBBB'
+            }
+        }],
+        usage: [],
+        taskOutcomes: [],
+        coverage: { completeness: 'canonical', coverageComplete: true }
+    };
+}
+
+function createProductReadStore(history) {
+    return {
+        calls: [],
+        async readConversation(conversationId) {
+            this.calls.push(conversationId);
+            return conversationId === history.conversationId ? history : null;
+        }
+    };
+}
+
+function loadProductReadGateway() {
+    const authPath = require.resolve('../src/auth/basicAuth');
+    const codexPath = require.resolve('../src/services/codexAppServerService');
+    const sessionManagerPath = require.resolve('../src/services/sessionManager');
+    const gatewayPath = require.resolve('../src/ws/terminalGateway');
+    delete require.cache[authPath];
+    delete require.cache[codexPath];
+    delete require.cache[sessionManagerPath];
+    delete require.cache[gatewayPath];
+
+    const authModule = require(authPath);
+    authModule.verifyWsUpgrade = () => true;
+    const codexServices = [];
+    class FakeCodexService extends EventEmitter {
+        constructor() {
+            super();
+            this.requests = [];
+            codexServices.push(this);
+        }
+        start() { return Promise.resolve(); }
+        ensureStarted() { return Promise.resolve(false); }
+        stop() {}
+        request(method, params) {
+            this.requests.push({ method, params });
+            if (method === 'thread/resume') return Promise.resolve({ thread: { id: params.threadId } });
+            if (method === 'thread/read') {
+                return Promise.resolve({ thread: { id: params.threadId, historyMode: 'legacy', ...(params.includeTurns ? { turns: [] } : {}) } });
+            }
+            return Promise.resolve({ ok: true });
+        }
+        respondToServerRequest() {}
+        static extractThreadId(message) {
+            return message?.params?.threadId || message?.params?.conversationId || null;
+        }
+    }
+    require.cache[codexPath] = { id: codexPath, filename: codexPath, loaded: true, exports: FakeCodexService };
+    require.cache[sessionManagerPath] = {
+        id: sessionManagerPath,
+        filename: sessionManagerPath,
+        loaded: true,
+        exports: {
+            broadcast() {},
+            getSessionThreadIds() { return []; },
+            summarizeSessionConnections() {
+                return { activeConnectionCount: 0, allTls: false, allMtlsAuthorized: false };
+            }
+        }
+    };
+    const registerGateway = require(gatewayPath);
+    return { registerGateway, getCodexService: () => codexServices.at(-1) };
+}
+
+async function setupProductReadGateway(t, options = {}) {
+    const { registerGateway, getCodexService } = loadProductReadGateway();
+    const sessions = new Map();
+    const connections = new Map();
+    const sessionManager = {
+        sessions,
+        getSession(id) { return sessions.get(id) || null; },
+        getSessionForRegistration(id) { return sessions.get(id) || null; },
+        async createSession({ name = 'test' } = {}) {
+            const session = {
+                id: 'session-product-read',
+                name,
+                sessionMode: 'codex',
+                cwd: null,
+                codexState: {},
+                ptyService: { write() {}, resize() {} }
+            };
+            sessions.set(session.id, session);
+            return session;
+        },
+        addConnection(session, ws) {
+            const list = connections.get(session.id) || [];
+            list.push(ws);
+            connections.set(session.id, list);
+        },
+        removeConnection(session, ws) {
+            const list = connections.get(session.id) || [];
+            connections.set(session.id, list.filter((candidate) => candidate !== ws));
+        },
+        broadcast(session, envelope) {
+            for (const ws of connections.get(session.id) || []) {
+                if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(envelope));
+            }
+        },
+        schedulePersist() {},
+        getSessionThreadIds() { return []; },
+        getTerminalOutputSnapshot() { return ''; }
+    };
+    const ipcFeed = new EventEmitter();
+    ipcFeed.online = false;
+    ipcFeed.clientId = 'product-history-test';
+    ipcFeed.isOnline = () => false;
+    ipcFeed.getStatus = () => ({ online: false, supported: true, clientId: ipcFeed.clientId });
+
+    const server = http.createServer((_request, response) => {
+        response.writeHead(200);
+        response.end('ok');
+    });
+    const wss = new WebSocketServer({ noServer: true });
+    const teardown = registerGateway(wss, {
+        sessionManager,
+        heartbeatMs: 99_999,
+        ipcFeed,
+        historyRangeSegmentsEnabled: true,
+        historySelectionDeadlineMs: 2_000,
+        historyProductProvider: options.historyProductProvider
+    });
+    server.on('upgrade', (request, socket, head) => {
+        wss.handleUpgrade(request, socket, head, (ws) => wss.emit('connection', ws, request));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const gateway = {
+        server,
+        wss,
+        port: server.address().port,
+        sessionManager,
+        codexService: getCodexService(),
+        async close() {
+            teardown();
+            for (const ws of wss.clients) ws.terminate();
+            await new Promise((resolve) => wss.close(resolve));
+            await new Promise((resolve) => server.close(resolve));
+        }
+    };
+    t.after(() => gateway.close());
+    return gateway;
+}
+
+async function connectProductReadGateway(port, sessionId) {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?sessionId=${encodeURIComponent(sessionId)}`);
+    const messages = [];
+    ws.on('message', (data) => {
+        try { messages.push(JSON.parse(data.toString())); } catch (_) { /* ignore malformed test output */ }
+    });
+    await new Promise((resolve, reject) => {
+        ws.once('open', resolve);
+        ws.once('error', reject);
+    });
+    return { ws, messages };
+}
+
+async function waitForProductReadMessage(messages, predicate, timeoutMs = 2_000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const match = messages.find(predicate);
+        if (match) return match;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    return messages.find(predicate) || null;
+}

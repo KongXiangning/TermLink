@@ -13,19 +13,19 @@ task_store:
   projection:
     definition:
       object_type: definition
-      sha256: 79b7687e4b634d64db03b2d2c0005fd469ab8d81328a13011cb30973fb4a488c
+      sha256: 90828c6e1d6b9391b36cd7d730fa8f0a4215ab49ad804b63a0f21a6a86188e6d
     state:
       object_type: state
-      sha256: 6f2832421f66791936a0b488c6d7f3697950c1e54247c0fb14e379b6ef2471c9
+      sha256: f98bebe0c00af65f69bc995e3235470d3bc0e0c8505a55dd819dc3676d932fb3
 runtime_state:
   schema_version: 1
   task_id: "003"
   task_slug: rust-node-app
-  workflow_status: active
-  lifecycle_state: active
-  active_step_id: S4
-  active_step_status: ready
-  finding_queue_revision: 13
+  workflow_status: closed
+  lifecycle_state: archived
+  active_step_id: S5
+  active_step_status: in-progress
+  finding_queue_revision: 35
   resume_requires_review: false
   resume_review_reasons: []
 ---
@@ -35,23 +35,16 @@ runtime_state:
 > This summary is not an execution grant. Use task-context/task-read for exact obligations, authority and evidence.
 
 ## 当前步骤
-- S4
-- workflow: active; lifecycle: active; step: ready
+- S5
+- workflow: closed; lifecycle: archived; step: in-progress
 
 ## 当前到期证据
-- C1 / C1-node-final / CK-C1-NODE-FINAL: missing
-- C2 / C2-store-final / CK-C2-STORE-FINAL: missing
-- C2 / C2-publish / CK-C2-PUBLISH: missing
-- C3 / C3-read-final / CK-C3-READ-FINAL: missing
-- C4 / C4-flow-final / CK-C4-FLOW-FINAL: missing
-- C4 / C4-unattended / CK-C4-UNATTENDED: missing
-- C5 / C5-gateway / CK-C5-GATEWAY: missing
-- C5 / C5-android / CK-C5-ANDROID: missing
+- C4 / C4-package / CK-C4-PACKAGE: passed
 
 ## 任务输入依据
 
 - path: `docs/workflow/task-basis/TASK_BASIS-003.md`
-- revision: `5d5af7d88076fb70d38bd30a5a1080eb3714914645449fde0871231ee7ece459`
+- revision: `b13ebc28e16c7ca4d820abbb6c1650e1a9884a7d5f21c21fd3907027ffeb35f3`
 
 ## 精确读取
 - `task-context`: current definition, step, gates and dependencies (paged).

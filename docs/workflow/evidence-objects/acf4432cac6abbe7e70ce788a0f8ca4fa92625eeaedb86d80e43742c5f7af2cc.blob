@@ -1,0 +1,126 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const fsp = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+
+const execFileAsync = promisify(execFile);
+const repositoryRoot = path.resolve(__dirname, '..');
+const platformKey = process.platform === 'win32' ? 'win' : 'linux';
+
+const {
+    copyAllowedApplicationFiles
+} = require('../scripts/release/windows-release');
+const {
+    getAnalyzerBinaryTarget,
+    getAnalyzerBinaryName,
+    resolveAnalyzerBinarySource
+} = require('../scripts/release/release-layout');
+const { resolveRustTargetBinary } = require('./fixtures/codex-rollout-collector/rust-target');
+
+async function installPackagedDependencies(appRoot) {
+    const npmArgs = [
+        'ci',
+        '--omit=dev',
+        '--ignore-scripts',
+        '--no-audit',
+        '--no-fund'
+    ];
+    const command = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : 'npm';
+    const args = process.platform === 'win32'
+        ? ['/d', '/s', '/c', `npm.cmd ${npmArgs.join(' ')}`]
+        : npmArgs;
+    await execFileAsync(command, args, {
+        cwd: appRoot,
+        windowsHide: true,
+        timeout: 180000,
+        maxBuffer: 8 * 1024 * 1024
+    });
+}
+
+test('product-history-package stages the real Rust analyzer and reopens SQLite after an ignore-scripts install', async (t) => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'termlink-product-history-package-'));
+    t.after(() => fsp.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
+
+    const analyzerBinary = await resolveRustTargetBinary();
+    const stageRoot = path.join(root, 'TermLink');
+    const appRoot = path.join(stageRoot, 'app');
+    const application = copyAllowedApplicationFiles(stageRoot, {
+        projectRoot: repositoryRoot,
+        platformKey,
+        analyzerSourcePath: analyzerBinary
+    });
+
+    assert.equal(application.analyzerTarget, getAnalyzerBinaryTarget(platformKey));
+    assert.equal(path.basename(application.analyzer.source), getAnalyzerBinaryName(platformKey));
+    await installPackagedDependencies(appRoot);
+
+    const packagedAnalyzer = path.join(appRoot, ...getAnalyzerBinaryTarget(platformKey).split('/'));
+    const packagedManager = require(path.join(appRoot, 'src/services/codexRolloutCollector/analyzerProcessManager.js'));
+    const relativeAnalyzerPath = path.relative(appRoot, packagedAnalyzer);
+    const resolvedAnalyzer = packagedManager.resolveAnalyzerExecutable(relativeAnalyzerPath, { cwd: appRoot });
+    assert.equal(resolvedAnalyzer, packagedAnalyzer);
+
+    const codexHome = path.join(stageRoot, 'persistent', 'codex-home');
+    await fsp.mkdir(path.join(codexHome, 'sessions'), { recursive: true });
+    const manager = new packagedManager.AnalyzerProcessManager({
+        analyzerPath: resolvedAnalyzer,
+        cwd: appRoot,
+        env: { CODEX_HOME: codexHome },
+        requestTimeoutMs: 15000
+    });
+    try {
+        await manager.start();
+        assert.ok(manager.readyGeneration > 0, 'the analyzer must complete its package-relative hello handshake');
+    } finally {
+        await manager.stop();
+    }
+
+    const packagedStore = require(path.join(appRoot, 'src/services/codexHistoryProductStore.js'));
+    const databasePath = path.join(stageRoot, 'persistent', 'data', 'codex-history.sqlite');
+    const conversationId = 'package-history-conversation';
+    const first = new packagedStore.CodexHistoryProductStore({ databasePath });
+    await first.stageBatch({
+        conversationId,
+        batchId: 'package-batch-1',
+        deliveryIdentity: { request_id: 'package-request-1', job_id: 'package-job-1', segment_id: 'package-segment-1' },
+        payload: { history_items: [{ item_key: 'package-item-1' }] }
+    });
+    await first.publishCanonical({
+        conversationId,
+        batchId: 'package-batch-1',
+        items: [{
+            itemKey: 'package-item-1',
+            eventId: 'package-event-1',
+            turnId: 'package-turn-1',
+            itemType: 'message',
+            ordinal: 0,
+            payload: { text: 'packaged sqlite write' }
+        }],
+        coverage: { state: 'canonical', complete: true },
+        checkpoint: { cursor: 'package-cursor-1' }
+    });
+
+    const reopened = new packagedStore.CodexHistoryProductStore({ databasePath });
+    const history = await reopened.readConversation(conversationId);
+    assert.equal(history.items[0].payload.text, 'packaged sqlite write');
+    assert.deepEqual(history.coverage, { state: 'canonical', complete: true });
+
+    const missingPath = path.join(root, 'missing', getAnalyzerBinaryName(platformKey));
+    assert.throws(
+        () => resolveAnalyzerBinarySource(platformKey, { projectRoot: root, overridePath: missingPath }),
+        (error) => error.code === 'RELEASE_ANALYZER_BINARY_MISSING'
+    );
+    const mismatchedName = platformKey === 'win' ? 'codex-rollout-collector' : 'codex-rollout-collector.exe';
+    assert.throws(
+        () => resolveAnalyzerBinarySource(platformKey, { projectRoot: root, overridePath: path.join(root, mismatchedName) }),
+        (error) => error.code === 'RELEASE_ANALYZER_BINARY_PLATFORM_MISMATCH'
+    );
+
+    assert.ok(fs.existsSync(databasePath), 'the packaged SQLite file must be durable in persistent data');
+});

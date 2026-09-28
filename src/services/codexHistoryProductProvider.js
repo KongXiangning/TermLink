@@ -2,7 +2,6 @@
 
 const crypto = require('node:crypto');
 const {
-    canonicalize,
     hashPayload,
     buildConversationRoot
 } = require('./codexHistoryCanonicalizer');
@@ -15,6 +14,20 @@ const MAX_DETAIL_REFS_PER_ITEM = 64;
 const PRODUCT_HISTORY_PROVIDER_IDENTITY = hashPayload('termlink:codex-history-product-provider:v1');
 
 const INLINE_IMAGE_DATA_URL = /^data:image\/[a-z0-9.+-]+(?:;[^,]*)?,/i;
+
+// Product payloads have already crossed the collection metadata boundary.
+// IPC's canonicalizer removes transport-named keys recursively, which are
+// legitimate business keys here (including inside tool output).
+function canonicalize(value) {
+    const sort = (entry) => {
+        if (Array.isArray(entry)) return entry.map(sort);
+        if (!entry || typeof entry !== 'object') return entry;
+        const result = Object.create(null);
+        for (const key of Object.keys(entry).sort()) result[key] = sort(entry[key]);
+        return result;
+    };
+    return JSON.stringify(sort(value));
+}
 
 class CodexHistoryProductProvider {
     constructor({
@@ -368,7 +381,7 @@ function projectValue(value) {
     }
     if (!value || typeof value !== 'object') return { value, mediaOmitted: false };
 
-    const result = {};
+    const result = Object.create(null);
     let mediaOmitted = false;
     for (const [key, entry] of Object.entries(value)) {
         const child = projectValue(entry);

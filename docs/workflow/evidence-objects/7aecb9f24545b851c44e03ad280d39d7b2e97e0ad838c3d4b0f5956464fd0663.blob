@@ -1,0 +1,194 @@
+---
+title: Task 003 S4 Rust→Node 产品历史接入 - 变更记录
+status: draft
+record_id: CR-20260926-task003-s4
+req_id: none
+commit_ref: TBD
+owner: @maintainer
+last_updated: 2026-09-26
+source_of_truth: code
+related_code: [src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexHistoryReconciliationScheduler.js, src/server.js, tests/codexHistoryProductFlow.test.js]
+related_docs: [docs/codex/codex-history-product-contract.md, docs/codex/codex-rollout-collector-architecture.md]
+---
+
+# CR-20260926-task003-s4
+
+## 1. 变更意图（Compact Summary）
+
+- 背景：S2/S3 已提供产品 SQLite Store 与鉴权只读历史 Gateway，但真实 Rust `batch → ACK → complete → canonical transaction` 链和无人在线时的 source-ready 唤醒尚未接入。
+- 目标：让单例 Node collector 在正 ACK 前完成产品 staging；只在既有 Rust `complete` 与 checkpoint/coverage 验证通过后原子发布；通过终态 IPC surface 与服务启动恢复触发 backfill/append。
+- 本次边界：完成已确认的 Task 003 S4 Node 接入和 Android 生成工程恢复/JVM 验证。Android 只包含 Runtime 对本步逐项授权的生成输出；其他 `android/**` 仍禁止。健康 IPC authority、Codex source 边界和 S5 发布 staging 不变。
+
+## 2. 实施内容（What changed）
+
+1. 扩展现有 `AnalysisBatchImporter`：已验证的 target batch 完成 File Store staging 后，再 durable stage 到产品库；只有两边持久化成功才返回正 ACK 所需的结果。
+2. 在 `complete` 通过既有 accepted-delivery、batch scope、watermark 与 checkpoint 校验后，确认投影为 canonical 且 coverage complete，再将 Rust reduced items、详情、usage、outcomes、coverage 和内部 checkpoint 交给一个产品事务发布。产品 payload 保留事件业务字段和值，隔离 `source_ref` 与 checkpoint。
+3. 新增终态 snapshot reconciliation scheduler。服务启动时恢复 collector 的可恢复任务，并检查 IPC feed 已缓存终态；没有 App/WebSocket 客户端也能由 Codex IPC source-ready 事实触发 backfill 或从产品 canonical checkpoint 继续 append。
+4. Server 使用 `TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH` 配置 analyzer binary。S5 负责将平台 binary 纳入发布 staging 并提供该路径。
+5. 增加真实 Rust→产品 DB→历史 Gateway 与无人在线/重启 append 的集成覆盖，并将 S1 生命周期测试中的过时占位符断言改为精确 cwd/命令原值断言。
+
+## 3. 影响范围（Files/Modules/Runtime）
+
+- 文件：
+  - `src/services/codexRolloutCollector/analysisBatchImporter.js`
+  - `src/services/codexHistoryReconciliationScheduler.js`
+  - `src/server.js`
+  - `tests/codexHistoryProductFlow.test.js`
+  - `tests/codexRolloutCollector.isolatedLifecycle.test.js`
+  - `docs/codex/codex-history-product-contract.md`
+- 模块：
+  - 单例 Rust analyzer 的 Node importer、SQLite 产品历史 staging/publication、终态 IPC source-ready 调度与既有鉴权历史 Gateway。
+- 运行时行为：
+  - Product DB history 只在 canonical complete 验证成功后可见；partial/provisional 输出不会替换旧 canonical。
+  - App DTO 不包含 source locator、cursor、checkpoint、`source_ref` 或 analyzer 恢复状态；健康 IPC 实时流保持原权威。
+  - 未设置 `TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH` 时 server 不启动该 collector；平台 binary staging 在 S5 完成。
+
+## 4. 回滚方案（命令级）
+
+```powershell
+# 回滚承载本变更的提交
+git revert <commit_ref>
+
+# 或仅恢复 S4 文件
+git checkout <commit_ref>^ -- src/services/codexRolloutCollector/analysisBatchImporter.js src/services/codexHistoryReconciliationScheduler.js src/server.js tests/codexHistoryProductFlow.test.js tests/codexRolloutCollector.isolatedLifecycle.test.js docs/codex/codex-history-product-contract.md docs/changes/records/CR-20260926-task003-s4.md
+```
+
+## 5. 验证记录（Tests/Checks）
+
+- 前序 S4 attempt `attempt-6c2178b070dbc692e402ab34dd97d7a66f0d16f2` 的历史结果：
+  - `node --test --test-name-pattern=product-history-store tests/codexHistoryProductFlow.test.js`：通过，3 项通过、0 项失败。
+  - `node --test --test-name-pattern=product-history-read tests/codexHistoryProductFlow.test.js`：通过，8 项通过、0 项失败。
+  - `node --test --test-name-pattern=product-history-real-rust tests/codexHistoryProductFlow.test.js`：通过，1 项通过、0 项失败；观察到 canonical complete 与 Gateway history read。
+  - `node --test --test-name-pattern=product-history-unattended tests/codexHistoryProductFlow.test.js`：通过，1 项通过、0 项失败；重启后以产品 checkpoint append，新 item key 无重复。
+  - `node --test tests/codexRolloutCollector.isolatedLifecycle.test.js`：通过，1 项通过、0 项失败。
+  - `node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js`：通过，139 项通过、0 项失败。
+  - 冻结 Android JVM Gradle 命令：blocked，Gradle 在配置阶段找不到 `android/capacitor-cordova-android-plugins/cordova.variables.gradle`，未运行目标 JVM tests。恢复需 `npm run android:sync`，会写入 S4 当前 Mutation Authority 禁止的 `android/**`，因此未执行。
+  - 上述 Gradle 命令还在仓库忽略目录下生成 `android/build/reports/problems/problems-report.html`（134187 bytes，创建/修改时间为 `2026-09-25T17:12:49Z`，与本次 Gradle 执行时间相符）。该文件不在 S4 授权范围内，已保持原样，未清理或编辑。
+  - 当时 Runtime 的 S4 结果登记按冻结的 `expected_repo_writes: none` 拒绝 Android 命令的 observed write（`COMMAND_OBSERVED_WRITE_BLOCKED`）；该次结果事务未提交。该状态随后经 Runtime 内部恢复处理，并在下方记录为 blocked attempt；此处保留原始故障历史。
+  - `git diff --check`：通过，exit 0、无 whitespace error；Git 输出 LF→CRLF 提示。
+
+### 修复过程记录
+
+- 先行检查 `node --test --test-name-pattern=product-history-store tests/codexHistoryProductFlow.test.js` 与 `node --test --test-name-pattern=product-history-read tests/codexHistoryProductFlow.test.js` 通过，分别为 3 项和 8 项通过、0 项失败。
+- 首次执行 `node --test --test-name-pattern=product-history-real-rust tests/codexHistoryProductFlow.test.js` 失败：合成 rollout 的 `event_msg/agent_message` 使用 `phase: final`，Rust 返回 `partial`，诊断为 `missing_required_field:event_msg/agent_message`（rollout ordinal 3）。这是测试 fixture 格式问题，不是产品发布 gate 的失败。
+- 修复：将该 fixture 的 agent message phase 改为与已验证真实 Rust 生命周期 fixture 一致的 `commentary`，不放宽 canonical 判定或解析门槛。
+- 按同一冻结命令重跑：通过，1 项通过、0 项失败；观察到 Rust `complete` 为 canonical、coverage complete、产品 staging/publish 与 Gateway 读取断言均通过。
+- 新 attempt 经 fresh preflight 后重跑 Store、history read 与真实 Rust publication 三条命令均通过（分别 3、8、1 项通过，0 项失败）；随后执行 `node --test --test-name-pattern=product-history-unattended tests/codexHistoryProductFlow.test.js` 失败：重启后的产品 item 数未高于重启前（`tests/codexHistoryProductFlow.test.js:439`）。根因是追加 turn fixture 的 `agent_message` 同样设置为解析器不接受的 `phase: final`；Rust 返回非 canonical 输出时，产品 Store 按门禁保留先前 checkpoint，因此 item 数不会增长。修复为与已验证事件格式一致的 `commentary`，没有放宽发布门。
+- 在下一次同计划 fresh preflight 后重跑无人在线/重启命令：通过，1 项通过、0 项失败；确认重启以产品 canonical checkpoint 发出 append，并新增 turn item 且无重复 item key。
+
+### Android sync 与 JVM 验证恢复记录
+
+- 首次 Android 验证因进程未设置 `ANDROID_HOME` / `ANDROID_SDK_ROOT` 被 Runtime 正确登记为 blocked（结果事件 #76，attempt `attempt-6c2178b070dbc692e402ab34dd97d7a66f0d16f2`）。Android SDK 已存在于 `D:\ProgramCode\Android\Sdk`；环境恢复报告和重试分析分别保存在 `docs/changes/records/task003-s4-android-sdk-restored.json` 与 `docs/changes/records/task003-s4-android-sdk-retry-analysis.md`。
+- 用户授权 S4 对 Android 生成输出作精确准入后，重试 attempt 为 `attempt-3069da7a0c152b9da08382a2e3ffae2899d6bb07`，执行 `execution-afa8e31b6394a85525e49407d8129a2394eaf2e227d56d593297f84f18e56e25`，计划修订 `3725181169a1b8ad396a17e577d04b2668a7bb2f9194000f6f9f5cefceb9d0b9`。准入包含 Android `assets/public` 逐文件生成输出、Capacitor/Cordova 配置、`res/xml/config.xml`、Android Gradle 问题报告以及本 CR；未开放其他 `android/**`。
+- 在当前 PowerShell 进程内设置 `ANDROID_HOME` 和 `ANDROID_SDK_ROOT` 为 `D:\ProgramCode\Android\Sdk` 后，重跑冻结的 `npm run android:sync`：通过。它对当前预检快照是幂等的，59 个候选路径均未出现内容变化。
+- 按冻结命令重跑 Node 回归：Store 3、history read 8、真实 Rust publication 1、unattended/restart 1、Rust→Node lifecycle 1、Owner/IPC 139；全部通过，0 失败。
+- 按冻结命令设置 JDK `D:\ProgramCode\openjdk\jdk-21` 并执行 Android Gradle JVM 验证：命令成功，Gradle 报告 `BUILD SUCCESSFUL`。` :app:testDebugUnitTest` 被标记为 `UP-TO-DATE`，所以本轮没有重新运行其测试 worker；此处只记录 Gradle 命令成功及其复用的既有任务结果，不声称测试体在本轮重新执行。Gradle 报告写入命令指定的系统临时构建目录，没有改动仓库中的候选 Android 文件。
+- `git diff --check` 通过，exit 0；Git 仅提示现有工作树文件的 LF→CRLF 转换信息，没有 whitespace error。
+- 本次 retry 的 S4 验证结果尚待 Runtime 结果事务和 review checkpoint 登记；这条记录不替代 Runtime 状态。
+
+#### S4-ANDROID-SYNC
+
+`npm run android:sync` 重试通过；Capacitor 输出与当前 S4 preflight 基线一致，没有 Android 文件内容差异。
+
+#### CK-C1-NODE-FINAL
+
+冻结 lifecycle 命令通过：1 项通过、0 项失败；真实 Node/Rust 进程完成 File Store 重开。
+
+#### CK-C2-STORE-FINAL
+
+冻结 Store 命令通过：3 项通过、0 项失败；覆盖持久 staging、发布、重开、重复投递和替换回滚。
+
+#### CK-C2-PUBLISH
+
+冻结真实 Rust 命令通过：1 项通过、0 项失败；观察到 validated canonical complete 发布并由 Gateway 读取。
+
+#### CK-C3-READ-FINAL
+
+冻结 history-read 命令通过：8 项通过、0 项失败；覆盖鉴权只读 DTO、分页、边界与大小限制。
+
+#### CK-C4-FLOW-FINAL
+
+冻结真实 Rust 纵向命令通过：1 项通过、0 项失败；观察到 Rust complete 到产品历史 Gateway 的端到端路径。
+
+#### CK-C4-UNATTENDED
+
+冻结 unattended 命令通过：1 项通过、0 项失败；观察到无人在线 source-ready 唤醒和重启 checkpoint append。
+
+#### CK-C5-GATEWAY
+
+冻结 Owner/IPC 命令通过：139 项通过、0 项失败。
+
+#### CK-C5-ANDROID
+
+冻结 Android JVM Gradle 命令 exit 0，构建成功；Gradle 将 `:app:testDebugUnitTest` 标记为 `UP-TO-DATE`，本轮没有重新运行测试 worker。证据只支持命令成功及既有 Gradle 任务结果复用。
+
+#### S4-DIFF-CHECK
+
+冻结 `git diff --check` 通过，exit 0，没有 whitespace error。
+
+## 6. 后续修改入口（How to continue）
+
+- S5 在独立步骤中处理 analyzer/SQLite 发布 staging 与包内 smoke，并为本步 server 配置提供 analyzer path。
+- 如需改变 IPC 实时权威、follower lifecycle 或 source locating 边界，必须独立准备并确认任务。
+
+## 7. 风险与注意事项
+
+### 2026-09-26 repair wave 1（未通过）
+
+- 修复调度失败后新终态丢失与进程重启 intent 恢复；产品 payload 独立排序，保留业务键及 `__proto__`。
+- Store selector：3 passed。real-rust selector：1 passed，观察 ACK 前 staging、重复 staging、非法 complete 保旧值、preview/backfill/append。
+- read selector：8 passed / 1 failed；测试误写未授权 close code 1008，现有 Gateway 明确为 4401（terminalGateway.js:6562）。
+- unattended selector：2 passed / 1 failed。真实 server 已验证无终态不采集、ACK 中断后保留 job/receipt 并以新 request 恢复、产品库重开及鉴权历史读取；最终 healthy IPC surface 断言失败（测试未先启用现有 follower mode）。失败清理还被先删除临时根目录的 hook 打断，手动终止该测试启动的子进程后命令 exit 1。
+- 本轮不宣称最终验收通过；其余冻结命令未运行。后续只修正该测试中的协议使用、断言和资源清理，再重跑冻结检查。
+
+### 2026-09-26 repair wave 2（未通过）
+
+- read selector 9 passed；4401 鉴权 oracle 修正后真实拒绝与接受均通过。
+- unattended selector 2 passed / 1 failed，exit 1，清理正常结束。新增 follower-mode 断言显示外部 IPC transport 替身缺少真实 client 的 enabled/allowActive/confirmSend 属性；CodexIpcFeed.allowActiveSend 因此拒绝启用（codexIpcFeed.js:381–384）。前次诊断只覆盖漏发协议，未覆盖 transport 契约。
+- 下一轮仅补齐外部 transport 的配置属性以符合真实 client 契约，保持真实 Feed/Gateway 权威仲裁。原始调度与序列化修复的独立测试通过；完整边界仍未通过，不接受旧 PASS。继续必要性：冻结 C4 明确要求 healthy IPC 并存，用户 repair 指令涵盖此测试修正；不扩展范围或豁免检查。
+
+### 2026-09-26 repair wave 3（未通过）
+
+- unattended selector 2 passed / 1 failed；follower mode 已成功启用，最终正文断言仍失败。
+- 静态追踪确认 fixture 的 agentMessage 缺少 `phase`；ThreadStream 的 toVisibleEntry 只接受 commentary/final_answer（codexIpcThreadStream.js:1143–1145），正确过滤了该无效输入。下一轮补齐原生有效 message 的 phase/id，并完成历史 sync ACK；保持既有正文 oracle。此前对 transport gate 的修复有效，但不足以修复整个原生消息 fixture。
+- 其余冻结命令本轮未运行。继续必要性与范围同前：修正已授权业务流测试，不修改 Feed/ThreadStream/Gateway，不弱化断言。
+
+### 2026-09-26 repair wave 4（清理失败）
+
+- unattended 的全部业务断言已执行完成，包括 healthy IPC 正文、canonical 未变和无新增 analyzer request；最终临时目录删除报 Windows EBUSY，导致 selector 仍为 2 passed / 1 failed，exit 1。
+- 子进程已退出；下一轮给测试拥有的临时目录删除增加有界 EBUSY 重试，以等待 Windows 释放退出进程的目录句柄。测试报告仍保留失败，不将 cleanup error 改记为 PASS；其余冻结命令本轮未运行。
+
+1. analyzer executable 的发布随 S5 完成；本步在开发/验证环境显式提供路径。
+2. 终态 snapshot 缺失、desynced 或 Rust/Node 持久化失败时维持 fail-closed，不推测 rollout 文件位置。
+
+## 8. Repair 最终验证（2026-09-26）
+
+前三项 review finding 的修复累计涉及 provider、Store、scheduler、collector、产品流测试和本契约/CR。失败尝试保留于上文；以下为修正清理后重新执行的结果，evidence_assurance: caller-reported。
+
+### REPAIR-FINAL-STORE
+
+- `node --test --test-name-pattern=product-history-store tests/codexHistoryProductFlow.test.js`：exit 0，3 passed。stage/publish/reopen、重复交付与事务失败保旧值通过。
+
+### REPAIR-FINAL-READ
+
+- `node --test --test-name-pattern=product-history-read tests/codexHistoryProductFlow.test.js`：exit 0，9 passed。真实 Basic auth 拒绝（WS 4401）与接受；首载、older、detail、chunk/大小、业务 JSON 所有自有键及 __proto__ 保留通过；读取只访问产品 Store。
+
+### REPAIR-FINAL-RUST
+
+- `node --test --test-name-pattern=product-history-real-rust tests/codexHistoryProductFlow.test.js`：exit 0，1 passed。真实 Rust preview/backfill/append；在真实正 ACK send 前重开 staging，重复 import 幂等；非法 complete 的 checkpoint request_id 被拒且 canonical/checkpoint 不变，有效 complete 后原子发布；重开 DB 和鉴权 Gateway 原值读取通过。
+- `node --test tests/codexRolloutCollector.isolatedLifecycle.test.js`：exit 0，1 passed。真实 Rust→Node File Store 重开原值通过。
+
+### REPAIR-FINAL-UNATTENDED
+
+- `node --test --test-name-pattern=product-history-unattended tests/codexHistoryProductFlow.test.js`：exit 0，3 passed。前一请求失败后较新终态仍处理、失败 intent 跨重启恢复；实际 src/server.js 无客户端时由 terminal fact 启动采集；ACK 前中断进程后重开 run/receipt，同 job、新 request、同 recovery batch 恢复；产品 DB canonical 不重影。
+- 重启服务经真实 HTTP/WS 鉴权读取历史；有效 commentary IPC snapshot 通过真实 Feed、ThreadStream 和 Gateway 到达客户端，产品 canonical 不变且 analyzer 请求数不增。只有外部 Codex IPC/app-server transport 使用替身；Rust producer、server wiring、Store、Feed/tracker、Gateway/auth 均为真实实现。此证据不宣称连接真实桌面 Codex 或 Android 真机。
+- 测试删除自身临时目录使用有界 Windows EBUSY 重试，最终正常退出。
+
+### REPAIR-FINAL-GATES
+
+- `node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js`：exit 0，139 passed。
+- `npm run android:sync`：exit 0；复制/更新 Capacitor 与 Cordova 的已授权生成输入。
+- 冻结 Android JVM 命令（实施步骤中原命令，JDK 21；进程环境 ANDROID_HOME/ANDROID_SDK_ROOT=D:\\ProgramCode\\Android\\Sdk）：exit 0，BUILD SUCCESSFUL，56 actionable tasks / 1 executed / 55 up-to-date；`:app:testDebugUnitTest UP-TO-DATE`。本轮未重新运行 JVM test worker，不将既有测试数量作为本次执行次数。
+- `git diff --check`：exit 0；只有 LF/CRLF 提示，无 whitespace error。
+
+修复语义：schema v2 仅增加内部 durable reconciliation intent；产品 payload 使用保持自有键的确定性排序；collector 恢复 pending 请求结束后 scheduler 再调度新请求。原始业务 JSON、单链和 IPC 权威边界保持。CR 仍为 draft，未创建 Git commit。

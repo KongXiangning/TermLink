@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const WebSocket = require('ws');
 const { WebSocketServer } = WebSocket;
@@ -14,12 +15,144 @@ const { CodexHistoryProductStore } = require('../src/services/codexHistoryProduc
 const { CodexHistoryProductProvider } = require('../src/services/codexHistoryProductProvider');
 const { canonicalize } = require('../src/services/codexHistoryCanonicalizer');
 const { buildDeltaPages, toWireItem } = require('../src/services/codexHistorySyncService');
+const {
+    CodexRolloutCollector,
+    AnalysisBatchImporter,
+    FileAnalysisStore,
+    FileCheckpointStore,
+    FileAnalysisRunStore
+} = require('../src/services/codexRolloutCollector');
+const { createAnalyzeRequest } = require('../src/services/codexRolloutCollector/analyzerProtocol');
+const { CodexHistoryReconciliationScheduler } = require('../src/services/codexHistoryReconciliationScheduler');
+const { nativeRoot, resolveRustTargetBinary } = require('./fixtures/codex-rollout-collector/rust-target');
 
 const CONVERSATION_ID = 'conversation-product-store';
 const NOW = 1_790_000_000_000;
+const RUST_CONVERSATION_ID = '019b2b40-beb6-7b23-bed0-37d570e76816';
 
 function makeStore(databasePath) {
     return new CodexHistoryProductStore({ databasePath, now: () => NOW });
+}
+
+function rolloutLine(ordinal, type, payload) {
+    return JSON.stringify({
+        timestamp: `2026-08-18T10:00:${String(ordinal).padStart(2, '0')}.000Z`,
+        ordinal,
+        type,
+        payload
+    }) + '\n';
+}
+
+function productRolloutFixture(conversationId = RUST_CONVERSATION_ID) {
+    const events = [
+        ['session_meta', {
+            id: conversationId,
+            timestamp: '2026-08-18T10:00:00.000Z',
+            cwd: 'file:///synthetic/private/workspace',
+            originator: 'codex_cli',
+            cli_version: '0.70.0',
+            source: 'cli',
+            model_provider: 'openai',
+            git: {}
+        }],
+        ['event_msg', {
+            type: 'task_started',
+            turn_id: 'turn-1',
+            model_context_window: 258400,
+            collaboration_mode_kind: 'default'
+        }],
+        ['event_msg', {
+            type: 'user_message',
+            client_id: 'client-1',
+            message: 'product history initial message',
+            images: []
+        }],
+        ['event_msg', { type: 'agent_message', message: 'initial assistant response', phase: 'commentary' }],
+        ['event_msg', {
+            type: 'item_completed',
+            thread_id: conversationId,
+            turn_id: 'turn-1',
+            item: {
+                type: 'FileChange',
+                id: 'file-1',
+                status: 'completed',
+                changes: {
+                    'src/product-history.rs': {
+                        type: 'update',
+                        unified_diff: '@@ -1 +1 @@\n-old\n+new\n',
+                        move_path: null
+                    }
+                }
+            }
+        }],
+        ['event_msg', {
+            type: 'item_completed',
+            thread_id: conversationId,
+            turn_id: 'turn-1',
+            item: {
+                type: 'CommandExecution',
+                id: 'command-1',
+                command: ['cargo', 'test', '--locked'],
+                cwd: 'file:///synthetic/private/workspace',
+                parsed_cmd: [],
+                source: 'agent',
+                status: 'completed',
+                stdout: 'product history verification output',
+                stderr: '',
+                aggregated_output: '1 passed\n',
+                exit_code: 0,
+                duration: { secs: 1, nanos: 0 }
+            }
+        }],
+        ['event_msg', {
+            type: 'task_complete',
+            turn_id: 'turn-1',
+            last_agent_message: 'initial assistant response',
+            duration_ms: 1000
+        }]
+    ];
+    return events.map(([type, payload], ordinal) => rolloutLine(ordinal, type, payload)).join('');
+}
+
+function appendedProductTurn(ordinalStart = 7) {
+    const events = [
+        ['event_msg', { type: 'task_started', turn_id: 'turn-2', model_context_window: 258400 }],
+        ['event_msg', { type: 'user_message', client_id: 'client-2', message: 'restart append message', images: [] }],
+        ['event_msg', { type: 'agent_message', message: 'restart append response', phase: 'commentary' }],
+        ['event_msg', { type: 'task_complete', turn_id: 'turn-2', last_agent_message: 'restart append response', duration_ms: 500 }]
+    ];
+    return events.map(([type, payload], index) => rolloutLine(ordinalStart + index, type, payload)).join('');
+}
+
+async function createRealProductCollector(root, productStore, analyzerPath, suffix = 'first') {
+    const codexHome = path.join(root, 'codex-home');
+    const sessionDirectory = path.join(codexHome, 'sessions', '2026', '08', '18');
+    await fs.promises.mkdir(sessionDirectory, { recursive: true });
+    const sourcePath = path.join(
+        sessionDirectory,
+        `rollout-2026-08-18T10-00-00-${RUST_CONVERSATION_ID}.jsonl`
+    );
+    if (!await fs.promises.access(sourcePath).then(() => true, () => false)) {
+        await fs.promises.writeFile(sourcePath, productRolloutFixture(), 'utf8');
+    }
+
+    const store = new FileAnalysisStore({ rootDir: path.join(root, 'analysis') });
+    const checkpointStore = new FileCheckpointStore({ rootDir: path.join(root, 'checkpoints') });
+    const runStore = new FileAnalysisRunStore({ rootDir: path.join(root, 'runs') });
+    const importer = new AnalysisBatchImporter({ store, checkpointStore, productStore });
+    const collector = new CodexRolloutCollector({
+        analyzerPath,
+        analyzerCwd: root,
+        analyzerEnv: { CODEX_HOME: codexHome },
+        store,
+        checkpointStore,
+        runStore,
+        importer,
+        requestTimeoutMs: 30000,
+        processRestartRetries: 0
+    });
+    collector.testSuffix = suffix;
+    return { collector, sourcePath, store, checkpointStore, runStore, importer };
 }
 
 function stagedBatch(batchId, payload = { history_items: [{ item_key: 'item-1' }] }) {
@@ -135,6 +268,228 @@ test('product-history-store durably stages, publishes, reopens, and ignores an e
     assert.deepEqual(await reopened.readCheckpoint(CONVERSATION_ID), projection.checkpoint);
     const productRead = await new CodexHistoryProductProvider({ store: reopened }).readInitial(CONVERSATION_ID);
     assert.equal(JSON.stringify(productRead.items).includes('rollout-internal.jsonl'), false);
+});
+
+test('product-history-real-rust stages before ACK, publishes validated canonical output, and reaches the history Gateway', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-product-history-rust-'));
+    const productStore = makeStore(path.join(root, 'history.sqlite'));
+    const analyzerPath = await resolveRustTargetBinary();
+    await productStore.init();
+    const { collector, importer, sourcePath } = await createRealProductCollector(root, productStore, analyzerPath);
+    t.after(async () => {
+        await collector.stop();
+        await fs.promises.rm(root, { recursive: true, force: true });
+    });
+
+    const stagedBeforeAck = new Set();
+    let ackCount = 0;
+    let completeChecks = 0;
+    const importBatch = importer.importBatch.bind(importer);
+    importer.importBatch = async (...args) => {
+        const imported = await importBatch(...args);
+        const batch = args[0];
+        const reopened = makeStore(productStore.databasePath);
+        const staged = await reopened.readStagedBatch(RUST_CONVERSATION_ID, batch.batch_id);
+        assert.ok(staged);
+        assert.equal(staged.publishedAt, null);
+        stagedBeforeAck.add(batch.batch_id);
+        const duplicate = await importBatch(...args);
+        assert.equal(duplicate.duplicate, true);
+        return imported;
+    };
+    const send = collector.processManager.send.bind(collector.processManager);
+    collector.processManager.send = (message) => {
+        if (message.message_type === 'ack' && message.accepted) {
+            assert.ok(stagedBeforeAck.has(message.batch_id), 'durable reopen occurred before the real ACK write');
+            ackCount += 1;
+        }
+        return send(message);
+    };
+    const commitComplete = importer.commitComplete.bind(importer);
+    importer.commitComplete = async (complete, context) => {
+        const before = await productStore.readConversation(RUST_CONVERSATION_ID);
+        const checkpointBefore = await productStore.readCheckpoint(RUST_CONVERSATION_ID);
+        const invalid = structuredClone(complete);
+        invalid.checkpoint.request_id = 'wrong-request';
+        await assert.rejects(() => commitComplete(invalid, { ...context, checkpoint: invalid.checkpoint }));
+        assert.deepEqual(await productStore.readConversation(RUST_CONVERSATION_ID), before);
+        assert.deepEqual(await productStore.readCheckpoint(RUST_CONVERSATION_ID), checkpointBefore);
+        completeChecks += 1;
+        return commitComplete(complete, context);
+    };
+    await collector.analyze(createAnalyzeRequest({ requestId: 'product-preview', jobId: 'product-preview-job',
+        conversationId: RUST_CONVERSATION_ID, mode: 'preview', priority: 'background' }));
+    const result = await collector.analyze(createAnalyzeRequest({
+        requestId: 'product-history-real-rust-request',
+        jobId: 'product-history-real-rust-job',
+        conversationId: RUST_CONVERSATION_ID,
+        mode: 'backfill',
+        priority: 'background'
+    }));
+    assert.equal(result.complete.completeness, 'canonical', JSON.stringify({
+        state: result.state.canonical,
+        projection: {
+            complete: result.state.projection?.complete,
+            provisional: result.state.projection?.provisional,
+            coverage: result.state.projection?.coverage,
+            availability: result.state.projection?.availability,
+            diagnostics: result.state.projection?.diagnostics
+        },
+        diagnostics: result.state.diagnostics.map((entry) => entry.diagnostic)
+    }));
+    assert.equal(result.state.canonical, true);
+    assert.equal(result.state.projection.coverage, 'complete');
+    assert.ok(ackCount >= 2);
+    assert.ok(completeChecks >= 2);
+
+    const batchId = result.complete.checkpoint.projection_watermark.batch_id;
+    const staged = await productStore.readStagedBatch(RUST_CONVERSATION_ID, batchId);
+    assert.ok(staged, 'the Rust batch must be durably staged before the collector acknowledges it');
+    assert.ok(staged.payload.history_items.length > 0);
+    assert.equal(staged.deliveryIdentity.source_scope.conversation_id, RUST_CONVERSATION_ID);
+    assert.ok(staged.publishedAt, 'validated complete must publish the staged batch');
+
+    const history = await productStore.readConversation(RUST_CONVERSATION_ID);
+    assert.ok(history);
+    assert.equal(history.coverage.completeness, 'canonical');
+    assert.equal(history.coverage.coverageComplete, true);
+    assert.ok(history.items.length > 0);
+    const storedPayloads = JSON.stringify(history.items.map((item) => item.payload));
+    assert.ok(storedPayloads.includes('product history initial message'));
+    assert.ok(storedPayloads.includes('file:///synthetic/private/workspace'));
+    assert.ok(storedPayloads.includes('src/product-history.rs'));
+    assert.equal(storedPayloads.includes('source_ref'), false);
+    assert.equal(storedPayloads.includes(path.join(root, 'codex-home', 'sessions')), false);
+    assert.equal(Object.hasOwn(history, 'checkpoint'), false);
+    const productCheckpoint = await productStore.readCheckpoint(RUST_CONVERSATION_ID);
+    assert.equal(productCheckpoint.completeness, 'canonical');
+
+    await fs.promises.appendFile(sourcePath, appendedProductTurn());
+    await collector.analyze(createAnalyzeRequest({ requestId: 'product-append', jobId: 'product-append-job',
+        conversationId: RUST_CONVERSATION_ID, mode: 'append', priority: 'background',
+        cursor: productCheckpoint.cursor, persistedAnchor: productCheckpoint }));
+    const reopenedHistory = await makeStore(productStore.databasePath).readConversation(RUST_CONVERSATION_ID);
+    assert.ok(reopenedHistory.items.some((item) => JSON.stringify(item.payload).includes('restart append response')));
+    assert.equal(new Set(reopenedHistory.items.map((item) => item.itemKey)).size, reopenedHistory.items.length);
+
+    const provider = new CodexHistoryProductProvider({ store: productStore, pageItems: 100 });
+    const gateway = await setupProductReadGateway(t, { historyProductProvider: provider });
+    const session = await gateway.sessionManager.createSession({ name: 'product-history-real-rust' });
+    const client = await connectProductReadGateway(gateway.port, session.id);
+    await waitForProductReadMessage(client.messages, (message) => message.type === 'session_info');
+
+    client.ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: RUST_CONVERSATION_ID,
+        selectionGeneration: 41
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const syncId = '123e4567-e89b-12d3-a456-426614174212';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId,
+        conversationId: RUST_CONVERSATION_ID,
+        selectionGeneration: 41,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    await waitForProductReadMessage(client.messages, (message) =>
+        message.type === 'conversation_history_manifest_required' && message.syncId === syncId);
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page',
+        syncId,
+        conversationId: RUST_CONVERSATION_ID,
+        clientSelectionGeneration: 41,
+        pageIndex: 0,
+        lastPage: true,
+        items: []
+    }));
+    const delta = await waitForProductReadMessage(client.messages, (message) =>
+        message.type === 'conversation_history_delta' && message.syncId === syncId);
+    assert.equal(delta.range.providerMode, 'product_db');
+    const gatewayPayload = JSON.stringify(delta);
+    assert.ok(gatewayPayload.includes('product history initial message'));
+    assert.ok(gatewayPayload.includes('file:///synthetic/private/workspace'));
+    assert.equal(gatewayPayload.includes('source_ref'), false);
+    assert.equal(gatewayPayload.includes(path.join(root, 'codex-home', 'sessions')), false);
+    assert.equal(gateway.codexService.requests.some((entry) => entry.method === 'thread/read'), false);
+    client.ws.close();
+});
+
+test('product-history-unattended wakes on cached terminal source-ready state and resumes from the product checkpoint after restart', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-product-history-unattended-'));
+    const productStore = makeStore(path.join(root, 'history.sqlite'));
+    const analyzerPath = await resolveRustTargetBinary();
+    await productStore.init();
+    const collectors = [];
+    const schedulers = [];
+    t.after(async () => {
+        await Promise.all(schedulers.map((scheduler) => scheduler.stop()));
+        await Promise.all(collectors.map((collector) => collector.stop()));
+        await fs.promises.rm(root, { recursive: true, force: true });
+    });
+
+    const errors = [];
+    const feedFor = (revision) => {
+        const feed = new EventEmitter();
+        feed.getRecentSnapshots = () => [{
+            conversationId: RUST_CONVERSATION_ID,
+            revision,
+            surface: { conversationId: RUST_CONVERSATION_ID, status: 'completed', revision, desynced: false }
+        }];
+        return feed;
+    };
+
+    const first = await createRealProductCollector(root, productStore, analyzerPath, 'startup');
+    collectors.push(first.collector);
+    const firstScheduler = new CodexHistoryReconciliationScheduler({
+        ipcFeed: feedFor(1),
+        collector: first.collector,
+        productStore,
+        onError: (error) => errors.push(error)
+    });
+    schedulers.push(firstScheduler);
+    firstScheduler.start();
+    await firstScheduler.waitForIdle(RUST_CONVERSATION_ID);
+    assert.deepEqual(errors, []);
+    const beforeRestart = await productStore.readConversation(RUST_CONVERSATION_ID);
+    assert.ok(beforeRestart?.items.length > 0, 'a cached terminal source-ready snapshot must start collection without an App client');
+    assert.equal((await productStore.readCheckpoint(RUST_CONVERSATION_ID)).completeness, 'canonical');
+    await firstScheduler.stop();
+    await first.collector.stop();
+
+    await fs.promises.appendFile(first.sourcePath, appendedProductTurn(), 'utf8');
+    const restarted = await createRealProductCollector(root, productStore, analyzerPath, 'restart');
+    collectors.push(restarted.collector);
+    const requests = [];
+    const originalRequest = restarted.collector.processManager.request.bind(restarted.collector.processManager);
+    restarted.collector.processManager.request = (request, options) => {
+        requests.push(request);
+        return originalRequest(request, options);
+    };
+    const restartedScheduler = new CodexHistoryReconciliationScheduler({
+        ipcFeed: feedFor(2),
+        collector: restarted.collector,
+        productStore,
+        onError: (error) => errors.push(error)
+    });
+    schedulers.push(restartedScheduler);
+    restartedScheduler.start();
+    await restartedScheduler.waitForIdle(RUST_CONVERSATION_ID);
+    assert.deepEqual(errors, []);
+    assert.ok(requests.some((request) => (
+        request.mode === 'append'
+        && request.persisted_anchor?.completeness === 'canonical'
+        && request.cursor
+    )), 'service restart must resume from the durable canonical checkpoint');
+
+    const afterRestart = await productStore.readConversation(RUST_CONVERSATION_ID);
+    assert.ok(afterRestart.items.length > beforeRestart.items.length);
+    const afterPayloads = JSON.stringify(afterRestart.items.map((item) => item.payload));
+    assert.ok(afterPayloads.includes('restart append message'));
+    assert.ok(afterPayloads.includes('restart append response'));
+    assert.equal(new Set(afterRestart.items.map((item) => item.itemKey)).size, afterRestart.items.length);
 });
 
 test('product-history-read preserves __proto__ event fields through product-history-store reopen', async (t) => {
@@ -281,6 +636,307 @@ test('product-history-read preserves top-level and nested tool facts with collec
         checkpoint: 'application checkpoint',
         source_ref: { path: 'src/generated.rs' }
     });
+});
+
+test('product-history-read preserves every business JSON key in items and details', async () => {
+    const history = productReadHistory();
+    const facts = JSON.parse('{"params":{"path":"/event/path"},"raw":"original output","revision":"business version","debug":{"createdAt":"event time"},"__proto__":{"path":"/original/file"}}');
+    history.items[6].payload.toolOutput = facts;
+    history.toolDetails[0].payload.toolOutput = facts;
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(history) });
+    const initial = await provider.readInitial(history.conversationId);
+    const item = initial.items.find((entry) => entry.itemKey === 'item-6');
+    assert.deepEqual(JSON.parse(item.payloadJson).toolOutput, facts);
+    const detail = await provider.readDetailPage(history.conversationId, { refId: item.detailRefs[0].refId });
+    assert.deepEqual(JSON.parse(detail.content).toolOutput, facts);
+});
+
+test('product-history-unattended keeps a newer terminal after failure and recovers durable intent', async (t) => {
+    const databasePath = await makeTemporaryDatabase(t);
+    const store = await makeStore(databasePath).init();
+    const feed = new EventEmitter();
+    let rejectFirst;
+    let calls = 0;
+    const collector = { init: async () => {}, analyze: async () => {
+        calls += 1;
+        if (calls === 1) await new Promise((_resolve, reject) => { rejectFirst = reject; });
+        return { complete: { status: 'completed', completeness: 'canonical' } };
+    } };
+    const scheduler = new CodexHistoryReconciliationScheduler({ ipcFeed: feed, collector, productStore: store, onError() {} }).start();
+    const terminal = (revision) => ({ conversationId: 'queue-test', revision, surface: { status: 'completed' } });
+    feed.emit('snapshot', terminal(1));
+    await waitUntil(async () => Boolean(rejectFirst));
+    feed.emit('snapshot', terminal(2));
+    await waitUntil(async () => (await store.readReconciliationIntents())[0]?.revision === '2');
+    rejectFirst(new Error('transient request failure'));
+    await scheduler.waitForIdle('queue-test');
+    assert.equal(calls, 2);
+    assert.deepEqual(await store.readReconciliationIntents(), []);
+    await scheduler.stop();
+
+    // An accepted fact survives a failed request and a new scheduler/Store.
+    const failing = new CodexHistoryReconciliationScheduler({ ipcFeed: feed,
+        collector: { init: async () => {}, analyze: async () => { throw new Error('unavailable'); } },
+        productStore: store, onError() {} }).start();
+    feed.emit('snapshot', terminal(3));
+    await failing.waitForIdle('queue-test');
+    assert.equal((await store.readReconciliationIntents()).length, 1);
+    await failing.stop();
+    const recovered = new CodexHistoryReconciliationScheduler({ ipcFeed: new EventEmitter(), collector,
+        productStore: makeStore(databasePath), onError() {} }).start();
+    await recovered.waitForIdle('queue-test');
+    assert.equal(calls, 3);
+    assert.deepEqual(await store.readReconciliationIntents(), []);
+    await recovered.stop();
+});
+
+test('product-history-unattended retains incomplete intent for replay, restart and newer terminal', async (t) => {
+    const databasePath = await makeTemporaryDatabase(t);
+    const store = await makeStore(databasePath).init();
+    const feed = new EventEmitter();
+    const conversationId = 'partial-queue-test';
+    const terminal = (revision) => ({ conversationId, revision, surface: { status: 'completed' } });
+    let calls = 0;
+    let completeness = 'partial';
+    let release;
+    const collector = { analyze: async () => {
+        calls += 1;
+        const current = completeness;
+        if (calls === 4) await new Promise((resolve) => { release = resolve; });
+        return { complete: { status: current === 'canonical' ? 'completed' : 'partial', completeness: current } };
+    } };
+    const scheduler = new CodexHistoryReconciliationScheduler({ ipcFeed: feed, collector, productStore: store }).start();
+    t.after(() => scheduler.stop());
+    feed.emit('snapshot', terminal(1));
+    await scheduler.waitForIdle(conversationId);
+    assert.equal(calls, 1, 'partial completion must not hot-loop');
+    assert.equal((await store.readReconciliationIntents())[0].revision, '1');
+    assert.equal(await store.readCheckpoint(conversationId), null);
+
+    completeness = 'provisional';
+    feed.emit('snapshot', terminal(1));
+    await scheduler.waitForIdle(conversationId);
+    assert.equal(calls, 2, 'same terminal fact can retry incomplete history');
+    assert.equal((await store.readReconciliationIntents())[0].revision, '1');
+    await scheduler.stop();
+
+    const reopened = makeStore(databasePath);
+    const recovered = new CodexHistoryReconciliationScheduler({ ipcFeed: feed, collector, productStore: reopened }).start();
+    t.after(() => recovered.stop());
+    await recovered.waitForIdle(conversationId);
+    assert.equal(calls, 3, 'restart recovers the durable intent without a fresh snapshot');
+    assert.equal((await reopened.readReconciliationIntents())[0].revision, '1');
+    assert.equal(await reopened.readCheckpoint(conversationId), null);
+
+    feed.emit('snapshot', terminal(1));
+    await waitUntil(async () => Boolean(release));
+    feed.emit('snapshot', terminal(2));
+    await waitUntil(async () => (await reopened.readReconciliationIntents())[0]?.revision === '2');
+    completeness = 'canonical';
+    release();
+    await recovered.waitForIdle(conversationId);
+    assert.equal(calls, 5, 'a newer terminal drains after incomplete completion');
+    assert.deepEqual(await reopened.readReconciliationIntents(), []);
+    feed.emit('snapshot', terminal(2));
+    await recovered.waitForIdle(conversationId);
+    assert.equal(calls, 5, 'canonical completion retains terminal deduplication');
+});
+
+async function waitUntil(predicate, timeoutMs = 15000) {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+        if (await predicate()) return;
+        await new Promise((resolve) => setTimeout(resolve, 15));
+    }
+    assert.fail('condition did not become true before deadline');
+}
+
+// Only external Codex transports are simulated. src/server.js, its startup
+// wiring, real CodexIpcFeed/tracker, auth, collector, Rust and both stores run.
+// Fault injection pauses the real positive ACK write, then exits the process.
+function productServerChild(repository, holdAck) {
+    const path = require('node:path');
+    const { EventEmitter } = require('node:events');
+    const local = (name) => require(path.join(repository, name));
+    let client;
+    class ExternalIpcTransport extends EventEmitter {
+        constructor() {
+            super();
+            client = this;
+            this.clientId = 'test-follower';
+            const config = local('src/services/codexIpcConfig.js').readIpcConfig();
+            this.enabled = config.enabled;
+            this.allowActive = config.allowActive;
+            this.confirmSend = config.confirmSend;
+        }
+        async connect() { this.initialized = true; this.emit('connect', {}); }
+        close() { this.initialized = false; }
+        addRequestHandler() { return () => {}; }
+        sendBroadcast() { return true; }
+        async request() { return {}; }
+    }
+    const replace = (name, exports) => {
+        const id = require.resolve(path.join(repository, name));
+        require.cache[id] = { id, filename: id, loaded: true, exports };
+    };
+    replace('src/services/codexIpcClient.js', { CodexIpcClient: ExternalIpcTransport });
+    class ExternalAppServer extends EventEmitter {
+        start() { return Promise.resolve(); }
+        ensureStarted() { return Promise.resolve(false); }
+        stop() {}
+        request(method, params) {
+            return Promise.resolve(method === 'thread/resume' || method === 'thread/read'
+                ? { thread: { id: params.threadId, turns: [], historyMode: 'legacy' } } : { ok: true });
+        }
+        respondToServerRequest() {}
+        static extractThreadId(message) { return message?.params?.threadId || message?.params?.conversationId || null; }
+    }
+    replace('src/services/codexAppServerService.js', ExternalAppServer);
+    const collectorModule = local('src/services/codexRolloutCollector');
+    let collector;
+    const OriginalCollector = collectorModule.CodexRolloutCollector;
+    collectorModule.CodexRolloutCollector = class extends OriginalCollector {
+        constructor(options) {
+            super(options);
+            collector = this;
+            const send = this.processManager.send.bind(this.processManager);
+            this.processManager.send = (message) => {
+                if (message.message_type === 'analyze') process.send({ type: 'analyze', message });
+                if (holdAck && message.message_type === 'ack' && message.accepted) {
+                    process.send({ type: 'held-ack', message });
+                    return;
+                }
+                return send(message);
+            };
+        }
+    };
+    const http = require('node:http');
+    const listen = http.Server.prototype.listen;
+    http.Server.prototype.listen = function (...args) {
+        this.once('listening', () => process.send({ type: 'listening', port: this.address().port }));
+        return listen.apply(this, args);
+    };
+    process.on('message', async (message) => {
+        if (message.type === 'broadcast') client.emit('broadcast', message.value);
+        if (message.type === 'exit') {
+            collector?.processManager.child?.kill();
+            process.exit(0);
+        }
+    });
+    local('src/server.js');
+}
+
+async function startProductServer(t, root, analyzerPath, holdAck = false) {
+    const repository = path.resolve(__dirname, '..');
+    const child = spawn(process.execPath, ['-e', `(${productServerChild.toString()})(${JSON.stringify(repository)}, ${holdAck})`], {
+        cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+        env: { ...process.env, PORT: '0', TERMLINK_BIND_HOST: '127.0.0.1',
+            AUTH_ENABLED: 'true', AUTH_USER: 'product-test', AUTH_PASS: 'product-test-password',
+            TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH: analyzerPath, CODEX_HOME: path.join(root, 'codex-home'),
+            TERMLINK_CODEX_IPC_ENABLED: '1', TERMLINK_CODEX_IPC_ALLOW_ACTIVE: '1',
+            TERMLINK_DIAGNOSTICS_ENABLED: 'false', TERMLINK_TLS_ENABLED: 'false', SESSION_PERSIST_ENABLED: 'false' }
+    });
+    const messages = [];
+    let output = '';
+    child.on('message', (message) => messages.push(message));
+    child.stdout.on('data', (chunk) => { output += chunk; });
+    child.stderr.on('data', (chunk) => { output += chunk; });
+    const close = async () => {
+        if (child.exitCode !== null) return;
+        const exited = new Promise((resolve) => child.once('exit', resolve));
+        child.send({ type: 'exit' });
+        await exited;
+    };
+    t.after(close);
+    try { await waitUntil(async () => messages.some((m) => m.type === 'listening')); }
+    catch (error) { await close(); error.message += `\n${output}`; throw error; }
+    return { child, messages, close, port: messages.find((m) => m.type === 'listening').port };
+}
+
+test('product-history-unattended actual server reopens a pending job and receipt before serving canonical history', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-product-server-'));
+    let first;
+    let second;
+    let client;
+    t.after(async () => {
+        client?.ws.terminate();
+        await second?.close();
+        await first?.close();
+        await fs.promises.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    });
+    const analyzerPath = await resolveRustTargetBinary();
+    const fixture = await createRealProductCollector(root, makeStore(path.join(root, 'unused.sqlite')), analyzerPath);
+    const productStore = makeStore(path.join(root, 'data', 'codex-history.sqlite'));
+    first = await startProductServer(t, root, analyzerPath, true);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(first.messages.filter((m) => m.type === 'analyze').length, 0, 'no fact means no collection');
+    assert.equal(await productStore.readConversation(RUST_CONVERSATION_ID), null);
+    first.child.send({ type: 'broadcast', value: { method: 'thread-stream-state-changed', sourceClientId: 'external-owner', params: {
+        conversationId: RUST_CONVERSATION_ID, change: { type: 'snapshot', revision: 1, conversationState: {
+            turns: [{ turnId: 'turn-1', status: 'completed', items: [{ type: 'userMessage', content: 'terminal fact' }] }]
+        } }
+    } } });
+    await waitUntil(async () => first.messages.some((m) => m.type === 'held-ack'));
+    const ack = first.messages.find((m) => m.type === 'held-ack').message;
+    const request = first.messages.find((m) => m.type === 'analyze').message;
+    const staged = await productStore.readStagedBatch(RUST_CONVERSATION_ID, ack.batch_id);
+    assert.ok(staged);
+    assert.equal(staged.publishedAt, null);
+    assert.equal(await productStore.readCheckpoint(RUST_CONVERSATION_ID), null);
+    assert.equal((await productStore.readReconciliationIntents()).length, 1);
+    assert.equal(first.messages.filter((m) => m.type === 'analyze').length, 1);
+    await first.close();
+    second = await startProductServer(t, root, analyzerPath);
+    await waitUntil(async () => Boolean(await productStore.readConversation(RUST_CONVERSATION_ID)));
+    const recovered = second.messages.find((m) => m.type === 'analyze').message;
+    assert.equal(recovered.job_id, request.job_id);
+    assert.notEqual(recovered.request_id, request.request_id);
+    assert.equal(recovered.recovery.batch_id, ack.batch_id);
+    await waitUntil(async () => (await productStore.readReconciliationIntents()).length === 0);
+    const canonical = await productStore.readConversation(RUST_CONVERSATION_ID);
+    assert.equal(new Set(canonical.items.map((item) => item.itemKey)).size, canonical.items.length);
+    const authorization = `Basic ${Buffer.from('product-test:product-test-password').toString('base64')}`;
+    assert.equal((await fetch(`http://127.0.0.1:${second.port}/api/sessions`)).status, 401);
+    const response = await fetch(`http://127.0.0.1:${second.port}/api/sessions`, {
+        method: 'POST', headers: { Authorization: authorization, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'recovered-history', sessionMode: 'codex', cwd: root })
+    });
+    assert.equal(response.status, 200, await response.clone().text());
+    const session = await response.json();
+    client = await connectProductReadGateway(second.port, session.id);
+    await waitForProductReadMessage(client.messages, (m) => m.type === 'session_info');
+    client.ws.send(JSON.stringify({ type: 'set_active_follower_mode', enabled: true }));
+    assert.ok(await waitForProductReadMessage(client.messages, (m) => m.type === 'follower_mode_changed' && m.enabled));
+    client.ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: RUST_CONVERSATION_ID, selectionGeneration: 51 }));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const syncId = '123e4567-e89b-12d3-a456-426614174299';
+    client.ws.send(JSON.stringify({ type: 'conversation_history_sync_request', syncId,
+        conversationId: RUST_CONVERSATION_ID, selectionGeneration: 51, cacheSchemaVersion: 3,
+        checkpoint: { rootHash: null, itemCount: 0, complete: false } }));
+    assert.ok(await waitForProductReadMessage(client.messages, (m) => m.type === 'conversation_history_manifest_required' && m.syncId === syncId));
+    client.ws.send(JSON.stringify({ type: 'conversation_history_manifest_page', syncId, conversationId: RUST_CONVERSATION_ID,
+        clientSelectionGeneration: 51, pageIndex: 0, lastPage: true, items: [] }));
+    const delta = await waitForProductReadMessage(client.messages, (m) => m.type === 'conversation_history_delta' && m.syncId === syncId);
+    assert.deepEqual(delta.upserts.map((item) => item.itemKey), canonical.items.map((item) => item.itemKey));
+    assert.ok(JSON.stringify(delta).includes('product history initial message'));
+    assert.equal(JSON.stringify(delta).includes(fixture.sourcePath), false);
+    client.ws.send(JSON.stringify({ type: 'conversation_history_sync_ack', syncId,
+        conversationId: RUST_CONVERSATION_ID, targetRoot: delta.targetRoot,
+        sequence: delta.sequence, pageIndex: delta.pageIndex, clientSelectionGeneration: 51 }));
+    assert.ok(await waitForProductReadMessage(client.messages, (m) => m.type === 'conversation_history_sync_state' && m.syncId === syncId));
+    const beforeLive = await productStore.readConversation(RUST_CONVERSATION_ID);
+    const requestCount = second.messages.filter((m) => m.type === 'analyze').length;
+    second.child.send({ type: 'broadcast', value: { method: 'thread-stream-state-changed', sourceClientId: 'external-owner', params: {
+        conversationId: RUST_CONVERSATION_ID, change: { type: 'snapshot', revision: 2, conversationState: {
+            turns: [{ turnId: 'live-turn', status: 'inProgress', items: [{ id: 'live-message', type: 'agentMessage', phase: 'commentary', text: 'IPC live-only response' }] }]
+        } }
+    } } });
+    const live = await waitForProductReadMessage(client.messages, (m) => m.type === 'conversation_surface_snapshot'
+        && JSON.stringify(m).includes('IPC live-only response'));
+    assert.ok(live, 'healthy IPC still supplies the live surface alongside product history');
+    assert.deepEqual(await productStore.readConversation(RUST_CONVERSATION_ID), beforeLive);
+    assert.equal(second.messages.filter((m) => m.type === 'analyze').length, requestCount);
+    await second.close();
 });
 
 test('product-history-read omits parameterized and percent-encoded inline image data URLs', async () => {
@@ -445,6 +1101,14 @@ test('product-history-read Gateway serves product baseline, older pages, and det
     const provider = new CodexHistoryProductProvider({ store, pageItems: 3, detailEnvelopeBytes: 112 * 1024 });
     const gateway = await setupProductReadGateway(t, { historyProductProvider: provider });
     const session = await gateway.sessionManager.createSession({ name: 'product-history-read' });
+    const unauthorized = new WebSocket(`ws://127.0.0.1:${gateway.port}/ws?sessionId=${session.id}`);
+    await new Promise((resolve, reject) => {
+        unauthorized.once('open', () => {
+            unauthorized.once('close', (code) => { try { assert.equal(code, 4401); resolve(); } catch (error) { reject(error); } });
+        });
+        unauthorized.once('error', reject);
+    });
+    assert.equal(store.calls.length, 0, 'unauthorized client never reaches the product Store');
     const client = await connectProductReadGateway(gateway.port, session.id);
     await waitForProductReadMessage(client.messages, (message) => message.type === 'session_info');
 
@@ -611,8 +1275,10 @@ function loadProductReadGateway() {
     delete require.cache[sessionManagerPath];
     delete require.cache[gatewayPath];
 
-    const authModule = require(authPath);
-    authModule.verifyWsUpgrade = () => true;
+    process.env.AUTH_ENABLED = 'true';
+    process.env.AUTH_USER = 'product-test';
+    process.env.AUTH_PASS = 'product-test-password';
+    require(authPath);
     const codexServices = [];
     class FakeCodexService extends EventEmitter {
         constructor() {
@@ -732,7 +1398,9 @@ async function setupProductReadGateway(t, options = {}) {
 }
 
 async function connectProductReadGateway(port, sessionId) {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?sessionId=${encodeURIComponent(sessionId)}`);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?sessionId=${encodeURIComponent(sessionId)}`, {
+        headers: { Authorization: `Basic ${Buffer.from('product-test:product-test-password').toString('base64')}` }
+    });
     const messages = [];
     ws.on('message', (data) => {
         try { messages.push(JSON.parse(data.toString())); } catch (_) { /* ignore malformed test output */ }

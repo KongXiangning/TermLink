@@ -4,7 +4,8 @@ const { spawnSync } = require('child_process');
 const {
     SUPPORTED_PLATFORMS,
     getReleasePlan,
-    getMaterializedReleaseEntries
+    getMaterializedReleaseEntries,
+    copyAnalyzerBinary
 } = require('./release-layout');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -117,6 +118,11 @@ function copyMaterializedEntries(outputDir, platformKey) {
         ensureParentDir(targetPath);
         fs.copyFileSync(sourcePath, targetPath);
     }
+
+    // The analyzer is a platform executable, so it is resolved separately
+    // from the JavaScript materialization list. A missing or mismatched
+    // binary aborts the release before an incomplete archive can be emitted.
+    copyAnalyzerBinary(outputDir, platformKey, { projectRoot: PROJECT_ROOT });
 }
 
 function runCommand(command, args, options = {}) {

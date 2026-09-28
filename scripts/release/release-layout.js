@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 
 const RELEASE_PLAN_VERSION = 1;
@@ -77,6 +78,85 @@ const SHARED_PLANNED_ENTRIES = Object.freeze([
     { path: 'release-contents.txt', kind: 'file', status: 'generated-step1', step: 1, reason: 'Human-readable package contents summary' }
 ]);
 
+const RUST_ANALYZER_PACKAGE_DIRECTORY = 'native/codex-rollout-collector/bin';
+const RUST_ANALYZER_BINARY_BASE_NAME = 'codex-rollout-collector';
+
+function getAnalyzerBinaryName(platformKey) {
+    assertSupportedPlatform(platformKey);
+    return `${RUST_ANALYZER_BINARY_BASE_NAME}${platformKey === 'win' ? '.exe' : ''}`;
+}
+
+function getAnalyzerBinaryTarget(platformKey) {
+    return path.posix.join(RUST_ANALYZER_PACKAGE_DIRECTORY, getAnalyzerBinaryName(platformKey));
+}
+
+function getAnalyzerBinaryPackageEntry(platformKey) {
+    return {
+        path: getAnalyzerBinaryTarget(platformKey),
+        kind: 'file',
+        status: 'implemented-step5',
+        step: 5,
+        reason: 'Platform Rust rollout analyzer executable'
+    };
+}
+
+function analyzerBinaryOverride(platformKey, environment = process.env) {
+    const suffix = platformKey.toUpperCase();
+    return environment[`TERMLINK_CODEX_ROLLOUT_ANALYZER_BINARY_${suffix}`]
+        || environment.TERMLINK_CODEX_ROLLOUT_ANALYZER_BINARY
+        || '';
+}
+
+function resolveAnalyzerBinarySource(platformKey, {
+    projectRoot = process.cwd(),
+    environment = process.env,
+    overridePath = undefined
+} = {}) {
+    assertSupportedPlatform(platformKey);
+    const root = path.resolve(projectRoot);
+    const expectedName = getAnalyzerBinaryName(platformKey).toLowerCase();
+    const configured = overridePath === undefined
+        ? analyzerBinaryOverride(platformKey, environment)
+        : overridePath;
+    const candidates = configured
+        ? [path.isAbsolute(configured) ? configured : path.resolve(root, configured)]
+        : [
+            path.join(root, 'native', 'codex-rollout-collector', 'target', 'release', getAnalyzerBinaryName(platformKey)),
+            path.join(root, 'native', 'codex-rollout-collector', 'target', 'debug', getAnalyzerBinaryName(platformKey))
+        ];
+    const mismatched = candidates.find((candidate) => path.basename(candidate).toLowerCase() !== expectedName);
+    if (mismatched) {
+        const error = new Error(`Rust analyzer binary for ${platformKey} must be named ${getAnalyzerBinaryName(platformKey)}: ${mismatched}`);
+        error.code = 'RELEASE_ANALYZER_BINARY_PLATFORM_MISMATCH';
+        throw error;
+    }
+    const source = candidates.find((candidate) => {
+        try { return fs.statSync(candidate).isFile(); } catch (_) { return false; }
+    });
+    if (!source) {
+        const error = new Error(`Rust analyzer binary for ${platformKey} was not found. Build or provide ${getAnalyzerBinaryName(platformKey)} via TERMLINK_CODEX_ROLLOUT_ANALYZER_BINARY_${platformKey.toUpperCase()}.`);
+        error.code = 'RELEASE_ANALYZER_BINARY_MISSING';
+        throw error;
+    }
+    return source;
+}
+
+function copyAnalyzerBinary(destinationRoot, platformKey, {
+    projectRoot = process.cwd(),
+    environment = process.env,
+    sourcePath = undefined
+} = {}) {
+    const source = resolveAnalyzerBinarySource(platformKey, {
+        projectRoot,
+        environment,
+        overridePath: sourcePath
+    });
+    const target = path.join(destinationRoot, ...getAnalyzerBinaryTarget(platformKey).split('/'));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(source, target);
+    return { source, target, relativeTarget: getAnalyzerBinaryTarget(platformKey) };
+}
+
 function assertSupportedPlatform(platformKey) {
     if (!Object.prototype.hasOwnProperty.call(SUPPORTED_PLATFORMS, platformKey)) {
         throw new Error(`Unsupported platform "${platformKey}". Expected one of: ${Object.keys(SUPPORTED_PLATFORMS).join(', ')}`);
@@ -111,6 +191,7 @@ function buildPackageEntries(platformKey) {
             reason: 'Platform-specific runtime baseline'
         })),
         ...SHARED_PLANNED_ENTRIES,
+        getAnalyzerBinaryPackageEntry(platformKey),
         ...platform.plannedFiles.map((entry) => ({
             path: entry.path,
             kind: entry.path.endsWith('/') ? 'directory' : 'file',
@@ -180,5 +261,10 @@ module.exports = {
     getArtifactBaseName,
     getArtifactName,
     getReleasePlan,
-    getMaterializedReleaseEntries
+    getMaterializedReleaseEntries,
+    getAnalyzerBinaryName,
+    getAnalyzerBinaryTarget,
+    getAnalyzerBinaryPackageEntry,
+    resolveAnalyzerBinarySource,
+    copyAnalyzerBinary
 };

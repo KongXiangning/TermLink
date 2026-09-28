@@ -6,6 +6,10 @@ const https = require('node:https');
 const crypto = require('node:crypto');
 const net = require('node:net');
 const { spawnSync } = require('node:child_process');
+const {
+    copyAnalyzerBinary,
+    getAnalyzerBinaryTarget
+} = require('./release-layout');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const WINDOWS_WORK_ROOT = path.join(PROJECT_ROOT, 'dist', 'windows-release');
@@ -80,15 +84,28 @@ async function prepareNodeArchive() {
     return archivePath;
 }
 
-function copyAllowedApplicationFiles(stageRoot) {
+function copyAllowedApplicationFiles(stageRoot, {
+    projectRoot = PROJECT_ROOT,
+    platformKey = 'win',
+    analyzerSourcePath = undefined
+} = {}) {
     const appRoot = path.join(stageRoot, 'app');
     fs.mkdirSync(appRoot, { recursive: true });
-    for (const name of ['src', 'public']) fs.cpSync(path.join(PROJECT_ROOT, name), path.join(appRoot, name), { recursive: true });
-    for (const name of ['package.json', 'package-lock.json']) fs.copyFileSync(path.join(PROJECT_ROOT, name), path.join(appRoot, name));
-    fs.cpSync(path.join(PROJECT_ROOT, 'tools', 'windows'), path.join(stageRoot, 'tools', 'windows'), { recursive: true });
+    for (const name of ['src', 'public']) fs.cpSync(path.join(projectRoot, name), path.join(appRoot, name), { recursive: true });
+    for (const name of ['package.json', 'package-lock.json']) fs.copyFileSync(path.join(projectRoot, name), path.join(appRoot, name));
+    fs.cpSync(path.join(projectRoot, 'tools', 'windows'), path.join(stageRoot, 'tools', 'windows'), { recursive: true });
     for (const directory of ['config', 'runtime', 'data', 'logs', 'run', 'certs']) {
         fs.mkdirSync(path.join(stageRoot, 'persistent', directory), { recursive: true });
     }
+    const analyzer = copyAnalyzerBinary(path.join(stageRoot, 'app'), platformKey, {
+        projectRoot,
+        sourcePath: analyzerSourcePath
+    });
+    return {
+        appRoot,
+        analyzer,
+        analyzerTarget: getAnalyzerBinaryTarget(platformKey)
+    };
 }
 
 function writePortableLaunchers(stageRoot) {
@@ -169,7 +186,7 @@ async function stageWindowsRuntime() {
     const archivePath = await prepareNodeArchive();
     fs.rmSync(STAGING_ROOT, { recursive: true, force: true });
     fs.mkdirSync(STAGING_ROOT, { recursive: true });
-    copyAllowedApplicationFiles(STAGING_ROOT);
+    const application = copyAllowedApplicationFiles(STAGING_ROOT);
     writePortableLaunchers(STAGING_ROOT);
     extractEmbeddedNode(archivePath, STAGING_ROOT);
     installProductionDependencies(STAGING_ROOT);
@@ -182,6 +199,8 @@ async function stageWindowsRuntime() {
         nodeSha256: NODE_SHA256,
         architecture: 'x64',
         nodePtyLoadVerified: validation.nodePty,
+        analyzerPath: application.analyzerTarget,
+        analyzerBinaryVerified: true,
         fileCount: walkFiles(STAGING_ROOT).length + 1
     };
     fs.writeFileSync(path.join(STAGING_ROOT, 'release-runtime.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
@@ -398,7 +417,7 @@ if (require.main === module) main().catch((error) => { console.error(error.messa
 module.exports = {
     NODE_VERSION, NODE_ARCHIVE, NODE_URL, NODE_SHA256,
     INNO_VERSION, INNO_INSTALLER, INNO_URL, INNO_SHA256, STAGING_ROOT,
-    sha256, scanStaging, validateStaging, writePortableLaunchers, stageWindowsRuntime,
+    sha256, scanStaging, validateStaging, writePortableLaunchers, copyAllowedApplicationFiles, stageWindowsRuntime,
     createPortableArchive, smokePortable, buildPortable,
     prepareInnoCompiler, createSetup, smokeSetup, buildSetup,
     writeChecksums, buildWindowsRelease

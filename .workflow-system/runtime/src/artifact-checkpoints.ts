@@ -1,7 +1,7 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { describeEvidenceObjects, maxEvidenceObjectBytes, preserveEvidenceObjects, readEvidenceObject, safeRepositoryFile, type EvidenceObject } from './evidence-lineage';
+import { describeEvidenceObjects, preserveEvidenceObjects, readEvidenceObject, safeRepositoryFile, type EvidenceObject } from './evidence-lineage';
 
 export type ArtifactImage = { path: string; object: EvidenceObject | null };
 export type ArtifactCheckpoint = {
@@ -19,7 +19,7 @@ function digest(value: unknown): string {
   return crypto.createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
 }
 
-function assertProductPath(root: string, currentPath: string, relative: string, allowKnownLicenseSnapshot = false): string {
+function assertProductPath(root: string, currentPath: string, relative: string): string {
   const absolute = safeRepositoryFile(root, relative);
   const home = path.dirname(currentPath);
   const local = path.relative(home, absolute).replace(/\\/g, '/');
@@ -41,16 +41,10 @@ function assertProductPath(root: string, currentPath: string, relative: string, 
   }
   if (fs.existsSync(absolute)) {
     const stat = fs.lstatSync(absolute);
-    if (!stat.isFile() || stat.size > maxEvidenceObjectBytes(relative)) throw new Error('ARTIFACT_UNSUPPORTED: only bounded regular files can be snapshotted.');
+    if (!stat.isFile() || stat.size > 1048576) throw new Error('ARTIFACT_UNSUPPORTED: only bounded regular files can be snapshotted.');
     const content = fs.readFileSync(absolute);
     if (content.includes(0) || !Buffer.from(content.toString('utf8')).equals(content)) throw new Error('ARTIFACT_UNSUPPORTED: binary baseline cannot be verified.');
-    const header = content.subarray(0, 8192).toString('utf8');
-    const isPdfJsApacheLicense = relative === 'android/app/src/main/assets/public/vendor/pdfjs/LICENSE'
-      && /^\s*Apache License\s+Version 2\.0\b/m.test(header)
-      && /do not modify the License\./i.test(header);
-    if (/@frozen|DO NOT MODIFY/i.test(header) && !(allowKnownLicenseSnapshot && isPdfJsApacheLicense)) {
-      throw new Error('ARTIFACT_FROZEN: file has a freeze marker.');
-    }
+    if (/@frozen|DO NOT MODIFY/i.test(content.subarray(0, 8192).toString('utf8'))) throw new Error('ARTIFACT_FROZEN: file has a freeze marker.');
   }
   return absolute;
 }
@@ -58,7 +52,7 @@ function assertProductPath(root: string, currentPath: string, relative: string, 
 export function captureArtifactImages(root: string, currentPath: string, paths: string[]): ArtifactImage[] {
   const unique = [...new Set(paths)].sort();
   if (unique.length > 128) throw new Error('ARTIFACT_BUDGET_EXHAUSTED: at most 128 paths.');
-  const present = unique.filter(p => fs.existsSync(assertProductPath(root, currentPath, p, true)));
+  const present = unique.filter(p => fs.existsSync(assertProductPath(root, currentPath, p)));
   const objects = describeEvidenceObjects(root, present);
   return unique.map(p => ({ path: p, object: objects.find(object => object.path === p) ?? null }));
 }

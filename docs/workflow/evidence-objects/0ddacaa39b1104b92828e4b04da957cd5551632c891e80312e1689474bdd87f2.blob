@@ -1,0 +1,169 @@
+'use strict';
+
+const { randomUUID } = require('node:crypto');
+const { createAnalyzeRequest } = require('./codexRolloutCollector/analyzerProtocol');
+
+const TERMINAL_SURFACE_STATUSES = new Set([
+    'completed',
+    'failed',
+    'interrupted',
+    'cancelled',
+    'canceled'
+]);
+
+class CodexHistoryReconciliationScheduler {
+    constructor({ ipcFeed, collector, productStore, onError = null } = {}) {
+        if (!ipcFeed || typeof ipcFeed.on !== 'function') {
+            throw new TypeError('ipcFeed must be an EventEmitter-compatible feed');
+        }
+        if (!collector || typeof collector.analyze !== 'function') {
+            throw new TypeError('collector must provide analyze()');
+        }
+        if (!productStore || typeof productStore.readCheckpoint !== 'function') {
+            throw new TypeError('productStore must provide readCheckpoint()');
+        }
+        this.ipcFeed = ipcFeed;
+        this.collector = collector;
+        this.productStore = productStore;
+        this.onError = typeof onError === 'function' ? onError : null;
+        this.started = false;
+        this.startupPromise = null;
+        this.inFlight = new Map();
+        this.queuedSnapshots = new Map();
+        this.lastRevision = new Map();
+        this.boundSnapshot = (event) => this._acceptSnapshot(event);
+    }
+
+    start() {
+        if (this.started) return this;
+        this.started = true;
+        this.ipcFeed.on('snapshot', this.boundSnapshot);
+        this.startupPromise = Promise.resolve()
+            .then(() => this.collector.init?.())
+            .catch((error) => {
+                this._report(error, { phase: 'startup' });
+            });
+
+        for (const snapshot of this.ipcFeed.getRecentSnapshots?.() || []) {
+            this._acceptSnapshot({
+                conversationId: snapshot.conversationId,
+                surface: snapshot.surface,
+                revision: snapshot.revision ?? snapshot.surface?.revision
+            });
+        }
+        return this;
+    }
+
+    async stop() {
+        if (this.started) this.ipcFeed.removeListener?.('snapshot', this.boundSnapshot);
+        this.started = false;
+        await Promise.all([...this.inFlight.values()].map((promise) => promise.catch(() => {})));
+        await this.startupPromise?.catch(() => {});
+    }
+
+    async waitForIdle(conversationId) {
+        const conversation = String(conversationId || '').trim();
+        if (!conversation) return;
+        while (this.inFlight.has(conversation)) {
+            await this.inFlight.get(conversation);
+        }
+    }
+
+    _acceptSnapshot(event) {
+        const conversationId = typeof event?.conversationId === 'string'
+            ? event.conversationId.trim()
+            : '';
+        const surface = event?.surface;
+        const status = typeof surface?.status === 'string'
+            ? surface.status.trim().toLowerCase()
+            : '';
+        if (!conversationId || surface?.desynced === true
+            || !TERMINAL_SURFACE_STATUSES.has(status)) return false;
+
+        const revision = event.revision ?? surface.revision ?? null;
+        const revisionKey = revision === null
+            ? `${status}:${surface.latestTurnId || ''}:${surface.updatedAt || ''}`
+            : String(revision);
+        if (this.lastRevision.get(conversationId) === revisionKey) return false;
+        this.lastRevision.set(conversationId, revisionKey);
+
+        const accepted = { conversationId, surface, revision: revisionKey };
+        const inFlight = this.inFlight.get(conversationId);
+        if (inFlight) {
+            this.queuedSnapshots.set(conversationId, accepted);
+            return true;
+        }
+
+        const drain = this._drain(conversationId, accepted);
+        const settled = drain.finally(() => {
+            if (this.inFlight.get(conversationId) === settled) {
+                this.inFlight.delete(conversationId);
+            }
+        });
+        this.inFlight.set(conversationId, settled);
+        settled.catch((error) => this._report(error, {
+            phase: 'reconcile',
+            conversationId
+        }));
+        return true;
+    }
+
+    async _drain(conversationId, firstSnapshot) {
+        await this.startupPromise;
+        let snapshot = firstSnapshot;
+        while (snapshot) {
+            await this._reconcile(conversationId);
+            snapshot = this.queuedSnapshots.get(conversationId) || null;
+            this.queuedSnapshots.delete(conversationId);
+        }
+    }
+
+    async _reconcile(conversationId) {
+        const checkpoint = await this.productStore.readCheckpoint(conversationId);
+        let mode = 'backfill';
+        const options = {};
+        if (checkpoint !== null) {
+            if (checkpoint?.completeness !== 'canonical' || !checkpoint.cursor) {
+                throw schedulerError(
+                    'CODEX_HISTORY_CHECKPOINT_INVALID',
+                    'product history recovery checkpoint is not canonical or lacks a resumable cursor'
+                );
+            }
+            mode = 'append';
+            options.cursor = checkpoint.cursor;
+            options.persistedAnchor = checkpoint;
+        }
+
+        const requestId = `request-${randomUUID()}`;
+        const request = createAnalyzeRequest({
+            requestId,
+            jobId: `job-${randomUUID()}`,
+            conversationId,
+            mode,
+            priority: 'background',
+            ...options
+        });
+        return this.collector.analyze(request);
+    }
+
+    _report(error, context) {
+        if (this.onError) {
+            this.onError(error, context);
+            return;
+        }
+        if (typeof console?.warn === 'function') {
+            console.warn('[codex-history] reconciliation failed:', error?.message || String(error), context || {});
+        }
+    }
+}
+
+function schedulerError(code, message) {
+    const error = new Error(message);
+    error.code = code;
+    return error;
+}
+
+module.exports = {
+    CodexHistoryReconciliationScheduler,
+    TERMINAL_SURFACE_STATUSES
+};

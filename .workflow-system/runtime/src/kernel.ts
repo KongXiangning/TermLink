@@ -1,4 +1,5 @@
 import { entryRecovery, formatEntryRecoveryError } from './entry-recovery';
+import { stepProgressIntent, isUserTerminableState, isArchiveSourceAllowed } from './operation-semantics';
 import { authorityDomainChangesSince, assertAuthorityDomainWritable } from './authority-domain-transaction';
 
 /**
@@ -14,7 +15,7 @@ import { authorityDomainChangesSince, assertAuthorityDomainWritable } from './au
 import { readProjectDocuments } from './project-documents';
 import { taskStorageMetrics } from './task-storage-metrics';
 import { TASK_RECOVERY_PROTOCOL } from './task-recovery';
-import { describeEvidenceObjects, maxEvidenceObjectBytes, preserveEvidenceObjects, verifyEvidenceObject, safeRepositoryFile, type EvidenceObject } from './evidence-lineage';
+import { describeEvidenceObjects, preserveEvidenceObjects, verifyEvidenceObject, safeRepositoryFile, type EvidenceObject } from './evidence-lineage';
 import { captureArtifactImages, saveArtifactCheckpoint, prepareArtifactRestore, applyArtifactRestore, assertNoArtifactPublication, type ArtifactRestorePlan } from './artifact-checkpoints';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -138,7 +139,7 @@ export const VNEXT_RUNTIME_PACKAGE_MANIFEST_RELATIVE_PATH = '.workflow-system/ru
 export const VNEXT_RUNTIME_LOCKFILE_RELATIVE_PATH = '.workflow-system/runtime/package-lock.json';
 export const VNEXT_RUNTIME_PACKAGE_NAME = 'vibe-coding-vnext-runtime';
 export const VNEXT_RUNTIME_NODE_MIN_VERSION = '>=20.0.0';
-export const VNEXT_RUNTIME_PACKAGE_VERSION = '0.21.8';
+export const VNEXT_RUNTIME_PACKAGE_VERSION = '0.21.19';
 
 export const RUNTIME_OPERATION_KINDS = [
   'task-state-transaction',
@@ -240,6 +241,8 @@ export type InboxSuggestedNextAction = (typeof INBOX_SUGGESTED_NEXT_ACTIONS)[num
 
 export const REVIEW_CYCLE_PHASES = ['discovery', 'verification'] as const;
 export type ReviewCyclePhase = (typeof REVIEW_CYCLE_PHASES)[number];
+export const REVIEW_CHANGE_MODES = ['default', 'recheck-completed-step'] as const;
+export type ReviewChangeMode = (typeof REVIEW_CHANGE_MODES)[number];
 
 export const STEP_STATUSES = ['ready', 'in-progress', 'completed', 'blocked'] as const;
 export type StepStatus = (typeof STEP_STATUSES)[number];
@@ -758,8 +761,8 @@ export type UserDecisionEffect =
   | { kind: 'cancel-replan-block'; target_ids: ['gate:blocked-by-replan'] }
   | { kind: 'rebind-carried-evidence'; target_ids: string[] }
   | { kind: 'continue-after-warning'; gate_code?: string; target_ids: string[]; authorized_repair_waves?: number }
-  | { kind: 'advance-with-exceptions'; gate_code?: string; target_ids: string[] }
-  | { kind: 'close-with-exceptions'; gate_code?: string; target_ids: string[] }
+  | { kind: 'advance-with-exceptions'; gate_code?: string; target_ids: string[]; confirmation_digest?: string }
+  | { kind: 'close-with-exceptions'; gate_code?: string; target_ids: string[]; confirmation_digest?: string }
   | { kind: 'authorize-mutation'; exact_paths: string[] };
 
 export type UserDecision = {
@@ -838,6 +841,8 @@ export type PreflightReconciliationDisposition = 'not-started' | 'started-unknow
 export type PendingReviewResult = {
   test_assessment?: TestAssessment;
   kind: 'review-result/v1';
+  review_entry_mode?: 'recheck-completed-step';
+  completion_record_id?: string;
   /**
    * A reopened finding is not a new reviewer conclusion.  It is a durable
    * user decision that re-enters the existing repair handoff using the last
@@ -1619,8 +1624,8 @@ export type ArchiveAuditLogEntry = {
   task_id: string;
   task_slug: string;
   document_id: string;
-  from_workflow_status: 'active';
-  from_lifecycle_state: 'active';
+  from_workflow_status: CurrentTaskWorkflowStatus;
+  from_lifecycle_state: TaskLifecycleState;
   to_workflow_status: 'closed';
   to_lifecycle_state: 'archived';
   source_revision: string;
@@ -1637,6 +1642,7 @@ export type ArchiveAuditLogEntry = {
 };
 
 export type ClosureObligationSnapshot = {
+  snapshot_version?: 2;
   state_digest: string;
   obligation_ids: string[];
 };
@@ -1738,7 +1744,7 @@ export type RuntimeProposal = {
   kind: typeof VNEXT_RUNTIME_PROPOSAL_KIND;
   operation_kind: RuntimeOperationKind;
   caller: 'execute-step' | 'review-change' | 'prepare-task' | 'task-lifecycle' | 'capture-work-item' | 'close-task';
-  mode: VNextExecuteStepMode | PrepareTaskMode | LifecycleMode | CloseTaskMode;
+  mode: VNextExecuteStepMode | PrepareTaskMode | LifecycleMode | CloseTaskMode | ReviewChangeMode;
   source_tuple: RuntimeSourceTuple;
   authority_evidence: AuthorityEvidence[];
   semantic_delta: RuntimeSemanticDelta;
@@ -2727,7 +2733,7 @@ function assertStepProgressExecutionIdentity(
   // A same-status audit append is not a new execution or completion claim.
   // Keep this legacy history path readable without treating it as permission
   // to advance the step, consume an attempt, or replace an execution result.
-  if (!delta.execution_result && !delta.review_receipt && delta.status === current.runtimeState.active_step_status) return;
+  if (!delta.execution_result && !delta.review_receipt && delta.status !== 'completed' && delta.status === current.runtimeState.active_step_status) return;
 
   const executionResult = delta.execution_result;
   if (executionResult) {
@@ -2743,6 +2749,13 @@ function assertStepProgressExecutionIdentity(
     return;
   }
 
+  if (!delta.review_receipt && stepProgressIntent(delta) === 'complete-step') {
+    const latest = currentDefinitionExecutionLog(current).findLast(item => !('action' in item) && item.step_id === delta.step_id && item.execution_result);
+    if (latest && !('action' in latest) && latest.mode === 'default'
+      && latest.execution_result?.execution_id === active.execution_id
+      && latest.execution_result.outcome !== 'blocked'
+      && effectiveCheckpointPolicy(resolveCanonicalTaskStep(current)) === 'not-required') return;
+  }
   const pendingReview = current.runtimeState.pending_review_result;
   const pendingExecution = pendingReview
     ? currentDefinitionExecutionLog(current).find(item => !('action' in item) && item.idempotency_key === pendingReview.execution_id)
@@ -3363,12 +3376,14 @@ export function validateVNextRuntimeContract(root: string, requireDependencies =
   expectExactKeys(reviewResultContract, ['stored_in', 'verdicts', 'binds', 'blocked_diagnostics', 'consumed_by', 'test_assessment'], 'Runtime contract.proposal.task_state.review_result');
   expectSetEqual(expectStringArray(reviewResultContract.test_assessment, 'review_result.test_assessment'), ['applicable','reason','evidence_refs','necessity','oracle','boundary','reuse','applicability'], 'test assessment fields');
   expectSetEqual(expectStringArray(reviewResultContract.blocked_diagnostics, 'review_result.blocked_diagnostics'), ['findings', 'unresolved_fingerprints', 'resolved_fingerprints', 'finding_dispositions', 'blocker'], 'blocked review diagnostics');
-  if (reviewResultContract.stored_in !== 'canonical CURRENT_TASK.runtime_state.pending_review_result') fail('RUNTIME_CONTRACT_INVALID', 'review result must use canonical pending review storage.');
+  if (reviewResultContract.stored_in !== 'canonical-pending-review-result-for-findings; completed-step-clean-or-blocked-recheck-retained-in-task-store-event') fail('RUNTIME_CONTRACT_INVALID', 'review result must preserve pending repair findings and retain completed-step clean or blocked reviews in the task-store event.');
   expectSetEqual(expectStringArray(reviewResultContract.verdicts, 'Runtime contract review-result verdicts'), [...REVIEW_RESULT_VERDICTS], 'Runtime contract review-result verdicts');
-  expectSetEqual(expectStringArray(reviewResultContract.binds, 'Runtime contract review-result bindings'), ['active_step_id', 'review_cycle_id', 'latest_execution_id', 'change_set_id', 'review_target_revision'], 'Runtime contract review-result bindings');
+  expectSetEqual(expectStringArray(reviewResultContract.binds, 'Runtime contract review-result bindings'), ['active_step_id', 'review_cycle_id', 'latest_execution_id', 'change_set_id', 'review_target_revision', 'entry_mode', 'completion_record_id'], 'Runtime contract review-result bindings');
   const reviewResultConsumers = expectRecord(reviewResultContract.consumed_by, 'Runtime contract review-result consumers');
   expectExactKeys(reviewResultConsumers, ['clean', 'findings', 'blocked'], 'Runtime contract review-result consumers');
-  if (reviewResultConsumers.clean !== 'execute-step:complete-reviewed-step' || reviewResultConsumers.findings !== 'execute-step:begin-repair' || reviewResultConsumers.blocked !== 'record-user-decision-or-caller-route') fail('RUNTIME_CONTRACT_INVALID', 'Runtime review-result consumers are invalid.');
+  if (reviewResultConsumers.clean !== 'default->execute-step:complete-reviewed-step; recheck-completed-step->no-step-transition'
+    || reviewResultConsumers.findings !== 'default-or-recheck-completed-step->execute-step:begin-repair'
+    || reviewResultConsumers.blocked !== 'record-user-decision-or-caller-route') fail('RUNTIME_CONTRACT_INVALID', 'Runtime review-result consumers are invalid.');
   const draftContract = expectRecord(taskStateContract.draft, 'Runtime contract.proposal.task_state.draft');
   expectExactKeys(draftContract, ['mode', 'actions', 'identity_required', 'definition_required', 'claim_evidence', 'task_basis', 'create_from', 'update_from', 'target', 'previous_close_reconciliation', 'step_admission', 'preserves'], 'Runtime contract.proposal.task_state.draft');
   if (draftContract.mode !== 'default') fail('RUNTIME_CONTRACT_INVALID', 'Runtime contract task-state draft mode must remain default.');
@@ -3438,7 +3453,7 @@ export function validateVNextRuntimeContract(root: string, requireDependencies =
   if (executeStepAdapter.input !== 'stdin-json') fail('RUNTIME_CONTRACT_INVALID', 'Runtime execute-step adapter input must remain stdin-json.');
   expectSetEqual(
     expectStringArray(executeStepAdapter.commands, 'Runtime contract.proposal.execute_step.semantic_adapter.commands'),
-    ['preflight-step', 'resume-preflight', 'reconcile-preflight', 'extend-preflight', 'evidence-context', 'retry-step', 'replace-validation', 'begin-repair', 'record-step-result', 'complete-reviewed-step'],
+    ['preflight-step', 'resume-preflight', 'reconcile-preflight', 'extend-preflight', 'evidence-context', 'retry-step', 'replace-validation', 'begin-repair', 'record-step-result', 'complete-executed-step', 'complete-reviewed-step'],
     'Runtime contract execute-step adapter commands',
   );
   const testStrategyExecution = expectRecord(
@@ -3499,21 +3514,22 @@ export function validateVNextRuntimeContract(root: string, requireDependencies =
   const reviewChangeContract = expectRecord(proposal.review_change, 'Runtime contract.proposal.review_change');
   expectExactKeys(reviewChangeContract, ['semantic_adapter', 'bound_actions'], 'Runtime contract.proposal.review_change');
   const reviewChangeAdapter = expectRecord(reviewChangeContract.semantic_adapter, 'Runtime contract.proposal.review_change.semantic_adapter');
-  expectExactKeys(reviewChangeAdapter, ['input', 'commands', 'context_source', 'reviewable_execution', 'change_set', 'review_target', 'result_storage', 'direct_product_writes', 'advancement_owner'], 'Runtime contract.proposal.review_change.semantic_adapter');
+  expectExactKeys(reviewChangeAdapter, ['input', 'modes', 'commands', 'context_source', 'reviewable_execution', 'change_set', 'review_target', 'result_storage', 'direct_product_writes', 'advancement_owner'], 'Runtime contract.proposal.review_change.semantic_adapter');
+  expectSetEqual(expectStringArray(reviewChangeAdapter.modes, 'Runtime contract review-change modes'), ['default', 'recheck-completed-step'], 'Runtime review-change modes');
   if (
     reviewChangeAdapter.input !== 'stdin-json'
-    || reviewChangeAdapter.context_source !== 'latest-recorded-execution'
-    || reviewChangeAdapter.reviewable_execution !== 'implemented-or-test-red-awaiting-required-checkpoint-or-dynamic-review-or-repair-verification-or-blocked-repair-remediation-review'
+    || reviewChangeAdapter.context_source !== 'latest-recorded-execution; explicit-recheck-binds-immediately-previous-clean-completion'
+    || reviewChangeAdapter.reviewable_execution !== 'implemented-or-test-red-awaiting-required-checkpoint-or-dynamic-review-or-repair-verification-or-blocked-repair-remediation-review; recheck-requires-active-ready-successor-or-open-final-completion-with-no-later-runtime-action'
     || reviewChangeAdapter.change_set !== 'runtime-owned-stable-id'
     || reviewChangeAdapter.review_target !== 'runtime-cumulative-before-after-file-delta'
-    || reviewChangeAdapter.result_storage !== 'canonical-pending-review-result'
+    || reviewChangeAdapter.result_storage !== 'canonical-pending-review-result-for-findings; completed-step-clean-or-blocked-recheck-retained-in-task-store-event'
     || reviewChangeAdapter.direct_product_writes !== 'deny'
     || reviewChangeAdapter.advancement_owner !== 'execute-step'
   ) fail('RUNTIME_CONTRACT_INVALID', 'Runtime review-change adapter semantic boundary is invalid.');
   expectSetEqual(expectStringArray(reviewChangeAdapter.commands, 'Runtime contract review-change commands'), ['review-context', 'review-read', 'record-review-result', 'record-evidence-challenge', 'dismiss-evidence-challenge'], 'Runtime contract review-change commands');
   expectSetEqual(expectStringArray(reviewChangeContract.bound_actions, 'Runtime contract review-change actions'), ['record-review-result', 'record-evidence-challenge', 'dismiss-evidence-challenge'], 'Runtime contract review-change actions');
   const prepareTaskContract = expectRecord(proposal.prepare_task, 'Runtime contract.proposal.prepare_task');
-  expectExactKeys(prepareTaskContract, ['semantic_adapter', 'bound_actions', 'draft_mode', 'draft_actions', 'confirm_mode', 'confirm_actions', 'migration_mode', 'migration_actions', 'replan_mode', 'replan_actions', 'scope_amendment_mode', 'scope_amendment_actions', 'scope_amendment_authorization', 'scope_amendment_review_target_reconciliation', 'repair_budget_extension', 'controlled_repair_recovery', 'direct_replan_result', 'task_history'], 'Runtime contract.proposal.prepare_task');
+  expectExactKeys(prepareTaskContract, ['semantic_adapter', 'bound_actions', 'draft_mode', 'draft_actions', 'confirm_mode', 'confirm_actions', 'migration_mode', 'migration_actions', 'replan_mode', 'replan_actions', 'scope_amendment_mode', 'scope_amendment_actions', 'scope_amendment_authorization', 'repair_budget_extension', 'controlled_repair_recovery', 'direct_replan_result', 'task_history'], 'Runtime contract.proposal.prepare_task');
   const prepareTaskAdapter = expectRecord(prepareTaskContract.semantic_adapter, 'Runtime contract.proposal.prepare_task.semantic_adapter');
   expectExactKeys(
     prepareTaskAdapter,
@@ -3694,17 +3710,6 @@ export function validateVNextRuntimeContract(root: string, requireDependencies =
     ['scope-amendment-candidate', 'scope-amendment-candidate-receipt', 'commit-scope-amendment-audit'],
     'Runtime scope-amendment authorization persistence',
   );
-  const reviewTargetReconciliation = expectRecord(prepareTaskContract.scope_amendment_review_target_reconciliation, 'Runtime contract.proposal.prepare_task.scope_amendment_review_target_reconciliation');
-  expectExactKeys(reviewTargetReconciliation, ['route', 'authorization', 'eligibility', 'preserves', 'pending', 'revalidation', 'persisted_in'], 'Runtime scope-amendment review-target reconciliation contract');
-  if (reviewTargetReconciliation.route !== 'typed-scope-amendment-only'
-    || reviewTargetReconciliation.authorization !== 'exact-stale-paths-and-expected-old-target-revision'
-    || reviewTargetReconciliation.eligibility !== 'existing-base-target-pending-paths-only'
-    || reviewTargetReconciliation.preserves !== 'first-touch-base-preimages-change-set-and-review-cycle'
-    || reviewTargetReconciliation.pending !== 'reconciled-paths-remain-pending-fresh-review'
-    || reviewTargetReconciliation.revalidation !== 'exact-stale-set-at-preparation-and-commit') {
-    fail('RUNTIME_CONTRACT_INVALID', 'Runtime scope-amendment review-target reconciliation contract is invalid.');
-  }
-  expectSetEqual(expectStringArray(reviewTargetReconciliation.persisted_in, 'Runtime scope-amendment review-target reconciliation persisted_in'), ['scope-amendment-candidate', 'scope-amendment-candidate-receipt', 'task-basis-user-decision', 'commit-scope-amendment-audit'], 'Runtime scope-amendment review-target reconciliation persistence');
   const repairBudgetExtension = expectRecord(prepareTaskContract.repair_budget_extension, 'Runtime contract.proposal.prepare_task.repair_budget_extension');
   expectExactKeys(repairBudgetExtension, ['route', 'increment', 'scopes', 'eligibility', 'preserves', 'absolute_limits'], 'Runtime contract.proposal.prepare_task.repair_budget_extension');
   if (repairBudgetExtension.route !== 'extend-repair-budget'
@@ -3802,11 +3807,14 @@ export function validateVNextRuntimeContract(root: string, requireDependencies =
     expectSetEqual(expectStringArray(required.required, `Runtime contract.proposal.lifecycle.${field}.required`), expected, `Runtime contract lifecycle ${field}`);
   }
   const closeTaskContract = expectRecord(proposal.close_task, 'Runtime contract.proposal.close_task');
-  expectExactKeys(closeTaskContract, ['default_mode', 'preview_mode', 'terminal_from', 'terminal_to', 'completion_disposition', 'exceptional_completion', 'claim_evidence', 'lesson_admission', 'knowledge_admission'], 'Runtime contract.proposal.close_task');
+  expectExactKeys(closeTaskContract, ['default_mode', 'preview_mode', 'terminal_from', 'exceptional_terminal_from', 'terminal_to', 'completion_disposition', 'exceptional_completion', 'claim_evidence', 'lesson_admission', 'knowledge_admission'], 'Runtime contract.proposal.close_task');
   if (closeTaskContract.default_mode !== 'default' || closeTaskContract.preview_mode !== 'preview') {
     fail('RUNTIME_CONTRACT_INVALID', 'Runtime contract close-task must reserve default closure and preview read-only semantics.');
   }
   expectSetEqual(expectStringArray(closeTaskContract.terminal_from, 'Runtime contract close-task terminal_from'), ['active + active'], 'Runtime contract close-task terminal_from');
+  expectSetEqual(expectStringArray(closeTaskContract.exceptional_terminal_from, 'Runtime contract exceptional closure source'),
+    ['draft + active', 'active + active', 'blocked_by_replan + active', 'superseded + active', 'replaced + active',
+      'suspended + paused_pending_closure', 'suspended + paused_blocked', 'suspended + interrupted'], 'Runtime contract exceptional closure source');
   expectSetEqual(expectStringArray(closeTaskContract.terminal_to, 'Runtime contract close-task terminal_to'), ['closed + archived'], 'Runtime contract close-task terminal_to');
   expectSetEqual(expectStringArray(closeTaskContract.completion_disposition, 'Runtime contract close-task completion_disposition'), ['completed-with-exceptions', 'stopped-by-user', 'verified'], 'Runtime contract close-task completion disposition');
   if (closeTaskContract.exceptional_completion !== 'exact-user-decision-close-with-exceptions; target-ids-cover-every-remaining-obligation; preserve-false-acceptance-validation-and-risk-facts; no-clean-rewrite') {
@@ -5290,13 +5298,19 @@ function hasUserDirectedNotRunEvidence(
   claimId: string,
   slotId: string,
 ): boolean {
-  return currentDefinitionExecutionLog(current).some((item): item is StepExecutionLogEntry =>
-    !('action' in item)
-    && item.completion_disposition === 'user-directed-with-exceptions'
-    && item.user_decision_id !== undefined
-    && item.claim_evidence?.some(claim => claim.claim_id === claimId
-      && claim.slots.some(slot => slot.slot_id === slotId && slot.report?.status === 'not-run')) === true,
-  );
+  const history = currentDefinitionExecutionLog(current);
+  return history.some(item => {
+    if ('action' in item) return item.action === 'record-user-decision'
+      && item.document_id === current.sourceTuple.document_id
+      && item.completion_disposition === 'user-directed-with-exceptions'
+      && item.effects.some(effect => effect.kind === 'advance-with-exceptions'
+        && effect.confirmation_digest !== undefined
+        && effect.target_ids.includes(`claim:${claimId}/${slotId}`));
+    return item.completion_disposition === 'user-directed-with-exceptions'
+      && item.user_decision_id !== undefined
+      && item.claim_evidence?.some(claim => claim.claim_id === claimId
+        && claim.slots.some(slot => slot.slot_id === slotId && slot.report?.status === 'not-run')) === true;
+  });
 }
 
 // A continuation permits execution; it never validates or resolves challenged evidence.
@@ -5476,6 +5490,8 @@ function validatePendingReviewResult(
     'kind',
     ...(record.origin === undefined ? [] : ['origin']),
     ...(record.user_decision_id === undefined ? [] : ['user_decision_id']),
+    ...(record.review_entry_mode === undefined ? [] : ['review_entry_mode']),
+    ...(record.completion_record_id === undefined ? [] : ['completion_record_id']),
     'review_id',
     'execution_id',
     'step_id',
@@ -5503,6 +5519,15 @@ function validatePendingReviewResult(
     : expectString(record.user_decision_id, `${location}.user_decision_id`, SAFE_KEY_PATTERN);
   if ((origin === undefined) !== (userDecisionId === undefined)) {
     fail('RUNTIME_SCHEMA_INVALID', `${location}.origin and user_decision_id must be provided together.`);
+  }
+  const reviewEntryMode = record.review_entry_mode === undefined
+    ? undefined
+    : expectEnum(record.review_entry_mode, ['recheck-completed-step'], `${location}.review_entry_mode`);
+  const completionRecordId = record.completion_record_id === undefined
+    ? undefined
+    : expectString(record.completion_record_id, `${location}.completion_record_id`, SAFE_KEY_PATTERN);
+  if ((reviewEntryMode === undefined) !== (completionRecordId === undefined)) {
+    fail('RUNTIME_SCHEMA_INVALID', `${location}.review_entry_mode and completion_record_id must be provided together.`);
   }
   if (!Array.isArray(record.findings) || record.findings.length > MAX_FINDINGS) {
     fail('RUNTIME_SCHEMA_INVALID', `${location}.findings must be a bounded array.`);
@@ -5558,11 +5583,16 @@ function validatePendingReviewResult(
       fail('RUNTIME_SCHEMA_INVALID', `${location} user-decision-reopen must be a verification findings handoff without a blocker or resolved set.`);
     }
   }
+  if (reviewEntryMode !== undefined && (verdict !== 'findings' || record.cycle_phase !== 'discovery' || unresolvedFingerprints.length > 0 || resolvedFingerprints.length > 0)) {
+    fail('RUNTIME_SCHEMA_INVALID', `${location} completed-step recheck may persist only fresh discovery findings without admitted finding fingerprints.`);
+  }
   const result = {
     ...(record.test_assessment === undefined ? {} : {test_assessment:validateTestAssessment(record.test_assessment)}),
     kind: 'review-result/v1' as const,
     ...(origin === undefined ? {} : { origin }),
     ...(userDecisionId === undefined ? {} : { user_decision_id: userDecisionId }),
+    ...(reviewEntryMode === undefined ? {} : { review_entry_mode: reviewEntryMode }),
+    ...(completionRecordId === undefined ? {} : { completion_record_id: completionRecordId }),
     review_id: expectString(record.review_id, `${location}.review_id`, SAFE_KEY_PATTERN),
     execution_id: expectString(record.execution_id, `${location}.execution_id`, SAFE_KEY_PATTERN),
     step_id: expectString(record.step_id, `${location}.step_id`, STEP_ID_PATTERN),
@@ -6199,7 +6229,7 @@ function assertTestStrategyExecutionTransition(
   current: CanonicalCurrentTask,
   delta: TaskStepProgressDelta,
 ): void {
-  assertTestStrategySequenceReady(current);
+  if (stepProgressIntent(delta) !== 'record-execution') assertTestStrategySequenceReady(current);
   if (delta.execution_result?.outcome === 'test-red') {
     assertTestRedReproductionEvidence(current, delta.step_id, delta.execution_result.acceptance_evidence);
     const activePreflight = current.runtimeState.execution_preflight;
@@ -6302,6 +6332,78 @@ function resolveCanonicalTaskStep(current: CanonicalCurrentTask): TaskStepResolu
   return resolveTaskStepForState(current.body, current.runtimeState.active_step_id);
 }
 
+export function completedStepReviewTarget(
+  root: string,
+  current: CanonicalCurrentTask,
+  requestedStepId?: string,
+): {
+  step: TaskStepResolution['steps'][number];
+  completion: StepExecutionLogEntry;
+  execution: StepExecutionLogEntry & { execution_result: StepExecutionResult };
+  cycle: ReviewCycleState;
+} {
+  const state = current.runtimeState;
+  if (state.workflow_status !== 'active' || state.lifecycle_state !== 'active') {
+    fail('TASK_STATE_NOT_ACTIVE', 'completed-step recheck requires active + active.');
+  }
+  if (state.resume_requires_review) fail('RESUME_REVIEW_REQUIRED', 'completed-step recheck is blocked by the current resume-review gate.');
+  if (state.pending_review_result !== null || state.execution_preflight !== undefined || state.scope_amendment_pending_review_step_id !== undefined) {
+    fail('COMPLETED_STEP_RECHECK_WINDOW_CLOSED', 'completed-step recheck requires no pending review or preflight.');
+  }
+  const resolution = resolveCanonicalTaskStep(current);
+  const readySuccessor = state.active_step_status === 'ready' && resolution.index > 0;
+  const openFinalCompletion = state.active_step_status === 'completed' && resolution.next === null;
+  if (!readySuccessor && !openFinalCompletion) {
+    fail('COMPLETED_STEP_RECHECK_WINDOW_CLOSED', 'completed-step recheck requires a ready successor or an open, completed final step.');
+  }
+  const step = readySuccessor ? resolution.steps[resolution.index - 1]! : resolution.current;
+  const nextStepId = readySuccessor ? resolution.current.id : null;
+  if (requestedStepId !== undefined && requestedStepId !== step.id) {
+    fail('COMPLETED_STEP_RECHECK_TARGET_INVALID', `completed-step recheck must target the latest eligible completed step ${step.id}.`);
+  }
+  const attempts = state.step_attempts?.[resolution.current.id]?.attempts ?? [];
+  if (readySuccessor && (attempts.length > 0 || currentDefinitionExecutionLog(current).some(item => !('action' in item) && item.step_id === resolution.current.id))) {
+    fail('COMPLETED_STEP_RECHECK_WINDOW_CLOSED', 'the successor step has a recorded preflight, attempt, or execution.');
+  }
+  const log = currentDefinitionExecutionLog(current);
+  const completionIndex = log.findLastIndex((item): item is StepExecutionLogEntry =>
+    !('action' in item)
+    && item.step_id === step.id
+    && item.status === 'completed'
+    && item.advancement === (nextStepId === null ? 'task-complete' : 'advanced')
+    && item.next_step_id === nextStepId
+    && item.review_receipt?.verdict === 'clean',
+  );
+  if (completionIndex < 0) fail('COMPLETED_STEP_RECHECK_TARGET_REQUIRED', 'the latest eligible step has no clean Runtime-recorded completion.');
+  const completion = log[completionIndex]! as StepExecutionLogEntry;
+  if (log.slice(completionIndex + 1).length > 0) {
+    fail('COMPLETED_STEP_RECHECK_WINDOW_CLOSED', 'a later task execution or audited action exists after the completion being rechecked.');
+  }
+  const execution = log.slice(0, completionIndex).findLast((item): item is StepExecutionLogEntry =>
+    !('action' in item)
+    && item.step_id === step.id
+    && item.idempotency_key.startsWith('execute-step-result-')
+    && item.review_receipt === undefined
+    && item.execution_result !== undefined,
+  );
+  if (!execution?.execution_result || !execution.change_set_id
+    || execution.change_set_id !== completion.review_receipt!.change_set_id
+    || execution.execution_result.review_target.revision !== completion.review_receipt!.review_target_revision
+    || execution.execution_result.outcome === 'blocked') {
+    fail('COMPLETED_STEP_RECHECK_TARGET_INVALID', 'the clean completion does not bind a reviewable recorded execution and stable review target.');
+  }
+  const currentTarget = captureReviewTarget(root, execution.execution_result.review_target.entries.map(item => item.path));
+  if (currentTarget.revision !== completion.review_receipt!.review_target_revision) {
+    fail('REVIEW_TARGET_STALE', 'product files changed after the completed-step review target was recorded.');
+  }
+  return {
+    step,
+    completion,
+    execution,
+    cycle: reviewCycleForNextStep(state.review_cycle.id, step.id, completion.idempotency_key),
+  };
+}
+
 function effectiveCheckpointPolicy(resolution: TaskStepResolution): TaskStepCheckpointPolicy {
   // Existing single-step fixtures predate the frozen metadata grammar. Keep
   // them terminal-compatible, while requiring complete metadata for every
@@ -6364,9 +6466,11 @@ export function assertReviewExecutionEligible(
     return;
   }
 
-  if (execution.status !== 'completed'
+  // Historical repairs may be completed while still awaiting verification.
+  // Keep their recorded state intact; a later reviewed completion is rejected above.
+  if (!['in-progress', 'blocked', 'completed'].includes(execution.status)
     || execution.advancement !== 'repair-awaiting-verification'
-    || current.runtimeState.active_step_status !== 'completed') {
+    || current.runtimeState.active_step_status !== execution.status) {
     fail('REVIEW_EXECUTION_NOT_REVIEWABLE', 'the repair execution is not awaiting verification review.');
   }
 }
@@ -7271,7 +7375,7 @@ function validateArchiveDelta(value: unknown): ArchiveDelta {
     action: expectEnum(record.action, ['archive'], 'semantic_delta.action'),
     closure_evidence: closureEvidence,
     delivery_summary: validateDeliverySummary(record.delivery_summary, 'semantic_delta.delivery_summary'),
-    remaining_risks: expectStringArray(record.remaining_risks, 'semantic_delta.remaining_risks', true, MAX_FINDINGS * 2 + 64),
+    remaining_risks: expectStringArray(record.remaining_risks, 'semantic_delta.remaining_risks', true, MAX_CLAIM_EVIDENCE_RECORDS * MAX_CLAIM_EVIDENCE_SLOTS + MAX_FINDINGS * 2 + 128),
     lesson_admission: lessonAdmission,
     ...(completionDisposition === undefined ? {} : { completion_disposition: completionDisposition }),
     ...(exceptionDecisionIds === undefined ? {} : { exception_decision_ids: exceptionDecisionIds }),
@@ -7483,12 +7587,23 @@ function validateUserDecisionEffect(value: unknown, location: string): UserDecis
       ...(record.authorized_repair_waves === undefined ? {} : { authorized_repair_waves: expectInteger(record.authorized_repair_waves, `${location}.authorized_repair_waves`, 1, MAX_AUDITABLE_REPAIR_COUNT) }),
     };
   }
-  if (['advance-with-exceptions', 'close-with-exceptions'].includes(kind)) {
-    expectExactKeys(record, ['kind', 'target_ids', ...(record.gate_code === undefined ? [] : ['gate_code'])], location);
+  if (kind === 'close-with-exceptions') {
+    expectExactKeys(record, ['kind', 'target_ids', ...(record.gate_code === undefined ? [] : ['gate_code']),
+      ...(record.confirmation_digest === undefined ? [] : ['confirmation_digest'])], location);
     return {
-      kind: kind as 'advance-with-exceptions' | 'close-with-exceptions',
+      kind,
       ...(record.gate_code === undefined ? {} : { gate_code: expectText(record.gate_code, `${location}.gate_code`, 256) }),
-      target_ids: expectStringArray(record.target_ids, `${location}.target_ids`, false, MAX_FINDINGS),
+      ...(record.confirmation_digest === undefined ? {} : { confirmation_digest: expectString(record.confirmation_digest, `${location}.confirmation_digest`, SHA256_PATTERN) }),
+      target_ids: expectStringArray(record.target_ids, `${location}.target_ids`, false,
+        MAX_CLAIM_EVIDENCE_RECORDS * MAX_CLAIM_EVIDENCE_SLOTS + MAX_FINDINGS * 2 + 128),
+    };
+  }
+  if (kind === 'advance-with-exceptions') {
+    expectExactKeys(record, ['kind', 'target_ids', ...(record.gate_code === undefined ? [] : ['gate_code']),
+      ...(record.confirmation_digest === undefined ? [] : ['confirmation_digest'])], location);
+    return { kind, target_ids: expectStringArray(record.target_ids, `${location}.target_ids`, false, MAX_CLAIM_EVIDENCE_RECORDS * MAX_CLAIM_EVIDENCE_SLOTS + MAX_FINDINGS * 2 + 128),
+      ...(record.gate_code === undefined ? {} : { gate_code: expectString(record.gate_code, `${location}.gate_code`, SAFE_KEY_PATTERN) }),
+      ...(record.confirmation_digest === undefined ? {} : { confirmation_digest: expectString(record.confirmation_digest, `${location}.confirmation_digest`, SHA256_PATTERN) }),
     };
   }
   fail('RUNTIME_SCHEMA_INVALID', `${location}.kind is not a supported user-decision effect.`);
@@ -7502,8 +7617,8 @@ function validateUserDecision(value: unknown, location: string): UserDecision {
     ...(record.evidence_refs === undefined ? [] : ['evidence_refs']),
   ];
   expectExactKeys(record, ['decision_source', 'decision_text', 'task_id', 'source_revision', 'effects', 'idempotency_key', ...optional], location);
-  if (!Array.isArray(record.effects) || record.effects.length === 0 || record.effects.length > MAX_FINDINGS) {
-    fail('RUNTIME_SCHEMA_INVALID', `${location}.effects must contain between 1 and ${MAX_FINDINGS} effects.`);
+  if (!Array.isArray(record.effects) || record.effects.length === 0 || record.effects.length > MAX_FINDINGS + 1) {
+    fail('RUNTIME_SCHEMA_INVALID', `${location}.effects must contain between 1 and ${MAX_FINDINGS + 1} effects.`);
   }
   const effects = record.effects.map((effect, index) => validateUserDecisionEffect(effect, `${location}.effects[${index}]`));
   const effectKeys = effects.map(effect => `${effect.kind}:${'gate_code' in effect ? effect.gate_code : ''}:${'fingerprint' in effect ? effect.fingerprint : 'target_ids' in effect ? effect.target_ids.join('|') : effect.exact_paths.join('|')}`);
@@ -7589,7 +7704,7 @@ export function validateRuntimeProposal(value: unknown): RuntimeProposal {
   if (proposal.kind !== VNEXT_RUNTIME_PROPOSAL_KIND) fail('RUNTIME_SCHEMA_INVALID', `proposal.kind must be ${VNEXT_RUNTIME_PROPOSAL_KIND}.`);
   const operationKind = expectEnum(proposal.operation_kind, RUNTIME_OPERATION_KINDS, 'proposal.operation_kind');
   const caller = expectEnum(proposal.caller, ['execute-step', 'review-change', 'prepare-task', 'task-lifecycle', 'capture-work-item', 'close-task'], 'proposal.caller');
-  const mode = expectEnum(proposal.mode, [...VNEXT_EXECUTE_STEP_MODES, ...PREPARE_TASK_MODES, ...LIFECYCLE_MODES, ...CLOSE_TASK_MODES], 'proposal.mode');
+  const mode = expectEnum(proposal.mode, [...VNEXT_EXECUTE_STEP_MODES, ...PREPARE_TASK_MODES, ...LIFECYCLE_MODES, ...CLOSE_TASK_MODES, ...REVIEW_CHANGE_MODES], 'proposal.mode');
   const sourceTuple = validateSourceTuple(proposal.source_tuple);
   const authorityEvidence = validateAuthorityEvidence(proposal.authority_evidence);
   const preconditions = expectStringArray(proposal.preconditions, 'proposal.preconditions', false, 32);
@@ -7654,9 +7769,18 @@ export function validateRuntimeProposal(value: unknown): RuntimeProposal {
         fail('RUNTIME_MODE_INVALID', 'prepare-task task-state proposals must use default, confirm, replan, or amend-scope mode.');
       }
     } else if (caller === 'review-change') {
-      if (mode !== 'default') fail('RUNTIME_MODE_INVALID', 'review-change task-state proposals must use default mode.');
+      if (!REVIEW_CHANGE_MODES.includes(mode as ReviewChangeMode)) fail('RUNTIME_MODE_INVALID', 'review-change task-state proposals must use default or recheck-completed-step mode.');
       if (semanticDelta.kind !== 'task-state' || !['record-review-result', 'record-evidence-challenge', 'dismiss-evidence-challenge'].includes(semanticDelta.action)) {
         fail('RUNTIME_CALLER_NOT_BOUND', 'review-change is bound only to review results and evidence challenge assessment.');
+      }
+      if (mode === 'recheck-completed-step'
+        && (semanticDelta.action !== 'record-review-result'
+          || semanticDelta.review_result.review_entry_mode !== 'recheck-completed-step')) {
+        fail('RUNTIME_MODE_INVALID', 'recheck-completed-step mode is bound only to its explicitly marked record-review-result.');
+      }
+      if (mode === 'default' && semanticDelta.kind === 'task-state' && semanticDelta.action === 'record-review-result'
+        && semanticDelta.review_result.review_entry_mode !== undefined) {
+        fail('RUNTIME_MODE_INVALID', 'default review-change cannot record a completed-step recheck result.');
       }
     } else if (caller === 'execute-step') {
       if (!VNEXT_EXECUTE_STEP_MODES.includes(mode as VNextExecuteStepMode)) fail('RUNTIME_MODE_INVALID', 'execute-step task-state proposals must use default or repair mode.');
@@ -7922,7 +8046,7 @@ function validateArchiveAuditLogEntry(value: AnyRecord, location: string, taskId
   if (value.action !== 'archive' || value.operation_kind !== 'archive-transaction' || value.caller !== 'close-task' || value.mode !== 'default') {
     fail('RUNTIME_STATE_CONFLICT', `${location} archive audit has an invalid operation binding.`);
   }
-  if (value.from_workflow_status !== 'active' || value.from_lifecycle_state !== 'active' || value.to_workflow_status !== 'closed' || value.to_lifecycle_state !== 'archived') {
+  if (!isArchiveSourceAllowed(String(value.from_workflow_status), String(value.from_lifecycle_state), value.completion_disposition as string | undefined) || value.to_workflow_status !== 'closed' || value.to_lifecycle_state !== 'archived') {
     fail('RUNTIME_STATE_CONFLICT', `${location} archive audit has an invalid terminal transition.`);
   }
   const completionDisposition = value.completion_disposition === undefined
@@ -7946,8 +8070,8 @@ function validateArchiveAuditLogEntry(value: AnyRecord, location: string, taskId
     task_id: entryTaskId,
     task_slug: entryTaskSlug,
     document_id: documentId,
-    from_workflow_status: 'active',
-    from_lifecycle_state: 'active',
+    from_workflow_status: expectEnum(value.from_workflow_status, CURRENT_TASK_WORKFLOW_STATUSES, `${location}.from_workflow_status`),
+    from_lifecycle_state: expectEnum(value.from_lifecycle_state, TASK_LIFECYCLE_STATES, `${location}.from_lifecycle_state`),
     to_workflow_status: 'closed',
     to_lifecycle_state: 'archived',
     source_revision: sourceRevision,
@@ -8397,11 +8521,13 @@ function validatePreflightReconciliationAuditLogEntry(value: AnyRecord, location
 
 function validateClosureObligationSnapshot(value: unknown, location: string): ClosureObligationSnapshot {
   const snapshot = expectRecord(value, location);
-  expectExactKeys(snapshot, ['state_digest', 'obligation_ids'], location);
+  expectExactKeys(snapshot, ['state_digest', 'obligation_ids', ...(snapshot.snapshot_version === undefined ? [] : ['snapshot_version'])], location);
+  if (snapshot.snapshot_version !== undefined && snapshot.snapshot_version !== 2) fail('RUNTIME_SCHEMA_INVALID', `${location}.snapshot_version must be 2.`);
   return {
+    ...(snapshot.snapshot_version === 2 ? { snapshot_version: 2 as const } : {}),
     state_digest: expectString(snapshot.state_digest, `${location}.state_digest`, SHA256_PATTERN),
     obligation_ids: expectStringArray(snapshot.obligation_ids, `${location}.obligation_ids`, true,
-      MAX_CLAIM_EVIDENCE_RECORDS * MAX_CLAIM_EVIDENCE_SLOTS + MAX_FINDINGS * 2 + 3),
+      MAX_CLAIM_EVIDENCE_RECORDS * MAX_CLAIM_EVIDENCE_SLOTS + MAX_FINDINGS * 2 + 128),
   };
 }
 
@@ -8715,8 +8841,10 @@ function validateExecutionLogEntry(value: unknown, location: string, taskId: str
   if (record.execution_result !== undefined) result.execution_result = validateStepExecutionResult(record.execution_result, `${location}.execution_result`);
   if (result.review_receipt && result.status !== 'completed') fail('RUNTIME_STATE_CONFLICT', `${location}.review_receipt requires a completed execution record.`);
   if (result.completion_disposition === 'user-directed-with-exceptions'
-    && (result.review_receipt?.verdict !== 'disposition' || result.review_receipt.user_decision_id !== result.user_decision_id)) {
-    fail('RUNTIME_STATE_CONFLICT', `${location}.user-directed-with-exceptions must bind a disposition review receipt and its user decision.`);
+    && (!result.user_decision_id || result.status !== 'completed' || result.execution_result !== undefined
+      || (result.review_receipt !== undefined && (result.review_receipt.verdict !== 'disposition'
+        || result.review_receipt.user_decision_id !== result.user_decision_id)))) {
+    fail('RUNTIME_STATE_CONFLICT', `${location}.user-directed-with-exceptions must bind a user decision; it cannot create an execution or claim a clean review.`);
   }
   if (result.completion_disposition === 'verified' && result.review_receipt?.verdict !== 'clean') {
     fail('RUNTIME_STATE_CONFLICT', `${location}.verified completion must bind a clean review receipt.`);
@@ -8777,9 +8905,8 @@ function validateEvidenceCarryForward(value: unknown, location: string): Evidenc
   const objects = carriesContext ? (item.evidence_objects as unknown[]).map(raw => {
     const object = expectRecord(raw, 'evidence object');
     expectExactKeys(object, ['path', 'sha256', 'size'], 'evidence object');
-    const objectPath = normalizeRepoPath(expectString(object.path, 'evidence object.path'), 'evidence object.path');
-    if (!Number.isInteger(object.size) || (object.size as number) < 0 || (object.size as number) > maxEvidenceObjectBytes(objectPath)) fail('RUNTIME_SCHEMA_INVALID', 'Evidence object size is invalid.');
-    return { path: objectPath,
+    if (!Number.isInteger(object.size) || (object.size as number) < 0 || (object.size as number) > 1048576) fail('RUNTIME_SCHEMA_INVALID', 'Evidence object size is invalid.');
+    return { path: normalizeRepoPath(expectString(object.path, 'evidence object.path'), 'evidence object.path'),
       sha256: expectString(object.sha256, 'evidence object.sha256', /^[a-f0-9]{64}$/), size: object.size as number };
   }) : undefined;
   return {
@@ -8958,7 +9085,7 @@ export function validateVNextRuntimeState(value: unknown, options: { storeBacked
     ...(scopeAmendmentPendingReviewStepId === undefined ? {} : { scope_amendment_pending_review_step_id: scopeAmendmentPendingReviewStepId }),
     ...(runtime.evidence_challenges === undefined ? {} : { evidence_challenges: evidenceChallenges }),
     ...(runtime.evidence_carry_forward === undefined ? {} : { evidence_carry_forward: evidenceCarryForward }),
-    ...(runtime.artifact_checkpoint_ids === undefined ? {} : { artifact_checkpoint_ids: expectStringArray(runtime.artifact_checkpoint_ids, 'artifact_checkpoint_ids', true, 256).map(id => expectString(id, 'checkpoint ID', /^[a-f0-9]{64}$/)) }),
+    ...(runtime.artifact_checkpoint_ids === undefined ? {} : { artifact_checkpoint_ids: expectStringArray(runtime.artifact_checkpoint_ids, 'artifact_checkpoint_ids', true, MAX_AUDITABLE_REPAIR_COUNT).map(id => expectString(id, 'checkpoint ID', /^[a-f0-9]{64}$/)) }),
     ...(runtime.dynamic_review_required === undefined ? {} : { dynamic_review_required: dynamicReviewRequired }),
     ...(runtime.dynamic_expansions === undefined ? {} : { dynamic_expansions: dynamicExpansions }),
     ...(executionPreflight === undefined ? {} : { execution_preflight: executionPreflight }),
@@ -10676,8 +10803,8 @@ function matchingArchiveReceipt(root: string, current: CanonicalCurrentTask): { 
   if (audits.length !== 1) fail('LIFECYCLE_REPLAY_INCOMPLETE', 'CURRENT_TASK must contain exactly one durable archive audit for reconciliation.');
   const audit = audits[0]!;
   assertExecutionAudit(root, current, audit);
-  if (audit.from_workflow_status !== 'active' || audit.from_lifecycle_state !== 'active' || audit.to_workflow_status !== 'closed' || audit.to_lifecycle_state !== 'archived') {
-    fail('LIFECYCLE_REPLAY_INCOMPLETE', 'archive audit does not describe the frozen active + active to closed + archived transition.');
+  if (!isArchiveSourceAllowed(audit.from_workflow_status, audit.from_lifecycle_state, audit.completion_disposition) || audit.to_workflow_status !== 'closed' || audit.to_lifecycle_state !== 'archived') {
+    fail('LIFECYCLE_REPLAY_INCOMPLETE', 'archive audit does not describe a permitted source tuple to closed + archived transition.');
   }
   const receipt = readCanonicalArchive(root, current, audit.archive_path);
   assertArchiveReceiptMatches(current, receipt, audit);
@@ -10688,7 +10815,7 @@ function pendingReviewFindingFingerprints(pending: PendingReviewResult): string[
   return [...new Set([...pending.findings.map(item => item.fingerprint), ...pending.unresolved_fingerprints])].sort();
 }
 
-function closureObligationSnapshot(root: string, current: CanonicalCurrentTask): ClosureObligationSnapshot {
+function legacyClosureObligationSnapshot(root: string, current: CanonicalCurrentTask): ClosureObligationSnapshot {
   // Audit appends and Task Basis retention do not create new obligations. Every
   // other state change invalidates this deliberately conservative authorization.
   const { execution_log, applied_proposals: _appliedProposals, ...state } = current.runtimeState;
@@ -10733,6 +10860,133 @@ function closureObligationSnapshot(root: string, current: CanonicalCurrentTask):
   };
 }
 
+/** Semantic confirmation snapshot. Transaction revisions are checked separately. */
+function closureObligationSnapshot(root: string, current: CanonicalCurrentTask): ClosureObligationSnapshot {
+  const state = current.runtimeState;
+  const old = legacyClosureObligationSnapshot(root, current);
+  const { finding_queue_revision: _queueRevision, applied_proposals: _proposals,
+    execution_log, review_cycle, findings, ...semanticState } = state;
+  const reviewedPaths = [...new Set([
+    ...(state.review_coverage?.target.entries.map(item => item.path) ?? []),
+    ...(state.execution_preflight?.candidate_paths ?? []),
+    ...execution_log.flatMap(item => 'action' in item ? [] : item.execution_result?.review_target.entries.map(entry => entry.path) ?? []),
+  ])];
+  const evidence = claimEvidenceStateEnabled(state)
+    ? evaluateClaimEvidence(state.claim_evidence ?? [], { root, current })
+    : { acceptance_satisfied: false, validation_complete: false };
+  const resolution = resolveCanonicalTaskStep(current);
+  const obligations = [...old.obligation_ids,
+    ...(!evidence.acceptance_satisfied ? ['gate:acceptance'] : []),
+    ...(!evidence.validation_complete ? ['gate:validation'] : []),
+    ...(resolution.next ? ['gate:task-complete'] : []),
+    ...(state.resume_requires_review || state.resume_review_reasons.length ? ['gate:resume-review'] : []),
+    ...(state.workflow_status === 'blocked_by_replan' ? ['gate:blocked-by-replan'] : []),
+    ...(state.execution_preflight && !executionResultRecordedForPreflight(current, state.execution_preflight,
+      state.step_attempts?.[state.active_step_id]?.attempts.at(-1)?.attempt_id) ? ['gate:outstanding-execution'] : []),
+    ...(state.review_coverage && (state.review_coverage.pending_paths.length > 0
+      || state.review_coverage.last_clean_revision !== state.review_coverage.target.revision) ? ['gate:review-coverage'] : []),
+  ];
+  return {
+    snapshot_version: 2,
+    state_digest: digest({
+      task_id: state.task_id, document_id: current.sourceTuple.document_id,
+      definition: readDraftDefinitionFromBody(current.body),
+      state: semanticState,
+      // Repair quotas, audit timestamps and queue revisions are bookkeeping.
+      // Findings, their dispositions, plans, outstanding attempts, evidence and
+      // the live code image are semantic and must invalidate confirmation.
+      findings: findings.map(({ repair_attempts, max_repair_attempts, updated_at, ...finding }) => finding),
+      review_cycle: { id: review_cycle.id, active_step_id: state.active_step_id },
+      execution_facts: execution_log.filter(item => !('action' in item)
+        && (item.execution_result !== undefined || item.review_receipt !== undefined || item.completion_disposition !== undefined)),
+      live_review_target: captureReviewTarget(root, reviewedPaths).revision,
+      evidence,
+    }),
+    obligation_ids: [...new Set(obligations)].sort(),
+  };
+}
+
+export function closureDecisionContext(root: string, completionDisposition: 'stopped-by-user' | 'completed-with-exceptions') {
+  const current = readCanonicalCurrentTask(root);
+  if (!isUserTerminableState(current.runtimeState.workflow_status, current.runtimeState.lifecycle_state)) {
+    fail('CLOSURE_TUPLE_INVALID', 'The task is already archived; reconcile its retained archive instead of issuing a new termination decision.');
+  }
+  const snapshot = closureObligationSnapshot(root, current);
+  const targets = [...new Set([...snapshot.obligation_ids, `gate:${completionDisposition}`])].sort();
+  const confirmationDigest = digest({ kind: 'closure-confirmation/v1', task_id: current.runtimeState.task_id,
+    document_id: current.sourceTuple.document_id, disposition: completionDisposition, snapshot, target_ids: targets });
+  const evidence = claimEvidenceStateEnabled(current.runtimeState)
+    ? evaluateClaimEvidence(current.runtimeState.claim_evidence ?? [], { root, current })
+    : { acceptance_satisfied: false, validation_complete: false };
+  return {
+    kind: 'closure-decision-context/v1' as const,
+    task_id: current.runtimeState.task_id, document_id: current.sourceTuple.document_id,
+    source_revision: current.sourceTuple.revision,
+    completion_disposition: completionDisposition,
+    confirmation_required: true as const,
+    confirmation_digest: confirmationDigest,
+    effects: [{ kind: 'close-with-exceptions' as const, target_ids: targets, confirmation_digest: confirmationDigest }],
+    ...(current.runtimeState.pending_review_result ? {
+      review_id: current.runtimeState.pending_review_result.review_id,
+      change_set_id: current.runtimeState.pending_review_result.change_set_id,
+    } : {}),
+    consequences: {
+      workflow_status: current.runtimeState.workflow_status, lifecycle_state: current.runtimeState.lifecycle_state,
+      active_step_id: current.runtimeState.active_step_id, active_step_status: current.runtimeState.active_step_status,
+      acceptance_satisfied: evidence.acceptance_satisfied, validation_complete: evidence.validation_complete,
+      unfinished_obligations: snapshot.obligation_ids,
+      findings: current.runtimeState.findings.filter(item => item.status !== 'resolved'),
+      pending_review: current.runtimeState.pending_review_result,
+      execution_preflight: current.runtimeState.execution_preflight ?? null,
+      code_action: 'leave-as-is' as const, archive_outcome: completionDisposition,
+      preserves: ['failed-results', 'unresolved-findings', 'unperformed-work', 'evidence-history'],
+    },
+    governed_mutation_count: 0,
+  };
+}
+
+/** A user may move on without first manufacturing a failed or clean review. */
+export function advanceDecisionContext(root: string) {
+  const current = readCanonicalCurrentTask(root);
+  const state = current.runtimeState;
+  if (state.workflow_status !== 'active' || state.lifecycle_state !== 'active') {
+    fail('USER_DECISION_STATE_INVALID', 'Step advancement requires the current active task; termination uses closure-decision-context from any live state.');
+  }
+  const resolution = resolveCanonicalTaskStep(current);
+  const pending = state.pending_review_result;
+  const findings = [...new Set([
+    ...state.findings.filter(item => item.status !== 'resolved').map(item => item.fingerprint),
+    ...(pending ? pendingReviewFindingFingerprints(pending) : []),
+  ])].sort();
+  const targets = [...new Set([
+    `step:${state.active_step_id}`, 'gate:advance-with-exceptions',
+    ...unsatisfiedClaimTargets(root, current, state.active_step_id),
+    ...findings.map(fingerprint => `finding:${fingerprint}`),
+    ...(state.evidence_challenges ?? []).filter(item => item.status !== 'resolved').map(item => `challenge:${item.challenge_id}`),
+    ...(pending ? [`review:${pending.review_id}`, ...(pending.blocker ? [`blocker:${pending.blocker.code}`] : [])] : []),
+  ])].sort();
+  const riskEffects: UserDecisionEffect[] = findings.filter(fingerprint => {
+    if (pending?.resolved_fingerprints.includes(fingerprint)) return false;
+    const finding = state.findings.find(item => item.fingerprint === fingerprint);
+    return !finding || ['observed', 'admitted', 'in-progress'].includes(finding.status);
+  }).map(fingerprint => ({ kind: 'accept-finding-risk', fingerprint }));
+  const confirmationDigest = digest({ kind: 'step-disposition-confirmation/v1',
+    snapshot: closureObligationSnapshot(root, current), task_id: state.task_id, document_id: current.sourceTuple.document_id,
+    step_id: state.active_step_id, next_step_id: resolution.next?.id ?? null, target_ids: targets, risk_effects: riskEffects });
+  const effects: UserDecisionEffect[] = [...riskEffects,
+    { kind: 'advance-with-exceptions', target_ids: targets, confirmation_digest: confirmationDigest }];
+  return { kind: 'step-decision-context/v1' as const, confirmation_required: true,
+    task_id: state.task_id, document_id: current.sourceTuple.document_id, source_revision: current.sourceTuple.revision,
+    confirmation_digest: confirmationDigest, effects,
+    ...(pending ? { review_id: pending.review_id, change_set_id: pending.change_set_id } : {}),
+    consequences: { step_id: state.active_step_id, next_step_id: resolution.next?.id ?? null,
+      unresolved_obligations: targets, accepted_finding_risks: riskEffects.map(item => 'fingerprint' in item ? item.fingerprint : ''),
+      pending_review: pending, code_action: 'none', completion_disposition: 'user-directed-with-exceptions',
+      review_created: false, execution_created: false, verification_claimed: false,
+      task_closed: false, next_step_execution_authorized: false },
+    governed_mutation_count: 0 };
+}
+
 function closureExceptionTargets(root: string, current: CanonicalCurrentTask, delta: ArchiveDelta): Set<string> {
   if (delta.completion_disposition === undefined || delta.completion_disposition === 'verified') return new Set();
   const decisionIds = delta.exception_decision_ids ?? [];
@@ -10741,8 +10995,9 @@ function closureExceptionTargets(root: string, current: CanonicalCurrentTask, de
   );
   if (audits.length !== decisionIds.length) fail('CLOSURE_EXCEPTION_INVALID', 'every closure exception decision id must identify a durable user-decision audit.');
   const targets = new Set<string>();
-  const snapshot = closureObligationSnapshot(root, current);
   for (const audit of audits) {
+    const snapshot = audit.closure_obligation_snapshot?.snapshot_version === 2
+      ? closureObligationSnapshot(root, current) : legacyClosureObligationSnapshot(root, current);
     if (!audit.effects.some(effect => effect.kind === 'close-with-exceptions')) {
       fail('CLOSURE_EXCEPTION_INVALID', `user decision ${audit.idempotency_key} is not a close-with-exceptions decision.`);
     }
@@ -10775,15 +11030,19 @@ function closureEligibilityBlockers(root: string, current: CanonicalCurrentTask,
     if (!exceptionMode || !exceptionTargets.has(target)) blockers.push(`remaining finding obligation ${target} requires an exact closure exception decision.`);
     if (!delta.remaining_risks.includes(target)) blockers.push(`remaining_risks must include the exact finding target ${target}.`);
   }
-  if (stoppedByUser) {
-    // Stopping preserves the task's unfinished facts; it never consumes review,
+  if (exceptionMode) {
+    // User-directed termination preserves the task's unfinished facts; it never consumes review,
     // resolves findings, completes steps, or claims successful verification.
-    if (!exceptionCovers('stopped-by-user')) blockers.push('stopped-by-user requires explicit gate:stopped-by-user authorization.');
+    if (!exceptionCovers(delta.completion_disposition!)) blockers.push('exceptional closure requires confirmation of its exact completion disposition.');
+    for (const obligation of closureObligationSnapshot(root, current).obligation_ids) {
+      if (!exceptionTargets.has(obligation)) blockers.push(`confirmation does not cover ${obligation}.`);
+      if (!delta.remaining_risks.includes(obligation)) blockers.push(`remaining_risks must retain ${obligation}.`);
+    }
     if (pending && !exceptionTargets.has(`review:${pending.review_id}`)) blockers.push('stopping must bind the exact pending review.');
     if (pending?.blocker && !exceptionTargets.has(`blocker:${pending.blocker.code}`)) blockers.push('stopping must bind the exact pending review blocker.');
     const identity = extractTaskIdentityFromCurrentTask(current.body);
     if (identity.id === null || identity.slug === null || identity.title === null) blockers.push('task identity is not fully materialized in CURRENT_TASK.');
-    if (current.runtimeState.workflow_status !== 'active' || current.runtimeState.lifecycle_state !== 'active') blockers.push('first successful close requires active + active.');
+    if (!isUserTerminableState(current.runtimeState.workflow_status, current.runtimeState.lifecycle_state)) blockers.push('the current task is not a live termination target.');
     const evidence = claimEvidenceStateEnabled(current.runtimeState)
       ? evaluateClaimEvidence(current.runtimeState.claim_evidence ?? [], { root, current })
       : { acceptance_satisfied: false, validation_complete: false };
@@ -11048,8 +11307,8 @@ function makeArchiveAudit(
     task_id: current.runtimeState.task_id,
     task_slug: current.runtimeState.task_slug,
     document_id: current.sourceTuple.document_id,
-    from_workflow_status: 'active',
-    from_lifecycle_state: 'active',
+    from_workflow_status: current.runtimeState.workflow_status,
+    from_lifecycle_state: current.runtimeState.lifecycle_state,
     to_workflow_status: next.workflow_status as 'closed',
     to_lifecycle_state: next.lifecycle_state as 'archived',
     source_revision: current.sourceTuple.revision,
@@ -11102,8 +11361,8 @@ function prepareArchiveTransaction(root: string, current: CanonicalCurrentTask, 
     if (receipt.sourceRevision !== audit.source_revision) fail('ARCHIVE_PROVENANCE_MISMATCH', 'archive source revision does not match the committed archive audit.');
     return null;
   }
-  if (current.runtimeState.workflow_status !== 'active' || current.runtimeState.lifecycle_state !== 'active') {
-    fail('CLOSURE_TUPLE_INVALID', 'first successful close requires active + active.');
+  if (!isArchiveSourceAllowed(current.runtimeState.workflow_status, current.runtimeState.lifecycle_state, delta.completion_disposition)) {
+    fail('CLOSURE_TUPLE_INVALID', 'Verified closure requires active + active; confirmed exceptional closure may terminate any live task.');
   }
   const archiveTarget = archivePathForTask(root, current);
   const blockers = closureEligibilityBlockers(root, current, delta, fs.existsSync(archiveTarget.filePath));
@@ -11113,7 +11372,7 @@ function prepareArchiveTransaction(root: string, current: CanonicalCurrentTask, 
     ...current.runtimeState,
     workflow_status: 'closed',
     lifecycle_state: 'archived',
-    ...(delta.completion_disposition === 'stopped-by-user' ? {} : { resume_requires_review: false, resume_review_reasons: [] }),
+    ...(delta.completion_disposition && delta.completion_disposition !== 'verified' ? {} : { resume_requires_review: false, resume_review_reasons: [] }),
     applied_proposals: appendAppliedProposal(current.runtimeState, proposal, current.sourceTuple.revision),
   };
   const nextArchiveContent = renderArchiveDocument(current, proposal, delta, archiveTarget.relativePath, closureDeltaDigest);
@@ -12876,8 +13135,7 @@ export function rebindTaskAuthorityDomains(root: string, rawInput: unknown, opti
     for (const target of current.runtimeState.execution_preflight?.candidate_paths ?? []) {
       const domain = authorityDomainForPath(project, target);
       if (isMutationAuthorityGovernanceBoundary(target)
-        || (!taskAuthority.exact_exceptions.includes(target)
-          && taskAuthority.forbidden.some(pattern => mutationScopePatternMatchesPath(target, pattern)))
+        || taskAuthority.forbidden.some(pattern => mutationScopePatternMatchesPath(target, pattern))
         || (!taskAuthority.exact_exceptions.includes(target) && (!domain || !taskAuthority.domains.includes(domain)))) {
         fail('AUTHORITY_DOMAIN_PREFLIGHT_STALE', `The retained preflight target ${target} is outside the rebound task authority.`);
       }
@@ -13802,13 +14060,13 @@ function normalizeCorrectionInput(input: unknown): CorrectionCandidateInput {
     pending_step_changes: pending, obligation_map: obligationMap };
 }
 
-function normalizeCorrectionStep(raw: unknown, options: { allowExistingWildcardScope?: boolean; maxMutationScope?: number; maxExpectedWrites?: number } = {}): CorrectionStepInput {
+function normalizeCorrectionStep(raw: unknown, options: { allowExistingWildcardScope?: boolean } = {}): CorrectionStepInput {
   const step = expectRecord(raw, 'correction_step');
   expectExactKeys(step, ['id', 'description', 'mutation_scope', 'required_evidence', 'commands'], 'correction_step');
   const id = expectString(step.id, 'correction_step.id', STEP_ID_PATTERN);
   const description = expectText(step.description, 'correction_step.description', 512);
   if (/[\r\n]/u.test(description)) fail('REPLAN_CORRECTION_INVALID', 'Correction description must be one line.');
-  const mutationScope = expectStringArray(step.mutation_scope, 'correction_step.mutation_scope', false, options.maxMutationScope ?? 32).map(item => normalizeRepoPath(item, 'correction_step.mutation_scope'));
+  const mutationScope = expectStringArray(step.mutation_scope, 'correction_step.mutation_scope', false, 32).map(item => normalizeRepoPath(item, 'correction_step.mutation_scope'));
   if (mutationScope.some(item => item.includes('*')) && !options.allowExistingWildcardScope) fail('REPLAN_SCOPE_EXPANSION', 'Correction writes require exact authorized non-executable paths.');
   const requiredEvidence = expectStringArray(step.required_evidence, 'correction_step.required_evidence', false, 32);
   if (requiredEvidence.some(item => /[\r\n]/u.test(item))) fail('REPLAN_CORRECTION_INVALID', 'Required evidence must use one line per item.');
@@ -13819,7 +14077,7 @@ function normalizeCorrectionStep(raw: unknown, options: { allowExistingWildcardS
     const text = expectText(command.command, `correction_step.commands[${index}].command`, 2048);
     if (/[\r\n]/u.test(text)) fail('REPLAN_CORRECTION_INVALID', 'Command must be one line.');
     const writes = command.expected_repo_writes === 'none' ? 'none' as const
-      : expectStringArray(command.expected_repo_writes, `correction_step.commands[${index}].expected_repo_writes`, false, options.maxExpectedWrites ?? 32).map(item => normalizeRepoPath(item, 'expected_repo_writes'));
+      : expectStringArray(command.expected_repo_writes, `correction_step.commands[${index}].expected_repo_writes`, false, 32).map(item => normalizeRepoPath(item, 'expected_repo_writes'));
     if (writes !== 'none' && writes.some(item => !mutationScope.includes(item)
       && !(options.allowExistingWildcardScope && mutationScope.some(pattern => pattern.includes('*') && mutationScopePatternMatchesPath(item, pattern))))) {
       fail('REPLAN_SCOPE_EXPANSION', 'Command writes must be exact members of the correction step scope.');
@@ -13845,7 +14103,7 @@ function executedStepIds(current: CanonicalCurrentTask): Set<string> {
 function revisePendingSteps(root: string, current: CanonicalCurrentTask, definition: DraftTaskDefinition, revision: PendingStepRevision, recoverySteps: CorrectionStepInput[]): DraftTaskDefinition {
   const executed = executedStepIds(current);
   const completed = new Set(current.runtimeState.execution_log.flatMap(item =>
-    'step_id' in item && item.status === 'completed' ? [item.step_id] : []));
+    'step_id' in item && item.status === 'completed' && item.mode !== 'repair' ? [item.step_id] : []));
   const oldSteps = parseImplementationSteps(definition.implementation_steps);
   const activeIndex = oldSteps.findIndex(step => step.id === current.runtimeState.active_step_id);
   if (activeIndex < 0) fail('REPLAN_CANDIDATE_STATE_INVALID', 'The active step is missing from the retained plan.');
@@ -14018,20 +14276,6 @@ type ScopeAmendmentAuthorization = {
   change_set_id?: string;
 };
 
-type ReviewTargetReconciliationAuthorization = {
-  expected_target_revision: string;
-  decision_source: string;
-  decision_text: string;
-  authorized_paths: string[];
-};
-
-type ScopeAmendmentReviewTargetReconciliation = {
-  previous_target_revision: string;
-  reconciled_target_revision: string;
-  paths: string[];
-  authorization_digest: string;
-};
-
 export type PersistentTestAdmission = {
   path: string;
   proves: string[];
@@ -14050,7 +14294,6 @@ type ScopeAmendmentCandidateInput = {
   persistent_test_paths?: string[];
   persistent_test_admissions?: PersistentTestAdmission[];
   authorization: ScopeAmendmentAuthorization | null;
-  review_target_reconciliation?: ReviewTargetReconciliationAuthorization;
   amendment_step: CorrectionStepInput;
 };
 
@@ -14075,7 +14318,6 @@ type ScopeAmendmentCandidate = {
     pending_review_preserved: boolean;
   };
   workspace_target: ReviewTarget;
-  review_target_reconciliation?: ScopeAmendmentReviewTargetReconciliation;
   authorization: (ScopeAmendmentAuthorization & { kind: 'caller-reported-existing-decision'; digest: string }) | null;
   input: ScopeAmendmentCandidateInput;
   definition: DraftTaskDefinition;
@@ -14176,7 +14418,6 @@ export type ScopeAmendmentCandidateReceipt = {
   persistent_test_admission?: {
     added_paths: string[];
   };
-  review_target_reconciliation?: ScopeAmendmentReviewTargetReconciliation;
 };
 
 function normalizeScopeAmendmentInput(input: unknown, options: { allowExistingWildcardScope?: boolean } = {}): ScopeAmendmentCandidateInput {
@@ -14187,7 +14428,6 @@ function normalizeScopeAmendmentInput(input: unknown, options: { allowExistingWi
     ...(value.persistent_test_paths === undefined ? [] : ['persistent_test_paths']),
     ...(value.persistent_test_admissions === undefined ? [] : ['persistent_test_admissions']),
     ...(value.authorization === undefined ? [] : ['authorization']),
-    ...(value.review_target_reconciliation === undefined ? [] : ['review_target_reconciliation']),
     ...(stepKey ? [stepKey] : []),
   ], 'prepare-scope-amendment input');
   if (!stepKey) fail('SCOPE_AMENDMENT_STEP_REQUIRED', 'prepare-scope-amendment requires an amendment step definition.');
@@ -14255,87 +14495,12 @@ function normalizeScopeAmendmentInput(input: unknown, options: { allowExistingWi
       ...(decisionId === undefined ? {} : { decision_id: decisionId, review_id: reviewId!, change_set_id: changeSetId! }),
     };
   }
-  let reviewTargetReconciliation: ReviewTargetReconciliationAuthorization | undefined;
-  if (value.review_target_reconciliation !== undefined) {
-    const reconciliation = expectRecord(value.review_target_reconciliation, 'review_target_reconciliation');
-    expectExactKeys(reconciliation, ['expected_target_revision', 'decision_source', 'decision_text', 'authorized_paths'], 'review_target_reconciliation');
-    const expectedTargetRevision = expectString(reconciliation.expected_target_revision, 'review_target_reconciliation.expected_target_revision', /^[a-f0-9]{64}$/u);
-    const decisionSource = expectText(reconciliation.decision_source, 'review_target_reconciliation.decision_source', 512);
-    if (/[\r\n]/u.test(decisionSource)) fail('REVIEW_TARGET_RECONCILIATION_INVALID', 'decision_source must be one line.');
-    const decisionText = expectVerbatim(reconciliation.decision_text, 'review_target_reconciliation.decision_text', 32768);
-    const authorizedPaths = expectStringArray(reconciliation.authorized_paths, 'review_target_reconciliation.authorized_paths', false, 256).map(item => normalizeRepoPath(item, 'review_target_reconciliation.authorized_paths'));
-    if (new Set(authorizedPaths).size !== authorizedPaths.length || authorizedPaths.some(item => item.includes('*'))) {
-      fail('REVIEW_TARGET_RECONCILIATION_INVALID', 'authorized_paths must contain unique exact paths.');
-    }
-    reviewTargetReconciliation = {
-      expected_target_revision: expectedTargetRevision,
-      decision_source: decisionSource,
-      decision_text: decisionText,
-      authorized_paths: [...authorizedPaths].sort(),
-    };
-  }
-  const exactAuthorizedExpansion = authorization !== null
-    && addedPaths.length > 32
-    && addedPaths.every(item => authorization!.authorized_paths.includes(item));
   return {
     added_paths: [...addedPaths].sort(),
     ...(persistentTestPaths === undefined ? {} : { persistent_test_paths: [...new Set(persistentTestPaths)].sort() }),
     ...(persistentTestAdmissions === undefined ? {} : { persistent_test_admissions: persistentTestAdmissions.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0) }),
     authorization,
-    ...(reviewTargetReconciliation === undefined ? {} : { review_target_reconciliation: reviewTargetReconciliation }),
-    amendment_step: normalizeCorrectionStep(value[stepKey], {
-      ...options,
-      ...(exactAuthorizedExpansion ? { maxMutationScope: 64, maxExpectedWrites: 64 } : {}),
-    }),
-  };
-}
-
-function reconcileScopeAmendmentReviewTarget(
-  root: string,
-  current: CanonicalCurrentTask,
-  authorization: ReviewTargetReconciliationAuthorization,
-): { current: CanonicalCurrentTask; reconciliation: ScopeAmendmentReviewTargetReconciliation } {
-  const old = current.runtimeState.review_coverage;
-  if (!old) fail('REVIEW_TARGET_RECONCILIATION_NOT_AVAILABLE', 'Review-target reconciliation requires an existing cumulative review target.');
-  if (authorization.expected_target_revision !== old.target.revision) {
-    fail('REVIEW_TARGET_RECONCILIATION_STALE', 'The authorized previous target revision no longer matches Runtime state.');
-  }
-  const live = captureReviewTarget(root, old.target.entries.map(entry => entry.path));
-  const liveByPath = new Map(live.entries.map(entry => [entry.path, entry]));
-  const stalePaths = old.target.entries
-    .filter(entry => {
-      const observed = liveByPath.get(entry.path);
-      return !observed || entry.state !== observed.state || entry.sha256 !== observed.sha256;
-    })
-    .map(entry => entry.path)
-    .sort();
-  if (stalePaths.length === 0) fail('REVIEW_TARGET_RECONCILIATION_NOT_REQUIRED', 'The cumulative review target has no stale paths to reconcile.');
-  if (digest(stalePaths) !== digest(authorization.authorized_paths)) {
-    fail('REVIEW_TARGET_RECONCILIATION_AUTHORIZATION_MISMATCH', 'Authorization must name exactly the currently stale paths in the cumulative review target.');
-  }
-  for (const file of stalePaths) {
-    if (!old.base.entries.some(entry => entry.path === file)
-      || !old.target.entries.some(entry => entry.path === file)
-      || !old.pending_paths.includes(file)) {
-      fail('REVIEW_TARGET_RECONCILIATION_SCOPE_INVALID', `Stale path is not already in the first-touch base, target, and pending review set: ${file}`);
-    }
-  }
-  const coverage = validateReviewCoverage({
-    ...old,
-    // The first-touch base and preimages are immutable. Only this explicitly
-    // authorized cumulative target and its pending status may be reconciled.
-    target: live,
-    pending_paths: [...new Set([...old.pending_paths, ...stalePaths])].sort(),
-    last_clean_revision: null,
-  });
-  return {
-    current: { ...current, runtimeState: { ...current.runtimeState, review_coverage: coverage } },
-    reconciliation: {
-      previous_target_revision: old.target.revision,
-      reconciled_target_revision: live.revision,
-      paths: stalePaths,
-      authorization_digest: digest(authorization),
-    },
+    amendment_step: normalizeCorrectionStep(value[stepKey], options),
   };
 }
 
@@ -14373,7 +14538,6 @@ function scopeAmendmentCandidateReceipt(candidate: ScopeAmendmentCandidate, cand
     added_paths: [...candidate.input.added_paths], permission_change: 'additive-scope',
     ...(candidate.authority_diff ? { authority_diff: structuredClone(candidate.authority_diff) } : {}),
     ...(candidate.persistent_test_admission ? { persistent_test_admission: { added_paths: candidate.persistent_test_admission.added.map(item => item.path) } } : {}),
-    ...(candidate.review_target_reconciliation ? { review_target_reconciliation: structuredClone(candidate.review_target_reconciliation) } : {}),
   };
 }
 
@@ -14385,13 +14549,11 @@ function scopeAmendmentRequestMatchesCandidate(input: ScopeAmendmentCandidateInp
     persistent_test_paths: input.persistent_test_paths ?? null,
     persistent_test_admissions: input.persistent_test_admissions ?? null,
     authorization: input.authorization,
-    review_target_reconciliation: input.review_target_reconciliation ?? null,
   }) === digest({
     added_paths: candidate.input.added_paths,
     persistent_test_paths: candidate.input.persistent_test_paths ?? null,
     persistent_test_admissions: candidate.input.persistent_test_admissions ?? null,
     authorization: candidate.input.authorization,
-    review_target_reconciliation: candidate.input.review_target_reconciliation ?? null,
     })
     && requestedStep.id === committedStep.id
     && requestedStep.description === committedStep.description
@@ -14578,14 +14740,8 @@ function replaceScopeAmendmentStep(definition: DraftTaskDefinition, previousStep
   return next;
 }
 
-function assertScopeAmendmentPathSafe(
-  root: string,
-  current: CanonicalCurrentTask,
-  paths: readonly string[],
-  authorizedExactPaths: readonly string[] = [],
-): void {
+function assertScopeAmendmentPathSafe(root: string, current: CanonicalCurrentTask, paths: readonly string[]): void {
   const legacyScope = current.mutationAuthority ? null : parseMutationScope(current.body);
-  const exactExceptions = new Set(current.mutationAuthority ? authorizedExactPaths : []);
   for (const file of paths) {
     if (file === current.relativePath || file.startsWith('.workflow-system/') || file.startsWith('.git/')
       || file.startsWith('.agents/') || file.startsWith('.claude/') || file.startsWith('.codex/')
@@ -14596,7 +14752,7 @@ function assertScopeAmendmentPathSafe(
     const forbidden = current.mutationAuthority
       ? current.mutationAuthority.forbidden.some(pattern => mutationScopePatternMatchesPath(file, pattern))
       : legacyScope!.forbidden.some(entry => mutationScopePatternMatchesPath(file, entry.pattern));
-    if (forbidden && !exactExceptions.has(file)) {
+    if (forbidden) {
       fail('SCOPE_AMENDMENT_SCOPE_INVALID', `Scope amendment path ${file} is already forbidden.`);
     }
     const absolute = path.resolve(root, ...file.split('/'));
@@ -14650,9 +14806,6 @@ function assertV2AuthorityAmendmentExecutionSettled(current: CanonicalCurrentTas
 
 function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTask, input: ScopeAmendmentCandidateInput): ScopeAmendmentCandidate {
   assertV2AuthorityDomainRevisionFreshForTransition(root, current, 'Scope amendment');
-  const reviewTargetReconciliation = input.review_target_reconciliation === undefined
-    ? undefined
-    : reconcileScopeAmendmentReviewTarget(root, current, input.review_target_reconciliation).reconciliation;
   if (!['active', 'blocked_by_replan'].includes(current.runtimeState.workflow_status) || current.runtimeState.lifecycle_state !== 'active') {
     fail('SCOPE_AMENDMENT_STATE_INVALID', 'Scope amendment requires an active or blocked_by_replan task with an active lifecycle.');
   }
@@ -14663,10 +14816,7 @@ function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTas
   if (!['ready', 'in-progress', 'completed', 'blocked'].includes(current.runtimeState.active_step_status)) fail('SCOPE_AMENDMENT_STATE_INVALID', 'Scope amendment requires a usable current step.');
   assertBusinessEvidenceVersion(current);
   assertTestStrategySequenceReady(current);
-  const authorizedExactPaths = current.mutationAuthority && input.authorization !== null
-    ? input.added_paths.filter(target => input.authorization!.authorized_paths.includes(target))
-    : [];
-  assertScopeAmendmentPathSafe(root, current, input.added_paths, authorizedExactPaths);
+  assertScopeAmendmentPathSafe(root, current, input.added_paths);
   const legacyPersistentTestPaths = input.persistent_test_paths ?? [];
   const persistentTestAdmissions = input.persistent_test_admissions ?? [];
   if (legacyPersistentTestPaths.some(item => !isLikelyPersistentTestPath(item))) {
@@ -14680,9 +14830,8 @@ function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTas
     if (!projectAuthority) fail('MUTATION_AUTHORITY_PROJECT_REQUIRED', 'v2 scope amendment requires PROJECT_PROFILE.yaml.mutation_authority.domains.');
     authorityExpansionPaths = input.added_paths.filter(target => {
       const domain = authorityDomainForPath(projectAuthority, target);
-      const explicitlyForbidden = current.mutationAuthority!.forbidden.some(pattern => mutationScopePatternMatchesPath(target, pattern));
       return !current.mutationAuthority!.exact_exceptions.includes(target)
-        && (explicitlyForbidden || domain === null || !current.mutationAuthority!.domains.includes(domain));
+        && (domain === null || !current.mutationAuthority!.domains.includes(domain));
     });
     const admissionPaths = persistentTestAdmissions.map(item => item.path);
     for (const admission of persistentTestAdmissions) {
@@ -14736,7 +14885,7 @@ function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTas
         && existingTaskScope.allowed.some(entry => mutationScopePatternMatchesPath(item.file, entry.pattern))))
     .map(item => item.file) ?? [];
   const requiredPaths = [...new Set([...input.added_paths, ...pendingFindingPaths, ...pendingReviewFindingPaths])];
-  assertScopeAmendmentPathSafe(root, current, requiredPaths, authorizedExactPaths);
+  assertScopeAmendmentPathSafe(root, current, requiredPaths);
   const activeStep = resolveCanonicalTaskStep(current).current;
   const currentStepScope = (activeStep.mutation_scope ?? '').split(',').map(value => value.trim().replace(/^`|`$/g, '')).filter(Boolean);
   const taskScope = parseMutationScope(current.body);
@@ -14869,9 +15018,8 @@ function buildScopeAmendmentCandidate(root: string, current: CanonicalCurrentTas
       ...currentStepScope.filter(item => !item.includes('*')),
       ...requiredPaths,
     ])]),
-    ...(reviewTargetReconciliation ? { review_target_reconciliation: reviewTargetReconciliation } : {}),
     authorization,
-    input: structuredClone(input),
+    input: { ...input, amendment_step: normalizedStep },
     definition: amendedDefinition,
     claim_evidence: claims,
     new_plan_revision: newPlanRevision,
@@ -14998,7 +15146,6 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
     'added_paths', 'permission_change',
     ...(receipt.authority_diff === undefined ? [] : ['authority_diff']),
     ...(receipt.persistent_test_admission === undefined ? [] : ['persistent_test_admission']),
-    ...(receipt.review_target_reconciliation === undefined ? [] : ['review_target_reconciliation']),
   ], 'candidate_receipt');
   if (receipt.kind !== 'scope-amendment-candidate-receipt/v1' || receipt.permission_change !== 'additive-scope') fail('SCOPE_AMENDMENT_CONFIRMATION_INVALID', 'Receipt kind or permission change is invalid.');
   const candidateDigest = expectString(receipt.candidate_digest, 'candidate_receipt.candidate_digest', SHA256_PATTERN);
@@ -15025,19 +15172,6 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
     const persistentAdmission = expectRecord(receipt.persistent_test_admission, 'candidate_receipt.persistent_test_admission');
     expectExactKeys(persistentAdmission, ['added_paths'], 'candidate_receipt.persistent_test_admission');
     expectStringArray(persistentAdmission.added_paths, 'candidate_receipt.persistent_test_admission.added_paths', false, 64).forEach(item => normalizeRepoPath(item, 'candidate_receipt.persistent_test_admission.added_paths'));
-  }
-  let receiptReviewTargetReconciliation: ScopeAmendmentReviewTargetReconciliation | undefined;
-  if (receipt.review_target_reconciliation !== undefined) {
-    const reconciliation = expectRecord(receipt.review_target_reconciliation, 'candidate_receipt.review_target_reconciliation');
-    expectExactKeys(reconciliation, ['previous_target_revision', 'reconciled_target_revision', 'paths', 'authorization_digest'], 'candidate_receipt.review_target_reconciliation');
-    const paths = expectStringArray(reconciliation.paths, 'candidate_receipt.review_target_reconciliation.paths', false, 256).map(item => normalizeRepoPath(item, 'candidate_receipt.review_target_reconciliation.paths'));
-    if (new Set(paths).size !== paths.length || paths.some(item => item.includes('*'))) fail('SCOPE_AMENDMENT_CONFIRMATION_INVALID', 'Review-target reconciliation receipt paths must be unique exact paths.');
-    receiptReviewTargetReconciliation = {
-      previous_target_revision: expectString(reconciliation.previous_target_revision, 'candidate_receipt.review_target_reconciliation.previous_target_revision', SHA256_PATTERN),
-      reconciled_target_revision: expectString(reconciliation.reconciled_target_revision, 'candidate_receipt.review_target_reconciliation.reconciled_target_revision', SHA256_PATTERN),
-      paths: [...paths].sort(),
-      authorization_digest: expectString(reconciliation.authorization_digest, 'candidate_receipt.review_target_reconciliation.authorization_digest', SHA256_PATTERN),
-    };
   }
   const approval = source.authorization === null ? null : expectRecord(source.authorization, 'authorization');
   const decisionSource = approval ? expectText(approval.decision_source, 'authorization.decision_source', 512) : null;
@@ -15099,7 +15233,6 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
   if (digest(rebuilt) !== candidateDigest || rebuilt.new_plan_revision !== newPlanRevision || rebuilt.old_plan_revision !== oldPlanRevision || rebuilt.basis_revision !== basisRevision
     || (rebuilt.authorization?.digest ?? digest(null)) !== authorizationDigest
     || digest(rebuilt.input.added_paths) !== digest(addedPaths)
-    || digest(receiptReviewTargetReconciliation ?? null) !== digest(rebuilt.review_target_reconciliation ?? null)
     || (receipt.authority_diff !== undefined && digest(receipt.authority_diff) !== digest(rebuiltAuthorityDiff))
     || (receipt.persistent_test_admission !== undefined && digest(receipt.persistent_test_admission) !== digest(rebuiltPersistentAdmissionPaths))) {
     fail('SCOPE_AMENDMENT_CANDIDATE_STALE', 'Candidate no longer matches the Runtime-computed source, scope, obligations, and plan.');
@@ -15122,19 +15255,11 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
   if (decisionId !== undefined) {
     assertCurrentScopeAmendmentDecisionBinding(root, current, decisionId, reviewId, changeSetId);
   }
-  const nextUserDecisions = [...basis.basis.user_decisions];
-  const recordDecision = (source: string, verbatim: string) => {
-    if (!nextUserDecisions.some(item => item.source === source && item.verbatim === verbatim)) {
-      nextUserDecisions.push({ source, verbatim });
-    }
-  };
-  if (approval) recordDecision(decisionSource!, decisionText!);
-  if (rebuilt.input.review_target_reconciliation) {
-    recordDecision(rebuilt.input.review_target_reconciliation.decision_source, rebuilt.input.review_target_reconciliation.decision_text);
-  }
   const nextBasis: TaskBasis = {
     original_request: basis.basis.original_request,
-    user_decisions: nextUserDecisions,
+    user_decisions: !approval || basis.basis.user_decisions.some(item => item.source === decisionSource && item.verbatim === decisionText)
+      ? [...basis.basis.user_decisions]
+      : [...basis.basis.user_decisions, { source: decisionSource!, verbatim: decisionText! }],
   };
   const nextBasisArtifact = materializeTaskBasis(root, current, { task_id: current.runtimeState.task_id, task_slug: current.runtimeState.task_slug, task_title: extractTaskIdentityFromCurrentTask(current.body).title, document_id: current.sourceTuple.document_id }, nextBasis);
   const evidenceRefs = [
@@ -15142,7 +15267,6 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
     ...(approval ? [`caller-reported-scope-authorization:${digest({ decisionSource, decisionText })}`] : []),
     ...(rebuilt.authorization?.decision_id ? [`user-decision:${rebuilt.authorization.decision_id}`] : []),
     ...(rebuilt.persistent_test_admission ? [`persistent-test-admission:${digest(rebuilt.persistent_test_admission.added)}`] : []),
-    ...(rebuilt.review_target_reconciliation ? [`review-target-reconciliation:${digest(rebuilt.review_target_reconciliation)}`] : []),
   ];
   const authorityEvidenceKinds = approval
     ? (['active-task-owner', 'scope-admission', 'evidence-admission', 'authorized-caller'] as const)
@@ -15160,11 +15284,8 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
       .filter((item): item is string => Boolean(item)),
     ...((oldState.pending_review_result?.findings ?? []).map(item => item.file)),
   ])].sort();
-  const reviewAdmissionCurrent = rebuilt.input.review_target_reconciliation
-    ? reconcileScopeAmendmentReviewTarget(root, current, rebuilt.input.review_target_reconciliation).current
-    : current;
   const amendedReviewAdmission = oldState.review_coverage
-    ? registerReviewCoverage(root, reviewAdmissionCurrent, amendmentReviewPaths)
+    ? registerReviewCoverage(root, current, amendmentReviewPaths)
     : undefined;
   const amendedReviewCoverage = amendedReviewAdmission?.coverage;
   const retainedPendingPaths = amendedReviewCoverage
@@ -15196,13 +15317,9 @@ function commitScopeAmendmentLocked(root: string, rawInput: unknown, options: Ru
     ...(amendedReviewCoverage && retainedPendingPaths ? { review_coverage: { ...amendedReviewCoverage, pending_paths: retainedPendingPaths } } : {}),
     applied_proposals: appendAppliedProposal(oldState, proposal, current.sourceTuple.revision),
   };
-  const correctionReasons = [rebuilt.authorization
+  const correctionReason = rebuilt.authorization
     ? `caller-reported scope amendment: ${decisionText!}`
-    : `persistent-test admission: ${rebuilt.persistent_test_admission!.added.map(item => item.path).join(', ')}`];
-  if (rebuilt.review_target_reconciliation) {
-    correctionReasons.push(`authorized cumulative review-target reconciliation: ${rebuilt.review_target_reconciliation.paths.join(', ')}`);
-  }
-  const correctionReason = correctionReasons.join('; ');
+    : `persistent-test admission: ${rebuilt.persistent_test_admission!.added.map(item => item.path).join(', ')}`;
   const audit: ReplanAuditLogEntry = {
     ...makeReplanAudit(current, proposal, nextWithoutAudit, options.now?.() ?? new Date().toISOString()),
     candidate_digest: candidateDigest,
@@ -15279,11 +15396,11 @@ export function discardScopeAmendment(root: string, rawInput: unknown, options: 
 function buildCorrectionCandidate(root: string, current: CanonicalCurrentTask, input: CorrectionCandidateInput): CorrectionCandidate {
   assertV2AuthorityDomainRevisionFreshForTransition(root, current, 'Correction replan');
   const suspended = current.runtimeState.workflow_status === 'blocked_by_replan';
-  if (!['active', 'superseded', 'blocked_by_replan'].includes(current.runtimeState.workflow_status) || current.runtimeState.lifecycle_state !== 'active'
-    || current.runtimeState.resume_requires_review || (!suspended && !['ready', 'completed'].includes(current.runtimeState.active_step_status))
-    || (!suspended && current.runtimeState.pending_review_result) || current.runtimeState.findings.some(item => ['admitted', 'in-progress'].includes(item.status))) {
-    fail('REPLAN_CANDIDATE_STATE_INVALID', 'Restricted correction requires a ready active/superseded task without a competing review, finding, or resume gate.');
+  if (!['active', 'superseded', 'blocked_by_replan'].includes(current.runtimeState.workflow_status) || current.runtimeState.lifecycle_state !== 'active') {
+    fail('REPLAN_CANDIDATE_STATE_INVALID', 'Prepare correction against an active, superseded or replan-blocked task; paused work uses its retained resume package first.');
   }
+  // Pending review, open findings and previous failed attempts are obligations
+  // to carry, not evidence that the user is forbidden to prepare a new plan.
   assertBusinessEvidenceVersion(current);
   assertTestStrategySequenceReady(current);
   const unresolved = (current.runtimeState.evidence_challenges ?? []).filter(item => item.status !== 'resolved');
@@ -15337,6 +15454,7 @@ function buildCorrectionCandidate(root: string, current: CanonicalCurrentTask, i
   const anchor = pendingAnchor ?? (input.pending_step_changes ? parseImplementationSteps(definition.implementation_steps).at(-1)!.id : current.runtimeState.active_step_id);
   const appendRecovery = input.pending_step_changes ? !pendingAnchor : append;
   for (const recoveryStep of recoverySteps) definition = insertCorrectionStep(definition, anchor, recoveryStep, appendRecovery);
+  assertRecoveryExecutedStepDefinitions(current, definition, input);
   assertPreparedTestStrategy(root, definition, basis.basis);
   assertV2DraftDefinitionAuthority(root, definition);
   const records = copyClaimEvidence(current.runtimeState.claim_evidence ?? []);
@@ -15580,9 +15698,13 @@ function confirmCorrectionReplanLocked(root: string, rawInput: unknown, options:
       receiving_source_revision: proof.receiving_source_revision === receipt.source_revision ? current.sourceTuple.revision : proof.receiving_source_revision,
     }));
   }
-  if (current.runtimeState.workflow_status !== 'blocked_by_replan' && current.runtimeState.active_step_status !== 'completed' && current.runtimeState.step_attempts?.[current.runtimeState.active_step_id]?.attempts.length) fail('REPLAN_ACTIVE_ATTEMPT_PRESENT', 'Suspend the retained current attempt before preparing its recovery.');
+  const outstanding = current.runtimeState.execution_preflight;
+  if (outstanding && !executionResultRecordedForPreflight(current, outstanding,
+    outstanding.mode === 'default' ? current.runtimeState.step_attempts?.[outstanding.step_id]?.attempts.at(-1)?.attempt_id : undefined)) {
+    fail('REPLAN_EXECUTION_UNSETTLED', 'Retain the admitted execution outcome with record-step-result, or reconcile a demonstrably unexecuted preflight, before replacing its plan. Historical attempts and pending review do not need to converge.');
+  }
   const challenges = (current.runtimeState.evidence_challenges ?? []).filter(item => rebuilt.input.challenge_ids.includes(item.challenge_id));
-  const challengeRefs = challenges.map(item => item.evidence_ref);
+  const challengeRefs = [...new Set(challenges.map(item => item.evidence_ref))];
   const nextBasis: TaskBasis = { original_request: basis.basis.original_request, user_decisions: [...basis.basis.user_decisions, { source: decisionSource, verbatim: decisionText }] };
   const nextBasisArtifact = materializeTaskBasis(root, current,
     { task_id: current.runtimeState.task_id, task_slug: current.runtimeState.task_slug,
@@ -15601,16 +15723,22 @@ function confirmCorrectionReplanLocked(root: string, rawInput: unknown, options:
   // Restricted correction keeps the task's existing authority binding. It is
   // not a project-map revalidation route.
   const domainRevision = current.mutationAuthority ? current.runtimeState.authority_domain_revision : undefined;
+  const { execution_preflight: _oldPreflight, scope_amendment_pending_review_step_id: _oldReviewOwner,
+    ...retainedState } = oldState;
   const nextWithoutAudit: RuntimeState = {
-    ...oldState, workflow_status: 'active', lifecycle_state: 'active', active_step_id: rebuilt.input.correction_step.id,
+    ...retainedState, workflow_status: 'active', lifecycle_state: 'active', active_step_id: rebuilt.input.correction_step.id,
     ...(oldState.review_coverage ? { review_coverage: { ...oldState.review_coverage, last_clean_revision: null } } : {}),
     active_step_status: 'ready', evidence_plan_revision: rebuilt.new_plan_revision,
     claim_evidence: rebuilt.claim_evidence, evidence_carry_forward: rebuilt.carry_forward,
     evidence_challenges: (current.runtimeState.evidence_challenges ?? []).map(item => rebuilt.input.challenge_ids.includes(item.challenge_id)
       ? { ...item, status: 'invalidated' as const, correction_step_id: rebuilt.input.correction_step.id } : item),
-    pending_review_result: null,
+    // Reuse the established retained-review continuation protocol. The field's
+    // historical name is kept for compatibility; it now also covers correction.
+    pending_review_result: oldState.pending_review_result,
+    ...(oldState.pending_review_result ? { scope_amendment_pending_review_step_id: oldState.pending_review_result.step_id } : {}),
     ...(domainRevision ? { authority_domain_revision: domainRevision } : {}),
-    review_cycle: reviewCycleForNextStep(current.runtimeState.review_cycle.id, rebuilt.input.correction_step.id, idempotencyKey),
+    review_cycle: oldState.pending_review_result || oldState.findings.some(item => ['admitted', 'in-progress'].includes(item.status))
+      ? oldState.review_cycle : reviewCycleForNextStep(current.runtimeState.review_cycle.id, rebuilt.input.correction_step.id, idempotencyKey),
     applied_proposals: appendAppliedProposal(current.runtimeState, proposal, current.sourceTuple.revision),
   };
   const audit: ReplanAuditLogEntry = { ...makeReplanAudit(current, proposal, nextWithoutAudit, options.now?.() ?? new Date().toISOString()), candidate_digest: candidateDigest, correction_reason: invalidationReason };
@@ -15826,8 +15954,11 @@ export function currentDefinitionExecutionLog(current: CanonicalCurrentTask): Ex
   // the prior step. Keep that prior execution visible until the continuation
   // consumes the review; ordinary post-amendment reads then use the new
   // definition boundary just like correction-replan did.
-  if (current.runtimeState.scope_amendment_pending_review_step_id !== undefined && lastScopeAmendment > lastCorrection) {
-    return log.slice(lastCorrection + 1);
+  if (current.runtimeState.scope_amendment_pending_review_step_id !== undefined) {
+    const review = current.runtimeState.pending_review_result;
+    const retainedIndex = log.findIndex(item => !('action' in item) && item.idempotency_key === review?.execution_id);
+    const boundary = Math.max(lastCorrection, lastScopeAmendment) + 1;
+    return log.slice(retainedIndex >= 0 ? Math.min(retainedIndex, boundary) : boundary);
   }
   return log.slice(Math.max(lastCorrection, lastScopeAmendment) + 1);
 }
@@ -15863,6 +15994,25 @@ export function outstandingRepairPreflight(current: CanonicalCurrentTask): Execu
 function implementationStepBlock(definition: DraftTaskDefinition, stepId: string): string | undefined {
   return definition.implementation_steps.split(/(?=^-\s*[A-Za-z0-9][A-Za-z0-9._:-]*\s*[:：])/m)
     .find(block => block.startsWith(`- ${stepId}:`) || block.startsWith(`- ${stepId}：`))?.trimEnd();
+}
+
+function assertRecoveryExecutedStepDefinitions(old: CanonicalCurrentTask, definition: DraftTaskDefinition, input: CorrectionCandidateInput): void {
+  const oldDefinition = readDraftDefinitionFromBody(old.body);
+  const activeStepId = old.runtimeState.active_step_id;
+  const replacesSuspendedAttempt = input.mode === 'execution-recovery'
+    && old.runtimeState.workflow_status === 'blocked_by_replan'
+    && old.runtimeState.active_step_status !== 'completed'
+    && (old.runtimeState.step_attempts?.[activeStepId]?.attempts.length ?? 0) > 0
+    && input.pending_step_changes?.step_map.some(item => item.old_step_id === activeStepId) === true;
+  for (const stepId of executedStepIds(old)) {
+    const previous = implementationStepBlock(oldDefinition, stepId);
+    const next = implementationStepBlock(definition, stepId);
+    if (previous === next) continue;
+    // A suspended attempt is retained by the exact task-history preimage and its
+    // confirmed replacement mapping, not as an executable step in the new plan.
+    if (replacesSuspendedAttempt && stepId === activeStepId && previous !== undefined && next === undefined) continue;
+    fail('RECOVERY_EXECUTED_DEFINITION_CHANGED', 'An executed/preflighted historical step definition was rewritten.');
+  }
 }
 
 function confirmedRecoveryCandidates(current: CanonicalCurrentTask): CorrectionCandidate[] {
@@ -16056,9 +16206,7 @@ function assertRecoveryHistory(root: string, current: CanonicalCurrentTask): voi
       };
     }
     const oldDefinition = readDraftDefinitionFromBody(old.body);
-    for (const stepId of executedStepIds(old)) {
-      if (implementationStepBlock(oldDefinition, stepId) !== implementationStepBlock(definition, stepId)) fail('RECOVERY_EXECUTED_DEFINITION_CHANGED', 'An executed/preflighted historical step definition was rewritten.');
-    }
+    assertRecoveryExecutedStepDefinitions(old, definition, candidate.input);
     for (const reference of candidate.historical_completion_refs) {
       const completed = old.runtimeState.execution_log.find(item => !('action' in item) && item.idempotency_key === reference.execution_id && item.step_id === reference.step_id && item.status === 'completed');
       if (!completed || digest(parseImplementationSteps(oldDefinition.implementation_steps).find(item => item.id === reference.step_id)) !== reference.definition_revision) fail('RECOVERY_COMPLETION_REFERENCE_INVALID', 'Historical completion reference lacks its exact completed execution and definition.');
@@ -16257,14 +16405,14 @@ export function blockedRepairContinuationForPendingReview(current: CanonicalCurr
   const pending = current.runtimeState.pending_review_result;
   if (!pending || pending.verdict !== 'blocked' || pending.cycle_phase !== 'verification'
     || pending.blocker?.next_route === 'record-user-decision'
-    || current.runtimeState.active_step_status !== 'completed'
+    || !['completed', 'blocked'].includes(current.runtimeState.active_step_status)
     || repairFingerprintsForPendingReview(current).length > 0) return null;
   const latest = currentDefinitionExecutionLog(current).filter((item): item is StepExecutionLogEntry =>
     !('action' in item) && item.step_id === current.runtimeState.active_step_id
     && item.idempotency_key.startsWith('execute-step-result-') && item.review_receipt === undefined).at(-1);
   const fingerprints = latest?.repair_fingerprints ?? (latest?.repair_fingerprint ? [latest.repair_fingerprint] : []);
   if (!latest || latest.mode !== 'repair' || latest.idempotency_key !== pending.execution_id
-    || latest.execution_result?.outcome !== 'blocked' || latest.status !== 'completed'
+    || latest.execution_result?.outcome !== 'blocked' || !['completed', 'blocked'].includes(latest.status)
     || !latest.repair_wave_id || !latest.change_set_id || latest.change_set_id !== pending.change_set_id
     || fingerprints.length === 0
     || fingerprints.some(fingerprint => current.runtimeState.findings.find(item => item.fingerprint === fingerprint)?.status !== 'resolved')) return null;
@@ -16969,7 +17117,8 @@ function assertStepProgressReplay(current: CanonicalCurrentTask, proposal: Runti
   if (
     entry.mode !== proposal.mode
     || entry.step_id !== delta.step_id
-    || entry.status !== delta.status
+    || (entry.status !== delta.status && !(stepProgressIntent(delta) === 'record-execution'
+      && entry.status === (delta.execution_result!.outcome === 'blocked' ? 'blocked' : 'in-progress')))
     || entry.evidence_refs.join('|') !== delta.evidence_refs.join('|')
     || !sameOptionalValue(entry.note, delta.note)
     || !sameOptionalValue(entry.repair_fingerprint, delta.repair_fingerprint)
@@ -17015,6 +17164,13 @@ function assertRetainedReviewReplay(current: CanonicalCurrentTask, proposal: Run
 
 function assertReviewResultReplay(current: CanonicalCurrentTask, proposal: RuntimeProposal): void {
   if (proposal.semantic_delta.kind !== 'task-state' || proposal.semantic_delta.action !== 'record-review-result') return;
+  if (proposal.semantic_delta.review_result.review_entry_mode === 'recheck-completed-step') {
+    const applied = current.runtimeState.applied_proposals.find(item => item.idempotency_key === proposal.idempotency_key);
+    if (!applied || applied.proposal_digest !== digest(proposal)) {
+      fail('RUNTIME_REPLAY_INCOMPLETE', 'completed-step recheck replay is missing its exact durable review transaction.');
+    }
+    return;
+  }
   const pending = current.runtimeState.pending_review_result;
   if (!pending || pending.review_id !== proposal.semantic_delta.review_result.review_id) {
     fail('RUNTIME_REPLAY_INCOMPLETE', 'review-result replay is no longer the pending result for the current execution generation.');
@@ -17380,8 +17536,8 @@ function makeUserDecisionAudit(
     ...(decision.effects.some(effect => effect.kind === 'close-with-exceptions') ? {
       closure_obligation_snapshot: closureObligationSnapshot(root, { ...current, runtimeState: next }),
     } : {}),
-    ...(completionDisposition && current.runtimeState.pending_review_result ? {
-      consumed_review: structuredClone(current.runtimeState.pending_review_result),
+    ...(completionDisposition ? {
+      ...(current.runtimeState.pending_review_result ? { consumed_review: structuredClone(current.runtimeState.pending_review_result) } : {}),
       challenge_continuation_snapshot: structuredClone((current.runtimeState.evidence_challenges ?? [])
         .filter(challenge => challenge.status !== 'resolved')),
     } : {}),
@@ -17529,17 +17685,43 @@ function applyUserDecisionDelta(
   if (decision.task_id !== current.runtimeState.task_id || decision.source_revision !== current.sourceTuple.revision) {
     fail('USER_DECISION_SOURCE_CONFLICT', 'user decision must bind the exact current task and source revision.');
   }
+  const confirmedAdvance = decision.effects.find((effect): effect is Extract<UserDecisionEffect, { kind: 'advance-with-exceptions' }> =>
+    effect.kind === 'advance-with-exceptions' && effect.confirmation_digest !== undefined);
+  if (confirmedAdvance) {
+    const context = advanceDecisionContext(root);
+    if (digest(decision.effects) !== digest(context.effects)) {
+      fail('STEP_DISPOSITION_CONFIRMATION_REQUIRED', 'Show step-decision-context and confirm its exact consequences; do not invent a review merely to enable a user decision.');
+    }
+    const preflight = current.runtimeState.execution_preflight;
+    if (preflight && !executionResultRecordedForPreflight(current, preflight,
+      preflight.mode === 'default' ? current.runtimeState.step_attempts?.[preflight.step_id]?.attempts.at(-1)?.attempt_id : undefined)) {
+      fail('USER_DECISION_EXECUTION_UNSETTLED', 'Record the admitted execution outcome or reconcile a demonstrably unexecuted preflight before advancing. User termination remains independently available.');
+    }
+  }
   const hasRepairEffect = decision.effects.some(effect => effect.kind === 'repair-finding' || effect.kind === 'reopen-finding');
   ensureAuthorityKinds(proposal, ['active-task-owner', 'user-confirmation', 'evidence-admission']);
   if (hasRepairEffect) ensureAuthorityKinds(proposal, ['finding-admission']);
+  const closureEffect = decision.effects.find((effect): effect is Extract<UserDecisionEffect, { kind: 'close-with-exceptions' }> => effect.kind === 'close-with-exceptions');
+  if (closureEffect) {
+    if (decision.effects.length !== 1) fail('USER_DECISION_EFFECT_INVALID', 'Termination confirmation cannot implicitly authorize unrelated mutations.');
+    const disposition = closureEffect.target_ids.includes('gate:stopped-by-user') ? 'stopped-by-user' : 'completed-with-exceptions';
+    const context = closureDecisionContext(root, disposition);
+    if (closureEffect.confirmation_digest !== context.confirmation_digest) {
+      fail('CLOSURE_CONFIRMATION_REQUIRED', 'Show closure-decision-context consequences and obtain confirmation; refresh only when their meaning changes.');
+    }
+    if (digest([...closureEffect.target_ids].sort()) !== digest(context.effects[0].target_ids)) {
+      fail('USER_DECISION_TARGET_INVALID', 'Use the Runtime-derived complete closure target set; do not invent or omit obligations.');
+    }
+  }
+  const closingLiveTask = closureEffect !== undefined && isUserTerminableState(current.runtimeState.workflow_status, current.runtimeState.lifecycle_state);
   const cancelReplan = decision.effects.some(effect => effect.kind === 'cancel-replan-block');
   const cancellingBlockedReplan = current.runtimeState.workflow_status === 'blocked_by_replan'
     && current.runtimeState.lifecycle_state === 'active'
     && cancelReplan
     && decision.effects.length === 1;
-  if (!cancellingBlockedReplan
+  if (!cancellingBlockedReplan && !closingLiveTask
     && (current.runtimeState.workflow_status !== 'active' || current.runtimeState.lifecycle_state !== 'active')) {
-    fail('USER_DECISION_STATE_INVALID', 'user decisions require active + active, except an exact cancel-replan-block decision for blocked_by_replan + active.');
+    fail('USER_DECISION_STATE_INVALID', 'Execution decisions require active + active; termination decisions may bind any live task without reactivation.');
   }
   if (cancelReplan && !cancellingBlockedReplan) {
     fail('USER_DECISION_STATE_INVALID', 'cancel-replan-block must be a separate decision for blocked_by_replan + active.');
@@ -17645,7 +17827,7 @@ function applyUserDecisionDelta(
   if (pending && decision.review_id !== undefined && decision.change_set_id !== undefined && decision.change_set_id !== pending.change_set_id) {
     fail('USER_DECISION_CHANGE_SET_CONFLICT', 'user decision change_set_id does not match the pending review change set.');
   }
-  if (pending && decision.review_id !== undefined && decision.effects.some(effect => effect.kind === 'advance-with-exceptions') && pending.verdict === 'clean') {
+  if (pending && decision.review_id !== undefined && decision.effects.some(effect => effect.kind === 'advance-with-exceptions' && effect.confirmation_digest === undefined) && pending.verdict === 'clean') {
     fail('USER_DECISION_REVIEW_CONFLICT', 'a clean review must use the clean completion path, not a disposition receipt.');
   }
   const rebindEffect = decision.effects.find((effect): effect is Extract<UserDecisionEffect, { kind: 'rebind-carried-evidence' }> => effect.kind === 'rebind-carried-evidence');
@@ -17787,6 +17969,34 @@ function applyUserDecisionDelta(
   }
 
   const openFindings = findings.filter(item => ['observed', 'admitted', 'in-progress'].includes(item.status));
+  if (confirmedAdvance) {
+    const resolution = resolveCanonicalTaskStep(current);
+    const stepId = current.runtimeState.active_step_id;
+    const advancement: StepAdvancementResult = {
+      outcome: resolution.next ? 'advanced' : 'task-complete', from_step_id: stepId,
+      to_step_id: resolution.next?.id ?? null, checkpoint: effectiveCheckpointPolicy(resolution),
+    };
+    const { execution_preflight: _preflight, scope_amendment_pending_review_step_id: _reviewOwner,
+      ...retained } = current.runtimeState;
+    // Preserve actual failed/missing reports. Accepting the risk is recorded in
+    // the decision and finding disposition, never by synthesizing test results.
+    const next: RuntimeState = { ...retained, findings,
+      finding_queue_revision: current.runtimeState.finding_queue_revision + (changedFingerprints.size ? 1 : 0),
+      active_step_id: resolution.next?.id ?? stepId, active_step_status: resolution.next ? 'ready' : 'completed',
+      ...(resolution.next ? { review_cycle: reviewCycleForNextStep(current.runtimeState.review_cycle.id, resolution.next.id, proposal.idempotency_key) } : {}),
+      pending_review_result: null,
+      execution_log: appendExecutionLogEntry(current.runtimeState, {
+        idempotency_key: proposal.idempotency_key, mode: 'default', step_id: stepId, status: 'completed',
+        evidence_refs: [...delta.evidence_refs], checkpoint: advancement.checkpoint, advancement: advancement.outcome,
+        next_step_id: advancement.to_step_id, completion_disposition: 'user-directed-with-exceptions',
+        user_decision_id: proposal.idempotency_key, recorded_at: now,
+      }),
+      applied_proposals: appendAppliedProposal(current.runtimeState, proposal, current.sourceTuple.revision),
+    };
+    const audit = makeUserDecisionAudit(root, current, proposal, delta, next, now, 'user-directed-with-exceptions');
+    return { next: { ...next, execution_log: appendExecutionLogEntry(next, audit) },
+      taskBasis: appendUserDecisionToBasis(root, current, decision), audit, advancement };
+  }
   if (advanceEffect) {
     if (!pending || !['findings', 'blocked'].includes(pending.verdict)) fail('USER_DECISION_ADVANCEMENT_REQUIRED', 'advance-with-exceptions requires a pending findings or blocked review.');
     if (pending.step_id !== current.runtimeState.active_step_id || !['blocked', 'in-progress', 'completed'].includes(current.runtimeState.active_step_status)) {
@@ -18531,13 +18741,26 @@ function applyTaskStateDelta(
       fail('RESUME_REVIEW_REQUIRED', 'review-change cannot record a step review while the resume review gate is active.');
     }
     const review = delta.review_result;
+    const isCompletedStepRecheck = review.review_entry_mode === 'recheck-completed-step';
+    if (isCompletedStepRecheck !== (proposal.mode === 'recheck-completed-step')
+      || (isCompletedStepRecheck !== (review.completion_record_id !== undefined))) {
+      fail('RUNTIME_MODE_INVALID', 'review entry mode and completed-step binding must match the Runtime proposal mode.');
+    }
+    const completedRecheck = isCompletedStepRecheck
+      ? completedStepReviewTarget(root, current, review.step_id)
+      : null;
+    if (completedRecheck && (completedRecheck.completion.idempotency_key !== review.completion_record_id
+      || completedRecheck.execution.idempotency_key !== review.execution_id
+      || completedRecheck.cycle.id !== review.cycle_id)) {
+      fail('COMPLETED_STEP_RECHECK_TARGET_INVALID', 'completed-step recheck result does not bind the latest eligible completion and execution.');
+    }
     if (review.resolved_fingerprints.length > 0) ensureAuthorityKinds(proposal, ['finding-admission']);
     const isCorrectionReview = (current.runtimeState.evidence_challenges ?? []).some(item => item.status === 'invalidated' && item.correction_step_id === review.step_id);
     if (review.verdict === 'clean' && !isCorrectionReview && (current.runtimeState.evidence_challenges ?? []).some(item => item.status !== 'resolved' && item.correction_step_id !== review.step_id && !hasChallengeContinuation(root, current, item))) {
       fail('EVIDENCE_CHALLENGE_UNRESOLVED', 'A clean review cannot consume an unresolved challenge outside its admitted correction step.');
     }
-    if (review.step_id !== current.runtimeState.active_step_id) fail('ACTIVE_STEP_CONFLICT', 'review result does not belong to the active step.');
-    if (review.cycle_id !== current.runtimeState.review_cycle.id) fail('REVIEW_CYCLE_CONFLICT', 'review result does not belong to the current review cycle.');
+    if (!isCompletedStepRecheck && review.step_id !== current.runtimeState.active_step_id) fail('ACTIVE_STEP_CONFLICT', 'review result does not belong to the active step.');
+    if (!completedRecheck && review.cycle_id !== current.runtimeState.review_cycle.id) fail('REVIEW_CYCLE_CONFLICT', 'review result does not belong to the current review cycle.');
     const stepExecutions = currentDefinitionExecutionLog(current).filter((item): item is StepExecutionLogEntry =>
       !('action' in item) && item.step_id === review.step_id && item.idempotency_key.startsWith('execute-step-result-') && item.review_receipt === undefined,
     );
@@ -18551,7 +18774,7 @@ function applyTaskStateDelta(
       && execution.execution_result?.execution_id !== activePreflight.execution_id) {
       fail('REVIEW_EXECUTION_STALE', 'review result does not bind the current stable execution identity.');
     }
-    assertReviewExecutionEligible(root, current, execution);
+    if (!completedRecheck) assertReviewExecutionEligible(root, current, execution);
     if (current.runtimeState.review_coverage && !review.test_assessment) fail('REVIEW_ASSESSMENT_REQUIRED', 'Cumulative reviews require test necessity, oracle, boundary, reuse and applicability assessment.');
     if (current.runtimeState.review_coverage && review.test_assessment && !review.test_assessment.applicable && (parseMutationScope(current.body).persistent_tests?.length || current.runtimeState.claim_evidence?.some(claim => claim.slots.some(slot => slot.check?.method === 'execution')))) fail('REVIEW_ASSESSMENT_REQUIRED', 'Declared execution checks or persistent tests require an applicable assessment even when test files are unchanged.');
     const executionResult = cumulativeReviewExecution(current, execution).execution_result;
@@ -18573,7 +18796,7 @@ function applyTaskStateDelta(
     if (currentTarget.revision !== review.review_target_revision) {
       fail('REVIEW_TARGET_STALE', 'product files changed after the reviewed execution target was recorded.');
     }
-    const expectedPhase: ReviewCyclePhase = execution.mode === 'repair' ? 'verification' : 'discovery';
+    const expectedPhase: ReviewCyclePhase = completedRecheck ? 'discovery' : execution.mode === 'repair' ? 'verification' : 'discovery';
     if (review.cycle_phase !== expectedPhase) fail('REVIEW_PHASE_INVALID', `review result must use ${expectedPhase} for the latest execution.`);
     if (review.cycle_phase === 'discovery' && review.unresolved_fingerprints.length > 0) {
       fail('REVIEW_PHASE_INVALID', 'discovery review cannot reference unresolved admitted findings.');
@@ -18629,6 +18852,17 @@ function applyTaskStateDelta(
       : current.runtimeState.findings.map(item => resolvedFingerprints.has(item.fingerprint)
         ? { ...item, status: 'resolved' as const, evidence_refs: [...new Set([...item.evidence_refs, ...resolvedEvidenceRefs])], updated_at: now }
         : item);
+    const reopenedReviewCoverage = completedRecheck && review.verdict === 'findings' && current.runtimeState.review_coverage
+      ? {
+        ...current.runtimeState.review_coverage,
+        target: captureReviewTarget(root, current.runtimeState.review_coverage.target.entries.map(item => item.path)),
+        pending_paths: [...new Set([
+          ...current.runtimeState.review_coverage.pending_paths,
+          ...current.runtimeState.review_coverage.target.entries.map(item => item.path),
+        ])].sort(),
+        last_clean_revision: null,
+      }
+      : undefined;
     return {
       next: {
         ...current.runtimeState,
@@ -18636,7 +18870,13 @@ function applyTaskStateDelta(
           finding_queue_revision: current.runtimeState.finding_queue_revision + 1,
           findings: nextFindings,
         }),
-        pending_review_result: { ...review, recorded_at: now },
+        ...(completedRecheck ? {
+          active_step_id: review.verdict === 'findings' ? review.step_id : current.runtimeState.active_step_id,
+          active_step_status: review.verdict === 'findings' ? 'in-progress' as const : current.runtimeState.active_step_status,
+          ...(review.verdict === 'findings' ? { review_cycle: completedRecheck.cycle } : {}),
+          pending_review_result: review.verdict === 'findings' ? { ...review, recorded_at: now } : null,
+        } : { pending_review_result: { ...review, recorded_at: now } }),
+        ...(reopenedReviewCoverage ? { review_coverage: reopenedReviewCoverage } : {}),
         // A clean review is the mandatory acknowledgement for any dynamic
         // in-envelope expansion. Keep the history and associate the review
         // only with the expansions belonging to this recorded execution.
@@ -19184,14 +19424,22 @@ function applyTaskStateDelta(
     }, reviewPreimageWrites: coverageAdmission.preimageWrites };
   }
   if (delta.action !== 'step-progress') fail('RUNTIME_SCHEMA_INVALID', 'Only step-progress reaches the execute-step state handler.');
+  const progressIntent = stepProgressIntent(delta);
+  const recordingExecution = progressIntent === 'record-execution';
+  const completingStep = progressIntent === 'complete-step';
   ensureAuthorityKinds(proposal, ['active-task-owner', 'scope-admission', 'evidence-admission']);
-  if (current.runtimeState.workflow_status === 'draft' && current.runtimeState.lifecycle_state === 'active') {
+  const detachedResult = recordingExecution && (current.runtimeState.workflow_status !== 'active' || current.runtimeState.lifecycle_state !== 'active');
+  if (detachedResult && (!current.runtimeState.execution_preflight
+    || delta.execution_result?.execution_id !== current.runtimeState.execution_preflight.execution_id)) {
+    fail('EXECUTE_PREFLIGHT_REQUIRED', 'A late result must bind its original retained admitted execution; it grants no further execution authority.');
+  }
+  if (!recordingExecution && current.runtimeState.workflow_status === 'draft' && current.runtimeState.lifecycle_state === 'active') {
     fail('DRAFT_NOT_EXECUTABLE', 'execute-step is blocked for draft + active until prepare-task:confirm commits confirm-draft.');
   }
-  if (current.runtimeState.workflow_status !== 'active' || current.runtimeState.lifecycle_state !== 'active') {
+  if (!recordingExecution && (current.runtimeState.workflow_status !== 'active' || current.runtimeState.lifecycle_state !== 'active')) {
     fail('TASK_STATE_NOT_ACTIVE', 'execute-step requires the current task to be active + active.');
   }
-  if (current.runtimeState.resume_requires_review) {
+  if (!recordingExecution && current.runtimeState.resume_requires_review) {
     fail('RESUME_REVIEW_REQUIRED', 'execute-step cannot proceed until prepare-task clears the resume review gate.');
   }
   if (delta.step_id !== current.runtimeState.active_step_id) fail('ACTIVE_STEP_CONFLICT', 'Proposal step_id does not match the admitted current step.');
@@ -19214,11 +19462,10 @@ function applyTaskStateDelta(
   const executionMode = proposal.mode as VNextExecuteStepMode;
   const repairBlockedResult = executionMode === 'repair' && delta.execution_result?.outcome === 'blocked';
   const stepPolicyDecisionId = delta.policy_decision_id;
-  // Failed observations remain recordable; a successful result or completion
-  // cannot substitute caller-reported command status for an actual restore.
-  // A blocked repair is a result fact attached to an already completed step,
-  // not a new artifact-restore completion claim.
-  if (!repairBlockedResult && (delta.status === 'completed' || (delta.execution_result && delta.execution_result.outcome !== 'blocked'))) assertArtifactRestoreCompleted(root, current);
+  // A report records an observation, not completion qualification. Restore
+  // provenance is required when qualifying completion, never fabricated from
+  // a caller-reported command status.
+  if (completingStep) assertArtifactRestoreCompleted(root, current);
   const currentClaimEvidenceEnabled = claimEvidenceStateEnabled(current.runtimeState);
   if (!currentClaimEvidenceEnabled && delta.claim_evidence !== undefined) {
     fail('CLAIM_EVIDENCE_MIGRATION_REQUIRED', 'execute-step cannot create a claim_evidence plan for a legacy task; prepare-task refinement/migration must persist the plan first.');
@@ -19230,7 +19477,7 @@ function applyTaskStateDelta(
     }
     requireAcceptanceClaim(plannedClaimEvidence, 'current task claim_evidence');
   }
-  if (proposal.mode !== 'repair' && !delta.review_receipt) assertOrdinaryPreflight(current, root, stepPolicyDecisionId ?? current.runtimeState.execution_preflight?.policy_decision_id);
+  if (!recordingExecution && proposal.mode !== 'repair' && !delta.review_receipt) assertOrdinaryPreflight(current, root, stepPolicyDecisionId ?? current.runtimeState.execution_preflight?.policy_decision_id);
   assertStepProgressExecutionIdentity(current, delta);
   const stepResolution = resolveCanonicalTaskStep(current);
   const checkpoint = effectiveCheckpointPolicy(stepResolution);
@@ -19268,8 +19515,10 @@ function applyTaskStateDelta(
   }
   const executionChangeSetId = delta.change_set_id ?? delta.review_receipt?.change_set_id;
   const oldStatus = current.runtimeState.active_step_status;
-  const newStatus = delta.status;
-  if (newStatus === 'completed' && executionMode !== 'repair' && dynamicReviewRequiredForCurrentExecution(current)) {
+  const newStatus = recordingExecution
+    ? (delta.execution_result!.outcome === 'blocked' ? 'blocked' : 'in-progress')
+    : delta.status;
+  if (completingStep && executionMode !== 'repair' && dynamicReviewRequiredForCurrentExecution(current)) {
     if (policyDecisionForOperation(root, current, 'DYNAMIC_REVIEW_REQUIRED', [`step:${delta.step_id}`], stepPolicyDecisionId) === null) {
       fail('DYNAMIC_REVIEW_REQUIRED', 'An in-envelope mutation footprint expansion requires a clean cumulative review before step completion; record-user-decision may authorize continuation for the exact active step.');
     }
@@ -19287,10 +19536,7 @@ function applyTaskStateDelta(
     if (currentTarget.revision !== delta.execution_result.review_target.revision) {
       fail('REVIEW_TARGET_STALE', 'product files changed while the execution result was being recorded.');
     }
-    if (repairBlockedResult && newStatus !== 'completed') {
-      fail('RUNTIME_STATE_CONFLICT', 'a blocked repair execution must retain the completed step progress status.');
-    }
-    if (!repairBlockedResult && (delta.execution_result.outcome === 'blocked') !== (newStatus === 'blocked')) {
+    if ((delta.execution_result.outcome === 'blocked') !== (newStatus === 'blocked')) {
       fail('RUNTIME_STATE_CONFLICT', 'execution_result outcome must match the step-progress status.');
     }
     if (repairBlockedResult) {
@@ -19331,9 +19577,10 @@ function applyTaskStateDelta(
       assertExecutionAdmissionEvaluation(current, executionEvaluation, 'step-progress execution result');
     }
   }
-  const legal = oldStatus === newStatus
+  const legal = recordingExecution || oldStatus === newStatus
     || (oldStatus === 'ready' && ['in-progress', 'completed', 'blocked'].includes(newStatus))
     || (oldStatus === 'in-progress' && ['completed', 'blocked'].includes(newStatus))
+    || (oldStatus === 'blocked' && newStatus === 'completed' && completingStep && delta.review_receipt?.verdict === 'clean')
     || (oldStatus === 'blocked' && executionMode === 'repair' && ['in-progress', 'completed'].includes(newStatus));
   if (!legal) fail('TASK_STATE_TRANSITION_INVALID', `Cannot transition active step from ${oldStatus} to ${newStatus}.`);
   const claimEvidenceRequired = currentClaimEvidenceEnabled;
@@ -19373,7 +19620,7 @@ function applyTaskStateDelta(
     const slot = transitionClaimEvidence.find(item => item.claim_id === challenge.claim_id)?.slots.find(item => item.slot_id === challenge.slot_id);
     if (slot?.report?.result_id === challenge.result_id) fail('EVIDENCE_CHALLENGE_UNRESOLVED', 'The challenged result ID cannot be resubmitted as a correction.');
   }
-  if (newStatus === 'completed' && unresolvedChallenges.length > 0) {
+  if (completingStep && unresolvedChallenges.length > 0) {
     if (!delta.review_receipt || unresolvedChallenges.some(item => item.status !== 'invalidated' || item.correction_step_id !== delta.step_id)) {
       fail('EVIDENCE_CHALLENGE_UNRESOLVED', 'Challenge resolution requires the admitted correction step and its fresh clean review.');
     }
@@ -19411,7 +19658,7 @@ function applyTaskStateDelta(
       }
     }
   }
-  if (newStatus === 'completed' && !repairBlockedResult
+  if (completingStep
     && !evaluateClaimEvidence(transitionClaimEvidence, { root, current: evidenceCurrent, due_step_id: delta.step_id }).validation_complete) fail('CLAIM_EVIDENCE_INCOMPLETE', 'Every due slot must have applicable successful evidence before step completion.');
   let advancement: StepAdvancementResult = {
     outcome: 'not-applicable',
@@ -19419,18 +19666,19 @@ function applyTaskStateDelta(
     to_step_id: null,
     checkpoint,
   };
-  if (executionMode === 'repair' && newStatus === 'completed') {
+  if (executionMode === 'repair' && recordingExecution) {
     advancement = {
       outcome: 'repair-awaiting-verification',
       from_step_id: delta.step_id,
       to_step_id: null,
       checkpoint,
     };
-  } else if (executionMode === 'default' && newStatus === 'completed') {
+  } else if (executionMode === 'default' && completingStep) {
     if (openFindings.length > 0) {
       fail('REVIEW_CONVERGENCE_REQUIRED', 'step advancement is blocked while an admitted or in-progress finding remains open.');
     }
-    if (current.runtimeState.review_coverage && checkpoint === 'not-required' && stepResolution.next && !delta.execution_result
+    if (current.runtimeState.review_coverage && checkpoint === 'not-required' && stepResolution.next
+      && !currentDefinitionExecutionLog(current).some(item => !('action' in item) && item.step_id === delta.step_id && item.execution_result !== undefined && item.execution_result.outcome !== 'blocked')
       && policyDecisionForOperation(root, current, 'REVIEW_EXECUTION_REQUIRED', [`step:${delta.step_id}`], stepPolicyDecisionId) === null) fail('REVIEW_EXECUTION_REQUIRED', 'An exempt intermediate step must record its actual execution before advancement; record-user-decision may authorize continuation for the exact active step.');
     if (checkpoint === 'required' && delta.review_receipt === undefined) {
       if (policyDecisionForOperation(root, current, 'REVIEW_CHECKPOINT_REQUIRED', [`step:${delta.step_id}`], stepPolicyDecisionId) === null) {
@@ -19548,7 +19796,7 @@ function applyTaskStateDelta(
   }
   if (executionMode === 'default' && newStatus === 'completed' && !delta.execution_result && stepAttempts?.[delta.step_id]?.attempts.at(-1)?.status !== undefined && stepAttempts[delta.step_id].attempts.at(-1)!.status !== 'implemented') fail('RETRY_EXECUTION_REQUIRED','A recovered attempt must run and report before completion.');
   let coverage = current.runtimeState.review_coverage;
-  if (delta.execution_result && coverage) {
+  if (delta.execution_result && coverage && !detachedResult) {
     const result = delta.execution_result;
     if (result.change_set_id !== coverage.change_set_id) fail('REVIEW_TARGET_CONFLICT', 'Execution must retain the cumulative change set.');
     for (const entry of result.review_base.entries) {
@@ -19578,13 +19826,22 @@ function applyTaskStateDelta(
       ...(delta.policy_decision_id ? { policy_decision_id: delta.policy_decision_id } : {}),
       ...(executionChangeSetId ? { change_set_id: executionChangeSetId } : {}),
       checkpoint,
-      advancement: advancement.outcome,
-      next_step_id: advancement.to_step_id,
+      advancement: detachedResult ? 'not-applicable' : advancement.outcome,
+      next_step_id: detachedResult ? null : advancement.to_step_id,
       ...(delta.review_receipt ? { review_receipt: delta.review_receipt } : {}),
       ...(delta.claim_evidence === undefined ? {} : { claim_evidence: copyClaimEvidence(delta.claim_evidence) }),
       ...(delta.execution_result === undefined ? {} : { execution_result: delta.execution_result }),
       recorded_at: now,
     });
+  if (detachedResult) {
+    // Append actual observations only. The archived image, live claim status,
+    // pending review, findings and lifecycle decision remain untouched. Readers
+    // can distinguish this log from completion using execution_result + no advancement.
+    return { next: { ...current.runtimeState, execution_log: executionLog,
+      ...(stepAttempts ? { step_attempts: stepAttempts } : {}),
+      applied_proposals: appendAppliedProposal(current.runtimeState, proposal, current.sourceTuple.revision) },
+      advancement: { ...advancement, outcome: 'not-applicable', to_step_id: null } };
+  }
   const {
     scope_amendment_pending_review_step_id: _scopeAmendmentPendingReviewStepId,
     execution_preflight: currentExecutionPreflight,
@@ -19601,7 +19858,7 @@ function applyTaskStateDelta(
     claim_evidence_required: claimEvidenceRequired,
     claim_evidence: copyClaimEvidence(transitionClaimEvidence),
     ...(recoveredScopeCarry.length ? { evidence_carry_forward: evidenceCurrent.runtimeState.evidence_carry_forward } : {}),
-    ...(newStatus === 'completed' && unresolvedChallenges.length > 0
+    ...(completingStep && unresolvedChallenges.length > 0
       ? { evidence_challenges: (current.runtimeState.evidence_challenges ?? []).map(item => unresolvedChallenges.some(challenge => challenge.challenge_id === item.challenge_id) ? { ...item, status: 'resolved' as const } : item) }
       : {}),
     // A blocked repair result cannot consume the review that authorized the
@@ -21546,7 +21803,7 @@ export class GovernanceTransactionKernel {
       const executionMode = proposal.semantic_delta.mode ?? proposal.mode;
       if (executionMode !== 'repair') {
         try {
-          assertOrdinaryPreflight(current, this.root);
+          assertOrdinaryPreflight(current, this.root, proposal.semantic_delta.policy_decision_id);
         } catch (error) {
           const code = error instanceof VNextRuntimeError ? error.code : 'PREFLIGHT_BLOCKED';
           return buildResult(code === 'REVIEW_TARGET_STALE' ? 'conflict' : 'blocked', proposal, current, options, error instanceof Error ? error.message : String(error), { code });
@@ -21808,8 +22065,10 @@ export class GovernanceTransactionKernel {
     try {
       if (current.runtimeState.task_evolution_version === 2 && proposal.semantic_delta.kind === 'task-state') {
         const delta = proposal.semantic_delta;
-        if (delta.action === 'record-step-preflight' || (delta.action === 'step-progress' && delta.execution_result)) {
-          if ((current.runtimeState.artifact_checkpoint_ids?.length ?? 0) >= 256) fail('ARTIFACT_BUDGET_EXHAUSTED', 'Task checkpoint budget is exhausted.');
+        if (delta.action === 'record-step-preflight' || (delta.action === 'step-progress' && delta.execution_result
+          && current.runtimeState.workflow_status === 'active' && current.runtimeState.lifecycle_state === 'active')) {
+          // Checkpoint IDs are retained history, not an execution-attempt quota.
+          // Storage/atomic publication failures still report their actual cause.
           const paths = delta.action === 'record-step-preflight' ? delta.candidate_paths : delta.execution_result!.review_target.entries.map(item => item.path);
           const checkpointId = saveArtifactCheckpoint(this.root, current.filePath, { task_id: current.runtimeState.task_id,
             document_id: current.sourceTuple.document_id, step_id: delta.step_id,
@@ -22309,6 +22568,7 @@ export function createReviewResultProposal(
     evidence_refs: string[];
     idempotency_key: string;
     authority_evidence: AuthorityEvidence[];
+    mode?: ReviewChangeMode;
   },
 ): RuntimeProposal {
   const evidenceRefs = [...new Set([
@@ -22322,7 +22582,7 @@ export function createReviewResultProposal(
     kind: VNEXT_RUNTIME_PROPOSAL_KIND,
     operation_kind: 'task-state-transaction',
     caller: 'review-change',
-    mode: 'default',
+    mode: input.mode ?? 'default',
     source_tuple: current.sourceTuple,
     authority_evidence: input.authority_evidence,
     semantic_delta: {
@@ -22331,7 +22591,9 @@ export function createReviewResultProposal(
       review_result: input.review_result,
       evidence_refs: evidenceRefs,
     },
-    preconditions: ['current-task-is-active', 'latest-execution-matches', 'review-context-current'],
+    preconditions: input.mode === 'recheck-completed-step'
+      ? ['current-task-is-active', 'immediately-previous-clean-completion-matches', 'successor-has-no-preflight-attempt-or-execution', 'review-context-current']
+      : ['current-task-is-active', 'latest-execution-matches', 'review-context-current'],
     evidence_refs: evidenceRefs,
     idempotency_key: input.idempotency_key,
     requested_write_targets: [current.relativePath],
@@ -22935,7 +23197,8 @@ export function createArchiveProposal(
     source_tuple: current.sourceTuple,
     authority_evidence: input.authority_evidence,
     semantic_delta: input.delta,
-    preconditions: ['current-task-is-active', 'closure-eligibility-complete', 'archive-path-verified'],
+    preconditions: [input.delta.completion_disposition && input.delta.completion_disposition !== 'verified'
+      ? 'live-task-termination-target' : 'current-task-is-active', 'closure-eligibility-complete', 'archive-path-verified'],
     evidence_refs: input.evidence_refs,
     idempotency_key: input.idempotency_key,
     requested_write_targets: [current.relativePath, getTaskArtifactPath(current.runtimeState.task_id, current.runtimeState.task_slug, 'archive')],
@@ -22971,7 +23234,7 @@ export function createUserDecisionProposal(
       decision,
       evidence_refs: input.evidence_refs,
     },
-    preconditions: [decision.effects.some(effect => effect.kind === 'cancel-replan-block') ? 'active-or-blocked-task' : 'current-task-is-active', 'user-decision-is-explicit', 'source-revision-matches'],
+    preconditions: [decision.effects.some(effect => effect.kind === 'close-with-exceptions') ? 'live-task-termination-target' : decision.effects.some(effect => effect.kind === 'cancel-replan-block') ? 'active-or-blocked-task' : 'current-task-is-active', 'user-decision-is-explicit', 'source-revision-matches'],
     evidence_refs: [...new Set(input.evidence_refs)],
     idempotency_key: input.decision.idempotency_key,
     requested_write_targets: [current.relativePath, taskBasisRelativePath(current.relativePath, current.runtimeState.task_id)],

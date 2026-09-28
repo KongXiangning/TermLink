@@ -407,7 +407,13 @@ function proposeAuthorityDomainCandidates(root: string): BootstrapAuthorityDomai
   const entries = fs.existsSync(root) ? fs.readdirSync(root, { withFileTypes: true }) : [];
   const directories = entries
     .filter(entry => entry.isDirectory() && !entry.name.startsWith('.') && !DOMAIN_CANDIDATE_IGNORES.has(entry.name))
-    .map(entry => entry.name)
+    .flatMap(entry => {
+      if (entry.name !== 'docs') return [entry.name];
+      // Distribution-owned docs/workflow is governance, not a product domain.
+      return fs.readdirSync(path.join(root, 'docs'), { withFileTypes: true })
+        .filter(child => child.isDirectory() && child.name !== 'workflow' && !child.name.startsWith('.'))
+        .map(child => `docs/${child.name}`);
+    })
     .sort((left, right) => left.localeCompare(right));
   if (directories.length > 0) {
     const used = new Set<string>();
@@ -619,7 +625,8 @@ function readBootstrapReceipt(root: string): BootstrapReceipt | null {
 }
 
 function isDistributionManagedPath(relative: string): boolean {
-  return relative === '.workflow-system/WORKFLOW_PROTOCOL.md'
+  return relative === 'docs/workflow/.gitattributes'
+    || relative === '.workflow-system/WORKFLOW_PROTOCOL.md'
     || relative === '.workflow-system/FILE_SCHEMAS.md'
     || relative === '.workflow-system/vnext/SOURCE_CONTRACT.yaml'
     || relative === '.workflow-system/vnext/RUNTIME_CONTRACT.yaml'
@@ -753,6 +760,8 @@ const PUBLIC_ENTRY_TERMINAL_GUIDANCE = [
   '- Complete only this entry intent, its internal capabilities, and its bound Runtime operations.',
   '- After a terminal result, return to the caller and stop.',
   '- Report at most one `next_route` / `recommended_route`; it is recommendation-only for a later caller invocation, and the current invocation must not invoke another public Skill.',
+  '- A public `next_route` is null or a declared public Skill base name; put a declared public mode in `next_mode` separately. Derive it from the verified terminal result. Report a required user decision separately with `next_route: null`.',
+  '- `task-context.overview.next_entry` / `next_options`, review `blocker.next_route`, and `run-entry` recovery routes can name internal Runtime operations. Never copy them into a public `next_route`; complete same-intent recovery inside this invocation.',
   '- This is instruction-level host guidance; the current Runtime cannot observe conversation-level public Skill chaining.',
 ] as const;
 

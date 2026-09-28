@@ -1,6 +1,6 @@
 ---
 name: execute-step
-description: Implement exactly the confirmed current task step, then stop.
+description: Implement exactly the confirmed current task step; review only when explicitly authorized.
 entry_contract:
   entry: execute-step
   mode:
@@ -46,9 +46,43 @@ entry_contract:
 
 # vNext Skill: execute-step
 
+## Authorized intent and truthful outcomes
+
+Apply the shared Authorized Intent section in `.workflow-system/WORKFLOW_PROTOCOL.md`.
+Separate execution facts from completion qualification and user disposition.
+Same-intent internal recovery needs no repeated permission. Explain material
+consequences before a new user-owned decision; never invent permission or PASS.
+Read-only intent stays read-only. A suggested next route is not the user's only
+choice. An unknown Runtime rejection is diagnosis, not a proven recovery path.
+
+By default, implement the authorized step, inspect your own changes, run its
+admitted validation, and record the actual execution result. This self-check is
+not a formal review. Do not create or register a new review verdict merely
+because implementation or tests finished, including through the internal
+`record-review-result` operation. Reading review context needed for execution or
+repair, and consuming an existing valid review for this target, remain allowed.
+If the current instruction or a still-effective explicit instruction covering
+this work authorizes execution followed by review, complete both in this
+request using the installed `review-change` Skill's review criteria and existing
+review operations; do not ask the user to repeat that authorization or require
+a second public entry invocation. Identify a verdict on your own implementation
+as self-review, retain findings and failed or not-run checks, and never claim it
+was independent. If independent review was requested, use an actually separate
+reviewer or report that review as pending. A generic request to finish the task,
+a review checkpoint, or a suggested `next_route` alone is not authorization to
+add self-review; first check for any still-effective explicit workflow instruction.
+
 ## Invocation authority and internal recovery
 
 recovery_boundary: entry-recovery/v1
+
+Public result routing: `next_route` (or `recommended_route.entry`) is `null` or a
+declared public Skill base name. Put a declared public mode in `next_mode`
+separately. Choose it only from the verified terminal result. Never copy
+`task-context.overview.next_entry` / `next_options`, review
+`blocker.next_route`, or a `run-entry` recovery command into the public route.
+Complete same-intent internal recovery here; report a new user choice separately
+with `next_route: null`.
 
 The caller's explicit invocation authorizes this entry's stated intent and its
 necessary internal recovery within the existing authority. This entry owns that
@@ -77,6 +111,10 @@ facts/verdict; recovery does not authorize unrelated implementation. For actual
 unavailable dependencies or damaged state, attempt the supported recovery first,
 then report the precise external prerequisite if it cannot be restored internally.
 Never fabricate success or bypass an incomplete atomic commit.
+
+If a resume gate is active, inspect and consume its retained review through the
+supported internal recovery path before execution; if it remains unresolved,
+report that result and stop.
 
 ### Shared internal recovery driver
 
@@ -121,8 +159,9 @@ recovery could not restore. Completed reports/verdicts remain legitimate outcome
 
 Only execute the active confirmed recovery step. For artifact-restore or mixed,
 obtain ordinary preflight then call `apply-artifact-restore` with that receipt for
-the declared `runtime:artifact-restore` footprint. Run post-restore checks, record
-real outcomes, and complete required cumulative review. Never reset/clean/checkout
+the declared `runtime:artifact-restore` footprint. Run post-restore checks and
+record real outcomes. Complete required cumulative review when explicitly
+authorized; otherwise leave it pending for review. Never reset/clean/checkout
 the repository or roll back governance records. Drift, missing checkpoints,
 frozen files or retained publication journals are blockers. Read CONTEXT_API.md.
 Runtime must persist `artifact-restore-completion/v1` for the exact candidate and
@@ -132,9 +171,10 @@ forward edits in a subsequent recovery step. Missing or changed completion facts
 block successful advancement; actual failures can still be recorded truthfully.
 After an environment retry, obtain fresh preflight and call apply-artifact-restore
 again. Runtime may revalidate exact targets against the original immutable v1
-fact and mint a new attempt-bound v2 fact. Run fresh checks and review; never
-reuse the old receipt as proof of the new attempt. Recovery progress through raw
-apply also requires the durable current admitted attempt and retained budget.
+fact and mint a new attempt-bound v2 fact. Run fresh checks and handle review
+under the authorization rule above; never reuse the old receipt as proof of the
+new attempt. Recovery progress through raw apply also requires the durable
+current admitted attempt and retained budget.
 
 ## Intent
 
@@ -231,9 +271,19 @@ when contradictions emerge during execution; preserve existing explicit decision
    `clean`. If the user later reopens a terminal finding, Runtime creates the
    fresh bound repair handoff while preserving its attempts and evidence.
 9. Send declared actual changed paths, command results, validation results, and permitted acceptance evidence to Runtime `record-step-result` on stdin. A `test-red` result requires actual expected-failure results plus the new report for the exact unconsumed before-step non-acceptance reproduction check in `acceptance_evidence`; it cannot satisfy positive acceptance. In a Red preflight it needs no extra policy decision; outside Red it requires an exact `TEST_STRATEGY_SEQUENCE_INVALID` user warning decision from the preflight receipt or supplied as `record-step-result.policy_decision_id` after preflight. Subsequent review retains the `test-red` fact. Normal new reproduction evidence may also use `implemented` with a bound expected-failure report. Runtime captures the after-state, derives the exact before/after delta, rejects a mismatched path declaration, and owns phase/order enforcement, scope re-checking, finding bookkeeping, proposal construction, state, read-back, and step advancement. If the host call ends before this submission, preserve the live workspace and continue in a later call with `resume-preflight`; if exact recovery is unavailable, use the explicit `reconcile-preflight` disposition route described above rather than a dead-end or an invented result.
-   For a repair on a step that is already `completed` and awaiting verification, `outcome: blocked` records the repair execution fact while preserving the step progress as `completed`; it does not claim acceptance and does not consume the pending review. If an older Runtime retained the repair preflight or committed only the finding attempt, call `begin-repair` with the exact admitted paths to recover the same receipt, then retry `record-step-result` with the same execution identity. The exact replay is idempotent: it does not spend another finding attempt or controlled grant. After a blocked repair result, follow the `review-change` remediation review; do not call `complete-reviewed-step` until a later repair result has passed and received a clean review. Ordinary blocked steps keep their existing blocked-state recovery rules.
-   If that remediation review is `blocked` and every original finding is already `resolved`, use `begin-repair` with its exact `blocked_result_id` and current authorized candidate paths. This creates a fresh repair execution and preflight for the AI's diagnosed correction or restored check, without reopening a resolved finding or spending another finding repair attempt. It does not waive the failure: report the new command result, obtain a new verification review, and advance only after a clean review. Newly discovered product errors follow the ordinary finding and authority routes; never invent a finding merely to unlock this continuation.
-10. When the canonical review result is `clean`, call Runtime `complete-reviewed-step`; completion cannot add evidence, never supply or copy a review receipt, and do not edit product code again. When Runtime reports a risk-selected dynamic-review gate, obtain its fresh cumulative `review-change` result even if the ordinary checkpoint is not required. Do not add review merely because a low-risk private path was discovered. Runtime retains the existing required review and repair verification gates.
+   `record-step-result` registers execution facts only: nonblocked results leave
+   the step `in-progress`, blocked results leave it `blocked`; legacy submitted
+   `completed` is not a completion grant. Repair registration retains unresolved
+   challenges and finding history and yields verification work, never a clean
+   result. Quota admission belongs before execution; `begin-repair` reserves the
+   exact finding wave before returning a mutation-ready receipt. Lost replies
+   recover that same admission and do not spend a new attempt. An admitted
+   outcome may be appended after pause/termination while the original identity,
+   definition and footprint still match; that append never reactivates the task
+   or changes its archived qualification. Evidence remains caller-reported.
+
+   If that remediation review is `blocked` and every original finding is already `resolved`, use `begin-repair` with its exact `blocked_result_id` and current authorized candidate paths. This creates a fresh repair execution and preflight for the AI's diagnosed correction or restored check, without reopening a resolved finding or spending another finding repair attempt. It does not waive the failure: report the new command result, obtain a new verification review when authorized or leave it pending, and advance only after a clean review. Newly discovered product errors follow the ordinary finding and authority routes; never invent a finding merely to unlock this continuation.
+10. After recording an ordinary successful execution with a frozen `not-required` checkpoint and no dynamic/repair review obligation, call `complete-executed-step` with `{step_id, note}`. This is an internal completion operation, not another execution or a new review. It evaluates actual completion qualifications separately. Otherwise, when a valid canonical review result is already `clean`, call Runtime `complete-reviewed-step`; completion cannot add evidence, never supply or copy a review receipt, and do not edit product code again. A risk-selected dynamic-review gate requires fresh cumulative review even if the ordinary checkpoint is not required: perform it only under the authorization rule above, otherwise leave the review obligation pending. Do not add review merely because a low-risk private path was discovered. Runtime retains the existing required review and repair verification gates.
 
 For selected validation, preserve the independently specified expected outcome.
 A failing assertion is not permission to copy actual output into the oracle or
@@ -246,9 +296,9 @@ once the planned necessary validation is complete; do not add an E2E or full-sui
 
 If the fresh summary reports an unresolved evidence challenge, do not consume
 the challenged old result. Only the confirmed correction step may run. Record a
-new result ID for the exact challenged slot, then obtain a fresh clean review;
-Runtime resolves the challenge on reviewed completion and advances to the
-original pending step. Unaffected old reports may satisfy the new plan only
+new result ID for the exact challenged slot, then perform a fresh review if
+authorized or leave it pending; only a clean reviewed completion resolves the
+challenge and advances to the original pending step. Unaffected old reports may satisfy the new plan only
 when Runtime supplies and rechecks an `evidence-carry-forward/v1` proof. A
 previous before-step receipt or clean review cannot be copied to the correction.
 
@@ -295,7 +345,9 @@ Legacy metadata is not fabricated to enter this engineering-only route.
 
 Return one structured `change-result` with the current step, Runtime-detected
 changed files, commands and validation run, evidence, Runtime result, and any
-unresolved blocker. Before returning a blocker, apply the internal recovery rules
+unresolved blocker. If formal review was authorized in this request, include its
+actual verdict, findings, evidence and self-review status; if independent review
+remains pending, say so. Before returning a blocker, apply the internal recovery rules
 below; recovery is not restricted to same-plan retry.
 
 - If result registration or storage publication fails, inspect the retained
@@ -315,11 +367,11 @@ below; recovery is not restricted to same-plan retry.
   by the existing instruction. If supported internal recovery cannot restore an
   external prerequisite, report that concrete prerequisite and retained state.
 
-After an implemented/completed result for the requested execution intent, stop.
+After the requested execution is recorded, complete an already qualified review-exempt step internally. If formal review remains, perform it in this request only when explicitly authorized as above; otherwise return its truthful review or recovery handoff and stop. Consume a valid existing review under the ordinary completion rules. A later qualification refusal does not undo the recorded execution.
 A Runtime-created recovery continuation serving that same intent is internal
 recovery; this does not authorize starting unrelated later task steps.
 
-Only when Runtime reports successful step completion, return `next_route: git-commit` and a `commit_scope` containing the Runtime-detected changed files plus Runtime-written workflow paths. This is a recommendation for the user—or an explicitly configured outer orchestrator—to invoke later; neither execute-step nor Runtime invokes it. Otherwise recommend the appropriate review or blocker route. This invocation must not invoke another public Skill or start an unrelated next step; the same-intent internal recovery described above remains its responsibility.
+Only when Runtime reports successful step completion, return `next_route: git-commit` and a `commit_scope` containing the Runtime-detected changed files plus Runtime-written workflow paths. This is a recommendation for the user—or an explicitly configured outer orchestrator—to invoke later; neither execute-step nor Runtime invokes it. Otherwise recommend the appropriate review or blocker route. An explicitly requested review of this implementation may use the existing internal review operations in this request. This invocation must not invoke another public Skill or start an unrelated next step; the same-intent internal recovery described above remains its responsibility.
 
 terminal_boundary: public-entry-terminal/v1
 

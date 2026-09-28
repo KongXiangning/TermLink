@@ -212,7 +212,9 @@ if (process.argv[2] === '--isolated-child') {
         const reopenedTool = reopened.state.tool_details.find((detail) => detail.call_id === 'command-1');
         assert.equal(reopenedTool.item_key, 'tool:command-1');
         assert.equal(reopenedTool.tool_kind, 'local_shell');
-        assert.equal(reopenedTool.input, '{"command":["cargo","test"],"cwd":"<local-path-redacted>"}');
+        const reopenedToolInput = JSON.parse(reopenedTool.input);
+        assert.deepEqual(reopenedToolInput.command, ['cargo', 'test']);
+        assert.equal(reopenedToolInput.cwd, 'file:///synthetic/private/workspace');
         assert.equal(reopenedTool.output, 'status=completed; exit_code=0; duration_ms=1500; output=ok 3 passed\n');
         const reopenedToolEvents = reopened.state.items.filter((item) =>
             item.event.payload.call_id === 'command-1');

@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "document_id": "doc-03166aa61e365e5f8af1f680",
+  "blocked_attempt_id": "attempt-6c2178b070dbc692e402ab34dd97d7a66f0d16f2",
+  "step_id": "S4-android-sync-jvm",
+  "evidence_plan_revision": "8be816016f6972cd14c386789fe9dd6320226a8cff87dc855dccd90facc92370",
+  "subject_revision": "22f47753183515671d5d3c014e816356a0a43a0fe94730f61c9ec293bd19d775",
+  "task_id": "003",
+  "kind": "environment-restored/v1",
+  "resolution": "Set process-local ANDROID_HOME and ANDROID_SDK_ROOT to D:\\ProgramCode\\Android\\Sdk and verified the SDK directory plus platforms/build-tools. The retry will retain JDK 21 and the exact frozen Gradle invocation.",
+  "diagnosis": "The frozen Android JVM Gradle command stopped during configuration before the selected tests ran. At failure, ANDROID_HOME and ANDROID_SDK_ROOT were unset although D:\\ProgramCode\\Android\\Sdk exists and contains platforms and build-tools."
+}

@@ -1,0 +1,11 @@
+# CR-20260926 Task 003 S5
+
+- Step: `S5`
+- Scope: release staging for the platform Rust analyzer, package-relative analyzer resolution, and product SQLite runtime smoke.
+- Planned check: `node --test --test-name-pattern=product-history-package tests/codexHistoryProductPackage.test.js`
+- Planned validation: `git diff --check`
+- Evidence status: passed; Runtime result registration pending review.
+
+The step keeps the analyzer outside the product DTO boundary. Release staging fails closed when the platform binary is missing or has the wrong platform name. The package smoke installs production dependencies with `--ignore-scripts`, starts the staged analyzer through a relative package path, and writes/reopens the product database in the persistent data directory.
+
+Execution: the first invocation exposed a Windows-only test harness error (`spawn EINVAL`) from invoking `npm.cmd` without a shell. The test harness was repaired to invoke the same `npm ci --omit=dev --ignore-scripts --no-audit --no-fund` command through `ComSpec`; the frozen package smoke then passed (1 test, 1 pass, 0 fail).

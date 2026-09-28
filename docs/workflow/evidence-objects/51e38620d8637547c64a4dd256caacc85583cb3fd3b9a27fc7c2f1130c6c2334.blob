@@ -1,0 +1,76 @@
+---
+title: Task 003 S4 Rust→Node 产品历史接入 - 变更记录
+status: draft
+record_id: CR-20260926-task003-s4
+req_id: none
+commit_ref: TBD
+owner: @maintainer
+last_updated: 2026-09-26
+source_of_truth: code
+related_code: [src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexHistoryReconciliationScheduler.js, src/server.js, tests/codexHistoryProductFlow.test.js]
+related_docs: [docs/codex/codex-history-product-contract.md, docs/codex/codex-rollout-collector-architecture.md]
+---
+
+# CR-20260926-task003-s4
+
+## 1. 变更意图（Compact Summary）
+
+- 背景：S2/S3 已提供产品 SQLite Store 与鉴权只读历史 Gateway，但真实 Rust `batch → ACK → complete → canonical transaction` 链和无人在线时的 source-ready 唤醒尚未接入。
+- 目标：让单例 Node collector 在正 ACK 前完成产品 staging；只在既有 Rust `complete` 与 checkpoint/coverage 验证通过后原子发布；通过终态 IPC surface 与服务启动恢复触发 backfill/append。
+- 本次边界：只接入已确认的 Task 003 S4，不改 Android、健康 IPC authority、Codex source 边界或 S5 发布 staging。
+
+## 2. 实施内容（What changed）
+
+1. 扩展现有 `AnalysisBatchImporter`：已验证的 target batch 完成 File Store staging 后，再 durable stage 到产品库；只有两边持久化成功才返回正 ACK 所需的结果。
+2. 在 `complete` 通过既有 accepted-delivery、batch scope、watermark 与 checkpoint 校验后，确认投影为 canonical 且 coverage complete，再将 Rust reduced items、详情、usage、outcomes、coverage 和内部 checkpoint 交给一个产品事务发布。产品 payload 保留事件业务字段和值，隔离 `source_ref` 与 checkpoint。
+3. 新增终态 snapshot reconciliation scheduler。服务启动时恢复 collector 的可恢复任务，并检查 IPC feed 已缓存终态；没有 App/WebSocket 客户端也能由 Codex IPC source-ready 事实触发 backfill 或从产品 canonical checkpoint 继续 append。
+4. Server 使用 `TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH` 配置 analyzer binary。S5 负责将平台 binary 纳入发布 staging 并提供该路径。
+5. 增加真实 Rust→产品 DB→历史 Gateway 与无人在线/重启 append 的集成覆盖，并将 S1 生命周期测试中的过时占位符断言改为精确 cwd/命令原值断言。
+
+## 3. 影响范围（Files/Modules/Runtime）
+
+- 文件：
+  - `src/services/codexRolloutCollector/analysisBatchImporter.js`
+  - `src/services/codexHistoryReconciliationScheduler.js`
+  - `src/server.js`
+  - `tests/codexHistoryProductFlow.test.js`
+  - `tests/codexRolloutCollector.isolatedLifecycle.test.js`
+  - `docs/codex/codex-history-product-contract.md`
+- 模块：
+  - 单例 Rust analyzer 的 Node importer、SQLite 产品历史 staging/publication、终态 IPC source-ready 调度与既有鉴权历史 Gateway。
+- 运行时行为：
+  - Product DB history 只在 canonical complete 验证成功后可见；partial/provisional 输出不会替换旧 canonical。
+  - App DTO 不包含 source locator、cursor、checkpoint、`source_ref` 或 analyzer 恢复状态；健康 IPC 实时流保持原权威。
+  - 未设置 `TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH` 时 server 不启动该 collector；平台 binary staging 在 S5 完成。
+
+## 4. 回滚方案（命令级）
+
+```powershell
+# 回滚承载本变更的提交
+git revert <commit_ref>
+
+# 或仅恢复 S4 文件
+git checkout <commit_ref>^ -- src/services/codexRolloutCollector/analysisBatchImporter.js src/services/codexHistoryReconciliationScheduler.js src/server.js tests/codexHistoryProductFlow.test.js tests/codexRolloutCollector.isolatedLifecycle.test.js docs/codex/codex-history-product-contract.md docs/changes/records/CR-20260926-task003-s4.md
+```
+
+## 5. 验证记录（Tests/Checks）
+
+- 校验命令：待 S4 冻结门禁执行后填入。
+- 结果：待实际执行后按 evidence slot 逐项记录，不预填通过结果。
+
+### 修复过程记录
+
+- 先行检查 `node --test --test-name-pattern=product-history-store tests/codexHistoryProductFlow.test.js` 与 `node --test --test-name-pattern=product-history-read tests/codexHistoryProductFlow.test.js` 通过，分别为 3 项和 8 项通过、0 项失败。
+- 首次执行 `node --test --test-name-pattern=product-history-real-rust tests/codexHistoryProductFlow.test.js` 失败：合成 rollout 的 `event_msg/agent_message` 使用 `phase: final`，Rust 返回 `partial`，诊断为 `missing_required_field:event_msg/agent_message`（rollout ordinal 3）。这是测试 fixture 格式问题，不是产品发布 gate 的失败。
+- 修复：将该 fixture 的 agent message phase 改为与已验证真实 Rust 生命周期 fixture 一致的 `commentary`，不放宽 canonical 判定或解析门槛。
+- 按同一冻结命令重跑：通过，1 项通过、0 项失败；观察到 Rust `complete` 为 canonical、coverage complete、产品 staging/publish 与 Gateway 读取断言均通过。
+
+## 6. 后续修改入口（How to continue）
+
+- S5 在独立步骤中处理 analyzer/SQLite 发布 staging 与包内 smoke，并为本步 server 配置提供 analyzer path。
+- 如需改变 IPC 实时权威、follower lifecycle 或 source locating 边界，必须独立准备并确认任务。
+
+## 7. 风险与注意事项
+
+1. analyzer executable 的发布随 S5 完成；本步在开发/验证环境显式提供路径。
+2. 终态 snapshot 缺失、desynced 或 Rust/Node 持久化失败时维持 fail-closed，不推测 rollout 文件位置。

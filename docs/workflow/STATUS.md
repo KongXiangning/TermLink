@@ -7,7 +7,7 @@
 - TermLink：Node.js CommonJS / Express / WebSocket、Android Kotlin + WebView。
 - 当前治理：vNext 0.18.0；canonical CURRENT_TASK 000 closed/archived 是非执行业务 Bootstrap 基线。20260828-001 已归档，限于隔离 Node collector / Rust target。
 - 本页整理旧 STATUS、DECISIONS、归档任务和现有画像；旧测试记录没有在迁移时全部重跑。
-- 当前状态：completed
+- 当前状态：observing
 
 ## ✅ 已完成且稳定
 
@@ -41,6 +41,8 @@
 - App 内 Skill 输入解析扫描 .codex/skills、skills、.claude/skills；安装在 .agents/skills 的 11 个 vNext 公共 Skill 不自动进入该产品目录。本轮不改 Gateway。
 - Bootstrap 收据绑定 adopt 当时字节。内容迁入后 realign 分类 stale，不能将 Runtime validate 或软件校验通过写作收据 clean；不得手改收据或无审查地重跑会覆盖项目说明的 realign。
 - 产品数据库、正式业务入口、历史发布和 App 接入仍属后续独立任务；本轮未部署。
+- Task 003 stopped with S5 in-progress, two open findings and C4 flow/package/unattended evidence obligations; acceptance and validation remain false.
+- S5 result dry-run was blocked: MUTATION_AUTHORITY_GOVERNANCE_BOUNDARY on 58 android/** preflight candidate paths; no S5 result was registered.
 
 ## ❌ 已移除 / 推迟
 
@@ -53,8 +55,10 @@
 - 若需对齐 Bootstrap 收据，先解决 realign 保留项目专有文档和宿主说明的问题，再走正常入口。
 - 旧 STATUS 更新日志仍原字节保留在 .workflow-system/legacy/one-time-codex-20260913/docs/workflow/STATUS.md，其旧“当前任务”和旧命令不是现行状态。
 - 后续产品集成须另立任务，经 prepare-task 确认范围与验收。
+- Any Task 003 continuation requires a new authorized task and fresh evidence/review; consult TASKS/TASK-003-rust-node-app.md.
 
 ## 最近更新记录
+
 
 
 - 2026-09-13：按原归档和项目记录完成一次性 vNext 内容迁移；本轮实际校验和未重验项目另见迁移证据。
@@ -74,4 +78,21 @@
 - remaining_risks: ["产品数据库、正式业务入口、历史发布和 App 接入仍属后续独立任务；本轮未部署。"]
 - next_checkpoint: "后续产品集成须另立任务，经 prepare-task 确认范围与验收。"
 - evidence_refs: ["TASKS/TASK-002-rollout.md","docs/workflow/CURRENT_TASK.md","docs/codex/codex-rollout-isolated-closure-verification.md","docs/changes/records/CR-20260916-rollout-blockers-s3.md"]
+<!-- END vNext close-task STATUS reconciliation -->
+
+<!-- BEGIN vNext close-task STATUS reconciliation -->
+- task_id: 003
+- task_slug: rust-node-app
+- document_id: doc-03166aa61e365e5f8af1f680
+- archive_path: TASKS/TASK-003-rust-node-app.md
+- archive_revision: 3ba5ae9714d8803f97e1ef1657327381bfd13298909baeae89b5a9212e0b1bec
+- source_revision: b1edc95785caff04cac4aa7ac5fa1f000769962d5e25c7dc39abf65084136428
+- proposal_idempotency_key: close-003-status-stopped-20260928-3f403301
+- delta_digest: fe2dd96cf8927801a9f88942f01d640921849ca526996b2086c4d2f99f28fda0
+- status: observing
+- summary: "Task 003 stopped by user with S5 incomplete; code and unresolved evidence/findings retained in the archive."
+- completed_items: ["公共 backfill 有界补齐并安全衔接 append"]
+- remaining_risks: ["Task 003 stopped with S5 in-progress, two open findings and C4 flow/package/unattended evidence obligations; acceptance and validation remain false.","S5 result dry-run was blocked: MUTATION_AUTHORITY_GOVERNANCE_BOUNDARY on 58 android/** preflight candidate paths; no S5 result was registered."]
+- next_checkpoint: "Any Task 003 continuation requires a new authorized task and fresh evidence/review; consult TASKS/TASK-003-rust-node-app.md."
+- evidence_refs: ["TASKS/TASK-003-rust-node-app.md","docs/workflow/CURRENT_TASK.md","docs/changes/records/CR-20260926-task003-s5.md"]
 <!-- END vNext close-task STATUS reconciliation -->
