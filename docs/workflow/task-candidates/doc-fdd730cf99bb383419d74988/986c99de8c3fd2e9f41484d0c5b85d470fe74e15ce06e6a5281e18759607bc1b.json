@@ -1,0 +1,2412 @@
+{
+  "kind": "correction-replan-candidate/v2",
+  "task_id": "004",
+  "document_id": "doc-fdd730cf99bb383419d74988",
+  "problem_keys": [
+    "claim:C3/C3-read-final",
+    "claim:C4/C4-package"
+  ],
+  "retained_budget": {
+    "review_cycle": {
+      "id": "review-cycle-7c5c9f29c7ed05bfab5a53b481ef34f8",
+      "cycle_phase": "discovery",
+      "repair_round": 0,
+      "counted_repair_wave_ids": [],
+      "active_repair_wave_id": null,
+      "verification_new_finding_wave_used": false,
+      "verification_new_finding_wave_id": null
+    },
+    "step_attempts": {
+      "S1": {
+        "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+        "max_attempts": 3,
+        "attempts": [
+          {
+            "attempt_id": "attempt-8b54ae857dac89f7c3d2dac07b0fd410b6ffec1f",
+            "idempotency_key": "preflight-73d167c5da0eed6e9b76af4cbe10065c473abebaf76789d9dc9480641c757624",
+            "request_digest": null,
+            "status": "implemented",
+            "blocker": null,
+            "evidence_refs": [
+              "docs/workflow/CURRENT_TASK.md",
+              "docs/changes/records/CR-20260928-task004-s1.md#3"
+            ]
+          }
+        ]
+      },
+      "S2": {
+        "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+        "max_attempts": 3,
+        "attempts": [
+          {
+            "attempt_id": "attempt-a54cac1f29f5229ca739176fd8e560f2c8408ab6",
+            "idempotency_key": "preflight-cf8524552d0d11acfa036a9a4ed041bf471d6bf8dfa927ebc6d5999c6ceec837",
+            "request_digest": null,
+            "status": "blocked",
+            "blocker": {
+              "kind": "unknown",
+              "execution_result": {
+                "execution_id": "execution-aa61bc833fa8315936e09ab860fef90330b9220e0fa0bf930139cb393a9f0d66",
+                "attempt_id": "attempt-a54cac1f29f5229ca739176fd8e560f2c8408ab6",
+                "outcome": "blocked",
+                "change_set_id": "change-set-0d64d9fdb8bfd434eca5a6a06c94e843",
+                "review_base": {
+                  "kind": "runtime-file-manifest/v1",
+                  "revision": "03244816a83dd4f178e03abfad52fcacafa6af1552f7fed264bf7e7d01bb7dbb",
+                  "entries": [
+                    {
+                      "path": "docs/changes/records/CR-20260928-task004-s2.md",
+                      "state": "absent",
+                      "sha256": null
+                    },
+                    {
+                      "path": "docs/codex/codex-history-product-contract.md",
+                      "state": "file",
+                      "sha256": "15b808606067366d0e23846ade7a6dac1e9a252521494ffd620442dd28430d8e"
+                    },
+                    {
+                      "path": "tests/codexHistoryProductPackage.test.js",
+                      "state": "file",
+                      "sha256": "d3adb58c5aea9a7239df283f3d024aef83cc91f81eef5beaa80d1885999883fd"
+                    }
+                  ]
+                },
+                "review_target": {
+                  "kind": "runtime-file-manifest/v1",
+                  "revision": "a294ab38b6d5163397e58c058e32209e013d46f97a230c1e1e168bd09e27c152",
+                  "entries": [
+                    {
+                      "path": "docs/changes/records/CR-20260928-task004-s2.md",
+                      "state": "absent",
+                      "sha256": null
+                    },
+                    {
+                      "path": "docs/codex/codex-history-product-contract.md",
+                      "state": "file",
+                      "sha256": "15b808606067366d0e23846ade7a6dac1e9a252521494ffd620442dd28430d8e"
+                    },
+                    {
+                      "path": "tests/codexHistoryProductPackage.test.js",
+                      "state": "file",
+                      "sha256": "5dc97739318c8fdfd336e6c717c0f3326058fca52de206be32621c9d5a74d5f9"
+                    }
+                  ]
+                },
+                "change_delta": {
+                  "kind": "runtime-file-delta/v1",
+                  "base_revision": "03244816a83dd4f178e03abfad52fcacafa6af1552f7fed264bf7e7d01bb7dbb",
+                  "target_revision": "a294ab38b6d5163397e58c058e32209e013d46f97a230c1e1e168bd09e27c152",
+                  "entries": [
+                    {
+                      "path": "tests/codexHistoryProductPackage.test.js",
+                      "before_state": "file",
+                      "before_sha256": "d3adb58c5aea9a7239df283f3d024aef83cc91f81eef5beaa80d1885999883fd",
+                      "after_state": "file",
+                      "after_sha256": "5dc97739318c8fdfd336e6c717c0f3326058fca52de206be32621c9d5a74d5f9"
+                    }
+                  ]
+                },
+                "actual_changed_paths": [
+                  "tests/codexHistoryProductPackage.test.js"
+                ],
+                "command_results": [
+                  {
+                    "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js",
+                    "status": "failed",
+                    "observed_repo_writes": [],
+                    "evidence_refs": [
+                      "tests/codexHistoryProductPackage.test.js:305"
+                    ]
+                  },
+                  {
+                    "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+                    "status": "not-run",
+                    "observed_repo_writes": [],
+                    "evidence_refs": []
+                  },
+                  {
+                    "command": "git diff --check -- src native/codex-rollout-collector tests scripts package.json package-lock.json docs/codex docs/changes",
+                    "status": "not-run",
+                    "observed_repo_writes": [],
+                    "evidence_refs": []
+                  }
+                ],
+                "validation_results": [
+                  {
+                    "validation": "C4-package 两项旧 P1 的独立反例能够失败，修复后实际包链路通过",
+                    "status": "failed",
+                    "evidence_refs": [
+                      "tests/codexHistoryProductPackage.test.js:305"
+                    ]
+                  },
+                  {
+                    "validation": "实际包 DB 与 job/receipt/checkpoint/intent 恢复均位于 persistent/data",
+                    "status": "not-run",
+                    "evidence_refs": []
+                  },
+                  {
+                    "validation": "本批产品契约与 CR 同步",
+                    "status": "not-run",
+                    "evidence_refs": []
+                  }
+                ],
+                "acceptance_evidence": [],
+                "blocker": "Package smoke reached real Rust/staging/restart, then failed at test-only assertion requiring all app/data entries to be absent. app/data may contain unrelated runtime data; the required history DB and analyzer recovery paths must be checked by exact names."
+              },
+              "subject_snapshot": {
+                "kind": "runtime-file-manifest/v1",
+                "revision": "130e475baa72d1d0c93cf77a28cce532e79621479b59762be9c5012c308fae2d",
+                "entries": [
+                  {
+                    "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+                    "state": "file",
+                    "sha256": "0ad9777bc044b166b2176bc7d15d705e2065da1bae626055395a928d56255a71"
+                  },
+                  {
+                    "path": "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt",
+                    "state": "file",
+                    "sha256": "38701067850694b5e956cb99996b18b380a1cebd3f41aa117c2106d4fbde44fe"
+                  },
+                  {
+                    "path": "android/app/src/test/java/com/termlink/app/codex/data/CodexIpcWireModelTest.kt",
+                    "state": "file",
+                    "sha256": "17488364a392e9baae317c28e9f6d7bcafccd45e33c05851fa6e723af1e59f60"
+                  },
+                  {
+                    "path": "docs/changes/records/CR-20260928-task004-s1.md",
+                    "state": "file",
+                    "sha256": "2336965e097ac443098794d1bb1e7a55296f70461899cd7db3e47654937e4cc1"
+                  },
+                  {
+                    "path": "docs/changes/records/CR-20260928-task004-s2.md",
+                    "state": "absent",
+                    "sha256": null
+                  },
+                  {
+                    "path": "docs/codex/codex-history-product-contract.md",
+                    "state": "file",
+                    "sha256": "15b808606067366d0e23846ade7a6dac1e9a252521494ffd620442dd28430d8e"
+                  },
+                  {
+                    "path": "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+                    "state": "file",
+                    "sha256": "0cfa86309e23af4863ede36e8234a2ab314addfc56cb721e4c307587c3499eb1"
+                  },
+                  {
+                    "path": "native/codex-rollout-collector/tests/conformance.rs",
+                    "state": "file",
+                    "sha256": "b8c3c9cdb95b4d80ac01e6ba6afb3eb6778e430c4b6a64fbd2328e77c5883169"
+                  },
+                  {
+                    "path": "native/codex-rollout-collector/tests/rollout_blockers.rs",
+                    "state": "file",
+                    "sha256": "8771367762dd48db49eff343d7388b4b0498bd718d5e89c32ee32e9cae297f88"
+                  },
+                  {
+                    "path": "package-lock.json",
+                    "state": "file",
+                    "sha256": "8298131339659360fb59668a7013aae3dfec6c6ec66b818171a43fecdd8ad155"
+                  },
+                  {
+                    "path": "package.json",
+                    "state": "file",
+                    "sha256": "0b19018540d20f35bd23d9b0625efd9ed21c3e8f55c20a78699b82234142c7f7"
+                  },
+                  {
+                    "path": "scripts/release/build-release.js",
+                    "state": "file",
+                    "sha256": "d84952b4a80ddec55294c2d813fc136fea3cb758a3de698d1baeceacf2b9565a"
+                  },
+                  {
+                    "path": "scripts/release/release-layout.js",
+                    "state": "file",
+                    "sha256": "495bc762c7deb79b64bad223f7f2e2fea05af84b752a628f8320c5d686303e7c"
+                  },
+                  {
+                    "path": "scripts/release/windows-release.js",
+                    "state": "file",
+                    "sha256": "0995ba53e2bfcfaca2376a59e3c96f8c6c8918fa8c8a65b31006f3572a0c9898"
+                  },
+                  {
+                    "path": "src/server.js",
+                    "state": "file",
+                    "sha256": "ad0f206de6eb7b03c5a1f78a56345641c640c4bcd48c56dcdbb97c70c039d5d6"
+                  },
+                  {
+                    "path": "src/services/codexHistoryBaselineProvider.js",
+                    "state": "file",
+                    "sha256": "67fce684f860213a1d98a7ce3421b434e6640e05b1fef3f87c8f6ee273358b2f"
+                  },
+                  {
+                    "path": "src/services/codexHistoryProductProvider.js",
+                    "state": "file",
+                    "sha256": "b5a7bd4242e0c39933ada48d617968bef8f1ecdec05248c2fe38537029d30d50"
+                  },
+                  {
+                    "path": "src/services/codexHistoryProductStore.js",
+                    "state": "file",
+                    "sha256": "f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16"
+                  },
+                  {
+                    "path": "src/services/codexHistoryReconciliationScheduler.js",
+                    "state": "file",
+                    "sha256": "90884a77cedee0802f367dcdf6bf25da65c4a2f5d3da8483d8d291bb106a9f6d"
+                  },
+                  {
+                    "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+                    "state": "file",
+                    "sha256": "fc1f26d390a886cd1450d445a4c65a94b28bcbbd0847341c828919b8647c4847"
+                  },
+                  {
+                    "path": "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+                    "state": "file",
+                    "sha256": "495286171b5ad11ff13e5a3ce52e36bf7c055940630ade9c60d5430f525ee167"
+                  },
+                  {
+                    "path": "src/services/codexRolloutCollector/analysisRunStore.js",
+                    "state": "file",
+                    "sha256": "84f0273c1faf06f8fbc048cd3b61c3ae60b3940d034c0aca70271ffe11c5cf0f"
+                  },
+                  {
+                    "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+                    "state": "file",
+                    "sha256": "cda575e3c5371633d23e7fca3feb7921ecc41b6040695ffffa3bd1cf5f63e865"
+                  },
+                  {
+                    "path": "src/services/codexRolloutCollector/index.js",
+                    "state": "file",
+                    "sha256": "780d27c0f991e3e0b940cc4092e4f5733d6c50aa99753eb06fbf480cc58a327e"
+                  },
+                  {
+                    "path": "src/ws/terminalGateway.js",
+                    "state": "file",
+                    "sha256": "f7fdf8e277427959e73f34b84363491fc133185b7872974ac8c5b33b651be56b"
+                  },
+                  {
+                    "path": "tests/codexHistoryProductFlow.test.js",
+                    "state": "file",
+                    "sha256": "74d8b7035d0dcdb9f921aedcd3fe8fb01e24e201f0d5b8df2871b148085a9f3a"
+                  },
+                  {
+                    "path": "tests/codexHistoryProductPackage.test.js",
+                    "state": "file",
+                    "sha256": "5dc97739318c8fdfd336e6c717c0f3326058fca52de206be32621c9d5a74d5f9"
+                  },
+                  {
+                    "path": "tests/codexOwnerSurfaceTracker.test.js",
+                    "state": "file",
+                    "sha256": "9a70eae44463a76fa31897b003aedaaa92e8d37091ae0028db3b0bb2e49ef01b"
+                  },
+                  {
+                    "path": "tests/codexRolloutCollector.isolatedLifecycle.test.js",
+                    "state": "file",
+                    "sha256": "b07e24f9f13d8f25c8b83446e90c47fd0f2daa36d7467e9632e7218d3d76eaf3"
+                  },
+                  {
+                    "path": "tests/terminalGateway.codexIpc.test.js",
+                    "state": "file",
+                    "sha256": "c31832c777baf23926b0ae526dbbbe2684af095368a6c571f643c8321192cfbd"
+                  }
+                ]
+              }
+            },
+            "evidence_refs": [
+              "docs/workflow/CURRENT_TASK.md",
+              "tests/codexHistoryProductPackage.test.js:305"
+            ]
+          },
+          {
+            "attempt_id": "attempt-c9df6a5537bb9f81a87b2f25806b21026433f801",
+            "idempotency_key": "task004-s2-retry-package-assertion-20260928",
+            "request_digest": "8b2a9b761f3f902040bd801e8171f6d45c2cd1b4a41328056c4a221953b19235",
+            "status": "implemented",
+            "blocker": null,
+            "recovery": {
+              "kind": "same-plan-repair/v1",
+              "status": "confirmed",
+              "owner": "current-step",
+              "failed_check": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js",
+              "cause": "The test asserted packaged app/data was entirely empty, but unrelated packaged runtime data may legitimately live there. Verify only the exact history database and analyzer recovery paths required under persistent/data.",
+              "repair_paths": [
+                "tests/codexHistoryProductPackage.test.js"
+              ]
+            },
+            "evidence_refs": [
+              "tests/codexHistoryProductPackage.test.js:305",
+              "tests/codexHistoryProductPackage.test.js",
+              "docs/changes/records/CR-20260928-task004-s2.md",
+              "docs/codex/codex-history-product-contract.md"
+            ]
+          }
+        ]
+      },
+      "S3": {
+        "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+        "max_attempts": 3,
+        "attempts": [
+          {
+            "attempt_id": "attempt-42278113261ef6232460645401998f3ec162f2e4",
+            "idempotency_key": "preflight-0e01bddd6bfe4e2d51a9ea6f8aeaa50f4720472e94592784537665c0df8baa49",
+            "request_digest": null,
+            "status": "implemented",
+            "blocker": null,
+            "evidence_refs": [
+              "docs/workflow/CURRENT_TASK.md",
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "source_tuple": {
+    "path": "docs/workflow/CURRENT_TASK.md",
+    "revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+    "document_id": "doc-fdd730cf99bb383419d74988",
+    "task_id": "004",
+    "task_slug": "task-003-rust-node",
+    "workflow_status": "active",
+    "lifecycle_state": "active",
+    "active_step_id": "S3",
+    "active_step_status": "in-progress",
+    "finding_queue_revision": 0,
+    "resume_requires_review": false,
+    "resume_review_reasons": []
+  },
+  "evidence_admission": [
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-rust-path",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C1-RUST-PATH"
+    },
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-rust-nested",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C1-RUST-NESTED"
+    },
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-rust-budget",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C1-RUST-BUDGET"
+    },
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-rust-window",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C1-RUST-WINDOW"
+    },
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-node-final",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C1-NODE-FINAL"
+    },
+    {
+      "claim_id": "C2",
+      "slot_id": "C2-store-final",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C2-STORE-FINAL"
+    },
+    {
+      "claim_id": "C2",
+      "slot_id": "C2-publish",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C2-PUBLISH"
+    },
+    {
+      "claim_id": "C3",
+      "slot_id": "C3-read-final",
+      "status": "revalidate",
+      "original_result_id": "T004-CK-C3-READ-FINAL"
+    },
+    {
+      "claim_id": "C4",
+      "slot_id": "C4-flow-final",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C4-FLOW-FINAL"
+    },
+    {
+      "claim_id": "C4",
+      "slot_id": "C4-unattended",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C4-UNATTENDED"
+    },
+    {
+      "claim_id": "C4",
+      "slot_id": "C4-package",
+      "status": "revalidate",
+      "original_result_id": "T004-CK-C4-PACKAGE"
+    },
+    {
+      "claim_id": "C5",
+      "slot_id": "C5-gateway",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C5-GATEWAY"
+    },
+    {
+      "claim_id": "C5",
+      "slot_id": "C5-android",
+      "status": "reuse",
+      "original_result_id": "T004-CK-C5-ANDROID"
+    }
+  ],
+  "restore_plan": null,
+  "result_validity": [],
+  "historical_completion_refs": [
+    {
+      "execution_id": "execute-reviewed-step-9d67600a6a36acc4cc2d46649bdf4e83dcc05fe403c2e5db",
+      "step_id": "S1",
+      "definition_revision": "7acfd0e5d30d3d008fe228ffc4639d06f10bab8689372aae1fd103c524d4f4e6"
+    },
+    {
+      "execution_id": "execute-reviewed-step-08a686eaf7d1021dc81511dbc57ec6535834783808974eff",
+      "step_id": "S2",
+      "definition_revision": "7971ceb03f50c6d44fcc5ada5ddb0cee6cf3b456a4f70f2dac024d5ff95d06aa"
+    }
+  ],
+  "obligation_map": [
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-rust-path",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-rust-nested",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-rust-budget",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-rust-window",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C1",
+      "slot_id": "C1-node-final",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C2",
+      "slot_id": "C2-store-final",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C2",
+      "slot_id": "C2-publish",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C3",
+      "slot_id": "C3-read-final",
+      "due_step_id": "S3-corr"
+    },
+    {
+      "claim_id": "C4",
+      "slot_id": "C4-flow-final",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C4",
+      "slot_id": "C4-unattended",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C4",
+      "slot_id": "C4-package",
+      "due_step_id": "S3-corr"
+    },
+    {
+      "claim_id": "C5",
+      "slot_id": "C5-gateway",
+      "due_step_id": "S3"
+    },
+    {
+      "claim_id": "C5",
+      "slot_id": "C5-android",
+      "due_step_id": "S3"
+    }
+  ],
+  "evidence_objects": [
+    {
+      "path": "docs/changes/records/CR-20260928-task004-s3.md",
+      "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+      "size": 4374
+    },
+    {
+      "path": "tests/codexHistoryProductFlow.test.js",
+      "sha256": "74d8b7035d0dcdb9f921aedcd3fe8fb01e24e201f0d5b8df2871b148085a9f3a",
+      "size": 68656
+    },
+    {
+      "path": "tests/codexHistoryProductPackage.test.js",
+      "sha256": "c0f083468426bfca4c28cb0f1a8ec2f2b89188b255b6ac2a211eb77bb0f8602e",
+      "size": 18781
+    }
+  ],
+  "source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+  "basis_revision": "eaa2a5b8636fe4073cf449988b4740baf7d0d68f8302247fb66229518c9a2ac4",
+  "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+  "old_obligations": {
+    "task_id": "004",
+    "document_id": "doc-fdd730cf99bb383419d74988",
+    "goal": "### Goal\n\n承接 Task 003：完成 Rust 历史内容保留、Node 产品历史持久化与历史接口剩余修复及整体验收\n\n### Out of scope\n\n- Android 产品历史接线、UI 开发、APK/真机验收及 android:sync；仅运行契约指定 JVM 回归并允许生成单一问题报告。\n- 不改健康 IPC authority、follower lifecycle、owner 仲裁和 A/B 隔离；不设计多 writer、productSource/source epoch 产品命名空间、commitFence 或新 analyze mode。\n- 不修改外部 Codex rollout；不全量重写 Rust/Node 已完成实现，不改 vendor/protocol 或无关 Demo/Spike。\n- 不自动提交、推送、部署、安装系统服务或宣称完整发布就绪；隔离本机 staging smoke 不等于完整安装器/跨平台/线上验收。\n- Task003 已归档且未完成；不改其结果/旧 findings/证据，不把历史 PASS 导入新任务。\n\n### Project documents\n\n```json\n{\"version\":1,\"sources\":[{\"path\":\"docs/codex/codex-rollout-collector-architecture.md\",\"section\":\"whole document\",\"revision\":\"sha256:a56772305e08dc77969cb45b0ee055132ce060f181f3e233fac7b7f35355967d\",\"purpose\":\"限定单例采集、Rust 定位/读取、ACK durable staging 与 complete 后产品发布；非重设计\"},{\"path\":\"docs/codex/codex-history-product-contract.md\",\"section\":\"whole document\",\"revision\":\"sha256:0d8f01da06cb27b11d40e020fc1d233389812be9a698b1fdefe14ca14ad96308\",\"purpose\":\"继承 Task003 产品存储/DTO/正文/分页契约；更新包启动和持久恢复现状\"},{\"path\":\"docs/workflow/CONTRACTS.md\",\"section\":\"🔒 Codex 原生会话实时同步核心\",\"revision\":\"sha256:5a102082b3a6d3c2548df68c2fc0f1496fc6ef45bbc581e140a9923880465d9a\",\"purpose\":\"IPC authority 冻结与 Node/Android 必要回归\"},{\"path\":\"docs/workflow/DECISIONS.md\",\"section\":\"AD-004 / AD-018 / AD-019 / AD-020 / AD-021 / AD-022\",\"revision\":\"sha256:d8721637ddb924b5a5c9863fe56c33bbeac8dc80abe390765dacae713812dbcf\",\"purpose\":\"保留 IPC 及 Node/Rust 模块边界，不覆盖共享契约\"},{\"path\":\"docs/workflow/test-admission-policy.md\",\"section\":\"whole document\",\"revision\":\"sha256:03b5a4fa93bfe9e95a17f318a08e7e8bd79faf9ba1567c1d8fce72315047697f\",\"purpose\":\"复用已有关键断言，只补实际包链路缺口\"},{\"path\":\"docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md\",\"section\":\"whole document\",\"revision\":\"sha256:410b302996549d863a60f63156ee2dcfb3739d1b7d391715a63f8f1b79af2c0a\",\"purpose\":\"按架构选择 current formal interface，迁移说明不扩大产品范围\"},{\"path\":\"docs/codex/codex-rollout-collector-rust-analyzer-startup-contract-draft.md\",\"section\":\"whole document\",\"revision\":\"sha256:fd9a6d9af4e3e2662f8db63b64f42bf78c9378ad8f61dd665a7cdd2e73db189d\",\"purpose\":\"启动和 sessions_root 边界\"},{\"path\":\"docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md\",\"section\":\"4.4 / 5 / 6\",\"revision\":\"sha256:af436a4d80e6712e9718c0fd5aa696d34e6b26ce35752023da73d91b6fdf8739\",\"purpose\":\"普通 analyze 与 ACK/complete/retry 契约\"},{\"path\":\"docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md\",\"section\":\"9.2 / 10\",\"revision\":\"sha256:b133f74a5f83601e233c8d1fc5dda05c00cb7e34856628dc8653937a54748d39\",\"purpose\":\"checkpoint/delivery 与产品 DTO 分离\"},{\"path\":\"docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md\",\"section\":\"3 / 5 / 6 / 7 / 8\",\"revision\":\"sha256:095dd67c9aea9035604c764e988cac3bc7d017813c23056b3bbc16905635c7fb\",\"purpose\":\"唯一采集、durable job/recovery 与终态驱动\"}]}\n```",
+    "acceptance": "- [ ] Rust AnalysisBatch 保留真实事件中的文件路径、cwd、命令参数、工具输出/差异及 artifact 路径，不再用统一占位符破坏事实，同时维持正文预算和 source 访问边界。\n- [ ] Node 产品数据库按 conversation 保存一份 canonical 历史与必要详情、coverage、checkpoint；重启可恢复、重复交付幂等，只有 complete 校验通过后才原子发布。\n- [ ] Node 提供已鉴权的产品历史读取接口，支持首次历史、向前回填、追加与详情引用；可查看实际 event 路径，内部采集路径和 cursor 不进入 App DTO，读取不直连 Rust 且不改变健康 IPC 实时权威。\n- [ ] 实际 Rust 采集通过唯一 Node 采集链进入产品 DB 并由历史接口读出；首次加载、回填、追加、重启和 IPC 实时消息并存时，canonical 历史一致。 发布包默认启动启用已打包 analyzer，产品数据库及恢复状态使用持久目录，重启后历史可由实际接口读取。",
+    "scope": [
+      "- `native/codex-rollout-collector/src/codex_adapter/mod.rs`\n- `native/codex-rollout-collector/tests/conformance.rs`\n- `native/codex-rollout-collector/tests/rollout_blockers.rs`\n- `src/server.js`\n- `src/services/codexHistoryProductStore.js`\n- `src/services/codexHistoryProductProvider.js`\n- `src/services/codexHistorySyncService.js`\n- `src/services/codexHistoryBaselineProvider.js`\n- `src/services/codexHistoryReconciliationScheduler.js`\n- `src/services/codexRolloutCollector/index.js`\n- `src/services/codexRolloutCollector/analysisBatchImporter.js`\n- `src/services/codexRolloutCollector/analyzerProcessManager.js`\n- `src/services/codexRolloutCollector/analysisRunStore.js`\n- `src/services/codexRolloutCollector/analysisCheckpointStore.js`\n- `src/ws/terminalGateway.js`\n- `tests/codexHistoryProductFlow.test.js`\n- `tests/codexRolloutCollector.isolatedLifecycle.test.js`\n- `docs/codex/codex-history-product-contract.md`\n- `docs/changes/records/**`\n- `scripts/release/windows-release.js`\n- `scripts/release/release-layout.js`\n- `scripts/release/build-release.js`\n- `tests/codexHistoryProductPackage.test.js`\n- `package.json`\n- `package-lock.json`\n- `android/build/reports/problems/problems-report.html`",
+      "- none",
+      "- `native/codex-rollout-collector/vendor/**`\n- `public/**`\n- `android/app/src/**`\n- `src/services/codexIpcClient.js`\n- `src/services/codexIpcFeed.js`\n- `src/services/codexIpcThreadStream.js`\n- `src/services/codexOwnerSurfaceTracker.js`"
+    ],
+    "steps": [
+      {
+        "id": "S1",
+        "description": "核验 Task003 已有 Rust 内容保留与 Node 产品历史链路，先确认 Rust 契约和四项边界，再按实际失败修复 Node staging/ACK/complete 原子发布、重启幂等、鉴权历史 DTO/分页/详情及无人在线恢复。复用现有测试中的独立 fixture 期望，保持正文预算/媒体限制及 IPC 权威；无需变化处保留。同步产品契约与本批 CR。",
+        "purpose": "核验 Task003 已有 Rust 内容保留与 Node 产品历史链路，先确认 Rust 契约和四项边界，再按实际失败修复 Node staging/ACK/complete 原子发布、重启幂等、鉴权历史 DTO/分页/详情及无人在线恢复。复用现有测试中的独立 fixture 期望，保持正文预算/媒体限制及 IPC 权威；无需变化处保留。同步产品契约与本批 CR。",
+        "mutation_scope": "native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/tests/conformance.rs, native/codex-rollout-collector/tests/rollout_blockers.rs, src/server.js, src/services/codexHistoryProductStore.js, src/services/codexHistoryProductProvider.js, src/services/codexHistorySyncService.js, src/services/codexHistoryBaselineProvider.js, src/services/codexHistoryReconciliationScheduler.js, src/services/codexRolloutCollector/index.js, src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexRolloutCollector/analyzerProcessManager.js, src/services/codexRolloutCollector/analysisRunStore.js, src/services/codexRolloutCollector/analysisCheckpointStore.js, src/ws/terminalGateway.js, tests/codexHistoryProductFlow.test.js, tests/codexRolloutCollector.isolatedLifecycle.test.js, docs/codex/codex-history-product-contract.md, docs/changes/records/**",
+        "required_evidence": "Rust 路径、嵌套键、64 KiB 正文预算和跨窗口归属满足 C1; Node 事务、真实 Rust 发布、鉴权读接口与无人在线重启初验满足 C2-C4; 本批 CR 和范围内 diff 格式",
+        "review_checkpoint": "required",
+        "checkpoint_boundary": "跨 Rust/Node/持久化及 Gateway 边界，审查实际缺陷修复与冻结语义。"
+      },
+      {
+        "id": "S2",
+        "description": "在 S1 已稳定的链路上完成两项包级遗留问题：检查默认 analyzer 接线与全部恢复状态持久目录；扩展既有 package smoke，用真实包 server 触发 Rust 写库、故障/重启恢复和鉴权接口读取，不能以 Store helper 写入替代。保留 binary/平台 fail-closed、production SQLite 安装及显式 override/开发默认。按验收实际暴露的问题最小修复并更新产品契约及 CR。",
+        "purpose": "在 S1 已稳定的链路上完成两项包级遗留问题：检查默认 analyzer 接线与全部恢复状态持久目录；扩展既有 package smoke，用真实包 server 触发 Rust 写库、故障/重启恢复和鉴权接口读取，不能以 Store helper 写入替代。保留 binary/平台 fail-closed、production SQLite 安装及显式 override/开发默认。按验收实际暴露的问题最小修复并更新产品契约及 CR。",
+        "mutation_scope": "native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/tests/conformance.rs, native/codex-rollout-collector/tests/rollout_blockers.rs, src/server.js, src/services/codexHistoryProductStore.js, src/services/codexHistoryProductProvider.js, src/services/codexHistorySyncService.js, src/services/codexHistoryBaselineProvider.js, src/services/codexHistoryReconciliationScheduler.js, src/services/codexRolloutCollector/index.js, src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexRolloutCollector/analyzerProcessManager.js, src/services/codexRolloutCollector/analysisRunStore.js, src/services/codexRolloutCollector/analysisCheckpointStore.js, src/ws/terminalGateway.js, tests/codexHistoryProductFlow.test.js, tests/codexRolloutCollector.isolatedLifecycle.test.js, scripts/release/windows-release.js, scripts/release/release-layout.js, scripts/release/build-release.js, tests/codexHistoryProductPackage.test.js, package.json, package-lock.json, docs/codex/codex-history-product-contract.md, docs/changes/records/**",
+        "required_evidence": "C4-package 两项旧 P1 的独立反例能够失败，修复后实际包链路通过; 实际包 DB 与 job/receipt/checkpoint/intent 恢复均位于 persistent/data; 本批产品契约与 CR 同步",
+        "review_checkpoint": "required",
+        "checkpoint_boundary": "包启动、依赖与持久目录是独立交付边界，必须审查 smoke 是否绕过实际接线。"
+      },
+      {
+        "id": "S3",
+        "description": "对最终累计实现取得全部冻结 claims 的新证据，完成真实 Rust→Node→DB→鉴权历史接口、无人在线与包重启验收，执行强制 Owner/Gateway 与 JDK21 ViewModel/wire 回归。仅修复本范围暴露缺陷；若修复使结果过期，重验受影响义务并审查累计变化。同步 CR 与产品契约验收结论，列明本机包 smoke 边界、回退方式和未实施部署/真机项，为后续 close-task 提供真实证据。",
+        "purpose": "对最终累计实现取得全部冻结 claims 的新证据，完成真实 Rust→Node→DB→鉴权历史接口、无人在线与包重启验收，执行强制 Owner/Gateway 与 JDK21 ViewModel/wire 回归。仅修复本范围暴露缺陷；若修复使结果过期，重验受影响义务并审查累计变化。同步 CR 与产品契约验收结论，列明本机包 smoke 边界、回退方式和未实施部署/真机项，为后续 close-task 提供真实证据。",
+        "mutation_scope": "native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/tests/conformance.rs, native/codex-rollout-collector/tests/rollout_blockers.rs, src/server.js, src/services/codexHistoryProductStore.js, src/services/codexHistoryProductProvider.js, src/services/codexHistorySyncService.js, src/services/codexHistoryBaselineProvider.js, src/services/codexHistoryReconciliationScheduler.js, src/services/codexRolloutCollector/index.js, src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexRolloutCollector/analyzerProcessManager.js, src/services/codexRolloutCollector/analysisRunStore.js, src/services/codexRolloutCollector/analysisCheckpointStore.js, src/ws/terminalGateway.js, tests/codexHistoryProductFlow.test.js, tests/codexRolloutCollector.isolatedLifecycle.test.js, scripts/release/windows-release.js, scripts/release/release-layout.js, scripts/release/build-release.js, tests/codexHistoryProductPackage.test.js, package.json, package-lock.json, docs/codex/codex-history-product-contract.md, docs/changes/records/**, android/build/reports/problems/problems-report.html",
+        "required_evidence": "Rust 原始路径与内容保留; Rust 嵌套工具内容原值; Rust 绝对路径碰撞与输出预算; Rust 跨窗口工具原值与稳定键; 最终 Rust→Node 原值重开; 最终 Store 事务与重开; 真实 complete 后原子发布; 最终鉴权历史 DTO/分页与大小边界; 真实 Rust 纵向链路; 无人在线 source-ready 与重启恢复; 发布包 Rust/SQLite 运行 smoke; 最终 IPC/Owner 回归门; 最终 Android ViewModel/wire JVM 回归门; 范围内 diff 格式及 CR/产品契约与实际证据一致",
+        "review_checkpoint": "required",
+        "checkpoint_boundary": "最终整体验收需累计业务流审查，不能用 Task003 旧 PASS、已归档 review 或单层测试替代。"
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "C1",
+        "claim_kind": "acceptance",
+        "requirement": "Rust AnalysisBatch 保留真实事件中的文件路径、cwd、命令参数、工具输出/差异及 artifact 路径，不再用统一占位符破坏事实，同时维持正文预算和 source 访问边界。",
+        "source_ref": "current-user-message:2026-09-28-task003-handoff",
+        "slots": [
+          {
+            "slot_id": "C1-rust-path",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C1-RUST-PATH",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact",
+              "expected_observation": "绝对事件文件与 artifact 路径、cwd、命令参数保持输入原值；相对路径及文件内容仍可读。",
+              "validation_items": [
+                "Rust 原始路径与内容保留"
+              ],
+              "boundary": "local",
+              "required_boundaries": [
+                "Rust adapter",
+                "AnalysisBatch"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+                "native/codex-rollout-collector/tests/conformance.rs"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "改造现有主路径用例的原值 oracle，直接区分绝对路径事实与统一占位符。",
+                "breadth_reason": "PowerShell 只设置临时 Cargo 构建目录；Cargo 的 --exact 仅运行指定现有用例，没有附带无关测试。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C1",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C1-RUST-PATH",
+            "report_status": "passed",
+            "report_sha256": "90183f55316ff9fcf09f3e4c5efc500aa7d9ab37680215227a5fae75c1278fb5"
+          },
+          {
+            "slot_id": "C1-rust-nested",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C1-RUST-NESTED",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact",
+              "expected_observation": "嵌套 JSON 值与对象键、工具输入/输出中的真实路径保持原值；普通相对路径和完成状态不变。",
+              "validation_items": [
+                "Rust 嵌套工具内容原值"
+              ],
+              "boundary": "local",
+              "required_boundaries": [
+                "Rust adapter",
+                "AnalysisBatch structured tool payload"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+                "native/codex-rollout-collector/tests/conformance.rs"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "现有嵌套工具用例含独立于主路径 fixture 的值、对象键和输出路径；原替换行为会使精确原值断言失败。",
+                "breadth_reason": "PowerShell 只设置临时 Cargo 构建目录；Cargo 的 --exact 仅运行指定现有用例，没有附带无关测试。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C1",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C1-RUST-NESTED",
+            "report_status": "passed",
+            "report_sha256": "a43d064c21e35bf69553a44568062188bc545c6c3252c9c6ffa12226e37dc86a"
+          },
+          {
+            "slot_id": "C1-rust-budget",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C1-RUST-BUDGET",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact",
+              "expected_observation": "两个绝对文件路径和内容保持不同原值，命令 cwd 保留；长输出仍受 64 KiB 截断，partial/unknown 保持 fail-closed。",
+              "validation_items": [
+                "Rust 绝对路径碰撞与输出预算"
+              ],
+              "boundary": "local",
+              "required_boundaries": [
+                "Rust target mapping",
+                "AnalysisBatch projection"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+                "native/codex-rollout-collector/tests/rollout_blockers.rs"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "现有负向用例同时包含私有绝对路径、不同文件身份与长输出，直接覆盖主路径用例没有的预算和碰撞失败。",
+                "breadth_reason": "PowerShell 只设置临时 Cargo 构建目录；Cargo 的 --exact 仅运行指定现有用例，没有附带无关测试。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C1",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C1-RUST-BUDGET",
+            "report_status": "passed",
+            "report_sha256": "ed2aeacfe7e21e61796f862494719570d7b668a11535ddb89efa6924a7ec6ca3"
+          },
+          {
+            "slot_id": "C1-rust-window",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C1-RUST-WINDOW",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact",
+              "expected_observation": "工具 begin/end 跨 source window 后，workdir 原值保留，归属和稳定键与单窗口一致。",
+              "validation_items": [
+                "Rust 跨窗口工具原值与稳定键"
+              ],
+              "boundary": "local",
+              "required_boundaries": [
+                "Rust segmented source read",
+                "tool attribution"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+                "native/codex-rollout-collector/tests/rollout_blockers.rs"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "现有跨窗口用例有旧脱敏断言；精确运行可检验移除替换后输入与关联不因窗口边界改变。",
+                "breadth_reason": "PowerShell 只设置临时 Cargo 构建目录；Cargo 的 --exact 仅运行指定现有用例，没有附带无关测试。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C1",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C1-RUST-WINDOW",
+            "report_status": "passed",
+            "report_sha256": "7973b156f1203f1746a3a3293579c111394da010cf082a9269f0584543072de6"
+          },
+          {
+            "slot_id": "C1-node-final",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C1-NODE-FINAL",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js",
+              "expected_observation": "真实 Rust 输出经 Node importer 与隔离存储重开后，cwd/path 不再为占位符，原有幂等和恢复行为保留。",
+              "validation_items": [
+                "最终 Rust→Node 原值重开"
+              ],
+              "boundary": "business-flow",
+              "required_boundaries": [
+                "real Rust process",
+                "Node importer",
+                "durable reopen"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+                "src/services/codexRolloutCollector/analysisBatchImporter.js",
+                "tests/codexRolloutCollector.isolatedLifecycle.test.js"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "现有文件只有一条真实 Rust→Node→重开用例，能发现跨进程导入后的值被替换。",
+                "breadth_reason": "该文件只含本次所需的一条真实进程生命周期用例，无无关测试；完整文件即最小可执行目标。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C1",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C1-NODE-FINAL",
+            "report_status": "passed",
+            "report_sha256": "5e9d8c58da4cb440be2ed3c79a5f8a2ea926a6f5047e313e5d24957946d7ed07"
+          }
+        ]
+      },
+      {
+        "claim_id": "C2",
+        "claim_kind": "acceptance",
+        "requirement": "Node 产品数据库按 conversation 保存一份 canonical 历史与必要详情、coverage、checkpoint；重启可恢复、重复交付幂等，只有 complete 校验通过后才原子发布。",
+        "source_ref": "current-user-message:2026-09-28-task003-handoff",
+        "slots": [
+          {
+            "slot_id": "C2-store-final",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C2-STORE-FINAL",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+              "expected_observation": "SQLite Store 经写入、关闭与重开后同一 conversation 的 items/detail/coverage 可读；重复逻辑交付不重影，未完成或失败事务保留旧 canonical。该场景只证明 Store 本地事务，不替代 Rust complete 校验。",
+              "validation_items": [
+                "最终 Store 事务与重开"
+              ],
+              "boundary": "business-flow",
+              "required_boundaries": [
+                "Node product database",
+                "transaction commit",
+                "process reopen"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "src/services/codexHistoryProductStore.js",
+                "tests/codexHistoryProductFlow.test.js"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+                "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C2",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C2-STORE-FINAL",
+            "report_status": "passed",
+            "report_sha256": "5855b089d60d59e7336cfbf8b8b04e76ae72c2aabd57ad7b9503b1eea48ab7f8"
+          },
+          {
+            "slot_id": "C2-publish",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C2-PUBLISH",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+              "expected_observation": "在正 ACK 前 durable staging 已落盘；Rust complete 校验前或失败时旧 canonical/最终 checkpoint 不变，校验通过后 items/details/coverage/change log/checkpoint 同事务提交。",
+              "validation_items": [
+                "真实 complete 后原子发布"
+              ],
+              "boundary": "business-flow",
+              "required_boundaries": [
+                "real Rust batch/ACK",
+                "Node durable staging",
+                "validated complete",
+                "product DB transaction"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "src/services/codexRolloutCollector/index.js",
+                "src/services/codexRolloutCollector/analysisBatchImporter.js",
+                "src/services/codexHistoryProductStore.js",
+                "tests/codexHistoryProductFlow.test.js"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+                "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C2",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C2-PUBLISH",
+            "report_status": "passed",
+            "report_sha256": "e0bf190386798eb9181696427fc9aaf85100c06411152396f8e4585fe4a07cce"
+          }
+        ]
+      },
+      {
+        "claim_id": "C3",
+        "claim_kind": "acceptance",
+        "requirement": "Node 提供已鉴权的产品历史读取接口，支持首次历史、向前回填、追加与详情引用；可查看实际 event 路径，内部采集路径和 cursor 不进入 App DTO，读取不直连 Rust 且不改变健康 IPC 实时权威。",
+        "source_ref": "current-user-message:2026-09-28-task003-handoff",
+        "slots": [
+          {
+            "slot_id": "C3-read-final",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C3-READ-FINAL",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+              "expected_observation": "鉴权历史请求从产品 DB 读取首载、older、append 与详情；event path 原值可用，内部 rollout path/cursor 不出 DTO，未授权被拒且读取不调用 Rust；超大正文分页/chunk 保持 256 KiB envelope 和 128 KiB chunk 上限，无媒体 data URL。",
+              "validation_items": [
+                "最终鉴权历史 DTO/分页与大小边界"
+              ],
+              "boundary": "business-flow",
+              "required_boundaries": [
+                "authenticated history gateway",
+                "Node product DB read model",
+                "App-facing DTO"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "src/services/codexHistoryProductProvider.js",
+                "src/ws/terminalGateway.js",
+                "tests/codexHistoryProductFlow.test.js",
+                "src/services/codexHistoryBaselineProvider.js"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+                "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C3",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C3-READ-FINAL",
+            "report_status": "passed",
+            "report_sha256": "1c6e3125b4ba379a8274868af4332264f22410788ba7bdbf5f96ad7f1bc4d6a8"
+          }
+        ]
+      },
+      {
+        "claim_id": "C4",
+        "claim_kind": "acceptance",
+        "requirement": "实际 Rust 采集通过唯一 Node 采集链进入产品 DB 并由历史接口读出；首次加载、回填、追加、重启和 IPC 实时消息并存时，canonical 历史一致。 发布包默认启动启用已打包 analyzer，产品数据库及恢复状态使用持久目录，重启后历史可由实际接口读取。",
+        "source_ref": "current-user-message:2026-09-28-task003-handoff",
+        "slots": [
+          {
+            "slot_id": "C4-flow-final",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C4-FLOW-FINAL",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+              "expected_observation": "真实 Rust preview/backfill/append 经唯一 Node coordinator、durable staging/ACK、validated complete、产品 DB 原子提交后由鉴权历史网关读出；重启及重复交付后 canonical 一致，健康 IPC 仍独占实时正文。",
+              "validation_items": [
+                "真实 Rust 纵向链路"
+              ],
+              "boundary": "business-flow",
+              "required_boundaries": [
+                "real Rust producer",
+                "single Node coordinator",
+                "product DB reopen",
+                "authenticated history gateway",
+                "IPC coexistence"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "src/services/codexRolloutCollector/index.js",
+                "src/services/codexHistoryProductStore.js",
+                "src/services/codexHistoryProductProvider.js",
+                "src/server.js",
+                "src/ws/terminalGateway.js",
+                "tests/codexHistoryProductFlow.test.js",
+                "src/services/codexHistoryBaselineProvider.js",
+                "src/services/codexRolloutCollector/analysisRunStore.js",
+                "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+                "src/services/codexHistoryReconciliationScheduler.js",
+                "src/services/codexRolloutCollector/analysisBatchImporter.js"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+                "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C4",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C4-FLOW-FINAL",
+            "report_status": "passed",
+            "report_sha256": "99aa342f93905eff40c9ebe23012c3dfd3eb50ca788e9924c17d23e8d7fa607f"
+          },
+          {
+            "slot_id": "C4-unattended",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C4-UNATTENDED",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+              "expected_observation": "启动真实服务且没有 App/WebSocket 历史客户端时，已验证终态/source-ready 事实创建并持久化唯一 job；真实 Rust 完成写库，Node 重启从 pending/receipt 恢复，之后连接网关能读到同一 canonical；无事实时保持 pending。",
+              "validation_items": [
+                "无人在线 source-ready 与重启恢复"
+              ],
+              "boundary": "business-flow",
+              "required_boundaries": [
+                "server startup",
+                "source-ready fact",
+                "zero App clients",
+                "single Node coordinator",
+                "durable job reopen"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "src/server.js",
+                "src/services/codexHistoryReconciliationScheduler.js",
+                "src/services/codexRolloutCollector/index.js",
+                "src/services/codexRolloutCollector/analysisRunStore.js",
+                "src/services/codexHistoryProductStore.js",
+                "tests/codexHistoryProductFlow.test.js"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+                "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C4",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C4-UNATTENDED",
+            "report_status": "passed",
+            "report_sha256": "59ea9dac0121ae666a8594d32ce37cd84f9f4c91918c8a8620156462f3f6f2cc"
+          },
+          {
+            "slot_id": "C4-package",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C4-PACKAGE",
+              "method": "execution",
+              "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js",
+              "expected_observation": "隔离 staging 安装 production dependencies（--ignore-scripts），未配置 analyzer/persistent override 时从包内实际 src/server.js 启动；没有 App 时经可信终态/source-ready、唯一 Node coordinator 和真实 Rust 生成 fixture 历史，DB 与 run/checkpoint/intent 恢复数据均位于 persistent/data，app/data 不产生这些数据；中断后重启同一包，鉴权历史网关读出独立期望的原文/路径且不重复。缺 binary 或平台错配构建 fail-closed；显式 override 与开发目录默认语义不回退。",
+              "validation_items": [
+                "发布包 Rust/SQLite 运行 smoke"
+              ],
+              "boundary": "business-flow",
+              "required_boundaries": [
+                "packaged runtime",
+                "actual server startup without analyzer override",
+                "single Node coordinator",
+                "real Rust analyzer startup",
+                "SQLite dependency",
+                "persistent DB reopen",
+                "persistent recovery stores",
+                "authenticated history gateway"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "scripts/release/windows-release.js",
+                "scripts/release/release-layout.js",
+                "scripts/release/build-release.js",
+                "src/server.js",
+                "src/services/codexRolloutCollector/analyzerProcessManager.js",
+                "tests/codexHistoryProductPackage.test.js",
+                "package.json",
+                "package-lock.json",
+                "src/services/codexHistoryProductStore.js",
+                "src/services/codexHistoryReconciliationScheduler.js",
+                "src/services/codexRolloutCollector/analysisRunStore.js",
+                "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+                "src/services/codexRolloutCollector/index.js"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "现有包测试虽启动 server，但用 helper 手动写库与重开，可漏掉 analyzer 未启用或恢复目录错误；强化同一既有 smoke，经实际包 server 采集与重启读取，不能只检查目录或 helper。",
+                "breadth_reason": "包目标仅一项发布运行 smoke，包含必要 fail-closed 控制；开发集成无法观察包内 binary/dependency/持久目录。",
+                "breadth_basis": "acceptance-boundary",
+                "breadth_source_ref": "C4",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C4-PACKAGE",
+            "report_status": "passed",
+            "report_sha256": "4d9da9969709657a46cbb3d235e81b19451205e29c110c9ea44fff3ece87c51d"
+          }
+        ]
+      },
+      {
+        "claim_id": "C5",
+        "claim_kind": "invariant",
+        "requirement": "修改 Gateway 后保持既有 IPC authority、Owner surface 和 Android Codex wire/ViewModel 行为，满足项目回归门。",
+        "source_ref": "docs/workflow/CONTRACTS.md#🔒 Codex 原生会话实时同步核心",
+        "slots": [
+          {
+            "slot_id": "C5-gateway",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C5-GATEWAY",
+              "method": "execution",
+              "entry": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+              "expected_observation": "既有 Owner surface 和 Gateway IPC 用例通过，历史 provider 接线不改变 follower、owner、IPC authority 或实时消息。",
+              "validation_items": [
+                "最终 IPC/Owner 回归门"
+              ],
+              "boundary": "business-flow",
+              "required_boundaries": [
+                "owner surface tracker",
+                "terminal Gateway IPC"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "src/ws/terminalGateway.js",
+                "tests/codexOwnerSurfaceTracker.test.js",
+                "tests/terminalGateway.codexIpc.test.js"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "CONTRACTS 对 terminalGateway.js 改动要求两组现有 Node 回归。",
+                "breadth_reason": "项目契约明确规定同时运行两份完整回归文件；新产品历史用例不能替代既有 Owner/IPC 用例。",
+                "breadth_basis": "project-policy",
+                "breadth_source_ref": "docs/workflow/CONTRACTS.md#🔒 Codex 原生会话实时同步核心",
+                "invocation": {
+                  "kind": "structured",
+                  "argv": [
+                    "node",
+                    "--test",
+                    "tests/codexOwnerSurfaceTracker.test.js",
+                    "tests/terminalGateway.codexIpc.test.js"
+                  ],
+                  "selector_arg_index": null
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C5-GATEWAY",
+            "report_status": "passed",
+            "report_sha256": "92f2c33c060db128f9b2086c12c98dd7452bb6a2ccb6ba2d058d1090b0a212d9"
+          },
+          {
+            "slot_id": "C5-android",
+            "minimum_type": "business-observation",
+            "due_step_id": "S3",
+            "applicability": "current",
+            "check": {
+              "check_id": "T004-CK-C5-ANDROID",
+              "method": "execution",
+              "entry": "$env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; $env:PATH=\"$env:JAVA_HOME\\bin;$env:PATH\"; $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'termlink-task004-gradle'; $env:TERMLINK_ANDROID_BUILD_ROOT=Join-Path $env:TEMP 'termlink-task004-android-build'; $taskInit=Join-Path $env:TEMP 'termlink-task004-builddir.gradle'; Set-Content -LiteralPath $taskInit -Value 'allprojects { layout.buildDirectory.set(new File(System.getenv(\"TERMLINK_ANDROID_BUILD_ROOT\"), project.path == \":\" ? \"root\" : project.path.replace(\":\", \"_\"))) }'; .\\android\\gradlew.bat -p android --project-cache-dir \"$env:TEMP\\termlink-task004-gradle-project-cache\" -I $taskInit :app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'",
+              "expected_observation": "JDK21 下 Codex ViewModel 与 IPC/history wire JVM 用例通过，Gateway 历史接线未破坏 App wire/authority 兼容。",
+              "validation_items": [
+                "最终 Android ViewModel/wire JVM 回归门"
+              ],
+              "boundary": "business-flow",
+              "required_boundaries": [
+                "Android Codex ViewModel JVM",
+                "Android IPC/history wire JVM"
+              ],
+              "allowed_substitutes": [],
+              "subject_paths": [
+                "src/ws/terminalGateway.js",
+                "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+                "android/app/src/test/java/com/termlink/app/codex/data/CodexIpcWireModelTest.kt",
+                "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt"
+              ],
+              "expected_result": "passed",
+              "selection": {
+                "granularity": "target",
+                "selector": null,
+                "selection_reason": "CONTRACTS 对 terminalGateway.js 改动强制 Android Codex ViewModel/wire JVM 回归；Gradle 产物重定向至系统临时目录。",
+                "breadth_reason": "PowerShell 设置 JDK21、临时 Gradle 缓存和构建目录并执行指定 JVM 类；opaque 包装器按 target 申报，覆盖契约要求的类族。",
+                "breadth_basis": "project-policy",
+                "breadth_source_ref": "docs/workflow/CONTRACTS.md#🔒 Codex 原生会话实时同步核心",
+                "invocation": {
+                  "kind": "opaque",
+                  "command": "$env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; $env:PATH=\"$env:JAVA_HOME\\bin;$env:PATH\"; $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'termlink-task004-gradle'; $env:TERMLINK_ANDROID_BUILD_ROOT=Join-Path $env:TEMP 'termlink-task004-android-build'; $taskInit=Join-Path $env:TEMP 'termlink-task004-builddir.gradle'; Set-Content -LiteralPath $taskInit -Value 'allprojects { layout.buildDirectory.set(new File(System.getenv(\"TERMLINK_ANDROID_BUILD_ROOT\"), project.path == \":\" ? \"root\" : project.path.replace(\":\", \"_\"))) }'; .\\android\\gradlew.bat -p android --project-cache-dir \"$env:TEMP\\termlink-task004-gradle-project-cache\" -I $taskInit :app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'"
+                }
+              }
+            },
+            "disposition": "newly-executed",
+            "evidence_refs": [
+              "docs/changes/records/CR-20260928-task004-s3.md"
+            ],
+            "report_result_id": "T004-CK-C5-ANDROID",
+            "report_status": "passed",
+            "report_sha256": "0f136cf53193cecbe3415cb35c9df4c67460fa418517137edcf02065ba6ff3aa"
+          }
+        ]
+      }
+    ],
+    "findings": []
+  },
+  "old_obligations_digest": "18d56244d84c7c87fabaceb13002aea218d5cdb780e0745be49afc75f1573f73",
+  "scope_diff": {
+    "added_paths": [],
+    "removed_paths": []
+  },
+  "step_diff": {
+    "inserted_step_id": "S3-corr",
+    "inserted_before": "S3",
+    "retained_step_ids": [
+      "S1",
+      "S2",
+      "S3"
+    ]
+  },
+  "challenge_digest": "c640d6ab850f3d589c8410669ca350773ad1222a6e1bbd27419220b51aeac79c",
+  "input": {
+    "challenge_ids": [
+      "challenge-83270bd2cbe1332c4348b22c9b86276f",
+      "challenge-de68edb10cfb5a8e92a39ef8766e9b53"
+    ],
+    "correction_step": {
+      "id": "S3-corr",
+      "description": "修复测试中 Windows 路径泄漏断言缺陷并重新验证",
+      "mutation_scope": [
+        "tests/codexHistoryProductPackage.test.js",
+        "tests/codexHistoryProductFlow.test.js",
+        "docs/changes/records/CR-20260928-task004-s3.md"
+      ],
+      "required_evidence": [
+        "最终鉴权历史 DTO/分页与大小边界",
+        "发布包 Rust/SQLite 运行 smoke"
+      ],
+      "commands": [
+        {
+          "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js",
+          "expected_repo_writes": "none"
+        },
+        {
+          "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+          "expected_repo_writes": "none"
+        }
+      ]
+    },
+    "mode": "execution-recovery",
+    "strategy": "forward-fix",
+    "restore_plan": null,
+    "execution_targets": [],
+    "recovery_steps": [],
+    "pending_step_changes": null,
+    "obligation_map": [
+      {
+        "claim_id": "C1",
+        "slot_id": "C1-rust-path",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C1",
+        "slot_id": "C1-rust-nested",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C1",
+        "slot_id": "C1-rust-budget",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C1",
+        "slot_id": "C1-rust-window",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C1",
+        "slot_id": "C1-node-final",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C2",
+        "slot_id": "C2-store-final",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C2",
+        "slot_id": "C2-publish",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C3",
+        "slot_id": "C3-read-final",
+        "due_step_id": "S3-corr"
+      },
+      {
+        "claim_id": "C4",
+        "slot_id": "C4-flow-final",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C4",
+        "slot_id": "C4-unattended",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C4",
+        "slot_id": "C4-package",
+        "due_step_id": "S3-corr"
+      },
+      {
+        "claim_id": "C5",
+        "slot_id": "C5-gateway",
+        "due_step_id": "S3"
+      },
+      {
+        "claim_id": "C5",
+        "slot_id": "C5-android",
+        "due_step_id": "S3"
+      }
+    ]
+  },
+  "definition": {
+    "background_context": "### Goal\n\n承接 Task 003：完成 Rust 历史内容保留、Node 产品历史持久化与历史接口剩余修复及整体验收\n\n### Out of scope\n\n- Android 产品历史接线、UI 开发、APK/真机验收及 android:sync；仅运行契约指定 JVM 回归并允许生成单一问题报告。\n- 不改健康 IPC authority、follower lifecycle、owner 仲裁和 A/B 隔离；不设计多 writer、productSource/source epoch 产品命名空间、commitFence 或新 analyze mode。\n- 不修改外部 Codex rollout；不全量重写 Rust/Node 已完成实现，不改 vendor/protocol 或无关 Demo/Spike。\n- 不自动提交、推送、部署、安装系统服务或宣称完整发布就绪；隔离本机 staging smoke 不等于完整安装器/跨平台/线上验收。\n- Task003 已归档且未完成；不改其结果/旧 findings/证据，不把历史 PASS 导入新任务。\n\n### Project documents\n\n```json\n{\"version\":1,\"sources\":[{\"path\":\"docs/codex/codex-rollout-collector-architecture.md\",\"section\":\"whole document\",\"revision\":\"sha256:a56772305e08dc77969cb45b0ee055132ce060f181f3e233fac7b7f35355967d\",\"purpose\":\"限定单例采集、Rust 定位/读取、ACK durable staging 与 complete 后产品发布；非重设计\"},{\"path\":\"docs/codex/codex-history-product-contract.md\",\"section\":\"whole document\",\"revision\":\"sha256:0d8f01da06cb27b11d40e020fc1d233389812be9a698b1fdefe14ca14ad96308\",\"purpose\":\"继承 Task003 产品存储/DTO/正文/分页契约；更新包启动和持久恢复现状\"},{\"path\":\"docs/workflow/CONTRACTS.md\",\"section\":\"🔒 Codex 原生会话实时同步核心\",\"revision\":\"sha256:5a102082b3a6d3c2548df68c2fc0f1496fc6ef45bbc581e140a9923880465d9a\",\"purpose\":\"IPC authority 冻结与 Node/Android 必要回归\"},{\"path\":\"docs/workflow/DECISIONS.md\",\"section\":\"AD-004 / AD-018 / AD-019 / AD-020 / AD-021 / AD-022\",\"revision\":\"sha256:d8721637ddb924b5a5c9863fe56c33bbeac8dc80abe390765dacae713812dbcf\",\"purpose\":\"保留 IPC 及 Node/Rust 模块边界，不覆盖共享契约\"},{\"path\":\"docs/workflow/test-admission-policy.md\",\"section\":\"whole document\",\"revision\":\"sha256:03b5a4fa93bfe9e95a17f318a08e7e8bd79faf9ba1567c1d8fce72315047697f\",\"purpose\":\"复用已有关键断言，只补实际包链路缺口\"},{\"path\":\"docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md\",\"section\":\"whole document\",\"revision\":\"sha256:410b302996549d863a60f63156ee2dcfb3739d1b7d391715a63f8f1b79af2c0a\",\"purpose\":\"按架构选择 current formal interface，迁移说明不扩大产品范围\"},{\"path\":\"docs/codex/codex-rollout-collector-rust-analyzer-startup-contract-draft.md\",\"section\":\"whole document\",\"revision\":\"sha256:fd9a6d9af4e3e2662f8db63b64f42bf78c9378ad8f61dd665a7cdd2e73db189d\",\"purpose\":\"启动和 sessions_root 边界\"},{\"path\":\"docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md\",\"section\":\"4.4 / 5 / 6\",\"revision\":\"sha256:af436a4d80e6712e9718c0fd5aa696d34e6b26ce35752023da73d91b6fdf8739\",\"purpose\":\"普通 analyze 与 ACK/complete/retry 契约\"},{\"path\":\"docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md\",\"section\":\"9.2 / 10\",\"revision\":\"sha256:b133f74a5f83601e233c8d1fc5dda05c00cb7e34856628dc8653937a54748d39\",\"purpose\":\"checkpoint/delivery 与产品 DTO 分离\"},{\"path\":\"docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md\",\"section\":\"3 / 5 / 6 / 7 / 8\",\"revision\":\"sha256:095dd67c9aea9035604c764e988cac3bc7d017813c23056b3bbc16905635c7fb\",\"purpose\":\"唯一采集、durable job/recovery 与终态驱动\"}]}\n```",
+    "acceptance": "- [ ] Rust AnalysisBatch 保留真实事件中的文件路径、cwd、命令参数、工具输出/差异及 artifact 路径，不再用统一占位符破坏事实，同时维持正文预算和 source 访问边界。\n- [ ] Node 产品数据库按 conversation 保存一份 canonical 历史与必要详情、coverage、checkpoint；重启可恢复、重复交付幂等，只有 complete 校验通过后才原子发布。\n- [ ] Node 提供已鉴权的产品历史读取接口，支持首次历史、向前回填、追加与详情引用；可查看实际 event 路径，内部采集路径和 cursor 不进入 App DTO，读取不直连 Rust 且不改变健康 IPC 实时权威。\n- [ ] 实际 Rust 采集通过唯一 Node 采集链进入产品 DB 并由历史接口读出；首次加载、回填、追加、重启和 IPC 实时消息并存时，canonical 历史一致。 发布包默认启动启用已打包 analyzer，产品数据库及恢复状态使用持久目录，重启后历史可由实际接口读取。",
+    "allowed_scope": "- `native/codex-rollout-collector/src/codex_adapter/mod.rs`\n- `native/codex-rollout-collector/tests/conformance.rs`\n- `native/codex-rollout-collector/tests/rollout_blockers.rs`\n- `src/server.js`\n- `src/services/codexHistoryProductStore.js`\n- `src/services/codexHistoryProductProvider.js`\n- `src/services/codexHistorySyncService.js`\n- `src/services/codexHistoryBaselineProvider.js`\n- `src/services/codexHistoryReconciliationScheduler.js`\n- `src/services/codexRolloutCollector/index.js`\n- `src/services/codexRolloutCollector/analysisBatchImporter.js`\n- `src/services/codexRolloutCollector/analyzerProcessManager.js`\n- `src/services/codexRolloutCollector/analysisRunStore.js`\n- `src/services/codexRolloutCollector/analysisCheckpointStore.js`\n- `src/ws/terminalGateway.js`\n- `tests/codexHistoryProductFlow.test.js`\n- `tests/codexRolloutCollector.isolatedLifecycle.test.js`\n- `docs/codex/codex-history-product-contract.md`\n- `docs/changes/records/**`\n- `scripts/release/windows-release.js`\n- `scripts/release/release-layout.js`\n- `scripts/release/build-release.js`\n- `tests/codexHistoryProductPackage.test.js`\n- `package.json`\n- `package-lock.json`\n- `android/build/reports/problems/problems-report.html`",
+    "conditional_scope": "- none",
+    "forbidden_scope": "- `native/codex-rollout-collector/vendor/**`\n- `public/**`\n- `android/app/src/**`\n- `src/services/codexIpcClient.js`\n- `src/services/codexIpcFeed.js`\n- `src/services/codexIpcThreadStream.js`\n- `src/services/codexOwnerSurfaceTracker.js`",
+    "affected_contracts": "- docs/codex/codex-history-product-contract.md#5.1.7 — 同步默认发布包 analyzer、产品 DB 与恢复状态持久目录及实际验收证据；不变更 Rust wire 或 IPC authority。",
+    "confirmed_decisions": "- 承接依据：Task003 doc-03166aa61e365e5f8af1f680，definition 02f9cb67cc273c171fcff0b2e41a622d2ba029f2e37479c5672ed35f344d6fae，source 22b485f74c7f1377aa9af350972d2f6c55ac5bc444f77db252bfcd0fda8d703c；stopped-by-user/closed/archived，acceptance/validation 均未完成。保留已有代码作为起点，只修复本范围实际缺陷。\n- 完整承接旧 C1-C5 要求为同名新 claims；旧未完成 C4-flow-final、C4-unattended、C4-package 分别映射本任务同名 slots，check ID 加 T004 前缀，所有证据重新取得，不导入旧报告。\n- 旧 finding-d850ba013289f2cd7d621c61e55308c2 与 finding-1be3dd2c7838b5fd09a84dcdece01780 共同映射 C4-package；保留旧 review-33edb5c607c391ba7ab68e1095f01fd00866d7c8 的历史，新增当前代码审查和真实包验证，不宣称旧 finding 自动关闭。\n- 现有 src/server.js 已实现默认包 binary 探测和 persistent/data 路由，尚不能据此宣布修复通过；先验证实际路径，不重复重写。修复包 smoke 绕过 server 手动写 Store 的证据缺口，外部 Codex IPC/app-server 可被受控替代，内部 server/coordinator/Rust/DB/gateway 不得替代。\n- 先核验 Rust 输出契约与内容/预算，再修 Node consumer；保留真实事件 cwd/path/命令参数/工具内容及对象键，内部 source/recovery 字段不进入产品 DTO。采用既有单份 canonical DB，ACK 前 staging、complete 校验后原子发布，失败保旧 canonical。\n- 历史只读消费产品 DB；可信终态/source-ready 驱动无人在线采集和恢复，不因历史查询直连 Rust、不轮询 thread/read、不把 idle/超时当事实。冻结 IPC 流及 AD-004/AD-021/AD-022；遇共享架构变化停止实现并提交真实范围决策。\n- 保存现有显式 analyzer/persistent override 与开发目录行为；包默认无需手工 env 即接线，恢复 job/receipt/checkpoint/intents 和产品 DB 一并位于持久目录。产品契约 5.1.7 的 S4 opt-in 叙述须按已验证 S5 包行为更新，不改变协议。\n- 每个实施批次新增/同步 CR，未获得真实 commit_ref 的记录保持 draft，不能伪造 active；最终结果区分代码修复、当前验收、未做部署/真机观察。所有逻辑步骤保留必要累计 review。\n- Android 现有 Capacitor/Cordova 输入已存在；JDK21、Cargo 和 Gradle 缓存/构建产物优先临时目录，仅 android/build/reports/problems/problems-report.html 为本任务生成例外。不得运行 android:sync 扩散修改。",
+    "open_questions": "- none",
+    "implementation_plan": "- S1: 核验 Task003 已有 Rust 内容保留与 Node 产品历史链路，先确认 Rust 契约和四项边界，再按实际失败修复 Node staging/ACK/complete 原子发布、重启幂等、鉴权历史 DTO/分页/详情及无人在线恢复。复用现有测试中的独立 fixture 期望，保持正文预算/媒体限制及 IPC 权威；无需变化处保留。同步产品契约与本批 CR。\n- S2: 在 S1 已稳定的链路上完成两项包级遗留问题：检查默认 analyzer 接线与全部恢复状态持久目录；扩展既有 package smoke，用真实包 server 触发 Rust 写库、故障/重启恢复和鉴权接口读取，不能以 Store helper 写入替代。保留 binary/平台 fail-closed、production SQLite 安装及显式 override/开发默认。按验收实际暴露的问题最小修复并更新产品契约及 CR。\n- S3-corr: 修复测试中 Windows 路径泄漏断言缺陷并重新验证\n- S3: 对最终累计实现取得全部冻结 claims 的新证据，完成真实 Rust→Node→DB→鉴权历史接口、无人在线与包重启验收，执行强制 Owner/Gateway 与 JDK21 ViewModel/wire 回归。仅修复本范围暴露缺陷；若修复使结果过期，重验受影响义务并审查累计变化。同步 CR 与产品契约验收结论，列明本机包 smoke 边界、回退方式和未实施部署/真机项，为后续 close-task 提供真实证据。",
+    "implementation_steps": "- S1: 核验 Task003 已有 Rust 内容保留与 Node 产品历史链路，先确认 Rust 契约和四项边界，再按实际失败修复 Node staging/ACK/complete 原子发布、重启幂等、鉴权历史 DTO/分页/详情及无人在线恢复。复用现有测试中的独立 fixture 期望，保持正文预算/媒体限制及 IPC 权威；无需变化处保留。同步产品契约与本批 CR。\n  - purpose: 核验 Task003 已有 Rust 内容保留与 Node 产品历史链路，先确认 Rust 契约和四项边界，再按实际失败修复 Node staging/ACK/complete 原子发布、重启幂等、鉴权历史 DTO/分页/详情及无人在线恢复。复用现有测试中的独立 fixture 期望，保持正文预算/媒体限制及 IPC 权威；无需变化处保留。同步产品契约与本批 CR。\n  - planned_mutation_targets: native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/tests/conformance.rs, native/codex-rollout-collector/tests/rollout_blockers.rs, src/server.js, src/services/codexHistoryProductStore.js, src/services/codexHistoryProductProvider.js, src/services/codexHistorySyncService.js, src/services/codexHistoryBaselineProvider.js, src/services/codexHistoryReconciliationScheduler.js, src/services/codexRolloutCollector/index.js, src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexRolloutCollector/analyzerProcessManager.js, src/services/codexRolloutCollector/analysisRunStore.js, src/services/codexRolloutCollector/analysisCheckpointStore.js, src/ws/terminalGateway.js, tests/codexHistoryProductFlow.test.js, tests/codexRolloutCollector.isolatedLifecycle.test.js, docs/codex/codex-history-product-contract.md, docs/changes/records/**\n  - required_evidence: Rust 路径、嵌套键、64 KiB 正文预算和跨窗口归属满足 C1; Node 事务、真实 Rust 发布、鉴权读接口与无人在线重启初验满足 C2-C4; 本批 CR 和范围内 diff 格式\n  - review_checkpoint: required: 跨 Rust/Node/持久化及 Gateway 边界，审查实际缺陷修复与冻结语义。\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: git diff --check -- src native/codex-rollout-collector tests scripts package.json package-lock.json docs/codex docs/changes\n    - expected_repo_writes: none\n    - transformation_kind: localized\n- S2: 在 S1 已稳定的链路上完成两项包级遗留问题：检查默认 analyzer 接线与全部恢复状态持久目录；扩展既有 package smoke，用真实包 server 触发 Rust 写库、故障/重启恢复和鉴权接口读取，不能以 Store helper 写入替代。保留 binary/平台 fail-closed、production SQLite 安装及显式 override/开发默认。按验收实际暴露的问题最小修复并更新产品契约及 CR。\n  - purpose: 在 S1 已稳定的链路上完成两项包级遗留问题：检查默认 analyzer 接线与全部恢复状态持久目录；扩展既有 package smoke，用真实包 server 触发 Rust 写库、故障/重启恢复和鉴权接口读取，不能以 Store helper 写入替代。保留 binary/平台 fail-closed、production SQLite 安装及显式 override/开发默认。按验收实际暴露的问题最小修复并更新产品契约及 CR。\n  - planned_mutation_targets: native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/tests/conformance.rs, native/codex-rollout-collector/tests/rollout_blockers.rs, src/server.js, src/services/codexHistoryProductStore.js, src/services/codexHistoryProductProvider.js, src/services/codexHistorySyncService.js, src/services/codexHistoryBaselineProvider.js, src/services/codexHistoryReconciliationScheduler.js, src/services/codexRolloutCollector/index.js, src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexRolloutCollector/analyzerProcessManager.js, src/services/codexRolloutCollector/analysisRunStore.js, src/services/codexRolloutCollector/analysisCheckpointStore.js, src/ws/terminalGateway.js, tests/codexHistoryProductFlow.test.js, tests/codexRolloutCollector.isolatedLifecycle.test.js, scripts/release/windows-release.js, scripts/release/release-layout.js, scripts/release/build-release.js, tests/codexHistoryProductPackage.test.js, package.json, package-lock.json, docs/codex/codex-history-product-contract.md, docs/changes/records/**\n  - required_evidence: C4-package 两项旧 P1 的独立反例能够失败，修复后实际包链路通过; 实际包 DB 与 job/receipt/checkpoint/intent 恢复均位于 persistent/data; 本批产品契约与 CR 同步\n  - review_checkpoint: required: 包启动、依赖与持久目录是独立交付边界，必须审查 smoke 是否绕过实际接线。\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: git diff --check -- src native/codex-rollout-collector tests scripts package.json package-lock.json docs/codex docs/changes\n    - expected_repo_writes: none\n    - transformation_kind: localized\n- S3-corr: 修复测试中 Windows 路径泄漏断言缺陷并重新验证\n  - purpose: Correct the challenged result 修复测试中 Windows 路径泄漏断言缺陷并重新验证\n  - mutation_scope: tests/codexHistoryProductPackage.test.js, tests/codexHistoryProductFlow.test.js, docs/changes/records/CR-20260928-task004-s3.md\n  - required_evidence: 最终鉴权历史 DTO/分页与大小边界; 发布包 Rust/SQLite 运行 smoke\n  - review_checkpoint: required: fresh correction review of the affected audit documents\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n- S3: 对最终累计实现取得全部冻结 claims 的新证据，完成真实 Rust→Node→DB→鉴权历史接口、无人在线与包重启验收，执行强制 Owner/Gateway 与 JDK21 ViewModel/wire 回归。仅修复本范围暴露缺陷；若修复使结果过期，重验受影响义务并审查累计变化。同步 CR 与产品契约验收结论，列明本机包 smoke 边界、回退方式和未实施部署/真机项，为后续 close-task 提供真实证据。\n  - purpose: 对最终累计实现取得全部冻结 claims 的新证据，完成真实 Rust→Node→DB→鉴权历史接口、无人在线与包重启验收，执行强制 Owner/Gateway 与 JDK21 ViewModel/wire 回归。仅修复本范围暴露缺陷；若修复使结果过期，重验受影响义务并审查累计变化。同步 CR 与产品契约验收结论，列明本机包 smoke 边界、回退方式和未实施部署/真机项，为后续 close-task 提供真实证据。\n  - planned_mutation_targets: native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/tests/conformance.rs, native/codex-rollout-collector/tests/rollout_blockers.rs, src/server.js, src/services/codexHistoryProductStore.js, src/services/codexHistoryProductProvider.js, src/services/codexHistorySyncService.js, src/services/codexHistoryBaselineProvider.js, src/services/codexHistoryReconciliationScheduler.js, src/services/codexRolloutCollector/index.js, src/services/codexRolloutCollector/analysisBatchImporter.js, src/services/codexRolloutCollector/analyzerProcessManager.js, src/services/codexRolloutCollector/analysisRunStore.js, src/services/codexRolloutCollector/analysisCheckpointStore.js, src/ws/terminalGateway.js, tests/codexHistoryProductFlow.test.js, tests/codexRolloutCollector.isolatedLifecycle.test.js, scripts/release/windows-release.js, scripts/release/release-layout.js, scripts/release/build-release.js, tests/codexHistoryProductPackage.test.js, package.json, package-lock.json, docs/codex/codex-history-product-contract.md, docs/changes/records/**, android/build/reports/problems/problems-report.html\n  - required_evidence: Rust 原始路径与内容保留; Rust 嵌套工具内容原值; Rust 绝对路径碰撞与输出预算; Rust 跨窗口工具原值与稳定键; 最终 Rust→Node 原值重开; 最终 Store 事务与重开; 真实 complete 后原子发布; 最终鉴权历史 DTO/分页与大小边界; 真实 Rust 纵向链路; 无人在线 source-ready 与重启恢复; 发布包 Rust/SQLite 运行 smoke; 最终 IPC/Owner 回归门; 最终 Android ViewModel/wire JVM 回归门; 范围内 diff 格式及 CR/产品契约与实际证据一致\n  - review_checkpoint: required: 最终整体验收需累计业务流审查，不能用 Task003 旧 PASS、已归档 review 或单层测试替代。\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js\n    - expected_repo_writes: none\n    - transformation_kind: localized\n  - planned_command: $env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; $env:PATH=\"$env:JAVA_HOME\\bin;$env:PATH\"; $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'termlink-task004-gradle'; $env:TERMLINK_ANDROID_BUILD_ROOT=Join-Path $env:TEMP 'termlink-task004-android-build'; $taskInit=Join-Path $env:TEMP 'termlink-task004-builddir.gradle'; Set-Content -LiteralPath $taskInit -Value 'allprojects { layout.buildDirectory.set(new File(System.getenv(\"TERMLINK_ANDROID_BUILD_ROOT\"), project.path == \":\" ? \"root\" : project.path.replace(\":\", \"_\"))) }'; .\\android\\gradlew.bat -p android --project-cache-dir \"$env:TEMP\\termlink-task004-gradle-project-cache\" -I $taskInit :app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'\n    - expected_repo_writes: android/build/reports/problems/problems-report.html\n    - transformation_kind: localized\n  - planned_command: git diff --check -- src native/codex-rollout-collector tests scripts package.json package-lock.json docs/codex docs/changes\n    - expected_repo_writes: none\n    - transformation_kind: localized",
+    "regression_checks": "### Test Strategy\n\n- mode: flexible\n- source: inferred-default\n- source_ref: prepare-task-default\n- task_classification: contract-clear-behavior\n- rationale: 已明确历史事实/发布/持久恢复与 IPC 契约；以现有独立 fixture/assertion 复用为主，只强化实际包进程链路缺口。规划期不执行测试，不用历史 PASS 或 helper 写库冒充最终流验收。\n\n### Validation Plan\n\n- [ ] 最终在 S3 为 C1-C5 每个 slot 登记本任务最新代码对应结果；S1/S2 初验不自动充当最终 PASS。\n- [ ] Rust 原始路径与内容保留\n- [ ] Rust 嵌套工具内容原值\n- [ ] Rust 绝对路径碰撞与输出预算\n- [ ] Rust 跨窗口工具原值与稳定键\n- [ ] 最终 Rust→Node 原值重开\n- [ ] 最终 Store 事务与重开\n- [ ] 真实 complete 后原子发布\n- [ ] 最终鉴权历史 DTO/分页与大小边界\n- [ ] 真实 Rust 纵向链路\n- [ ] 无人在线 source-ready 与重启恢复\n- [ ] 发布包 Rust/SQLite 运行 smoke\n- [ ] 最终 IPC/Owner 回归门\n- [ ] 最终 Android ViewModel/wire JVM 回归门\n- [ ] 既有 productFlow 的 16 个测试均在任务边界内，合并运行去除四组 selector 重复的 Rust 构建/进程成本；四个 Rust exact 用例和 isolatedLifecycle 的跨窗口/恢复断言各有独立失败风险。\n- [ ] 仅包内实际 server 的采集→持久目录→重启→鉴权读可满足包义务；手工 Store 写入、目录存在、hello 或历史日志不足。\n- [ ] 若未部署/未真机，明确记为未执行；回退到现有受控启动配置/先前版本前保留产品 DB 和 recovery 数据，不通过删除持久数据伪造恢复成功。\n\n### Persistent Tests\n\n- `native/codex-rollout-collector/tests/conformance.rs`\n  - proves: C1\n  - owner: termlink\n  - owner_source: .workflow-system/PROJECT_PROFILE.yaml#project\n  - source_ref: current-user-message:2026-09-28-task003-handoff\n  - basis: regression\n  - existing_evidence_insufficiency: 已有路径/嵌套键独立原值断言可复用，仅在真实残余缺陷超出现有断言时扩展同一回归。\n  - assertion_boundary: 真实 Adapter→AnalysisBatch 的事件事实与内部边界\n  - failure_disposition: 失败阻断对应 claim，不删除断言或以 mock/PASS 历史规避；仅在本任务范围修复并重新验证。\n- `native/codex-rollout-collector/tests/rollout_blockers.rs`\n  - proves: C1\n  - owner: termlink\n  - owner_source: .workflow-system/PROJECT_PROFILE.yaml#project\n  - source_ref: current-user-message:2026-09-28-task003-handoff\n  - basis: regression\n  - existing_evidence_insufficiency: 复用已有长输出和跨窗口控制；如剩余修复暴露未覆盖交互，在同一边界补断言，不复制一套测试。\n  - assertion_boundary: 预算/unknown fail-closed 与工具稳定键\n  - failure_disposition: 失败阻断对应 claim，不删除断言或以 mock/PASS 历史规避；仅在本任务范围修复并重新验证。\n- `tests/codexRolloutCollector.isolatedLifecycle.test.js`\n  - proves: C1\n  - proves: C2\n  - owner: termlink\n  - owner_source: .workflow-system/PROJECT_PROFILE.yaml#project\n  - source_ref: current-user-message:2026-09-28-task003-handoff\n  - basis: regression\n  - existing_evidence_insufficiency: 复用现有真实子进程恢复控制；仅补实际观察到的原值/重交付回归缺口。\n  - assertion_boundary: 真实 Rust→Node importer→隔离持久重开\n  - failure_disposition: 失败阻断对应 claim，不删除断言或以 mock/PASS 历史规避；仅在本任务范围修复并重新验证。\n- `tests/codexHistoryProductFlow.test.js`\n  - proves: C2\n  - proves: C3\n  - proves: C4\n  - owner: termlink\n  - owner_source: .workflow-system/PROJECT_PROFILE.yaml#project\n  - source_ref: current-user-message:2026-09-28-task003-handoff\n  - basis: regression\n  - existing_evidence_insufficiency: 已有 16 项覆盖主链；保留并按实际残余缺陷增强独立断言，包流需要时可在此提取共享受控外部传输 harness，禁止内部链 mock。\n  - assertion_boundary: 真实 server/Rust/DB/鉴权 gateway 与失败保旧值、无人在线恢复\n  - failure_disposition: 失败阻断对应 claim，不删除断言或以 mock/PASS 历史规避；仅在本任务范围修复并重新验证。\n- `tests/codexHistoryProductPackage.test.js`\n  - proves: C4\n  - owner: termlink\n  - owner_source: .workflow-system/PROJECT_PROFILE.yaml#project\n  - source_ref: current-user-message:2026-09-28-task003-handoff\n  - basis: regression\n  - existing_evidence_insufficiency: 现有 helper 手动写 Store 可掩盖实际 server 未采集/持久路径错误，必须强化同一 smoke。\n  - assertion_boundary: 未设置 analyzer override 的包内 server→真实 Rust→persistent DB/recovery→重启→鉴权历史\n  - failure_disposition: 失败阻断对应 claim，不删除断言或以 mock/PASS 历史规避；仅在本任务范围修复并重新验证。",
+    "rollback_points": "- Revert only the current step changes if its required validation cannot pass.",
+    "design_constraints": null,
+    "post_release_validation": null,
+    "propagation_governance": null,
+    "mutation_authority_version": 2,
+    "mutation_authority": {
+      "domains": [
+        "rust-collector",
+        "node-application",
+        "node-tests",
+        "project-build",
+        "product-docs"
+      ],
+      "exact_exceptions": [
+        "android/build/reports/problems/problems-report.html"
+      ],
+      "forbidden": [
+        "native/codex-rollout-collector/vendor/**",
+        "public/**",
+        "android/app/src/**",
+        "src/services/codexIpcClient.js",
+        "src/services/codexIpcFeed.js",
+        "src/services/codexIpcThreadStream.js",
+        "src/services/codexOwnerSurfaceTracker.js"
+      ]
+    }
+  },
+  "claim_evidence": [
+    {
+      "claim_id": "C1",
+      "claim_kind": "acceptance",
+      "slots": [
+        {
+          "slot_id": "C1-rust-path",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C1-RUST-PATH",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact",
+            "expected_observation": "绝对事件文件与 artifact 路径、cwd、命令参数保持输入原值；相对路径及文件内容仍可读。",
+            "validation_items": [
+              "Rust 原始路径与内容保留"
+            ],
+            "boundary": "local",
+            "required_boundaries": [
+              "Rust adapter",
+              "AnalysisBatch"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+              "native/codex-rollout-collector/tests/conformance.rs"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "改造现有主路径用例的原值 oracle，直接区分绝对路径事实与统一占位符。",
+              "breadth_reason": "PowerShell 只设置临时 Cargo 构建目录；Cargo 的 --exact 仅运行指定现有用例，没有附带无关测试。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C1",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C1-RUST-PATH",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "a129f2e8fa32282465aa58f5525150b1331ac860db0a91f0dc8e0003a31d3ed4",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        },
+        {
+          "slot_id": "C1-rust-nested",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C1-RUST-NESTED",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact",
+            "expected_observation": "嵌套 JSON 值与对象键、工具输入/输出中的真实路径保持原值；普通相对路径和完成状态不变。",
+            "validation_items": [
+              "Rust 嵌套工具内容原值"
+            ],
+            "boundary": "local",
+            "required_boundaries": [
+              "Rust adapter",
+              "AnalysisBatch structured tool payload"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+              "native/codex-rollout-collector/tests/conformance.rs"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "现有嵌套工具用例含独立于主路径 fixture 的值、对象键和输出路径；原替换行为会使精确原值断言失败。",
+              "breadth_reason": "PowerShell 只设置临时 Cargo 构建目录；Cargo 的 --exact 仅运行指定现有用例，没有附带无关测试。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C1",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C1-RUST-NESTED",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "a129f2e8fa32282465aa58f5525150b1331ac860db0a91f0dc8e0003a31d3ed4",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        },
+        {
+          "slot_id": "C1-rust-budget",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C1-RUST-BUDGET",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact",
+            "expected_observation": "两个绝对文件路径和内容保持不同原值，命令 cwd 保留；长输出仍受 64 KiB 截断，partial/unknown 保持 fail-closed。",
+            "validation_items": [
+              "Rust 绝对路径碰撞与输出预算"
+            ],
+            "boundary": "local",
+            "required_boundaries": [
+              "Rust target mapping",
+              "AnalysisBatch projection"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+              "native/codex-rollout-collector/tests/rollout_blockers.rs"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "现有负向用例同时包含私有绝对路径、不同文件身份与长输出，直接覆盖主路径用例没有的预算和碰撞失败。",
+              "breadth_reason": "PowerShell 只设置临时 Cargo 构建目录；Cargo 的 --exact 仅运行指定现有用例，没有附带无关测试。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C1",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C1-RUST-BUDGET",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "fa25f50b9c3c64dd1002d9bc5999452f00116e0b944090231e1118dd473a200f",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        },
+        {
+          "slot_id": "C1-rust-window",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C1-RUST-WINDOW",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact",
+            "expected_observation": "工具 begin/end 跨 source window 后，workdir 原值保留，归属和稳定键与单窗口一致。",
+            "validation_items": [
+              "Rust 跨窗口工具原值与稳定键"
+            ],
+            "boundary": "local",
+            "required_boundaries": [
+              "Rust segmented source read",
+              "tool attribution"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+              "native/codex-rollout-collector/tests/rollout_blockers.rs"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "现有跨窗口用例有旧脱敏断言；精确运行可检验移除替换后输入与关联不因窗口边界改变。",
+              "breadth_reason": "PowerShell 只设置临时 Cargo 构建目录；Cargo 的 --exact 仅运行指定现有用例，没有附带无关测试。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C1",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C1-RUST-WINDOW",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "fa25f50b9c3c64dd1002d9bc5999452f00116e0b944090231e1118dd473a200f",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        },
+        {
+          "slot_id": "C1-node-final",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C1-NODE-FINAL",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js",
+            "expected_observation": "真实 Rust 输出经 Node importer 与隔离存储重开后，cwd/path 不再为占位符，原有幂等和恢复行为保留。",
+            "validation_items": [
+              "最终 Rust→Node 原值重开"
+            ],
+            "boundary": "business-flow",
+            "required_boundaries": [
+              "real Rust process",
+              "Node importer",
+              "durable reopen"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+              "src/services/codexRolloutCollector/analysisBatchImporter.js",
+              "tests/codexRolloutCollector.isolatedLifecycle.test.js"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "现有文件只有一条真实 Rust→Node→重开用例，能发现跨进程导入后的值被替换。",
+              "breadth_reason": "该文件只含本次所需的一条真实进程生命周期用例，无无关测试；完整文件即最小可执行目标。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C1",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C1-NODE-FINAL",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "0b99068ea5665b08d901fb2fe566689a08f28e8d29c79a6859bb3beeb3d2f375",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        }
+      ],
+      "requirement": "Rust AnalysisBatch 保留真实事件中的文件路径、cwd、命令参数、工具输出/差异及 artifact 路径，不再用统一占位符破坏事实，同时维持正文预算和 source 访问边界。",
+      "source_ref": "current-user-message:2026-09-28-task003-handoff"
+    },
+    {
+      "claim_id": "C2",
+      "claim_kind": "acceptance",
+      "slots": [
+        {
+          "slot_id": "C2-store-final",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C2-STORE-FINAL",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+            "expected_observation": "SQLite Store 经写入、关闭与重开后同一 conversation 的 items/detail/coverage 可读；重复逻辑交付不重影，未完成或失败事务保留旧 canonical。该场景只证明 Store 本地事务，不替代 Rust complete 校验。",
+            "validation_items": [
+              "最终 Store 事务与重开"
+            ],
+            "boundary": "business-flow",
+            "required_boundaries": [
+              "Node product database",
+              "transaction commit",
+              "process reopen"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "src/services/codexHistoryProductStore.js",
+              "tests/codexHistoryProductFlow.test.js"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+              "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C2",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C2-STORE-FINAL",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "4ea3641364201b79cc17af0de7819489a92ac435c372efc4f5a6e95103e2ad68",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        },
+        {
+          "slot_id": "C2-publish",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C2-PUBLISH",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+            "expected_observation": "在正 ACK 前 durable staging 已落盘；Rust complete 校验前或失败时旧 canonical/最终 checkpoint 不变，校验通过后 items/details/coverage/change log/checkpoint 同事务提交。",
+            "validation_items": [
+              "真实 complete 后原子发布"
+            ],
+            "boundary": "business-flow",
+            "required_boundaries": [
+              "real Rust batch/ACK",
+              "Node durable staging",
+              "validated complete",
+              "product DB transaction"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "src/services/codexRolloutCollector/index.js",
+              "src/services/codexRolloutCollector/analysisBatchImporter.js",
+              "src/services/codexHistoryProductStore.js",
+              "tests/codexHistoryProductFlow.test.js"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+              "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C2",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C2-PUBLISH",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "89e07dda68bc76ca200f836ae96a4b55bbb3e0b184803980c9fe059f3a350e8d",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        }
+      ],
+      "requirement": "Node 产品数据库按 conversation 保存一份 canonical 历史与必要详情、coverage、checkpoint；重启可恢复、重复交付幂等，只有 complete 校验通过后才原子发布。",
+      "source_ref": "current-user-message:2026-09-28-task003-handoff"
+    },
+    {
+      "claim_id": "C3",
+      "claim_kind": "acceptance",
+      "slots": [
+        {
+          "slot_id": "C3-read-final",
+          "minimum_type": "business-observation",
+          "disposition": "missing",
+          "evidence_refs": [],
+          "check": {
+            "check_id": "T004-CK-C3-READ-FINAL",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+            "expected_observation": "鉴权历史请求从产品 DB 读取首载、older、append 与详情；event path 原值可用，内部 rollout path/cursor 不出 DTO，未授权被拒且读取不调用 Rust；超大正文分页/chunk 保持 256 KiB envelope 和 128 KiB chunk 上限，无媒体 data URL。",
+            "validation_items": [
+              "最终鉴权历史 DTO/分页与大小边界"
+            ],
+            "boundary": "business-flow",
+            "required_boundaries": [
+              "authenticated history gateway",
+              "Node product DB read model",
+              "App-facing DTO"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "src/services/codexHistoryProductProvider.js",
+              "src/ws/terminalGateway.js",
+              "tests/codexHistoryProductFlow.test.js",
+              "src/services/codexHistoryBaselineProvider.js"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+              "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C3",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+              }
+            }
+          },
+          "due_step_id": "S3-corr",
+          "applicability": "current",
+          "report": null
+        }
+      ],
+      "requirement": "Node 提供已鉴权的产品历史读取接口，支持首次历史、向前回填、追加与详情引用；可查看实际 event 路径，内部采集路径和 cursor 不进入 App DTO，读取不直连 Rust 且不改变健康 IPC 实时权威。",
+      "source_ref": "current-user-message:2026-09-28-task003-handoff"
+    },
+    {
+      "claim_id": "C4",
+      "claim_kind": "acceptance",
+      "slots": [
+        {
+          "slot_id": "C4-flow-final",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C4-FLOW-FINAL",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+            "expected_observation": "真实 Rust preview/backfill/append 经唯一 Node coordinator、durable staging/ACK、validated complete、产品 DB 原子提交后由鉴权历史网关读出；重启及重复交付后 canonical 一致，健康 IPC 仍独占实时正文。",
+            "validation_items": [
+              "真实 Rust 纵向链路"
+            ],
+            "boundary": "business-flow",
+            "required_boundaries": [
+              "real Rust producer",
+              "single Node coordinator",
+              "product DB reopen",
+              "authenticated history gateway",
+              "IPC coexistence"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "src/services/codexRolloutCollector/index.js",
+              "src/services/codexHistoryProductStore.js",
+              "src/services/codexHistoryProductProvider.js",
+              "src/server.js",
+              "src/ws/terminalGateway.js",
+              "tests/codexHistoryProductFlow.test.js",
+              "src/services/codexHistoryBaselineProvider.js",
+              "src/services/codexRolloutCollector/analysisRunStore.js",
+              "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+              "src/services/codexHistoryReconciliationScheduler.js",
+              "src/services/codexRolloutCollector/analysisBatchImporter.js"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+              "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C4",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C4-FLOW-FINAL",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "14093f91ef904f5beaa064d6de583d85d1ee098e8acdc506480616fcbde72df5",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        },
+        {
+          "slot_id": "C4-unattended",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C4-UNATTENDED",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+            "expected_observation": "启动真实服务且没有 App/WebSocket 历史客户端时，已验证终态/source-ready 事实创建并持久化唯一 job；真实 Rust 完成写库，Node 重启从 pending/receipt 恢复，之后连接网关能读到同一 canonical；无事实时保持 pending。",
+            "validation_items": [
+              "无人在线 source-ready 与重启恢复"
+            ],
+            "boundary": "business-flow",
+            "required_boundaries": [
+              "server startup",
+              "source-ready fact",
+              "zero App clients",
+              "single Node coordinator",
+              "durable job reopen"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "src/server.js",
+              "src/services/codexHistoryReconciliationScheduler.js",
+              "src/services/codexRolloutCollector/index.js",
+              "src/services/codexRolloutCollector/analysisRunStore.js",
+              "src/services/codexHistoryProductStore.js",
+              "tests/codexHistoryProductFlow.test.js"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "复用已读完整 product-history 文件：16 项分别覆盖事务、真实 Rust 发布、无人在线恢复、危险键保留、分页/鉴权/DTO 与大小预算，无本任务之外用例；相比分开 store/read/real-rust/unattended 启动多次进程和 Cargo 构建，合并运行保留全部独立 oracle 且减少真实构建/进程成本。",
+              "breadth_reason": "整个目标均为 C2/C3/C4 所需断言；各 slot 仍需独立匹配报告。IPC 并存由真实 server 的 unattended 用例观测，不能由仅调用 collector 的用例冒充。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C4",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C4-UNATTENDED",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "3f1d1e8d8abd96e3cdb0a1b0970288c9ca16b1edf5638594c601c5d0581c376e",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        },
+        {
+          "slot_id": "C4-package",
+          "minimum_type": "business-observation",
+          "disposition": "missing",
+          "evidence_refs": [],
+          "check": {
+            "check_id": "T004-CK-C4-PACKAGE",
+            "method": "execution",
+            "entry": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js",
+            "expected_observation": "隔离 staging 安装 production dependencies（--ignore-scripts），未配置 analyzer/persistent override 时从包内实际 src/server.js 启动；没有 App 时经可信终态/source-ready、唯一 Node coordinator 和真实 Rust 生成 fixture 历史，DB 与 run/checkpoint/intent 恢复数据均位于 persistent/data，app/data 不产生这些数据；中断后重启同一包，鉴权历史网关读出独立期望的原文/路径且不重复。缺 binary 或平台错配构建 fail-closed；显式 override 与开发目录默认语义不回退。",
+            "validation_items": [
+              "发布包 Rust/SQLite 运行 smoke"
+            ],
+            "boundary": "business-flow",
+            "required_boundaries": [
+              "packaged runtime",
+              "actual server startup without analyzer override",
+              "single Node coordinator",
+              "real Rust analyzer startup",
+              "SQLite dependency",
+              "persistent DB reopen",
+              "persistent recovery stores",
+              "authenticated history gateway"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "scripts/release/windows-release.js",
+              "scripts/release/release-layout.js",
+              "scripts/release/build-release.js",
+              "src/server.js",
+              "src/services/codexRolloutCollector/analyzerProcessManager.js",
+              "tests/codexHistoryProductPackage.test.js",
+              "package.json",
+              "package-lock.json",
+              "src/services/codexHistoryProductStore.js",
+              "src/services/codexHistoryReconciliationScheduler.js",
+              "src/services/codexRolloutCollector/analysisRunStore.js",
+              "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+              "src/services/codexRolloutCollector/index.js"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "现有包测试虽启动 server，但用 helper 手动写库与重开，可漏掉 analyzer 未启用或恢复目录错误；强化同一既有 smoke，经实际包 server 采集与重启读取，不能只检查目录或 helper。",
+              "breadth_reason": "包目标仅一项发布运行 smoke，包含必要 fail-closed 控制；开发集成无法观察包内 binary/dependency/持久目录。",
+              "breadth_basis": "acceptance-boundary",
+              "breadth_source_ref": "C4",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js"
+              }
+            }
+          },
+          "due_step_id": "S3-corr",
+          "applicability": "current",
+          "report": null
+        }
+      ],
+      "requirement": "实际 Rust 采集通过唯一 Node 采集链进入产品 DB 并由历史接口读出；首次加载、回填、追加、重启和 IPC 实时消息并存时，canonical 历史一致。 发布包默认启动启用已打包 analyzer，产品数据库及恢复状态使用持久目录，重启后历史可由实际接口读取。",
+      "source_ref": "current-user-message:2026-09-28-task003-handoff"
+    },
+    {
+      "claim_id": "C5",
+      "claim_kind": "invariant",
+      "slots": [
+        {
+          "slot_id": "C5-gateway",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C5-GATEWAY",
+            "method": "execution",
+            "entry": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+            "expected_observation": "既有 Owner surface 和 Gateway IPC 用例通过，历史 provider 接线不改变 follower、owner、IPC authority 或实时消息。",
+            "validation_items": [
+              "最终 IPC/Owner 回归门"
+            ],
+            "boundary": "business-flow",
+            "required_boundaries": [
+              "owner surface tracker",
+              "terminal Gateway IPC"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "src/ws/terminalGateway.js",
+              "tests/codexOwnerSurfaceTracker.test.js",
+              "tests/terminalGateway.codexIpc.test.js"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "CONTRACTS 对 terminalGateway.js 改动要求两组现有 Node 回归。",
+              "breadth_reason": "项目契约明确规定同时运行两份完整回归文件；新产品历史用例不能替代既有 Owner/IPC 用例。",
+              "breadth_basis": "project-policy",
+              "breadth_source_ref": "docs/workflow/CONTRACTS.md#🔒 Codex 原生会话实时同步核心",
+              "invocation": {
+                "kind": "structured",
+                "argv": [
+                  "node",
+                  "--test",
+                  "tests/codexOwnerSurfaceTracker.test.js",
+                  "tests/terminalGateway.codexIpc.test.js"
+                ],
+                "selector_arg_index": null
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C5-GATEWAY",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "cedf842217b4e32d3ae5748348390404149b83937a9a8690bef2986b088565f4",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        },
+        {
+          "slot_id": "C5-android",
+          "minimum_type": "business-observation",
+          "disposition": "reused",
+          "evidence_refs": [
+            "docs/changes/records/CR-20260928-task004-s3.md"
+          ],
+          "check": {
+            "check_id": "T004-CK-C5-ANDROID",
+            "method": "execution",
+            "entry": "$env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; $env:PATH=\"$env:JAVA_HOME\\bin;$env:PATH\"; $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'termlink-task004-gradle'; $env:TERMLINK_ANDROID_BUILD_ROOT=Join-Path $env:TEMP 'termlink-task004-android-build'; $taskInit=Join-Path $env:TEMP 'termlink-task004-builddir.gradle'; Set-Content -LiteralPath $taskInit -Value 'allprojects { layout.buildDirectory.set(new File(System.getenv(\"TERMLINK_ANDROID_BUILD_ROOT\"), project.path == \":\" ? \"root\" : project.path.replace(\":\", \"_\"))) }'; .\\android\\gradlew.bat -p android --project-cache-dir \"$env:TEMP\\termlink-task004-gradle-project-cache\" -I $taskInit :app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'",
+            "expected_observation": "JDK21 下 Codex ViewModel 与 IPC/history wire JVM 用例通过，Gateway 历史接线未破坏 App wire/authority 兼容。",
+            "validation_items": [
+              "最终 Android ViewModel/wire JVM 回归门"
+            ],
+            "boundary": "business-flow",
+            "required_boundaries": [
+              "Android Codex ViewModel JVM",
+              "Android IPC/history wire JVM"
+            ],
+            "allowed_substitutes": [],
+            "subject_paths": [
+              "src/ws/terminalGateway.js",
+              "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+              "android/app/src/test/java/com/termlink/app/codex/data/CodexIpcWireModelTest.kt",
+              "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt"
+            ],
+            "expected_result": "passed",
+            "selection": {
+              "granularity": "target",
+              "selector": null,
+              "selection_reason": "CONTRACTS 对 terminalGateway.js 改动强制 Android Codex ViewModel/wire JVM 回归；Gradle 产物重定向至系统临时目录。",
+              "breadth_reason": "PowerShell 设置 JDK21、临时 Gradle 缓存和构建目录并执行指定 JVM 类；opaque 包装器按 target 申报，覆盖契约要求的类族。",
+              "breadth_basis": "project-policy",
+              "breadth_source_ref": "docs/workflow/CONTRACTS.md#🔒 Codex 原生会话实时同步核心",
+              "invocation": {
+                "kind": "opaque",
+                "command": "$env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; $env:PATH=\"$env:JAVA_HOME\\bin;$env:PATH\"; $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'termlink-task004-gradle'; $env:TERMLINK_ANDROID_BUILD_ROOT=Join-Path $env:TEMP 'termlink-task004-android-build'; $taskInit=Join-Path $env:TEMP 'termlink-task004-builddir.gradle'; Set-Content -LiteralPath $taskInit -Value 'allprojects { layout.buildDirectory.set(new File(System.getenv(\"TERMLINK_ANDROID_BUILD_ROOT\"), project.path == \":\" ? \"root\" : project.path.replace(\":\", \"_\"))) }'; .\\android\\gradlew.bat -p android --project-cache-dir \"$env:TEMP\\termlink-task004-gradle-project-cache\" -I $taskInit :app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'"
+              }
+            }
+          },
+          "due_step_id": "S3",
+          "applicability": "current",
+          "report": {
+            "result_id": "T004-CK-C5-ANDROID",
+            "status": "passed",
+            "evidence_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+            "subject_revision": "288c1fc21522556c0b6946677da0eb4936872fbd7d59a474ff4a8a14b987f6ba",
+            "actual_method": "execution",
+            "environment": "windows-pwsh",
+            "assurance": "caller-reported"
+          }
+        }
+      ],
+      "requirement": "修改 Gateway 后保持既有 IPC authority、Owner surface 和 Android Codex wire/ViewModel 行为，满足项目回归门。",
+      "source_ref": "docs/workflow/CONTRACTS.md#🔒 Codex 原生会话实时同步核心"
+    }
+  ],
+  "carry_forward": [
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C1",
+      "slot_id": "C1-rust-path",
+      "check_id": "T004-CK-C1-RUST-PATH",
+      "result_id": "T004-CK-C1-RUST-PATH",
+      "report_sha256": "90183f55316ff9fcf09f3e4c5efc500aa7d9ab37680215227a5fae75c1278fb5",
+      "subject_revision": "a129f2e8fa32282465aa58f5525150b1331ac860db0a91f0dc8e0003a31d3ed4"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C1",
+      "slot_id": "C1-rust-nested",
+      "check_id": "T004-CK-C1-RUST-NESTED",
+      "result_id": "T004-CK-C1-RUST-NESTED",
+      "report_sha256": "a43d064c21e35bf69553a44568062188bc545c6c3252c9c6ffa12226e37dc86a",
+      "subject_revision": "a129f2e8fa32282465aa58f5525150b1331ac860db0a91f0dc8e0003a31d3ed4"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C1",
+      "slot_id": "C1-rust-budget",
+      "check_id": "T004-CK-C1-RUST-BUDGET",
+      "result_id": "T004-CK-C1-RUST-BUDGET",
+      "report_sha256": "ed2aeacfe7e21e61796f862494719570d7b668a11535ddb89efa6924a7ec6ca3",
+      "subject_revision": "fa25f50b9c3c64dd1002d9bc5999452f00116e0b944090231e1118dd473a200f"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C1",
+      "slot_id": "C1-rust-window",
+      "check_id": "T004-CK-C1-RUST-WINDOW",
+      "result_id": "T004-CK-C1-RUST-WINDOW",
+      "report_sha256": "7973b156f1203f1746a3a3293579c111394da010cf082a9269f0584543072de6",
+      "subject_revision": "fa25f50b9c3c64dd1002d9bc5999452f00116e0b944090231e1118dd473a200f"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C1",
+      "slot_id": "C1-node-final",
+      "check_id": "T004-CK-C1-NODE-FINAL",
+      "result_id": "T004-CK-C1-NODE-FINAL",
+      "report_sha256": "5e9d8c58da4cb440be2ed3c79a5f8a2ea926a6f5047e313e5d24957946d7ed07",
+      "subject_revision": "0b99068ea5665b08d901fb2fe566689a08f28e8d29c79a6859bb3beeb3d2f375"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C2",
+      "slot_id": "C2-store-final",
+      "check_id": "T004-CK-C2-STORE-FINAL",
+      "result_id": "T004-CK-C2-STORE-FINAL",
+      "report_sha256": "5855b089d60d59e7336cfbf8b8b04e76ae72c2aabd57ad7b9503b1eea48ab7f8",
+      "subject_revision": "4ea3641364201b79cc17af0de7819489a92ac435c372efc4f5a6e95103e2ad68"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C2",
+      "slot_id": "C2-publish",
+      "check_id": "T004-CK-C2-PUBLISH",
+      "result_id": "T004-CK-C2-PUBLISH",
+      "report_sha256": "e0bf190386798eb9181696427fc9aaf85100c06411152396f8e4585fe4a07cce",
+      "subject_revision": "89e07dda68bc76ca200f836ae96a4b55bbb3e0b184803980c9fe059f3a350e8d"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C4",
+      "slot_id": "C4-flow-final",
+      "check_id": "T004-CK-C4-FLOW-FINAL",
+      "result_id": "T004-CK-C4-FLOW-FINAL",
+      "report_sha256": "99aa342f93905eff40c9ebe23012c3dfd3eb50ca788e9924c17d23e8d7fa607f",
+      "subject_revision": "14093f91ef904f5beaa064d6de583d85d1ee098e8acdc506480616fcbde72df5"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C4",
+      "slot_id": "C4-unattended",
+      "check_id": "T004-CK-C4-UNATTENDED",
+      "result_id": "T004-CK-C4-UNATTENDED",
+      "report_sha256": "59ea9dac0121ae666a8594d32ce37cd84f9f4c91918c8a8620156462f3f6f2cc",
+      "subject_revision": "3f1d1e8d8abd96e3cdb0a1b0970288c9ca16b1edf5638594c601c5d0581c376e"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C5",
+      "slot_id": "C5-gateway",
+      "check_id": "T004-CK-C5-GATEWAY",
+      "result_id": "T004-CK-C5-GATEWAY",
+      "report_sha256": "92f2c33c060db128f9b2086c12c98dd7452bb6a2ccb6ba2d058d1090b0a212d9",
+      "subject_revision": "cedf842217b4e32d3ae5748348390404149b83937a9a8690bef2986b088565f4"
+    },
+    {
+      "kind": "evidence-carry-forward/v3",
+      "old_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "old_plan_revision": "0d64d9fdb8bfd434eca5a6a06c94e8433cadf84d9ed2d8587d7a4b5b6065d153",
+      "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+      "receiving_source_revision": "cd644d5c24d7af6ef20fb50314f6a18406ef972bf8b8a04afe90bfa23bdc75c7",
+      "evidence_objects": [
+        {
+          "path": "docs/changes/records/CR-20260928-task004-s3.md",
+          "sha256": "b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea",
+          "size": 4374
+        }
+      ],
+      "context_revision": "29bf557c5257c41852d04bde8aa4f20276c8ee0a06bf7e6464aac68d32592c91",
+      "claim_id": "C5",
+      "slot_id": "C5-android",
+      "check_id": "T004-CK-C5-ANDROID",
+      "result_id": "T004-CK-C5-ANDROID",
+      "report_sha256": "0f136cf53193cecbe3415cb35c9df4c67460fa418517137edcf02065ba6ff3aa",
+      "subject_revision": "288c1fc21522556c0b6946677da0eb4936872fbd7d59a474ff4a8a14b987f6ba"
+    }
+  ],
+  "new_plan_revision": "e302ea28baf6c6b2896ac54f7817e042bac22851def0c0dc465944ef333903a2",
+  "permission_change": "none",
+  "candidate_digest": "986c99de8c3fd2e9f41484d0c5b85d470fe74e15ce06e6a5281e18759607bc1b"
+}

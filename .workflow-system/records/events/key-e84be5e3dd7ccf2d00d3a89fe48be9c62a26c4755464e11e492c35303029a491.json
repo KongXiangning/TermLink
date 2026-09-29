@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T08:44:04.586Z",
+  "payload_sha256": "60abd75703907f14bb6850813abc3e9e5db95ae1e0d8613899ef3a52bd5d5382",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "review",
+    "idempotency_key": "app-product-history-plan-review-20260929-01",
+    "source_revision": "HEAD 33c6dd7a588a361a86351c510b15fe0e4a0e26fa; dirty working tree; static source review only",
+    "body": {
+      "subject": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+      "reviewer": "Codex self-review of its prior prepare-task plan; not independent review",
+      "verdict": "needs-revision-before-execution",
+      "original_user_request": "[$review-draft](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\review-draft\\SKILL.md)",
+      "findings": [
+        {
+          "priority": "P1",
+          "title": "History source wording conflicts with product contract",
+          "evidence": "Plan scope says Node product DB is the only static history source. Product contract §6 says use product projection when canonical row exists, preserve existing snapshot/recovery on miss, and return explicit failure on DB read failure.",
+          "resolution": "Reword scope/acceptance to DB-first for a found canonical row, bounded legacy fallback only on not-found, and fail-closed on DB read failure; do not disable the preexisting fallback."
+        },
+        {
+          "priority": "P1",
+          "title": "Older-page acceptance lacks capability configuration and precedence",
+          "evidence": "src/server.js defaults TERMLINK_HISTORY_RANGE_SEGMENTS and TERMLINK_HISTORY_SNAPSHOT_SEGMENTS to off. Android CodexViewModel.kt selects serverSnapshotSegments first and omits rangeSegments when snapshot capability is enabled; Gateway product provider only returns a bounded range when rangeSegments.enabled.",
+          "resolution": "Lock the E2E/product configuration and behavior when both capabilities are advertised before implementation; preserve snapshot fallback for DB misses. Define how App requests product_db range so initial/older assertions really exercise that lane."
+        },
+        {
+          "priority": "P1",
+          "title": "Detail refs can change without triggering history refresh",
+          "evidence": "src/services/codexHistoryProductProvider.js derives item contentHash from payloadJson only while detailRefs are separate. src/services/codexHistorySyncService.js compares item contentHash and has complete-root fast path, so a detail-only update can be reported up-to-date; projectionSnapshotHash does include refs, showing mismatch between cursor invalidation and sync root.",
+          "resolution": "Include detailRefs/availability in effective canonical item identity or otherwise force the relevant upsert/root change; add one focused Node regression for unchanged payload with changed detail ref."
+        },
+        {
+          "priority": "P2",
+          "title": "Real App integration is scheduled too late",
+          "evidence": "Earlier user direction was to connect App early for a vertical E2E to reduce rework. Plan puts true external-host/device smoke after full detail UI and other wiring in S4.",
+          "resolution": "Run a minimum real host→product DB→Gateway→App initial-page smoke immediately after the S1 wire/hash fix; then expand that same scenario for older, append, restart, detail and IPC coexistence."
+        },
+        {
+          "priority": "P2",
+          "title": "User-visible event facts lack a focused regression",
+          "evidence": "Android extractHistoryPayloadTextForUi currently reads text/content/summary only; plan accepts visible file path, cwd, command and code, but proposed Android tests cover wire/hash/reopen and detail assembly rather than event-fact projection.",
+          "resolution": "Use a real product DTO fixture to assert one representative path/cwd/command or code fact is visible in App history; extend an existing Android mapping/ViewModel test, avoiding helper-by-helper tests."
+        }
+      ],
+      "validation_assessment": "Existing Node product flow, Android history wire/range/ViewModel, required IPC/Owner regressions and one real-device smoke are appropriate. Do not add a broad suite. Add only focused checks for the proven ref-sync defect and App fact projection; reuse one cross-language delta fixture for hash/cache behavior. No tests were run in this read-only draft review.",
+      "scope_status": "No plan, product code, tests, docs or legacy task projection modified by this review; only append-only review observation recorded.",
+      "next_route": "prepare-task"
+    },
+    "links": [
+      {
+        "relation": "reviews",
+        "ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json"
+      },
+      {
+        "relation": "references",
+        "ref": "docs/codex/codex-history-product-contract.md"
+      },
+      {
+        "relation": "references",
+        "ref": "docs/workflow/CONTRACTS.md"
+      },
+      {
+        "relation": "references",
+        "ref": "docs/workflow/test-admission-policy.md"
+      }
+    ]
+  },
+  "issues": []
+}

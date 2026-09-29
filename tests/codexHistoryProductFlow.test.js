@@ -34,6 +34,19 @@ function makeStore(databasePath) {
     return new CodexHistoryProductStore({ databasePath, now: () => NOW });
 }
 
+function assertDoesNotContainPath(payloadOrString, targetPath) {
+    if (!targetPath) return;
+    const json = typeof payloadOrString === 'string' ? payloadOrString : JSON.stringify(payloadOrString);
+    const escaped = JSON.stringify(targetPath).slice(1, -1);
+    const posix = targetPath.replace(/\\/g, '/');
+    assert.equal(json.includes(escaped), false, `payload must not contain escaped path ${escaped}`);
+    assert.equal(json.includes(targetPath), false, `payload must not contain raw path ${targetPath}`);
+    assert.equal(json.includes(posix), false, `payload must not contain posix path ${posix}`);
+    const jsonLower = json.toLowerCase();
+    assert.equal(jsonLower.includes(escaped.toLowerCase()), false, `payload must not contain case-insensitive escaped path ${escaped}`);
+    assert.equal(jsonLower.includes(posix.toLowerCase()), false, `payload must not contain case-insensitive posix path ${posix}`);
+}
+
 function rolloutLine(ordinal, type, payload) {
     return JSON.stringify({
         timestamp: `2026-08-18T10:00:${String(ordinal).padStart(2, '0')}.000Z`,
@@ -359,7 +372,7 @@ test('product-history-real-rust stages before ACK, publishes validated canonical
     assert.ok(storedPayloads.includes('file:///synthetic/private/workspace'));
     assert.ok(storedPayloads.includes('src/product-history.rs'));
     assert.equal(storedPayloads.includes('source_ref'), false);
-    assert.equal(storedPayloads.includes(path.join(root, 'codex-home', 'sessions')), false);
+    assertDoesNotContainPath(storedPayloads, path.join(root, 'codex-home', 'sessions'));
     assert.equal(Object.hasOwn(history, 'checkpoint'), false);
     const productCheckpoint = await productStore.readCheckpoint(RUST_CONVERSATION_ID);
     assert.equal(productCheckpoint.completeness, 'canonical');
@@ -412,7 +425,7 @@ test('product-history-real-rust stages before ACK, publishes validated canonical
     assert.ok(gatewayPayload.includes('product history initial message'));
     assert.ok(gatewayPayload.includes('file:///synthetic/private/workspace'));
     assert.equal(gatewayPayload.includes('source_ref'), false);
-    assert.equal(gatewayPayload.includes(path.join(root, 'codex-home', 'sessions')), false);
+    assertDoesNotContainPath(gatewayPayload, path.join(root, 'codex-home', 'sessions'));
     assert.equal(gateway.codexService.requests.some((entry) => entry.method === 'thread/read'), false);
     client.ws.close();
 });
@@ -742,7 +755,7 @@ test('product-history-unattended retains incomplete intent for replay, restart a
     assert.equal(calls, 5, 'canonical completion retains terminal deduplication');
 });
 
-async function waitUntil(predicate, timeoutMs = 15000) {
+async function waitUntil(predicate, timeoutMs = 30000) {
     const end = Date.now() + timeoutMs;
     while (Date.now() < end) {
         if (await predicate()) return;
@@ -919,7 +932,7 @@ test('product-history-unattended actual server reopens a pending job and receipt
     const delta = await waitForProductReadMessage(client.messages, (m) => m.type === 'conversation_history_delta' && m.syncId === syncId);
     assert.deepEqual(delta.upserts.map((item) => item.itemKey), canonical.items.map((item) => item.itemKey));
     assert.ok(JSON.stringify(delta).includes('product history initial message'));
-    assert.equal(JSON.stringify(delta).includes(fixture.sourcePath), false);
+    assertDoesNotContainPath(delta, fixture.sourcePath);
     client.ws.send(JSON.stringify({ type: 'conversation_history_sync_ack', syncId,
         conversationId: RUST_CONVERSATION_ID, targetRoot: delta.targetRoot,
         sequence: delta.sequence, pageIndex: delta.pageIndex, clientSelectionGeneration: 51 }));
@@ -1421,3 +1434,23 @@ async function waitForProductReadMessage(messages, predicate, timeoutMs = 2_000)
     }
     return messages.find(predicate) || null;
 }
+
+test('product flow negative assertion rejects deliberate windows path leaks', () => {
+    const fakePath = 'C:\\Users\\builder\\AppData\\Local\\Codex\\sessions\\rollout-test.jsonl';
+    assert.throws(
+        () => assertDoesNotContainPath({ leak: fakePath }, fakePath),
+        /payload must not contain/
+    );
+    assert.throws(
+        () => assertDoesNotContainPath({ leak: fakePath.replace(/\\/g, '/') }, fakePath),
+        /payload must not contain/
+    );
+    assert.throws(
+        () => assertDoesNotContainPath(JSON.stringify({ leak: fakePath }), fakePath),
+        /payload must not contain/
+    );
+    assert.throws(
+        () => assertDoesNotContainPath(JSON.stringify({ leak: fakePath.toLowerCase() }), fakePath),
+        /payload must not contain/
+    );
+});

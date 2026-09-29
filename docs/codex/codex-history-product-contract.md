@@ -138,4 +138,4 @@ Gateway 的产品历史 provider 只调用 `CodexHistoryProductStore.readConvers
 - `docs/codex/codex-concept-layer-status-registry.md` §3、§5a：排除产品 `source_epoch`、泛化 revision 与 `serverRevision`。
 - `docs/workflow/CONTRACTS.md`「Codex IPC 实时同步核心 / P0-RC.1」及 `docs/workflow/DECISIONS.md` AD-004、AD-018–AD-022：保持健康 IPC 权威、单例 collector 与 source epoch 内部边界。
 
-本文件范围：S2 产品 DTO/路径契约与 Node SQLite Store、S3 产品历史只读 Gateway 接入、S4 Rust `complete` 后 durable publication 与终态唤醒/启动恢复，以及 S5 包启动与持久目录的当前接线。Task 004 S1 已重新核验 Rust 原值边界和 Node 主链定向检查；Task 004 S2 已增加并通过包内真实进程 smoke；最终累计验收属于 Task 004 S3。
+本文件范围：S2 产品 DTO/路径契约与 Node SQLite Store、S3 产品历史只读 Gateway 接入、S4 Rust `complete` 后 durable publication 与终态唤醒/启动恢复，以及 S5 包启动与持久目录的当前接线。Task 004 S1 重新核验了 Rust 原值边界和 Node 主链定向检查；Task 004 S2 增加并通过了包内真实进程 smoke；Task 004 S3 取得了全部冻结 claims 的最新业务证据，包含 Rust 四项断言、Node/Rust 隔离生命周期、产品流 17 项流式/事务/无人在线/Gateway 断言、发布包 2 项接线与路径负向 smoke、139 项 IPC/Owner 回归门及 JDK21 Android ViewModel/wire 回归命令。当前 Android 命令 BUILD SUCCESSFUL，但 Gradle 将 `:app:testDebugUnitTest` 判定为 UP-TO-DATE，本轮不把缓存任务表述为重新执行的 JVM 用例。本机 smoke 仅替换外部 Codex transport，未包含真实外部宿主部署或 Android 真机设备在线联调，这些项目保持明确未实施边界。

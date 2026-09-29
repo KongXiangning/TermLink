@@ -1,0 +1,49 @@
+---
+title: Task 004 S3 全量冻结 Claims 验收与整体验收
+status: draft
+record_id: CR-20260928-task004-s3
+req_id: none
+commit_ref: TBD
+owner: @maintainer
+last_updated: 2026-09-28
+source_of_truth: code
+related_code: [tests/codexHistoryProductPackage.test.js, tests/codexHistoryProductFlow.test.js, tests/codexRolloutCollector.isolatedLifecycle.test.js, native/codex-rollout-collector/tests/conformance.rs, native/codex-rollout-collector/tests/rollout_blockers.rs, tests/codexOwnerSurfaceTracker.test.js, tests/terminalGateway.codexIpc.test.js, android/app/src/test/java/com/termlink/app/codex/CodexViewModelTest.kt, android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt]
+related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-history-product-contract.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
+---
+
+# CR-20260928-task004-s3
+
+## 1. 变更意图
+
+按 Task 004 S3 对最终累计实现取得全部冻结 claims 的新证据，完成真实 Rust→Node→DB→鉴权历史接口、无人在线与包重启验收，执行强制 Owner/Gateway 与 JDK 21 Android ViewModel/wire JVM 回归，为后续 close-task 提供全量真实执行依据。
+
+## 2. 实施与验收内容
+
+- 重新核验 Rust 适配层原值保留、嵌套工具 payload、绝对路径碰撞与输出预算，以及跨窗口工具原值与稳定键。
+- 重新核验真实 Node 与 Rust 进程在 File Store 重开下的历史与丰富事实保留。
+- 重新核验产品 SQLite Store 事务、回滚、幂等、无人在线终态触发恢复、真实 Rust 纵向链路、鉴权 Gateway 只读历史接口、分页与大小边界。
+- 重新核验发布包布局下的默认 analyzer 接线、`persistent/data` 状态持久目录、故障重启恢复与 WebSocket 历史读取。
+- 执行强制 Codex IPC 实时同步核心与 TerminalGateway 回归门（139 项用例全部通过），保证 live follower/owner 状态机与仲裁未被破坏。
+- 执行强制 Android 端 CodexViewModel 与 Wire 测试回归门（JDK 21 环境，55 项 actionable tasks 全部成功），确保客户端反序列化与历史读取兼容。
+- 同步产品契约 §7 记录 S3 全量验收结论与边界。
+
+## 3. 验证记录
+
+全部计划命令均在当前工作树真实执行并通过：
+
+1. `cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact`：ok，1 passed。
+2. `cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact`：ok，1 passed。
+3. `cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact`：ok，1 passed。
+4. `cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact`：ok，1 passed。
+5. `node --test tests/codexRolloutCollector.isolatedLifecycle.test.js`：1 passed，0 failed。
+6. `node --test tests/codexHistoryProductFlow.test.js`：16 passed，0 failed。
+7. `node --test tests/codexHistoryProductPackage.test.js`：1 passed，0 failed。
+8. `node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js`：139 passed，0 failed。
+9. Android JVM 单元测试（JDK 21，`:app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'`）：BUILD SUCCESSFUL，55 executed。
+10. `git diff --check -- src native/codex-rollout-collector tests scripts package.json package-lock.json docs/codex docs/changes`：exit 0，代码与文档空白及格式规范。
+
+## 4. 影响、边界与回退
+
+- 本批仅更新产品契约验收结论与创建本 CR 记录，未引入破坏性代码修改。
+- 本机 smoke 与单元测试仅替换外部 Codex IPC/app-server transport，未宣称真实跨平台安装包部署或 Android 物理真机在线联调，这些项目保持明确未实施边界。
+- 若需回退，撤销本批文档修改即可。在没有真实提交前保持 `status: draft` 与 `commit_ref: TBD`。

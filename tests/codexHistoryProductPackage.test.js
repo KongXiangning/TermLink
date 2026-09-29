@@ -45,6 +45,19 @@ async function installPackagedDependencies(appRoot) {
     });
 }
 
+function assertDoesNotContainPath(payloadOrString, targetPath) {
+    if (!targetPath) return;
+    const json = typeof payloadOrString === 'string' ? payloadOrString : JSON.stringify(payloadOrString);
+    const escaped = JSON.stringify(targetPath).slice(1, -1);
+    const posix = targetPath.replace(/\\/g, '/');
+    assert.equal(json.includes(escaped), false, `payload must not contain escaped path ${escaped}`);
+    assert.equal(json.includes(targetPath), false, `payload must not contain raw path ${targetPath}`);
+    assert.equal(json.includes(posix), false, `payload must not contain posix path ${posix}`);
+    const jsonLower = json.toLowerCase();
+    assert.equal(jsonLower.includes(escaped.toLowerCase()), false, `payload must not contain case-insensitive escaped path ${escaped}`);
+    assert.equal(jsonLower.includes(posix.toLowerCase()), false, `payload must not contain case-insensitive posix path ${posix}`);
+}
+
 async function waitForPath(target, { timeoutMs = 15000 } = {}) {
     const deadline = Date.now() + timeoutMs;
     while (!fs.existsSync(target)) {
@@ -350,7 +363,7 @@ test('product-history-package stages the real Rust analyzer and reopens SQLite a
         const delta = await waitForWebSocketMessage(messages, (message) => message.type === 'conversation_history_delta' && message.syncId === syncId);
         assert.deepEqual(delta.upserts.map((item) => item.itemKey), history.items.map((item) => item.itemKey));
         assert.ok(JSON.stringify(delta).includes('packaged real history'));
-        assert.equal(JSON.stringify(delta).includes(sourcePath), false);
+        assertDoesNotContainPath(delta, sourcePath);
     } finally {
         ws?.terminate();
         await restarted?.close();
@@ -369,4 +382,24 @@ test('product-history-package stages the real Rust analyzer and reopens SQLite a
     );
 
     assert.ok(fs.existsSync(databasePath), 'the packaged SQLite file must be durable in persistent data');
+});
+
+test('packaged history negative assertion rejects deliberate windows path leaks', () => {
+    const fakePath = 'C:\\Users\\builder\\AppData\\Local\\Codex\\sessions\\rollout-test.jsonl';
+    assert.throws(
+        () => assertDoesNotContainPath({ leak: fakePath }, fakePath),
+        /payload must not contain/
+    );
+    assert.throws(
+        () => assertDoesNotContainPath({ leak: fakePath.replace(/\\/g, '/') }, fakePath),
+        /payload must not contain/
+    );
+    assert.throws(
+        () => assertDoesNotContainPath(JSON.stringify({ leak: fakePath }), fakePath),
+        /payload must not contain/
+    );
+    assert.throws(
+        () => assertDoesNotContainPath(JSON.stringify({ leak: fakePath.toLowerCase() }), fakePath),
+        /payload must not contain/
+    );
 });

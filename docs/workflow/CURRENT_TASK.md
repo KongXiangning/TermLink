@@ -1,64 +1,43 @@
 ---
 schema_version: 1
-kind: vnext-current-task
-document_id: doc-fdd730cf99bb383419d74988
-task_store:
-  schema_version: 1
-  kind: vnext-current-task-store-binding
-  format: compact-v3
-  manifest_path: docs/workflow/task-data/doc-fdd730cf99bb383419d74988/manifest.json
-  history:
-    execution_log: task-store
-    applied_proposals: task-store
-  projection:
-    definition:
-      object_type: definition
-      sha256: 6cb25d0f874bf7bc5680033426d38f3cd27a9c5d15b1588420ec5adb463ba647
-    state:
-      object_type: state
-      sha256: 61538710c8b686dec06ad2f7ffecf693f48c4f1b2ae927c981be789e3fc017a6
-runtime_state:
-  schema_version: 1
-  task_id: "004"
-  task_slug: task-003-rust-node
-  workflow_status: active
-  lifecycle_state: active
-  active_step_id: S3
-  active_step_status: ready
-  finding_queue_revision: 0
-  resume_requires_review: false
-  resume_review_reasons: []
+kind: vnext-task-view
+source_revision: 1d28cdd2e12b7a7474ddf615177e510e21080d39f7887e111d3a9f54ecccc5a8
+view_revision: 0f07737cdcc6bbcee5c381b170e932da584eb62633e0208f4162b6ec00c100f3
 ---
+<!-- vnext-task-view/v1 -->
 # CURRENT_TASK
 
-> Runtime-generated active projection. References select the complete immutable definition and state.
-> This summary is not an execution grant. Use task-context/task-read for exact obligations, authority and evidence.
+> Generated management view, not execution permission or verification.
+> Query assistance.mjs task-status/context for the current journal state; do not parse this with the legacy task kernel.
 
-## 当前步骤
-- S3
-- workflow: active; lifecycle: active; step: ready
+## Current work
+- Task: TASK-004 (legacy-doc-fdd730cf99bb383419d74988) — task-003-rust-node
+- Adopted plan: none
+- Step: S3
+- Suggested next route: task-lifecycle (advice only)
 
-## 当前到期证据
-- C1 / C1-rust-path / T004-CK-C1-RUST-PATH: missing
-- C1 / C1-rust-nested / T004-CK-C1-RUST-NESTED: missing
-- C1 / C1-rust-budget / T004-CK-C1-RUST-BUDGET: missing
-- C1 / C1-rust-window / T004-CK-C1-RUST-WINDOW: missing
-- C1 / C1-node-final / T004-CK-C1-NODE-FINAL: missing
-- C2 / C2-store-final / T004-CK-C2-STORE-FINAL: missing
-- C2 / C2-publish / T004-CK-C2-PUBLISH: missing
-- C3 / C3-read-final / T004-CK-C3-READ-FINAL: missing
-- C4 / C4-flow-final / T004-CK-C4-FLOW-FINAL: missing
-- C4 / C4-unattended / T004-CK-C4-UNATTENDED: missing
-- C4 / C4-package / T004-CK-C4-PACKAGE: missing
-- C5 / C5-gateway / T004-CK-C5-GATEWAY: missing
-- C5 / C5-android / T004-CK-C5-ANDROID: missing
+## Tasks
+| Task | Lifecycle | Plan | Step |
+| --- | --- | --- | --- |
+| TASK-004 | active | legacy-summary-only | S3 |
 
-## 任务输入依据
+## Review, execution and remaining work
+- S3: work=legacy-state; review=not-reviewed; findings=0; tests=0; source=none
 
-- path: `docs/workflow/task-basis/TASK_BASIS-004.md`
-- revision: `eaa2a5b8636fe4073cf449988b4740baf7d0d68f8302247fb66229518c9a2ac4`
-
-## 精确读取
-- `task-context`: current definition, step, gates and dependencies (paged).
-- `task-read`: exact definition, state, report, review and historical material.
-- `task-export`: complete retained aggregate; no audit history is discarded.
+## Management status
+- Source: 1d28cdd2e12b7a7474ddf615177e510e21080d39f7887e111d3a9f54ecccc5a8
+- Health: needs-attention
+- Unassociated observations: 12
+- issue-afaffdd7bfede4dd6d3d07bf: No explicit machine-readable task action; use link with the actual meaning, not a new approval.
+- issue-8f7164b97f03dd30a4e4c3ac: No explicit machine-readable task action; use link with the actual meaning, not a new approval.
+- issue-c597320336e19e2001493b92: No explicit machine-readable task action; use link with the actual meaning, not a new approval.
+- issue-c5d740bc5d3b964ba5645956: Task identity is missing or ambiguous.
+- issue-8d95e62467584986ed3d80b8: Task identity is missing or ambiguous.
+- issue-960ada822b45ac9cbd4b01b0: Task identity is missing or ambiguous.
+- issue-f453d54f028c21d7982e00bd: Task identity is missing or ambiguous.
+- issue-a3418ed04a9a0cb219545f61: Task identity is missing or ambiguous.
+- issue-205d9930e7d21a51b9297de5: Task identity is missing or ambiguous.
+- issue-42f31bfa271ed5059a243810: Task identity is missing or ambiguous.
+- issue-49ee3aa3f1cff47de1ea9aa4: Task identity is missing or ambiguous.
+- issue-ec19a134aefeb23287cb519b: Review must identify its real draft or effective execution target, without inventing a clean receipt.
+- Recover with task rebuild/link/correct/resolve/defer. Rebuilding never reruns business commands.

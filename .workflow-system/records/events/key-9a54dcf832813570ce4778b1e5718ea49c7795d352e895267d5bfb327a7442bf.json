@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T08:54:36.989Z",
+  "payload_sha256": "f34dd7dca022a0b777a29349978b9383168b13e4c08d3932f6d612fd71bfe883",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "plan",
+    "idempotency_key": "app-product-history-integration-plan-20260929-02-review-revision",
+    "source_revision": "HEAD 33c6dd7a588a361a86351c510b15fe0e4a0e26fa; planning review only; working tree not requalified",
+    "body": {
+      "original_instruction": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md)",
+      "interpretation": "修订上轮 App 产品历史接入计划，处理紧邻的 review-draft 所列五项意见；本调用未授权产品代码实施。",
+      "target": "Task 004 后的 Android App 只读产品历史接入与真实 Codex host→Rust→Node 产品 DB→Gateway→Android 纵向验证；不分配新的 canonical task ID。",
+      "predecessor_status": "前一计划为草案，随后 Codex 自审结论 needs-revision-before-execution；此前 Task 004 本机链路证据不等于真实外部 host/Android E2E。",
+      "goal": "App 经现有鉴权 history 协议读取已发布的 Node 产品历史，缓存并展示真实事件路径、cwd、命令及代码/工具文本，同时保持健康 IPC 为当前会话实时 authority。",
+      "review_resolutions": [
+        "将静态历史来源表述改为：canonical 产品库行存在时 DB-first；查无记录时沿用已有 snapshot/recovery；DB 读取错误显式失败，不能掩盖成旧路径成功。",
+        "E2E 环境显式启用 TERMLINK_HISTORY_RANGE_SEGMENTS 并协商 cache schema v3 range；保持默认 feature flags 不变。两种 capability 同时广告时，App 对产品历史优先请求 range；依服务端 response 的 providerMode=product_db 采用 bounded/older 路径，DB miss 的 snapshot/recovery response 仍按既有协议处理，不能强制误解为 product_db。默认关闭 range 的环境只验证全量产品历史，不声称 older 验收。",
+        "Node 产品 item 的有效同步身份须包含 detailRefs、detailRefsTruncated、availability 等实际 wire 详情可用性；仅详情引用改变也必须使 root/diff 产生可交付 upsert，避免 complete-root 快路径误报 up-to-date，同时保持 projection cursor 对变化 fail-closed。",
+        "完成最小 wire/hash/cache 与 capability 路由后立即做一条真实首屏纵向 smoke；其后在同一场景扩展 older、append、重启、详情和 IPC 并存。",
+        "复用 Node 真实 product DTO 样本，验证 App 至少一个代表性 event path/cwd/command/code 事实确实可见，不只验证 DTO 字段存在。"
+      ],
+      "scope": [
+        "Android Codex history wire、页哈希、SQLite cache 迁移及旧缓存兼容、ViewModel history 协商/选择隔离、最小只读详情 UI。",
+        "Node product history provider/sync 中已证实的详情引用版本化缺陷，必要的 Gateway/App capability 兼容；沿用既有鉴权 sync、manifest/delta/ACK/chunk/older 协议。",
+        "真实外部 Codex host 与 Android 物理设备上的最小纵向 E2E 和随后同场景扩展。"
+      ],
+      "exclusions": [
+        "不改 Rust collector、rollout source identity、Node 产品库事务及单会话采集协调；历史读取不得另发 Rust 请求。",
+        "不改 IPC follower/owner、desired subscription/replay 或 healthy IPC authority；不把内部 source_ref、cursor、checkpoint、job/batch/segment 元数据或假设的产品 epoch 发送到 App。",
+        "不增加任意文件/图片二进制访问，不借本任务关闭 Goal、子代理、edited_files 等其他台账项；不在准备阶段修改产品文件、提交或部署。"
+      ],
+      "implementation_steps": [
+        "S1 契约与最小通路：以 Node 实际 product_db wire 样本锁定 detailRefs/availability、页哈希及 cache schema；修复 Node 详情引用变更仍能触发 root/diff/upsert；Android 解析、哈希、持久化和旧缓存兼容；明确 range+snapshot 双能力下的请求/响应路由，并保留 DB miss/error 语义。",
+        "S2 提前的真实首屏 smoke：在显式启用 range 的开发环境，由外部 Codex host 自然产生 rollout，验证 Rust→Node canonical DB→鉴权 Gateway→Android 真机首屏有界产品页与 ACK、至少一个真实事件事实可见；若 host/设备不可用，真实 E2E 标记未验证，继续独立可实施部分，不用替身测试宣称通过。",
+        "S3 App 详情与分页：按需 detail request、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开和 A→B→A 隔离的必要兼容，保留 live IPC 对当前正文、operation、turn 和运行态的优先级。",
+        "S4 扩展同一真实纵向场景：观察 older 回填/重叠去重、追加、App 与 Node 重启、详情变化/失效、健康 IPC 实时并存及 A→B→A；记录实际观察、失败和未验证项。"
+      ],
+      "acceptance": [
+        "canonical DB 行命中时 App 读取 product projection；DB miss 使用既有 snapshot/recovery；DB read error 显式失败。range v3 协商成功且服务端启用时初始页有界、older 使用 product_db 游标；未协商 range 不冒称 older。",
+        "detailRefs、availability 与页哈希在 Node 和 Android 一致，SQLite 重开后保留；不变 payload 但变化的详情引用导致新 root/upsert，旧引用/游标按协议失效。",
+        "App 能显示真实 event path/cwd/command/code 等代表性事实，按需详情块经 offset/hash 校验完整呈现；不暴露内部采集元数据，也不承诺访问源文件或图片字节。",
+        "older、append、重启保持幂等与 coverage 真实；stale selection/response 被拒绝；healthy IPC 继续独占实时正文、operation、当前 turn 与运行态。",
+        "真实外部 host/Android 的首屏 smoke 在 S2 即记录，完整纵向场景在 S4 记录；替身或本机回归只算各自证据，缺失场景保持未验证。"
+      ],
+      "minimum_sufficient_validation": [
+        "Node：在既有 tests/codexHistoryProductFlow.test.js 增一条仅详情引用/availability 变化、payload 不变时 root/diff/upsert 刷新的定向回归；复用已有 DB miss/error 与 product flow 检查，不为每字段建重复测试。",
+        "Android：复用一个 Node 生成的 product_db delta/详情 fixture，扩展既有 wire/range/cache 测试覆盖 hash、详情引用持久化及重开；扩展既有 ViewModel/UI 映射测试验证一个代表性真实 event 路径、cwd、命令或代码事实可见，并验证详情分块和 stale selection 的关键行为。",
+        "触碰 Gateway 或 Android ViewModel/selection 后运行项目要求的 OwnerSurfaceTracker、terminalGateway.codexIpc 与相关 Android Codex wire/ViewModel JVM 回归；Android Gradle 使用 JDK 21 并确认实际执行。",
+        "真机：一条真实 host→Rust→Node DB→Gateway→App smoke 先验证首屏，后扩展 older、append、App/Node 重启、详情和 IPC A→B→A；按设备调试流程检查本地开发服务，记录配置与实际证据。"
+      ],
+      "assumptions": [
+        "用户连续调用 review-draft 后调用 prepare-task，解释为采纳并处理已列审查意见；这是计划修订而非实施授权。",
+        "现行 docs/codex/codex-history-product-contract.md、CONTRACTS.md 与 AD-004 优先于旧草案；产品默认功能开关的发布启用不由本计划静默决定。",
+        "Task 004 的本机产品链路可复用，但其证据不覆盖真实外部宿主和 Android 物理设备。"
+      ],
+      "delta_from_previous": "修正 DB-first/fallback 表述，显式锁定 range/snapshot 能力及测试配置，纳入已证实的 Node detail-ref 同步缺陷，将真实首屏 E2E 从末步提前至第二步，并加一项用户可见事件事实回归；保留前一计划其他目标与排除范围。",
+      "next_route": "execute-step",
+      "terminal_boundary": "public-entry-terminal/v1"
+    },
+    "links": [
+      {
+        "relation": "supersedes-draft",
+        "ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json"
+      },
+      {
+        "relation": "addresses-review",
+        "ref": ".workflow-system/records/events/key-e84be5e3dd7ccf2d00d3a89fe48be9c62a26c4755464e11e492c35303029a491.json"
+      },
+      {
+        "relation": "references",
+        "ref": "docs/codex/codex-history-product-contract.md"
+      },
+      {
+        "relation": "references",
+        "ref": "docs/workflow/CONTRACTS.md"
+      },
+      {
+        "relation": "references",
+        "ref": "docs/workflow/DECISIONS.md"
+      },
+      {
+        "relation": "references",
+        "ref": "docs/workflow/test-admission-policy.md"
+      }
+    ]
+  },
+  "issues": []
+}

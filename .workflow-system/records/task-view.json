@@ -1,0 +1,293 @@
+{
+  "runtime_role": "assistance",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "kind": "task-view/v1",
+  "source_revision": "1d28cdd2e12b7a7474ddf615177e510e21080d39f7887e111d3a9f54ecccc5a8",
+  "workflow_home": "docs/workflow",
+  "current_task_id": "legacy-doc-fdd730cf99bb383419d74988",
+  "current_task": {
+    "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+    "display_id": "TASK-004",
+    "title": "task-003-rust-node",
+    "lifecycle": "active",
+    "lifecycle_ref": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
+    "adopted_plan_ref": null,
+    "plan_status": "legacy-summary-only",
+    "plan": {
+      "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
+      "detail_status": "legacy-summary-only",
+      "steps": [
+        {
+          "id": "S3",
+          "title": "S3"
+        }
+      ]
+    },
+    "plans": [],
+    "adopted_by": null,
+    "adoption": null,
+    "candidate_plan_refs": [],
+    "current_step_id": "S3",
+    "steps": [
+      {
+        "id": "S3",
+        "title": "S3",
+        "state": "legacy-state",
+        "legacy_step_status": "ready",
+        "execution_ref": null,
+        "execution": null,
+        "review_ref": null,
+        "review_status": "not-reviewed",
+        "findings": [],
+        "review_choice": null,
+        "review_decision_ref": null,
+        "review_decisions": [],
+        "tests": [],
+        "disposition_ref": null,
+        "historical_execution_refs": []
+      }
+    ],
+    "reviews": [],
+    "executions": [],
+    "tests": [],
+    "review_decisions": [],
+    "commits": [
+      {
+        "sha": "d1109c04f73235f15636b5d62f017d734310c696",
+        "ref": ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json",
+        "interpretation_ref": null,
+        "object_available": true,
+        "verification": "local-git-object",
+        "pushed": "not-inferred",
+        "deployed": "not-inferred"
+      }
+    ],
+    "dispositions": [],
+    "next_route": "task-lifecycle",
+    "next_mode": null,
+    "recommendation_only": true,
+    "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
+    "legacy_plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+    "heads": [
+      ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json"
+    ]
+  },
+  "tasks": [
+    {
+      "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+      "display_id": "TASK-004",
+      "title": "task-003-rust-node",
+      "lifecycle": "active",
+      "lifecycle_ref": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
+      "adopted_plan_ref": null,
+      "plan_status": "legacy-summary-only",
+      "plan": {
+        "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
+        "detail_status": "legacy-summary-only",
+        "steps": [
+          {
+            "id": "S3",
+            "title": "S3"
+          }
+        ]
+      },
+      "plans": [],
+      "adopted_by": null,
+      "adoption": null,
+      "candidate_plan_refs": [],
+      "current_step_id": "S3",
+      "steps": [
+        {
+          "id": "S3",
+          "title": "S3",
+          "state": "legacy-state",
+          "legacy_step_status": "ready",
+          "execution_ref": null,
+          "execution": null,
+          "review_ref": null,
+          "review_status": "not-reviewed",
+          "findings": [],
+          "review_choice": null,
+          "review_decision_ref": null,
+          "review_decisions": [],
+          "tests": [],
+          "disposition_ref": null,
+          "historical_execution_refs": []
+        }
+      ],
+      "reviews": [],
+      "executions": [],
+      "tests": [],
+      "review_decisions": [],
+      "commits": [
+        {
+          "sha": "d1109c04f73235f15636b5d62f017d734310c696",
+          "ref": ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json",
+          "interpretation_ref": null,
+          "object_available": true,
+          "verification": "local-git-object",
+          "pushed": "not-inferred",
+          "deployed": "not-inferred"
+        }
+      ],
+      "dispositions": [],
+      "next_route": "task-lifecycle",
+      "next_mode": null,
+      "recommendation_only": true,
+      "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
+      "legacy_plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+      "heads": [
+        ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json"
+      ]
+    }
+  ],
+  "issues": [
+    {
+      "id": "issue-afaffdd7bfede4dd6d3d07bf",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-8f7164b97f03dd30a4e4c3ac",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-c597320336e19e2001493b92",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-c5d740bc5d3b964ba5645956",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+      "message": "Task identity is missing or ambiguous."
+    },
+    {
+      "id": "issue-8d95e62467584986ed3d80b8",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+      "message": "Task identity is missing or ambiguous."
+    },
+    {
+      "id": "issue-960ada822b45ac9cbd4b01b0",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-ad9847d3bfad862b444213c7123d5d6117706de47a6c68ce7edd0e250b8cad9b.json",
+      "message": "Task identity is missing or ambiguous."
+    },
+    {
+      "id": "issue-f453d54f028c21d7982e00bd",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "message": "Task identity is missing or ambiguous."
+    },
+    {
+      "id": "issue-a3418ed04a9a0cb219545f61",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
+      "message": "Task identity is missing or ambiguous."
+    },
+    {
+      "id": "issue-205d9930e7d21a51b9297de5",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+      "message": "Task identity is missing or ambiguous."
+    },
+    {
+      "id": "issue-42f31bfa271ed5059a243810",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-e84be5e3dd7ccf2d00d3a89fe48be9c62a26c4755464e11e492c35303029a491.json",
+      "message": "Task identity is missing or ambiguous."
+    },
+    {
+      "id": "issue-49ee3aa3f1cff47de1ea9aa4",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+      "message": "Task identity is missing or ambiguous."
+    },
+    {
+      "id": "issue-ec19a134aefeb23287cb519b",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "message": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "unassociated_records": [
+    {
+      "ref": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+      "reason": "Task identity is missing or ambiguous.",
+      "task_ref": null
+    },
+    {
+      "ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+      "reason": "Task identity is missing or ambiguous.",
+      "task_ref": null
+    },
+    {
+      "ref": ".workflow-system/records/events/key-ad9847d3bfad862b444213c7123d5d6117706de47a6c68ce7edd0e250b8cad9b.json",
+      "reason": "Task identity is missing or ambiguous.",
+      "task_ref": "Task 004 S3"
+    },
+    {
+      "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "reason": "Task identity is missing or ambiguous.",
+      "task_ref": null
+    },
+    {
+      "ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
+      "reason": "Task identity is missing or ambiguous.",
+      "task_ref": null
+    },
+    {
+      "ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+      "reason": "Task identity is missing or ambiguous.",
+      "task_ref": "Task 004 S3"
+    },
+    {
+      "ref": ".workflow-system/records/events/key-e84be5e3dd7ccf2d00d3a89fe48be9c62a26c4755464e11e492c35303029a491.json",
+      "reason": "Task identity is missing or ambiguous.",
+      "task_ref": null
+    },
+    {
+      "ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+      "reason": "Task identity is missing or ambiguous.",
+      "task_ref": "Task 004 S3"
+    },
+    {
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "reason": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "health": "needs-attention",
+  "recovery_options": [
+    "rebuild",
+    "link",
+    "correct",
+    "resolve",
+    "defer",
+    "pause",
+    "close"
+  ],
+  "heads": [
+    ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json"
+  ],
+  "records_scanned": 13,
+  "state_completeness": "partial-associations",
+  "view_revision": "0f07737cdcc6bbcee5c381b170e932da584eb62633e0208f4162b6ec00c100f3"
+}
