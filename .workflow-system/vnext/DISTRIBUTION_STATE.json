@@ -2,9 +2,9 @@
   "schema_version": 1,
   "kind": "vibe-governance-distribution-state",
   "distribution_state": "vnext",
-  "distribution_version": "0.23.3",
-  "manifest_digest": "4338867ea57a55033e6c59cedf07ff072a92ee5b33640ade39f8d2b9d73ae397",
-  "installed_at": "2026-09-29T15:16:47.641Z",
+  "distribution_version": "0.23.4",
+  "manifest_digest": "55dc032a721c901cfb79a4a17a1c1d220a2eddf6521dc40c9416c46e3cffd9fb",
+  "installed_at": "2026-09-29T15:57:06.326Z",
   "managed_files": [
     {
       "path": ".agents/skills/bootstrap-project/SKILL.md",
@@ -33,7 +33,7 @@
     },
     {
       "path": ".agents/skills/git-commit/SKILL.md",
-      "checksum": "ce3039b2532a3e2c30d2d6ee644ccb20849a22a70ca3e1d7799deb0f3fbed2ce",
+      "checksum": "bdee6256286d26c4208a5312ecee46318fb00fcc97f859cd88ba93ce3dff25ed",
       "category": "skill"
     },
     {
@@ -68,7 +68,7 @@
     },
     {
       "path": ".workflow-system/runtime/dist/cli.js",
-      "checksum": "768942b3f0a6be993e385bfa155022dbce2b0c50693b98789e4c328671ac9354",
+      "checksum": "72d6724ad8e0e12c37b9737d4afdb3e838c99927ffcf33bd0f954907e8a932dd",
       "category": "runtime"
     },
     {
@@ -78,12 +78,12 @@
     },
     {
       "path": ".workflow-system/runtime/package-lock.json",
-      "checksum": "4a70aa0947fe3da793dc10ed744669a50f9f1d7ca75b479d30d5ad26d6ae570a",
+      "checksum": "6c9bc3708a617c0799797fd03feda050df55461cc1a2d3990191ed51915631d4",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/package.json",
-      "checksum": "110aedd5b18f7697c6c496007e69be1cfe0df53f9dadf3e8c165045a3a913626",
+      "checksum": "4d10270c771fb587bc027a69fbd587fbcdce7cb4376f9c4457f1c42d6e101683",
       "category": "runtime"
     },
     {
@@ -153,7 +153,7 @@
     },
     {
       "path": ".workflow-system/runtime/src/kernel.ts",
-      "checksum": "fabc52f3af953e8ad85aaee6fad8db6362f27766f46ae1472512ed3812b4e5b6",
+      "checksum": "3c00eee1c6e954c3ef17893588670e450301261029cfa54ceb79ca5e87b4b04d",
       "category": "runtime"
     },
     {
@@ -228,7 +228,7 @@
     },
     {
       "path": ".workflow-system/runtime/support/ASSISTANCE_API.md",
-      "checksum": "eeceb3d4515872cb5942f65f10c161bfcb9f262b08653056d239327f080d12dc",
+      "checksum": "10e7c202f6867ae447e7a9a1f36b715aa6c29cfd27f8cd1c9ddcdc1f08243ff0",
       "category": "runtime"
     },
     {
@@ -253,17 +253,17 @@
     },
     {
       "path": ".workflow-system/runtime/support/TASK_MANAGEMENT_API.md",
-      "checksum": "685c635081ca2aea5b371b576686403b2cc2ad96b5d44cbc45f99904f8f6f671",
+      "checksum": "590967e659ea753a80f5e8ad8e22ae2322f3f0e191b76013a0507031678c9944",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/support/task-management.mjs",
-      "checksum": "2e742881cd23fedd107ec13df967af1264bc505e3fde3aebf1577c72116aff6f",
+      "checksum": "dc9578d14b09ecd649074911dae01fab9aac56e3b96350f48455fa4cca3a426f",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/vnext/RUNTIME_CONTRACT.yaml",
-      "checksum": "ac5d2863c32703ff974b88bfc19d92afbab3c6162dfd5a036000252278c998ab",
+      "checksum": "253381bf70d04267c46e25c5b7d8de0048df26d2ec2223f2031d62d952e0fc34",
       "category": "protocol"
     },
     {
@@ -273,7 +273,7 @@
     },
     {
       "path": ".workflow-system/WORKFLOW_PROTOCOL.md",
-      "checksum": "387f37f23c93348914468f02d11ff1cb312660152dcb506280758e9538cb899e",
+      "checksum": "79159d20850908060046665ddd3f00d9198fc9915ef49c54655bff1b39280a7c",
       "category": "protocol"
     },
     {
