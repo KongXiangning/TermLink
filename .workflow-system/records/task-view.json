@@ -3,7 +3,7 @@
   "development_gate": false,
   "qualification": "not-evaluated",
   "kind": "task-view/v1",
-  "source_revision": "1d28cdd2e12b7a7474ddf615177e510e21080d39f7887e111d3a9f54ecccc5a8",
+  "source_revision": "31b7cf8120eee0d14135a1be8063beb1fc97af541fa16b1f6a29b71909e6704b",
   "workflow_home": "docs/workflow",
   "current_task_id": "legacy-doc-fdd730cf99bb383419d74988",
   "current_task": {
@@ -54,6 +54,15 @@
     "review_decisions": [],
     "commits": [
       {
+        "sha": "7e32943de2fe889f6336082bc91e8942b69aa2ea",
+        "ref": ".workflow-system/records/events/key-c66f3711741549fd2a538b83e2eae0b3e90c8e31c7ce6ba544ad80edc541cc02.json",
+        "interpretation_ref": ".workflow-system/records/events/key-39fc0a10522db34678f1a3ed53654a3cf166245cbef597d478b87b6ea1064b02.json",
+        "object_available": true,
+        "verification": "local-git-object",
+        "pushed": "not-inferred",
+        "deployed": "not-inferred"
+      },
+      {
         "sha": "d1109c04f73235f15636b5d62f017d734310c696",
         "ref": ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json",
         "interpretation_ref": null,
@@ -70,7 +79,7 @@
     "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
     "legacy_plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
     "heads": [
-      ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json"
+      ".workflow-system/records/events/key-c66f3711741549fd2a538b83e2eae0b3e90c8e31c7ce6ba544ad80edc541cc02.json"
     ]
   },
   "tasks": [
@@ -122,6 +131,15 @@
       "review_decisions": [],
       "commits": [
         {
+          "sha": "7e32943de2fe889f6336082bc91e8942b69aa2ea",
+          "ref": ".workflow-system/records/events/key-c66f3711741549fd2a538b83e2eae0b3e90c8e31c7ce6ba544ad80edc541cc02.json",
+          "interpretation_ref": ".workflow-system/records/events/key-39fc0a10522db34678f1a3ed53654a3cf166245cbef597d478b87b6ea1064b02.json",
+          "object_available": true,
+          "verification": "local-git-object",
+          "pushed": "not-inferred",
+          "deployed": "not-inferred"
+        },
+        {
           "sha": "d1109c04f73235f15636b5d62f017d734310c696",
           "ref": ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json",
           "interpretation_ref": null,
@@ -138,7 +156,7 @@
       "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
       "legacy_plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
       "heads": [
-        ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json"
+        ".workflow-system/records/events/key-c66f3711741549fd2a538b83e2eae0b3e90c8e31c7ce6ba544ad80edc541cc02.json"
       ]
     }
   ],
@@ -285,9 +303,9 @@
     "close"
   ],
   "heads": [
-    ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json"
+    ".workflow-system/records/events/key-39fc0a10522db34678f1a3ed53654a3cf166245cbef597d478b87b6ea1064b02.json"
   ],
-  "records_scanned": 13,
+  "records_scanned": 15,
   "state_completeness": "partial-associations",
-  "view_revision": "0f07737cdcc6bbcee5c381b170e932da584eb62633e0208f4162b6ec00c100f3"
+  "view_revision": "068bf6280585efb93663285f91a2b44e286509cb8b1a67c86cd1656c78296383"
 }
