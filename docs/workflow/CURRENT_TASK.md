@@ -1,8 +1,8 @@
 ---
 schema_version: 1
 kind: vnext-task-view
-source_revision: 31b7cf8120eee0d14135a1be8063beb1fc97af541fa16b1f6a29b71909e6704b
-view_revision: 068bf6280585efb93663285f91a2b44e286509cb8b1a67c86cd1656c78296383
+source_revision: 64935c04a56c06bef167a2defc628a44e43f0334346b70a26580c2a83b1dde53
+view_revision: dfc1d292e555fe56ed89410adac08bedf266126f4255f91ecdeeb2a9389084e3
 ---
 <!-- vnext-task-view/v1 -->
 # CURRENT_TASK
@@ -25,7 +25,7 @@ view_revision: 068bf6280585efb93663285f91a2b44e286509cb8b1a67c86cd1656c78296383
 - S3: work=legacy-state; review=not-reviewed; findings=0; tests=0; source=none
 
 ## Management status
-- Source: 31b7cf8120eee0d14135a1be8063beb1fc97af541fa16b1f6a29b71909e6704b
+- Source: 64935c04a56c06bef167a2defc628a44e43f0334346b70a26580c2a83b1dde53
 - Health: needs-attention
 - Unassociated observations: 12
 - issue-afaffdd7bfede4dd6d3d07bf: No explicit machine-readable task action; use link with the actual meaning, not a new approval.
