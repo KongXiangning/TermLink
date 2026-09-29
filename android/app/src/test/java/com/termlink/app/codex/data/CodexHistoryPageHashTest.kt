@@ -6,6 +6,32 @@ import org.junit.Test
 
 class CodexHistoryPageHashTest {
     @Test
+    fun productReplacementRootMatchesNodeCanonicalRoot() {
+        val item = CodexHistoryItem(
+            itemKey = "product-0", turnId = "turn-product-0", position = 0,
+            itemType = "message", role = "assistant", clientRequestId = null,
+            payloadJson = "{\"text\":\"product-0\"}",
+            contentHash = "5e8978244cb8e3d3b41d4693fc284e2b9ba5bca8628cdee3eeb6107424e3f47c"
+        )
+        assertEquals(
+            "9bc2d8061ec1ab85c82ce3cfc7302ec5a12f22ea5e8241936f5bc20b3c4850da",
+            productRangeRoot(listOf(item))
+        )
+    }
+
+    @Test
+    fun productDetailRefsAndAvailabilityMatchNodePageHash() {
+        val stream = javaClass.classLoader!!.getResourceAsStream("codex_product_db_detail_delta.json")!!
+        val fixture = JSONObject(stream.bufferedReader().use { it.readText() })
+        val wire = fixture.getJSONObject("page")
+            .put("conversationId", "fixture")
+            .put("pageHash", fixture.getString("expectedPageHash"))
+        val page = CodexHistoryDeltaWire.from(wire)!!.page
+        assertEquals(fixture.getString("expectedPageHash"), CodexHistoryPageHasher.pageHash(page))
+        assertEquals(wire.getJSONArray("upserts").getJSONObject(0).getJSONArray("detailRefs").toString(), page.upserts.single().detailRefsJson)
+    }
+
+    @Test
     fun goldenVectorsMatchNodePageHash() {
         val stream = javaClass.classLoader!!.getResourceAsStream("codex_history_page_hash_v1.json")!!
         val root = JSONObject(stream.bufferedReader().use { it.readText() })

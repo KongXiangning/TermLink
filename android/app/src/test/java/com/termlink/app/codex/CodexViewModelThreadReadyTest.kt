@@ -3061,6 +3061,17 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun cachedProductEventKeepsUsefulStructuredFactsBesideItsText() {
+        val stream = javaClass.classLoader!!.getResourceAsStream("codex_product_db_detail_delta.json")!!
+        val fixture = JSONObject(stream.bufferedReader().use { it.readText() })
+        val payload = JSONObject(fixture.getJSONObject("page").getJSONArray("upserts").getJSONObject(0).getString("payloadJson"))
+        assertEquals(
+            "tool finished\neventFilePath: C:\\events\\rollout.jsonl\ncwd: E:\\workspace\\termlink\ncommand: cargo test",
+            extractHistoryPayloadTextForUi(payload)
+        )
+    }
+
+    @Test
     fun cacheFirstSelectionShowsCached正文BeforeLiveSurfaceArrives() {
         val state = CodexUiState(
             activeConversationId = "conv-a",

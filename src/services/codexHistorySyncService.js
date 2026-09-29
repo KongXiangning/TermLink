@@ -1113,6 +1113,8 @@ class CodexHistorySyncService {
         );
         const rangeEnabled = requestedRangeSegments.enabled && normalizedCacheSchemaVersion >= 3;
         const rangeMetadata = rangeEnabled ? normalizeRangeMetadata(baseline.range) : null;
+        const productProviderTransition = rangeMetadata?.providerMode === 'product_db' &&
+            normalizeCheckpoint(checkpoint).providerMode !== 'product_db';
         const state = {
             ws, conversationId, syncId, sequence: 1, selectionGeneration,
             clientSelectionGeneration: normalizeClientSelectionGeneration(clientSelectionGeneration),
@@ -1141,7 +1143,7 @@ class CodexHistorySyncService {
         if (!this._retainBaseline(baseline)) return { ok: false, detailCode: 'history_unavailable' };
         this._syncs.set(ws, state);
         this._armInactivityTimer(ws, state);
-        if (baseline.complete && state.checkpoint.complete && baseline.rootHash === state.checkpoint.rootHash && baseline.items.length === state.checkpoint.itemCount) {
+        if (!productProviderTransition && baseline.complete && state.checkpoint.complete && baseline.rootHash === state.checkpoint.rootHash && baseline.items.length === state.checkpoint.itemCount) {
             this._settle(ws, state, 'synced');
             return { ok: true, state: 'synced', sync: state };
         }
@@ -1505,16 +1507,35 @@ class CodexHistorySyncService {
         if (pages.some((value, index) => value !== index)) return this._fail(ws, state, 'manifest_incomplete');
         const localItems = pages.flatMap((index) => state.manifestPages.get(index));
         if (localItems.length > this.options.maxManifestItems || Buffer.byteLength(JSON.stringify(localItems), 'utf8') > this.options.maxManifestBytes) return this._fail(ws, state, 'manifest_limit_exceeded');
-        const diff = state.baseline.complete
-            ? buildManifestDiff({ localItems, canonicalItems: state.baseline.items, baselineComplete: true })
-            : buildPartialMergedDiff({ localItems, canonicalItems: state.baseline.items, baseRoot: state.checkpoint.rootHash || null });
+        const atomicTail = state.rangeEnabled && state.rangeMetadata?.rangeKind === 'tail';
+        const replaceProductTail = atomicTail && state.rangeMetadata.providerMode === 'product_db' && (
+            state.checkpoint.providerMode !== 'product_db' || state.rangeMetadata.coverageComplete === true
+        );
+        // The Android cache replaces the old provider (or a complete product
+        // range) atomically. A manifest diff contains only changed items and
+        // is therefore not a valid replacement payload, even when empty.
+        const diff = replaceProductTail
+            ? {
+                upserts: state.baseline.items,
+                deletes: [],
+                canonicalOrder: undefined,
+                fullOrderIncluded: false,
+                baselineComplete: false,
+                rangeComplete: true,
+                targetRoot: state.baseline.rootHash,
+                baseRoot: state.checkpoint.rootHash || null
+            }
+            : atomicTail && state.rangeMetadata.providerMode === 'product_db'
+                ? buildPartialMergedDiff({ localItems, canonicalItems: state.baseline.items, baseRoot: state.checkpoint.rootHash || null })
+                : state.baseline.complete
+                    ? buildManifestDiff({ localItems, canonicalItems: state.baseline.items, baselineComplete: true })
+                    : buildPartialMergedDiff({ localItems, canonicalItems: state.baseline.items, baseRoot: state.checkpoint.rootHash || null });
         // `baselineComplete` controls only delete/order authority.  A safe
         // upsert-only diff can still be a complete result for the requested
         // range; an older/middle gap, however, must force PARTIAL even when a
         // caller supplied an optimistic sync outcome.
         state.rangeIncomplete = state.rangeIncomplete || diff.rangeComplete === false;
         const targetRoot = diff.targetRoot || buildConversationRoot(state.baseline.items);
-        const atomicTail = state.rangeEnabled && state.rangeMetadata?.rangeKind === 'tail';
         const pageBudget = Math.min(this.options.deltaMaxBytes, this.options.historyMaxEnvelopeBytes);
         const wireOptions = {
             enablePayloadChunks: state.supportsPayloadChunks,

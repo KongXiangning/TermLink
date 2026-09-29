@@ -45,7 +45,7 @@ class CodexHistoryCacheMigrationInstrumentationTest {
         val store = CodexConversationCacheStore(context, databaseName)
         try {
             val view = requireNotNull(store.readConversation("home", "task-a"))
-            assertEquals(4, store.readableDatabase.version)
+            assertEquals(5, store.readableDatabase.version)
             assertEquals(3, view.checkpoint.schemaVersion)
             assertEquals("old-root", view.checkpoint.rootHash)
             assertTrue(view.checkpoint.complete)
@@ -60,6 +60,8 @@ class CodexHistoryCacheMigrationInstrumentationTest {
             assertEquals(3, scalarInt(db, "SELECT item_count FROM history_segments WHERE endpoint_id='home' AND conversation_id='task-a'"))
             assertTrue(tableHasColumn(db, "conversations", "coverage_complete"))
             assertTrue(tableHasColumn(db, "items", "within_segment_position"))
+            assertTrue(tableHasColumn(db, "items", "detail_refs_json"))
+            assertTrue(tableHasColumn(db, "sync_staging", "detail_refs_json"))
             assertTrue(indexExists(db, "idx_items_segment_position_unique"))
         } finally {
             store.close()
@@ -240,6 +242,139 @@ class CodexHistoryCacheMigrationInstrumentationTest {
             ).let { it.copy(pageHash = CodexHistoryPageHasher.pageHash(it)) }
             assertEquals(CodexConversationCacheStore.PageApplyResult.COMMITTED, store.applyDeltaPage("home", replay))
             assertEquals(4, scalarInt(db, "SELECT COUNT(*) FROM items WHERE endpoint_id='home' AND conversation_id='task-range' AND provisional=0"))
+        } finally {
+            store.close()
+        }
+    }
+
+    @Test
+    fun productDetailRefsSurviveCommittedPageAndDatabaseReopen() {
+        val refs = "[{\"kind\":\"tool_detail\",\"refId\":\"detail-1\"}]"
+        val rawPage = CodexHistoryDeltaPage(
+            syncId = "detail-storage", conversationId = "task-detail", sequence = 0,
+            pageIndex = 0, pageCount = 1, pageHash = "", baseRoot = null,
+            targetRoot = "detail-root", baselineComplete = true, fullOrderIncluded = true,
+            canonicalOrder = listOf("item-1"),
+            upserts = listOf(CodexHistoryItem(
+                itemKey = "item-1", turnId = "turn-1", position = 0,
+                itemType = "tool", role = "tool", clientRequestId = null,
+                payloadJson = "{\"text\":\"tool\"}", contentHash = "item-version",
+                detailRefsJson = refs, detailRefsTruncated = true, availability = "partial"
+            ))
+        )
+        val store = CodexConversationCacheStore(context, databaseName)
+        try {
+            val page = rawPage.copy(pageHash = CodexHistoryPageHasher.pageHash(rawPage))
+            assertEquals(CodexConversationCacheStore.PageApplyResult.COMMITTED, store.applyDeltaPage("home", page))
+        } finally {
+            store.close()
+        }
+        val reopened = CodexConversationCacheStore(context, databaseName)
+        try {
+            val item = requireNotNull(reopened.readConversation("home", "task-detail")).items.single()
+            assertEquals(refs, item.detailRefsJson)
+            assertTrue(item.detailRefsTruncated)
+            assertEquals("partial", item.availability)
+        } finally {
+            reopened.close()
+        }
+    }
+
+    @Test
+    fun productOlderOverlapAndDetailRefreshPreserveChronologicalItems() {
+        val store = CodexConversationCacheStore(context, databaseName)
+        try {
+            fun productPage(sync: String, segment: String, kind: String, keys: List<String>, detail: String? = null): CodexHistoryDeltaPage {
+                val base = rangePage(sync, segment, kind, keys, if (kind == "older") null else "older-cursor")
+                val items = base.upserts.map { item ->
+                    if (item.itemKey == "tail-1" && detail != null) item.copy(
+                        contentHash = "hash-tail-1-$detail",
+                        detailRefsJson = "[{\"refId\":\"$detail\"}]"
+                    ) else item
+                }
+                val raw = base.copy(
+                    upserts = items,
+                    range = base.range!!.copy(
+                        providerMode = "product_db",
+                        newestAnchor = CodexHistoryRangeAnchor(items.last().itemKey, items.last().contentHash),
+                        oldestAnchor = CodexHistoryRangeAnchor(items.first().itemKey, items.first().contentHash)
+                    ),
+                    pageHash = ""
+                )
+                return raw.copy(pageHash = CodexHistoryPageHasher.pageHash(raw))
+            }
+            val tail = productPage("123e4567-e89b-12d3-a456-426614174241", "product-segment-1", "tail", listOf("tail-0", "tail-1"))
+            assertEquals(CodexConversationCacheStore.PageApplyResult.COMMITTED, store.applyDeltaPage("home", tail))
+            val older = productPage("123e4567-e89b-12d3-a456-426614174242", "product-segment-2", "older", listOf("older-0", "tail-0"))
+            assertEquals(CodexConversationCacheStore.PageApplyResult.COMMITTED, store.applyDeltaPage("home", older))
+            assertEquals(listOf("older-0", "tail-0", "tail-1"), requireNotNull(store.readConversation("home", "task-range")).items.map { it.itemKey })
+            assertEquals(1, scalarInt(store.readableDatabase, "SELECT item_count FROM history_segments WHERE segment_id='product-segment-2'"))
+
+            val refresh = productPage("123e4567-e89b-12d3-a456-426614174243", "product-segment-3", "tail", listOf("tail-1"), "detail-v2")
+            assertEquals(CodexConversationCacheStore.PageApplyResult.COMMITTED, store.applyDeltaPage("home", refresh))
+            val view = requireNotNull(store.readConversation("home", "task-range"))
+            assertEquals(listOf("older-0", "tail-0", "tail-1"), view.items.map { it.itemKey })
+            assertEquals("hash-tail-1-detail-v2", view.items.last().contentHash)
+            assertEquals("[{\"refId\":\"detail-v2\"}]", view.items.last().detailRefsJson)
+            assertEquals(1, scalarInt(store.readableDatabase, "SELECT COUNT(*) FROM items WHERE item_key='tail-1'"))
+        } finally {
+            store.close()
+        }
+    }
+
+    @Test
+    fun productTailAtomicallyReplacesCompleteLegacyCache() {
+        createLegacyV3Database()
+        val store = CodexConversationCacheStore(context, databaseName)
+        try {
+            val base = rangePage("123e4567-e89b-12d3-a456-426614174244", "product-replacement-segment", "tail", listOf("product-0"), null)
+            val hash = "5e8978244cb8e3d3b41d4693fc284e2b9ba5bca8628cdee3eeb6107424e3f47c"
+            val root = "9bc2d8061ec1ab85c82ce3cfc7302ec5a12f22ea5e8241936f5bc20b3c4850da"
+            val raw = base.copy(
+                conversationId = "task-a",
+                upserts = base.upserts.map { it.copy(contentHash = hash) },
+                targetRoot = root,
+                range = base.range!!.copy(
+                    providerMode = "product_db", coverageRoot = root,
+                    newestAnchor = CodexHistoryRangeAnchor("product-0", hash),
+                    oldestAnchor = CodexHistoryRangeAnchor("product-0", hash)
+                ),
+                pageHash = ""
+            )
+            val page = raw.copy(pageHash = CodexHistoryPageHasher.pageHash(raw))
+            assertEquals(CodexConversationCacheStore.PageApplyResult.COMMITTED, store.applyDeltaPage("home", page))
+            val view = requireNotNull(store.readConversation("home", "task-a"))
+            assertEquals(listOf("product-0"), view.items.map { it.itemKey })
+            assertEquals("product_db", view.checkpoint.providerMode)
+            assertEquals(1, scalarInt(store.readableDatabase, "SELECT COUNT(*) FROM history_segments WHERE endpoint_id='home' AND conversation_id='task-a'"))
+        } finally {
+            store.close()
+        }
+    }
+
+    @Test
+    fun emptyProductProviderTransitionCannotEraseCompleteLegacyCache() {
+        createLegacyV3Database()
+        val store = CodexConversationCacheStore(context, databaseName)
+        try {
+            val base = rangePage("123e4567-e89b-12d3-a456-426614174245", "empty-transition", "tail", listOf("product-0"), null)
+            val raw = base.copy(
+                conversationId = "task-a",
+                upserts = emptyList(),
+                range = base.range!!.copy(providerMode = "product_db"),
+                pageHash = ""
+            )
+            val page = raw.copy(pageHash = CodexHistoryPageHasher.pageHash(raw))
+            var rejected = false
+            try {
+                store.applyDeltaPage("home", page)
+            } catch (_: IllegalStateException) {
+                rejected = true
+            }
+            assertTrue("empty transition must fail closed", rejected)
+            val view = requireNotNull(store.readConversation("home", "task-a"))
+            assertEquals(listOf("a-0", "a-1", "a-2"), view.items.map { it.itemKey })
+            assertEquals("old-root", view.checkpoint.rootHash)
         } finally {
             store.close()
         }

@@ -110,8 +110,8 @@ Gateway 的产品历史 provider 只调用 `CodexHistoryProductStore.readConvers
 
 ### 6.1 初始页与 older page
 
-- 旧客户端读取完整产品投影，并继续使用现有 manifest、delta、ACK 与 payload chunk 控制流。
-- 协商到 cache schema v3 range capability 的客户端读取最新有界页；`range.providerMode` 为 `product_db`，older page 仍通过既有 `conversation_history_older_request` 和 `startOlderPage` 传输。
+- 未声明 `productHistory: {version: 1, detailRefs: true}` 的旧客户端读取完整 v2 产品正文投影，不接收详情引用、可用性字段或产品 range；继续使用现有 manifest、delta、ACK 与 payload chunk 控制流。这样其旧 page hash 与缓存解析器仍一致。
+- 显式声明产品详情能力且协商到 cache schema v3 range capability 的客户端读取最新有界页；`range.providerMode` 为 `product_db`，older page 仍通过既有 `conversation_history_older_request` 和 `startOlderPage` 传输。
 - Range provider 按 item 数与 wire JSON 估算字节数共同选页，默认目标为 192 KiB；共享 delta envelope 256 KiB 是最终硬上限。一个 item 即使超过 inline payload limit，也可由支持 chunk 的客户端通过现有 chunk 通道读取；无法满足 envelope 上限时 sync 明确失败。
 - `nextOlderCursor` 是产品分页游标，绑定 conversation、range、当前产品投影 fingerprint 与 item 锚点的 key/hash/position。它不包含 rollout 路径、Rust source identity、内部 source cursor 或 checkpoint。canonical 投影或锚点变化时 fail closed；older page 保留一条边界重叠 item 供客户端幂等合并。
 - tail 与单个 older page 都不能单独声明完整覆盖；只有产品 coverage 为 canonical 且当前 range 已到最早项时，初始结果才可声明完整。
@@ -120,6 +120,8 @@ Gateway 的产品历史 provider 只调用 `CodexHistoryProductStore.readConvers
 
 历史 item 可携带最多 64 个 `detailRefs`，其中只包含 `kind`、会话内不可逆引用、内容 hash、byte size、MIME type 和可用性。超过引用数上限时 item 标记 `detailRefsTruncated: true` 与 partial availability。详情由同一已鉴权 WebSocket session 通过新增的 `conversation_history_detail_request` / `conversation_history_detail_response` 读取，并再次校验当前 conversation 与 selection generation。
 
+Task 005 S1 将产品 item 的 `contentHash` 定义为有效同步身份：包含正文 payload digest、`detailRefs`、`detailRefsTruncated` 与 `availability`；没有详情或可用性标记的旧 item 保持原正文 hash。完整 root、manifest diff 与 v3 range 锚点因此能识别仅详情变化。分块正文的 `payloadHash` 仍只校验 `payloadJson` 字节，不复用有效同步身份。Android 缓存前向迁移保留已有正文和 checkpoint，并持久化新增的详情引用与可用性字段。
+
 详情 body 以 canonical JSON 字符串按 UTF-8 边界分块。响应提供 `contentHash`、总字节数、偏移和下一页 opaque cursor；cursor 绑定 conversation、detail ref、内容 hash 与 byte offset。默认详情 chunk 为 48 KiB，Gateway 的详情 envelope 目标上限为 112 KiB，并低于共享 history envelope 的 256 KiB 上限；各响应仍由 WebSocket envelope guard 校验。客户端可按 cursor 继续读取，过期或内容变化的 cursor 会 fail closed。
 
 内联 image data URL（含 MIME 参数、base64 与 percent-encoded 形式）不进入 item 或详情 JSON；被省略的内容标记为 `availability: partial` / `mediaAvailability: unsupported`。真实 event path、`cwd`、命令和 artifact path 原值保留在已鉴权历史/详情中。`source_ref`、source metadata、source cursor、checkpoint、batch/request/job/segment 与 analyzer recovery metadata 不进入 Gateway payload；其识别范围按 §3.2 的 payload 顶层边界执行。
@@ -127,6 +129,12 @@ Gateway 的产品历史 provider 只调用 `CodexHistoryProductStore.readConvers
 ### 6.3 实时 IPC 与协议兼容
 
 历史 baseline 读取不能写入、替换或重建健康 IPC surface。若后续 IPC surface 到达，它继续沿 `conversation_surface_snapshot` 实时路径发送；产品历史 baseline 只阻止 live tail 覆盖静态历史 baseline。follower acquire/release、desired subscription、reconnect replay、IPC authority arbitration，以及现有 manifest/ACK/older/sync-state 控制协议保持不变。详情消息是 additive WebSocket data request，不改变上述控制消息。
+
+Android 同时协商 range 与 server snapshot 能力时，Gateway 对命中的产品库行优先返回 `product_db` range；未命中仍走既有 snapshot/recovery。App 按响应的 `providerMode` 选择 older 路径，`server_snapshot` 不进入产品 range older 请求。产品库读取报错仍显式失败，不降级为 snapshot。
+
+已有完整静态缓存的 App 对当前选择最多发送一次 `productHistory.onlyIfPresent: true` 的数据库查询。命中时按产品 range 事务更新本地静态历史；未命中时 Gateway 返回 `cache_only/history_product_not_found`，保留原缓存且不启动 snapshot 降级。产品 older 页的边界重叠项保留原位置与 segment 归属；产品 tail 仅详情变化时在原位置更新 item 与 segment 摘要。不同 provider 的旧静态基线在产品 tail 提交事务中替换。终态 reconciliation 仍保持既有隔离 fence。
+
+不同 provider 接管或已完整覆盖的产品 range 刷新时，Gateway 必须交付整段 canonical 产品 tail 的 upsert-only 单页，不能把 manifest 的差异 upsert 当成替换快照。Android 在事务内校验该页的 item root 与声明的 `coverageRoot/targetRoot` 一致后才删除旧静态行；不完整替换页 fail closed。若首个查询仅因 `conversation_not_active` 触发既有一次激活重试，该次查询不计入当前选择的产品库探测次数。
 
 旧客户端不支持 payload chunks 时，超出 inline limit 的单项必须显式失败；支持 chunk 的客户端复用现有 96 KiB payload chunk 与 128 KiB chunk envelope 上限。delta envelope 仍使用既有 256 KiB 上限。服务端不把大详情 body 塞进 item DTO。
 

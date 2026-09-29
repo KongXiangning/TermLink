@@ -47,11 +47,11 @@ class CodexHistoryProductProvider {
         this.detailEnvelopeBytes = positiveInteger(detailEnvelopeBytes, DEFAULT_DETAIL_ENVELOPE_BYTES, DEFAULT_DETAIL_ENVELOPE_BYTES);
     }
 
-    async readInitial(conversationId, { rangeEnabled = false } = {}) {
+    async readInitial(conversationId, { rangeEnabled = false, includeDetailRefs = true } = {}) {
         const history = await this.store.readConversation(conversationId);
         if (!history) return null;
 
-        const items = projectItems(history);
+        const items = projectItems(history, { includeDetailRefs });
         const complete = isCanonicalCoverage(history.coverage);
         if (!rangeEnabled) {
             return {
@@ -224,9 +224,9 @@ class CodexHistoryProductProvider {
     }
 }
 
-function projectItems(history) {
+function projectItems(history, { includeDetailRefs = true } = {}) {
     const detailRefsByItemKey = new Map();
-    for (const detail of Array.isArray(history.toolDetails) ? history.toolDetails : []) {
+    for (const detail of includeDetailRefs && Array.isArray(history.toolDetails) ? history.toolDetails : []) {
         if (!detail.itemKey) continue;
         const projected = projectPayload(detail.payload);
         const projectedPayload = projected.value;
@@ -250,6 +250,17 @@ function projectItems(history) {
         const projected = projectPayload(item.payload);
         const projectedPayload = projected.value;
         const payloadJson = canonicalize(projectedPayload);
+        const payloadHash = hashPayload(payloadJson);
+        const details = detailRefsByItemKey.get(item.itemKey);
+        const detailRefs = details?.refs || [];
+        const detailRefsTruncated = details?.truncated === true;
+        const availability = includeDetailRefs && (detailRefsTruncated || projected.mediaOmitted) ? 'partial' : null;
+        // Keep the payload digest separate from the item version used by the
+        // sync root/manifest. A detail-only change must refresh the item,
+        // while a plain legacy item keeps its existing contentHash.
+        const contentHash = detailRefs.length || detailRefsTruncated || availability
+            ? hashPayload(canonicalize({ payloadHash, detailRefs, detailRefsTruncated, availability }))
+            : payloadHash;
         return {
             itemKey: item.itemKey,
             turnId: item.turnId,
@@ -260,10 +271,10 @@ function projectItems(history) {
                 ? projectedPayload.clientRequestId
                 : null,
             payloadJson,
-            contentHash: hashPayload(payloadJson),
-            detailRefs: detailRefsByItemKey.get(item.itemKey)?.refs || [],
-            ...(detailRefsByItemKey.get(item.itemKey)?.truncated ? { detailRefsTruncated: true, availability: 'partial' } : {}),
-            ...(projected.mediaOmitted ? { availability: 'partial' } : {})
+            contentHash,
+            detailRefs,
+            ...(detailRefsTruncated ? { detailRefsTruncated: true } : {}),
+            ...(availability ? { availability } : {})
         };
     });
 }
@@ -302,7 +313,7 @@ function estimateRangeItemBytes(item) {
         ...(item?.detailRefsTruncated === true ? { detailRefsTruncated: true } : {}),
         ...(typeof item?.availability === 'string' && item.availability ? { availability: item.availability } : {}),
         ...(payloadChunked ? {
-            payloadHash: item.contentHash,
+            payloadHash: hashPayload(payloadJson),
             payloadBytes,
             payloadChunkCount: Math.ceil(payloadBytes / (96 * 1024))
         } : {})

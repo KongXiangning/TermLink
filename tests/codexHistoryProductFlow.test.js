@@ -13,8 +13,8 @@ const { WebSocketServer } = WebSocket;
 
 const { CodexHistoryProductStore } = require('../src/services/codexHistoryProductStore');
 const { CodexHistoryProductProvider } = require('../src/services/codexHistoryProductProvider');
-const { canonicalize } = require('../src/services/codexHistoryCanonicalizer');
-const { buildDeltaPages, toWireItem } = require('../src/services/codexHistorySyncService');
+const { canonicalize, buildConversationRoot } = require('../src/services/codexHistoryCanonicalizer');
+const { CodexHistorySyncService, buildDeltaPages, buildManifestDiff, computeHistoryPageHash, toWireItem } = require('../src/services/codexHistorySyncService');
 const {
     CodexRolloutCollector,
     AnalysisBatchImporter,
@@ -404,6 +404,7 @@ test('product-history-real-rust stages before ACK, publishes validated canonical
         conversationId: RUST_CONVERSATION_ID,
         selectionGeneration: 41,
         cacheSchemaVersion: 3,
+        productHistory: { version: 1, detailRefs: true },
         rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
         checkpoint: { rootHash: null, itemCount: 0, complete: false }
     }));
@@ -606,6 +607,59 @@ test('product-history-read pages canonical rows and preserves product event fiel
         }),
         (error) => error.code === 'history_older_cursor_invalid'
     );
+});
+
+test('product-history-read refreshes a complete root and range cursor when only a detail changes', async () => {
+    const history = productReadHistory();
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(history), pageItems: 3 });
+    const before = await provider.readInitial(history.conversationId);
+    const rangeBefore = await provider.readInitial(history.conversationId, { rangeEnabled: true });
+    history.toolDetails[0].payload.output = 'changed detail without changing its parent payload';
+    const after = await provider.readInitial(history.conversationId);
+    const rangeAfter = await provider.readInitial(history.conversationId, { rangeEnabled: true });
+    assert.equal(after.items[6].payloadJson, before.items[6].payloadJson);
+    assert.notEqual(after.items[6].contentHash, before.items[6].contentHash);
+    assert.notEqual(buildConversationRoot(after.items), buildConversationRoot(before.items));
+    assert.deepEqual(buildManifestDiff({ localItems: before.items, canonicalItems: after.items }).upserts.map((item) => item.itemKey), ['item-6']);
+    const sync = new CodexHistorySyncService();
+    sync.registerBaselineItems(history.conversationId, after.items, { complete: true });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const result = sync.startSync({
+        ws, conversationId: history.conversationId,
+        syncId: '123e4567-e89b-12d3-a456-426614174005',
+        checkpoint: { rootHash: buildConversationRoot(before.items), itemCount: before.items.length, complete: true }
+    });
+    assert.equal(result.state, 'awaiting_manifest');
+    sync.cancel(ws);
+    assert.notEqual(rangeAfter.range.rangeId, rangeBefore.range.rangeId);
+    await assert.rejects(
+        () => provider.readOlderPage(history.conversationId, {
+            cursor: rangeBefore.range.nextOlderCursor,
+            rangeId: rangeBefore.range.rangeId
+        }),
+        (error) => error.code === 'history_older_cursor_stale'
+    );
+
+    history.toolDetails = Array.from({ length: 64 }, (_, index) => ({
+        detailKey: `detail-${index}`, itemKey: 'item-6', payload: { output: `detail-${index}` }
+    }));
+    const atLimit = (await provider.readInitial(history.conversationId)).items[6];
+    history.toolDetails.push({ detailKey: 'detail-64', itemKey: 'item-6', payload: { output: 'overflow' } });
+    const overflowing = (await provider.readInitial(history.conversationId)).items[6];
+    assert.equal(overflowing.payloadJson, atLimit.payloadJson);
+    assert.deepEqual(overflowing.detailRefs, atLimit.detailRefs);
+    assert.equal(overflowing.detailRefsTruncated, true);
+    assert.equal(overflowing.availability, 'partial');
+    assert.notEqual(overflowing.contentHash, atLimit.contentHash);
+});
+
+test('product-history-read shares its actual detail DTO page hash with Android', async () => {
+    const fixture = require('../android/app/src/test/resources/codex_product_db_detail_delta.json');
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(fixture.history) });
+    const history = await provider.readInitial(fixture.history.conversationId);
+    const page = { ...fixture.page, upserts: history.items.map(toWireItem) };
+    assert.deepEqual(page, fixture.page);
+    assert.equal(computeHistoryPageHash(page), fixture.expectedPageHash);
 });
 
 test('product-history-read preserves top-level and nested tool facts with collection-like field names', async () => {
@@ -1139,6 +1193,7 @@ test('product-history-read Gateway serves product baseline, older pages, and det
         conversationId: history.conversationId,
         selectionGeneration: 31,
         cacheSchemaVersion: 3,
+        productHistory: { version: 1, detailRefs: true },
         rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
         checkpoint: { rootHash: null, itemCount: 0, complete: false }
     }));
@@ -1220,6 +1275,128 @@ test('product-history-read Gateway serves product baseline, older pages, and det
     assert.equal(store.calls.filter((id) => id === history.conversationId).length, 3);
     assert.equal(gateway.codexService.requests.some((entry) => entry.method === 'thread/read'), false);
 
+    client.ws.close();
+});
+
+test('product-history-read keeps old clients on v2 and a DB-only miss keeps the cache', async (t) => {
+    const history = productReadHistory();
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(history), pageItems: 3 });
+    const gateway = await setupProductReadGateway(t, { historyProductProvider: provider });
+    const session = await gateway.sessionManager.createSession({ name: 'product-compatibility' });
+    const client = await connectProductReadGateway(gateway.port, session.id);
+    await waitForProductReadMessage(client.messages, (message) => message.type === 'session_info');
+    client.ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: history.conversationId, selectionGeneration: 1 }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const oldSyncId = '123e4567-e89b-12d3-a456-426614174231';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request', syncId: oldSyncId,
+        conversationId: history.conversationId, selectionGeneration: 1,
+        cacheSchemaVersion: 3, rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    await waitForProductReadMessage(client.messages, (message) => message.type === 'conversation_history_manifest_required' && message.syncId === oldSyncId);
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page', syncId: oldSyncId,
+        conversationId: history.conversationId, clientSelectionGeneration: 1,
+        pageIndex: 0, lastPage: true, items: []
+    }));
+    const oldDelta = await waitForProductReadMessage(client.messages, (message) => message.type === 'conversation_history_delta' && message.syncId === oldSyncId);
+    assert.ok(oldDelta, JSON.stringify(client.messages.filter((message) => message.syncId === oldSyncId)));
+    assert.equal(oldDelta.range, undefined);
+    assert.equal(oldDelta.upserts.length, history.items.length);
+    assert.equal(oldDelta.upserts.every((item) => !('detailRefs' in item) && !('availability' in item)), true);
+
+    client.ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'missing-product-row', selectionGeneration: 2 }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const probeId = '123e4567-e89b-12d3-a456-426614174232';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request', syncId: probeId,
+        conversationId: 'missing-product-row', selectionGeneration: 2,
+        productHistory: { version: 1, detailRefs: true, onlyIfPresent: true },
+        checkpoint: { rootHash: 'cached-root', itemCount: 2, complete: true }
+    }));
+    const state = await waitForProductReadMessage(client.messages, (message) => message.type === 'conversation_history_sync_state' && message.syncId === probeId);
+    assert.equal(state.state, 'cache_only');
+    assert.equal(state.detailCode, 'history_product_not_found');
+    assert.equal(client.messages.some((message) => message.type === 'conversation_history_manifest_required' && message.syncId === probeId), false);
+    assert.equal(gateway.codexService.requests.some((entry) => entry.method === 'thread/read'), false);
+    client.ws.close();
+});
+
+test('product-history-read replaces a complete snapshot with the entire bounded product tail', async (t) => {
+    const history = productReadHistory();
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(history), pageItems: 3 });
+    const gateway = await setupProductReadGateway(t, { historyProductProvider: provider });
+    const session = await gateway.sessionManager.createSession({ name: 'product-transition' });
+    const client = await connectProductReadGateway(gateway.port, session.id);
+    await waitForProductReadMessage(client.messages, (message) => message.type === 'session_info');
+    client.ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: history.conversationId, selectionGeneration: 1 }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const full = await provider.readInitial(history.conversationId, { rangeEnabled: false, includeDetailRefs: true });
+    const syncId = '123e4567-e89b-12d3-a456-426614174251';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request', syncId,
+        conversationId: history.conversationId, selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        productHistory: { version: 1, detailRefs: true, onlyIfPresent: true },
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: 'complete-snapshot-root', itemCount: full.items.length,
+            complete: true, providerMode: 'server_snapshot', coverageComplete: true }
+    }));
+    await waitForProductReadMessage(client.messages, (message) => message.type === 'conversation_history_manifest_required' && message.syncId === syncId);
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page', syncId,
+        conversationId: history.conversationId, clientSelectionGeneration: 1,
+        pageIndex: 0, lastPage: true,
+        items: full.items.map(({ itemKey, contentHash }) => ({ itemKey, contentHash }))
+    }));
+    const delta = await waitForProductReadMessage(client.messages, (message) => message.type === 'conversation_history_delta' && message.syncId === syncId);
+    assert.ok(delta);
+    assert.equal(delta.range.providerMode, 'product_db');
+    assert.deepEqual(delta.upserts.map((item) => item.itemKey), ['item-4', 'item-5', 'item-6']);
+    assert.equal(delta.baselineComplete, false);
+    assert.equal(delta.fullOrderIncluded, false);
+    assert.deepEqual(delta.deletes, []);
+    assert.equal(delta.targetRoot, delta.range.coverageRoot);
+    assert.equal(buildConversationRoot(delta.upserts), delta.range.coverageRoot);
+    client.ws.close();
+});
+
+test('product-history-read refreshes a complete product range without v2 delete authority', async (t) => {
+    const history = productReadHistory();
+    history.items = history.items.slice(-2);
+    history.toolDetails = history.toolDetails.filter((detail) => history.items.some((item) => item.itemKey === detail.itemKey));
+    const provider = new CodexHistoryProductProvider({ store: createProductReadStore(history), pageItems: 3 });
+    const gateway = await setupProductReadGateway(t, { historyProductProvider: provider });
+    const session = await gateway.sessionManager.createSession({ name: 'product-full-range' });
+    const client = await connectProductReadGateway(gateway.port, session.id);
+    await waitForProductReadMessage(client.messages, (message) => message.type === 'session_info');
+    client.ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: history.conversationId, selectionGeneration: 1 }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const syncId = '123e4567-e89b-12d3-a456-426614174252';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request', syncId,
+        conversationId: history.conversationId, selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        productHistory: { version: 1, detailRefs: true },
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: 'old-product-root', itemCount: 3, complete: false, providerMode: 'product_db' }
+    }));
+    await waitForProductReadMessage(client.messages, (message) => message.type === 'conversation_history_manifest_required' && message.syncId === syncId);
+    client.ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page', syncId,
+        conversationId: history.conversationId, clientSelectionGeneration: 1,
+        pageIndex: 0, lastPage: true,
+        items: [{ itemKey: 'removed-item', contentHash: 'old-hash' }]
+    }));
+    const delta = await waitForProductReadMessage(client.messages, (message) => message.type === 'conversation_history_delta' && message.syncId === syncId);
+    assert.ok(delta);
+    assert.equal(delta.range.coverageComplete, true);
+    assert.deepEqual(delta.upserts.map((item) => item.itemKey), history.items.map((item) => item.itemKey));
+    assert.deepEqual(delta.deletes, []);
+    assert.equal(delta.baselineComplete, false);
+    assert.equal(delta.fullOrderIncluded, false);
+    assert.equal(buildConversationRoot(delta.upserts), delta.range.coverageRoot);
     client.ws.close();
 });
 

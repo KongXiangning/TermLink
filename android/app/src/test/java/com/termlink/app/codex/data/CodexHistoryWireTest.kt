@@ -78,6 +78,26 @@ class CodexHistoryWireTest {
     }
 
     @Test
+    fun productDetailCapabilityIsExplicitAndDbOnlyProbeIsSerialized() {
+        val status = JSONObject().put("capabilities", JSONObject().put("historySync",
+            JSONObject().put("version", 1).put("productHistory",
+                JSONObject().put("enabled", true).put("version", 1))))
+        val product = requireNotNull(CodexHistoryCapability.from(status)?.productHistory)
+        assertTrue(product.isSupported())
+        val request = CodexHistorySyncRequest(
+            syncId = "product-probe", conversationId = "conversation",
+            checkpoint = CodexHistorySyncCheckpoint(rootHash = null, itemCount = 1, complete = true),
+            productHistory = product, productOnly = true
+        ).toJson()
+        assertTrue(request.getJSONObject("productHistory").getBoolean("detailRefs"))
+        assertTrue(request.getJSONObject("productHistory").getBoolean("onlyIfPresent"))
+        assertFalse(CodexHistorySyncRequest(
+            syncId = "old-client", conversationId = "conversation",
+            checkpoint = CodexHistorySyncCheckpoint(rootHash = null, itemCount = 0, complete = false)
+        ).toJson().has("productHistory"))
+    }
+
+    @Test
     fun capabilityReadsServerSnapshotSegmentsIndependentlyFromNativeRange() {
         val status = JSONObject().put(
             "capabilities",
@@ -481,6 +501,32 @@ class CodexHistoryWireTest {
             CodexHistoryPageHasher.pageHashPayload(page.copy(selectionGeneration = 0)),
             CodexHistoryPageHasher.pageHashPayload(page)
         )
+    }
+
+    @Test
+    fun deltaPreservesProductDetailRefsAndAvailability() {
+        val refs = JSONArray().put(JSONObject().put("kind", "tool_detail").put("refId", "detail-1"))
+        val wire = JSONObject()
+            .put("syncId", "sync")
+            .put("conversationId", "conversation")
+            .put("sequence", 1)
+            .put("pageIndex", 0)
+            .put("pageCount", 1)
+            .put("pageHash", "hash")
+            .put("targetRoot", "root")
+            .put("upserts", JSONArray().put(JSONObject()
+                .put("itemKey", "item-1")
+                .put("position", 0)
+                .put("itemType", "tool")
+                .put("payloadJson", "{}")
+                .put("contentHash", "version")
+                .put("detailRefs", refs)
+                .put("detailRefsTruncated", true)
+                .put("availability", "partial")))
+        val item = CodexHistoryDeltaWire.from(wire)!!.page.upserts.single()
+        assertEquals(refs.toString(), item.detailRefsJson)
+        assertTrue(item.detailRefsTruncated)
+        assertEquals("partial", item.availability)
     }
 
     @Test

@@ -2102,6 +2102,7 @@ function registerTerminalGateway(wss, {
         checkpoint,
         cacheSchemaVersion,
         rangeSegments,
+        includeDetailRefs,
         selectionGeneration,
         clientSelectionGeneration
     }) => {
@@ -2116,7 +2117,8 @@ function registerTerminalGateway(wss, {
         try {
             productHistory = await withHistoryRecoveryTimeout(
                 productHistoryProvider.readInitial(conversationId, {
-                    rangeEnabled: rangeSegments.enabled === true
+                    rangeEnabled: rangeSegments.enabled === true,
+                    includeDetailRefs
                 }),
                 HISTORY_RECOVERY_TIMEOUT_MS
             );
@@ -2674,6 +2676,12 @@ function registerTerminalGateway(wss, {
                         cacheSchemaVersion: 3,
                         segmentTargetBytes: 96 * 1024,
                         fragmentMaxBytes: 16 * 1024
+                    },
+                    productHistory: {
+                        enabled: Boolean(productHistoryProvider),
+                        version: 1,
+                        detailRefs: true,
+                        onlyIfPresent: true
                     },
                     tailValidation: {
                         enabled: historyTailValidationEnabled === true,
@@ -7539,6 +7547,14 @@ function registerTerminalGateway(wss, {
                             envelope.rangeSegments,
                             historyRangeSegmentsEnabled === true
                         );
+                        const productDetailRefs = envelope.productHistory?.version === 1 &&
+                            envelope.productHistory?.detailRefs === true;
+                        const productOnly = productDetailRefs && envelope.productHistory?.onlyIfPresent === true;
+                        // Old Android builds cannot hash detail metadata. Keep
+                        // their product read on the legacy full-history lane.
+                        const productRangeSegments = productDetailRefs
+                            ? rangeSegments
+                            : { enabled: false, version: 0, cacheSchemaVersion: 0 };
                         const snapshotSegments = normalizeHistorySnapshotSegmentsCapability(
                             envelope.serverSnapshotSegments,
                             historySnapshotSegmentsEnabled === true && Boolean(resolvedHistorySnapshotStore)
@@ -7586,10 +7602,22 @@ function registerTerminalGateway(wss, {
                             syncId,
                             checkpoint: envelope.checkpoint || {},
                             cacheSchemaVersion: envelope.cacheSchemaVersion,
-                            rangeSegments,
+                            rangeSegments: productRangeSegments,
+                            includeDetailRefs: productDetailRefs,
                             selectionGeneration: currentSelectionGeneration,
                             clientSelectionGeneration
                         })) {
+                            return;
+                        } else if (productOnly) {
+                            sendWsEnvelope(ws, {
+                                type: 'conversation_history_sync_state',
+                                syncId,
+                                conversationId,
+                                state: 'cache_only',
+                                detailCode: 'history_product_not_found',
+                                selectionGeneration: currentSelectionGeneration,
+                                clientSelectionGeneration
+                            });
                             return;
                         } else if (snapshotSegments.enabled) {
                             const cycle = _getHistorySelectionCycle(ws);

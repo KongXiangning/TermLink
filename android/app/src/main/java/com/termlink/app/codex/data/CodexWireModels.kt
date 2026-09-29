@@ -146,6 +146,7 @@ data class CodexHistoryCapability(
     val maxEnvelopeBytes: Int = 262144,
     val rangeSegments: CodexHistoryRangeCapability? = null,
     val serverSnapshotSegments: CodexHistorySnapshotSegmentsCapability? = null,
+    val productHistory: CodexHistoryProductCapability? = null,
     val tailValidation: CodexHistoryTailValidationCapability? = null,
     val terminalReconcile: CodexHistoryTerminalReconcileCapability? = null,
     val liveReplay: CodexLiveReplayCapability? = null
@@ -170,6 +171,7 @@ data class CodexHistoryCapability(
                 serverSnapshotSegments = CodexHistorySnapshotSegmentsCapability.from(
                     json.optJSONObject("serverSnapshotSegments")
                 ),
+                productHistory = CodexHistoryProductCapability.from(json.optJSONObject("productHistory")),
                 tailValidation = CodexHistoryTailValidationCapability.from(json.optJSONObject("tailValidation")),
                 terminalReconcile = CodexHistoryTerminalReconcileCapability.from(
                     json.optJSONObject("terminalReconcile")
@@ -178,6 +180,16 @@ data class CodexHistoryCapability(
             )
         }
     }
+}
+
+data class CodexHistoryProductCapability(val enabled: Boolean, val version: Int) {
+    companion object {
+        fun from(json: JSONObject?): CodexHistoryProductCapability? = json?.let {
+            CodexHistoryProductCapability(it.optBoolean("enabled", false), it.optInt("version", 0))
+        }
+    }
+
+    fun isSupported(): Boolean = enabled && version == 1
 }
 
 data class CodexHistoryRangeCapability(
@@ -355,7 +367,9 @@ data class CodexHistorySyncRequest(
     val cacheSchemaVersion: Int = 1,
     val rangeSegments: CodexHistoryRangeCapability? = null,
     val serverSnapshotSegments: CodexHistorySnapshotSegmentsCapability? = null,
-    val profileId: String? = null
+    val profileId: String? = null,
+    val productHistory: CodexHistoryProductCapability? = null,
+    val productOnly: Boolean = false
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("type", "conversation_history_sync_request")
@@ -367,6 +381,13 @@ data class CodexHistorySyncRequest(
         put("checkpoint", checkpoint.toJson())
         put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
         profileId?.trim()?.takeIf { it.isNotEmpty() }?.let { put("profileId", it) }
+        if (productHistory?.isSupported() == true) {
+            put("productHistory", JSONObject().apply {
+                put("version", 1)
+                put("detailRefs", true)
+                if (productOnly) put("onlyIfPresent", true)
+            })
+        }
         if (range != null) {
             put("rangeSegments", JSONObject().apply {
                 put("enabled", true)
@@ -598,7 +619,10 @@ data class CodexLiveReplayStateMessage(
                             payloadBytes = if (item.has("payloadBytes") && !item.isNull("payloadBytes")) {
                                 item.optInt("payloadBytes")
                             } else null,
-                            payloadChunkCount = item.optInt("payloadChunkCount", 0)
+                            payloadChunkCount = item.optInt("payloadChunkCount", 0),
+                            detailRefsJson = item.optJSONArray("detailRefs")?.toString(),
+                            detailRefsTruncated = item.optBoolean("detailRefsTruncated", false),
+                            availability = item.optStringOrNull("availability")
                         )
                     )
                 }
@@ -657,7 +681,10 @@ data class CodexHistoryDeltaWire(
                         contentHash = item.optString("contentHash", ""),
                         payloadHash = item.optStringOrNull("payloadHash"),
                         payloadBytes = if (item.has("payloadBytes") && !item.isNull("payloadBytes")) item.optInt("payloadBytes") else null,
-                        payloadChunkCount = item.optInt("payloadChunkCount", 0)
+                        payloadChunkCount = item.optInt("payloadChunkCount", 0),
+                        detailRefsJson = item.optJSONArray("detailRefs")?.toString(),
+                        detailRefsTruncated = item.optBoolean("detailRefsTruncated", false),
+                        availability = item.optStringOrNull("availability")
                     ))
                 }
             }

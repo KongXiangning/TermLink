@@ -1,0 +1,24 @@
+{
+  "history": {
+    "conversationId": "fixture",
+    "items": [{
+      "itemKey": "item-1", "turnId": "turn-1", "ordinal": 0, "itemType": "tool",
+      "payload": {"role": "tool", "text": "tool finished", "eventFilePath": "C:\\events\\rollout.jsonl", "cwd": "E:\\workspace\\termlink", "command": ["cargo", "test"], "imageData": "data:image/png;base64,AAAA"}
+    }],
+    "toolDetails": [{"detailKey": "detail-1", "itemKey": "item-1", "payload": {"output": "details"}}],
+    "coverage": {"completeness": "canonical", "coverageComplete": true}
+  },
+  "page": {
+    "syncId": "detail-sync", "sequence": 1, "pageIndex": 0, "pageCount": 1,
+    "baseRoot": null, "targetRoot": "target", "baselineComplete": true, "fullOrderIncluded": false,
+    "upserts": [{
+      "itemKey": "item-1", "turnId": "turn-1", "position": 0, "itemType": "tool", "role": "tool", "clientRequestId": null,
+      "payloadJson": "{\"command\":[\"cargo\",\"test\"],\"cwd\":\"E:\\\\workspace\\\\termlink\",\"eventFilePath\":\"C:\\\\events\\\\rollout.jsonl\",\"imageData\":null,\"mediaAvailability\":\"unsupported\",\"role\":\"tool\",\"text\":\"tool finished\"}",
+      "contentHash": "7ae02fa7fb805e9d69226b8692b47ff123374d65c2ee83a56c9c9613bb0e24e0",
+      "detailRefs": [{"kind": "tool_detail", "refId": "e4f3f87d02060b7607934b83340323e05372c02017cee1dbf305c5b7403b52ec", "contentHash": "6d6d0a51663b6f0c46ce7b6b07061f9c3618ab8e63fa931f1d8b24a883f6b14c", "byteSize": 20, "mimeType": "application/json", "truncated": false}],
+      "availability": "partial"
+    }],
+    "deletes": [], "canonicalOrder": []
+  },
+  "expectedPageHash": "6b95178c93bc14ba7361dacac28c991aa58e4888c71d9db2a724c5c7b8731168"
+}

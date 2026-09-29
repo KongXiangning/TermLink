@@ -2922,10 +2922,18 @@ internal fun extractHistoryPayloadTextForUi(payload: JSONObject): String {
         return null
     }
 
-    return extract(payload.opt("text"))
+    val body = extract(payload.opt("text"))
         ?: extract(payload.opt("content"))
         ?: extract(payload.opt("summary"))
-        ?: ""
+    val facts = listOf("eventFilePath", "sourcePath", "artifactPath", "cwd", "command")
+        .mapNotNull { key ->
+            val value = payload.opt(key)
+            val fact = if (key == "command" && value is JSONArray) {
+                (0 until value.length()).mapNotNull { index -> extract(value.opt(index)) }.joinToString(" ")
+            } else extract(value)
+            fact?.takeIf { it.isNotBlank() }?.let { "$key: $it" }
+        }
+    return (listOfNotNull(body) + facts).joinToString("\n")
 }
 
 private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
@@ -3849,6 +3857,9 @@ class CodexViewModel(
     /** Set only after B4R proves a durable, complete static snapshot for this selection. */
     @Volatile
     private var completeServerSnapshotCacheSelectionKey: CodexHistorySelectionKey? = null
+    /** One DB-only product probe per complete-cache selection. */
+    @Volatile
+    private var productHistoryProbeSelectionKey: CodexHistorySelectionKey? = null
     /**
      * Step 3 canonical-tail validation is intentionally not represented in
      * CodexUiState.  It neither changes visible body/authority nor joins the
@@ -7224,10 +7235,11 @@ class CodexViewModel(
                         }.getOrNull()
                     }
                     val durableItemCount = cached?.items?.count { !it.provisional } ?: 0
-                    normalizeHistoryCheckpointForAvailableItems(
+                    val checkpoint = normalizeHistoryCheckpointForAvailableItems(
                         checkpoint = cached?.checkpoint,
                         availableDurableItemCount = durableItemCount
-                    ).hasMoreBefore == true
+                    )
+                    checkpoint.providerMode != "server_snapshot" && checkpoint.hasMoreBefore == true
                 }
             },
             request = { requestOlderHistoryPage(auto = true) }
@@ -7355,6 +7367,7 @@ class CodexViewModel(
         pendingHistoryPages.clear()
         pendingHistorySnapshotSegments.clear()
         completeServerSnapshotCacheSelectionKey = null
+        productHistoryProbeSelectionKey = null
         clearCanonicalTailValidationState()
         liveReplayRequestedKey = null
         liveReplayInFlightSyncId = null
@@ -8414,13 +8427,22 @@ class CodexViewModel(
         val normalizedConversationId = conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return
         val profile = currentProfile ?: return
         val requestGeneration = historySelectionGeneration
+        val selectionKey = historySelectionKeyOrNull(normalizedConversationId, requestGeneration)
+        val cacheState = _uiState.value.historyCacheState
+        val productOnly = selectionKey != null &&
+            historyCapability?.productHistory?.isSupported() == true &&
+            productHistoryProbeSelectionKey != selectionKey &&
+            cacheState.ready && cacheState.complete &&
+            normalizeCodexThreadId(cacheState.conversationId) == normalizedConversationId &&
+            cacheState.generation == requestGeneration
+        if (historySyncInFlightConversationId == normalizedConversationId) return
         if (shouldWaitForActiveConversationSubscription(normalizedConversationId, requestGeneration)) {
             return
         }
         val selectedSurface = _uiState.value.ipcSurfaceSnapshot?.takeIf { surface ->
             normalizeCodexThreadId(surface.conversationId) == normalizedConversationId
         }
-        if (deferOrdinaryHistoryLaneForCompleteLocalCache(
+        if (!productOnly && deferOrdinaryHistoryLaneForCompleteLocalCache(
                 conversationId = normalizedConversationId,
                 generation = requestGeneration,
                 surfaceStatus = selectedSurface?.status,
@@ -8443,7 +8465,7 @@ class CodexViewModel(
         ) {
             return
         }
-        if (hasCompleteServerSnapshotCache(normalizedConversationId, requestGeneration)) {
+        if (!productOnly && hasCompleteServerSnapshotCache(normalizedConversationId, requestGeneration)) {
             // A complete static snapshot remains a normal-history fast path,
             // but it is never proof that its newest canonical tail is fresh.
             // Step 3 observes that question privately and must not reopen the
@@ -8483,7 +8505,7 @@ class CodexViewModel(
             }
             return
         }
-        if (!shouldRequestHistorySyncForSelection(
+        if (!productOnly && !shouldRequestHistorySyncForSelection(
                 conversationId = normalizedConversationId,
                 selectionGeneration = requestGeneration,
                 inFlightConversationId = historySyncInFlightConversationId,
@@ -8553,7 +8575,7 @@ class CodexViewModel(
             // history. Step 3 validates canonical-tail freshness through its
             // separate private lane; do not reopen the old manifest/range lane
             // on every task selection.
-            if (shouldPromoteCompleteServerSnapshotCache(
+            if (!productOnly && shouldPromoteCompleteServerSnapshotCache(
                     serverSnapshotSegmentsEnabled = snapshotSegments != null,
                     providerMode = checkpoint.providerMode,
                     cacheCoverageComplete = checkpoint.coverageComplete &&
@@ -8622,13 +8644,17 @@ class CodexViewModel(
                     capability.payloadChunks && capability.perPageAck -> 2
                     else -> 1
                 },
-                // Snapshot segments use the v3 range persistence internally,
-                // but must not opt in to the old native-cursor older pump.
-                rangeSegments = if (snapshotSegments == null) capability.rangeSegments?.takeIf {
+                // Advertise both lanes when available. The Gateway selects
+                // product_db range for a canonical row and server_snapshot
+                // only on a product DB miss; the response providerMode owns
+                // the cache/older routing, not capability order.
+                rangeSegments = capability.rangeSegments?.takeIf {
                     it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
-                } else null,
+                },
                 serverSnapshotSegments = snapshotSegments,
-                profileId = profile.id
+                profileId = profile.id,
+                productHistory = capability.productHistory,
+                productOnly = productOnly
             )
             if (!isCurrentHistorySelection(normalizedConversationId, requestGeneration) ||
                 !acceptsActiveHistorySyncId(historySyncInFlightSyncId, request.syncId)
@@ -8641,9 +8667,11 @@ class CodexViewModel(
                 // be eligible to continue the older pump.
                 rangeHistorySyncIds += request.syncId
             }
+            if (productOnly) productHistoryProbeSelectionKey = key
             val sent = connectionManager.send(CodexClientMessages.historySyncRequest(request))
             if (!sent) {
                 rangeHistorySyncIds -= request.syncId
+                if (productOnly && productHistoryProbeSelectionKey == key) productHistoryProbeSelectionKey = null
             }
             if (!sent && isCurrentHistorySelection(normalizedConversationId, requestGeneration) &&
                 acceptsActiveHistorySyncId(historySyncInFlightSyncId, request.syncId)
@@ -8731,7 +8759,7 @@ class CodexViewModel(
                 checkpoint = cached?.checkpoint,
                 availableDurableItemCount = durableItemCount
             )
-            if (checkpoint.hasMoreBefore != true || checkpoint.nextOlderCursor.isNullOrBlank() ||
+            if (checkpoint.providerMode == "server_snapshot" || checkpoint.hasMoreBefore != true || checkpoint.nextOlderCursor.isNullOrBlank() ||
                 !isCurrentHistorySelection(conversationId, generation) ||
                 !acceptsActiveHistorySyncId(historySyncInFlightSyncId, syncId)
             ) {
@@ -9747,6 +9775,13 @@ class CodexViewModel(
                         // follower subscription and retry the ordinary sync
                         // exactly once after the settle window.
                         historyActivationRetryGeneration = syncState.clientSelectionGeneration
+                        val retryKey = historySelectionKeyOrNull(
+                            syncState.conversationId,
+                            syncState.clientSelectionGeneration
+                        )
+                        if (productHistoryProbeSelectionKey == retryKey) {
+                            productHistoryProbeSelectionKey = null
+                        }
                         clearHistorySyncSettlement()
                         subscribeActiveConversationIfNeeded()
                         PersistentDiagnosticLog.event(
@@ -10176,6 +10211,9 @@ class CodexViewModel(
                             if (!isCurrentHistorySelection(delta.conversationId, deltaSelectionGeneration) ||
                                 !acceptsActiveHistorySyncId(historySyncInFlightSyncId, delta.syncId)
                             ) return@launch
+                            if (snapshot.providerMode == "product_db") {
+                                completeServerSnapshotCacheSelectionKey = null
+                            }
                             _uiState.update { state ->
                                 if (!isCurrentHistorySelection(delta.conversationId, deltaSelectionGeneration) ||
                                     !acceptsActiveHistorySyncId(historySyncInFlightSyncId, delta.syncId) ||

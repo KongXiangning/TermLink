@@ -55,6 +55,7 @@ class CodexConversationCacheStore(
                 turn_id TEXT, position INTEGER NOT NULL, item_type TEXT NOT NULL, role TEXT,
                 payload_json TEXT NOT NULL, content_hash TEXT NOT NULL, payload_bytes INTEGER NOT NULL,
                 provisional INTEGER NOT NULL DEFAULT 0, client_request_id TEXT, updated_at INTEGER NOT NULL,
+                detail_refs_json TEXT, detail_refs_truncated INTEGER NOT NULL DEFAULT 0, availability TEXT,
                 segment_id TEXT, within_segment_position INTEGER,
                 PRIMARY KEY (endpoint_id, conversation_id, item_key)
             )
@@ -88,6 +89,7 @@ class CodexConversationCacheStore(
             operation TEXT NOT NULL, item_key TEXT NOT NULL, turn_id TEXT, position INTEGER,
             item_type TEXT, role TEXT, client_request_id TEXT, payload_json TEXT, content_hash TEXT,
             payload_bytes INTEGER, payload_hash TEXT, payload_chunk_count INTEGER NOT NULL DEFAULT 0,
+            detail_refs_json TEXT, detail_refs_truncated INTEGER NOT NULL DEFAULT 0, availability TEXT,
             PRIMARY KEY (sync_id, sequence, page_index, operation, item_key)
         )""".trimIndent())
         db.execSQL("""CREATE TABLE sync_order (
@@ -285,6 +287,16 @@ class CodexConversationCacheStore(
             // its upgrade transaction; propagating any DDL/backfill error is
             // what keeps user_version at 3 and preserves the original DB.
             migrateV3ToV4(db)
+        }
+        if (oldVersion < 5) {
+            // Keep existing item rows and their roots. A later product sync
+            // supplies detail refs; the migration never guesses them.
+            addColumnIfMissing(db, "items", "detail_refs_json", "TEXT")
+            addColumnIfMissing(db, "items", "detail_refs_truncated", "INTEGER NOT NULL DEFAULT 0")
+            addColumnIfMissing(db, "items", "availability", "TEXT")
+            addColumnIfMissing(db, "sync_staging", "detail_refs_json", "TEXT")
+            addColumnIfMissing(db, "sync_staging", "detail_refs_truncated", "INTEGER NOT NULL DEFAULT 0")
+            addColumnIfMissing(db, "sync_staging", "availability", "TEXT")
         }
         // B.3 adds only nullable staging metadata after the v4 storage
         // baseline. Keeping this idempotent also covers pre-release v4 APKs.
@@ -1219,6 +1231,16 @@ class CodexConversationCacheStore(
         if (page.baselineComplete || page.fullOrderIncluded || page.deletes.isNotEmpty()) {
             throw IllegalArgumentException("range pages are upsert-only")
         }
+        // A canonical product tail may replace a complete legacy/snapshot
+        // baseline. Keep staging intact and switch the visible static source
+        // atomically with this page's commit.
+        val previousProvider = if (range.providerMode == "product_db" && range.rangeKind == "tail") {
+            db.query(
+                "conversations", arrayOf("provider_mode"),
+                "endpoint_id=? AND conversation_id=?",
+                arrayOf(endpointId, page.conversationId), null, null, null
+            ).use { cursor -> if (cursor.moveToFirst()) Pair(true, cursor.getStringOrNull("provider_mode")) else Pair(false, null) }
+        } else Pair(false, null)
         val stagedItems = mutableListOf<CodexHistoryItem>()
         db.query(
             "sync_staging", null,
@@ -1226,6 +1248,22 @@ class CodexConversationCacheStore(
             arrayOf(page.syncId, page.sequence.toString()), null, null, "rowid ASC"
         ).use { cursor ->
             while (cursor.moveToNext()) stagedItems += cursor.toStagedItem()
+        }
+        val providerTransition = previousProvider.first && previousProvider.second != "product_db"
+        val replaceStaticRange = providerTransition ||
+            (previousProvider.first && range.providerMode == "product_db" && range.coverageComplete)
+        if (providerTransition && stagedItems.isEmpty() && !range.coverageComplete) {
+            throw IllegalStateException("product provider transition requires a complete tail payload")
+        }
+        if (replaceStaticRange && (range.coverageRoot == null ||
+                range.coverageRoot != productRangeRoot(stagedItems) ||
+                page.targetRoot != range.coverageRoot)) {
+            throw IllegalStateException("product replacement tail does not cover its declared range")
+        }
+        if (replaceStaticRange) {
+            db.delete("history_segments", "endpoint_id=? AND conversation_id=?", arrayOf(endpointId, page.conversationId))
+            db.delete("items", "endpoint_id=? AND conversation_id=? AND provisional=0", arrayOf(endpointId, page.conversationId))
+            db.delete("conversations", "endpoint_id=? AND conversation_id=?", arrayOf(endpointId, page.conversationId))
         }
         if (stagedItems.isEmpty()) {
             if (!isMetadataOnlyRangePage(page)) {
@@ -1273,17 +1311,20 @@ class CodexConversationCacheStore(
         }
         existingItems.forEach { (key, existing) ->
             val incoming = stagedItems.first { it.itemKey == key }
-            if (existing.second != incoming.contentHash && existing.first != range.segmentId) {
+            if (existing.second != incoming.contentHash && range.rangeKind == "older" && existing.first != range.segmentId) {
                 throw IllegalStateException("range item hash conflict")
             }
-            if (existing.first != null && existing.first != range.segmentId && !existing.first!!.startsWith("legacy-")) {
+            if (existing.second != incoming.contentHash && range.providerMode != "product_db" && existing.first != range.segmentId && existing.first?.startsWith("legacy-") != true) {
+                throw IllegalStateException("range item hash conflict")
+            }
+            if (existing.first != null && existing.first != range.segmentId && !existing.first!!.startsWith("legacy-") && range.providerMode != "product_db") {
                 throw IllegalStateException("range item segment conflict")
             }
         }
-        val displacedLegacySegments = existingItems.values
+        val updatedSegments = existingItems.values
             .mapNotNull { it.first }
-            .filter { it.startsWith("legacy-") && it != range.segmentId }
             .toSet()
+        val newItems = stagedItems.filter { it.itemKey !in existingItems }
 
         val segmentRank = (existingSegment?.get("segmentRank") as Long?) ?: run {
             if (range.rangeKind == "older") {
@@ -1309,49 +1350,53 @@ class CodexConversationCacheStore(
             arrayOf(endpointId, page.conversationId)
         ).use { cursor -> if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getInt(0) else null }
         val positions = if (range.rangeKind == "older") {
-            CodexHistoryCacheSchema.CompatiblePosition.prepend(existingMin, stagedItems.size)
+            CodexHistoryCacheSchema.CompatiblePosition.prepend(existingMin, newItems.size)
         } else {
-            CodexHistoryCacheSchema.CompatiblePosition.append(existingMax, stagedItems.size)
+            CodexHistoryCacheSchema.CompatiblePosition.append(existingMax, newItems.size)
         }
-        stagedItems.forEachIndexed { index, item ->
+        var newIndex = 0
+        stagedItems.forEach { item ->
             val existing = existingItems[item.itemKey]
-            if (existing?.first == range.segmentId) {
-                // A cross-sync replay of the same segment is idempotent. Keep
-                // its established position and only refresh the payload.
+            if (existing != null) {
+                // Preserve the established chronological position and segment
+                // ownership for an overlap anchor or refreshed product item.
                 db.execSQL(
-                    "UPDATE items SET turn_id=?, item_type=?, role=?, client_request_id=?, payload_json=?, content_hash=?, payload_bytes=?, provisional=0, updated_at=? WHERE endpoint_id=? AND conversation_id=? AND item_key=?",
-                    arrayOf(item.turnId, item.itemType, item.role, item.clientRequestId, item.payloadJson, item.contentHash, item.payloadJson.toByteArray().size, now, endpointId, page.conversationId, item.itemKey)
+                    "UPDATE items SET turn_id=?, item_type=?, role=?, client_request_id=?, payload_json=?, content_hash=?, payload_bytes=?, detail_refs_json=?, detail_refs_truncated=?, availability=?, provisional=0, updated_at=? WHERE endpoint_id=? AND conversation_id=? AND item_key=?",
+                    arrayOf(item.turnId, item.itemType, item.role, item.clientRequestId, item.payloadJson, item.contentHash, item.payloadJson.toByteArray().size, item.detailRefsJson, if (item.detailRefsTruncated) 1 else 0, item.availability, now, endpointId, page.conversationId, item.itemKey)
                 )
             } else {
                 val values = item.values(endpointId, page.conversationId).apply {
-                    put("position", positions[index])
+                    put("position", positions[newIndex])
                     put("segment_id", range.segmentId)
-                    put("within_segment_position", index)
+                    put("within_segment_position", newIndex)
                     put("updated_at", now)
                     put("provisional", 0)
                 }
                 db.insertWithOnConflict("items", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                newIndex += 1
             }
         }
-        refreshLegacySegmentMetadata(db, endpointId, page.conversationId, displacedLegacySegments)
-        val first = stagedItems.first()
-        val last = stagedItems.last()
+        refreshLegacySegmentMetadata(db, endpointId, page.conversationId, updatedSegments)
+        if (newItems.isNotEmpty()) {
+        val first = newItems.first()
+        val last = newItems.last()
         db.insertWithOnConflict("history_segments", null, ContentValues().apply {
             put("endpoint_id", endpointId)
             put("conversation_id", page.conversationId)
             put("segment_id", range.segmentId)
             put("segment_rank", segmentRank)
             put("direction", if (range.rangeKind == "older") "older" else "tail")
-            put("first_item_key", range.oldestAnchor?.key ?: first.itemKey)
-            put("first_item_hash", range.oldestAnchor?.hash ?: first.contentHash)
-            put("last_item_key", range.newestAnchor?.key ?: last.itemKey)
-            put("last_item_hash", range.newestAnchor?.hash ?: last.contentHash)
-            put("segment_root", range.coverageRoot ?: page.targetRoot)
-            put("item_count", if (existingSegment == null) stagedItems.size else (existingSegment["itemCount"] as Int))
+            put("first_item_key", first.itemKey)
+            put("first_item_hash", first.contentHash)
+            put("last_item_key", last.itemKey)
+            put("last_item_hash", last.contentHash)
+            put("segment_root", if (newItems.size == stagedItems.size) range.coverageRoot ?: page.targetRoot else null)
+            put("item_count", newItems.size + (existingSegment?.get("itemCount") as Int? ?: 0))
             put("next_older_cursor", range.nextOlderCursor)
             put("state", "committed")
             put("committed_at", now)
         }, SQLiteDatabase.CONFLICT_REPLACE)
+        }
 
         val count = db.rawQuery(
             "SELECT COUNT(*) FROM items WHERE endpoint_id=? AND conversation_id=? AND provisional=0",
@@ -1438,12 +1483,12 @@ class CodexConversationCacheStore(
             }
             if (count == 0) {
                 db.execSQL(
-                    "UPDATE history_segments SET state='superseded', item_count=0, first_item_key=NULL, first_item_hash=NULL, last_item_key=NULL, last_item_hash=NULL WHERE endpoint_id=? AND conversation_id=? AND segment_id=?",
+                    "UPDATE history_segments SET state='superseded', item_count=0, first_item_key=NULL, first_item_hash=NULL, last_item_key=NULL, last_item_hash=NULL, segment_root=NULL, next_older_cursor=NULL WHERE endpoint_id=? AND conversation_id=? AND segment_id=?",
                     arrayOf(endpointId, conversationId, segmentId)
                 )
             } else {
                 db.execSQL(
-                    "UPDATE history_segments SET item_count=?, first_item_key=?, first_item_hash=?, last_item_key=?, last_item_hash=? WHERE endpoint_id=? AND conversation_id=? AND segment_id=?",
+                    "UPDATE history_segments SET item_count=?, first_item_key=?, first_item_hash=?, last_item_key=?, last_item_hash=?, segment_root=NULL, next_older_cursor=NULL WHERE endpoint_id=? AND conversation_id=? AND segment_id=?",
                     arrayOf(count, firstKey, firstHash, lastKey, lastHash, endpointId, conversationId, segmentId)
                 )
             }
@@ -1581,6 +1626,20 @@ class CodexConversationCacheStore(
 
 }
 
+/** Recompute the Node canonical item root before a destructive product range replacement. */
+internal fun productRangeRoot(items: List<CodexHistoryItem>): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    digest.update(ByteBuffer.allocate(4).putInt(1).array())
+    items.sortedBy { it.position }.forEach { item ->
+        val key = item.itemKey.toByteArray(Charsets.UTF_8)
+        digest.update(ByteBuffer.allocate(4).putInt(key.size).array())
+        digest.update(key)
+        require(item.contentHash.matches(Regex("[0-9a-fA-F]{64}"))) { "invalid product item hash" }
+        digest.update(item.contentHash.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
 internal fun isMetadataOnlyRangePage(page: CodexHistoryDeltaPage): Boolean =
     page.range?.rangeKind == "tail" &&
         page.pageCount == 1 &&
@@ -1608,6 +1667,9 @@ object CodexHistoryPageHasher {
                 put("itemKey", it.itemKey); put("turnId", it.turnId ?: JSONObject.NULL); put("position", it.position)
                 put("itemType", it.itemType); put("role", it.role ?: JSONObject.NULL); put("clientRequestId", it.clientRequestId ?: JSONObject.NULL)
                 put("payloadJson", it.payloadJson); put("contentHash", it.contentHash)
+                it.detailRefsJson?.let { refs -> put("detailRefs", JSONArray(refs)) }
+                if (it.detailRefsTruncated) put("detailRefsTruncated", true)
+                it.availability?.let { value -> put("availability", value) }
                 if (it.payloadChunkCount > 0) {
                     put("payloadHash", it.payloadHash ?: JSONObject.NULL)
                     put("payloadBytes", it.payloadBytes ?: JSONObject.NULL)
@@ -1750,13 +1812,20 @@ private fun CodexHistoryDeltaPage.checkpointValues(endpointId: String, count: In
         put("committed_at", now)
     }
 }
-private fun CodexHistoryItem.values(endpointId: String, conversationId: String) = ContentValues().apply { put("endpoint_id", endpointId); put("conversation_id", conversationId); put("item_key", itemKey); put("turn_id", turnId); put("position", position); put("item_type", itemType); put("role", role); put("payload_json", payloadJson); put("content_hash", contentHash); put("payload_bytes", payloadJson.toByteArray().size); put("provisional", if (provisional) 1 else 0); put("client_request_id", clientRequestId); put("updated_at", System.currentTimeMillis()) }
+private fun CodexHistoryItem.values(endpointId: String, conversationId: String) = ContentValues().apply {
+    put("endpoint_id", endpointId); put("conversation_id", conversationId); put("item_key", itemKey)
+    put("turn_id", turnId); put("position", position); put("item_type", itemType); put("role", role)
+    put("payload_json", payloadJson); put("content_hash", contentHash); put("payload_bytes", payloadJson.toByteArray().size)
+    put("detail_refs_json", detailRefsJson); put("detail_refs_truncated", if (detailRefsTruncated) 1 else 0); put("availability", availability)
+    put("provisional", if (provisional) 1 else 0); put("client_request_id", clientRequestId); put("updated_at", System.currentTimeMillis())
+}
 private fun CodexHistoryItem.stagingValues(page: CodexHistoryDeltaPage) = ContentValues().apply {
     put("sync_id", page.syncId); put("sequence", page.sequence); put("page_index", page.pageIndex); put("operation", "upsert")
     put("item_key", itemKey); put("turn_id", turnId); put("position", position); put("item_type", itemType); put("role", role)
     put("client_request_id", clientRequestId); put("payload_json", payloadJson); put("content_hash", contentHash)
     put("payload_bytes", payloadBytes ?: payloadJson.toByteArray().size); put("payload_hash", payloadHash)
     put("payload_chunk_count", payloadChunkCount)
+    put("detail_refs_json", detailRefsJson); put("detail_refs_truncated", if (detailRefsTruncated) 1 else 0); put("availability", availability)
 }
 private fun CodexThreadIndexEntry.toValues(refreshedAt: Long) = ContentValues().apply {
     put("endpoint_id", endpointId)
@@ -1786,8 +1855,26 @@ private fun android.database.Cursor.toThreadIndexEntry() = CodexThreadIndexEntry
     lastRemoteRefreshAt = getLongOrNull("last_remote_refresh_at"),
     source = getString(getColumnIndexOrThrow("source"))
 )
-private fun android.database.Cursor.toItem() = CodexHistoryItem(getString(getColumnIndexOrThrow("item_key")), getStringOrNull("turn_id"), getInt(getColumnIndexOrThrow("position")), getString(getColumnIndexOrThrow("item_type")), getStringOrNull("role"), getStringOrNull("client_request_id"), getString(getColumnIndexOrThrow("payload_json")), getString(getColumnIndexOrThrow("content_hash")), getInt(getColumnIndexOrThrow("provisional")) != 0)
-private fun android.database.Cursor.toItemValues(endpointId: String, conversationId: String, now: Long) = ContentValues().apply { put("endpoint_id", endpointId); put("conversation_id", conversationId); put("item_key", getString(getColumnIndexOrThrow("item_key"))); put("turn_id", getStringOrNull("turn_id")); put("position", getInt(getColumnIndexOrThrow("position"))); put("item_type", getString(getColumnIndexOrThrow("item_type"))); put("role", getStringOrNull("role")); put("payload_json", getString(getColumnIndexOrThrow("payload_json"))); put("content_hash", getString(getColumnIndexOrThrow("content_hash"))); put("payload_bytes", getInt(getColumnIndexOrThrow("payload_bytes"))); put("provisional", 0); put("client_request_id", getStringOrNull("client_request_id")); put("updated_at", now) }
+private fun android.database.Cursor.toItem() = CodexHistoryItem(
+    itemKey = getString(getColumnIndexOrThrow("item_key")), turnId = getStringOrNull("turn_id"),
+    position = getInt(getColumnIndexOrThrow("position")), itemType = getString(getColumnIndexOrThrow("item_type")),
+    role = getStringOrNull("role"), clientRequestId = getStringOrNull("client_request_id"),
+    payloadJson = getString(getColumnIndexOrThrow("payload_json")), contentHash = getString(getColumnIndexOrThrow("content_hash")),
+    provisional = getInt(getColumnIndexOrThrow("provisional")) != 0,
+    detailRefsJson = getStringOrNull("detail_refs_json"),
+    detailRefsTruncated = getIntOrDefault("detail_refs_truncated", 0) != 0,
+    availability = getStringOrNull("availability")
+)
+private fun android.database.Cursor.toItemValues(endpointId: String, conversationId: String, now: Long) = ContentValues().apply {
+    put("endpoint_id", endpointId); put("conversation_id", conversationId); put("item_key", getString(getColumnIndexOrThrow("item_key")))
+    put("turn_id", getStringOrNull("turn_id")); put("position", getInt(getColumnIndexOrThrow("position")))
+    put("item_type", getString(getColumnIndexOrThrow("item_type"))); put("role", getStringOrNull("role"))
+    put("payload_json", getString(getColumnIndexOrThrow("payload_json"))); put("content_hash", getString(getColumnIndexOrThrow("content_hash")))
+    put("payload_bytes", getInt(getColumnIndexOrThrow("payload_bytes")))
+    put("detail_refs_json", getStringOrNull("detail_refs_json")); put("detail_refs_truncated", getIntOrDefault("detail_refs_truncated", 0))
+    put("availability", getStringOrNull("availability"))
+    put("provisional", 0); put("client_request_id", getStringOrNull("client_request_id")); put("updated_at", now)
+}
 private fun android.database.Cursor.toStagedItem() = CodexHistoryItem(
     itemKey = getString(getColumnIndexOrThrow("item_key")),
     turnId = getStringOrNull("turn_id"),
@@ -1799,13 +1886,17 @@ private fun android.database.Cursor.toStagedItem() = CodexHistoryItem(
     contentHash = getString(getColumnIndexOrThrow("content_hash")),
     payloadHash = getStringOrNull("payload_hash"),
     payloadBytes = getIntOrNull("payload_bytes"),
-    payloadChunkCount = getIntOrDefault("payload_chunk_count", 0)
+    payloadChunkCount = getIntOrDefault("payload_chunk_count", 0),
+    detailRefsJson = getStringOrNull("detail_refs_json"),
+    detailRefsTruncated = getIntOrDefault("detail_refs_truncated", 0) != 0,
+    availability = getStringOrNull("availability")
 )
 private fun android.database.Cursor.toStagedItemValues(endpointId: String, conversationId: String, now: Long) = ContentValues().apply {
     put("endpoint_id", endpointId); put("conversation_id", conversationId); put("item_key", getString(getColumnIndexOrThrow("item_key")))
     put("turn_id", getStringOrNull("turn_id")); put("position", getInt(getColumnIndexOrThrow("position"))); put("item_type", getString(getColumnIndexOrThrow("item_type")))
     put("role", getStringOrNull("role")); put("payload_json", getStringOrNull("payload_json") ?: ""); put("content_hash", getString(getColumnIndexOrThrow("content_hash")))
     put("payload_bytes", getIntOrDefault("payload_bytes", 0)); put("provisional", 0); put("client_request_id", getStringOrNull("client_request_id")); put("updated_at", now)
+    put("detail_refs_json", getStringOrNull("detail_refs_json")); put("detail_refs_truncated", getIntOrDefault("detail_refs_truncated", 0)); put("availability", getStringOrNull("availability"))
 }
 private fun android.database.Cursor.getStringOrNull(column: String): String? = if (isNull(getColumnIndexOrThrow(column))) null else getString(getColumnIndexOrThrow(column))
 private fun android.database.Cursor.getLongOrNull(column: String): Long? = if (isNull(getColumnIndexOrThrow(column))) null else getLong(getColumnIndexOrThrow(column))

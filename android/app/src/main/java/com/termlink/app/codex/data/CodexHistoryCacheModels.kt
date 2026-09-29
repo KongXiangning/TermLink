@@ -69,7 +69,11 @@ data class CodexHistoryItem(
     val provisional: Boolean = false,
     val payloadHash: String? = null,
     val payloadBytes: Int? = null,
-    val payloadChunkCount: Int = 0
+    val payloadChunkCount: Int = 0,
+    /** Canonical product detail refs; null preserves the legacy wire shape. */
+    val detailRefsJson: String? = null,
+    val detailRefsTruncated: Boolean = false,
+    val availability: String? = null
 )
 
 data class CodexConversationCheckpoint(
@@ -119,7 +123,7 @@ data class CodexHistorySegment(
 
 /** Constants shared by the dormant v4 storage layer and future range wire. */
 object CodexHistoryCacheSchema {
-    const val DATABASE_VERSION = 4
+    const val DATABASE_VERSION = 5
     const val CHECKPOINT_SCHEMA_VERSION = 3
     const val LEGACY_CHECKPOINT_SCHEMA_VERSION = 2
     const val LEGACY_ROOT_SCHEMA_VERSION = 1
