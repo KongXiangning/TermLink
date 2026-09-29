@@ -1,22 +1,23 @@
-<!-- vNext bootstrap managed guidance; preserve target-owned additions outside this block. -->
+<!-- vnext-assistance-guidance:start -->
+## vNext workflow assistance
+
+- Read `.workflow-system/WORKFLOW_PROTOCOL.md` and the selected `.agents/skills/<entry>/SKILL.md`. Their assistance and one-time confirmation rules supersede older workflow admission/terminal instructions; project business constraints remain effective.
+- Runtime assists recording, evidence, snapshots and lookup. Use `.workflow-system/runtime/support/assistance.mjs` and `ASSISTANCE_API.md`; no mandatory preflight, run-entry, waiver, review receipt, retry budget or legacy state repair is needed for authorized work.
+- Query `assistance.mjs task-status` or `context.management` for current task/plan/step state. The journal-backed view replaces stale CURRENT_TASK tuples; ordinary `find` pages are not state queries. `task-context --legacy` is historical only.
+- Use the assistance `task` actions for prepare/adopt/execution/review/review-decision/step/git/close. Check fact persistence, association and view publication separately; normal state maintenance is not optional. Offer rebuild/link/correct/resolve/defer for unresolved management data, without replaying business work.
+- Read/search/record operations, stale metadata and equivalent details already authorized need no new confirmation. Report actual service failures and continue independent authorized work; never rerun business work just to obtain a receipt.
+- For a material deviation from a still-effective workflow commitment, disclose the action, gaps and concrete consequences together and ask once only if that informed choice is unresolved. Silence is not consent.
+- Reuse an informed decision for the same target, action and disclosed consequences, including across sessions. Only new material consequences, a changed action/target, or revised/revoked instructions require a new question about the change.
+- After confirmation, perform the chosen action and all already authorized stages. Do not require another Skill invocation or send the decision back through old complete/advance/close gates. A next_route is advice, not permission or a forced stop.
+- Record the actual decision and outcome separately using assistance records and links. Step/task dispositions retain failures, findings and unverified work; a saved decision or closed disposition is not PASS, clean or verified completion. Self-review remains self-review.
+- Respect the actual user scope and exclusions. A workflow decision does not authorize unrelated file changes, deletion, Git operations or deployment. Recording failure does not revoke a decision still available in the conversation.
+<!-- vnext-assistance-guidance:end -->
+
 # termlink workflow guidance
 
-This project uses the pure vNext workflow surface.
 
-- Use `bootstrap-project` only for project setup or explicit realignment.
-- Use `prepare-task` before executing a new task.
-- Use `execute-step` only for the admitted current step.
-- Use `review-change`, `debug-task`, `task-lifecycle`, `capture-work-item`, and `close-task` according to their contracts.
-- The project-local Runtime and canonical `docs/workflow/CURRENT_TASK.md` are authoritative for task state.
-- Do not edit governance state directly or treat discovery context as write authority.
 
-## Public entry terminal boundary
 
-`public-entry-terminal/v1` applies to every public Skill invocation.
-- Complete only this entry intent, its internal capabilities, and its bound Runtime operations.
-- After a terminal result, return to the caller and stop.
-- Report at most one `next_route` / `recommended_route`; it is recommendation-only for a later caller invocation, and the current invocation must not invoke another public Skill.
-- This is instruction-level host guidance; the current Runtime cannot observe conversation-level public Skill chaining.
 
 Project slug: termlink
 
