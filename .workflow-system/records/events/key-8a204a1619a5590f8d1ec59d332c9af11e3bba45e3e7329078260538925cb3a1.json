@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T15:45:58.411Z",
+  "payload_sha256": "1ee8c6d960468e81edc9978ad6a7e381e0f0b84878fb488e25007a86a1b14f4a",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:recover-task005-revised-plan-20260929",
+    "request": {
+      "idempotency_key": "recover-task005-revised-plan-20260929",
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+      "event": {
+        "parents": [
+          ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json"
+        ],
+        "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+        "action": "prepare",
+        "data": {
+          "base_plan_ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+          "plan": {
+            "acceptance": [
+              "canonical DB 行命中时 App 读取 product projection；DB miss 使用既有 snapshot/recovery；DB read error 显式失败。range v3 协商成功且服务端启用时初始页有界、older 使用 product_db 游标；未协商 range 不冒称 older。",
+              "detailRefs、availability 与页哈希在 Node 和 Android 一致，SQLite 重开后保留；不变 payload 但变化的详情引用导致新 root/upsert，旧引用/游标按协议失效。",
+              "App 能显示真实 event path/cwd/command/code 等代表性事实，按需详情块经 offset/hash 校验完整呈现；不暴露内部采集元数据，也不承诺访问源文件或图片字节。",
+              "older、append、重启保持幂等与 coverage 真实；stale selection/response 被拒绝；healthy IPC 继续独占实时正文、operation、当前 turn 与运行态。",
+              "真实外部 host/Android 的首屏 smoke 在 S2 即记录，完整纵向场景在 S4 记录；替身或本机回归只算各自证据，缺失场景保持未验证。"
+            ],
+            "goal": "App 经现有鉴权 history 协议读取已发布的 Node 产品历史，缓存并展示真实事件路径、cwd、命令及代码/工具文本，同时保持健康 IPC 为当前会话实时 authority。",
+            "title": "Android App 产品历史只读接入与真实纵向 E2E",
+            "exclusions": [
+              "不改 Rust collector、rollout source identity、Node 产品库事务及单会话采集协调；历史读取不得另发 Rust 请求。",
+              "不改 IPC follower/owner、desired subscription/replay 或 healthy IPC authority；不把内部 source_ref、cursor、checkpoint、job/batch/segment 元数据或假设的产品 epoch 发送到 App。",
+              "不增加任意文件/图片二进制访问，不借本任务关闭 Goal、子代理、edited_files 等其他台账项；不在准备阶段修改产品文件、提交或部署。"
+            ],
+            "minimum_sufficient_validation": [
+              "Node：在既有 tests/codexHistoryProductFlow.test.js 增一条仅详情引用/availability 变化、payload 不变时 root/diff/upsert 刷新的定向回归；复用已有 DB miss/error 与 product flow 检查，不为每字段建重复测试。",
+              "Android：复用一个 Node 生成的 product_db delta/详情 fixture，扩展既有 wire/range/cache 测试覆盖 hash、详情引用持久化及重开；扩展既有 ViewModel/UI 映射测试验证一个代表性真实 event 路径、cwd、命令或代码事实可见，并验证详情分块和 stale selection 的关键行为。",
+              "触碰 Gateway 或 Android ViewModel/selection 后运行项目要求的 OwnerSurfaceTracker、terminalGateway.codexIpc 与相关 Android Codex wire/ViewModel JVM 回归；Android Gradle 使用 JDK 21 并确认实际执行。",
+              "真机：一条真实 host→Rust→Node DB→Gateway→App smoke 先验证首屏，后扩展 older、append、App/Node 重启、详情和 IPC A→B→A；按设备调试流程检查本地开发服务，记录配置与实际证据。"
+            ],
+            "steps": [
+              {
+                "id": "S1",
+                "title": "S1 契约与最小通路：以 Node 实际 product_db wire 样本锁定 detailRefs/availability、页哈希及 cache schema；修复 Node 详情引用变更仍能触发 root/diff/upsert；Android 解析、哈希、持久化和旧缓存兼容；明确 range+snapshot 双能力下的请求/响应路由，并保留 DB miss/error 语义。"
+              },
+              {
+                "id": "S2",
+                "title": "S2 提前的真实首屏 smoke：在显式启用 range 的开发环境，由外部 Codex host 自然产生 rollout，验证 Rust→Node canonical DB→鉴权 Gateway→Android 真机首屏有界产品页与 ACK、至少一个真实事件事实可见；若 host/设备不可用，真实 E2E 标记未验证，继续独立可实施部分，不用替身测试宣称通过。"
+              },
+              {
+                "id": "S3",
+                "title": "S3 App 详情与分页：按需 detail request、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开和 A→B→A 隔离的必要兼容，保留 live IPC 对当前正文、operation、turn 和运行态的优先级。"
+              },
+              {
+                "id": "S4",
+                "title": "S4 扩展同一真实纵向场景：观察 older 回填/重叠去重、追加、App 与 Node 重启、详情变化/失效、健康 IPC 实时并存及 A→B→A；记录实际观察、失败和未验证项。"
+              }
+            ],
+            "scope": [
+              "Android Codex history wire、页哈希、SQLite cache 迁移及旧缓存兼容、ViewModel history 协商/选择隔离、最小只读详情 UI。",
+              "Node product history provider/sync 中已证实的详情引用版本化缺陷，必要的 Gateway/App capability 兼容；沿用既有鉴权 sync、manifest/delta/ACK/chunk/older 协议。",
+              "真实外部 Codex host 与 Android 物理设备上的最小纵向 E2E 和随后同场景扩展。"
+            ]
+          }
+        }
+      }
+    },
+    "task_event": {
+      "version": 1,
+      "action": "link",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-82d1103ae1d2d9464c82b5d8945dc65826033167ba0b7974a61359e02de2d9b7.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+        "event": {
+          "parents": [
+            ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json"
+          ],
+          "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+          "action": "prepare",
+          "data": {
+            "base_plan_ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+            "plan": {
+              "acceptance": [
+                "canonical DB 行命中时 App 读取 product projection；DB miss 使用既有 snapshot/recovery；DB read error 显式失败。range v3 协商成功且服务端启用时初始页有界、older 使用 product_db 游标；未协商 range 不冒称 older。",
+                "detailRefs、availability 与页哈希在 Node 和 Android 一致，SQLite 重开后保留；不变 payload 但变化的详情引用导致新 root/upsert，旧引用/游标按协议失效。",
+                "App 能显示真实 event path/cwd/command/code 等代表性事实，按需详情块经 offset/hash 校验完整呈现；不暴露内部采集元数据，也不承诺访问源文件或图片字节。",
+                "older、append、重启保持幂等与 coverage 真实；stale selection/response 被拒绝；healthy IPC 继续独占实时正文、operation、当前 turn 与运行态。",
+                "真实外部 host/Android 的首屏 smoke 在 S2 即记录，完整纵向场景在 S4 记录；替身或本机回归只算各自证据，缺失场景保持未验证。"
+              ],
+              "goal": "App 经现有鉴权 history 协议读取已发布的 Node 产品历史，缓存并展示真实事件路径、cwd、命令及代码/工具文本，同时保持健康 IPC 为当前会话实时 authority。",
+              "title": "Android App 产品历史只读接入与真实纵向 E2E",
+              "exclusions": [
+                "不改 Rust collector、rollout source identity、Node 产品库事务及单会话采集协调；历史读取不得另发 Rust 请求。",
+                "不改 IPC follower/owner、desired subscription/replay 或 healthy IPC authority；不把内部 source_ref、cursor、checkpoint、job/batch/segment 元数据或假设的产品 epoch 发送到 App。",
+                "不增加任意文件/图片二进制访问，不借本任务关闭 Goal、子代理、edited_files 等其他台账项；不在准备阶段修改产品文件、提交或部署。"
+              ],
+              "minimum_sufficient_validation": [
+                "Node：在既有 tests/codexHistoryProductFlow.test.js 增一条仅详情引用/availability 变化、payload 不变时 root/diff/upsert 刷新的定向回归；复用已有 DB miss/error 与 product flow 检查，不为每字段建重复测试。",
+                "Android：复用一个 Node 生成的 product_db delta/详情 fixture，扩展既有 wire/range/cache 测试覆盖 hash、详情引用持久化及重开；扩展既有 ViewModel/UI 映射测试验证一个代表性真实 event 路径、cwd、命令或代码事实可见，并验证详情分块和 stale selection 的关键行为。",
+                "触碰 Gateway 或 Android ViewModel/selection 后运行项目要求的 OwnerSurfaceTracker、terminalGateway.codexIpc 与相关 Android Codex wire/ViewModel JVM 回归；Android Gradle 使用 JDK 21 并确认实际执行。",
+                "真机：一条真实 host→Rust→Node DB→Gateway→App smoke 先验证首屏，后扩展 older、append、App/Node 重启、详情和 IPC A→B→A；按设备调试流程检查本地开发服务，记录配置与实际证据。"
+              ],
+              "steps": [
+                {
+                  "id": "S1",
+                  "title": "S1 契约与最小通路：以 Node 实际 product_db wire 样本锁定 detailRefs/availability、页哈希及 cache schema；修复 Node 详情引用变更仍能触发 root/diff/upsert；Android 解析、哈希、持久化和旧缓存兼容；明确 range+snapshot 双能力下的请求/响应路由，并保留 DB miss/error 语义。"
+                },
+                {
+                  "id": "S2",
+                  "title": "S2 提前的真实首屏 smoke：在显式启用 range 的开发环境，由外部 Codex host 自然产生 rollout，验证 Rust→Node canonical DB→鉴权 Gateway→Android 真机首屏有界产品页与 ACK、至少一个真实事件事实可见；若 host/设备不可用，真实 E2E 标记未验证，继续独立可实施部分，不用替身测试宣称通过。"
+                },
+                {
+                  "id": "S3",
+                  "title": "S3 App 详情与分页：按需 detail request、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开和 A→B→A 隔离的必要兼容，保留 live IPC 对当前正文、operation、turn 和运行态的优先级。"
+                },
+                {
+                  "id": "S4",
+                  "title": "S4 扩展同一真实纵向场景：观察 older 回填/重叠去重、追加、App 与 Node 重启、详情变化/失效、健康 IPC 实时并存及 A→B→A；记录实际观察、失败和未验证项。"
+                }
+              ],
+              "scope": [
+                "Android Codex history wire、页哈希、SQLite cache 迁移及旧缓存兼容、ViewModel history 协商/选择隔离、最小只读详情 UI。",
+                "Node product history provider/sync 中已证实的详情引用版本化缺陷，必要的 Gateway/App capability 兼容；沿用既有鉴权 sync、manifest/delta/ACK/chunk/older 协议。",
+                "真实外部 Codex host 与 Android 物理设备上的最小纵向 E2E 和随后同场景扩展。"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "issues": []
+}

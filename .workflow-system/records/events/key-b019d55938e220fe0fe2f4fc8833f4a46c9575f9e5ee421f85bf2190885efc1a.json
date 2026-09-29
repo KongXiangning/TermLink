@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T15:26:36.243Z",
+  "payload_sha256": "dff6268fc09463914a079f32e7814a2f73478031c9c9c5b5ae912c51f30bd9ff",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:git-assistance-projections-13439894",
+    "request": {
+      "action": "git",
+      "task_ref": "TASK-004",
+      "sha": "134398946eb5013b1febacbf0384fa2b679ad8aa",
+      "idempotency_key": "git-assistance-projections-13439894"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "git",
+      "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+      "parents": [
+        ".workflow-system/records/events/key-1148829c2cdbb1800fdb86b7fefe6b96ba7b88428fa96facbf6639250fada103.json"
+      ],
+      "data": {
+        "sha": "134398946eb5013b1febacbf0384fa2b679ad8aa"
+      }
+    }
+  },
+  "issues": []
+}

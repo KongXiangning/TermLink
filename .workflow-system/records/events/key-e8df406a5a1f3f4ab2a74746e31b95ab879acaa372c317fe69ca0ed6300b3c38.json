@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T15:47:32.982Z",
+  "payload_sha256": "e0e4ce7b1e93eb3136c313e310cca80035f85e63cd79a35a9261bc7d37bd8868",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:focus-task005-after-task004-close-20260929",
+    "request": {
+      "parents": [
+        ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+        ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
+        ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json"
+      ],
+      "reason": "After preserving Task 005 and closing Task 004, select Task 005 as current",
+      "action": "focus",
+      "decision_text": "好，进行操作",
+      "decision_source": "Current user request in this conversation",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "idempotency_key": "focus-task005-after-task004-close-20260929"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "focus",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+        ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
+        ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json"
+      ],
+      "data": {
+        "reason": "After preserving Task 005 and closing Task 004, select Task 005 as current",
+        "decision_text": "好，进行操作",
+        "decision_source": "Current user request in this conversation"
+      }
+    }
+  },
+  "issues": []
+}

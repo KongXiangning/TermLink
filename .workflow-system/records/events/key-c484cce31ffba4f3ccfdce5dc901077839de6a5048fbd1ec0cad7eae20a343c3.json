@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T15:46:22.844Z",
+  "payload_sha256": "9e40d1d16b3a9f16b55e0caa97bb517cb574b0af370f3c772a11e778dd1d4c8c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:recover-task004-s3-recheck-20260929",
+    "request": {
+      "event": {
+        "data": {
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "step_id": "S3",
+          "provenance": "Codex self-review; no independent execution",
+          "execution_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "coverage": [
+            "Four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended remain stale; newer current-subject execution observation is separate evidence and does not rewrite them.",
+            "Android JDK21 Gradle command succeeded with :app:testDebugUnitTest UP-TO-DATE; no JVM cases re-executed in that invocation.",
+            "Execution journal's CR and contract source hashes precede their final edits; prior review bound final current hashes separately.",
+            "Execution journal contains caller-reported command summaries without raw stdout attachments; this recheck did not rerun tests."
+          ],
+          "verdict": "prior_acceptable_with_evidence_qualifications_unchanged",
+          "findings": [],
+          "stage": "change"
+        },
+        "action": "review",
+        "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+        "parents": [
+          ".workflow-system/records/events/key-ad9847d3bfad862b444213c7123d5d6117706de47a6c68ce7edd0e250b8cad9b.json"
+        ]
+      },
+      "idempotency_key": "recover-task004-s3-recheck-20260929",
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "link",
+      "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+      "parents": [
+        ".workflow-system/records/events/key-cd337fda8d9f45eb98a215e57c4ecd844e8b22fbe61b07acac77fd153f618d36.json"
+      ],
+      "data": {
+        "event": {
+          "data": {
+            "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+            "step_id": "S3",
+            "provenance": "Codex self-review; no independent execution",
+            "execution_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+            "coverage": [
+              "Four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended remain stale; newer current-subject execution observation is separate evidence and does not rewrite them.",
+              "Android JDK21 Gradle command succeeded with :app:testDebugUnitTest UP-TO-DATE; no JVM cases re-executed in that invocation.",
+              "Execution journal's CR and contract source hashes precede their final edits; prior review bound final current hashes separately.",
+              "Execution journal contains caller-reported command summaries without raw stdout attachments; this recheck did not rerun tests."
+            ],
+            "verdict": "prior_acceptable_with_evidence_qualifications_unchanged",
+            "findings": [],
+            "stage": "change"
+          },
+          "action": "review",
+          "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+          "parents": [
+            ".workflow-system/records/events/key-ad9847d3bfad862b444213c7123d5d6117706de47a6c68ce7edd0e250b8cad9b.json"
+          ]
+        },
+        "record_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json"
+      }
+    }
+  },
+  "issues": []
+}

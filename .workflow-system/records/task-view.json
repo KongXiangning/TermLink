@@ -3,38 +3,308 @@
   "development_gate": false,
   "qualification": "not-evaluated",
   "kind": "task-view/v1",
-  "source_revision": "64935c04a56c06bef167a2defc628a44e43f0334346b70a26580c2a83b1dde53",
+  "source_revision": "223e65a68aebc224eeccdefa2ffece1cdf894af4703ddc162960d6e214a0f81a",
   "workflow_home": "docs/workflow",
-  "current_task_id": "legacy-doc-fdd730cf99bb383419d74988",
+  "current_task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
   "current_task": {
-    "task_id": "legacy-doc-fdd730cf99bb383419d74988",
-    "display_id": "TASK-004",
-    "title": "task-003-rust-node",
+    "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+    "display_id": "TASK-005",
+    "title": "Android App 产品历史只读接入与真实纵向 E2E",
     "lifecycle": "active",
-    "lifecycle_ref": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
-    "adopted_plan_ref": null,
-    "plan_status": "legacy-summary-only",
+    "lifecycle_ref": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
+    "adopted_plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+    "plan_status": "adopted",
     "plan": {
-      "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
-      "detail_status": "legacy-summary-only",
+      "title": "Android App 产品历史只读接入与真实纵向 E2E",
+      "source_and_capability_contract": [
+        "canonical DB 行命中时用产品投影；DB miss 沿既有 snapshot/recovery；DB read error 显式失败。",
+        "E2E 环境显式启用 TERMLINK_HISTORY_RANGE_SEGMENTS 并协商 cache schema v3；默认 feature flags 不变。两种 capability 同时广告时 App 为产品库请求 range，按实际 response providerMode=product_db 使用 bounded/older；DB miss 的 snapshot/recovery response 按其实际 lane 处理。未协商 range 的环境仅验证全量产品历史，不声称 older。",
+        "健康 IPC surface 独占当前正文、operation、当前 turn、运行态；产品历史只提供静态 baseline/更旧前缀。"
+      ],
+      "exclusions": [
+        "不改 Rust collector、rollout source identity、Node 产品库事务或单会话单例采集；App/history 查询不得直接触发第二条 Rust 采集链。",
+        "不改 IPC follower/owner、desired subscription/replay、healthy IPC authority；不把内部 source_ref、cursor、checkpoint、job/batch/segment 或假设产品 epoch 传给 App。",
+        "不扩大到任意本地文件/图片字节访问、Goal/子代理/edited_files 聚合，也不以此关闭 Task 001/002 其他台账项。",
+        "准备和确认本身不实施产品代码、Git 提交、部署或真机安装。"
+      ],
+      "goal": "Android App 经现有鉴权历史协议读取 Node 已发布 canonical 产品历史，显示真实事件路径、cwd、命令及代码/工具文本；通过真实外部 Codex host 到 Android 的早期纵向 E2E，并保持健康 IPC 的实时 authority。",
       "steps": [
         {
+          "id": "S1",
+          "title": "S1 最小可见产品页：用真实 Node product_db DTO 锁定 detailRefs/availability、页哈希与 cache schema；修复不变 payload、变化 detailRefs/detailRefsTruncated/availability 时 complete-root、manifest/diff 和 v3 range 均触发有效更新。payloadHash 保持正文 bytes 校验；验证旧 cache/旧客户端兼容。Android 解析、哈希、持久化与前向迁移，处理 range+snapshot 双能力路由和 DB miss/error，并增加最小结构化 event path/cwd/command/code 事实文本投影。完整详情 UI 留至 S3。"
+        },
+        {
+          "id": "S2",
+          "title": "S2 提前真实首屏 smoke：显式开启 range，由真实外部 Codex host 自然产生 rollout，观察 Rust→Node canonical DB→鉴权 Gateway→Android 真机有界首屏和 ACK；校验一个具体结构化事件字段值在 App 可见。若新 schema 会升级已有用户缓存，安装前副本迁移演练、备份及兼容回滚构建；可弃用全新测试设备不需此旧数据步骤。缺宿主/设备则保持 E2E 未验证并继续其他独立工作。"
+        },
+        {
           "id": "S3",
-          "title": "S3"
+          "title": "S3 详情与历史流：接入按需详情请求、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开、A→B→A 迟到响应隔离的必要兼容，保持 live IPC 优先。"
+        },
+        {
+          "id": "S4",
+          "title": "S4 同一真实场景扩展：验证 older 回填/重叠去重、追加、App/Node 重启、详情变化/失效、健康 IPC 与 A→B→A；保存实际观察、失败和未验证项。"
         }
-      ]
+      ],
+      "minimum_sufficient_validation": [
+        "Node：在既有 tests/codexHistoryProductFlow.test.js 增一条不变 payload、变化详情引用/availability 的聚焦回归，覆盖完整 root 快路径与 v3 range 所需比较；复用现有 DB miss/error 与产品流测试，不逐字段造重复用例。",
+        "Android：复用一个 Node 产出的 product_db fixture，扩展既有 wire/range/cache 测试覆盖页哈希、引用持久化/重开；扩展现有 ViewModel/UI 映射测试断言一个结构化事件字段的真实可见值；按关键风险验证详情分块与 stale selection。",
+        "触及 Gateway、ViewModel 或 selection 后运行合同要求的 Node OwnerSurfaceTracker/terminalGateway.codexIpc 与相关 Android Codex wire/ViewModel JVM 回归；Android Gradle 用 JDK 21，确认任务实际执行。",
+        "真机一条真实 host→Rust→Node DB→Gateway→App 场景先首屏后扩展 older、append、重启、详情、IPC A→B→A；使用项目本地开发服务/真机流程，记录 feature flags、设备状态与实际证据。若升级已有缓存，先做一次性副本迁移演练及回滚准备，不额外新增持久自动化测试。"
+      ],
+      "scope": [
+        "Android Codex history wire、跨端页哈希、SQLite cache 前向迁移与旧缓存兼容、ViewModel range/snapshot 协商和选择隔离、最小事件事实投影及按需只读详情。",
+        "Node product history provider/sync 已证实的 detail-ref-only 同步身份问题和必要 Gateway 协议兼容；沿用鉴权 sync/manifest/delta/ACK/chunk/older。",
+        "真实外部 Codex host、Rust、Node 产品 DB、鉴权 Gateway、Android 真机首屏与扩展场景验证。"
+      ],
+      "acceptance": [
+        "产品库命中、缺记录、读取失败分别遵守 DB-first、既有 fallback、显式失败；range v3 + 服务端启用时初始页有界且 older 使用 product_db 游标。",
+        "Node/Android 详情引用与 availability、页哈希一致，缓存重开仍保留。仅详情引用变化也触发新同步 root/diff/upsert；正文 payloadHash 不被错误改写，旧引用/游标按协议失效。",
+        "S2 首屏可见真实结构化路径、cwd、命令或代码的具体事件事实；S3 详情分块完整且 offset/hash 有效，不泄露内部采集元数据、不承诺访问源文件或图片字节。",
+        "older、append、重启保持幂等与 coverage 真实；stale selection/response 拒绝；健康 IPC 始终掌管实时字段，A→B→A 不串线。",
+        "真实外部宿主和 Android 物理设备的首屏与扩展场景各有具体证据；未执行部分明确未验证，不能凭本机替身测试宣称通过。"
+      ],
+      "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "parent_plan_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json"
     },
-    "plans": [],
-    "adopted_by": null,
-    "adoption": null,
-    "candidate_plan_refs": [],
-    "current_step_id": "S3",
+    "plans": [
+      {
+        "minimum_sufficient_validation": [
+          "复用 Node tests/codexHistoryProductFlow.test.js；只有发现 Node 协议缺陷才补 Node 定向测试。",
+          "Android 仅增加有缺口的跨端 product_db delta/hash/SQLite 重开测试，以及详情分块与 stale selection 行为测试；优先扩展现有 CodexHistoryWireTest/CodexHistoryRangeStorageTest/CodexViewModelThreadReadyTest，避免逐 helper 镜像测试。",
+          "触碰 Gateway 或 Android ViewModel/selection 时按 CONTRACTS.md 运行 tests/codexOwnerSurfaceTracker.test.js、tests/terminalGateway.codexIpc.test.js 与相关 Android Codex ViewModel/wire JVM 测试；Android 编译和 JVM 测试用 JDK 21，并确认测试实际执行而非仅 UP-TO-DATE。",
+          "真机 smoke 观察真实 Rust→Node DB→Gateway→App、older、append、重启、详情与 A→B→A/IPC 并存；按项目真机流程先检查本地开发服务。"
+        ],
+        "goal": "让 App 通过现有 WebSocket history 协议读取 Node 产品数据库的 canonical 静态历史，保留事件真实路径/命令/代码文本，并与健康 IPC 实时 surface 安全并存。",
+        "acceptance": [
+          "已持久化产品历史在 App 首次打开与重启后可读；正文及真实 event 路径、cwd、命令/代码文本可见且不含内部 source metadata。",
+          "product_db 初始页和 older page 通过哈希与 ACK；向前回填无丢失/重复，coverage 状态不被单页错误提升。",
+          "详情引用在 App 缓存重开后仍有效；按需详情分块完整且 hash/offset 一致；stale selection 或变化的内容 fail closed。",
+          "新终态 append 后 App 获得更新；健康 IPC surface 始终掌管当前正文/operation/turn/运行态，A→B→A 不串线。",
+          "真实宿主和 Android 物理设备的纵向验证有具体观察记录；未执行部分保持明确未验证。"
+        ],
+        "scope": [
+          "Android 现有 Codex history wire、SQLite cache、ViewModel 与最小只读 UI 适配；复用 cache-first、range/older、payload chunk 和 IPC authority，不建立第二条 Rust 采集链。",
+          "只在真实协议不兼容被证实时做必要的 Node Gateway/DTO 兼容修正；保持 Node product DB 为唯一静态历史来源。",
+          "执行阶段使用真实外部 Codex host、Node 产品库、鉴权 Gateway、Android 真机做一条纵向 E2E。"
+        ],
+        "exclusions": [
+          "不改 Rust collector/source identity、Node 产品数据库事务/采集调度架构或 IPC follower/owner/healthy-surface authority。",
+          "不把 rollout source_ref、内部 cursor/checkpoint、batch/job/segment 元数据传给 App；不新增 serverRevision/revisionScope/productSourceEpoch。",
+          "不扩展图片二进制拉取、任意本地文件访问、Goal/子代理/edited_files 聚合，也不以本任务关闭其他台账项。"
+        ],
+        "steps": [
+          {
+            "title": "S1：用真实 Node product_db delta/详情样本锁定跨端字段、页哈希、cursor、availability 契约；Android 增量解析和持久化详情引用及状态，做前向 SQLite 迁移并保持旧缓存兼容。",
+            "id": "S1"
+          },
+          {
+            "title": "S2：复用既有 selection generation 与鉴权 WebSocket，接入按需详情请求、UTF-8 分块/offset/hash 校验、失败与过期状态；让历史项可只读查看/复制原始 event 路径、cwd、命令、代码或工具文本详情。路径显示不等于远端文件系统访问。",
+            "id": "S2"
+          },
+          {
+            "title": "S3：在已有 cache-first、initial page、older page、append 和 IPC UI 合并链路上修复实际联调缺口；确保 ACK 后重开、重叠去重、A→B→A 迟到响应隔离与健康 IPC 优先级。",
+            "id": "S3"
+          },
+          {
+            "title": "S4：用真实外部 host + 真机完成首次加载、向前回填、追加、App/Node 重启、详情读取和 IPC 实时并存的一条纵向 smoke；记录缺失设备/宿主或失败为未验证，不以本机替身测试代替。",
+            "id": "S4"
+          }
+        ],
+        "title": "Android App 产品历史只读接入与真实纵向 E2E",
+        "ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+        "parent_plan_ref": null
+      },
+      {
+        "acceptance": [
+          "canonical DB 行命中时 App 读取 product projection；DB miss 使用既有 snapshot/recovery；DB read error 显式失败。range v3 协商成功且服务端启用时初始页有界、older 使用 product_db 游标；未协商 range 不冒称 older。",
+          "detailRefs、availability 与页哈希在 Node 和 Android 一致，SQLite 重开后保留；不变 payload 但变化的详情引用导致新 root/upsert，旧引用/游标按协议失效。",
+          "App 能显示真实 event path/cwd/command/code 等代表性事实，按需详情块经 offset/hash 校验完整呈现；不暴露内部采集元数据，也不承诺访问源文件或图片字节。",
+          "older、append、重启保持幂等与 coverage 真实；stale selection/response 被拒绝；healthy IPC 继续独占实时正文、operation、当前 turn 与运行态。",
+          "真实外部 host/Android 的首屏 smoke 在 S2 即记录，完整纵向场景在 S4 记录；替身或本机回归只算各自证据，缺失场景保持未验证。"
+        ],
+        "goal": "App 经现有鉴权 history 协议读取已发布的 Node 产品历史，缓存并展示真实事件路径、cwd、命令及代码/工具文本，同时保持健康 IPC 为当前会话实时 authority。",
+        "title": "Android App 产品历史只读接入与真实纵向 E2E",
+        "exclusions": [
+          "不改 Rust collector、rollout source identity、Node 产品库事务及单会话采集协调；历史读取不得另发 Rust 请求。",
+          "不改 IPC follower/owner、desired subscription/replay 或 healthy IPC authority；不把内部 source_ref、cursor、checkpoint、job/batch/segment 元数据或假设的产品 epoch 发送到 App。",
+          "不增加任意文件/图片二进制访问，不借本任务关闭 Goal、子代理、edited_files 等其他台账项；不在准备阶段修改产品文件、提交或部署。"
+        ],
+        "minimum_sufficient_validation": [
+          "Node：在既有 tests/codexHistoryProductFlow.test.js 增一条仅详情引用/availability 变化、payload 不变时 root/diff/upsert 刷新的定向回归；复用已有 DB miss/error 与 product flow 检查，不为每字段建重复测试。",
+          "Android：复用一个 Node 生成的 product_db delta/详情 fixture，扩展既有 wire/range/cache 测试覆盖 hash、详情引用持久化及重开；扩展既有 ViewModel/UI 映射测试验证一个代表性真实 event 路径、cwd、命令或代码事实可见，并验证详情分块和 stale selection 的关键行为。",
+          "触碰 Gateway 或 Android ViewModel/selection 后运行项目要求的 OwnerSurfaceTracker、terminalGateway.codexIpc 与相关 Android Codex wire/ViewModel JVM 回归；Android Gradle 使用 JDK 21 并确认实际执行。",
+          "真机：一条真实 host→Rust→Node DB→Gateway→App smoke 先验证首屏，后扩展 older、append、App/Node 重启、详情和 IPC A→B→A；按设备调试流程检查本地开发服务，记录配置与实际证据。"
+        ],
+        "steps": [
+          {
+            "id": "S1",
+            "title": "S1 契约与最小通路：以 Node 实际 product_db wire 样本锁定 detailRefs/availability、页哈希及 cache schema；修复 Node 详情引用变更仍能触发 root/diff/upsert；Android 解析、哈希、持久化和旧缓存兼容；明确 range+snapshot 双能力下的请求/响应路由，并保留 DB miss/error 语义。"
+          },
+          {
+            "id": "S2",
+            "title": "S2 提前的真实首屏 smoke：在显式启用 range 的开发环境，由外部 Codex host 自然产生 rollout，验证 Rust→Node canonical DB→鉴权 Gateway→Android 真机首屏有界产品页与 ACK、至少一个真实事件事实可见；若 host/设备不可用，真实 E2E 标记未验证，继续独立可实施部分，不用替身测试宣称通过。"
+          },
+          {
+            "id": "S3",
+            "title": "S3 App 详情与分页：按需 detail request、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开和 A→B→A 隔离的必要兼容，保留 live IPC 对当前正文、operation、turn 和运行态的优先级。"
+          },
+          {
+            "id": "S4",
+            "title": "S4 扩展同一真实纵向场景：观察 older 回填/重叠去重、追加、App 与 Node 重启、详情变化/失效、健康 IPC 实时并存及 A→B→A；记录实际观察、失败和未验证项。"
+          }
+        ],
+        "scope": [
+          "Android Codex history wire、页哈希、SQLite cache 迁移及旧缓存兼容、ViewModel history 协商/选择隔离、最小只读详情 UI。",
+          "Node product history provider/sync 中已证实的详情引用版本化缺陷，必要的 Gateway/App capability 兼容；沿用既有鉴权 sync、manifest/delta/ACK/chunk/older 协议。",
+          "真实外部 Codex host 与 Android 物理设备上的最小纵向 E2E 和随后同场景扩展。"
+        ],
+        "ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+        "parent_plan_ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json"
+      },
+      {
+        "title": "Android App 产品历史只读接入与真实纵向 E2E",
+        "source_and_capability_contract": [
+          "canonical DB 行命中时用产品投影；DB miss 沿既有 snapshot/recovery；DB read error 显式失败。",
+          "E2E 环境显式启用 TERMLINK_HISTORY_RANGE_SEGMENTS 并协商 cache schema v3；默认 feature flags 不变。两种 capability 同时广告时 App 为产品库请求 range，按实际 response providerMode=product_db 使用 bounded/older；DB miss 的 snapshot/recovery response 按其实际 lane 处理。未协商 range 的环境仅验证全量产品历史，不声称 older。",
+          "健康 IPC surface 独占当前正文、operation、当前 turn、运行态；产品历史只提供静态 baseline/更旧前缀。"
+        ],
+        "exclusions": [
+          "不改 Rust collector、rollout source identity、Node 产品库事务或单会话单例采集；App/history 查询不得直接触发第二条 Rust 采集链。",
+          "不改 IPC follower/owner、desired subscription/replay、healthy IPC authority；不把内部 source_ref、cursor、checkpoint、job/batch/segment 或假设产品 epoch 传给 App。",
+          "不扩大到任意本地文件/图片字节访问、Goal/子代理/edited_files 聚合，也不以此关闭 Task 001/002 其他台账项。",
+          "准备和确认本身不实施产品代码、Git 提交、部署或真机安装。"
+        ],
+        "goal": "Android App 经现有鉴权历史协议读取 Node 已发布 canonical 产品历史，显示真实事件路径、cwd、命令及代码/工具文本；通过真实外部 Codex host 到 Android 的早期纵向 E2E，并保持健康 IPC 的实时 authority。",
+        "steps": [
+          {
+            "id": "S1",
+            "title": "S1 最小可见产品页：用真实 Node product_db DTO 锁定 detailRefs/availability、页哈希与 cache schema；修复不变 payload、变化 detailRefs/detailRefsTruncated/availability 时 complete-root、manifest/diff 和 v3 range 均触发有效更新。payloadHash 保持正文 bytes 校验；验证旧 cache/旧客户端兼容。Android 解析、哈希、持久化与前向迁移，处理 range+snapshot 双能力路由和 DB miss/error，并增加最小结构化 event path/cwd/command/code 事实文本投影。完整详情 UI 留至 S3。"
+          },
+          {
+            "id": "S2",
+            "title": "S2 提前真实首屏 smoke：显式开启 range，由真实外部 Codex host 自然产生 rollout，观察 Rust→Node canonical DB→鉴权 Gateway→Android 真机有界首屏和 ACK；校验一个具体结构化事件字段值在 App 可见。若新 schema 会升级已有用户缓存，安装前副本迁移演练、备份及兼容回滚构建；可弃用全新测试设备不需此旧数据步骤。缺宿主/设备则保持 E2E 未验证并继续其他独立工作。"
+          },
+          {
+            "id": "S3",
+            "title": "S3 详情与历史流：接入按需详情请求、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开、A→B→A 迟到响应隔离的必要兼容，保持 live IPC 优先。"
+          },
+          {
+            "id": "S4",
+            "title": "S4 同一真实场景扩展：验证 older 回填/重叠去重、追加、App/Node 重启、详情变化/失效、健康 IPC 与 A→B→A；保存实际观察、失败和未验证项。"
+          }
+        ],
+        "minimum_sufficient_validation": [
+          "Node：在既有 tests/codexHistoryProductFlow.test.js 增一条不变 payload、变化详情引用/availability 的聚焦回归，覆盖完整 root 快路径与 v3 range 所需比较；复用现有 DB miss/error 与产品流测试，不逐字段造重复用例。",
+          "Android：复用一个 Node 产出的 product_db fixture，扩展既有 wire/range/cache 测试覆盖页哈希、引用持久化/重开；扩展现有 ViewModel/UI 映射测试断言一个结构化事件字段的真实可见值；按关键风险验证详情分块与 stale selection。",
+          "触及 Gateway、ViewModel 或 selection 后运行合同要求的 Node OwnerSurfaceTracker/terminalGateway.codexIpc 与相关 Android Codex wire/ViewModel JVM 回归；Android Gradle 用 JDK 21，确认任务实际执行。",
+          "真机一条真实 host→Rust→Node DB→Gateway→App 场景先首屏后扩展 older、append、重启、详情、IPC A→B→A；使用项目本地开发服务/真机流程，记录 feature flags、设备状态与实际证据。若升级已有缓存，先做一次性副本迁移演练及回滚准备，不额外新增持久自动化测试。"
+        ],
+        "scope": [
+          "Android Codex history wire、跨端页哈希、SQLite cache 前向迁移与旧缓存兼容、ViewModel range/snapshot 协商和选择隔离、最小事件事实投影及按需只读详情。",
+          "Node product history provider/sync 已证实的 detail-ref-only 同步身份问题和必要 Gateway 协议兼容；沿用鉴权 sync/manifest/delta/ACK/chunk/older。",
+          "真实外部 Codex host、Rust、Node 产品 DB、鉴权 Gateway、Android 真机首屏与扩展场景验证。"
+        ],
+        "acceptance": [
+          "产品库命中、缺记录、读取失败分别遵守 DB-first、既有 fallback、显式失败；range v3 + 服务端启用时初始页有界且 older 使用 product_db 游标。",
+          "Node/Android 详情引用与 availability、页哈希一致，缓存重开仍保留。仅详情引用变化也触发新同步 root/diff/upsert；正文 payloadHash 不被错误改写，旧引用/游标按协议失效。",
+          "S2 首屏可见真实结构化路径、cwd、命令或代码的具体事件事实；S3 详情分块完整且 offset/hash 有效，不泄露内部采集元数据、不承诺访问源文件或图片字节。",
+          "older、append、重启保持幂等与 coverage 真实；stale selection/response 拒绝；健康 IPC 始终掌管实时字段，A→B→A 不串线。",
+          "真实外部宿主和 Android 物理设备的首屏与扩展场景各有具体证据；未执行部分明确未验证，不能凭本机替身测试宣称通过。"
+        ],
+        "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+        "parent_plan_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json"
+      }
+    ],
+    "adopted_by": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
+    "adoption": {
+      "topic": "adopt-reviewed-app-product-history-integration-plan",
+      "decision_source": "current user message immediately following review-draft result",
+      "decision_text": "confirm",
+      "original_instruction": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+      "interpreted_choice": "Adopt the latest App product-history integration draft together with the three pre-S2 review conditions; this does not authorize code implementation by itself.",
+      "target": "Task 004 后 Android App 只读产品历史接入和真实外部 Codex host→Rust→Node 产品 DB→Gateway→Android E2E；未分配 canonical task ID。",
+      "adopted_review_conditions": [
+        "S1 纳入最小结构化 event path/cwd/command/code 事实展示与真实 DTO 映射断言，使 S2 真机首屏能够验证具体字段值；完整按需详情 UI 仍在 S3。",
+        "S1 将 detailRefs、detailRefsTruncated、availability 纳入有效同步身份，覆盖 complete-root、manifest/diff 和 v3 range；正文 payloadHash 仍表示正文 bytes；检查旧缓存及旧客户端兼容。",
+        "若 S2 在有现存用户缓存的真机上触发 Android SQLite 版本升级，安装前做副本迁移演练并保留备份与兼容回滚构建；全新可弃用测试设备不需迁移旧数据。"
+      ],
+      "retained_scope": "保留先前计划的 DB-first/DB-miss fallback/DB-error failure、range/snapshot 能力优先级、早期真实首屏 E2E、IPC 实时 authority、Rust/Node 单例采集和排除范围。",
+      "consequences": "S1 工作量增加最小事实投影和同步身份兼容检查；S2 必须在这些前置条件满足后做真实首屏，设备升级可能需一次性迁移准备。真实设备/host 不可用时记录未验证，不能以本机替身声称通过。",
+      "adoption_limit": "仅确认计划及审查条件；不代表测试通过、产品实施完成、Task 001/002 九项台账关闭、Git 提交或部署授权。",
+      "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "review_ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
+      "activate": true,
+      "focus": false,
+      "conditions": [
+        "S1 纳入最小结构化 event path/cwd/command/code 事实展示与真实 DTO 映射断言，使 S2 真机首屏能够验证具体字段值；完整按需详情 UI 仍在 S3。",
+        "S1 将 detailRefs、detailRefsTruncated、availability 纳入有效同步身份，覆盖 complete-root、manifest/diff 和 v3 range；正文 payloadHash 仍表示正文 bytes；检查旧缓存及旧客户端兼容。",
+        "若 S2 在有现存用户缓存的真机上触发 Android SQLite 版本升级，安装前做副本迁移演练并保留备份与兼容回滚构建；全新可弃用测试设备不需迁移旧数据。"
+      ],
+      "ref": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json"
+    },
+    "candidate_plan_refs": [
+      ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+      ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json"
+    ],
+    "current_step_id": "S1",
     "steps": [
       {
+        "id": "S1",
+        "title": "S1 最小可见产品页：用真实 Node product_db DTO 锁定 detailRefs/availability、页哈希与 cache schema；修复不变 payload、变化 detailRefs/detailRefsTruncated/availability 时 complete-root、manifest/diff 和 v3 range 均触发有效更新。payloadHash 保持正文 bytes 校验；验证旧 cache/旧客户端兼容。Android 解析、哈希、持久化与前向迁移，处理 range+snapshot 双能力路由和 DB miss/error，并增加最小结构化 event path/cwd/command/code 事实文本投影。完整详情 UI 留至 S3。",
+        "state": "not-started",
+        "legacy_step_status": null,
+        "execution_ref": null,
+        "execution": null,
+        "review_ref": null,
+        "review_status": "not-reviewed",
+        "findings": [],
+        "review_choice": null,
+        "review_decision_ref": null,
+        "review_decisions": [],
+        "tests": [],
+        "disposition_ref": null,
+        "historical_execution_refs": []
+      },
+      {
+        "id": "S2",
+        "title": "S2 提前真实首屏 smoke：显式开启 range，由真实外部 Codex host 自然产生 rollout，观察 Rust→Node canonical DB→鉴权 Gateway→Android 真机有界首屏和 ACK；校验一个具体结构化事件字段值在 App 可见。若新 schema 会升级已有用户缓存，安装前副本迁移演练、备份及兼容回滚构建；可弃用全新测试设备不需此旧数据步骤。缺宿主/设备则保持 E2E 未验证并继续其他独立工作。",
+        "state": "not-started",
+        "legacy_step_status": null,
+        "execution_ref": null,
+        "execution": null,
+        "review_ref": null,
+        "review_status": "not-reviewed",
+        "findings": [],
+        "review_choice": null,
+        "review_decision_ref": null,
+        "review_decisions": [],
+        "tests": [],
+        "disposition_ref": null,
+        "historical_execution_refs": []
+      },
+      {
         "id": "S3",
-        "title": "S3",
-        "state": "legacy-state",
-        "legacy_step_status": "ready",
+        "title": "S3 详情与历史流：接入按需详情请求、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开、A→B→A 迟到响应隔离的必要兼容，保持 live IPC 优先。",
+        "state": "not-started",
+        "legacy_step_status": null,
+        "execution_ref": null,
+        "execution": null,
+        "review_ref": null,
+        "review_status": "not-reviewed",
+        "findings": [],
+        "review_choice": null,
+        "review_decision_ref": null,
+        "review_decisions": [],
+        "tests": [],
+        "disposition_ref": null,
+        "historical_execution_refs": []
+      },
+      {
+        "id": "S4",
+        "title": "S4 同一真实场景扩展：验证 older 回填/重叠去重、追加、App/Node 重启、详情变化/失效、健康 IPC 与 A→B→A；保存实际观察、失败和未验证项。",
+        "state": "not-started",
+        "legacy_step_status": null,
         "execution_ref": null,
         "execution": null,
         "review_ref": null,
@@ -48,47 +318,106 @@
         "historical_execution_refs": []
       }
     ],
-    "reviews": [],
+    "reviews": [
+      {
+        "original_user_request": "[$review-draft](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\review-draft\\SKILL.md)",
+        "subject": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+        "reviewer": "Codex self-review; not independent review",
+        "verdict": "ready-for-S1-with-pre-S2-clarifications",
+        "previous_finding_resolution": "The revised plan addresses all five findings from the prior self-review: DB-first with not-found fallback and explicit DB error; explicit range configuration and both-capability precedence; detail-ref-only sync refresh; early real initial-page smoke; representative App-visible event fact validation.",
+        "findings": [
+          {
+            "priority": "P1",
+            "title": "S2 visible event fact depends on work currently scheduled in S3",
+            "evidence": "S2 accepts a real path/cwd/command/code fact visible on the Android initial page, while S1 only names wire/hash/cache/capability changes. The current CodexViewModel.extractHistoryPayloadTextForUi reads text/content/summary and recursively text/content/input, so a structured path/cwd/command field may still be invisible until the S3 UI work.",
+            "resolution": "Include the minimum structured event-fact text projection and one real DTO assertion in S1, before S2 smoke. Keep full on-demand detail UI in S3. The S2 smoke should assert a concrete structured field value rather than incidental path text inside a summary."
+          },
+          {
+            "priority": "P2",
+            "title": "Separate payload integrity from effective sync identity when refs change",
+            "evidence": "Product provider currently sets item.contentHash=hash(payloadJson), while Node root/manifest/diff and Android cached manifest use contentHash. Payload chunks also have a separate payloadHash. A detail-only update cannot be fixed only by changing projectionSnapshotHash, and an unqualified contentHash change risks conflating payload integrity with item revision semantics for old caches/clients.",
+            "resolution": "In S1 explicitly choose a compatible effective item/version comparison covering detailRefs, detailRefsTruncated and availability across complete-root, manifest and v3 range paths. Preserve payloadHash as hash of payload bytes, check old-cache reconciliation and wire compatibility, and make the single focused Node regression exercise the relevant complete and range paths."
+          },
+          {
+            "priority": "P2",
+            "title": "Real-device schema upgrade needs a safe installation boundary",
+            "evidence": "S1 plans an additive Android SQLite migration and S2 immediately installs on a physical device. The existing AD-004 range migration decision required a copy rehearsal and a compatible rollback build before first upgrade of the main device; a new schema bump is likewise not downgraded merely by disabling a feature flag.",
+            "resolution": "If S2 uses a device with existing user cache and S1 bumps its DB version, rehearse migration on a copy and preserve backup/compatible rollback before install. A clean disposable test device does not require migration of prior user data."
+          }
+        ],
+        "validation_assessment": "The proposed new permanent tests are justified by two concrete gaps: unchanged payload with changed refs, and App visibility of a structured event fact. Reuse existing wire/range/cache/ViewModel and Node product flow tests; the real-device smoke supplies integration evidence. No broader suite or helper-by-helper tests are justified. No tests were run in this draft review.",
+        "scope_status": "Read-only review of plan/design/source, plus append-only review observation. No product code, test, plan or legacy projection changed.",
+        "next_route": "execute-step",
+        "terminal_boundary": "public-entry-terminal/v1",
+        "source_revision": "HEAD 33c6dd7a588a361a86351c510b15fe0e4a0e26fa; static draft and source review; no tests executed",
+        "provenance": "Codex self-review; not independent review",
+        "stage": "draft",
+        "coverage": "The proposed new permanent tests are justified by two concrete gaps: unchanged payload with changed refs, and App visibility of a structured event fact. Reuse existing wire/range/cache/ViewModel and Node product flow tests; the real-device smoke supplies integration evidence. No broader suite or helper-by-helper tests are justified. No tests were run in this draft review.",
+        "plan_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+        "ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
+        "interpretation_ref": ".workflow-system/records/events/key-62419bc1656b4b1b8093ca0a6cfa27fb9c823a11c8652474199b79768069372d.json"
+      },
+      {
+        "subject": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+        "reviewer": "Codex self-review of its prior prepare-task plan; not independent review",
+        "verdict": "needs-revision-before-execution",
+        "original_user_request": "[$review-draft](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\review-draft\\SKILL.md)",
+        "findings": [
+          {
+            "priority": "P1",
+            "title": "History source wording conflicts with product contract",
+            "evidence": "Plan scope says Node product DB is the only static history source. Product contract §6 says use product projection when canonical row exists, preserve existing snapshot/recovery on miss, and return explicit failure on DB read failure.",
+            "resolution": "Reword scope/acceptance to DB-first for a found canonical row, bounded legacy fallback only on not-found, and fail-closed on DB read failure; do not disable the preexisting fallback."
+          },
+          {
+            "priority": "P1",
+            "title": "Older-page acceptance lacks capability configuration and precedence",
+            "evidence": "src/server.js defaults TERMLINK_HISTORY_RANGE_SEGMENTS and TERMLINK_HISTORY_SNAPSHOT_SEGMENTS to off. Android CodexViewModel.kt selects serverSnapshotSegments first and omits rangeSegments when snapshot capability is enabled; Gateway product provider only returns a bounded range when rangeSegments.enabled.",
+            "resolution": "Lock the E2E/product configuration and behavior when both capabilities are advertised before implementation; preserve snapshot fallback for DB misses. Define how App requests product_db range so initial/older assertions really exercise that lane."
+          },
+          {
+            "priority": "P1",
+            "title": "Detail refs can change without triggering history refresh",
+            "evidence": "src/services/codexHistoryProductProvider.js derives item contentHash from payloadJson only while detailRefs are separate. src/services/codexHistorySyncService.js compares item contentHash and has complete-root fast path, so a detail-only update can be reported up-to-date; projectionSnapshotHash does include refs, showing mismatch between cursor invalidation and sync root.",
+            "resolution": "Include detailRefs/availability in effective canonical item identity or otherwise force the relevant upsert/root change; add one focused Node regression for unchanged payload with changed detail ref."
+          },
+          {
+            "priority": "P2",
+            "title": "Real App integration is scheduled too late",
+            "evidence": "Earlier user direction was to connect App early for a vertical E2E to reduce rework. Plan puts true external-host/device smoke after full detail UI and other wiring in S4.",
+            "resolution": "Run a minimum real host→product DB→Gateway→App initial-page smoke immediately after the S1 wire/hash fix; then expand that same scenario for older, append, restart, detail and IPC coexistence."
+          },
+          {
+            "priority": "P2",
+            "title": "User-visible event facts lack a focused regression",
+            "evidence": "Android extractHistoryPayloadTextForUi currently reads text/content/summary only; plan accepts visible file path, cwd, command and code, but proposed Android tests cover wire/hash/reopen and detail assembly rather than event-fact projection.",
+            "resolution": "Use a real product DTO fixture to assert one representative path/cwd/command or code fact is visible in App history; extend an existing Android mapping/ViewModel test, avoiding helper-by-helper tests."
+          }
+        ],
+        "validation_assessment": "Existing Node product flow, Android history wire/range/ViewModel, required IPC/Owner regressions and one real-device smoke are appropriate. Do not add a broad suite. Add only focused checks for the proven ref-sync defect and App fact projection; reuse one cross-language delta fixture for hash/cache behavior. No tests were run in this read-only draft review.",
+        "scope_status": "No plan, product code, tests, docs or legacy task projection modified by this review; only append-only review observation recorded.",
+        "next_route": "prepare-task",
+        "source_revision": "HEAD 33c6dd7a588a361a86351c510b15fe0e4a0e26fa; dirty working tree; static source review only",
+        "provenance": "Codex self-review of its prior prepare-task plan; not independent review",
+        "stage": "draft",
+        "coverage": "Existing Node product flow, Android history wire/range/ViewModel, required IPC/Owner regressions and one real-device smoke are appropriate. Do not add a broad suite. Add only focused checks for the proven ref-sync defect and App fact projection; reuse one cross-language delta fixture for hash/cache behavior. No tests were run in this read-only draft review.",
+        "plan_ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+        "ref": ".workflow-system/records/events/key-e84be5e3dd7ccf2d00d3a89fe48be9c62a26c4755464e11e492c35303029a491.json",
+        "interpretation_ref": ".workflow-system/records/events/key-d04cb7bbb8bfd7da9b1f7d1572c57f7c549a6bf64a7aca79f5813e1a754d60e4.json"
+      }
+    ],
     "executions": [],
     "tests": [],
     "review_decisions": [],
-    "commits": [
-      {
-        "sha": "f8129183702f1888e41402e253600eb70a969e7b",
-        "ref": ".workflow-system/records/events/key-1148829c2cdbb1800fdb86b7fefe6b96ba7b88428fa96facbf6639250fada103.json",
-        "interpretation_ref": null,
-        "object_available": true,
-        "verification": "local-git-object",
-        "pushed": "not-inferred",
-        "deployed": "not-inferred"
-      },
-      {
-        "sha": "7e32943de2fe889f6336082bc91e8942b69aa2ea",
-        "ref": ".workflow-system/records/events/key-c66f3711741549fd2a538b83e2eae0b3e90c8e31c7ce6ba544ad80edc541cc02.json",
-        "interpretation_ref": ".workflow-system/records/events/key-39fc0a10522db34678f1a3ed53654a3cf166245cbef597d478b87b6ea1064b02.json",
-        "object_available": true,
-        "verification": "local-git-object",
-        "pushed": "not-inferred",
-        "deployed": "not-inferred"
-      },
-      {
-        "sha": "d1109c04f73235f15636b5d62f017d734310c696",
-        "ref": ".workflow-system/records/events/key-e5293d6ced3a3ee897d5f59233886caccc23475d22d320f056048a899ed707d3.json",
-        "interpretation_ref": null,
-        "object_available": true,
-        "verification": "local-git-object",
-        "pushed": "not-inferred",
-        "deployed": "not-inferred"
-      }
-    ],
+    "commits": [],
     "dispositions": [],
-    "next_route": "task-lifecycle",
+    "next_route": "execute-step",
     "next_mode": null,
     "recommendation_only": true,
-    "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
-    "legacy_plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+    "legacy_source": null,
+    "legacy_plan_ref": null,
     "heads": [
-      ".workflow-system/records/events/key-1148829c2cdbb1800fdb86b7fefe6b96ba7b88428fa96facbf6639250fada103.json"
+      ".workflow-system/records/events/key-e8df406a5a1f3f4ab2a74746e31b95ab879acaa372c317fe69ca0ed6300b3c38.json"
     ]
   },
   "tasks": [
@@ -96,8 +425,8 @@
       "task_id": "legacy-doc-fdd730cf99bb383419d74988",
       "display_id": "TASK-004",
       "title": "task-003-rust-node",
-      "lifecycle": "active",
-      "lifecycle_ref": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
       "adopted_plan_ref": null,
       "plan_status": "legacy-summary-only",
       "plan": {
@@ -114,34 +443,693 @@
       "adopted_by": null,
       "adoption": null,
       "candidate_plan_refs": [],
-      "current_step_id": "S3",
+      "current_step_id": null,
       "steps": [
         {
           "id": "S3",
           "title": "S3",
-          "state": "legacy-state",
+          "state": "executed",
           "legacy_step_status": "ready",
-          "execution_ref": null,
-          "execution": null,
-          "review_ref": null,
-          "review_status": "not-reviewed",
+          "execution_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "execution": {
+            "target": "Task 004 S3 final acceptance",
+            "scope": "Re-executed the authorized Rust, Node, package, IPC/Owner, Android JDK21 and format checks; no product source edits were made in this invocation.",
+            "commands": [
+              {
+                "check": "C1-rust-path",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact",
+                "result": "passed",
+                "observation": "1 passed, 0 failed"
+              },
+              {
+                "check": "C1-rust-nested",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact",
+                "result": "passed",
+                "observation": "1 passed, 0 failed"
+              },
+              {
+                "check": "C1-rust-budget",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact",
+                "result": "passed",
+                "observation": "1 passed, 0 failed"
+              },
+              {
+                "check": "C1-rust-window",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact",
+                "result": "passed",
+                "observation": "1 passed, 0 failed"
+              },
+              {
+                "check": "C1-node-final",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js",
+                "result": "passed",
+                "observation": "1 passed, 0 failed; 16.86s"
+              },
+              {
+                "check": "C2/C3/C4-flow",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+                "result": "passed",
+                "observation": "17 passed, 0 failed; 6.83s"
+              },
+              {
+                "check": "C4-package",
+                "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js",
+                "result": "passed",
+                "observation": "2 passed, 0 failed; 10.65s"
+              },
+              {
+                "check": "C5-gateway",
+                "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+                "result": "passed",
+                "observation": "139 passed, 0 failed; 33.90s"
+              },
+              {
+                "check": "C5-android",
+                "command": "$env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; $env:PATH=\"$env:JAVA_HOME\\bin;$env:PATH\"; $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'termlink-task004-gradle'; $env:TERMLINK_ANDROID_BUILD_ROOT=Join-Path $env:TEMP 'termlink-task004-android-build'; $taskInit=Join-Path $env:TEMP 'termlink-task004-builddir.gradle'; Set-Content -LiteralPath $taskInit -Value 'allprojects { layout.buildDirectory.set(new File(System.getenv(\"TERMLINK_ANDROID_BUILD_ROOT\"), project.path == \":\" ? \"root\" : project.path.replace(\":\", \"_\"))) }'; .\\android\\gradlew.bat -p android --project-cache-dir \"$env:TEMP\\termlink-task004-gradle-project-cache\" -I $taskInit :app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'",
+                "result": "build-successful-up-to-date",
+                "observation": "JDK 21; :app:testDebugUnitTest UP-TO-DATE; BUILD SUCCESSFUL; 56 actionable tasks, 1 executed, 55 up-to-date; no device test"
+              },
+              {
+                "check": "format",
+                "command": "git diff --check -- src native/codex-rollout-collector tests scripts package.json package-lock.json docs/codex docs/changes",
+                "result": "passed",
+                "observation": "exit 0; only LF/CRLF normalization warnings"
+              }
+            ],
+            "overall_result": "all requested commands completed successfully",
+            "limits": [
+              "Android task was UP-TO-DATE in this invocation; no JVM cases were re-executed by Gradle.",
+              "No external Codex host deployment or Android physical-device validation was performed."
+            ],
+            "task_ref": "Task 004 S3",
+            "source_revision": {
+              "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+              "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+              "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+              "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+            },
+            "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+            "step_id": "S3",
+            "provenance": "caller-reported summary without raw stdout attachments",
+            "result": "caller-reported checks completed; Android Gradle task UP-TO-DATE",
+            "ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+            "interpretation_ref": ".workflow-system/records/events/key-f55b85ac1be05d004155176173e965569c1bc3a1ceb19124b3761b80e3012743.json"
+          },
+          "review_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+          "review_status": "prior_acceptable_with_evidence_qualifications_unchanged",
           "findings": [],
-          "review_choice": null,
-          "review_decision_ref": null,
-          "review_decisions": [],
-          "tests": [],
+          "review_choice": "close-with-qualifications",
+          "review_decision_ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
+          "review_decisions": [
+            {
+              "topic": "Task 004 closure with retained evidence qualifications",
+              "target": {
+                "task": "Task 004",
+                "step": "S3"
+              },
+              "expected_workflow": "Finish S3 acceptance with a review and then close the task while retaining actual unverified boundaries.",
+              "observed_facts": [
+                "Current-subject S3 execution observation reports Rust 4/4, Node isolated lifecycle 1/1, product flow 17/17, package 2/2 and IPC/Owner 139/139 passed; review found no new code issue, with caller-reported-output limits.",
+                "Four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended remain stale, although a separate current-subject execution observation exists.",
+                "Android JDK21 command reported BUILD SUCCESSFUL with :app:testDebugUnitTest UP-TO-DATE; no JVM cases re-executed in that invocation.",
+                "External Codex host deployment and physical Android device validation were not performed and are outside this task's recorded scope.",
+                "CR remains draft with commit_ref TBD; working tree changes are uncommitted."
+              ],
+              "disclosed_choice": "Previous assistant responses explained that closure must retain stale historical reports, Android UP-TO-DATE, and unperformed deployment/device validation rather than mark them verified; the user then explicitly invoked close-task.",
+              "chosen_action": "Close Task 004 in the Assistance journal with these limitations and no verification upgrade.",
+              "retained_gaps": [
+                "Legacy Task Store/current projection remains unreconciled and may still display active/ready.",
+                "Old four reports remain stale.",
+                "Android cases not re-executed in latest invocation.",
+                "No external deployment or physical-device validation.",
+                "No Git commit; CR draft and commit_ref TBD.",
+                "Execution journal contains caller-reported summaries without raw stdout attachments."
+              ],
+              "scope": "Task disposition only; no code or document edits, legacy state rewrite, commit, push, deployment, installation, rollback or worktree cleanup.",
+              "decision_source": "current user message invoking $close-task, following prior review and disclosed closure limitations",
+              "decision_text": "[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\close-task\\SKILL.md)",
+              "review_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+              "choice": "close-with-qualifications",
+              "gaps": [
+                "Legacy Task Store/current projection remains unreconciled and may still display active/ready.",
+                "Old four reports remain stale.",
+                "Android cases not re-executed in latest invocation.",
+                "No external deployment or physical-device validation.",
+                "No Git commit; CR draft and commit_ref TBD.",
+                "Execution journal contains caller-reported summaries without raw stdout attachments."
+              ],
+              "ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
+              "interpretation_ref": ".workflow-system/records/events/key-b75b11dd1547cb82374631b07a0af31fba79d4c17c427f788017724420fee108.json"
+            }
+          ],
+          "tests": [
+            {
+              "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+              "step_id": "S3",
+              "selector": "C5-android",
+              "observation": "JDK 21; :app:testDebugUnitTest UP-TO-DATE; BUILD SUCCESSFUL; 56 actionable tasks, 1 executed, 55 up-to-date; no device test",
+              "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+              "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+              "result": "build-successful-up-to-date",
+              "command": "$env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; $env:PATH=\"$env:JAVA_HOME\\bin;$env:PATH\"; $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'termlink-task004-gradle'; $env:TERMLINK_ANDROID_BUILD_ROOT=Join-Path $env:TEMP 'termlink-task004-android-build'; $taskInit=Join-Path $env:TEMP 'termlink-task004-builddir.gradle'; Set-Content -LiteralPath $taskInit -Value 'allprojects { layout.buildDirectory.set(new File(System.getenv(\"TERMLINK_ANDROID_BUILD_ROOT\"), project.path == \":\" ? \"root\" : project.path.replace(\":\", \"_\"))) }'; .\\android\\gradlew.bat -p android --project-cache-dir \"$env:TEMP\\termlink-task004-gradle-project-cache\" -I $taskInit :app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'",
+              "source_revision": {
+                "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+                "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+                "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+                "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+              },
+              "ref": ".workflow-system/records/events/key-1f5d301d6099e28a04797bf5bb675c06c4b1e7b36156aad630937015dfae67cd.json",
+              "interpretation_ref": null
+            },
+            {
+              "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+              "step_id": "S3",
+              "selector": "C1-rust-budget",
+              "observation": "1 passed, 0 failed",
+              "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+              "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+              "result": "passed",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact",
+              "source_revision": {
+                "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+                "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+                "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+                "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+              },
+              "ref": ".workflow-system/records/events/key-28d3e5228705156e4427f5aea8a38cfb7e8d0b588c7a9401928fdb7f2b1055fd.json",
+              "interpretation_ref": null
+            },
+            {
+              "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+              "step_id": "S3",
+              "selector": "C5-gateway",
+              "observation": "139 passed, 0 failed; 33.90s",
+              "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+              "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+              "result": "passed",
+              "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+              "source_revision": {
+                "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+                "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+                "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+                "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+              },
+              "ref": ".workflow-system/records/events/key-293bbb3c5c038133399b79e11c507174811703e2507214ca02e1c3918be7364d.json",
+              "interpretation_ref": null
+            },
+            {
+              "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+              "step_id": "S3",
+              "selector": "C1-rust-window",
+              "observation": "1 passed, 0 failed",
+              "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+              "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+              "result": "passed",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact",
+              "source_revision": {
+                "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+                "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+                "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+                "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+              },
+              "ref": ".workflow-system/records/events/key-583d2369aec25ee877ac7b759dd40ec5007d3ec09105d5d946e813c5dcdf2a8a.json",
+              "interpretation_ref": null
+            },
+            {
+              "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+              "step_id": "S3",
+              "selector": "C1-node-final",
+              "observation": "1 passed, 0 failed; 16.86s",
+              "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+              "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+              "result": "passed",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js",
+              "source_revision": {
+                "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+                "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+                "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+                "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+              },
+              "ref": ".workflow-system/records/events/key-5a4de424eb03c6c9dd84e4df18a80e262d7eec6d91d5d36680505512ad6a3228.json",
+              "interpretation_ref": null
+            },
+            {
+              "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+              "step_id": "S3",
+              "selector": "C1-rust-nested",
+              "observation": "1 passed, 0 failed",
+              "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+              "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+              "result": "passed",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact",
+              "source_revision": {
+                "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+                "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+                "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+                "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+              },
+              "ref": ".workflow-system/records/events/key-95cbde2439c8442364684423d3c90857eade3c650abb733bbd88fb6b8c8381e9.json",
+              "interpretation_ref": null
+            },
+            {
+              "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+              "step_id": "S3",
+              "selector": "C2/C3/C4-flow",
+              "observation": "17 passed, 0 failed; 6.83s",
+              "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+              "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+              "result": "passed",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+              "source_revision": {
+                "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+                "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+                "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+                "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+              },
+              "ref": ".workflow-system/records/events/key-beaee127a6814341f874eb0e5622f5cf111ddcc84f03a74d7f636fba09aba169.json",
+              "interpretation_ref": null
+            },
+            {
+              "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+              "step_id": "S3",
+              "selector": "C4-package",
+              "observation": "2 passed, 0 failed; 10.65s",
+              "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+              "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+              "result": "passed",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js",
+              "source_revision": {
+                "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+                "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+                "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+                "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+              },
+              "ref": ".workflow-system/records/events/key-e5da0731faff60102d5dd337003496620298572ee0e836f37c6d1ac1b4ce4269.json",
+              "interpretation_ref": null
+            },
+            {
+              "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+              "step_id": "S3",
+              "selector": "C1-rust-path",
+              "observation": "1 passed, 0 failed",
+              "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+              "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+              "result": "passed",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact",
+              "source_revision": {
+                "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+                "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+                "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+                "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+              },
+              "ref": ".workflow-system/records/events/key-e92d0876fb1a18993a0b9b028805dfb725f5eec7d70f37e2d4fdb798170b2207.json",
+              "interpretation_ref": null
+            }
+          ],
           "disposition_ref": null,
           "historical_execution_refs": []
         }
       ],
-      "reviews": [],
-      "executions": [],
-      "tests": [],
-      "review_decisions": [],
+      "reviews": [
+        {
+          "target": "Current S3 execution observation and documentation delta after S3-corr",
+          "provenance": "Codex self-review of user-supplied execution record and current source; not an independent test execution",
+          "verdict": "acceptable_with_evidence_qualifications",
+          "product_findings": [],
+          "assessment": {
+            "fresh_current_subject_observation": "The 2026-09-29 S3 execution journal reports 17/17 product-flow and 2/2 package tests passed. Its flow/package SHA-256 bindings match the current files. Reviewed test cases at product-flow lines 232,286,433,869,1111 and package line 222 cross the Store, validated complete, real Rust, restart, authenticated Gateway, IPC coexistence and packaged persistence boundaries.",
+            "four_historical_reports": "C2-store-final, C2-publish, C4-flow-final and C4-unattended old Task Store reports remain stale at their former subject revisions. The new S3 execution observation supplies current-file evidence for their scenarios, but does not rewrite or make those old reports fresh.",
+            "android": "The JDK21 Gradle invocation completed BUILD SUCCESSFUL with :app:testDebugUnitTest UP-TO-DATE. No JVM test cases were re-executed in this invocation; the CR and contract disclose this correctly.",
+            "documentation": "Current CR and product contract accurately summarize the command outcomes and explicitly limit smoke to local synthetic transport, with no external host deployment or physical-device validation. CR remains draft with commit_ref TBD, matching no commit.",
+            "metadata_gap": "The execution journal source_revision hashes for CR and product contract refer to their pre-final-edit bytes. Those two documents were edited after the journal record; this review independently read their current bytes and binds their current hashes above. The mismatch does not change the test-file binding, but the execution record alone does not identify the final document revisions.",
+            "assurance_limit": "The journal is caller-reported and includes command summaries rather than raw stdout attachments. This review assesses consistency and test boundary from current files; it does not independently re-execute the business commands or upgrade the caller report to independently observed PASS.",
+            "format": "Scoped git diff --check was run read-only in this review and returned exit 0 with only line-ending warnings."
+          },
+          "remaining": "No code repair identified in reviewed scope. Keep historical stale reports and Android cached status explicit; review does not advance or close S3.",
+          "task_ref": "Task 004 S3",
+          "source_revision": {
+            "product_flow": "sha256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "sha256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "product_contract": "sha256:f38902fc21d9b0a0325198aebb6890a8d8078ee343873a065a172b73be83402e",
+            "cr": "sha256:fea98e22f4b6b24e845f7cff199be9a002898daa7308a47fb5b67067d4c1f218"
+          },
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "step_id": "S3",
+          "execution_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "coverage": {
+            "fresh_current_subject_observation": "The 2026-09-29 S3 execution journal reports 17/17 product-flow and 2/2 package tests passed. Its flow/package SHA-256 bindings match the current files. Reviewed test cases at product-flow lines 232,286,433,869,1111 and package line 222 cross the Store, validated complete, real Rust, restart, authenticated Gateway, IPC coexistence and packaged persistence boundaries.",
+            "four_historical_reports": "C2-store-final, C2-publish, C4-flow-final and C4-unattended old Task Store reports remain stale at their former subject revisions. The new S3 execution observation supplies current-file evidence for their scenarios, but does not rewrite or make those old reports fresh.",
+            "android": "The JDK21 Gradle invocation completed BUILD SUCCESSFUL with :app:testDebugUnitTest UP-TO-DATE. No JVM test cases were re-executed in this invocation; the CR and contract disclose this correctly.",
+            "documentation": "Current CR and product contract accurately summarize the command outcomes and explicitly limit smoke to local synthetic transport, with no external host deployment or physical-device validation. CR remains draft with commit_ref TBD, matching no commit.",
+            "metadata_gap": "The execution journal source_revision hashes for CR and product contract refer to their pre-final-edit bytes. Those two documents were edited after the journal record; this review independently read their current bytes and binds their current hashes above. The mismatch does not change the test-file binding, but the execution record alone does not identify the final document revisions.",
+            "assurance_limit": "The journal is caller-reported and includes command summaries rather than raw stdout attachments. This review assesses consistency and test boundary from current files; it does not independently re-execute the business commands or upgrade the caller report to independently observed PASS.",
+            "format": "Scoped git diff --check was run read-only in this review and returned exit 0 with only line-ending warnings."
+          },
+          "findings": [],
+          "stage": "change",
+          "ref": ".workflow-system/records/events/key-ad9847d3bfad862b444213c7123d5d6117706de47a6c68ce7edd0e250b8cad9b.json",
+          "interpretation_ref": ".workflow-system/records/events/key-cd337fda8d9f45eb98a215e57c4ecd844e8b22fbe61b07acac77fd153f618d36.json"
+        },
+        {
+          "target": "Recheck of Task 004 S3 after prior supplemental review",
+          "provenance": "Codex self-review; no independent execution",
+          "verdict": "prior_acceptable_with_evidence_qualifications_unchanged",
+          "new_diff_or_execution": "none identified since prior S3 review; current test and documentation hashes exactly match the prior review, and the latest Assistance execution and review records are unchanged",
+          "findings": [],
+          "retained_qualifications": [
+            "Four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended remain stale; newer current-subject execution observation is separate evidence and does not rewrite them.",
+            "Android JDK21 Gradle command succeeded with :app:testDebugUnitTest UP-TO-DATE; no JVM cases re-executed in that invocation.",
+            "Execution journal's CR and contract source hashes precede their final edits; prior review bound final current hashes separately.",
+            "Execution journal contains caller-reported command summaries without raw stdout attachments; this recheck did not rerun tests."
+          ],
+          "assessment": "No new code, documentation, compatibility, or evidence finding in the unchanged target. The prior detailed S3 review remains applicable to the identical file hashes.",
+          "remaining": "No S3 advancement or closure performed by this review; closure preview may assess final disposition with qualifications retained.",
+          "task_ref": "Task 004 S3",
+          "source_revision": {
+            "product_flow": "sha256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "sha256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "product_contract": "sha256:f38902fc21d9b0a0325198aebb6890a8d8078ee343873a065a172b73be83402e",
+            "cr": "sha256:fea98e22f4b6b24e845f7cff199be9a002898daa7308a47fb5b67067d4c1f218"
+          },
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "step_id": "S3",
+          "execution_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "coverage": [
+            "Four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended remain stale; newer current-subject execution observation is separate evidence and does not rewrite them.",
+            "Android JDK21 Gradle command succeeded with :app:testDebugUnitTest UP-TO-DATE; no JVM cases re-executed in that invocation.",
+            "Execution journal's CR and contract source hashes precede their final edits; prior review bound final current hashes separately.",
+            "Execution journal contains caller-reported command summaries without raw stdout attachments; this recheck did not rerun tests."
+          ],
+          "stage": "change",
+          "ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+          "interpretation_ref": ".workflow-system/records/events/key-c484cce31ffba4f3ccfdce5dc901077839de6a5048fbd1ec0cad7eae20a343c3.json"
+        }
+      ],
+      "executions": [
+        {
+          "target": "Task 004 S3 final acceptance",
+          "scope": "Re-executed the authorized Rust, Node, package, IPC/Owner, Android JDK21 and format checks; no product source edits were made in this invocation.",
+          "commands": [
+            {
+              "check": "C1-rust-path",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact",
+              "result": "passed",
+              "observation": "1 passed, 0 failed"
+            },
+            {
+              "check": "C1-rust-nested",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact",
+              "result": "passed",
+              "observation": "1 passed, 0 failed"
+            },
+            {
+              "check": "C1-rust-budget",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact",
+              "result": "passed",
+              "observation": "1 passed, 0 failed"
+            },
+            {
+              "check": "C1-rust-window",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact",
+              "result": "passed",
+              "observation": "1 passed, 0 failed"
+            },
+            {
+              "check": "C1-node-final",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js",
+              "result": "passed",
+              "observation": "1 passed, 0 failed; 16.86s"
+            },
+            {
+              "check": "C2/C3/C4-flow",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+              "result": "passed",
+              "observation": "17 passed, 0 failed; 6.83s"
+            },
+            {
+              "check": "C4-package",
+              "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js",
+              "result": "passed",
+              "observation": "2 passed, 0 failed; 10.65s"
+            },
+            {
+              "check": "C5-gateway",
+              "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+              "result": "passed",
+              "observation": "139 passed, 0 failed; 33.90s"
+            },
+            {
+              "check": "C5-android",
+              "command": "$env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; $env:PATH=\"$env:JAVA_HOME\\bin;$env:PATH\"; $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'termlink-task004-gradle'; $env:TERMLINK_ANDROID_BUILD_ROOT=Join-Path $env:TEMP 'termlink-task004-android-build'; $taskInit=Join-Path $env:TEMP 'termlink-task004-builddir.gradle'; Set-Content -LiteralPath $taskInit -Value 'allprojects { layout.buildDirectory.set(new File(System.getenv(\"TERMLINK_ANDROID_BUILD_ROOT\"), project.path == \":\" ? \"root\" : project.path.replace(\":\", \"_\"))) }'; .\\android\\gradlew.bat -p android --project-cache-dir \"$env:TEMP\\termlink-task004-gradle-project-cache\" -I $taskInit :app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'",
+              "result": "build-successful-up-to-date",
+              "observation": "JDK 21; :app:testDebugUnitTest UP-TO-DATE; BUILD SUCCESSFUL; 56 actionable tasks, 1 executed, 55 up-to-date; no device test"
+            },
+            {
+              "check": "format",
+              "command": "git diff --check -- src native/codex-rollout-collector tests scripts package.json package-lock.json docs/codex docs/changes",
+              "result": "passed",
+              "observation": "exit 0; only LF/CRLF normalization warnings"
+            }
+          ],
+          "overall_result": "all requested commands completed successfully",
+          "limits": [
+            "Android task was UP-TO-DATE in this invocation; no JVM cases were re-executed by Gradle.",
+            "No external Codex host deployment or Android physical-device validation was performed."
+          ],
+          "task_ref": "Task 004 S3",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "step_id": "S3",
+          "provenance": "caller-reported summary without raw stdout attachments",
+          "result": "caller-reported checks completed; Android Gradle task UP-TO-DATE",
+          "ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "interpretation_ref": ".workflow-system/records/events/key-f55b85ac1be05d004155176173e965569c1bc3a1ceb19124b3761b80e3012743.json"
+        }
+      ],
+      "tests": [
+        {
+          "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "step_id": "S3",
+          "selector": "C5-android",
+          "observation": "JDK 21; :app:testDebugUnitTest UP-TO-DATE; BUILD SUCCESSFUL; 56 actionable tasks, 1 executed, 55 up-to-date; no device test",
+          "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "result": "build-successful-up-to-date",
+          "command": "$env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; $env:PATH=\"$env:JAVA_HOME\\bin;$env:PATH\"; $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'termlink-task004-gradle'; $env:TERMLINK_ANDROID_BUILD_ROOT=Join-Path $env:TEMP 'termlink-task004-android-build'; $taskInit=Join-Path $env:TEMP 'termlink-task004-builddir.gradle'; Set-Content -LiteralPath $taskInit -Value 'allprojects { layout.buildDirectory.set(new File(System.getenv(\"TERMLINK_ANDROID_BUILD_ROOT\"), project.path == \":\" ? \"root\" : project.path.replace(\":\", \"_\"))) }'; .\\android\\gradlew.bat -p android --project-cache-dir \"$env:TEMP\\termlink-task004-gradle-project-cache\" -I $taskInit :app:testDebugUnitTest --tests 'com.termlink.app.codex.CodexViewModel*' --tests 'com.termlink.app.codex.data.CodexIpcWireModelTest' --tests 'com.termlink.app.codex.data.CodexHistoryWireTest'",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "ref": ".workflow-system/records/events/key-1f5d301d6099e28a04797bf5bb675c06c4b1e7b36156aad630937015dfae67cd.json",
+          "interpretation_ref": null
+        },
+        {
+          "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "step_id": "S3",
+          "selector": "C1-rust-budget",
+          "observation": "1 passed, 0 failed",
+          "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "result": "passed",
+          "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_item_completed_negative_and_retention_boundaries -- --exact",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "ref": ".workflow-system/records/events/key-28d3e5228705156e4427f5aea8a38cfb7e8d0b588c7a9401928fdb7f2b1055fd.json",
+          "interpretation_ref": null
+        },
+        {
+          "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "step_id": "S3",
+          "selector": "C5-gateway",
+          "observation": "139 passed, 0 failed; 33.90s",
+          "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "result": "passed",
+          "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "ref": ".workflow-system/records/events/key-293bbb3c5c038133399b79e11c507174811703e2507214ca02e1c3918be7364d.json",
+          "interpretation_ref": null
+        },
+        {
+          "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "step_id": "S3",
+          "selector": "C1-rust-window",
+          "observation": "1 passed, 0 failed",
+          "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "result": "passed",
+          "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test rollout_blockers test_backfill_multi_window_tool_attribution_and_stable_keys -- --exact",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "ref": ".workflow-system/records/events/key-583d2369aec25ee877ac7b759dd40ec5007d3ec09105d5d946e813c5dcdf2a8a.json",
+          "interpretation_ref": null
+        },
+        {
+          "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "step_id": "S3",
+          "selector": "C1-node-final",
+          "observation": "1 passed, 0 failed; 16.86s",
+          "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "result": "passed",
+          "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexRolloutCollector.isolatedLifecycle.test.js",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "ref": ".workflow-system/records/events/key-5a4de424eb03c6c9dd84e4df18a80e262d7eec6d91d5d36680505512ad6a3228.json",
+          "interpretation_ref": null
+        },
+        {
+          "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "step_id": "S3",
+          "selector": "C1-rust-nested",
+          "observation": "1 passed, 0 failed",
+          "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "result": "passed",
+          "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance structured_tool_payloads_preserve_nested_values_and_object_keys -- --exact",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "ref": ".workflow-system/records/events/key-95cbde2439c8442364684423d3c90857eade3c650abb733bbd88fb6b8c8381e9.json",
+          "interpretation_ref": null
+        },
+        {
+          "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "step_id": "S3",
+          "selector": "C2/C3/C4-flow",
+          "observation": "17 passed, 0 failed; 6.83s",
+          "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "result": "passed",
+          "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductFlow.test.js",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "ref": ".workflow-system/records/events/key-beaee127a6814341f874eb0e5622f5cf111ddcc84f03a74d7f636fba09aba169.json",
+          "interpretation_ref": null
+        },
+        {
+          "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "step_id": "S3",
+          "selector": "C4-package",
+          "observation": "2 passed, 0 failed; 10.65s",
+          "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "result": "passed",
+          "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; node --test tests/codexHistoryProductPackage.test.js",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "ref": ".workflow-system/records/events/key-e5da0731faff60102d5dd337003496620298572ee0e836f37c6d1ac1b4ce4269.json",
+          "interpretation_ref": null
+        },
+        {
+          "report_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "step_id": "S3",
+          "selector": "C1-rust-path",
+          "observation": "1 passed, 0 failed",
+          "provenance": "Derived from caller-reported execution observation; no rerun or independent stdout attachment",
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "result": "passed",
+          "command": "$env:CARGO_TARGET_DIR=Join-Path $env:TEMP 'termlink-task004-cargo'; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance analysis_batch_preserves_local_paths_at_the_boundary -- --exact",
+          "source_revision": {
+            "product_contract": "SHA256:1d65676b331af5041aff1f8e4071351cc166b9f87e0791a1a7bbc294ddac629c",
+            "product_flow": "SHA256:6b8028d352dd59371ad39bd89611b2e3be79878d2b85ae0ff01052d8a2796f22",
+            "product_package": "SHA256:1d258182a4fbc8c22bc73705a92d547aeee2dcb54268ac9a80f745791e743ae1",
+            "cr": "SHA256:b3040d1bf7493338b9d11aeb248f9442df7e3b81387d0e2089ebc21dc97f39ea"
+          },
+          "ref": ".workflow-system/records/events/key-e92d0876fb1a18993a0b9b028805dfb725f5eec7d70f37e2d4fdb798170b2207.json",
+          "interpretation_ref": null
+        }
+      ],
+      "review_decisions": [
+        {
+          "topic": "Task 004 closure with retained evidence qualifications",
+          "target": {
+            "task": "Task 004",
+            "step": "S3"
+          },
+          "expected_workflow": "Finish S3 acceptance with a review and then close the task while retaining actual unverified boundaries.",
+          "observed_facts": [
+            "Current-subject S3 execution observation reports Rust 4/4, Node isolated lifecycle 1/1, product flow 17/17, package 2/2 and IPC/Owner 139/139 passed; review found no new code issue, with caller-reported-output limits.",
+            "Four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended remain stale, although a separate current-subject execution observation exists.",
+            "Android JDK21 command reported BUILD SUCCESSFUL with :app:testDebugUnitTest UP-TO-DATE; no JVM cases re-executed in that invocation.",
+            "External Codex host deployment and physical Android device validation were not performed and are outside this task's recorded scope.",
+            "CR remains draft with commit_ref TBD; working tree changes are uncommitted."
+          ],
+          "disclosed_choice": "Previous assistant responses explained that closure must retain stale historical reports, Android UP-TO-DATE, and unperformed deployment/device validation rather than mark them verified; the user then explicitly invoked close-task.",
+          "chosen_action": "Close Task 004 in the Assistance journal with these limitations and no verification upgrade.",
+          "retained_gaps": [
+            "Legacy Task Store/current projection remains unreconciled and may still display active/ready.",
+            "Old four reports remain stale.",
+            "Android cases not re-executed in latest invocation.",
+            "No external deployment or physical-device validation.",
+            "No Git commit; CR draft and commit_ref TBD.",
+            "Execution journal contains caller-reported summaries without raw stdout attachments."
+          ],
+          "scope": "Task disposition only; no code or document edits, legacy state rewrite, commit, push, deployment, installation, rollback or worktree cleanup.",
+          "decision_source": "current user message invoking $close-task, following prior review and disclosed closure limitations",
+          "decision_text": "[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\close-task\\SKILL.md)",
+          "review_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+          "choice": "close-with-qualifications",
+          "gaps": [
+            "Legacy Task Store/current projection remains unreconciled and may still display active/ready.",
+            "Old four reports remain stale.",
+            "Android cases not re-executed in latest invocation.",
+            "No external deployment or physical-device validation.",
+            "No Git commit; CR draft and commit_ref TBD.",
+            "Execution journal contains caller-reported summaries without raw stdout attachments."
+          ],
+          "ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
+          "interpretation_ref": ".workflow-system/records/events/key-b75b11dd1547cb82374631b07a0af31fba79d4c17c427f788017724420fee108.json"
+        }
+      ],
       "commits": [
         {
           "sha": "f8129183702f1888e41402e253600eb70a969e7b",
           "ref": ".workflow-system/records/events/key-1148829c2cdbb1800fdb86b7fefe6b96ba7b88428fa96facbf6639250fada103.json",
+          "interpretation_ref": null,
+          "object_available": true,
+          "verification": "local-git-object",
+          "pushed": "not-inferred",
+          "deployed": "not-inferred"
+        },
+        {
+          "sha": "134398946eb5013b1febacbf0384fa2b679ad8aa",
+          "ref": ".workflow-system/records/events/key-b019d55938e220fe0fe2f4fc8833f4a46c9575f9e5ee421f85bf2190885efc1a.json",
           "interpretation_ref": null,
           "object_available": true,
           "verification": "local-git-object",
@@ -167,84 +1155,497 @@
           "deployed": "not-inferred"
         }
       ],
-      "dispositions": [],
-      "next_route": "task-lifecycle",
+      "dispositions": [
+        {
+          "target": "Task 004: carry over Task 003 Rust history content retention, Node product history persistence and history API remaining fixes and integrated acceptance",
+          "state": "closed-with-evidence-qualifications",
+          "decision_ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
+          "delivered": [
+            "Rust history content retention and nested/path/budget/window target checks reported passing.",
+            "Node/Rust isolated lifecycle, product store publication, real Rust-to-DB-to-authenticated Gateway history flow, unattended recovery and packaged persistence smoke reported passing on current test-file hashes.",
+            "Product history contract and Task 004 S3 CR document the observed checks and local smoke boundary.",
+            "S3 self-review found no new code findings in the reviewed target."
+          ],
+          "validation": {
+            "rust_target": "4 focused cases passed as reported",
+            "node_isolated_lifecycle": "1/1 as reported",
+            "product_flow": "17/17 as reported on current subject",
+            "package": "2/2 as reported on current subject",
+            "ipc_owner": "139/139 as reported",
+            "android": "JDK21 BUILD SUCCESSFUL; :app:testDebugUnitTest UP-TO-DATE; no JVM cases re-executed in latest invocation",
+            "format": "scoped git diff --check exit 0"
+          },
+          "retained_gaps": [
+            "The four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended are still stale; new current-subject execution evidence is separate and does not rewrite them.",
+            "Execution reports are caller-reported summaries without raw stdout attachments; reviews are Codex self-reviews, not independent test execution.",
+            "The execution journal's CR and contract hashes predate their final edits; the review separately read and bound the current document hashes.",
+            "External Codex host deployment and Android physical-device validation were not performed; no release-readiness claim is made.",
+            "No Git commit, push or deployment performed; CR stays draft with commit_ref TBD.",
+            "Legacy CURRENT_TASK/task-store projection was not reconciled and may still show Task 004 active/S3 ready."
+          ],
+          "open_findings": "No new product-code findings in latest self-review; evidence qualifications and unperformed boundaries above remain.",
+          "external_effects": "Assistance journal decision and task-disposition records only; no product/document mutation in this closure invocation.",
+          "rollback": "No deployment was made. Uncommitted workspace changes remain for the user to manage; this closure did not revert them.",
+          "qualification": "Closure is a user-directed task disposition, not proof that stale reports are fresh, cached Android tests ran anew, or external deployment/device validation occurred.",
+          "decision_source": "User invoked $close-task after disclosed limitations and now instructed to perform reconciliation and closure",
+          "remaining_work": [
+            "The four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended are still stale; new current-subject execution evidence is separate and does not rewrite them.",
+            "Execution reports are caller-reported summaries without raw stdout attachments; reviews are Codex self-reviews, not independent test execution.",
+            "The execution journal's CR and contract hashes predate their final edits; the review separately read and bound the current document hashes.",
+            "External Codex host deployment and Android physical-device validation were not performed; no release-readiness claim is made.",
+            "No Git commit, push or deployment performed; CR stays draft with commit_ref TBD.",
+            "Legacy CURRENT_TASK/task-store projection was not reconciled and may still show Task 004 active/S3 ready."
+          ],
+          "decision_text": "好，进行操作",
+          "execution_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "gaps": [
+            "The four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended are still stale; new current-subject execution evidence is separate and does not rewrite them.",
+            "Execution reports are caller-reported summaries without raw stdout attachments; reviews are Codex self-reviews, not independent test execution.",
+            "The execution journal's CR and contract hashes predate their final edits; the review separately read and bound the current document hashes.",
+            "External Codex host deployment and Android physical-device validation were not performed; no release-readiness claim is made.",
+            "No Git commit, push or deployment performed; CR stays draft with commit_ref TBD.",
+            "Legacy CURRENT_TASK/task-store projection was not reconciled and may still show Task 004 active/S3 ready."
+          ],
+          "review_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+          "ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+          "action": "close"
+        }
+      ],
+      "next_route": null,
       "next_mode": null,
       "recommendation_only": true,
       "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
       "legacy_plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
       "heads": [
-        ".workflow-system/records/events/key-1148829c2cdbb1800fdb86b7fefe6b96ba7b88428fa96facbf6639250fada103.json"
+        ".workflow-system/records/events/key-1f5d301d6099e28a04797bf5bb675c06c4b1e7b36156aad630937015dfae67cd.json",
+        ".workflow-system/records/events/key-28d3e5228705156e4427f5aea8a38cfb7e8d0b588c7a9401928fdb7f2b1055fd.json",
+        ".workflow-system/records/events/key-293bbb3c5c038133399b79e11c507174811703e2507214ca02e1c3918be7364d.json",
+        ".workflow-system/records/events/key-583d2369aec25ee877ac7b759dd40ec5007d3ec09105d5d946e813c5dcdf2a8a.json",
+        ".workflow-system/records/events/key-5a4de424eb03c6c9dd84e4df18a80e262d7eec6d91d5d36680505512ad6a3228.json",
+        ".workflow-system/records/events/key-95cbde2439c8442364684423d3c90857eade3c650abb733bbd88fb6b8c8381e9.json",
+        ".workflow-system/records/events/key-b019d55938e220fe0fe2f4fc8833f4a46c9575f9e5ee421f85bf2190885efc1a.json",
+        ".workflow-system/records/events/key-beaee127a6814341f874eb0e5622f5cf111ddcc84f03a74d7f636fba09aba169.json",
+        ".workflow-system/records/events/key-e5da0731faff60102d5dd337003496620298572ee0e836f37c6d1ac1b4ce4269.json",
+        ".workflow-system/records/events/key-e92d0876fb1a18993a0b9b028805dfb725f5eec7d70f37e2d4fdb798170b2207.json",
+        ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json"
+      ]
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "title": "Android App 产品历史只读接入与真实纵向 E2E",
+      "lifecycle": "active",
+      "lifecycle_ref": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
+      "adopted_plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "plan_status": "adopted",
+      "plan": {
+        "title": "Android App 产品历史只读接入与真实纵向 E2E",
+        "source_and_capability_contract": [
+          "canonical DB 行命中时用产品投影；DB miss 沿既有 snapshot/recovery；DB read error 显式失败。",
+          "E2E 环境显式启用 TERMLINK_HISTORY_RANGE_SEGMENTS 并协商 cache schema v3；默认 feature flags 不变。两种 capability 同时广告时 App 为产品库请求 range，按实际 response providerMode=product_db 使用 bounded/older；DB miss 的 snapshot/recovery response 按其实际 lane 处理。未协商 range 的环境仅验证全量产品历史，不声称 older。",
+          "健康 IPC surface 独占当前正文、operation、当前 turn、运行态；产品历史只提供静态 baseline/更旧前缀。"
+        ],
+        "exclusions": [
+          "不改 Rust collector、rollout source identity、Node 产品库事务或单会话单例采集；App/history 查询不得直接触发第二条 Rust 采集链。",
+          "不改 IPC follower/owner、desired subscription/replay、healthy IPC authority；不把内部 source_ref、cursor、checkpoint、job/batch/segment 或假设产品 epoch 传给 App。",
+          "不扩大到任意本地文件/图片字节访问、Goal/子代理/edited_files 聚合，也不以此关闭 Task 001/002 其他台账项。",
+          "准备和确认本身不实施产品代码、Git 提交、部署或真机安装。"
+        ],
+        "goal": "Android App 经现有鉴权历史协议读取 Node 已发布 canonical 产品历史，显示真实事件路径、cwd、命令及代码/工具文本；通过真实外部 Codex host 到 Android 的早期纵向 E2E，并保持健康 IPC 的实时 authority。",
+        "steps": [
+          {
+            "id": "S1",
+            "title": "S1 最小可见产品页：用真实 Node product_db DTO 锁定 detailRefs/availability、页哈希与 cache schema；修复不变 payload、变化 detailRefs/detailRefsTruncated/availability 时 complete-root、manifest/diff 和 v3 range 均触发有效更新。payloadHash 保持正文 bytes 校验；验证旧 cache/旧客户端兼容。Android 解析、哈希、持久化与前向迁移，处理 range+snapshot 双能力路由和 DB miss/error，并增加最小结构化 event path/cwd/command/code 事实文本投影。完整详情 UI 留至 S3。"
+          },
+          {
+            "id": "S2",
+            "title": "S2 提前真实首屏 smoke：显式开启 range，由真实外部 Codex host 自然产生 rollout，观察 Rust→Node canonical DB→鉴权 Gateway→Android 真机有界首屏和 ACK；校验一个具体结构化事件字段值在 App 可见。若新 schema 会升级已有用户缓存，安装前副本迁移演练、备份及兼容回滚构建；可弃用全新测试设备不需此旧数据步骤。缺宿主/设备则保持 E2E 未验证并继续其他独立工作。"
+          },
+          {
+            "id": "S3",
+            "title": "S3 详情与历史流：接入按需详情请求、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开、A→B→A 迟到响应隔离的必要兼容，保持 live IPC 优先。"
+          },
+          {
+            "id": "S4",
+            "title": "S4 同一真实场景扩展：验证 older 回填/重叠去重、追加、App/Node 重启、详情变化/失效、健康 IPC 与 A→B→A；保存实际观察、失败和未验证项。"
+          }
+        ],
+        "minimum_sufficient_validation": [
+          "Node：在既有 tests/codexHistoryProductFlow.test.js 增一条不变 payload、变化详情引用/availability 的聚焦回归，覆盖完整 root 快路径与 v3 range 所需比较；复用现有 DB miss/error 与产品流测试，不逐字段造重复用例。",
+          "Android：复用一个 Node 产出的 product_db fixture，扩展既有 wire/range/cache 测试覆盖页哈希、引用持久化/重开；扩展现有 ViewModel/UI 映射测试断言一个结构化事件字段的真实可见值；按关键风险验证详情分块与 stale selection。",
+          "触及 Gateway、ViewModel 或 selection 后运行合同要求的 Node OwnerSurfaceTracker/terminalGateway.codexIpc 与相关 Android Codex wire/ViewModel JVM 回归；Android Gradle 用 JDK 21，确认任务实际执行。",
+          "真机一条真实 host→Rust→Node DB→Gateway→App 场景先首屏后扩展 older、append、重启、详情、IPC A→B→A；使用项目本地开发服务/真机流程，记录 feature flags、设备状态与实际证据。若升级已有缓存，先做一次性副本迁移演练及回滚准备，不额外新增持久自动化测试。"
+        ],
+        "scope": [
+          "Android Codex history wire、跨端页哈希、SQLite cache 前向迁移与旧缓存兼容、ViewModel range/snapshot 协商和选择隔离、最小事件事实投影及按需只读详情。",
+          "Node product history provider/sync 已证实的 detail-ref-only 同步身份问题和必要 Gateway 协议兼容；沿用鉴权 sync/manifest/delta/ACK/chunk/older。",
+          "真实外部 Codex host、Rust、Node 产品 DB、鉴权 Gateway、Android 真机首屏与扩展场景验证。"
+        ],
+        "acceptance": [
+          "产品库命中、缺记录、读取失败分别遵守 DB-first、既有 fallback、显式失败；range v3 + 服务端启用时初始页有界且 older 使用 product_db 游标。",
+          "Node/Android 详情引用与 availability、页哈希一致，缓存重开仍保留。仅详情引用变化也触发新同步 root/diff/upsert；正文 payloadHash 不被错误改写，旧引用/游标按协议失效。",
+          "S2 首屏可见真实结构化路径、cwd、命令或代码的具体事件事实；S3 详情分块完整且 offset/hash 有效，不泄露内部采集元数据、不承诺访问源文件或图片字节。",
+          "older、append、重启保持幂等与 coverage 真实；stale selection/response 拒绝；健康 IPC 始终掌管实时字段，A→B→A 不串线。",
+          "真实外部宿主和 Android 物理设备的首屏与扩展场景各有具体证据；未执行部分明确未验证，不能凭本机替身测试宣称通过。"
+        ],
+        "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+        "parent_plan_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json"
+      },
+      "plans": [
+        {
+          "minimum_sufficient_validation": [
+            "复用 Node tests/codexHistoryProductFlow.test.js；只有发现 Node 协议缺陷才补 Node 定向测试。",
+            "Android 仅增加有缺口的跨端 product_db delta/hash/SQLite 重开测试，以及详情分块与 stale selection 行为测试；优先扩展现有 CodexHistoryWireTest/CodexHistoryRangeStorageTest/CodexViewModelThreadReadyTest，避免逐 helper 镜像测试。",
+            "触碰 Gateway 或 Android ViewModel/selection 时按 CONTRACTS.md 运行 tests/codexOwnerSurfaceTracker.test.js、tests/terminalGateway.codexIpc.test.js 与相关 Android Codex ViewModel/wire JVM 测试；Android 编译和 JVM 测试用 JDK 21，并确认测试实际执行而非仅 UP-TO-DATE。",
+            "真机 smoke 观察真实 Rust→Node DB→Gateway→App、older、append、重启、详情与 A→B→A/IPC 并存；按项目真机流程先检查本地开发服务。"
+          ],
+          "goal": "让 App 通过现有 WebSocket history 协议读取 Node 产品数据库的 canonical 静态历史，保留事件真实路径/命令/代码文本，并与健康 IPC 实时 surface 安全并存。",
+          "acceptance": [
+            "已持久化产品历史在 App 首次打开与重启后可读；正文及真实 event 路径、cwd、命令/代码文本可见且不含内部 source metadata。",
+            "product_db 初始页和 older page 通过哈希与 ACK；向前回填无丢失/重复，coverage 状态不被单页错误提升。",
+            "详情引用在 App 缓存重开后仍有效；按需详情分块完整且 hash/offset 一致；stale selection 或变化的内容 fail closed。",
+            "新终态 append 后 App 获得更新；健康 IPC surface 始终掌管当前正文/operation/turn/运行态，A→B→A 不串线。",
+            "真实宿主和 Android 物理设备的纵向验证有具体观察记录；未执行部分保持明确未验证。"
+          ],
+          "scope": [
+            "Android 现有 Codex history wire、SQLite cache、ViewModel 与最小只读 UI 适配；复用 cache-first、range/older、payload chunk 和 IPC authority，不建立第二条 Rust 采集链。",
+            "只在真实协议不兼容被证实时做必要的 Node Gateway/DTO 兼容修正；保持 Node product DB 为唯一静态历史来源。",
+            "执行阶段使用真实外部 Codex host、Node 产品库、鉴权 Gateway、Android 真机做一条纵向 E2E。"
+          ],
+          "exclusions": [
+            "不改 Rust collector/source identity、Node 产品数据库事务/采集调度架构或 IPC follower/owner/healthy-surface authority。",
+            "不把 rollout source_ref、内部 cursor/checkpoint、batch/job/segment 元数据传给 App；不新增 serverRevision/revisionScope/productSourceEpoch。",
+            "不扩展图片二进制拉取、任意本地文件访问、Goal/子代理/edited_files 聚合，也不以本任务关闭其他台账项。"
+          ],
+          "steps": [
+            {
+              "title": "S1：用真实 Node product_db delta/详情样本锁定跨端字段、页哈希、cursor、availability 契约；Android 增量解析和持久化详情引用及状态，做前向 SQLite 迁移并保持旧缓存兼容。",
+              "id": "S1"
+            },
+            {
+              "title": "S2：复用既有 selection generation 与鉴权 WebSocket，接入按需详情请求、UTF-8 分块/offset/hash 校验、失败与过期状态；让历史项可只读查看/复制原始 event 路径、cwd、命令、代码或工具文本详情。路径显示不等于远端文件系统访问。",
+              "id": "S2"
+            },
+            {
+              "title": "S3：在已有 cache-first、initial page、older page、append 和 IPC UI 合并链路上修复实际联调缺口；确保 ACK 后重开、重叠去重、A→B→A 迟到响应隔离与健康 IPC 优先级。",
+              "id": "S3"
+            },
+            {
+              "title": "S4：用真实外部 host + 真机完成首次加载、向前回填、追加、App/Node 重启、详情读取和 IPC 实时并存的一条纵向 smoke；记录缺失设备/宿主或失败为未验证，不以本机替身测试代替。",
+              "id": "S4"
+            }
+          ],
+          "title": "Android App 产品历史只读接入与真实纵向 E2E",
+          "ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+          "parent_plan_ref": null
+        },
+        {
+          "acceptance": [
+            "canonical DB 行命中时 App 读取 product projection；DB miss 使用既有 snapshot/recovery；DB read error 显式失败。range v3 协商成功且服务端启用时初始页有界、older 使用 product_db 游标；未协商 range 不冒称 older。",
+            "detailRefs、availability 与页哈希在 Node 和 Android 一致，SQLite 重开后保留；不变 payload 但变化的详情引用导致新 root/upsert，旧引用/游标按协议失效。",
+            "App 能显示真实 event path/cwd/command/code 等代表性事实，按需详情块经 offset/hash 校验完整呈现；不暴露内部采集元数据，也不承诺访问源文件或图片字节。",
+            "older、append、重启保持幂等与 coverage 真实；stale selection/response 被拒绝；healthy IPC 继续独占实时正文、operation、当前 turn 与运行态。",
+            "真实外部 host/Android 的首屏 smoke 在 S2 即记录，完整纵向场景在 S4 记录；替身或本机回归只算各自证据，缺失场景保持未验证。"
+          ],
+          "goal": "App 经现有鉴权 history 协议读取已发布的 Node 产品历史，缓存并展示真实事件路径、cwd、命令及代码/工具文本，同时保持健康 IPC 为当前会话实时 authority。",
+          "title": "Android App 产品历史只读接入与真实纵向 E2E",
+          "exclusions": [
+            "不改 Rust collector、rollout source identity、Node 产品库事务及单会话采集协调；历史读取不得另发 Rust 请求。",
+            "不改 IPC follower/owner、desired subscription/replay 或 healthy IPC authority；不把内部 source_ref、cursor、checkpoint、job/batch/segment 元数据或假设的产品 epoch 发送到 App。",
+            "不增加任意文件/图片二进制访问，不借本任务关闭 Goal、子代理、edited_files 等其他台账项；不在准备阶段修改产品文件、提交或部署。"
+          ],
+          "minimum_sufficient_validation": [
+            "Node：在既有 tests/codexHistoryProductFlow.test.js 增一条仅详情引用/availability 变化、payload 不变时 root/diff/upsert 刷新的定向回归；复用已有 DB miss/error 与 product flow 检查，不为每字段建重复测试。",
+            "Android：复用一个 Node 生成的 product_db delta/详情 fixture，扩展既有 wire/range/cache 测试覆盖 hash、详情引用持久化及重开；扩展既有 ViewModel/UI 映射测试验证一个代表性真实 event 路径、cwd、命令或代码事实可见，并验证详情分块和 stale selection 的关键行为。",
+            "触碰 Gateway 或 Android ViewModel/selection 后运行项目要求的 OwnerSurfaceTracker、terminalGateway.codexIpc 与相关 Android Codex wire/ViewModel JVM 回归；Android Gradle 使用 JDK 21 并确认实际执行。",
+            "真机：一条真实 host→Rust→Node DB→Gateway→App smoke 先验证首屏，后扩展 older、append、App/Node 重启、详情和 IPC A→B→A；按设备调试流程检查本地开发服务，记录配置与实际证据。"
+          ],
+          "steps": [
+            {
+              "id": "S1",
+              "title": "S1 契约与最小通路：以 Node 实际 product_db wire 样本锁定 detailRefs/availability、页哈希及 cache schema；修复 Node 详情引用变更仍能触发 root/diff/upsert；Android 解析、哈希、持久化和旧缓存兼容；明确 range+snapshot 双能力下的请求/响应路由，并保留 DB miss/error 语义。"
+            },
+            {
+              "id": "S2",
+              "title": "S2 提前的真实首屏 smoke：在显式启用 range 的开发环境，由外部 Codex host 自然产生 rollout，验证 Rust→Node canonical DB→鉴权 Gateway→Android 真机首屏有界产品页与 ACK、至少一个真实事件事实可见；若 host/设备不可用，真实 E2E 标记未验证，继续独立可实施部分，不用替身测试宣称通过。"
+            },
+            {
+              "id": "S3",
+              "title": "S3 App 详情与分页：按需 detail request、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开和 A→B→A 隔离的必要兼容，保留 live IPC 对当前正文、operation、turn 和运行态的优先级。"
+            },
+            {
+              "id": "S4",
+              "title": "S4 扩展同一真实纵向场景：观察 older 回填/重叠去重、追加、App 与 Node 重启、详情变化/失效、健康 IPC 实时并存及 A→B→A；记录实际观察、失败和未验证项。"
+            }
+          ],
+          "scope": [
+            "Android Codex history wire、页哈希、SQLite cache 迁移及旧缓存兼容、ViewModel history 协商/选择隔离、最小只读详情 UI。",
+            "Node product history provider/sync 中已证实的详情引用版本化缺陷，必要的 Gateway/App capability 兼容；沿用既有鉴权 sync、manifest/delta/ACK/chunk/older 协议。",
+            "真实外部 Codex host 与 Android 物理设备上的最小纵向 E2E 和随后同场景扩展。"
+          ],
+          "ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+          "parent_plan_ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json"
+        },
+        {
+          "title": "Android App 产品历史只读接入与真实纵向 E2E",
+          "source_and_capability_contract": [
+            "canonical DB 行命中时用产品投影；DB miss 沿既有 snapshot/recovery；DB read error 显式失败。",
+            "E2E 环境显式启用 TERMLINK_HISTORY_RANGE_SEGMENTS 并协商 cache schema v3；默认 feature flags 不变。两种 capability 同时广告时 App 为产品库请求 range，按实际 response providerMode=product_db 使用 bounded/older；DB miss 的 snapshot/recovery response 按其实际 lane 处理。未协商 range 的环境仅验证全量产品历史，不声称 older。",
+            "健康 IPC surface 独占当前正文、operation、当前 turn、运行态；产品历史只提供静态 baseline/更旧前缀。"
+          ],
+          "exclusions": [
+            "不改 Rust collector、rollout source identity、Node 产品库事务或单会话单例采集；App/history 查询不得直接触发第二条 Rust 采集链。",
+            "不改 IPC follower/owner、desired subscription/replay、healthy IPC authority；不把内部 source_ref、cursor、checkpoint、job/batch/segment 或假设产品 epoch 传给 App。",
+            "不扩大到任意本地文件/图片字节访问、Goal/子代理/edited_files 聚合，也不以此关闭 Task 001/002 其他台账项。",
+            "准备和确认本身不实施产品代码、Git 提交、部署或真机安装。"
+          ],
+          "goal": "Android App 经现有鉴权历史协议读取 Node 已发布 canonical 产品历史，显示真实事件路径、cwd、命令及代码/工具文本；通过真实外部 Codex host 到 Android 的早期纵向 E2E，并保持健康 IPC 的实时 authority。",
+          "steps": [
+            {
+              "id": "S1",
+              "title": "S1 最小可见产品页：用真实 Node product_db DTO 锁定 detailRefs/availability、页哈希与 cache schema；修复不变 payload、变化 detailRefs/detailRefsTruncated/availability 时 complete-root、manifest/diff 和 v3 range 均触发有效更新。payloadHash 保持正文 bytes 校验；验证旧 cache/旧客户端兼容。Android 解析、哈希、持久化与前向迁移，处理 range+snapshot 双能力路由和 DB miss/error，并增加最小结构化 event path/cwd/command/code 事实文本投影。完整详情 UI 留至 S3。"
+            },
+            {
+              "id": "S2",
+              "title": "S2 提前真实首屏 smoke：显式开启 range，由真实外部 Codex host 自然产生 rollout，观察 Rust→Node canonical DB→鉴权 Gateway→Android 真机有界首屏和 ACK；校验一个具体结构化事件字段值在 App 可见。若新 schema 会升级已有用户缓存，安装前副本迁移演练、备份及兼容回滚构建；可弃用全新测试设备不需此旧数据步骤。缺宿主/设备则保持 E2E 未验证并继续其他独立工作。"
+            },
+            {
+              "id": "S3",
+              "title": "S3 详情与历史流：接入按需详情请求、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开、A→B→A 迟到响应隔离的必要兼容，保持 live IPC 优先。"
+            },
+            {
+              "id": "S4",
+              "title": "S4 同一真实场景扩展：验证 older 回填/重叠去重、追加、App/Node 重启、详情变化/失效、健康 IPC 与 A→B→A；保存实际观察、失败和未验证项。"
+            }
+          ],
+          "minimum_sufficient_validation": [
+            "Node：在既有 tests/codexHistoryProductFlow.test.js 增一条不变 payload、变化详情引用/availability 的聚焦回归，覆盖完整 root 快路径与 v3 range 所需比较；复用现有 DB miss/error 与产品流测试，不逐字段造重复用例。",
+            "Android：复用一个 Node 产出的 product_db fixture，扩展既有 wire/range/cache 测试覆盖页哈希、引用持久化/重开；扩展现有 ViewModel/UI 映射测试断言一个结构化事件字段的真实可见值；按关键风险验证详情分块与 stale selection。",
+            "触及 Gateway、ViewModel 或 selection 后运行合同要求的 Node OwnerSurfaceTracker/terminalGateway.codexIpc 与相关 Android Codex wire/ViewModel JVM 回归；Android Gradle 用 JDK 21，确认任务实际执行。",
+            "真机一条真实 host→Rust→Node DB→Gateway→App 场景先首屏后扩展 older、append、重启、详情、IPC A→B→A；使用项目本地开发服务/真机流程，记录 feature flags、设备状态与实际证据。若升级已有缓存，先做一次性副本迁移演练及回滚准备，不额外新增持久自动化测试。"
+          ],
+          "scope": [
+            "Android Codex history wire、跨端页哈希、SQLite cache 前向迁移与旧缓存兼容、ViewModel range/snapshot 协商和选择隔离、最小事件事实投影及按需只读详情。",
+            "Node product history provider/sync 已证实的 detail-ref-only 同步身份问题和必要 Gateway 协议兼容；沿用鉴权 sync/manifest/delta/ACK/chunk/older。",
+            "真实外部 Codex host、Rust、Node 产品 DB、鉴权 Gateway、Android 真机首屏与扩展场景验证。"
+          ],
+          "acceptance": [
+            "产品库命中、缺记录、读取失败分别遵守 DB-first、既有 fallback、显式失败；range v3 + 服务端启用时初始页有界且 older 使用 product_db 游标。",
+            "Node/Android 详情引用与 availability、页哈希一致，缓存重开仍保留。仅详情引用变化也触发新同步 root/diff/upsert；正文 payloadHash 不被错误改写，旧引用/游标按协议失效。",
+            "S2 首屏可见真实结构化路径、cwd、命令或代码的具体事件事实；S3 详情分块完整且 offset/hash 有效，不泄露内部采集元数据、不承诺访问源文件或图片字节。",
+            "older、append、重启保持幂等与 coverage 真实；stale selection/response 拒绝；健康 IPC 始终掌管实时字段，A→B→A 不串线。",
+            "真实外部宿主和 Android 物理设备的首屏与扩展场景各有具体证据；未执行部分明确未验证，不能凭本机替身测试宣称通过。"
+          ],
+          "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+          "parent_plan_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json"
+        }
+      ],
+      "adopted_by": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
+      "adoption": {
+        "topic": "adopt-reviewed-app-product-history-integration-plan",
+        "decision_source": "current user message immediately following review-draft result",
+        "decision_text": "confirm",
+        "original_instruction": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+        "interpreted_choice": "Adopt the latest App product-history integration draft together with the three pre-S2 review conditions; this does not authorize code implementation by itself.",
+        "target": "Task 004 后 Android App 只读产品历史接入和真实外部 Codex host→Rust→Node 产品 DB→Gateway→Android E2E；未分配 canonical task ID。",
+        "adopted_review_conditions": [
+          "S1 纳入最小结构化 event path/cwd/command/code 事实展示与真实 DTO 映射断言，使 S2 真机首屏能够验证具体字段值；完整按需详情 UI 仍在 S3。",
+          "S1 将 detailRefs、detailRefsTruncated、availability 纳入有效同步身份，覆盖 complete-root、manifest/diff 和 v3 range；正文 payloadHash 仍表示正文 bytes；检查旧缓存及旧客户端兼容。",
+          "若 S2 在有现存用户缓存的真机上触发 Android SQLite 版本升级，安装前做副本迁移演练并保留备份与兼容回滚构建；全新可弃用测试设备不需迁移旧数据。"
+        ],
+        "retained_scope": "保留先前计划的 DB-first/DB-miss fallback/DB-error failure、range/snapshot 能力优先级、早期真实首屏 E2E、IPC 实时 authority、Rust/Node 单例采集和排除范围。",
+        "consequences": "S1 工作量增加最小事实投影和同步身份兼容检查；S2 必须在这些前置条件满足后做真实首屏，设备升级可能需一次性迁移准备。真实设备/host 不可用时记录未验证，不能以本机替身声称通过。",
+        "adoption_limit": "仅确认计划及审查条件；不代表测试通过、产品实施完成、Task 001/002 九项台账关闭、Git 提交或部署授权。",
+        "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+        "review_ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
+        "activate": true,
+        "focus": false,
+        "conditions": [
+          "S1 纳入最小结构化 event path/cwd/command/code 事实展示与真实 DTO 映射断言，使 S2 真机首屏能够验证具体字段值；完整按需详情 UI 仍在 S3。",
+          "S1 将 detailRefs、detailRefsTruncated、availability 纳入有效同步身份，覆盖 complete-root、manifest/diff 和 v3 range；正文 payloadHash 仍表示正文 bytes；检查旧缓存及旧客户端兼容。",
+          "若 S2 在有现存用户缓存的真机上触发 Android SQLite 版本升级，安装前做副本迁移演练并保留备份与兼容回滚构建；全新可弃用测试设备不需迁移旧数据。"
+        ],
+        "ref": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json"
+      },
+      "candidate_plan_refs": [
+        ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+        ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json"
+      ],
+      "current_step_id": "S1",
+      "steps": [
+        {
+          "id": "S1",
+          "title": "S1 最小可见产品页：用真实 Node product_db DTO 锁定 detailRefs/availability、页哈希与 cache schema；修复不变 payload、变化 detailRefs/detailRefsTruncated/availability 时 complete-root、manifest/diff 和 v3 range 均触发有效更新。payloadHash 保持正文 bytes 校验；验证旧 cache/旧客户端兼容。Android 解析、哈希、持久化与前向迁移，处理 range+snapshot 双能力路由和 DB miss/error，并增加最小结构化 event path/cwd/command/code 事实文本投影。完整详情 UI 留至 S3。",
+          "state": "not-started",
+          "legacy_step_status": null,
+          "execution_ref": null,
+          "execution": null,
+          "review_ref": null,
+          "review_status": "not-reviewed",
+          "findings": [],
+          "review_choice": null,
+          "review_decision_ref": null,
+          "review_decisions": [],
+          "tests": [],
+          "disposition_ref": null,
+          "historical_execution_refs": []
+        },
+        {
+          "id": "S2",
+          "title": "S2 提前真实首屏 smoke：显式开启 range，由真实外部 Codex host 自然产生 rollout，观察 Rust→Node canonical DB→鉴权 Gateway→Android 真机有界首屏和 ACK；校验一个具体结构化事件字段值在 App 可见。若新 schema 会升级已有用户缓存，安装前副本迁移演练、备份及兼容回滚构建；可弃用全新测试设备不需此旧数据步骤。缺宿主/设备则保持 E2E 未验证并继续其他独立工作。",
+          "state": "not-started",
+          "legacy_step_status": null,
+          "execution_ref": null,
+          "execution": null,
+          "review_ref": null,
+          "review_status": "not-reviewed",
+          "findings": [],
+          "review_choice": null,
+          "review_decision_ref": null,
+          "review_decisions": [],
+          "tests": [],
+          "disposition_ref": null,
+          "historical_execution_refs": []
+        },
+        {
+          "id": "S3",
+          "title": "S3 详情与历史流：接入按需详情请求、UTF-8 chunk offset/hash/selection 校验和只读展示/复制；完成 older、append、缓存重开、A→B→A 迟到响应隔离的必要兼容，保持 live IPC 优先。",
+          "state": "not-started",
+          "legacy_step_status": null,
+          "execution_ref": null,
+          "execution": null,
+          "review_ref": null,
+          "review_status": "not-reviewed",
+          "findings": [],
+          "review_choice": null,
+          "review_decision_ref": null,
+          "review_decisions": [],
+          "tests": [],
+          "disposition_ref": null,
+          "historical_execution_refs": []
+        },
+        {
+          "id": "S4",
+          "title": "S4 同一真实场景扩展：验证 older 回填/重叠去重、追加、App/Node 重启、详情变化/失效、健康 IPC 与 A→B→A；保存实际观察、失败和未验证项。",
+          "state": "not-started",
+          "legacy_step_status": null,
+          "execution_ref": null,
+          "execution": null,
+          "review_ref": null,
+          "review_status": "not-reviewed",
+          "findings": [],
+          "review_choice": null,
+          "review_decision_ref": null,
+          "review_decisions": [],
+          "tests": [],
+          "disposition_ref": null,
+          "historical_execution_refs": []
+        }
+      ],
+      "reviews": [
+        {
+          "original_user_request": "[$review-draft](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\review-draft\\SKILL.md)",
+          "subject": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+          "reviewer": "Codex self-review; not independent review",
+          "verdict": "ready-for-S1-with-pre-S2-clarifications",
+          "previous_finding_resolution": "The revised plan addresses all five findings from the prior self-review: DB-first with not-found fallback and explicit DB error; explicit range configuration and both-capability precedence; detail-ref-only sync refresh; early real initial-page smoke; representative App-visible event fact validation.",
+          "findings": [
+            {
+              "priority": "P1",
+              "title": "S2 visible event fact depends on work currently scheduled in S3",
+              "evidence": "S2 accepts a real path/cwd/command/code fact visible on the Android initial page, while S1 only names wire/hash/cache/capability changes. The current CodexViewModel.extractHistoryPayloadTextForUi reads text/content/summary and recursively text/content/input, so a structured path/cwd/command field may still be invisible until the S3 UI work.",
+              "resolution": "Include the minimum structured event-fact text projection and one real DTO assertion in S1, before S2 smoke. Keep full on-demand detail UI in S3. The S2 smoke should assert a concrete structured field value rather than incidental path text inside a summary."
+            },
+            {
+              "priority": "P2",
+              "title": "Separate payload integrity from effective sync identity when refs change",
+              "evidence": "Product provider currently sets item.contentHash=hash(payloadJson), while Node root/manifest/diff and Android cached manifest use contentHash. Payload chunks also have a separate payloadHash. A detail-only update cannot be fixed only by changing projectionSnapshotHash, and an unqualified contentHash change risks conflating payload integrity with item revision semantics for old caches/clients.",
+              "resolution": "In S1 explicitly choose a compatible effective item/version comparison covering detailRefs, detailRefsTruncated and availability across complete-root, manifest and v3 range paths. Preserve payloadHash as hash of payload bytes, check old-cache reconciliation and wire compatibility, and make the single focused Node regression exercise the relevant complete and range paths."
+            },
+            {
+              "priority": "P2",
+              "title": "Real-device schema upgrade needs a safe installation boundary",
+              "evidence": "S1 plans an additive Android SQLite migration and S2 immediately installs on a physical device. The existing AD-004 range migration decision required a copy rehearsal and a compatible rollback build before first upgrade of the main device; a new schema bump is likewise not downgraded merely by disabling a feature flag.",
+              "resolution": "If S2 uses a device with existing user cache and S1 bumps its DB version, rehearse migration on a copy and preserve backup/compatible rollback before install. A clean disposable test device does not require migration of prior user data."
+            }
+          ],
+          "validation_assessment": "The proposed new permanent tests are justified by two concrete gaps: unchanged payload with changed refs, and App visibility of a structured event fact. Reuse existing wire/range/cache/ViewModel and Node product flow tests; the real-device smoke supplies integration evidence. No broader suite or helper-by-helper tests are justified. No tests were run in this draft review.",
+          "scope_status": "Read-only review of plan/design/source, plus append-only review observation. No product code, test, plan or legacy projection changed.",
+          "next_route": "execute-step",
+          "terminal_boundary": "public-entry-terminal/v1",
+          "source_revision": "HEAD 33c6dd7a588a361a86351c510b15fe0e4a0e26fa; static draft and source review; no tests executed",
+          "provenance": "Codex self-review; not independent review",
+          "stage": "draft",
+          "coverage": "The proposed new permanent tests are justified by two concrete gaps: unchanged payload with changed refs, and App visibility of a structured event fact. Reuse existing wire/range/cache/ViewModel and Node product flow tests; the real-device smoke supplies integration evidence. No broader suite or helper-by-helper tests are justified. No tests were run in this draft review.",
+          "plan_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+          "ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
+          "interpretation_ref": ".workflow-system/records/events/key-62419bc1656b4b1b8093ca0a6cfa27fb9c823a11c8652474199b79768069372d.json"
+        },
+        {
+          "subject": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+          "reviewer": "Codex self-review of its prior prepare-task plan; not independent review",
+          "verdict": "needs-revision-before-execution",
+          "original_user_request": "[$review-draft](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\review-draft\\SKILL.md)",
+          "findings": [
+            {
+              "priority": "P1",
+              "title": "History source wording conflicts with product contract",
+              "evidence": "Plan scope says Node product DB is the only static history source. Product contract §6 says use product projection when canonical row exists, preserve existing snapshot/recovery on miss, and return explicit failure on DB read failure.",
+              "resolution": "Reword scope/acceptance to DB-first for a found canonical row, bounded legacy fallback only on not-found, and fail-closed on DB read failure; do not disable the preexisting fallback."
+            },
+            {
+              "priority": "P1",
+              "title": "Older-page acceptance lacks capability configuration and precedence",
+              "evidence": "src/server.js defaults TERMLINK_HISTORY_RANGE_SEGMENTS and TERMLINK_HISTORY_SNAPSHOT_SEGMENTS to off. Android CodexViewModel.kt selects serverSnapshotSegments first and omits rangeSegments when snapshot capability is enabled; Gateway product provider only returns a bounded range when rangeSegments.enabled.",
+              "resolution": "Lock the E2E/product configuration and behavior when both capabilities are advertised before implementation; preserve snapshot fallback for DB misses. Define how App requests product_db range so initial/older assertions really exercise that lane."
+            },
+            {
+              "priority": "P1",
+              "title": "Detail refs can change without triggering history refresh",
+              "evidence": "src/services/codexHistoryProductProvider.js derives item contentHash from payloadJson only while detailRefs are separate. src/services/codexHistorySyncService.js compares item contentHash and has complete-root fast path, so a detail-only update can be reported up-to-date; projectionSnapshotHash does include refs, showing mismatch between cursor invalidation and sync root.",
+              "resolution": "Include detailRefs/availability in effective canonical item identity or otherwise force the relevant upsert/root change; add one focused Node regression for unchanged payload with changed detail ref."
+            },
+            {
+              "priority": "P2",
+              "title": "Real App integration is scheduled too late",
+              "evidence": "Earlier user direction was to connect App early for a vertical E2E to reduce rework. Plan puts true external-host/device smoke after full detail UI and other wiring in S4.",
+              "resolution": "Run a minimum real host→product DB→Gateway→App initial-page smoke immediately after the S1 wire/hash fix; then expand that same scenario for older, append, restart, detail and IPC coexistence."
+            },
+            {
+              "priority": "P2",
+              "title": "User-visible event facts lack a focused regression",
+              "evidence": "Android extractHistoryPayloadTextForUi currently reads text/content/summary only; plan accepts visible file path, cwd, command and code, but proposed Android tests cover wire/hash/reopen and detail assembly rather than event-fact projection.",
+              "resolution": "Use a real product DTO fixture to assert one representative path/cwd/command or code fact is visible in App history; extend an existing Android mapping/ViewModel test, avoiding helper-by-helper tests."
+            }
+          ],
+          "validation_assessment": "Existing Node product flow, Android history wire/range/ViewModel, required IPC/Owner regressions and one real-device smoke are appropriate. Do not add a broad suite. Add only focused checks for the proven ref-sync defect and App fact projection; reuse one cross-language delta fixture for hash/cache behavior. No tests were run in this read-only draft review.",
+          "scope_status": "No plan, product code, tests, docs or legacy task projection modified by this review; only append-only review observation recorded.",
+          "next_route": "prepare-task",
+          "source_revision": "HEAD 33c6dd7a588a361a86351c510b15fe0e4a0e26fa; dirty working tree; static source review only",
+          "provenance": "Codex self-review of its prior prepare-task plan; not independent review",
+          "stage": "draft",
+          "coverage": "Existing Node product flow, Android history wire/range/ViewModel, required IPC/Owner regressions and one real-device smoke are appropriate. Do not add a broad suite. Add only focused checks for the proven ref-sync defect and App fact projection; reuse one cross-language delta fixture for hash/cache behavior. No tests were run in this read-only draft review.",
+          "plan_ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+          "ref": ".workflow-system/records/events/key-e84be5e3dd7ccf2d00d3a89fe48be9c62a26c4755464e11e492c35303029a491.json",
+          "interpretation_ref": ".workflow-system/records/events/key-d04cb7bbb8bfd7da9b1f7d1572c57f7c549a6bf64a7aca79f5813e1a754d60e4.json"
+        }
+      ],
+      "executions": [],
+      "tests": [],
+      "review_decisions": [],
+      "commits": [],
+      "dispositions": [],
+      "next_route": "execute-step",
+      "next_mode": null,
+      "recommendation_only": true,
+      "legacy_source": null,
+      "legacy_plan_ref": null,
+      "heads": [
+        ".workflow-system/records/events/key-e8df406a5a1f3f4ab2a74746e31b95ab879acaa372c317fe69ca0ed6300b3c38.json"
       ]
     }
   ],
   "issues": [
-    {
-      "id": "issue-afaffdd7bfede4dd6d3d07bf",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
-      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
-    },
-    {
-      "id": "issue-8f7164b97f03dd30a4e4c3ac",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
-      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
-    },
-    {
-      "id": "issue-c597320336e19e2001493b92",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
-      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
-    },
-    {
-      "id": "issue-c5d740bc5d3b964ba5645956",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
-      "message": "Task identity is missing or ambiguous."
-    },
-    {
-      "id": "issue-8d95e62467584986ed3d80b8",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
-      "message": "Task identity is missing or ambiguous."
-    },
-    {
-      "id": "issue-960ada822b45ac9cbd4b01b0",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-ad9847d3bfad862b444213c7123d5d6117706de47a6c68ce7edd0e250b8cad9b.json",
-      "message": "Task identity is missing or ambiguous."
-    },
-    {
-      "id": "issue-f453d54f028c21d7982e00bd",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
-      "message": "Task identity is missing or ambiguous."
-    },
-    {
-      "id": "issue-a3418ed04a9a0cb219545f61",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
-      "message": "Task identity is missing or ambiguous."
-    },
-    {
-      "id": "issue-205d9930e7d21a51b9297de5",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
-      "message": "Task identity is missing or ambiguous."
-    },
-    {
-      "id": "issue-42f31bfa271ed5059a243810",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-e84be5e3dd7ccf2d00d3a89fe48be9c62a26c4755464e11e492c35303029a491.json",
-      "message": "Task identity is missing or ambiguous."
-    },
-    {
-      "id": "issue-49ee3aa3f1cff47de1ea9aa4",
-      "code": "UNASSOCIATED_RECORD",
-      "ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
-      "message": "Task identity is missing or ambiguous."
-    },
     {
       "id": "issue-ec19a134aefeb23287cb519b",
       "code": "UNASSOCIATED_RECORD",
@@ -253,58 +1654,6 @@
     }
   ],
   "unassociated_records": [
-    {
-      "ref": ".workflow-system/records/events/key-23a901771257aa1f1e3549b56a64cb0e8cbb68e2f66697b4baaa7d2a1686e3f4.json",
-      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
-    },
-    {
-      "ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
-      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
-    },
-    {
-      "ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
-      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
-    },
-    {
-      "ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
-      "reason": "Task identity is missing or ambiguous.",
-      "task_ref": null
-    },
-    {
-      "ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
-      "reason": "Task identity is missing or ambiguous.",
-      "task_ref": null
-    },
-    {
-      "ref": ".workflow-system/records/events/key-ad9847d3bfad862b444213c7123d5d6117706de47a6c68ce7edd0e250b8cad9b.json",
-      "reason": "Task identity is missing or ambiguous.",
-      "task_ref": "Task 004 S3"
-    },
-    {
-      "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
-      "reason": "Task identity is missing or ambiguous.",
-      "task_ref": null
-    },
-    {
-      "ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
-      "reason": "Task identity is missing or ambiguous.",
-      "task_ref": null
-    },
-    {
-      "ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
-      "reason": "Task identity is missing or ambiguous.",
-      "task_ref": "Task 004 S3"
-    },
-    {
-      "ref": ".workflow-system/records/events/key-e84be5e3dd7ccf2d00d3a89fe48be9c62a26c4755464e11e492c35303029a491.json",
-      "reason": "Task identity is missing or ambiguous.",
-      "task_ref": null
-    },
-    {
-      "ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
-      "reason": "Task identity is missing or ambiguous.",
-      "task_ref": "Task 004 S3"
-    },
     {
       "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
       "reason": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
@@ -321,9 +1670,11 @@
     "close"
   ],
   "heads": [
-    ".workflow-system/records/events/key-1148829c2cdbb1800fdb86b7fefe6b96ba7b88428fa96facbf6639250fada103.json"
+    ".workflow-system/records/events/key-938dc6b3fa04aa2d9152c370207a9b22e92aa62a74d698db4c62338b98adb1fb.json",
+    ".workflow-system/records/events/key-d7382faca7e701a41dd93831996d100358013855df58d51cabdab707145d82b8.json",
+    ".workflow-system/records/events/key-e8df406a5a1f3f4ab2a74746e31b95ab879acaa372c317fe69ca0ed6300b3c38.json"
   ],
-  "records_scanned": 16,
+  "records_scanned": 42,
   "state_completeness": "partial-associations",
-  "view_revision": "dfc1d292e555fe56ed89410adac08bedf266126f4255f91ecdeeb2a9389084e3"
+  "view_revision": "ffe0f7b41b572f582cf90f45c9f7adf349428eab74f5a338076d45a9cd56b0f6"
 }

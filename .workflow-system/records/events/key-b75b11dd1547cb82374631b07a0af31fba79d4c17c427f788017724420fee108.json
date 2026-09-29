@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T15:47:05.237Z",
+  "payload_sha256": "ef1fff8adb2613cc29f29a8fe31cad7ee39ac545231753e002f0ed05bd98b06b",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:recover-task004-closure-review-decision-20260929",
+    "request": {
+      "record_ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
+      "idempotency_key": "recover-task004-closure-review-decision-20260929",
+      "event": {
+        "data": {
+          "decision_source": "current user message invoking $close-task, following prior review and disclosed closure limitations",
+          "decision_text": "[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\close-task\\SKILL.md)",
+          "review_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+          "choice": "close-with-qualifications",
+          "gaps": [
+            "Legacy Task Store/current projection remains unreconciled and may still display active/ready.",
+            "Old four reports remain stale.",
+            "Android cases not re-executed in latest invocation.",
+            "No external deployment or physical-device validation.",
+            "No Git commit; CR draft and commit_ref TBD.",
+            "Execution journal contains caller-reported summaries without raw stdout attachments."
+          ],
+          "scope": "Task disposition only; no code or document edits, legacy state rewrite, commit, push, deployment, installation, rollback or worktree cleanup."
+        },
+        "parents": [
+          ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json"
+        ],
+        "action": "review-decision",
+        "task_id": "legacy-doc-fdd730cf99bb383419d74988"
+      },
+      "action": "link"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "link",
+      "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+      "parents": [
+        ".workflow-system/records/events/key-1f5d301d6099e28a04797bf5bb675c06c4b1e7b36156aad630937015dfae67cd.json",
+        ".workflow-system/records/events/key-28d3e5228705156e4427f5aea8a38cfb7e8d0b588c7a9401928fdb7f2b1055fd.json",
+        ".workflow-system/records/events/key-293bbb3c5c038133399b79e11c507174811703e2507214ca02e1c3918be7364d.json",
+        ".workflow-system/records/events/key-583d2369aec25ee877ac7b759dd40ec5007d3ec09105d5d946e813c5dcdf2a8a.json",
+        ".workflow-system/records/events/key-5a4de424eb03c6c9dd84e4df18a80e262d7eec6d91d5d36680505512ad6a3228.json",
+        ".workflow-system/records/events/key-95cbde2439c8442364684423d3c90857eade3c650abb733bbd88fb6b8c8381e9.json",
+        ".workflow-system/records/events/key-beaee127a6814341f874eb0e5622f5cf111ddcc84f03a74d7f636fba09aba169.json",
+        ".workflow-system/records/events/key-c484cce31ffba4f3ccfdce5dc901077839de6a5048fbd1ec0cad7eae20a343c3.json",
+        ".workflow-system/records/events/key-e5da0731faff60102d5dd337003496620298572ee0e836f37c6d1ac1b4ce4269.json",
+        ".workflow-system/records/events/key-e92d0876fb1a18993a0b9b028805dfb725f5eec7d70f37e2d4fdb798170b2207.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-ef854b71c6539139a7f59c0ac253a658ff65f8b6425b6c0700e00fb20a576ddc.json",
+        "event": {
+          "data": {
+            "decision_source": "current user message invoking $close-task, following prior review and disclosed closure limitations",
+            "decision_text": "[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\close-task\\SKILL.md)",
+            "review_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+            "choice": "close-with-qualifications",
+            "gaps": [
+              "Legacy Task Store/current projection remains unreconciled and may still display active/ready.",
+              "Old four reports remain stale.",
+              "Android cases not re-executed in latest invocation.",
+              "No external deployment or physical-device validation.",
+              "No Git commit; CR draft and commit_ref TBD.",
+              "Execution journal contains caller-reported summaries without raw stdout attachments."
+            ],
+            "scope": "Task disposition only; no code or document edits, legacy state rewrite, commit, push, deployment, installation, rollback or worktree cleanup."
+          },
+          "parents": [
+            ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json"
+          ],
+          "action": "review-decision",
+          "task_id": "legacy-doc-fdd730cf99bb383419d74988"
+        }
+      }
+    }
+  },
+  "issues": []
+}

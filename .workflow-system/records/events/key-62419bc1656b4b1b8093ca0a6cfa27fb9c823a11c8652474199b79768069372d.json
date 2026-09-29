@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T15:45:59.940Z",
+  "payload_sha256": "571bf45e3104d1037be16dd338ba2bb5b17d45a72531187d85d662305028aac5",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:recover-task005-revised-draft-review-20260929",
+    "request": {
+      "idempotency_key": "recover-task005-revised-draft-review-20260929",
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
+      "event": {
+        "parents": [
+          ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+          ".workflow-system/records/events/key-e84be5e3dd7ccf2d00d3a89fe48be9c62a26c4755464e11e492c35303029a491.json"
+        ],
+        "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+        "action": "review",
+        "data": {
+          "provenance": "Codex self-review; not independent review",
+          "stage": "draft",
+          "findings": [
+            {
+              "priority": "P1",
+              "title": "S2 visible event fact depends on work currently scheduled in S3",
+              "evidence": "S2 accepts a real path/cwd/command/code fact visible on the Android initial page, while S1 only names wire/hash/cache/capability changes. The current CodexViewModel.extractHistoryPayloadTextForUi reads text/content/summary and recursively text/content/input, so a structured path/cwd/command field may still be invisible until the S3 UI work.",
+              "resolution": "Include the minimum structured event-fact text projection and one real DTO assertion in S1, before S2 smoke. Keep full on-demand detail UI in S3. The S2 smoke should assert a concrete structured field value rather than incidental path text inside a summary."
+            },
+            {
+              "priority": "P2",
+              "title": "Separate payload integrity from effective sync identity when refs change",
+              "evidence": "Product provider currently sets item.contentHash=hash(payloadJson), while Node root/manifest/diff and Android cached manifest use contentHash. Payload chunks also have a separate payloadHash. A detail-only update cannot be fixed only by changing projectionSnapshotHash, and an unqualified contentHash change risks conflating payload integrity with item revision semantics for old caches/clients.",
+              "resolution": "In S1 explicitly choose a compatible effective item/version comparison covering detailRefs, detailRefsTruncated and availability across complete-root, manifest and v3 range paths. Preserve payloadHash as hash of payload bytes, check old-cache reconciliation and wire compatibility, and make the single focused Node regression exercise the relevant complete and range paths."
+            },
+            {
+              "priority": "P2",
+              "title": "Real-device schema upgrade needs a safe installation boundary",
+              "evidence": "S1 plans an additive Android SQLite migration and S2 immediately installs on a physical device. The existing AD-004 range migration decision required a copy rehearsal and a compatible rollback build before first upgrade of the main device; a new schema bump is likewise not downgraded merely by disabling a feature flag.",
+              "resolution": "If S2 uses a device with existing user cache and S1 bumps its DB version, rehearse migration on a copy and preserve backup/compatible rollback before install. A clean disposable test device does not require migration of prior user data."
+            }
+          ],
+          "coverage": "The proposed new permanent tests are justified by two concrete gaps: unchanged payload with changed refs, and App visibility of a structured event fact. Reuse existing wire/range/cache/ViewModel and Node product flow tests; the real-device smoke supplies integration evidence. No broader suite or helper-by-helper tests are justified. No tests were run in this draft review.",
+          "verdict": "ready-for-S1-with-pre-S2-clarifications",
+          "plan_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json"
+        }
+      }
+    },
+    "task_event": {
+      "version": 1,
+      "action": "link",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-d04cb7bbb8bfd7da9b1f7d1572c57f7c549a6bf64a7aca79f5813e1a754d60e4.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-dd6d9fb138af17d3a3fda01f5932b5ea1ec64bbe4b8129ac719bfe8741e592ff.json",
+        "event": {
+          "parents": [
+            ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+            ".workflow-system/records/events/key-e84be5e3dd7ccf2d00d3a89fe48be9c62a26c4755464e11e492c35303029a491.json"
+          ],
+          "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+          "action": "review",
+          "data": {
+            "provenance": "Codex self-review; not independent review",
+            "stage": "draft",
+            "findings": [
+              {
+                "priority": "P1",
+                "title": "S2 visible event fact depends on work currently scheduled in S3",
+                "evidence": "S2 accepts a real path/cwd/command/code fact visible on the Android initial page, while S1 only names wire/hash/cache/capability changes. The current CodexViewModel.extractHistoryPayloadTextForUi reads text/content/summary and recursively text/content/input, so a structured path/cwd/command field may still be invisible until the S3 UI work.",
+                "resolution": "Include the minimum structured event-fact text projection and one real DTO assertion in S1, before S2 smoke. Keep full on-demand detail UI in S3. The S2 smoke should assert a concrete structured field value rather than incidental path text inside a summary."
+              },
+              {
+                "priority": "P2",
+                "title": "Separate payload integrity from effective sync identity when refs change",
+                "evidence": "Product provider currently sets item.contentHash=hash(payloadJson), while Node root/manifest/diff and Android cached manifest use contentHash. Payload chunks also have a separate payloadHash. A detail-only update cannot be fixed only by changing projectionSnapshotHash, and an unqualified contentHash change risks conflating payload integrity with item revision semantics for old caches/clients.",
+                "resolution": "In S1 explicitly choose a compatible effective item/version comparison covering detailRefs, detailRefsTruncated and availability across complete-root, manifest and v3 range paths. Preserve payloadHash as hash of payload bytes, check old-cache reconciliation and wire compatibility, and make the single focused Node regression exercise the relevant complete and range paths."
+              },
+              {
+                "priority": "P2",
+                "title": "Real-device schema upgrade needs a safe installation boundary",
+                "evidence": "S1 plans an additive Android SQLite migration and S2 immediately installs on a physical device. The existing AD-004 range migration decision required a copy rehearsal and a compatible rollback build before first upgrade of the main device; a new schema bump is likewise not downgraded merely by disabling a feature flag.",
+                "resolution": "If S2 uses a device with existing user cache and S1 bumps its DB version, rehearse migration on a copy and preserve backup/compatible rollback before install. A clean disposable test device does not require migration of prior user data."
+              }
+            ],
+            "coverage": "The proposed new permanent tests are justified by two concrete gaps: unchanged payload with changed refs, and App visibility of a structured event fact. Reuse existing wire/range/cache/ViewModel and Node product flow tests; the real-device smoke supplies integration evidence. No broader suite or helper-by-helper tests are justified. No tests were run in this draft review.",
+            "verdict": "ready-for-S1-with-pre-S2-clarifications",
+            "plan_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json"
+          }
+        }
+      }
+    }
+  },
+  "issues": []
+}
