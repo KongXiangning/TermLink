@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T12:35:30.535Z",
+  "payload_sha256": "584c0ae7cf565c581d36b9c1d4d6124254aedfdf7dc28a2398af21eb4f241ce0",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:termlink-s3-r3-repair-decision-20260930-v1",
+    "request": {
+      "action": "review-decision",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S3",
+      "review_ref": ".workflow-system/records/events/key-d6fd3e07a1e7b8887de9fa27e51a22e470a4890e977ecebedcfbfce81bea4e0d.json",
+      "choice": "repair",
+      "idempotency_key": "termlink-s3-r3-repair-decision-20260930-v1",
+      "decision_source": "Current human user message after S3-R3 canonical append diagnostic-loss review",
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) repair",
+      "scope": "Fix S3-R3 by preserving Present canonical diagnostics across append/replay/checkpoint restart in isolated Rust Reducer; expand existing regressions, synchronize CR/compatibility docs and retain actual validation evidence. No Node/App/IPC/DB/service/device/deploy/Git/formal review/step finish/Task005 resume."
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review-decision",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-d6fd3e07a1e7b8887de9fa27e51a22e470a4890e977ecebedcfbfce81bea4e0d.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S3",
+        "review_ref": ".workflow-system/records/events/key-d6fd3e07a1e7b8887de9fa27e51a22e470a4890e977ecebedcfbfce81bea4e0d.json",
+        "choice": "repair",
+        "decision_source": "Current human user message after S3-R3 canonical append diagnostic-loss review",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) repair",
+        "scope": "Fix S3-R3 by preserving Present canonical diagnostics across append/replay/checkpoint restart in isolated Rust Reducer; expand existing regressions, synchronize CR/compatibility docs and retain actual validation evidence. No Node/App/IPC/DB/service/device/deploy/Git/formal review/step finish/Task005 resume."
+      }
+    }
+  },
+  "issues": []
+}

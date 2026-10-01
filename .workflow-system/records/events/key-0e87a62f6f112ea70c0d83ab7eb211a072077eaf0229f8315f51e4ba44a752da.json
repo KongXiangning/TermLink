@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T13:44:06.368Z",
+  "payload_sha256": "022fc7e94376aab8bb27158fe7535d870027292ddd553c92a418f2bb76d7f994",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:termlink-task-7a4566ccf322e08968cd5c7935cf61dd-resume-focus-resolve-20260930-r1",
+    "request": {
+      "action": "resolve",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "conflict_id": "conflict-61ce3846cd76853e1075fe1e",
+      "selected_ref": ".workflow-system/records/events/key-842adb4b99da17473bc6a06d4d488f5f4537220720dc4d4a83702bf3e8e13f4f.json",
+      "decision_source": "Current human user message explicitly requesting resume Task 005 on 2026-09-30",
+      "decision_text": "Select the current Task 005 resume as the active project focus; the competing Rust adopt-focus record belongs to the already closed TASK-20260830 and remains historical.",
+      "idempotency_key": "termlink-task-7a4566ccf322e08968cd5c7935cf61dd-resume-focus-resolve-20260930-r1"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "resolve",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-842adb4b99da17473bc6a06d4d488f5f4537220720dc4d4a83702bf3e8e13f4f.json",
+        ".workflow-system/records/events/key-9315aa5f56fdf91a7d40826f4d804242411c2d30690ca05178394be9475ec93c.json"
+      ],
+      "data": {
+        "conflict_id": "conflict-61ce3846cd76853e1075fe1e",
+        "selected_ref": ".workflow-system/records/events/key-842adb4b99da17473bc6a06d4d488f5f4537220720dc4d4a83702bf3e8e13f4f.json",
+        "decision_source": "Current human user message explicitly requesting resume Task 005 on 2026-09-30",
+        "decision_text": "Select the current Task 005 resume as the active project focus; the competing Rust adopt-focus record belongs to the already closed TASK-20260830 and remains historical."
+      }
+    }
+  },
+  "issues": []
+}

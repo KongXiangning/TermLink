@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T06:25:50.595Z",
+  "payload_sha256": "6af2696f31f9c0e51fa46379f0595fc760b556479e185531ca76f6da37a536b6",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:adopt-rust-compat-v2-user-confirm-20260930",
+    "request": {
+      "action": "adopt",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "review_ref": ".workflow-system/records/events/key-de2d58d826913c3cd5ed5d2d6690b10387970ce37c40367d65d55475da7d880e.json",
+      "focus": true,
+      "idempotency_key": "adopt-rust-compat-v2-user-confirm-20260930",
+      "decision_source": "Current conversation; user explicitly invoked prepare-task confirm after v2 draft self-review clean and recommendation to confirm that exact v2",
+      "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+      "chosen_action": "Adopt the reviewed v2 under existing TASK-20260830 and initialize S1 as current work position; retain Task 005 paused and its S2 unpassed outcome.",
+      "scope_summary": [
+        "Rust token_usage_record/developer compatibility via minimal Spike-validated local vendor patch, formal wire/Adapter promotion, diagnostics-only/hidden-content and usage boundaries",
+        "Focused native fixtures/conformance, explicit current oracle binaries and actual shared-fixture Demo/Spike A/B, repository-level vendor parity guard",
+        "Rust isolated target verification and fixed real-source offline evidence; Rust-related compatibility docs and implementation CR records"
+      ],
+      "retained_exclusions": [
+        "No Node product store/importer/publish gate/API/DTO, Android or IPC authority architecture changes",
+        "No live second Node→Rust collection chain or writes to app-server-owned source",
+        "No deployment, running-analyzer replacement, service control, physical-device work, commit or push",
+        "No Task 005 resume/advance/close, no promotion of old historical reports to fresh"
+      ],
+      "retained_review_conditions": [
+        "Current artifact absolute paths/hash and actual A/B, vendor guard, unknown/malformed fail-closed and privacy/usage/lineage protection must be proven by actual execution",
+        "Rust compatibility success will not certify Node publication or Android first-screen/ACK; Task 005 remains paused",
+        "Draft review is self-review only and no execution/test evidence; parent needs-revision review remains historical"
+      ],
+      "source_revision": {
+        "plan_payload_sha256": "7036e18a971d4c3319349e576f305558078ad2f94544a7bb498b9e82bed863e4"
+      },
+      "remaining_work": [
+        "S1 Spike/native wire compatibility classification, minimal patch and actual oracle validation",
+        "S2 identical formal promotion, Adapter/fixtures/docs and native guards",
+        "S3 current Rust target regressions, fixed real-source offline verification and Task 005 handoff"
+      ],
+      "gaps": [
+        "No compatibility repair or tests executed yet; actual Rust partial baseline retained",
+        "Existing unassociated review key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6 remains outside this scope"
+      ],
+      "next_route": "execute-step",
+      "next_action": "Implement and validate adopted S1 within the saved v2 scope",
+      "links": [
+        {
+          "relation": "adopts-plan",
+          "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+        },
+        {
+          "relation": "uses-draft-review",
+          "ref": ".workflow-system/records/events/key-de2d58d826913c3cd5ed5d2d6690b10387970ce37c40367d65d55475da7d880e.json"
+        },
+        {
+          "relation": "retains-task005-pause",
+          "ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json"
+        }
+      ]
+    },
+    "task_event": {
+      "version": 1,
+      "action": "adopt",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-de2d58d826913c3cd5ed5d2d6690b10387970ce37c40367d65d55475da7d880e.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "review_ref": ".workflow-system/records/events/key-de2d58d826913c3cd5ed5d2d6690b10387970ce37c40367d65d55475da7d880e.json",
+        "focus": true,
+        "decision_source": "Current conversation; user explicitly invoked prepare-task confirm after v2 draft self-review clean and recommendation to confirm that exact v2",
+        "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+        "chosen_action": "Adopt the reviewed v2 under existing TASK-20260830 and initialize S1 as current work position; retain Task 005 paused and its S2 unpassed outcome.",
+        "scope_summary": [
+          "Rust token_usage_record/developer compatibility via minimal Spike-validated local vendor patch, formal wire/Adapter promotion, diagnostics-only/hidden-content and usage boundaries",
+          "Focused native fixtures/conformance, explicit current oracle binaries and actual shared-fixture Demo/Spike A/B, repository-level vendor parity guard",
+          "Rust isolated target verification and fixed real-source offline evidence; Rust-related compatibility docs and implementation CR records"
+        ],
+        "retained_exclusions": [
+          "No Node product store/importer/publish gate/API/DTO, Android or IPC authority architecture changes",
+          "No live second Node→Rust collection chain or writes to app-server-owned source",
+          "No deployment, running-analyzer replacement, service control, physical-device work, commit or push",
+          "No Task 005 resume/advance/close, no promotion of old historical reports to fresh"
+        ],
+        "retained_review_conditions": [
+          "Current artifact absolute paths/hash and actual A/B, vendor guard, unknown/malformed fail-closed and privacy/usage/lineage protection must be proven by actual execution",
+          "Rust compatibility success will not certify Node publication or Android first-screen/ACK; Task 005 remains paused",
+          "Draft review is self-review only and no execution/test evidence; parent needs-revision review remains historical"
+        ],
+        "source_revision": {
+          "plan_payload_sha256": "7036e18a971d4c3319349e576f305558078ad2f94544a7bb498b9e82bed863e4"
+        },
+        "remaining_work": [
+          "S1 Spike/native wire compatibility classification, minimal patch and actual oracle validation",
+          "S2 identical formal promotion, Adapter/fixtures/docs and native guards",
+          "S3 current Rust target regressions, fixed real-source offline verification and Task 005 handoff"
+        ],
+        "gaps": [
+          "No compatibility repair or tests executed yet; actual Rust partial baseline retained",
+          "Existing unassociated review key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6 remains outside this scope"
+        ],
+        "next_route": "execute-step",
+        "next_action": "Implement and validate adopted S1 within the saved v2 scope",
+        "links": [
+          {
+            "relation": "adopts-plan",
+            "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+          },
+          {
+            "relation": "uses-draft-review",
+            "ref": ".workflow-system/records/events/key-de2d58d826913c3cd5ed5d2d6690b10387970ce37c40367d65d55475da7d880e.json"
+          },
+          {
+            "relation": "retains-task005-pause",
+            "ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json"
+          }
+        ],
+        "activate": true
+      }
+    }
+  },
+  "issues": []
+}

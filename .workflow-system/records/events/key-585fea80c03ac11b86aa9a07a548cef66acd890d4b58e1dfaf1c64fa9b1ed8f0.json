@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T17:02:01.362Z",
+  "payload_sha256": "f9489ec810308991ca3e1307f5d2103598909aeddb88a533e3e51974be51b082",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-repair-execution-20261001-r2-r3",
+    "request": {
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "idempotency_key": "task005-s2-repair-execution-20261001-r2-r3",
+      "decision_source": "current user execute-step repair invocation",
+      "decision_text": "Repair the reviewed S2 findings: isolate internal diagnostic carriers from product history rows and complete concrete Android product-item visibility evidence, preserving IPC authority and the no-cache-cleanup exclusion.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "scope": "S2 repair limited to Node product projection isolation, regression coverage, and real Android evidence; Rust collector, IPC authority, Android source, database schema, deployment, and unrelated dirty-worktree changes preserved",
+        "worktree_status": "dirty; unrelated user and workflow changes preserved"
+      },
+      "result": "completed_with_findings",
+      "summary": "Repaired product history promotion so only reduced projection items become canonical ConversationHistory rows; diagnostic, parse-gap, and unknown carriers remain internal staging/projection evidence. Added a token_usage_record regression fixture and assertions proving internal evidence is retained while product rows exclude diagnostic carriers. Re-ran the real Rust product flow and full Node collector regressions. On the physical Android device, restarted the local product-history service, obtained successful tail and older-page ACKs, and correlated one stable product tool item and nested field value with an expanded healthy IPC UI observation. Existing Android cache pollution remains retained by the explicit no-cleanup scope.",
+      "commands": [
+        {
+          "command": "node --test tests/codexHistoryProductFlow.test.js",
+          "result": "passed",
+          "observation": "22 passed, 0 failed; product-history fixtures and real Rust product-history flow passed, including diagnostic isolation assertions."
+        },
+        {
+          "command": "node --test tests/codexRolloutCollector.test.js",
+          "result": "passed",
+          "observation": "122 passed, 0 failed; full Node collector/protocol regression passed."
+        },
+        {
+          "command": "node --check src/services/codexRolloutCollector/analysisBatchImporter.js; node --check tests/codexHistoryProductFlow.test.js",
+          "result": "passed",
+          "observation": "Both changed JavaScript files passed syntax checks."
+        },
+        {
+          "command": "git diff --check -- src/services/codexRolloutCollector/analysisBatchImporter.js tests/codexHistoryProductFlow.test.js",
+          "result": "passed",
+          "observation": "No changed-line whitespace errors; Git only reported existing LF/CRLF conversion warnings."
+        },
+        {
+          "command": "manage-local-dev-server.ps1 -Action restart with isolated TERMLINK_PERSISTENT_ROOT and explicit Rust analyzer",
+          "result": "passed",
+          "observation": "Local service restarted on port 3010 with the repair runtime and isolated product-history persistence."
+        },
+        {
+          "command": "adb -s MQS7N19402011743 reverse tcp:3010 tcp:3010; force-stop/start com.termlink.app; inspect Android UI, logcat, and cache",
+          "result": "completed_with_findings",
+          "observation": "Real device connected; tail and seven older history page ACKs succeeded, stable product item was present in cache, and expanded UI showed the correlated operation through healthy IPC authority. Cache retained legacy Diagnostic/RateLimitUpdated/UsageUpdated rows as expected under no-cleanup scope."
+        }
+      ],
+      "limits": [
+        "No manual SQL cleanup, cache clear, or destructive migration was performed; old Android cache rows remain unresolved by design.",
+        "The visible command/body is attributed to healthy IPC authority; the product database/cache correlation is evidence, not a new UI provenance badge.",
+        "No Rust, IPC, Android source, schema, deployment, or Git commit changes were made.",
+        "Existing unassociated management issue issue-ec19a134aefeb23287cb519b remains unresolved and was not guessed or repaired.",
+        "S2 was not finished and no independent formal review was created."
+      ],
+      "remaining_work": [
+        "Review-change the exact S2 repair execution and confirm the two findings are resolved or dispositioned.",
+        "Keep the retained legacy Android cache rows visible as an unresolved migration/retention concern until a separately authorized cleanup or replacement strategy exists.",
+        "S2 step disposition, later S3/S4 work, Git commit, and deployment remain out of scope for this invocation."
+      ],
+      "files": [
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "tests/codexHistoryProductFlow.test.js",
+        "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json",
+        "logs/task005-s2-repair-runtime-2/product-db-repair-final-expanded.png",
+        "logs/task005-s2-repair-runtime-2/android-cache-repair-4.sqlite",
+        "logs/task005-s2-repair-runtime-2/data/codex-history.sqlite",
+        "logs/diagnostics/termlink-diagnostics.jsonl"
+      ],
+      "links": [
+        {
+          "relation": "evidence",
+          "ref": "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json"
+        },
+        {
+          "relation": "evidence",
+          "ref": "logs/task005-s2-repair-runtime-2/product-db-repair-final-expanded.png"
+        },
+        {
+          "relation": "evidence",
+          "ref": "logs/task005-s2-repair-runtime-2/android-cache-repair-4.sqlite"
+        },
+        {
+          "relation": "evidence",
+          "ref": "logs/diagnostics/termlink-diagnostics.jsonl"
+        }
+      ]
+    },
+    "files": [
+      "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "tests/codexHistoryProductFlow.test.js",
+      "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json",
+      "logs/task005-s2-repair-runtime-2/product-db-repair-final-expanded.png",
+      "logs/task005-s2-repair-runtime-2/android-cache-repair-4.sqlite",
+      "logs/task005-s2-repair-runtime-2/data/codex-history.sqlite",
+      "logs/diagnostics/termlink-diagnostics.jsonl"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-f5671266ba911c12b2d05df45f9dec8a02d5dbb7a9aa032fda11daee7c758edf.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "decision_source": "current user execute-step repair invocation",
+        "decision_text": "Repair the reviewed S2 findings: isolate internal diagnostic carriers from product history rows and complete concrete Android product-item visibility evidence, preserving IPC authority and the no-cache-cleanup exclusion.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "scope": "S2 repair limited to Node product projection isolation, regression coverage, and real Android evidence; Rust collector, IPC authority, Android source, database schema, deployment, and unrelated dirty-worktree changes preserved",
+          "worktree_status": "dirty; unrelated user and workflow changes preserved"
+        },
+        "result": "completed_with_findings",
+        "summary": "Repaired product history promotion so only reduced projection items become canonical ConversationHistory rows; diagnostic, parse-gap, and unknown carriers remain internal staging/projection evidence. Added a token_usage_record regression fixture and assertions proving internal evidence is retained while product rows exclude diagnostic carriers. Re-ran the real Rust product flow and full Node collector regressions. On the physical Android device, restarted the local product-history service, obtained successful tail and older-page ACKs, and correlated one stable product tool item and nested field value with an expanded healthy IPC UI observation. Existing Android cache pollution remains retained by the explicit no-cleanup scope.",
+        "commands": [
+          {
+            "command": "node --test tests/codexHistoryProductFlow.test.js",
+            "result": "passed",
+            "observation": "22 passed, 0 failed; product-history fixtures and real Rust product-history flow passed, including diagnostic isolation assertions."
+          },
+          {
+            "command": "node --test tests/codexRolloutCollector.test.js",
+            "result": "passed",
+            "observation": "122 passed, 0 failed; full Node collector/protocol regression passed."
+          },
+          {
+            "command": "node --check src/services/codexRolloutCollector/analysisBatchImporter.js; node --check tests/codexHistoryProductFlow.test.js",
+            "result": "passed",
+            "observation": "Both changed JavaScript files passed syntax checks."
+          },
+          {
+            "command": "git diff --check -- src/services/codexRolloutCollector/analysisBatchImporter.js tests/codexHistoryProductFlow.test.js",
+            "result": "passed",
+            "observation": "No changed-line whitespace errors; Git only reported existing LF/CRLF conversion warnings."
+          },
+          {
+            "command": "manage-local-dev-server.ps1 -Action restart with isolated TERMLINK_PERSISTENT_ROOT and explicit Rust analyzer",
+            "result": "passed",
+            "observation": "Local service restarted on port 3010 with the repair runtime and isolated product-history persistence."
+          },
+          {
+            "command": "adb -s MQS7N19402011743 reverse tcp:3010 tcp:3010; force-stop/start com.termlink.app; inspect Android UI, logcat, and cache",
+            "result": "completed_with_findings",
+            "observation": "Real device connected; tail and seven older history page ACKs succeeded, stable product item was present in cache, and expanded UI showed the correlated operation through healthy IPC authority. Cache retained legacy Diagnostic/RateLimitUpdated/UsageUpdated rows as expected under no-cleanup scope."
+          }
+        ],
+        "limits": [
+          "No manual SQL cleanup, cache clear, or destructive migration was performed; old Android cache rows remain unresolved by design.",
+          "The visible command/body is attributed to healthy IPC authority; the product database/cache correlation is evidence, not a new UI provenance badge.",
+          "No Rust, IPC, Android source, schema, deployment, or Git commit changes were made.",
+          "Existing unassociated management issue issue-ec19a134aefeb23287cb519b remains unresolved and was not guessed or repaired.",
+          "S2 was not finished and no independent formal review was created."
+        ],
+        "remaining_work": [
+          "Review-change the exact S2 repair execution and confirm the two findings are resolved or dispositioned.",
+          "Keep the retained legacy Android cache rows visible as an unresolved migration/retention concern until a separately authorized cleanup or replacement strategy exists.",
+          "S2 step disposition, later S3/S4 work, Git commit, and deployment remain out of scope for this invocation."
+        ],
+        "files": [
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "tests/codexHistoryProductFlow.test.js",
+          "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json",
+          "logs/task005-s2-repair-runtime-2/product-db-repair-final-expanded.png",
+          "logs/task005-s2-repair-runtime-2/android-cache-repair-4.sqlite",
+          "logs/task005-s2-repair-runtime-2/data/codex-history.sqlite",
+          "logs/diagnostics/termlink-diagnostics.jsonl"
+        ],
+        "links": [
+          {
+            "relation": "evidence",
+            "ref": "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json"
+          },
+          {
+            "relation": "evidence",
+            "ref": "logs/task005-s2-repair-runtime-2/product-db-repair-final-expanded.png"
+          },
+          {
+            "relation": "evidence",
+            "ref": "logs/task005-s2-repair-runtime-2/android-cache-repair-4.sqlite"
+          },
+          {
+            "relation": "evidence",
+            "ref": "logs/diagnostics/termlink-diagnostics.jsonl"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

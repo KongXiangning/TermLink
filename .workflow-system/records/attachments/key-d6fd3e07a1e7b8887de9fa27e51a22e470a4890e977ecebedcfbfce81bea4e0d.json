@@ -1,0 +1,303 @@
+{
+  "event_ref": ".workflow-system/records/events/key-d6fd3e07a1e7b8887de9fa27e51a22e470a4890e977ecebedcfbfce81bea4e0d.json",
+  "captured_at": "2026-09-30T12:28:40.131Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/e72c6eff2afe91f5d5d4568a3fc2f585898fe7d5becc8d9b1e83b5e5cb1603cf.blob",
+      "sha256": "e72c6eff2afe91f5d5d4568a3fc2f585898fe7d5becc8d9b1e83b5e5cb1603cf",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/9c024665ecd6adffafdcd52001a79f3bb0f695fe8009f297ad05842d720afc39.blob",
+      "sha256": "9c024665ecd6adffafdcd52001a79f3bb0f695fe8009f297ad05842d720afc39",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00.blob",
+      "sha256": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/ce5ee299bd2ed1fcd31567436f7b4ade648587efd14f71997c805ee1ebc1d3a5.blob",
+      "sha256": "ce5ee299bd2ed1fcd31567436f7b4ade648587efd14f71997c805ee1ebc1d3a5",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/32a206fd922d6d0ab692d49fa8593105059849dfdeb0c1524587e6aed40f2a71.blob",
+      "sha256": "32a206fd922d6d0ab692d49fa8593105059849dfdeb0c1524587e6aed40f2a71",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02.blob",
+      "sha256": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679.blob",
+      "sha256": "6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7.blob",
+      "sha256": "f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/72c9eecd3f8180c1e77329051e0ecdddd7e74bd45617966fafcf607b288d63e7.blob",
+      "sha256": "72c9eecd3f8180c1e77329051e0ecdddd7e74bd45617966fafcf607b288d63e7",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/b660b855db790ca3ca96e2316dc7ab23b000be66d257b1c2b25208a585f496f6.blob",
+      "sha256": "b660b855db790ca3ca96e2316dc7ab23b000be66d257b1c2b25208a585f496f6",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/b90151fe073e745159115e4f1161eaa8f3b0426470b95977db2d3ed9fed9dd0d.blob",
+      "sha256": "b90151fe073e745159115e4f1161eaa8f3b0426470b95977db2d3ed9fed9dd0d",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625.blob",
+      "sha256": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/3522f87d6ae6c8c3393cc453bad4db687c12e4315798319935c71227f4f9ee03.blob",
+      "sha256": "3522f87d6ae6c8c3393cc453bad4db687c12e4315798319935c71227f4f9ee03",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd.blob",
+      "sha256": "0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/dcd8b1008b78e3ce8245df7de4f583ad65ec433f38198f5bdb73251393db3ff5.blob",
+      "sha256": "dcd8b1008b78e3ce8245df7de4f583ad65ec433f38198f5bdb73251393db3ff5",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75.blob",
+      "sha256": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c.blob",
+      "sha256": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/dd4d85361ce0128a294b3f37ed9e4c5c2baaf6baf5cf691607c29fd54b69bb6a.blob",
+      "sha256": "dd4d85361ce0128a294b3f37ed9e4c5c2baaf6baf5cf691607c29fd54b69bb6a",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/77156a00648f9f7d03a6145966208e2b7d7ef54310d63c3b0f8a26c6d2834fc8.blob",
+      "sha256": "77156a00648f9f7d03a6145966208e2b7d7ef54310d63c3b0f8a26c6d2834fc8",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/201edd8638c1d9a0db72244f1e58332e709b59c40b9c53875043d3522cda9292.blob",
+      "sha256": "201edd8638c1d9a0db72244f1e58332e709b59c40b9c53875043d3522cda9292",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/da524727d8d0ea7c5cba2ebdb955b4069819f7672b2801ec578c13f96273dc89.blob",
+      "sha256": "da524727d8d0ea7c5cba2ebdb955b4069819f7672b2801ec578c13f96273dc89",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3.blob",
+      "sha256": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e.blob",
+      "sha256": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21.blob",
+      "sha256": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/82bc656db3298d0ed123abe8a4cdca5dae2aa888eec4ae622766998d287d83b0.blob",
+      "sha256": "82bc656db3298d0ed123abe8a4cdca5dae2aa888eec4ae622766998d287d83b0",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/11ae7ee3c619ad906bf7a3360fb7e5d927d434ebe86c6bd85b820ff1dbcc2554.blob",
+      "sha256": "11ae7ee3c619ad906bf7a3360fb7e5d927d434ebe86c6bd85b820ff1dbcc2554",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55.blob",
+      "sha256": "cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/78f8e2d26f24003c743c012686de931a56eea6b246a20075e104a658fa26c3cf.blob",
+      "sha256": "78f8e2d26f24003c743c012686de931a56eea6b246a20075e104a658fa26c3cf",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/13aaa2d3c38f0855843a969d1933eb6676fb8f24d7cc051f95365b5473fc0ee6.blob",
+      "sha256": "13aaa2d3c38f0855843a969d1933eb6676fb8f24d7cc051f95365b5473fc0ee6",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/dccfeca907a792a7e6b21d264a21bbd4ffd647b36ce0d15b96d606e6542ad887.blob",
+      "sha256": "dccfeca907a792a7e6b21d264a21bbd4ffd647b36ce0d15b96d606e6542ad887",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/bd17827292ec5a6146e836b8e2e867bc428f72474637985a9495eb89deadd333.blob",
+      "sha256": "bd17827292ec5a6146e836b8e2e867bc428f72474637985a9495eb89deadd333",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/2df0c7a8b0aa8ae2a122fa2da2e8c677760068c48f970b548cee84947b3364ea.blob",
+      "sha256": "2df0c7a8b0aa8ae2a122fa2da2e8c677760068c48f970b548cee84947b3364ea",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": ".workflow-system/records/evidence-objects/b76bbb8f1912013db078780bdd3a3c078a3c8cb98f020edfd8cf9e72aeb7b11c.blob",
+      "sha256": "b76bbb8f1912013db078780bdd3a3c078a3c8cb98f020edfd8cf9e72aeb7b11c",
+      "issues": []
+    }
+  ]
+}

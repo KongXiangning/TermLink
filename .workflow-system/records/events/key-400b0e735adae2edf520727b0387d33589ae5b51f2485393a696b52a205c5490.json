@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T11:47:33.310Z",
+  "payload_sha256": "c19b975027d02d1ad61da051e64ec599752f3e288c420403d93b5d7eadd4cafb",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:termlink-s3-r1-r2-repair-choice-20260930-1946",
+    "request": {
+      "action": "review-decision",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S3",
+      "review_ref": ".workflow-system/records/events/key-aa03275bed242b957a452ccaf4c1bd7fb4bfe529d9553c5923a1b783059a7f5f.json",
+      "choice": "repair",
+      "decision_source": "Current human user message after S3 needs-revision review, 2026-09-30",
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) repair",
+      "idempotency_key": "termlink-s3-r1-r2-repair-choice-20260930-1946",
+      "scope": "Repair the disclosed Rust-only known-present diagnostic canonicality finding and exact current validation evidence. Minimal matching target predicate and Reducer canonical_committed guard must agree; retain diagnostics and unknown/malformed/source/lineage gates. No Node/App/IPC/DB, service/device/deployment/Git, step finish or Task005 resume.",
+      "scope_interpretation": "The user's explicit repair following the concrete S3-R1 finding authorizes the necessary minimal Rust compatibility correction despite the plan's principle to avoid reducer/canonical changes. This is not permission to relax global source/lineage/canonical validity or change architecture. The duplicated Reducer guard is part of the same root cause and is disclosed in commentary; no unrelated reducer refactor.",
+      "findings_disposition": "Original verdict/findings remain historical; new implementation/self-check will have a separate execution. No clean review is inferred."
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review-decision",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-aa03275bed242b957a452ccaf4c1bd7fb4bfe529d9553c5923a1b783059a7f5f.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S3",
+        "review_ref": ".workflow-system/records/events/key-aa03275bed242b957a452ccaf4c1bd7fb4bfe529d9553c5923a1b783059a7f5f.json",
+        "choice": "repair",
+        "decision_source": "Current human user message after S3 needs-revision review, 2026-09-30",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) repair",
+        "scope": "Repair the disclosed Rust-only known-present diagnostic canonicality finding and exact current validation evidence. Minimal matching target predicate and Reducer canonical_committed guard must agree; retain diagnostics and unknown/malformed/source/lineage gates. No Node/App/IPC/DB, service/device/deployment/Git, step finish or Task005 resume.",
+        "scope_interpretation": "The user's explicit repair following the concrete S3-R1 finding authorizes the necessary minimal Rust compatibility correction despite the plan's principle to avoid reducer/canonical changes. This is not permission to relax global source/lineage/canonical validity or change architecture. The duplicated Reducer guard is part of the same root cause and is disclosed in commentary; no unrelated reducer refactor.",
+        "findings_disposition": "Original verdict/findings remain historical; new implementation/self-check will have a separate execution. No clean review is inferred."
+      }
+    }
+  },
+  "issues": []
+}

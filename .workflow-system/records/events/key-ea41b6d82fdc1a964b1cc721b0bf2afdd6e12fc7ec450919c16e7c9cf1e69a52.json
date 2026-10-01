@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T16:25:44.226Z",
+  "payload_sha256": "c5c8dd93b9f1fafaa4ac768ce1da9a0308e38c84f103e5f97e16fe70de164b5f",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s1-self-review-20260930-002f754b",
+    "request": {
+      "action": "review",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "stage": "change",
+      "execution_ref": ".workflow-system/records/events/key-c6c174c4ba8d5a4953340280937b11003902d1d28ca3c6f783c4ee3a6b00f5f1.json",
+      "source_revision": {
+        "head": "280cae898aefc8f3970ae156fb691b875a963d4b",
+        "worktree_sha256": "002f754b39fc505118d450b75be4a28c095571fc23278b4127509289d38308a3"
+      },
+      "verdict": "needs-revision",
+      "provenance": "Codex self-review of current Task 005 S1 execution; not independent review",
+      "findings": [
+        {
+          "priority": "P1",
+          "title": "A refreshed product range or older page conflicts with an existing Android segment",
+          "evidence": "src/services/codexHistoryProductProvider.js:135 includes the already cached anchor in every older page; src/services/codexHistorySyncService.js:1236 upserts all page items. A detail-only change produces a new contentHash/range.segmentId. android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt:1287-1293 throws for changed hash from a different segment and for unchanged overlap from any non-legacy segment. CodexViewModel.kt:10136 sends that page unchanged to applyDeltaPage and maps the throw to REJECTED.",
+          "consequence": "After a first product_db tail is cached, older pagination and a later detail-only tail refresh can fail atomically; the new Node root/upsert cannot reach the Android cache.",
+          "recommendation": "Define an idempotent overlap/refresh rule preserving segment ownership and truthful anchors, then add a real cache commit/reopen regression for both older overlap and changed detail refs."
+        },
+        {
+          "priority": "P1",
+          "title": "Complete server-snapshot cache bypasses the product DB-first request",
+          "evidence": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:8431-8483 returns from maybeRequestHistorySync for a complete local cache or complete server_snapshot cache before it sends the newly dual-capability history request at line 8626. Product DB precedence in src/ws/terminalGateway.js:7570+ only applies when that request arrives.",
+          "consequence": "An existing device with a complete snapshot can remain on its old static projection and never receive a newly published product_db row or its detail refs on selection; current DB-first acceptance is not established.",
+          "recommendation": "Preserve cache-first rendering and live IPC authority while providing a bounded product DB reconciliation request for this selection; test a pre-existing complete snapshot cache transitioning to a product row."
+        },
+        {
+          "priority": "P2",
+          "title": "Old Android clients still reject product pages carrying detail metadata",
+          "evidence": "src/services/codexHistorySyncService.js:409-411 always sends detailRefs/truncation/availability regardless cache schema. Before this S1 change, Android CodexWireModels.kt discarded those fields; its page hasher reconstructed a wire item without them and CodexConversationCacheStore.kt:975 rejects a differing page hash. With the checked-in product fixture the wire hash is 6b95178c..., while dropping the three fields yields d237a4f5....",
+          "consequence": "The plan's old-client compatibility claim is unsupported for product rows with detail refs or availability; legacy app versions cannot commit those pages.",
+          "recommendation": "Specify and implement version/capability handling for older clients or explicitly narrow the compatibility claim through an informed plan change; verify the older wire path."
+        }
+      ],
+      "coverage": {
+        "subject": "Exact Task 005 S1 worktree revision above; product, Android, tests and product contract reviewed.",
+        "validated": "Read-only code/call-chain review, recorded Node 19/19 product flow and 139/139 Owner/IPC results, Android 193 JVM results, Android instrumentation compile, cross-version page-hash comparison.",
+        "limits": [
+          "No tests were rerun for this review.",
+          "Android SQLite migration/reopen instrumentation test was compiled but not executed on a device.",
+          "No real external host or physical Android E2E; planned S2.",
+          "The existing Task 004 supplemental review remains unassociated and is unrelated to this verdict."
+        ]
+      },
+      "idempotency_key": "task005-s1-self-review-20260930-002f754b"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-c6c174c4ba8d5a4953340280937b11003902d1d28ca3c6f783c4ee3a6b00f5f1.json"
+      ],
+      "data": {
+        "stage": "change",
+        "execution_ref": ".workflow-system/records/events/key-c6c174c4ba8d5a4953340280937b11003902d1d28ca3c6f783c4ee3a6b00f5f1.json",
+        "source_revision": {
+          "head": "280cae898aefc8f3970ae156fb691b875a963d4b",
+          "worktree_sha256": "002f754b39fc505118d450b75be4a28c095571fc23278b4127509289d38308a3"
+        },
+        "verdict": "needs-revision",
+        "provenance": "Codex self-review of current Task 005 S1 execution; not independent review",
+        "findings": [
+          {
+            "priority": "P1",
+            "title": "A refreshed product range or older page conflicts with an existing Android segment",
+            "evidence": "src/services/codexHistoryProductProvider.js:135 includes the already cached anchor in every older page; src/services/codexHistorySyncService.js:1236 upserts all page items. A detail-only change produces a new contentHash/range.segmentId. android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt:1287-1293 throws for changed hash from a different segment and for unchanged overlap from any non-legacy segment. CodexViewModel.kt:10136 sends that page unchanged to applyDeltaPage and maps the throw to REJECTED.",
+            "consequence": "After a first product_db tail is cached, older pagination and a later detail-only tail refresh can fail atomically; the new Node root/upsert cannot reach the Android cache.",
+            "recommendation": "Define an idempotent overlap/refresh rule preserving segment ownership and truthful anchors, then add a real cache commit/reopen regression for both older overlap and changed detail refs."
+          },
+          {
+            "priority": "P1",
+            "title": "Complete server-snapshot cache bypasses the product DB-first request",
+            "evidence": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:8431-8483 returns from maybeRequestHistorySync for a complete local cache or complete server_snapshot cache before it sends the newly dual-capability history request at line 8626. Product DB precedence in src/ws/terminalGateway.js:7570+ only applies when that request arrives.",
+            "consequence": "An existing device with a complete snapshot can remain on its old static projection and never receive a newly published product_db row or its detail refs on selection; current DB-first acceptance is not established.",
+            "recommendation": "Preserve cache-first rendering and live IPC authority while providing a bounded product DB reconciliation request for this selection; test a pre-existing complete snapshot cache transitioning to a product row."
+          },
+          {
+            "priority": "P2",
+            "title": "Old Android clients still reject product pages carrying detail metadata",
+            "evidence": "src/services/codexHistorySyncService.js:409-411 always sends detailRefs/truncation/availability regardless cache schema. Before this S1 change, Android CodexWireModels.kt discarded those fields; its page hasher reconstructed a wire item without them and CodexConversationCacheStore.kt:975 rejects a differing page hash. With the checked-in product fixture the wire hash is 6b95178c..., while dropping the three fields yields d237a4f5....",
+            "consequence": "The plan's old-client compatibility claim is unsupported for product rows with detail refs or availability; legacy app versions cannot commit those pages.",
+            "recommendation": "Specify and implement version/capability handling for older clients or explicitly narrow the compatibility claim through an informed plan change; verify the older wire path."
+          }
+        ],
+        "coverage": {
+          "subject": "Exact Task 005 S1 worktree revision above; product, Android, tests and product contract reviewed.",
+          "validated": "Read-only code/call-chain review, recorded Node 19/19 product flow and 139/139 Owner/IPC results, Android 193 JVM results, Android instrumentation compile, cross-version page-hash comparison.",
+          "limits": [
+            "No tests were rerun for this review.",
+            "Android SQLite migration/reopen instrumentation test was compiled but not executed on a device.",
+            "No real external host or physical Android E2E; planned S2.",
+            "The existing Task 004 supplemental review remains unassociated and is unrelated to this verdict."
+          ]
+        }
+      }
+    }
+  },
+  "issues": []
+}

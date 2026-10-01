@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T09:15:12.255Z",
+  "payload_sha256": "1246043a65451a01b7798599264c52e256ddeed1282b68b86e87462e0f6aeda9",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s2-repair-test-20260930-2",
+    "request": {
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+      "source_revision": {
+        "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00"
+      },
+      "selector": "S2-repair/temporary-wrapper-initial-errors",
+      "command": "Initial direct invalid-path probe via temporary run-check.ps1 (relative-demo, relative-demo-r2)",
+      "result": "failed",
+      "observation": "First wrapper incorrectly expected1 while native Rust test rejected path with101. Second metadata correctly matched101 but outer shell misread propagated LASTEXITCODE101. Temporary driver corrected exit propagation; first failed observation and second checked native result retained. No product defect hidden.",
+      "report_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+      "idempotency_key": "task20260830-s2-repair-test-20260930-2"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-b3ddaa65a09b8160c56c2d44463bf3bf18e869138e14ab654939aa2c3c883301.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+        "source_revision": {
+          "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00"
+        },
+        "selector": "S2-repair/temporary-wrapper-initial-errors",
+        "command": "Initial direct invalid-path probe via temporary run-check.ps1 (relative-demo, relative-demo-r2)",
+        "result": "failed",
+        "observation": "First wrapper incorrectly expected1 while native Rust test rejected path with101. Second metadata correctly matched101 but outer shell misread propagated LASTEXITCODE101. Temporary driver corrected exit propagation; first failed observation and second checked native result retained. No product defect hidden.",
+        "report_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json"
+      }
+    }
+  },
+  "issues": []
+}

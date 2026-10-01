@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T06:46:03.474Z",
+  "payload_sha256": "86654a9237d52d24ae4222438286b4d4ad4d430d160b93011a8151353e303749",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s1-test-common-ab-20260930-01",
+    "request": {
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S1",
+      "idempotency_key": "task20260830-s1-test-common-ab-20260930-01",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+        "scope": "same-input current/minimal-rollout Demo/Spike standalone and projection comparison",
+        "fixture_sha256": "0933c505c2331b525e7d52cfee574acee3c88761455121ced60b93ffe63afa29"
+      },
+      "command": "fresh Demo and fresh Spike standalone runs plus Demo projection with --parser spike on the same 3714-byte fixture",
+      "selector": "S1/common-fixture-demo-spike-ab",
+      "result": "passed",
+      "observation": "Demo: 14 valid, 0 parse errors. Spike: 13 emitted, 1 explicit unknown future_rollout_variant. Projection-level turns, retained items, stable item keys, tool IDs, usage totals 70/120, and plan state matched; parser provenance and provisional task-outcome detail remained explicit.",
+      "report_ref": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/demo-spike-common-report.projection.json"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-3e516a62b3857a9619fe4195c051c778f07afca6ef04c5a6b48de5400b90b708.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S1",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+          "scope": "same-input current/minimal-rollout Demo/Spike standalone and projection comparison",
+          "fixture_sha256": "0933c505c2331b525e7d52cfee574acee3c88761455121ced60b93ffe63afa29"
+        },
+        "command": "fresh Demo and fresh Spike standalone runs plus Demo projection with --parser spike on the same 3714-byte fixture",
+        "selector": "S1/common-fixture-demo-spike-ab",
+        "result": "passed",
+        "observation": "Demo: 14 valid, 0 parse errors. Spike: 13 emitted, 1 explicit unknown future_rollout_variant. Projection-level turns, retained items, stable item keys, tool IDs, usage totals 70/120, and plan state matched; parser provenance and provisional task-outcome detail remained explicit.",
+        "report_ref": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/demo-spike-common-report.projection.json"
+      }
+    }
+  },
+  "issues": []
+}

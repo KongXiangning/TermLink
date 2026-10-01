@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T08:29:10.286Z",
+  "payload_sha256": "13db70b7ae094395829b975eb30c8349caa0913799f2b02228afb8673c3eb6a1",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:test-s2-formal-targeted-suites-20260930",
+    "request": {
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S2",
+      "command": "cargo build --locked --manifest-path native/codex-rollout-collector/Cargo.toml; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage3_conformance with TERMLINK_STAGE3_DEMO_BIN and TERMLINK_STAGE3_SPIKE_BIN; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_protocol; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_target_protocol",
+      "selector": "S2/formal-build-conformance-stage3-stage4",
+      "result": "passed",
+      "observation": "Final build passed; conformance 33/33; stage3 5/5; stage4 protocol 22/22; stage4 target protocol 70/70.",
+      "report_ref": "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md",
+      "idempotency_key": "test-s2-formal-targeted-suites-20260930"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-f8a3721cd5f071658a1b3abda802b3b0a0a12a527f7d437f492b61ab5ad396fd.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S2",
+        "command": "cargo build --locked --manifest-path native/codex-rollout-collector/Cargo.toml; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage3_conformance with TERMLINK_STAGE3_DEMO_BIN and TERMLINK_STAGE3_SPIKE_BIN; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_protocol; cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_target_protocol",
+        "selector": "S2/formal-build-conformance-stage3-stage4",
+        "result": "passed",
+        "observation": "Final build passed; conformance 33/33; stage3 5/5; stage4 protocol 22/22; stage4 target protocol 70/70.",
+        "report_ref": "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md"
+      }
+    }
+  },
+  "issues": []
+}

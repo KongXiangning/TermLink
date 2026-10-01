@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T17:46:35.967Z",
+  "payload_sha256": "18070428feacb21942b12868148e6cbf4c420f7d2686786092faf217700bb683",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-r5-test-static-20261001",
+    "request": {
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "idempotency_key": "task005-s2-r5-test-static-20261001",
+      "decision_source": "current user execute-step repair invocation",
+      "decision_text": "Record R5 repair validation without finishing S2 or manufacturing an independent review.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+        "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+        "scope": "R5 changed source and test files"
+      },
+      "command": "node --check src/services/codexRolloutCollector/analysisBatchImporter.js; node --check tests/codexHistoryProductFlow.test.js; git diff --check -- src/services/codexRolloutCollector/analysisBatchImporter.js tests/codexHistoryProductFlow.test.js",
+      "selector": "R5 changed-source syntax and whitespace checks",
+      "result": "passed",
+      "observation": "Both JavaScript files parsed successfully and changed-line diff check passed; LF/CRLF conversion warnings only.",
+      "report_ref": "src/services/codexRolloutCollector/analysisBatchImporter.js"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-b0580a1bbad61af1fac419a5377f32dff1aee695039d782884d57d25c2729422.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "decision_source": "current user execute-step repair invocation",
+        "decision_text": "Record R5 repair validation without finishing S2 or manufacturing an independent review.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+          "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+          "scope": "R5 changed source and test files"
+        },
+        "command": "node --check src/services/codexRolloutCollector/analysisBatchImporter.js; node --check tests/codexHistoryProductFlow.test.js; git diff --check -- src/services/codexRolloutCollector/analysisBatchImporter.js tests/codexHistoryProductFlow.test.js",
+        "selector": "R5 changed-source syntax and whitespace checks",
+        "result": "passed",
+        "observation": "Both JavaScript files parsed successfully and changed-line diff check passed; LF/CRLF conversion warnings only.",
+        "report_ref": "src/services/codexRolloutCollector/analysisBatchImporter.js"
+      }
+    }
+  },
+  "issues": []
+}

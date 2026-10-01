@@ -1,0 +1,39 @@
+{
+  "event_ref": ".workflow-system/records/events/key-5065567fa5c67f074da79a772807cc1bf3b83fb21f5d35be463660ec86def497.json",
+  "captured_at": "2026-09-30T17:46:11.994Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8.blob",
+      "sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8",
+      "size": 78902,
+      "source_path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27.blob",
+      "sha256": "adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27",
+      "size": 88844,
+      "source_path": "tests/codexHistoryProductFlow.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ecbe1df9f814346e403c635008b776f984d96f9ea654a3d4a8f1daa5f1cf8883.blob",
+      "sha256": "ecbe1df9f814346e403c635008b776f984d96f9ea654a3d4a8f1daa5f1cf8883",
+      "size": 3234,
+      "source_path": "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json",
+      "issues": []
+    }
+  ]
+}

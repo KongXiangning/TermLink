@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T16:21:38.863Z",
+  "payload_sha256": "1172182823e249853b256e51109dfcfcdb6ee1c3b845fd38da96d3be28ee781c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s1-execution-20260930-worktree-002f754b",
+    "request": {
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "step_id": "S1",
+      "source_revision": {
+        "head": "280cae898aefc8f3970ae156fb691b875a963d4b",
+        "worktree_sha256": "002f754b39fc505118d450b75be4a28c095571fc23278b4127509289d38308a3"
+      },
+      "result": "implemented; focused validation passed with explicit device-test limits",
+      "summary": "Node product effective item identity now includes detail refs/truncation/availability while payloadHash remains payload bytes; Android wire/page-hash/SQLite v5 persistence and dual range/snapshot routing updated; structured event facts visible; shared Node DTO fixture and regression coverage added.",
+      "commands": [
+        {
+          "command": "node --test tests/codexHistoryProductFlow.test.js",
+          "result": "passed on final full run",
+          "observation": "19/19 passed; earlier concurrent run 17/18 with unattended timeout, targeted rerun passed"
+        },
+        {
+          "command": "node --test --test-name-pattern='product-history-read refreshes a complete root' tests/codexHistoryProductFlow.test.js",
+          "result": "passed",
+          "observation": "1/1 after final overflow assertion"
+        },
+        {
+          "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+          "result": "passed",
+          "observation": "139/139"
+        },
+        {
+          "command": "JDK21 .\\gradlew.bat :app:testDebugUnitTest --tests CodexHistoryPageHashTest --tests CodexHistoryWireTest --tests CodexViewModelThreadReadyTest",
+          "result": "passed",
+          "observation": "BUILD SUCCESSFUL; test task executed; XML 3+27+163=193 tests, 0 failures"
+        },
+        {
+          "command": "JDK21 .\\gradlew.bat :app:compileDebugAndroidTestKotlin",
+          "result": "passed",
+          "observation": "BUILD SUCCESSFUL; instrumentation test compiled, not run on device"
+        },
+        {
+          "command": "git diff --check",
+          "result": "passed",
+          "observation": "exit 0; line-ending conversion warnings only"
+        }
+      ],
+      "limits": [
+        "No external Codex host deployment or physical Android device E2E in S1; reserved for S2.",
+        "SQLite reopen instrumentation test compiled but not executed on a device.",
+        "First JDK21 Android invocation failed at dependency download with TLS bad_record_mac; retry succeeded.",
+        "One earlier concurrent full Node run timed out in an unattended server test; targeted rerun and later full run passed.",
+        "No Git commit or deployment requested; working tree remains uncommitted."
+      ],
+      "idempotency_key": "task005-s1-execution-20260930-worktree-002f754b"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-938dc6b3fa04aa2d9152c370207a9b22e92aa62a74d698db4c62338b98adb1fb.json",
+        ".workflow-system/records/events/key-d7382faca7e701a41dd93831996d100358013855df58d51cabdab707145d82b8.json",
+        ".workflow-system/records/events/key-e8df406a5a1f3f4ab2a74746e31b95ab879acaa372c317fe69ca0ed6300b3c38.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+        "step_id": "S1",
+        "source_revision": {
+          "head": "280cae898aefc8f3970ae156fb691b875a963d4b",
+          "worktree_sha256": "002f754b39fc505118d450b75be4a28c095571fc23278b4127509289d38308a3"
+        },
+        "result": "implemented; focused validation passed with explicit device-test limits",
+        "summary": "Node product effective item identity now includes detail refs/truncation/availability while payloadHash remains payload bytes; Android wire/page-hash/SQLite v5 persistence and dual range/snapshot routing updated; structured event facts visible; shared Node DTO fixture and regression coverage added.",
+        "commands": [
+          {
+            "command": "node --test tests/codexHistoryProductFlow.test.js",
+            "result": "passed on final full run",
+            "observation": "19/19 passed; earlier concurrent run 17/18 with unattended timeout, targeted rerun passed"
+          },
+          {
+            "command": "node --test --test-name-pattern='product-history-read refreshes a complete root' tests/codexHistoryProductFlow.test.js",
+            "result": "passed",
+            "observation": "1/1 after final overflow assertion"
+          },
+          {
+            "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+            "result": "passed",
+            "observation": "139/139"
+          },
+          {
+            "command": "JDK21 .\\gradlew.bat :app:testDebugUnitTest --tests CodexHistoryPageHashTest --tests CodexHistoryWireTest --tests CodexViewModelThreadReadyTest",
+            "result": "passed",
+            "observation": "BUILD SUCCESSFUL; test task executed; XML 3+27+163=193 tests, 0 failures"
+          },
+          {
+            "command": "JDK21 .\\gradlew.bat :app:compileDebugAndroidTestKotlin",
+            "result": "passed",
+            "observation": "BUILD SUCCESSFUL; instrumentation test compiled, not run on device"
+          },
+          {
+            "command": "git diff --check",
+            "result": "passed",
+            "observation": "exit 0; line-ending conversion warnings only"
+          }
+        ],
+        "limits": [
+          "No external Codex host deployment or physical Android device E2E in S1; reserved for S2.",
+          "SQLite reopen instrumentation test compiled but not executed on a device.",
+          "First JDK21 Android invocation failed at dependency download with TLS bad_record_mac; retry succeeded.",
+          "One earlier concurrent full Node run timed out in an unattended server test; targeted rerun and later full run passed.",
+          "No Git commit or deployment requested; working tree remains uncommitted."
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,1841 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T07:25:56.472Z",
+  "payload_sha256": "004fd4c29ec2b0d9e2d86bd15a3b4636de8657d1e39f6ff6a4e377a9827e249f",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s1-repair-execution-20260930-payload-envelope-01",
+    "request": {
+      "action": "execution",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S1",
+      "idempotency_key": "task20260830-s1-repair-execution-20260930-payload-envelope-01",
+      "mode": "repair",
+      "review_decision_ref": ".workflow-system/records/events/key-d9322617ffbaff6420c03e425302c6a970d21b082c4149fcfbc8fd0fb86247c4.json",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "files": {
+          "native/codex-rollout-compat-spike/Cargo.toml": "7ebfe1ed3e20fd94e3e4820adc718480cd6290bdcc3b97f2877ad9c3ec0c9001",
+          "native/codex-rollout-compat-spike/Cargo.lock": "7f557d329e25a10253b46c6270020f6581d77fcc93ef3dd74eae4c4bfa3162d1",
+          "native/codex-rollout-compat-spike/vendor/codex/Cargo.toml": "9a184dda120bdc7131a2ba010cf7a20ca52cfb77ed677730c507d9a39714fd9f",
+          "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+          "native/codex-rollout-compat-spike/src/lib.rs": "cd1a8a28a3e9011dcef11f2fc5f93c5d4e8ea59059bc6738f3c8a2b492b83934",
+          "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl": "5894211f6ece20171fa293b9c846a81ac66a2a7e1fe4a0fa50cee5023b9d6b62",
+          "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl": "6c652800b1458a12b8754e966f513d89521eb6083bc2311668c2020cc98023a6",
+          "native/codex-rollout-demo/Cargo.toml": "078ed27bd3d800be20ec183d694aaa255ff311b86d178b57ff189d4c93498839",
+          "native/codex-rollout-demo/Cargo.lock": "cd32cda92b5e686abf38bbb157f0fb0281d54c7474fb23be2adcd64103e3270c",
+          "native/codex-rollout-compat-spike/README.md": "efc0f6d157b39cb21f3e8c3547adb0f60c4d4739ddd6046a54639e19c7f58b64",
+          "native/codex-rollout-compat-spike/vendor/codex/README.md": "87eac21a1110c475eb015044e38a9cd21eaf11b29be73c97adaa58d7cc755fc7",
+          "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md": "747d52bf7bb29d6874fcd4b00a4881a3b2ce6bdbbc304a65343f1a541610c882",
+          "docs/changes/records/CR-20260930-1509-codex-rollout-compat-s1-repair.md": "209d627146213213be83512352060f407410d494315297bf5532340fc6dc8302"
+        },
+        "scope": "S1-R1 repair only: Spike native payload wire conversions, existing native/parser tests and sanitized fixtures, two Spike READMEs, old CR supplemental correction and new draft repair CR. No formal collector/Demo source/Node/Android/IPC/manifest/lockfile edits.",
+        "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+        "new_report_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK",
+        "vendor_revision": "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2",
+        "tested_build_input_drift": []
+      },
+      "result": "S1-R1 envelope repair implemented; final focused checks passed. Exact prior payload-wrapped counterexample now decodes with the rebuilt current Spike, and malformed/flattened records remain fail-closed. This is implementation self-check only; the new execution has no formal review or finish disposition.",
+      "summary": "TokenUsageRecord now uses payload: Cow<TokenUsageRecord> for native serde conversion. Corrected real-envelope positive fixture and native round-trip checks; negatives use valid other carriers and isolate missing usage/wrong usage type/missing payload. Rebuilt Spike and readonly Demo reference, ran both actual binaries on the same common fixture, and kept all unknown/provisional differences explicit. Preserved the initial test compilation failure and the old review/execution facts.",
+      "addressed_findings": [
+        {
+          "review_ref": ".workflow-system/records/events/key-8c9b5a8e13109a903affc621d370eed183de31ee889540a8c3fceba67c1d202b.json",
+          "finding_id": "S1-R1",
+          "priority": "P1",
+          "implementation": "payload envelope and fail-closed fixtures corrected",
+          "self_check_result": "passed on exact previously failing sanitized input",
+          "formal_review_resolution": "pending; old finding/verdict not changed"
+        }
+      ],
+      "commands": [
+        {
+          "label": "spike-test",
+          "command": [
+            "cargo",
+            "test",
+            "--locked",
+            "--manifest-path",
+            "native/codex-rollout-compat-spike/Cargo.toml"
+          ],
+          "CARGO_TARGET_DIR": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike",
+          "profile": "debug",
+          "started_at": "2026-09-30T07:11:36.419Z",
+          "finished_at": "2026-09-30T07:11:41.026Z",
+          "exit_code": 101,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test.stdout.txt",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test.stderr.txt",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "d3cf6d355ac15b6b59049a97337c1c2f770f70ec5727080026191053e970759c",
+          "result": "failed",
+          "stdout_text": "",
+          "stderr_text": "   Compiling codex-history v0.0.0 (E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\history)\n   Compiling codex-rollout-compat-spike v0.2.0 (E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike)\nerror[E0277]: `RolloutLine` doesn't implement `Debug`\n    --> src\\lib.rs:295:34\n     |\n 295 |             .map(|result| result.expect_err(\"each malformed record must fail\"))\n     |                                  ^^^^^^^^^^ the trait `Debug` is not implemented for `RolloutLine`\n     |\nnote: required by a bound in `std::result::Result::<T, E>::expect_err`\n    --> C:\\Users\\kongx\\.rustup\\toolchains\\1.95.0-x86_64-pc-windows-gnu\\lib/rustlib/src/rust\\library\\core\\src\\result.rs:1295:12\n     |\n1293 |     pub fn expect_err(self, msg: &str) -> E\n     |            ---------- required by a bound in this associated function\n1294 |     where\n1295 |         T: fmt::Debug,\n     |            ^^^^^^^^^^ required by this bound in `Result::<T, E>::expect_err`\n\nFor more information about this error, try `rustc --explain E0277`.\nerror: could not compile `codex-rollout-compat-spike` (lib test) due to 1 previous error\nwarning: build failed, waiting for other jobs to finish...\n"
+        },
+        {
+          "label": "spike-test-r2",
+          "command": [
+            "cargo",
+            "test",
+            "--locked",
+            "--manifest-path",
+            "native/codex-rollout-compat-spike/Cargo.toml"
+          ],
+          "CARGO_TARGET_DIR": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike",
+          "profile": "debug",
+          "started_at": "2026-09-30T07:12:26.669Z",
+          "finished_at": "2026-09-30T07:12:36.664Z",
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test-r2.stdout.txt",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test-r2.stderr.txt",
+          "stdout_sha256": "c45db514cbb124248374cbff0c7522a8b05e653c5e13010e750eb3686fc93f6e",
+          "stderr_sha256": "bacdbbcabdf80a698987defd095b949290fa465264ff431b06740b5fb10879cd",
+          "result": "passed",
+          "stdout_text": "\nrunning 7 tests\ntest tests::parser_accepts_token_usage_record_and_preserves_legacy_usage_carrier ... ok\ntest tests::parser_returns_codex_rollout_line_without_a_termlink_wire_model ... ok\ntest tests::parser_rejects_malformed_token_usage_records ... ok\ntest reader::tests::streaming_reader_matches_full_reader_without_collecting_source_lines ... ok\ntest reader::tests::streaming_reader_decodes_zstd_without_codex_rollout_reader ... ok\ntest reader::tests::tail_segment_is_complete_and_prefix_backfill_restores_source_order ... ok\ntest reader::tests::append_reader_retries_an_unterminated_tail_after_the_file_grows ... ok\n\ntest result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+          "stderr_text": "   Compiling codex-rollout-compat-spike v0.2.0 (E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.08s\n     Running unittests src\\lib.rs (C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike\\debug\\deps\\codex_rollout_compat_spike-f33a8a6d0d47e49d.exe)\n     Running unittests src\\main.rs (C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike\\debug\\deps\\codex_rollout_compat_spike-d70992fa57387c69.exe)\n   Doc-tests codex_rollout_compat_spike\n"
+        },
+        {
+          "label": "spike-build",
+          "command": [
+            "cargo",
+            "build",
+            "--locked",
+            "--manifest-path",
+            "native/codex-rollout-compat-spike/Cargo.toml"
+          ],
+          "CARGO_TARGET_DIR": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike",
+          "profile": "debug",
+          "started_at": "2026-09-30T07:12:36.668Z",
+          "finished_at": "2026-09-30T07:12:42.413Z",
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-build.stdout.txt",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-build.stderr.txt",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "d5501805bd82fdf56269902d6e8ad85f0230c73e2420776b265fcd000c19779f",
+          "result": "passed",
+          "stdout_text": "",
+          "stderr_text": "   Compiling codex-rollout-compat-spike v0.2.0 (E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.54s\n"
+        },
+        {
+          "label": "demo-build",
+          "command": [
+            "cargo",
+            "build",
+            "--locked",
+            "--manifest-path",
+            "native/codex-rollout-demo/Cargo.toml",
+            "--bin",
+            "codex-rollout-demo"
+          ],
+          "CARGO_TARGET_DIR": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo",
+          "profile": "debug",
+          "started_at": "2026-09-30T07:12:42.413Z",
+          "finished_at": "2026-09-30T07:12:42.590Z",
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-build.stdout.txt",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-build.stderr.txt",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "99f71393b9903dca098310bb446022a4bdee195ea9996f351a787195555210a6",
+          "result": "passed",
+          "stdout_text": "",
+          "stderr_text": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s\n"
+        },
+        {
+          "name": "token-positive",
+          "command": [
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+            "--rollout",
+            "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl",
+            "--output",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-positive.parsed.jsonl",
+            "--mode",
+            "stream"
+          ],
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-positive.stdout.json",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-positive.stderr.txt",
+          "stdout_sha256": "0d89782cff8f6e771974e48b476496680b75a2eb9b61fedf57f22d02dc4dc692",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "result": "passed with report assertions",
+          "report": {
+            "complete_end_offset": null,
+            "decoded_bytes": 1320,
+            "emitted_records": 2,
+            "event_payload_types": {
+              "token_count": 1
+            },
+            "first_parse_error": null,
+            "item_kinds": {
+              "event_msg": 1,
+              "token_usage_record": 1
+            },
+            "last_source_ordinal": 2,
+            "line_count": 2,
+            "mode": "stream",
+            "parse_errors": 0,
+            "pending_tail_bytes": 0,
+            "scanned_end_offset": null,
+            "segment_end_offset": null,
+            "segment_start_offset": null,
+            "segments": 0,
+            "source_bytes": 1320,
+            "source_grew_during_read": false,
+            "source_path": "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl",
+            "unmapped_types": {},
+            "valid_records": 2
+          },
+          "stderr_text": ""
+        },
+        {
+          "name": "token-malformed",
+          "command": [
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+            "--rollout",
+            "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl",
+            "--output",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-malformed.parsed.jsonl",
+            "--mode",
+            "stream"
+          ],
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-malformed.stdout.json",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-malformed.stderr.txt",
+          "stdout_sha256": "d7dbda36fd0c01b6d73b338f66492108ec610d610ab70cb82f2ef84a5edb81f8",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "result": "passed with report assertions",
+          "report": {
+            "complete_end_offset": null,
+            "decoded_bytes": 2135,
+            "emitted_records": 0,
+            "event_payload_types": {},
+            "first_parse_error": "line 1: missing field `usage`",
+            "item_kinds": {},
+            "last_source_ordinal": 3,
+            "line_count": 3,
+            "mode": "stream",
+            "parse_errors": 3,
+            "pending_tail_bytes": 0,
+            "scanned_end_offset": null,
+            "segment_end_offset": null,
+            "segment_start_offset": null,
+            "segments": 0,
+            "source_bytes": 2135,
+            "source_grew_during_read": false,
+            "source_path": "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl",
+            "unmapped_types": {
+              "rollout:token_usage_record": 3
+            },
+            "valid_records": 0
+          },
+          "stderr_text": ""
+        },
+        {
+          "name": "prior-wrapped-counterexample",
+          "command": [
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+            "--rollout",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/actual-envelope.jsonl",
+            "--output",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-wrapped-counterexample.parsed.jsonl",
+            "--mode",
+            "stream"
+          ],
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-wrapped-counterexample.stdout.json",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-wrapped-counterexample.stderr.txt",
+          "stdout_sha256": "308323aa5c5086f1de8d6d23057667833e2ee7de0cecd666968aa49bce2869cb",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "result": "passed with report assertions",
+          "report": {
+            "complete_end_offset": null,
+            "decoded_bytes": 807,
+            "emitted_records": 1,
+            "event_payload_types": {},
+            "first_parse_error": null,
+            "item_kinds": {
+              "token_usage_record": 1
+            },
+            "last_source_ordinal": 1,
+            "line_count": 1,
+            "mode": "stream",
+            "parse_errors": 0,
+            "pending_tail_bytes": 0,
+            "scanned_end_offset": null,
+            "segment_end_offset": null,
+            "segment_start_offset": null,
+            "segments": 0,
+            "source_bytes": 807,
+            "source_grew_during_read": false,
+            "source_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/actual-envelope.jsonl",
+            "unmapped_types": {},
+            "valid_records": 1
+          },
+          "stderr_text": ""
+        },
+        {
+          "name": "prior-flat-control",
+          "command": [
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+            "--rollout",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/flat-control.jsonl",
+            "--output",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-flat-control.parsed.jsonl",
+            "--mode",
+            "stream"
+          ],
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-flat-control.stdout.json",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-flat-control.stderr.txt",
+          "stdout_sha256": "f7ca0136d48f5aa498ac6a5e7a23f16d9c800420b0916df14c9cb76b66b96699",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "result": "passed with report assertions",
+          "report": {
+            "complete_end_offset": null,
+            "decoded_bytes": 795,
+            "emitted_records": 0,
+            "event_payload_types": {},
+            "first_parse_error": "line 1: missing field `payload`",
+            "item_kinds": {},
+            "last_source_ordinal": 1,
+            "line_count": 1,
+            "mode": "stream",
+            "parse_errors": 1,
+            "pending_tail_bytes": 0,
+            "scanned_end_offset": null,
+            "segment_end_offset": null,
+            "segment_start_offset": null,
+            "segments": 0,
+            "source_bytes": 795,
+            "source_grew_during_read": false,
+            "source_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/flat-control.jsonl",
+            "unmapped_types": {
+              "rollout:token_usage_record": 1
+            },
+            "valid_records": 0
+          },
+          "stderr_text": ""
+        },
+        {
+          "name": "demo-common",
+          "command": [
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+            "--rollout",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+            "--full-oracle",
+            "--allow-partial",
+            "--report",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common-report.json"
+          ],
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common.stdout.json",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common.stderr.txt",
+          "stdout_sha256": "c260c3e807daec6879f2e2efa94c5a400618862687822f200d11645811d0a3de",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "result": "passed with report assertions",
+          "report": {
+            "schema": "codex-rollout-demo-report",
+            "schema_version": 3,
+            "codex_revision": "bd2de422aa287b97b06ca6425a10935bcf1b3731",
+            "input": {
+              "rollout_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+              "parser_backend": "demo",
+              "read_mode": "full_oracle",
+              "segment_bytes": null,
+              "tail_segment_start": null,
+              "tail_segment_end": null,
+              "backfill_segments": 0,
+              "bytes": 3714,
+              "decoded_bytes": 3714,
+              "budget_bytes": 73400320,
+              "line_count": 14,
+              "valid_records": 14,
+              "parse_errors": 0,
+              "first_parse_error": null,
+              "item_kinds": {
+                "event_msg": 7,
+                "future_rollout_variant": 1,
+                "response_item": 5,
+                "session_meta": 1
+              },
+              "event_payload_types": {
+                "agent_message": 1,
+                "plan_update": 1,
+                "request_user_input": 1,
+                "token_count": 1,
+                "turn_complete": 1,
+                "turn_started": 1,
+                "user_message": 1
+              },
+              "unmapped_types": {},
+              "checkpoint_loaded": false,
+              "checkpoint_pending_tail_bytes": 0,
+              "checkpoint_source_grew_during_read": false
+            },
+            "reduction": {
+              "conversations": 1,
+              "turns": 2,
+              "retained_items": 8,
+              "retained_by_kind": {
+                "assistant_message": 2,
+                "custom_tool": 1,
+                "function_call": 1,
+                "plan": 1,
+                "plan_question": 1,
+                "task_outcome": 1,
+                "user_message": 1
+              },
+              "dropped_total": 3,
+              "dropped_by_kind": {
+                "foreign_session_meta": 1,
+                "response_user_input_context": 1,
+                "unsupported:future_rollout_variant": 1
+              },
+              "detail_payloads": 2,
+              "detail_bytes": 905,
+              "detail_full_retained": 2,
+              "detail_summary_only": 0,
+              "detail_dropped_by_policy": 0,
+              "result_fields_deduplicated": 0,
+              "commands_normalized": 0,
+              "approvals_seen": 0,
+              "compactions_seen": 0,
+              "rollbacks_seen": 0,
+              "hidden_reasoning_dropped": 0,
+              "delta_dropped": 0,
+              "plan_questions_seen": 1,
+              "plan_answers_seen": 0,
+              "unresolved_tools": 0,
+              "unresolved_questions": 1,
+              "attachments_seen": 0,
+              "artifacts_seen": 0,
+              "file_changes_seen": 0,
+              "search_results_seen": 0,
+              "plan_actions_seen": 0
+            },
+            "comparison": {
+              "official_built": false,
+              "official_turn_count": 0,
+              "projection_turn_count": 2,
+              "official_item_count": 0,
+              "projection_item_count": 8,
+              "official_item_kinds": {},
+              "official_missing_but_projection_has": [
+                "tool.output_bytes/output_sha256",
+                "tool.exit_code/duration_ms",
+                "approval",
+                "settings_snapshot",
+                "rate_limit",
+                "usage",
+                "plan_question/answer",
+                "task_outcome",
+                "presentation_kind",
+                "display_command",
+                "task_outcome.final_metrics",
+                "task_outcome.provisional",
+                "source_ref/source_ordinal"
+              ]
+            },
+            "output": {
+              "report_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common-report.json",
+              "projection_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common-report.projection.json",
+              "details_path": null,
+              "tail_preview_path": null,
+              "official_path": null,
+              "projection_bytes": 14660,
+              "details_bytes": 907,
+              "official_bytes": 0,
+              "content_hash": "ebdeff8819d9dd632a8be2b4a1bd61f2b5e973662d24062cdae30ad894976d30",
+              "snapshot_hash": "cffe1d255847cf5402fa92a466cd7c72b32b1926c235beb7d91209e6bd77de68"
+            },
+            "determinism": {
+              "run_index": 1,
+              "same_keys": true,
+              "same_hashes": true,
+              "same_report": true,
+              "first_run_content_hash": "ebdeff8819d9dd632a8be2b4a1bd61f2b5e973662d24062cdae30ad894976d30",
+              "second_run_content_hash": null,
+              "timing_excluded": true
+            },
+            "self_api_verification": null,
+            "timing": {
+              "read_ms": 0,
+              "reduce_ms": 1,
+              "project_ms": 1,
+              "total_ms": 3,
+              "peak_memory_mb": 9
+            },
+            "partial": true
+          },
+          "stderr_text": ""
+        },
+        {
+          "name": "spike-common",
+          "command": [
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+            "--rollout",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+            "--output",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-common.parsed.jsonl",
+            "--mode",
+            "stream"
+          ],
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-common.stdout.json",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-common.stderr.txt",
+          "stdout_sha256": "d36844e6761b51959da6e34dda44c00739fe41659930f2df2c07b9b8a8973f7b",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "result": "passed with report assertions",
+          "report": {
+            "complete_end_offset": null,
+            "decoded_bytes": 3714,
+            "emitted_records": 13,
+            "event_payload_types": {
+              "agent_message": 1,
+              "plan_update": 1,
+              "request_user_input": 1,
+              "task_complete": 1,
+              "task_started": 1,
+              "token_count": 1,
+              "user_message": 1
+            },
+            "first_parse_error": "line 14: unknown variant `future_rollout_variant`, expected one of `session_meta`, `response_item`, `inter_agent_communication`, `inter_agent_communication_metadata`, `compacted`, `turn_context`, `world_state`, `security_risk_score`, `event_msg`, `token_usage_record`",
+            "item_kinds": {
+              "event_msg": 7,
+              "response_item": 5,
+              "session_meta": 1
+            },
+            "last_source_ordinal": 14,
+            "line_count": 14,
+            "mode": "stream",
+            "parse_errors": 1,
+            "pending_tail_bytes": 0,
+            "scanned_end_offset": null,
+            "segment_end_offset": null,
+            "segment_start_offset": null,
+            "segments": 0,
+            "source_bytes": 3714,
+            "source_grew_during_read": false,
+            "source_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+            "unmapped_types": {
+              "rollout:future_rollout_variant": 1
+            },
+            "valid_records": 13
+          },
+          "stderr_text": ""
+        },
+        {
+          "name": "demo-spike-common",
+          "command": [
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+            "--rollout",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+            "--full-oracle",
+            "--allow-partial",
+            "--parser",
+            "spike",
+            "--spike-bin",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+            "--report",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common-report.json"
+          ],
+          "exit_code": 0,
+          "error": null,
+          "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common.stdout.json",
+          "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common.stderr.txt",
+          "stdout_sha256": "52692b0dbde945481abef23d3a3a18637d882f667b315f5f2d4098cba6a07ad3",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "result": "passed with report assertions",
+          "report": {
+            "schema": "codex-rollout-demo-report",
+            "schema_version": 3,
+            "codex_revision": "bd2de422aa287b97b06ca6425a10935bcf1b3731",
+            "input": {
+              "rollout_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+              "parser_backend": "spike",
+              "read_mode": "full_oracle",
+              "segment_bytes": null,
+              "tail_segment_start": null,
+              "tail_segment_end": null,
+              "backfill_segments": 0,
+              "bytes": 3714,
+              "decoded_bytes": 3714,
+              "budget_bytes": 73400320,
+              "line_count": 14,
+              "valid_records": 13,
+              "parse_errors": 1,
+              "first_parse_error": "line 14: unknown variant `future_rollout_variant`, expected one of `session_meta`, `response_item`, `inter_agent_communication`, `inter_agent_communication_metadata`, `compacted`, `turn_context`, `world_state`, `security_risk_score`, `event_msg`, `token_usage_record`",
+              "item_kinds": {
+                "event_msg": 7,
+                "response_item": 5,
+                "session_meta": 1
+              },
+              "event_payload_types": {
+                "agent_message": 1,
+                "plan_update": 1,
+                "request_user_input": 1,
+                "task_complete": 1,
+                "task_started": 1,
+                "token_count": 1,
+                "user_message": 1
+              },
+              "unmapped_types": {
+                "rollout:future_rollout_variant": 1
+              },
+              "checkpoint_loaded": false,
+              "checkpoint_pending_tail_bytes": 0,
+              "checkpoint_source_grew_during_read": false
+            },
+            "reduction": {
+              "conversations": 1,
+              "turns": 2,
+              "retained_items": 8,
+              "retained_by_kind": {
+                "assistant_message": 2,
+                "custom_tool": 1,
+                "function_call": 1,
+                "plan": 1,
+                "plan_question": 1,
+                "task_outcome": 1,
+                "user_message": 1
+              },
+              "dropped_total": 1,
+              "dropped_by_kind": {
+                "response_user_input_context": 1
+              },
+              "detail_payloads": 2,
+              "detail_bytes": 801,
+              "detail_full_retained": 2,
+              "detail_summary_only": 0,
+              "detail_dropped_by_policy": 0,
+              "result_fields_deduplicated": 0,
+              "commands_normalized": 0,
+              "approvals_seen": 0,
+              "compactions_seen": 0,
+              "rollbacks_seen": 0,
+              "hidden_reasoning_dropped": 0,
+              "delta_dropped": 0,
+              "plan_questions_seen": 1,
+              "plan_answers_seen": 0,
+              "unresolved_tools": 0,
+              "unresolved_questions": 1,
+              "attachments_seen": 0,
+              "artifacts_seen": 0,
+              "file_changes_seen": 0,
+              "search_results_seen": 0,
+              "plan_actions_seen": 0
+            },
+            "comparison": {
+              "official_built": false,
+              "official_turn_count": 0,
+              "projection_turn_count": 2,
+              "official_item_count": 0,
+              "projection_item_count": 8,
+              "official_item_kinds": {},
+              "official_missing_but_projection_has": [
+                "tool.output_bytes/output_sha256",
+                "tool.exit_code/duration_ms",
+                "approval",
+                "settings_snapshot",
+                "rate_limit",
+                "usage",
+                "plan_question/answer",
+                "task_outcome",
+                "presentation_kind",
+                "display_command",
+                "task_outcome.final_metrics",
+                "task_outcome.provisional",
+                "source_ref/source_ordinal"
+              ]
+            },
+            "output": {
+              "report_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common-report.json",
+              "projection_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common-report.projection.json",
+              "details_path": null,
+              "tail_preview_path": null,
+              "official_path": null,
+              "projection_bytes": 19731,
+              "details_bytes": 803,
+              "official_bytes": 0,
+              "content_hash": "8bfa3c4bebf6b8da04b41badc43131603fc879e2b5ff55e592c77a752a7e02a2",
+              "snapshot_hash": "20215ea747a02ff5f6119427ac74aa6fa73c241e58252ed3cbc64747f309abfb"
+            },
+            "determinism": {
+              "run_index": 1,
+              "same_keys": true,
+              "same_hashes": true,
+              "same_report": true,
+              "first_run_content_hash": "8bfa3c4bebf6b8da04b41badc43131603fc879e2b5ff55e592c77a752a7e02a2",
+              "second_run_content_hash": null,
+              "timing_excluded": true
+            },
+            "self_api_verification": null,
+            "timing": {
+              "read_ms": 39,
+              "reduce_ms": 1,
+              "project_ms": 2,
+              "total_ms": 43,
+              "peak_memory_mb": 9
+            },
+            "partial": true
+          },
+          "stderr_text": ""
+        },
+        {
+          "label": "spike-fmt-final",
+          "command": "cargo fmt --manifest-path native/codex-rollout-compat-spike/Cargo.toml -- --check",
+          "result": "passed",
+          "exit_code": 0,
+          "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-fmt-final.log",
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "log_text": ""
+        },
+        {
+          "label": "vendor-fmt-final",
+          "command": "rustfmt --edition 2024 --check native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs",
+          "result": "passed",
+          "exit_code": 0,
+          "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/vendor-fmt-final.log",
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "log_text": ""
+        },
+        {
+          "label": "diff-check",
+          "command": "git diff --check -- native/codex-rollout-compat-spike docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md docs/changes/records/CR-20260930-1509-codex-rollout-compat-s1-repair.md",
+          "result": "passed",
+          "exit_code": 0,
+          "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/diff-check.log",
+          "log_sha256": "938c8b8f21b7b262772e05d35168519bb50442e8a0c379989512593e1f510c56",
+          "log_text": "warning: in the working copy of 'native/codex-rollout-compat-spike/README.md', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/src/lib.rs', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/README.md', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs', LF will be replaced by CRLF the next time Git touches it\r\n"
+        },
+        {
+          "label": "cr-repair-validation",
+          "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -RecordPath docs/changes/records/CR-20260930-1509-codex-rollout-compat-s1-repair.md -Strict",
+          "result": "passed",
+          "exit_code": 0,
+          "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/cr-repair-validation.log",
+          "log_sha256": "171c8d48ed84dfb357553513bda418244b6cf070ecf79fd41fa8c2246cf7d5da",
+          "log_text": "CR: E:\\coding\\TermLink-rust-source-resolution-codex\\docs\\changes\\records\\CR-20260930-1509-codex-rollout-compat-s1-repair.md\r\nPASS: Change record validation succeeded.\r\n"
+        },
+        {
+          "label": "cr-original-validation",
+          "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -RecordPath docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md -Strict",
+          "result": "passed",
+          "exit_code": 0,
+          "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/cr-original-validation.log",
+          "log_sha256": "5fdff3db86913bdb9edae45d2f1c6e4b1307be1e8f5bfe1b3a9c6ca583c120bb",
+          "log_text": "CR: E:\\coding\\TermLink-rust-source-resolution-codex\\docs\\changes\\records\\CR-20260930-1441-codex-rollout-compat-s1.md\r\nPASS: Change record validation succeeded.\r\n"
+        },
+        {
+          "label": "req-utf8-validation",
+          "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-req.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -ReqPath docs/product/requirements/REQ-20260309-codex-capability-mvp.md -Strict",
+          "result": "passed",
+          "exit_code": 0,
+          "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/req-utf8-validation.log",
+          "log_sha256": "2e9ed18483258a25051953d2961abe0c1b3c4a3ba3bd5dec81f5e9b9c9ce7345",
+          "log_text": "REQ: E:\\coding\\TermLink-rust-source-resolution-codex\\docs\\product\\requirements\\REQ-20260309-codex-capability-mvp.md\r\nPASS: REQ validation succeeded.\r\n"
+        }
+      ],
+      "artifacts": {
+        "spike": {
+          "path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+          "sha256": "2ca5cb66eda8f176ee00752eaf5abd23d100ae915571e58c9d7c0c7fdf38f3ff",
+          "bytes": 613855756
+        },
+        "demo": {
+          "path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+          "sha256": "fc6995f5de2f5271c9f35a2da5a78629965cb3b85f265ba4ff9c2513602946f2",
+          "bytes": 44842953
+        }
+      },
+      "validation_summary": {
+        "positive": {
+          "valid": 2,
+          "emitted": 2,
+          "parse_errors": 0,
+          "native_envelope_round_trip": true
+        },
+        "negative": {
+          "valid": 0,
+          "emitted": 0,
+          "parse_errors": 3,
+          "first_parse_error": "line 1: missing field `usage`"
+        },
+        "exact_prior_counterexample": {
+          "input_sha256": "674c840013ba294b5f0a75b1528a86f047d162244c55933b9805bb7168bb06d1",
+          "valid": 1,
+          "emitted": 1,
+          "parse_errors": 0
+        },
+        "old_flat_rejected": {
+          "valid": 0,
+          "parse_errors": 1,
+          "first_parse_error": "line 1: missing field `payload`"
+        },
+        "common_fixture": {
+          "sha256": "0933c505c2331b525e7d52cfee574acee3c88761455121ced60b93ffe63afa29",
+          "bytes": 3714,
+          "demo_valid": 14,
+          "demo_parse_errors": 0,
+          "spike_valid": 13,
+          "spike_parse_errors": 1,
+          "unknown_future_variant_retained": true,
+          "stable_projection_equal": true,
+          "turns": 2,
+          "items": 8,
+          "turn_usage": 70,
+          "session_usage": 120,
+          "task_outcome_provisional": {
+            "demo": false,
+            "spike": true
+          },
+          "limits": "Same-input A/B covers shared existing semantics; no formal collector or canonical product publication claim"
+        }
+      },
+      "fixed_source_shape": {
+        "source_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+        "bytes": 1303231,
+        "records": 227,
+        "token_usage_records": 21,
+        "outer_key_sets": [
+          "ordinal,payload,timestamp,type"
+        ],
+        "payload_key_sets": [
+          "response_id,root_turn_id,session_id,thread_id,thread_token_usage,turn_id,turn_token_usage,usage"
+        ],
+        "binding_types": {
+          "thread_id": [
+            "string"
+          ],
+          "turn_id": [
+            "string"
+          ],
+          "session_id": [
+            "string"
+          ],
+          "root_turn_id": [
+            "string"
+          ],
+          "response_id": [
+            "string"
+          ]
+        },
+        "usage_field_shapes": {
+          "usage": [
+            "cache_write_input_tokens:number,cached_input_tokens:number,input_tokens:number,output_tokens:number,reasoning_output_tokens:number,total_tokens:number"
+          ],
+          "turn_token_usage": [
+            "cache_write_input_tokens:number,cached_input_tokens:number,input_tokens:number,output_tokens:number,reasoning_output_tokens:number,total_tokens:number"
+          ],
+          "thread_token_usage": [
+            "cache_write_input_tokens:number,cached_input_tokens:number,input_tokens:number,output_tokens:number,reasoning_output_tokens:number,total_tokens:number"
+          ]
+        },
+        "purpose": "Read-only keys/types only; no raw host values or developer content saved"
+      },
+      "failed_attempts_retained": [
+        {
+          "label": "spike-test",
+          "exit_code": 101,
+          "cause": "Result::expect_err requires RolloutLine: Debug; test error handling changed to explicit match without changing native data type",
+          "log_ref": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test.stderr.txt",
+          "log_sha256": "d3cf6d355ac15b6b59049a97337c1c2f770f70ec5727080026191053e970759c",
+          "subsequent_result": "spike-test-r2: 7 passed / 0 failed"
+        },
+        {
+          "label": "initial-req-windows-powershell5",
+          "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-req.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -ReqPath docs/product/requirements/REQ-20260309-codex-capability-mvp.md -Strict",
+          "result": "failed",
+          "exit_code": "not separately captured",
+          "observed_errors": [
+            "Missing front matter field: status",
+            "Missing Meta field: priority"
+          ],
+          "correction": "No REQ change. UTF-8 reading and PowerShell 7 validation passed; initial check retained as an encoding-dependent tool failure."
+        }
+      ],
+      "provenance": {
+        "kind": "implementation-self-check",
+        "implementer": "Current Codex agent under explicit execute-step repair instruction",
+        "formal_review_created": false,
+        "independent_review_claimed": false
+      },
+      "limits": [
+        "No formal collector vendor promotion, CodexEventAdapter/developer implementation or canonical gate changes",
+        "No S3 full real-source target backfill/canonical/ACK verification; only read-only source key/type statistics",
+        "Spike root 7 tests include native serde round-trip/error paths; added vendored history standalone test functions were not separately selected or counted",
+        "Demo build reused valid cached inputs; its 26 prior tests were not rerun and are not new subject evidence",
+        "Common A/B includes an unknown future variant: Spike partial/error and task_outcome provisional difference remain expected and explicit",
+        "Task 005 remains paused with S2 acceptance not passed; no Task 004 old report is refreshed",
+        "No Git commit, push, service operation, runtime analyzer replacement, external deployment or device test",
+        "Both CRs remain draft with commit_ref=TBD; no unrelated REQ/mainline PLAN status changes"
+      ],
+      "remaining_work": [
+        "Review the new S1 repair execution and assess S1-R1 against current source/artifact evidence",
+        "S1 still lacks finish disposition; S2 and S3 remain not-started",
+        "Developer hidden-content semantics, formal vendor parity/promotion, formal canonical backfill and Task 005 integration acceptance remain pending"
+      ],
+      "remaining_management_data": {
+        "issue_id": "issue-ec19a134aefeb23287cb519b",
+        "record_ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+        "disposition": "Pre-existing unassociated review retained; no guessed repair/link"
+      },
+      "links": [
+        {
+          "relation": "repairs-review",
+          "ref": ".workflow-system/records/events/key-8c9b5a8e13109a903affc621d370eed183de31ee889540a8c3fceba67c1d202b.json"
+        },
+        {
+          "relation": "user-repair-decision",
+          "ref": ".workflow-system/records/events/key-d9322617ffbaff6420c03e425302c6a970d21b082c4149fcfbc8fd0fb86247c4.json"
+        },
+        {
+          "relation": "prior-execution",
+          "ref": ".workflow-system/records/events/key-e0af9387d83643740bc55919abce22c16b3dd8a11f1dce91d399b994fcea084b.json"
+        },
+        {
+          "relation": "change-record",
+          "ref": "docs/changes/records/CR-20260930-1509-codex-rollout-compat-s1-repair.md"
+        },
+        {
+          "relation": "supplements-old-change-record",
+          "ref": "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md"
+        }
+      ],
+      "next_route": "review-change",
+      "next_mode": null,
+      "next_action": "Review the current S1 repair subject; no automatic finish or promotion"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-d9322617ffbaff6420c03e425302c6a970d21b082c4149fcfbc8fd0fb86247c4.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S1",
+        "mode": "repair",
+        "review_decision_ref": ".workflow-system/records/events/key-d9322617ffbaff6420c03e425302c6a970d21b082c4149fcfbc8fd0fb86247c4.json",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "files": {
+            "native/codex-rollout-compat-spike/Cargo.toml": "7ebfe1ed3e20fd94e3e4820adc718480cd6290bdcc3b97f2877ad9c3ec0c9001",
+            "native/codex-rollout-compat-spike/Cargo.lock": "7f557d329e25a10253b46c6270020f6581d77fcc93ef3dd74eae4c4bfa3162d1",
+            "native/codex-rollout-compat-spike/vendor/codex/Cargo.toml": "9a184dda120bdc7131a2ba010cf7a20ca52cfb77ed677730c507d9a39714fd9f",
+            "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+            "native/codex-rollout-compat-spike/src/lib.rs": "cd1a8a28a3e9011dcef11f2fc5f93c5d4e8ea59059bc6738f3c8a2b492b83934",
+            "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl": "5894211f6ece20171fa293b9c846a81ac66a2a7e1fe4a0fa50cee5023b9d6b62",
+            "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl": "6c652800b1458a12b8754e966f513d89521eb6083bc2311668c2020cc98023a6",
+            "native/codex-rollout-demo/Cargo.toml": "078ed27bd3d800be20ec183d694aaa255ff311b86d178b57ff189d4c93498839",
+            "native/codex-rollout-demo/Cargo.lock": "cd32cda92b5e686abf38bbb157f0fb0281d54c7474fb23be2adcd64103e3270c",
+            "native/codex-rollout-compat-spike/README.md": "efc0f6d157b39cb21f3e8c3547adb0f60c4d4739ddd6046a54639e19c7f58b64",
+            "native/codex-rollout-compat-spike/vendor/codex/README.md": "87eac21a1110c475eb015044e38a9cd21eaf11b29be73c97adaa58d7cc755fc7",
+            "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md": "747d52bf7bb29d6874fcd4b00a4881a3b2ce6bdbbc304a65343f1a541610c882",
+            "docs/changes/records/CR-20260930-1509-codex-rollout-compat-s1-repair.md": "209d627146213213be83512352060f407410d494315297bf5532340fc6dc8302"
+          },
+          "scope": "S1-R1 repair only: Spike native payload wire conversions, existing native/parser tests and sanitized fixtures, two Spike READMEs, old CR supplemental correction and new draft repair CR. No formal collector/Demo source/Node/Android/IPC/manifest/lockfile edits.",
+          "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+          "new_report_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK",
+          "vendor_revision": "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2",
+          "tested_build_input_drift": []
+        },
+        "result": "S1-R1 envelope repair implemented; final focused checks passed. Exact prior payload-wrapped counterexample now decodes with the rebuilt current Spike, and malformed/flattened records remain fail-closed. This is implementation self-check only; the new execution has no formal review or finish disposition.",
+        "summary": "TokenUsageRecord now uses payload: Cow<TokenUsageRecord> for native serde conversion. Corrected real-envelope positive fixture and native round-trip checks; negatives use valid other carriers and isolate missing usage/wrong usage type/missing payload. Rebuilt Spike and readonly Demo reference, ran both actual binaries on the same common fixture, and kept all unknown/provisional differences explicit. Preserved the initial test compilation failure and the old review/execution facts.",
+        "addressed_findings": [
+          {
+            "review_ref": ".workflow-system/records/events/key-8c9b5a8e13109a903affc621d370eed183de31ee889540a8c3fceba67c1d202b.json",
+            "finding_id": "S1-R1",
+            "priority": "P1",
+            "implementation": "payload envelope and fail-closed fixtures corrected",
+            "self_check_result": "passed on exact previously failing sanitized input",
+            "formal_review_resolution": "pending; old finding/verdict not changed"
+          }
+        ],
+        "commands": [
+          {
+            "label": "spike-test",
+            "command": [
+              "cargo",
+              "test",
+              "--locked",
+              "--manifest-path",
+              "native/codex-rollout-compat-spike/Cargo.toml"
+            ],
+            "CARGO_TARGET_DIR": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike",
+            "profile": "debug",
+            "started_at": "2026-09-30T07:11:36.419Z",
+            "finished_at": "2026-09-30T07:11:41.026Z",
+            "exit_code": 101,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test.stdout.txt",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test.stderr.txt",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_sha256": "d3cf6d355ac15b6b59049a97337c1c2f770f70ec5727080026191053e970759c",
+            "result": "failed",
+            "stdout_text": "",
+            "stderr_text": "   Compiling codex-history v0.0.0 (E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\history)\n   Compiling codex-rollout-compat-spike v0.2.0 (E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike)\nerror[E0277]: `RolloutLine` doesn't implement `Debug`\n    --> src\\lib.rs:295:34\n     |\n 295 |             .map(|result| result.expect_err(\"each malformed record must fail\"))\n     |                                  ^^^^^^^^^^ the trait `Debug` is not implemented for `RolloutLine`\n     |\nnote: required by a bound in `std::result::Result::<T, E>::expect_err`\n    --> C:\\Users\\kongx\\.rustup\\toolchains\\1.95.0-x86_64-pc-windows-gnu\\lib/rustlib/src/rust\\library\\core\\src\\result.rs:1295:12\n     |\n1293 |     pub fn expect_err(self, msg: &str) -> E\n     |            ---------- required by a bound in this associated function\n1294 |     where\n1295 |         T: fmt::Debug,\n     |            ^^^^^^^^^^ required by this bound in `Result::<T, E>::expect_err`\n\nFor more information about this error, try `rustc --explain E0277`.\nerror: could not compile `codex-rollout-compat-spike` (lib test) due to 1 previous error\nwarning: build failed, waiting for other jobs to finish...\n"
+          },
+          {
+            "label": "spike-test-r2",
+            "command": [
+              "cargo",
+              "test",
+              "--locked",
+              "--manifest-path",
+              "native/codex-rollout-compat-spike/Cargo.toml"
+            ],
+            "CARGO_TARGET_DIR": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike",
+            "profile": "debug",
+            "started_at": "2026-09-30T07:12:26.669Z",
+            "finished_at": "2026-09-30T07:12:36.664Z",
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test-r2.stdout.txt",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test-r2.stderr.txt",
+            "stdout_sha256": "c45db514cbb124248374cbff0c7522a8b05e653c5e13010e750eb3686fc93f6e",
+            "stderr_sha256": "bacdbbcabdf80a698987defd095b949290fa465264ff431b06740b5fb10879cd",
+            "result": "passed",
+            "stdout_text": "\nrunning 7 tests\ntest tests::parser_accepts_token_usage_record_and_preserves_legacy_usage_carrier ... ok\ntest tests::parser_returns_codex_rollout_line_without_a_termlink_wire_model ... ok\ntest tests::parser_rejects_malformed_token_usage_records ... ok\ntest reader::tests::streaming_reader_matches_full_reader_without_collecting_source_lines ... ok\ntest reader::tests::streaming_reader_decodes_zstd_without_codex_rollout_reader ... ok\ntest reader::tests::tail_segment_is_complete_and_prefix_backfill_restores_source_order ... ok\ntest reader::tests::append_reader_retries_an_unterminated_tail_after_the_file_grows ... ok\n\ntest result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+            "stderr_text": "   Compiling codex-rollout-compat-spike v0.2.0 (E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.08s\n     Running unittests src\\lib.rs (C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike\\debug\\deps\\codex_rollout_compat_spike-f33a8a6d0d47e49d.exe)\n     Running unittests src\\main.rs (C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike\\debug\\deps\\codex_rollout_compat_spike-d70992fa57387c69.exe)\n   Doc-tests codex_rollout_compat_spike\n"
+          },
+          {
+            "label": "spike-build",
+            "command": [
+              "cargo",
+              "build",
+              "--locked",
+              "--manifest-path",
+              "native/codex-rollout-compat-spike/Cargo.toml"
+            ],
+            "CARGO_TARGET_DIR": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike",
+            "profile": "debug",
+            "started_at": "2026-09-30T07:12:36.668Z",
+            "finished_at": "2026-09-30T07:12:42.413Z",
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-build.stdout.txt",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-build.stderr.txt",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_sha256": "d5501805bd82fdf56269902d6e8ad85f0230c73e2420776b265fcd000c19779f",
+            "result": "passed",
+            "stdout_text": "",
+            "stderr_text": "   Compiling codex-rollout-compat-spike v0.2.0 (E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.54s\n"
+          },
+          {
+            "label": "demo-build",
+            "command": [
+              "cargo",
+              "build",
+              "--locked",
+              "--manifest-path",
+              "native/codex-rollout-demo/Cargo.toml",
+              "--bin",
+              "codex-rollout-demo"
+            ],
+            "CARGO_TARGET_DIR": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo",
+            "profile": "debug",
+            "started_at": "2026-09-30T07:12:42.413Z",
+            "finished_at": "2026-09-30T07:12:42.590Z",
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-build.stdout.txt",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-build.stderr.txt",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_sha256": "99f71393b9903dca098310bb446022a4bdee195ea9996f351a787195555210a6",
+            "result": "passed",
+            "stdout_text": "",
+            "stderr_text": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s\n"
+          },
+          {
+            "name": "token-positive",
+            "command": [
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+              "--rollout",
+              "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl",
+              "--output",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-positive.parsed.jsonl",
+              "--mode",
+              "stream"
+            ],
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-positive.stdout.json",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-positive.stderr.txt",
+            "stdout_sha256": "0d89782cff8f6e771974e48b476496680b75a2eb9b61fedf57f22d02dc4dc692",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "result": "passed with report assertions",
+            "report": {
+              "complete_end_offset": null,
+              "decoded_bytes": 1320,
+              "emitted_records": 2,
+              "event_payload_types": {
+                "token_count": 1
+              },
+              "first_parse_error": null,
+              "item_kinds": {
+                "event_msg": 1,
+                "token_usage_record": 1
+              },
+              "last_source_ordinal": 2,
+              "line_count": 2,
+              "mode": "stream",
+              "parse_errors": 0,
+              "pending_tail_bytes": 0,
+              "scanned_end_offset": null,
+              "segment_end_offset": null,
+              "segment_start_offset": null,
+              "segments": 0,
+              "source_bytes": 1320,
+              "source_grew_during_read": false,
+              "source_path": "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl",
+              "unmapped_types": {},
+              "valid_records": 2
+            },
+            "stderr_text": ""
+          },
+          {
+            "name": "token-malformed",
+            "command": [
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+              "--rollout",
+              "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl",
+              "--output",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-malformed.parsed.jsonl",
+              "--mode",
+              "stream"
+            ],
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-malformed.stdout.json",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/token-malformed.stderr.txt",
+            "stdout_sha256": "d7dbda36fd0c01b6d73b338f66492108ec610d610ab70cb82f2ef84a5edb81f8",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "result": "passed with report assertions",
+            "report": {
+              "complete_end_offset": null,
+              "decoded_bytes": 2135,
+              "emitted_records": 0,
+              "event_payload_types": {},
+              "first_parse_error": "line 1: missing field `usage`",
+              "item_kinds": {},
+              "last_source_ordinal": 3,
+              "line_count": 3,
+              "mode": "stream",
+              "parse_errors": 3,
+              "pending_tail_bytes": 0,
+              "scanned_end_offset": null,
+              "segment_end_offset": null,
+              "segment_start_offset": null,
+              "segments": 0,
+              "source_bytes": 2135,
+              "source_grew_during_read": false,
+              "source_path": "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl",
+              "unmapped_types": {
+                "rollout:token_usage_record": 3
+              },
+              "valid_records": 0
+            },
+            "stderr_text": ""
+          },
+          {
+            "name": "prior-wrapped-counterexample",
+            "command": [
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+              "--rollout",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/actual-envelope.jsonl",
+              "--output",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-wrapped-counterexample.parsed.jsonl",
+              "--mode",
+              "stream"
+            ],
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-wrapped-counterexample.stdout.json",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-wrapped-counterexample.stderr.txt",
+            "stdout_sha256": "308323aa5c5086f1de8d6d23057667833e2ee7de0cecd666968aa49bce2869cb",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "result": "passed with report assertions",
+            "report": {
+              "complete_end_offset": null,
+              "decoded_bytes": 807,
+              "emitted_records": 1,
+              "event_payload_types": {},
+              "first_parse_error": null,
+              "item_kinds": {
+                "token_usage_record": 1
+              },
+              "last_source_ordinal": 1,
+              "line_count": 1,
+              "mode": "stream",
+              "parse_errors": 0,
+              "pending_tail_bytes": 0,
+              "scanned_end_offset": null,
+              "segment_end_offset": null,
+              "segment_start_offset": null,
+              "segments": 0,
+              "source_bytes": 807,
+              "source_grew_during_read": false,
+              "source_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/actual-envelope.jsonl",
+              "unmapped_types": {},
+              "valid_records": 1
+            },
+            "stderr_text": ""
+          },
+          {
+            "name": "prior-flat-control",
+            "command": [
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+              "--rollout",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/flat-control.jsonl",
+              "--output",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-flat-control.parsed.jsonl",
+              "--mode",
+              "stream"
+            ],
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-flat-control.stdout.json",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/prior-flat-control.stderr.txt",
+            "stdout_sha256": "f7ca0136d48f5aa498ac6a5e7a23f16d9c800420b0916df14c9cb76b66b96699",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "result": "passed with report assertions",
+            "report": {
+              "complete_end_offset": null,
+              "decoded_bytes": 795,
+              "emitted_records": 0,
+              "event_payload_types": {},
+              "first_parse_error": "line 1: missing field `payload`",
+              "item_kinds": {},
+              "last_source_ordinal": 1,
+              "line_count": 1,
+              "mode": "stream",
+              "parse_errors": 1,
+              "pending_tail_bytes": 0,
+              "scanned_end_offset": null,
+              "segment_end_offset": null,
+              "segment_start_offset": null,
+              "segments": 0,
+              "source_bytes": 795,
+              "source_grew_during_read": false,
+              "source_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/flat-control.jsonl",
+              "unmapped_types": {
+                "rollout:token_usage_record": 1
+              },
+              "valid_records": 0
+            },
+            "stderr_text": ""
+          },
+          {
+            "name": "demo-common",
+            "command": [
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+              "--rollout",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+              "--full-oracle",
+              "--allow-partial",
+              "--report",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common-report.json"
+            ],
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common.stdout.json",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common.stderr.txt",
+            "stdout_sha256": "c260c3e807daec6879f2e2efa94c5a400618862687822f200d11645811d0a3de",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "result": "passed with report assertions",
+            "report": {
+              "schema": "codex-rollout-demo-report",
+              "schema_version": 3,
+              "codex_revision": "bd2de422aa287b97b06ca6425a10935bcf1b3731",
+              "input": {
+                "rollout_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+                "parser_backend": "demo",
+                "read_mode": "full_oracle",
+                "segment_bytes": null,
+                "tail_segment_start": null,
+                "tail_segment_end": null,
+                "backfill_segments": 0,
+                "bytes": 3714,
+                "decoded_bytes": 3714,
+                "budget_bytes": 73400320,
+                "line_count": 14,
+                "valid_records": 14,
+                "parse_errors": 0,
+                "first_parse_error": null,
+                "item_kinds": {
+                  "event_msg": 7,
+                  "future_rollout_variant": 1,
+                  "response_item": 5,
+                  "session_meta": 1
+                },
+                "event_payload_types": {
+                  "agent_message": 1,
+                  "plan_update": 1,
+                  "request_user_input": 1,
+                  "token_count": 1,
+                  "turn_complete": 1,
+                  "turn_started": 1,
+                  "user_message": 1
+                },
+                "unmapped_types": {},
+                "checkpoint_loaded": false,
+                "checkpoint_pending_tail_bytes": 0,
+                "checkpoint_source_grew_during_read": false
+              },
+              "reduction": {
+                "conversations": 1,
+                "turns": 2,
+                "retained_items": 8,
+                "retained_by_kind": {
+                  "assistant_message": 2,
+                  "custom_tool": 1,
+                  "function_call": 1,
+                  "plan": 1,
+                  "plan_question": 1,
+                  "task_outcome": 1,
+                  "user_message": 1
+                },
+                "dropped_total": 3,
+                "dropped_by_kind": {
+                  "foreign_session_meta": 1,
+                  "response_user_input_context": 1,
+                  "unsupported:future_rollout_variant": 1
+                },
+                "detail_payloads": 2,
+                "detail_bytes": 905,
+                "detail_full_retained": 2,
+                "detail_summary_only": 0,
+                "detail_dropped_by_policy": 0,
+                "result_fields_deduplicated": 0,
+                "commands_normalized": 0,
+                "approvals_seen": 0,
+                "compactions_seen": 0,
+                "rollbacks_seen": 0,
+                "hidden_reasoning_dropped": 0,
+                "delta_dropped": 0,
+                "plan_questions_seen": 1,
+                "plan_answers_seen": 0,
+                "unresolved_tools": 0,
+                "unresolved_questions": 1,
+                "attachments_seen": 0,
+                "artifacts_seen": 0,
+                "file_changes_seen": 0,
+                "search_results_seen": 0,
+                "plan_actions_seen": 0
+              },
+              "comparison": {
+                "official_built": false,
+                "official_turn_count": 0,
+                "projection_turn_count": 2,
+                "official_item_count": 0,
+                "projection_item_count": 8,
+                "official_item_kinds": {},
+                "official_missing_but_projection_has": [
+                  "tool.output_bytes/output_sha256",
+                  "tool.exit_code/duration_ms",
+                  "approval",
+                  "settings_snapshot",
+                  "rate_limit",
+                  "usage",
+                  "plan_question/answer",
+                  "task_outcome",
+                  "presentation_kind",
+                  "display_command",
+                  "task_outcome.final_metrics",
+                  "task_outcome.provisional",
+                  "source_ref/source_ordinal"
+                ]
+              },
+              "output": {
+                "report_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common-report.json",
+                "projection_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-common-report.projection.json",
+                "details_path": null,
+                "tail_preview_path": null,
+                "official_path": null,
+                "projection_bytes": 14660,
+                "details_bytes": 907,
+                "official_bytes": 0,
+                "content_hash": "ebdeff8819d9dd632a8be2b4a1bd61f2b5e973662d24062cdae30ad894976d30",
+                "snapshot_hash": "cffe1d255847cf5402fa92a466cd7c72b32b1926c235beb7d91209e6bd77de68"
+              },
+              "determinism": {
+                "run_index": 1,
+                "same_keys": true,
+                "same_hashes": true,
+                "same_report": true,
+                "first_run_content_hash": "ebdeff8819d9dd632a8be2b4a1bd61f2b5e973662d24062cdae30ad894976d30",
+                "second_run_content_hash": null,
+                "timing_excluded": true
+              },
+              "self_api_verification": null,
+              "timing": {
+                "read_ms": 0,
+                "reduce_ms": 1,
+                "project_ms": 1,
+                "total_ms": 3,
+                "peak_memory_mb": 9
+              },
+              "partial": true
+            },
+            "stderr_text": ""
+          },
+          {
+            "name": "spike-common",
+            "command": [
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+              "--rollout",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+              "--output",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-common.parsed.jsonl",
+              "--mode",
+              "stream"
+            ],
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-common.stdout.json",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-common.stderr.txt",
+            "stdout_sha256": "d36844e6761b51959da6e34dda44c00739fe41659930f2df2c07b9b8a8973f7b",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "result": "passed with report assertions",
+            "report": {
+              "complete_end_offset": null,
+              "decoded_bytes": 3714,
+              "emitted_records": 13,
+              "event_payload_types": {
+                "agent_message": 1,
+                "plan_update": 1,
+                "request_user_input": 1,
+                "task_complete": 1,
+                "task_started": 1,
+                "token_count": 1,
+                "user_message": 1
+              },
+              "first_parse_error": "line 14: unknown variant `future_rollout_variant`, expected one of `session_meta`, `response_item`, `inter_agent_communication`, `inter_agent_communication_metadata`, `compacted`, `turn_context`, `world_state`, `security_risk_score`, `event_msg`, `token_usage_record`",
+              "item_kinds": {
+                "event_msg": 7,
+                "response_item": 5,
+                "session_meta": 1
+              },
+              "last_source_ordinal": 14,
+              "line_count": 14,
+              "mode": "stream",
+              "parse_errors": 1,
+              "pending_tail_bytes": 0,
+              "scanned_end_offset": null,
+              "segment_end_offset": null,
+              "segment_start_offset": null,
+              "segments": 0,
+              "source_bytes": 3714,
+              "source_grew_during_read": false,
+              "source_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+              "unmapped_types": {
+                "rollout:future_rollout_variant": 1
+              },
+              "valid_records": 13
+            },
+            "stderr_text": ""
+          },
+          {
+            "name": "demo-spike-common",
+            "command": [
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+              "--rollout",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+              "--full-oracle",
+              "--allow-partial",
+              "--parser",
+              "spike",
+              "--spike-bin",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+              "--report",
+              "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common-report.json"
+            ],
+            "exit_code": 0,
+            "error": null,
+            "stdout": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common.stdout.json",
+            "stderr": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common.stderr.txt",
+            "stdout_sha256": "52692b0dbde945481abef23d3a3a18637d882f667b315f5f2d4098cba6a07ad3",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "result": "passed with report assertions",
+            "report": {
+              "schema": "codex-rollout-demo-report",
+              "schema_version": 3,
+              "codex_revision": "bd2de422aa287b97b06ca6425a10935bcf1b3731",
+              "input": {
+                "rollout_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl",
+                "parser_backend": "spike",
+                "read_mode": "full_oracle",
+                "segment_bytes": null,
+                "tail_segment_start": null,
+                "tail_segment_end": null,
+                "backfill_segments": 0,
+                "bytes": 3714,
+                "decoded_bytes": 3714,
+                "budget_bytes": 73400320,
+                "line_count": 14,
+                "valid_records": 13,
+                "parse_errors": 1,
+                "first_parse_error": "line 14: unknown variant `future_rollout_variant`, expected one of `session_meta`, `response_item`, `inter_agent_communication`, `inter_agent_communication_metadata`, `compacted`, `turn_context`, `world_state`, `security_risk_score`, `event_msg`, `token_usage_record`",
+                "item_kinds": {
+                  "event_msg": 7,
+                  "response_item": 5,
+                  "session_meta": 1
+                },
+                "event_payload_types": {
+                  "agent_message": 1,
+                  "plan_update": 1,
+                  "request_user_input": 1,
+                  "task_complete": 1,
+                  "task_started": 1,
+                  "token_count": 1,
+                  "user_message": 1
+                },
+                "unmapped_types": {
+                  "rollout:future_rollout_variant": 1
+                },
+                "checkpoint_loaded": false,
+                "checkpoint_pending_tail_bytes": 0,
+                "checkpoint_source_grew_during_read": false
+              },
+              "reduction": {
+                "conversations": 1,
+                "turns": 2,
+                "retained_items": 8,
+                "retained_by_kind": {
+                  "assistant_message": 2,
+                  "custom_tool": 1,
+                  "function_call": 1,
+                  "plan": 1,
+                  "plan_question": 1,
+                  "task_outcome": 1,
+                  "user_message": 1
+                },
+                "dropped_total": 1,
+                "dropped_by_kind": {
+                  "response_user_input_context": 1
+                },
+                "detail_payloads": 2,
+                "detail_bytes": 801,
+                "detail_full_retained": 2,
+                "detail_summary_only": 0,
+                "detail_dropped_by_policy": 0,
+                "result_fields_deduplicated": 0,
+                "commands_normalized": 0,
+                "approvals_seen": 0,
+                "compactions_seen": 0,
+                "rollbacks_seen": 0,
+                "hidden_reasoning_dropped": 0,
+                "delta_dropped": 0,
+                "plan_questions_seen": 1,
+                "plan_answers_seen": 0,
+                "unresolved_tools": 0,
+                "unresolved_questions": 1,
+                "attachments_seen": 0,
+                "artifacts_seen": 0,
+                "file_changes_seen": 0,
+                "search_results_seen": 0,
+                "plan_actions_seen": 0
+              },
+              "comparison": {
+                "official_built": false,
+                "official_turn_count": 0,
+                "projection_turn_count": 2,
+                "official_item_count": 0,
+                "projection_item_count": 8,
+                "official_item_kinds": {},
+                "official_missing_but_projection_has": [
+                  "tool.output_bytes/output_sha256",
+                  "tool.exit_code/duration_ms",
+                  "approval",
+                  "settings_snapshot",
+                  "rate_limit",
+                  "usage",
+                  "plan_question/answer",
+                  "task_outcome",
+                  "presentation_kind",
+                  "display_command",
+                  "task_outcome.final_metrics",
+                  "task_outcome.provisional",
+                  "source_ref/source_ordinal"
+                ]
+              },
+              "output": {
+                "report_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common-report.json",
+                "projection_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/demo-spike-common-report.projection.json",
+                "details_path": null,
+                "tail_preview_path": null,
+                "official_path": null,
+                "projection_bytes": 19731,
+                "details_bytes": 803,
+                "official_bytes": 0,
+                "content_hash": "8bfa3c4bebf6b8da04b41badc43131603fc879e2b5ff55e592c77a752a7e02a2",
+                "snapshot_hash": "20215ea747a02ff5f6119427ac74aa6fa73c241e58252ed3cbc64747f309abfb"
+              },
+              "determinism": {
+                "run_index": 1,
+                "same_keys": true,
+                "same_hashes": true,
+                "same_report": true,
+                "first_run_content_hash": "8bfa3c4bebf6b8da04b41badc43131603fc879e2b5ff55e592c77a752a7e02a2",
+                "second_run_content_hash": null,
+                "timing_excluded": true
+              },
+              "self_api_verification": null,
+              "timing": {
+                "read_ms": 39,
+                "reduce_ms": 1,
+                "project_ms": 2,
+                "total_ms": 43,
+                "peak_memory_mb": 9
+              },
+              "partial": true
+            },
+            "stderr_text": ""
+          },
+          {
+            "label": "spike-fmt-final",
+            "command": "cargo fmt --manifest-path native/codex-rollout-compat-spike/Cargo.toml -- --check",
+            "result": "passed",
+            "exit_code": 0,
+            "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-fmt-final.log",
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "log_text": ""
+          },
+          {
+            "label": "vendor-fmt-final",
+            "command": "rustfmt --edition 2024 --check native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs",
+            "result": "passed",
+            "exit_code": 0,
+            "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/vendor-fmt-final.log",
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "log_text": ""
+          },
+          {
+            "label": "diff-check",
+            "command": "git diff --check -- native/codex-rollout-compat-spike docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md docs/changes/records/CR-20260930-1509-codex-rollout-compat-s1-repair.md",
+            "result": "passed",
+            "exit_code": 0,
+            "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/diff-check.log",
+            "log_sha256": "938c8b8f21b7b262772e05d35168519bb50442e8a0c379989512593e1f510c56",
+            "log_text": "warning: in the working copy of 'native/codex-rollout-compat-spike/README.md', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/src/lib.rs', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/README.md', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs', LF will be replaced by CRLF the next time Git touches it\r\nwarning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs', LF will be replaced by CRLF the next time Git touches it\r\n"
+          },
+          {
+            "label": "cr-repair-validation",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -RecordPath docs/changes/records/CR-20260930-1509-codex-rollout-compat-s1-repair.md -Strict",
+            "result": "passed",
+            "exit_code": 0,
+            "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/cr-repair-validation.log",
+            "log_sha256": "171c8d48ed84dfb357553513bda418244b6cf070ecf79fd41fa8c2246cf7d5da",
+            "log_text": "CR: E:\\coding\\TermLink-rust-source-resolution-codex\\docs\\changes\\records\\CR-20260930-1509-codex-rollout-compat-s1-repair.md\r\nPASS: Change record validation succeeded.\r\n"
+          },
+          {
+            "label": "cr-original-validation",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -RecordPath docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md -Strict",
+            "result": "passed",
+            "exit_code": 0,
+            "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/cr-original-validation.log",
+            "log_sha256": "5fdff3db86913bdb9edae45d2f1c6e4b1307be1e8f5bfe1b3a9c6ca583c120bb",
+            "log_text": "CR: E:\\coding\\TermLink-rust-source-resolution-codex\\docs\\changes\\records\\CR-20260930-1441-codex-rollout-compat-s1.md\r\nPASS: Change record validation succeeded.\r\n"
+          },
+          {
+            "label": "req-utf8-validation",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-req.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -ReqPath docs/product/requirements/REQ-20260309-codex-capability-mvp.md -Strict",
+            "result": "passed",
+            "exit_code": 0,
+            "log": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/req-utf8-validation.log",
+            "log_sha256": "2e9ed18483258a25051953d2961abe0c1b3c4a3ba3bd5dec81f5e9b9c9ce7345",
+            "log_text": "REQ: E:\\coding\\TermLink-rust-source-resolution-codex\\docs\\product\\requirements\\REQ-20260309-codex-capability-mvp.md\r\nPASS: REQ validation succeeded.\r\n"
+          }
+        ],
+        "artifacts": {
+          "spike": {
+            "path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+            "sha256": "2ca5cb66eda8f176ee00752eaf5abd23d100ae915571e58c9d7c0c7fdf38f3ff",
+            "bytes": 613855756
+          },
+          "demo": {
+            "path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+            "sha256": "fc6995f5de2f5271c9f35a2da5a78629965cb3b85f265ba4ff9c2513602946f2",
+            "bytes": 44842953
+          }
+        },
+        "validation_summary": {
+          "positive": {
+            "valid": 2,
+            "emitted": 2,
+            "parse_errors": 0,
+            "native_envelope_round_trip": true
+          },
+          "negative": {
+            "valid": 0,
+            "emitted": 0,
+            "parse_errors": 3,
+            "first_parse_error": "line 1: missing field `usage`"
+          },
+          "exact_prior_counterexample": {
+            "input_sha256": "674c840013ba294b5f0a75b1528a86f047d162244c55933b9805bb7168bb06d1",
+            "valid": 1,
+            "emitted": 1,
+            "parse_errors": 0
+          },
+          "old_flat_rejected": {
+            "valid": 0,
+            "parse_errors": 1,
+            "first_parse_error": "line 1: missing field `payload`"
+          },
+          "common_fixture": {
+            "sha256": "0933c505c2331b525e7d52cfee574acee3c88761455121ced60b93ffe63afa29",
+            "bytes": 3714,
+            "demo_valid": 14,
+            "demo_parse_errors": 0,
+            "spike_valid": 13,
+            "spike_parse_errors": 1,
+            "unknown_future_variant_retained": true,
+            "stable_projection_equal": true,
+            "turns": 2,
+            "items": 8,
+            "turn_usage": 70,
+            "session_usage": 120,
+            "task_outcome_provisional": {
+              "demo": false,
+              "spike": true
+            },
+            "limits": "Same-input A/B covers shared existing semantics; no formal collector or canonical product publication claim"
+          }
+        },
+        "fixed_source_shape": {
+          "source_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+          "bytes": 1303231,
+          "records": 227,
+          "token_usage_records": 21,
+          "outer_key_sets": [
+            "ordinal,payload,timestamp,type"
+          ],
+          "payload_key_sets": [
+            "response_id,root_turn_id,session_id,thread_id,thread_token_usage,turn_id,turn_token_usage,usage"
+          ],
+          "binding_types": {
+            "thread_id": [
+              "string"
+            ],
+            "turn_id": [
+              "string"
+            ],
+            "session_id": [
+              "string"
+            ],
+            "root_turn_id": [
+              "string"
+            ],
+            "response_id": [
+              "string"
+            ]
+          },
+          "usage_field_shapes": {
+            "usage": [
+              "cache_write_input_tokens:number,cached_input_tokens:number,input_tokens:number,output_tokens:number,reasoning_output_tokens:number,total_tokens:number"
+            ],
+            "turn_token_usage": [
+              "cache_write_input_tokens:number,cached_input_tokens:number,input_tokens:number,output_tokens:number,reasoning_output_tokens:number,total_tokens:number"
+            ],
+            "thread_token_usage": [
+              "cache_write_input_tokens:number,cached_input_tokens:number,input_tokens:number,output_tokens:number,reasoning_output_tokens:number,total_tokens:number"
+            ]
+          },
+          "purpose": "Read-only keys/types only; no raw host values or developer content saved"
+        },
+        "failed_attempts_retained": [
+          {
+            "label": "spike-test",
+            "exit_code": 101,
+            "cause": "Result::expect_err requires RolloutLine: Debug; test error handling changed to explicit match without changing native data type",
+            "log_ref": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/s1-repair-TEPQpK/spike-test.stderr.txt",
+            "log_sha256": "d3cf6d355ac15b6b59049a97337c1c2f770f70ec5727080026191053e970759c",
+            "subsequent_result": "spike-test-r2: 7 passed / 0 failed"
+          },
+          {
+            "label": "initial-req-windows-powershell5",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-req.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -ReqPath docs/product/requirements/REQ-20260309-codex-capability-mvp.md -Strict",
+            "result": "failed",
+            "exit_code": "not separately captured",
+            "observed_errors": [
+              "Missing front matter field: status",
+              "Missing Meta field: priority"
+            ],
+            "correction": "No REQ change. UTF-8 reading and PowerShell 7 validation passed; initial check retained as an encoding-dependent tool failure."
+          }
+        ],
+        "provenance": {
+          "kind": "implementation-self-check",
+          "implementer": "Current Codex agent under explicit execute-step repair instruction",
+          "formal_review_created": false,
+          "independent_review_claimed": false
+        },
+        "limits": [
+          "No formal collector vendor promotion, CodexEventAdapter/developer implementation or canonical gate changes",
+          "No S3 full real-source target backfill/canonical/ACK verification; only read-only source key/type statistics",
+          "Spike root 7 tests include native serde round-trip/error paths; added vendored history standalone test functions were not separately selected or counted",
+          "Demo build reused valid cached inputs; its 26 prior tests were not rerun and are not new subject evidence",
+          "Common A/B includes an unknown future variant: Spike partial/error and task_outcome provisional difference remain expected and explicit",
+          "Task 005 remains paused with S2 acceptance not passed; no Task 004 old report is refreshed",
+          "No Git commit, push, service operation, runtime analyzer replacement, external deployment or device test",
+          "Both CRs remain draft with commit_ref=TBD; no unrelated REQ/mainline PLAN status changes"
+        ],
+        "remaining_work": [
+          "Review the new S1 repair execution and assess S1-R1 against current source/artifact evidence",
+          "S1 still lacks finish disposition; S2 and S3 remain not-started",
+          "Developer hidden-content semantics, formal vendor parity/promotion, formal canonical backfill and Task 005 integration acceptance remain pending"
+        ],
+        "remaining_management_data": {
+          "issue_id": "issue-ec19a134aefeb23287cb519b",
+          "record_ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+          "disposition": "Pre-existing unassociated review retained; no guessed repair/link"
+        },
+        "links": [
+          {
+            "relation": "repairs-review",
+            "ref": ".workflow-system/records/events/key-8c9b5a8e13109a903affc621d370eed183de31ee889540a8c3fceba67c1d202b.json"
+          },
+          {
+            "relation": "user-repair-decision",
+            "ref": ".workflow-system/records/events/key-d9322617ffbaff6420c03e425302c6a970d21b082c4149fcfbc8fd0fb86247c4.json"
+          },
+          {
+            "relation": "prior-execution",
+            "ref": ".workflow-system/records/events/key-e0af9387d83643740bc55919abce22c16b3dd8a11f1dce91d399b994fcea084b.json"
+          },
+          {
+            "relation": "change-record",
+            "ref": "docs/changes/records/CR-20260930-1509-codex-rollout-compat-s1-repair.md"
+          },
+          {
+            "relation": "supplements-old-change-record",
+            "ref": "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md"
+          }
+        ],
+        "next_route": "review-change",
+        "next_mode": null,
+        "next_action": "Review the current S1 repair subject; no automatic finish or promotion"
+      }
+    }
+  },
+  "issues": []
+}

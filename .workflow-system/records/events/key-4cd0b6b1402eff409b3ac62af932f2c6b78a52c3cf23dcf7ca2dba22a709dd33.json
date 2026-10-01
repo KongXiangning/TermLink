@@ -1,0 +1,722 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T10:09:29.273Z",
+  "payload_sha256": "f399130fa53b73c9bd43f2ecf6347410060dbca72a12df8aadd1cc13cbe87088",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:termlink-s3-review-known-diagnostic-counterevidence-20260930-v1",
+    "request": {
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S3",
+      "execution_ref": ".workflow-system/records/events/key-2c7b6dc094697782c3c71694b3b6f629f1478c1db23be359922bd0b5537fff7d.json",
+      "idempotency_key": "termlink-s3-review-known-diagnostic-counterevidence-20260930-v1",
+      "selector": "S3-review/known-present-diagnostic-target-process-canonicality",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "subject_hashes": {
+          "native/codex-rollout-collector/vendor/codex/README.md": "e72c6eff2afe91f5d5d4568a3fc2f585898fe7d5becc8d9b1e83b5e5cb1603cf",
+          "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl": "9c024665ecd6adffafdcd52001a79f3bb0f695fe8009f297ad05842d720afc39",
+          "native/codex-rollout-collector/vendor/codex/history/src/tests.rs": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+          "native/codex-rollout-collector/tests/fixtures/malformed/token-usage-record.jsonl": "ce5ee299bd2ed1fcd31567436f7b4ade648587efd14f71997c805ee1ebc1d3a5",
+          "native/codex-rollout-collector/tests/fixtures/current/token-usage-record.jsonl": "32a206fd922d6d0ab692d49fa8593105059849dfdeb0c1524587e6aed40f2a71",
+          "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+          "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md": "6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679",
+          "native/codex-rollout-collector/tests/stage4_protocol.rs": "f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7",
+          "native/codex-rollout-collector/tests/conformance.rs": "72c9eecd3f8180c1e77329051e0ecdddd7e74bd45617966fafcf607b288d63e7",
+          "docs/codex/codex-rollout-collector-codex-compatibility.md": "b7f9bebe22bbb6a70131a2428e319acbebdf5e946853715bc75323c50f29f501",
+          "native/codex-rollout-collector/tests/fixtures/current/message-roles.jsonl": "b90151fe073e745159115e4f1161eaa8f3b0426470b95977db2d3ed9fed9dd0d",
+          "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+          "native/codex-rollout-collector/README.md": "3522f87d6ae6c8c3393cc453bad4db687c12e4315798319935c71227f4f9ee03",
+          "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1": "0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd",
+          "native/codex-rollout-collector/Cargo.lock": "dcd8b1008b78e3ce8245df7de4f583ad65ec433f38198f5bdb73251393db3ff5",
+          "native/codex-rollout-collector/src/codex_adapter/mod.rs": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+          "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+          "native/codex-rollout-collector/Cargo.toml": "dd4d85361ce0128a294b3f37ed9e4c5c2baaf6baf5cf691607c29fd54b69bb6a",
+          "docs/changes/records/CR-20260930-1650-codex-rollout-compat-s2-repair.md": "77156a00648f9f7d03a6145966208e2b7d7ef54310d63c3b0f8a26c6d2834fc8",
+          "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/README.md": "201edd8638c1d9a0db72244f1e58332e709b59c40b9c53875043d3522cda9292",
+          "native/codex-rollout-collector/tests/stage3_conformance.rs": "da524727d8d0ea7c5cba2ebdb955b4069819f7672b2801ec578c13f96273dc89",
+          "docs/codex/codex-rollout-collector-architecture.md": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+          "native/codex-rollout-collector/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+          "native/codex-rollout-collector/src/codex_wire/decode.rs": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+          "docs/changes/records/CR-20260930-1752-codex-rollout-compat-s3.md": "f5703eaced48b4ae8e8f1ba642622c31be00e9c27caee2dd4bc95d45a8a8b505",
+          "native/codex-rollout-collector/src/protocol/target_mapping.rs": "70017328250790c23226b8b11d8df48a462c663438d318fa98bb944116b82faf",
+          "native/codex-rollout-collector/src/model/analysis_event.rs": "cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55",
+          "native/codex-rollout-collector/src/analysis.rs": "bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52",
+          "native/codex-rollout-collector/src/protocol/target_data.rs": "13aaa2d3c38f0855843a969d1933eb6676fb8f24d7cc051f95365b5473fc0ee6",
+          "native/codex-rollout-collector/src/main.rs": "dccfeca907a792a7e6b21d264a21bbd4ffd647b36ce0d15b96d606e6542ad887",
+          "native/codex-rollout-collector/tests/stage4_target_protocol.rs": "7530d0559ffacd956b5430116910670a378f836b50ef0d6a8b87908b7b4ca23d",
+          "native/codex-rollout-collector/tests/fixtures/target-session/2026/08/26/rollout-2026-08-26T00-00-00-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl": "2df0c7a8b0aa8ae2a122fa2da2e8c677760068c48f970b548cee84947b3364ea"
+        }
+      },
+      "command": {
+        "executable": "node",
+        "arguments": [
+          "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s3-review-20260930-01/probe.cjs"
+        ],
+        "cwd": "E:/coding/TermLink-rust-source-resolution-codex",
+        "exit_code": 0,
+        "driver_sha256": "02895f9c05840b165c9566e0916f8b01db257191f5ea932d03a51e4993f4431c",
+        "native_target_sha256": "a40feca794938be7d97e1a4d2476bbfb569fb5c60935e23d7389886714adb26b"
+      },
+      "result": "failed",
+      "observation": "The supplemental command and all four isolated target processes exit0 with hello, one batch and one positive test-peer ACK, but the intended known-carrier canonicality assertion fails: baseline canonical; baseline+token_usage_record partial; baseline+developer partial. Real227/1303231 source is unchanged and yields129 present informational diagnostics, no batch-level unknown/parse gaps, and partial/no forward cursor. Command success is not canonical acceptance. This is new review counterevidence, not a recovered/freshened original S3 report.",
+      "report": {
+        "aggregate_report_sha256": "63ed9ada8957198bf26a3fbcce0ee4913899ed1395414fea1542c3ac8a7701f1",
+        "results": [
+          {
+            "label": "baseline",
+            "exit_code": 0,
+            "ack_count": 1,
+            "errors": [],
+            "complete": {
+              "status": "completed",
+              "completeness": "canonical",
+              "checkpoint": {
+                "schema_version": 1,
+                "source": {
+                  "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "source_range": {
+                    "start": 0,
+                    "end": 519
+                  },
+                  "snapshot_boundary": {
+                    "unit": "physical_bytes",
+                    "byte_length": 519
+                  }
+                },
+                "cursor_kind": "forward_append",
+                "cursor_present": true,
+                "projection_watermark": {
+                  "schema_version": 1,
+                  "segment_id": "seg-936058db53f9088f1d5a01f67911af57",
+                  "batch_id": "batch-f64a1ca90b33292a8219587e127618b2",
+                  "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "complete_source_end": 519,
+                  "logical_item_count": 2
+                },
+                "completeness": "canonical",
+                "reducer_state_present": true
+              }
+            },
+            "batches": {
+              "complete": true,
+              "completeness": "canonical",
+              "source_range": {
+                "start": 0,
+                "end": 519
+              },
+              "progress": {
+                "records_seen": 2,
+                "records_emitted": 2,
+                "bytes_scanned": 519,
+                "has_more": false
+              },
+              "batch_diagnostic_codes": {},
+              "projection": {
+                "complete": true,
+                "coverage": "complete",
+                "availability": "present",
+                "diagnostic_codes": {},
+                "diagnostic_availability": {},
+                "turn_count": 1
+              },
+              "synthetic_hidden_body_present": false,
+              "synthetic_usage_payload_present": false
+            },
+            "source": null
+          },
+          {
+            "label": "token",
+            "exit_code": 0,
+            "ack_count": 1,
+            "errors": [],
+            "complete": {
+              "status": "partial",
+              "completeness": "partial",
+              "checkpoint": {
+                "schema_version": 1,
+                "source": {
+                  "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "source_range": {
+                    "start": 0,
+                    "end": 1266
+                  },
+                  "snapshot_boundary": {
+                    "unit": "physical_bytes",
+                    "byte_length": 1266
+                  }
+                },
+                "cursor_kind": "backfill",
+                "cursor_present": true,
+                "projection_watermark": {
+                  "schema_version": 1,
+                  "segment_id": "seg-d123fdf9f4ebdf81307be2e05536868c",
+                  "batch_id": "batch-c41db272ebf0f8f6aeb4be54bd5706be",
+                  "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "complete_source_end": 1266,
+                  "logical_item_count": 3
+                },
+                "completeness": "partial",
+                "reducer_state_present": true
+              }
+            },
+            "batches": {
+              "complete": false,
+              "completeness": "partial",
+              "source_range": {
+                "start": 0,
+                "end": 1266
+              },
+              "progress": {
+                "records_seen": 3,
+                "records_emitted": 3,
+                "bytes_scanned": 1266,
+                "has_more": true
+              },
+              "batch_diagnostic_codes": {},
+              "projection": {
+                "complete": false,
+                "coverage": "partial",
+                "availability": "present",
+                "diagnostic_codes": {
+                  "token_usage_record": 1
+                },
+                "diagnostic_availability": {
+                  "present": 1
+                },
+                "turn_count": 1
+              },
+              "synthetic_hidden_body_present": false,
+              "synthetic_usage_payload_present": false
+            },
+            "source": null
+          },
+          {
+            "label": "developer",
+            "exit_code": 0,
+            "ack_count": 1,
+            "errors": [],
+            "complete": {
+              "status": "partial",
+              "completeness": "partial",
+              "checkpoint": {
+                "schema_version": 1,
+                "source": {
+                  "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "source_range": {
+                    "start": 0,
+                    "end": 810
+                  },
+                  "snapshot_boundary": {
+                    "unit": "physical_bytes",
+                    "byte_length": 810
+                  }
+                },
+                "cursor_kind": "backfill",
+                "cursor_present": true,
+                "projection_watermark": {
+                  "schema_version": 1,
+                  "segment_id": "seg-a18a4fdb7f16362eaa36993ad5a6849d",
+                  "batch_id": "batch-e93df36397ff4db618924b0d2d89cf2b",
+                  "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                  "complete_source_end": 810,
+                  "logical_item_count": 3
+                },
+                "completeness": "partial",
+                "reducer_state_present": true
+              }
+            },
+            "batches": {
+              "complete": false,
+              "completeness": "partial",
+              "source_range": {
+                "start": 0,
+                "end": 810
+              },
+              "progress": {
+                "records_seen": 3,
+                "records_emitted": 3,
+                "bytes_scanned": 810,
+                "has_more": true
+              },
+              "batch_diagnostic_codes": {},
+              "projection": {
+                "complete": false,
+                "coverage": "partial",
+                "availability": "present",
+                "diagnostic_codes": {
+                  "developer_message_hidden": 1
+                },
+                "diagnostic_availability": {
+                  "present": 1
+                },
+                "turn_count": 1
+              },
+              "synthetic_hidden_body_present": false,
+              "synthetic_usage_payload_present": false
+            },
+            "source": null
+          },
+          {
+            "label": "real-source",
+            "exit_code": 0,
+            "ack_count": 1,
+            "errors": [],
+            "complete": {
+              "status": "partial",
+              "completeness": "partial",
+              "checkpoint": {
+                "schema_version": 1,
+                "source": {
+                  "source_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                  "source_epoch": "lineage:01a0ee04-a775-72b3-bd07-04aac804a3b4:01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                  "source_range": {
+                    "start": 0,
+                    "end": 1303231
+                  },
+                  "snapshot_boundary": {
+                    "unit": "physical_bytes",
+                    "byte_length": 1303231
+                  }
+                },
+                "cursor_kind": null,
+                "cursor_present": false,
+                "projection_watermark": {
+                  "schema_version": 1,
+                  "segment_id": "seg-73e575a61d0bd5570a7ae5deabe56eaf",
+                  "batch_id": "batch-24b5f0c26a79342e0613f10128675ddd",
+                  "source_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                  "source_epoch": "lineage:01a0ee04-a775-72b3-bd07-04aac804a3b4:01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                  "complete_source_end": null,
+                  "logical_item_count": 227
+                },
+                "completeness": "partial",
+                "reducer_state_present": true
+              }
+            },
+            "batches": {
+              "complete": false,
+              "completeness": "partial",
+              "source_range": {
+                "start": 0,
+                "end": 1303231
+              },
+              "progress": {
+                "records_seen": 227,
+                "records_emitted": 227,
+                "bytes_scanned": 1303231,
+                "has_more": true
+              },
+              "batch_diagnostic_codes": {},
+              "projection": {
+                "complete": false,
+                "coverage": "partial",
+                "availability": "present",
+                "diagnostic_codes": {
+                  "developer_message_hidden": 3,
+                  "response_user_message_carrier": 4,
+                  "recognized_context": 4,
+                  "item_completed_non_user": 52,
+                  "reasoning_item": 42,
+                  "token_usage_record": 21,
+                  "thread_settings_applied": 3
+                },
+                "diagnostic_availability": {
+                  "present": 129
+                },
+                "turn_count": 3
+              },
+              "synthetic_hidden_body_present": false,
+              "synthetic_usage_payload_present": false
+            },
+            "source": {
+              "path": "C:/Users/kongx/.codex/sessions/2026/09/30/rollout-2026-09-30T00-34-37-01a0ee04-a775-72b3-bd07-04aac804a3b4.jsonl",
+              "before_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+              "after_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+              "unchanged": true,
+              "bytes": 1303231,
+              "records": 227
+            }
+          }
+        ]
+      },
+      "evidence_handling": "The initial scratch aggregation included complete checkpoint.reducer_state and used the wrong type/kind field for event counts. Before recording, the report was reduced to checkpoint scope/flags/watermark and projection/batch diagnostic aggregates; erroneous event count fields were discarded. These aggregates are derived review evidence, not raw wire logs. Real source bodies and full reducer state are not attached to the journal. No claim that this probe validates real-body secrecy or Node DB persistence.",
+      "files": [
+        "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+        "native/codex-rollout-collector/src/analysis.rs",
+        "native/codex-rollout-collector/src/model/analysis_event.rs"
+      ]
+    },
+    "files": [
+      "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "native/codex-rollout-collector/src/analysis.rs",
+      "native/codex-rollout-collector/src/model/analysis_event.rs"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-94652f41c28bf6a69ade55334da61b831ef9f936ec1d9104ac44908587f2a2ba.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S3",
+        "execution_ref": ".workflow-system/records/events/key-2c7b6dc094697782c3c71694b3b6f629f1478c1db23be359922bd0b5537fff7d.json",
+        "selector": "S3-review/known-present-diagnostic-target-process-canonicality",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "subject_hashes": {
+            "native/codex-rollout-collector/vendor/codex/README.md": "e72c6eff2afe91f5d5d4568a3fc2f585898fe7d5becc8d9b1e83b5e5cb1603cf",
+            "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl": "9c024665ecd6adffafdcd52001a79f3bb0f695fe8009f297ad05842d720afc39",
+            "native/codex-rollout-collector/vendor/codex/history/src/tests.rs": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+            "native/codex-rollout-collector/tests/fixtures/malformed/token-usage-record.jsonl": "ce5ee299bd2ed1fcd31567436f7b4ade648587efd14f71997c805ee1ebc1d3a5",
+            "native/codex-rollout-collector/tests/fixtures/current/token-usage-record.jsonl": "32a206fd922d6d0ab692d49fa8593105059849dfdeb0c1524587e6aed40f2a71",
+            "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+            "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md": "6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679",
+            "native/codex-rollout-collector/tests/stage4_protocol.rs": "f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7",
+            "native/codex-rollout-collector/tests/conformance.rs": "72c9eecd3f8180c1e77329051e0ecdddd7e74bd45617966fafcf607b288d63e7",
+            "docs/codex/codex-rollout-collector-codex-compatibility.md": "b7f9bebe22bbb6a70131a2428e319acbebdf5e946853715bc75323c50f29f501",
+            "native/codex-rollout-collector/tests/fixtures/current/message-roles.jsonl": "b90151fe073e745159115e4f1161eaa8f3b0426470b95977db2d3ed9fed9dd0d",
+            "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+            "native/codex-rollout-collector/README.md": "3522f87d6ae6c8c3393cc453bad4db687c12e4315798319935c71227f4f9ee03",
+            "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1": "0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd",
+            "native/codex-rollout-collector/Cargo.lock": "dcd8b1008b78e3ce8245df7de4f583ad65ec433f38198f5bdb73251393db3ff5",
+            "native/codex-rollout-collector/src/codex_adapter/mod.rs": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+            "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+            "native/codex-rollout-collector/Cargo.toml": "dd4d85361ce0128a294b3f37ed9e4c5c2baaf6baf5cf691607c29fd54b69bb6a",
+            "docs/changes/records/CR-20260930-1650-codex-rollout-compat-s2-repair.md": "77156a00648f9f7d03a6145966208e2b7d7ef54310d63c3b0f8a26c6d2834fc8",
+            "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/README.md": "201edd8638c1d9a0db72244f1e58332e709b59c40b9c53875043d3522cda9292",
+            "native/codex-rollout-collector/tests/stage3_conformance.rs": "da524727d8d0ea7c5cba2ebdb955b4069819f7672b2801ec578c13f96273dc89",
+            "docs/codex/codex-rollout-collector-architecture.md": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+            "native/codex-rollout-collector/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+            "native/codex-rollout-collector/src/codex_wire/decode.rs": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+            "docs/changes/records/CR-20260930-1752-codex-rollout-compat-s3.md": "f5703eaced48b4ae8e8f1ba642622c31be00e9c27caee2dd4bc95d45a8a8b505",
+            "native/codex-rollout-collector/src/protocol/target_mapping.rs": "70017328250790c23226b8b11d8df48a462c663438d318fa98bb944116b82faf",
+            "native/codex-rollout-collector/src/model/analysis_event.rs": "cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55",
+            "native/codex-rollout-collector/src/analysis.rs": "bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52",
+            "native/codex-rollout-collector/src/protocol/target_data.rs": "13aaa2d3c38f0855843a969d1933eb6676fb8f24d7cc051f95365b5473fc0ee6",
+            "native/codex-rollout-collector/src/main.rs": "dccfeca907a792a7e6b21d264a21bbd4ffd647b36ce0d15b96d606e6542ad887",
+            "native/codex-rollout-collector/tests/stage4_target_protocol.rs": "7530d0559ffacd956b5430116910670a378f836b50ef0d6a8b87908b7b4ca23d",
+            "native/codex-rollout-collector/tests/fixtures/target-session/2026/08/26/rollout-2026-08-26T00-00-00-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl": "2df0c7a8b0aa8ae2a122fa2da2e8c677760068c48f970b548cee84947b3364ea"
+          }
+        },
+        "command": {
+          "executable": "node",
+          "arguments": [
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s3-review-20260930-01/probe.cjs"
+          ],
+          "cwd": "E:/coding/TermLink-rust-source-resolution-codex",
+          "exit_code": 0,
+          "driver_sha256": "02895f9c05840b165c9566e0916f8b01db257191f5ea932d03a51e4993f4431c",
+          "native_target_sha256": "a40feca794938be7d97e1a4d2476bbfb569fb5c60935e23d7389886714adb26b"
+        },
+        "result": "failed",
+        "observation": "The supplemental command and all four isolated target processes exit0 with hello, one batch and one positive test-peer ACK, but the intended known-carrier canonicality assertion fails: baseline canonical; baseline+token_usage_record partial; baseline+developer partial. Real227/1303231 source is unchanged and yields129 present informational diagnostics, no batch-level unknown/parse gaps, and partial/no forward cursor. Command success is not canonical acceptance. This is new review counterevidence, not a recovered/freshened original S3 report.",
+        "report": {
+          "aggregate_report_sha256": "63ed9ada8957198bf26a3fbcce0ee4913899ed1395414fea1542c3ac8a7701f1",
+          "results": [
+            {
+              "label": "baseline",
+              "exit_code": 0,
+              "ack_count": 1,
+              "errors": [],
+              "complete": {
+                "status": "completed",
+                "completeness": "canonical",
+                "checkpoint": {
+                  "schema_version": 1,
+                  "source": {
+                    "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "source_range": {
+                      "start": 0,
+                      "end": 519
+                    },
+                    "snapshot_boundary": {
+                      "unit": "physical_bytes",
+                      "byte_length": 519
+                    }
+                  },
+                  "cursor_kind": "forward_append",
+                  "cursor_present": true,
+                  "projection_watermark": {
+                    "schema_version": 1,
+                    "segment_id": "seg-936058db53f9088f1d5a01f67911af57",
+                    "batch_id": "batch-f64a1ca90b33292a8219587e127618b2",
+                    "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "complete_source_end": 519,
+                    "logical_item_count": 2
+                  },
+                  "completeness": "canonical",
+                  "reducer_state_present": true
+                }
+              },
+              "batches": {
+                "complete": true,
+                "completeness": "canonical",
+                "source_range": {
+                  "start": 0,
+                  "end": 519
+                },
+                "progress": {
+                  "records_seen": 2,
+                  "records_emitted": 2,
+                  "bytes_scanned": 519,
+                  "has_more": false
+                },
+                "batch_diagnostic_codes": {},
+                "projection": {
+                  "complete": true,
+                  "coverage": "complete",
+                  "availability": "present",
+                  "diagnostic_codes": {},
+                  "diagnostic_availability": {},
+                  "turn_count": 1
+                },
+                "synthetic_hidden_body_present": false,
+                "synthetic_usage_payload_present": false
+              },
+              "source": null
+            },
+            {
+              "label": "token",
+              "exit_code": 0,
+              "ack_count": 1,
+              "errors": [],
+              "complete": {
+                "status": "partial",
+                "completeness": "partial",
+                "checkpoint": {
+                  "schema_version": 1,
+                  "source": {
+                    "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "source_range": {
+                      "start": 0,
+                      "end": 1266
+                    },
+                    "snapshot_boundary": {
+                      "unit": "physical_bytes",
+                      "byte_length": 1266
+                    }
+                  },
+                  "cursor_kind": "backfill",
+                  "cursor_present": true,
+                  "projection_watermark": {
+                    "schema_version": 1,
+                    "segment_id": "seg-d123fdf9f4ebdf81307be2e05536868c",
+                    "batch_id": "batch-c41db272ebf0f8f6aeb4be54bd5706be",
+                    "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "complete_source_end": 1266,
+                    "logical_item_count": 3
+                  },
+                  "completeness": "partial",
+                  "reducer_state_present": true
+                }
+              },
+              "batches": {
+                "complete": false,
+                "completeness": "partial",
+                "source_range": {
+                  "start": 0,
+                  "end": 1266
+                },
+                "progress": {
+                  "records_seen": 3,
+                  "records_emitted": 3,
+                  "bytes_scanned": 1266,
+                  "has_more": true
+                },
+                "batch_diagnostic_codes": {},
+                "projection": {
+                  "complete": false,
+                  "coverage": "partial",
+                  "availability": "present",
+                  "diagnostic_codes": {
+                    "token_usage_record": 1
+                  },
+                  "diagnostic_availability": {
+                    "present": 1
+                  },
+                  "turn_count": 1
+                },
+                "synthetic_hidden_body_present": false,
+                "synthetic_usage_payload_present": false
+              },
+              "source": null
+            },
+            {
+              "label": "developer",
+              "exit_code": 0,
+              "ack_count": 1,
+              "errors": [],
+              "complete": {
+                "status": "partial",
+                "completeness": "partial",
+                "checkpoint": {
+                  "schema_version": 1,
+                  "source": {
+                    "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "source_range": {
+                      "start": 0,
+                      "end": 810
+                    },
+                    "snapshot_boundary": {
+                      "unit": "physical_bytes",
+                      "byte_length": 810
+                    }
+                  },
+                  "cursor_kind": "backfill",
+                  "cursor_present": true,
+                  "projection_watermark": {
+                    "schema_version": 1,
+                    "segment_id": "seg-a18a4fdb7f16362eaa36993ad5a6849d",
+                    "batch_id": "batch-e93df36397ff4db618924b0d2d89cf2b",
+                    "source_id": "019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "source_epoch": "lineage:019b2b40-beb6-7b23-bed0-37d570e76816:019b2b40-beb6-7b23-bed0-37d570e76816",
+                    "complete_source_end": 810,
+                    "logical_item_count": 3
+                  },
+                  "completeness": "partial",
+                  "reducer_state_present": true
+                }
+              },
+              "batches": {
+                "complete": false,
+                "completeness": "partial",
+                "source_range": {
+                  "start": 0,
+                  "end": 810
+                },
+                "progress": {
+                  "records_seen": 3,
+                  "records_emitted": 3,
+                  "bytes_scanned": 810,
+                  "has_more": true
+                },
+                "batch_diagnostic_codes": {},
+                "projection": {
+                  "complete": false,
+                  "coverage": "partial",
+                  "availability": "present",
+                  "diagnostic_codes": {
+                    "developer_message_hidden": 1
+                  },
+                  "diagnostic_availability": {
+                    "present": 1
+                  },
+                  "turn_count": 1
+                },
+                "synthetic_hidden_body_present": false,
+                "synthetic_usage_payload_present": false
+              },
+              "source": null
+            },
+            {
+              "label": "real-source",
+              "exit_code": 0,
+              "ack_count": 1,
+              "errors": [],
+              "complete": {
+                "status": "partial",
+                "completeness": "partial",
+                "checkpoint": {
+                  "schema_version": 1,
+                  "source": {
+                    "source_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                    "source_epoch": "lineage:01a0ee04-a775-72b3-bd07-04aac804a3b4:01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                    "source_range": {
+                      "start": 0,
+                      "end": 1303231
+                    },
+                    "snapshot_boundary": {
+                      "unit": "physical_bytes",
+                      "byte_length": 1303231
+                    }
+                  },
+                  "cursor_kind": null,
+                  "cursor_present": false,
+                  "projection_watermark": {
+                    "schema_version": 1,
+                    "segment_id": "seg-73e575a61d0bd5570a7ae5deabe56eaf",
+                    "batch_id": "batch-24b5f0c26a79342e0613f10128675ddd",
+                    "source_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                    "source_epoch": "lineage:01a0ee04-a775-72b3-bd07-04aac804a3b4:01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                    "complete_source_end": null,
+                    "logical_item_count": 227
+                  },
+                  "completeness": "partial",
+                  "reducer_state_present": true
+                }
+              },
+              "batches": {
+                "complete": false,
+                "completeness": "partial",
+                "source_range": {
+                  "start": 0,
+                  "end": 1303231
+                },
+                "progress": {
+                  "records_seen": 227,
+                  "records_emitted": 227,
+                  "bytes_scanned": 1303231,
+                  "has_more": true
+                },
+                "batch_diagnostic_codes": {},
+                "projection": {
+                  "complete": false,
+                  "coverage": "partial",
+                  "availability": "present",
+                  "diagnostic_codes": {
+                    "developer_message_hidden": 3,
+                    "response_user_message_carrier": 4,
+                    "recognized_context": 4,
+                    "item_completed_non_user": 52,
+                    "reasoning_item": 42,
+                    "token_usage_record": 21,
+                    "thread_settings_applied": 3
+                  },
+                  "diagnostic_availability": {
+                    "present": 129
+                  },
+                  "turn_count": 3
+                },
+                "synthetic_hidden_body_present": false,
+                "synthetic_usage_payload_present": false
+              },
+              "source": {
+                "path": "C:/Users/kongx/.codex/sessions/2026/09/30/rollout-2026-09-30T00-34-37-01a0ee04-a775-72b3-bd07-04aac804a3b4.jsonl",
+                "before_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+                "after_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+                "unchanged": true,
+                "bytes": 1303231,
+                "records": 227
+              }
+            }
+          ]
+        },
+        "evidence_handling": "The initial scratch aggregation included complete checkpoint.reducer_state and used the wrong type/kind field for event counts. Before recording, the report was reduced to checkpoint scope/flags/watermark and projection/batch diagnostic aggregates; erroneous event count fields were discarded. These aggregates are derived review evidence, not raw wire logs. Real source bodies and full reducer state are not attached to the journal. No claim that this probe validates real-body secrecy or Node DB persistence.",
+        "files": [
+          "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+          "native/codex-rollout-collector/src/analysis.rs",
+          "native/codex-rollout-collector/src/model/analysis_event.rs"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

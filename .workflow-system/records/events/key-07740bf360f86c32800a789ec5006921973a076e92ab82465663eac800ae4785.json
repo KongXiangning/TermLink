@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T06:45:25.897Z",
+  "payload_sha256": "86c5d6d296d1a3bae058ac5d8afa4098a08c3dd4f72955b12cf71e39c65b0a1a",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s1-test-spike-cargo-20260930-01",
+    "request": {
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S1",
+      "idempotency_key": "task20260830-s1-test-spike-cargo-20260930-01",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+        "scope": "Spike compatibility crate S1 validation"
+      },
+      "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike cargo test --locked --manifest-path native/codex-rollout-compat-spike/Cargo.toml",
+      "selector": "S1/spike-cargo-test",
+      "result": "passed",
+      "observation": "7 passed, 0 failed; parser positive, malformed fail-closed, legacy event_msg/token_count, and reader tests all passed.",
+      "report_ref": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-positive.stdout.json"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-e0af9387d83643740bc55919abce22c16b3dd8a11f1dce91d399b994fcea084b.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S1",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+          "scope": "Spike compatibility crate S1 validation"
+        },
+        "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike cargo test --locked --manifest-path native/codex-rollout-compat-spike/Cargo.toml",
+        "selector": "S1/spike-cargo-test",
+        "result": "passed",
+        "observation": "7 passed, 0 failed; parser positive, malformed fail-closed, legacy event_msg/token_count, and reader tests all passed.",
+        "report_ref": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-positive.stdout.json"
+      }
+    }
+  },
+  "issues": []
+}

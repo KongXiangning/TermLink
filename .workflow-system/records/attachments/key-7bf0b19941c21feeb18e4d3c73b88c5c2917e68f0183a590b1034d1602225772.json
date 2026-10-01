@@ -1,0 +1,39 @@
+{
+  "event_ref": ".workflow-system/records/events/key-7bf0b19941c21feeb18e4d3c73b88c5c2917e68f0183a590b1034d1602225772.json",
+  "captured_at": "2026-09-30T17:34:25.264Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f0ee909668c37e90a461321770784387531dc70179d646c6116aa48d956df63a.blob",
+      "sha256": "f0ee909668c37e90a461321770784387531dc70179d646c6116aa48d956df63a",
+      "size": 78451,
+      "source_path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/41ac4572ad4425a50ca283838c12d5d65d2216e2b73210206f5b41b4bef489c3.blob",
+      "sha256": "41ac4572ad4425a50ca283838c12d5d65d2216e2b73210206f5b41b4bef489c3",
+      "size": 85737,
+      "source_path": "tests/codexHistoryProductFlow.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d.blob",
+      "sha256": "39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d",
+      "size": 19447,
+      "source_path": "docs/codex/codex-history-product-contract.md",
+      "issues": []
+    }
+  ]
+}

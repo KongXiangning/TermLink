@@ -1,0 +1,572 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T08:45:52.468Z",
+  "payload_sha256": "8b5b1960f1bf55f13b63aa97a0a7ccbc42abbea0ce2fa94e00ba0486f4934fe2",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s2-change-review-20260930-oracle-and-coverage-01",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-c69e4323d056ef05d8ac264d844c03c247e278db539bc2ea47b333a89e4f3f44.json",
+      "idempotency_key": "task20260830-s2-change-review-20260930-oracle-and-coverage-01",
+      "verdict": "needs-revision",
+      "summary": "S2 minimal formal wire promotion and static Adapter diagnostics are sound on code inspection; no new production correctness/leakage defect found in those branches. Two P2 findings prevent clean S2 acceptance: relative oracle paths still load an old EXE, and current evidence/coverage does not establish the required artifact provenance, complete Projection leakage checks or same-business-fixture usage/visible-content invariance. Prior full-suite and format limits remain; no disposition or progression performed.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "files": {
+          "native/codex-rollout-collector/tests/conformance.rs": "4b110bb076717a1a387ad0a39efb354605ddb76fa4a1992202f236bec36b6ecb",
+          "native/codex-rollout-collector/vendor/codex/README.md": "e72c6eff2afe91f5d5d4568a3fc2f585898fe7d5becc8d9b1e83b5e5cb1603cf",
+          "native/codex-rollout-collector/tests/stage4_protocol.rs": "f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7",
+          "native/codex-rollout-collector/src/codex_adapter/mod.rs": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+          "native/codex-rollout-collector/tests/fixtures/current/token-usage-record.jsonl": "5894211f6ece20171fa293b9c846a81ac66a2a7e1fe4a0fa50cee5023b9d6b62",
+          "native/codex-rollout-collector/tests/stage3_conformance.rs": "13787c989f7efaae8504fd2582432b66d5f45523ff7ef5c6063010c811b600b1",
+          "native/codex-rollout-collector/tests/fixtures/malformed/token-usage-record.jsonl": "ce5ee299bd2ed1fcd31567436f7b4ade648587efd14f71997c805ee1ebc1d3a5",
+          "native/codex-rollout-collector/README.md": "3522f87d6ae6c8c3393cc453bad4db687c12e4315798319935c71227f4f9ee03",
+          "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/README.md": "201edd8638c1d9a0db72244f1e58332e709b59c40b9c53875043d3522cda9292",
+          "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+          "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl": "9c024665ecd6adffafdcd52001a79f3bb0f695fe8009f297ad05842d720afc39",
+          "native/codex-rollout-collector/Cargo.toml": "dd4d85361ce0128a294b3f37ed9e4c5c2baaf6baf5cf691607c29fd54b69bb6a",
+          "native/codex-rollout-collector/Cargo.lock": "dcd8b1008b78e3ce8245df7de4f583ad65ec433f38198f5bdb73251393db3ff5",
+          "native/codex-rollout-collector/vendor/codex/history/src/tests.rs": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+          "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md": "6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679",
+          "native/codex-rollout-collector/src/codex_wire/decode.rs": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+          "native/codex-rollout-collector/tests/fixtures/current/message-roles.jsonl": "b90151fe073e745159115e4f1161eaa8f3b0426470b95977db2d3ed9fed9dd0d",
+          "docs/codex/codex-rollout-collector-architecture.md": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+          "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+          "native/codex-rollout-collector/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+          "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+          "docs/codex/codex-rollout-collector-codex-compatibility.md": "b0333e04e6a3f4af4de78e6ee7c9a1cf6b6fcd4be77d396b402543aed9dbdfe1",
+          "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1": "0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd"
+        },
+        "scope": "Current uncommitted S2 formal vendor/decode/Adapter/helper/tests/fixtures/docs. 13 captured execution attachments all match current bytes; additional 10 inputs/docs are hashed at this review. Unrelated workflow-system edits and S1 staging changes are not newly reviewed or reverted.",
+        "execution_snapshot_comparison": [
+          {
+            "path": "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+            "matches": true
+          },
+          {
+            "path": "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+            "matches": true
+          },
+          {
+            "path": "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+            "matches": true
+          },
+          {
+            "path": "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+            "matches": true
+          },
+          {
+            "path": "native/codex-rollout-collector/src/codex_wire/decode.rs",
+            "matches": true
+          },
+          {
+            "path": "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+            "matches": true
+          },
+          {
+            "path": "native/codex-rollout-collector/tests/conformance.rs",
+            "matches": true
+          },
+          {
+            "path": "native/codex-rollout-collector/tests/stage3_conformance.rs",
+            "matches": true
+          },
+          {
+            "path": "native/codex-rollout-collector/tests/stage4_protocol.rs",
+            "matches": true
+          },
+          {
+            "path": "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1",
+            "matches": true
+          },
+          {
+            "path": "docs/codex/codex-rollout-collector-codex-compatibility.md",
+            "matches": true
+          },
+          {
+            "path": "docs/codex/codex-rollout-collector-architecture.md",
+            "matches": true
+          },
+          {
+            "path": "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md",
+            "matches": true
+          }
+        ]
+      },
+      "findings": [
+        {
+          "id": "S2-R1",
+          "priority": "P2",
+          "status": "open",
+          "category": "compatibility-test-harness-and-evidence",
+          "title": "Enforce absolute oracle paths and preserve the selected artifact provenance",
+          "file": "native/codex-rollout-collector/tests/stage3_conformance.rs",
+          "start": 82,
+          "end": 86,
+          "body": "explicit_oracle_binary only checks is_file(). It accepts a relative path, although the adopted S2 work requires explicit absolute paths. The supplemental probe selected native/codex-rollout-demo/target/debug/codex-rollout-demo.exe (old 2026-08-25 artifact, SHA256 77c78d22c08a116b99320249c9a504c83fb82d058e3f8ec303f21512eb5baaf6) through a relative TERMLINK_STAGE3_DEMO_BIN and the actual oracle selector passed. The S2 execution and linked test/CR state only 'explicit binaries' and 5/5; they do not retain the actual two variable values, selected paths/hashes, build-input/profile/target-dir association, or a link identifying the reused S1 artifacts. The execution's 13 source snapshots establish source identity, but cannot establish the artifacts selected by that past run. Do not certify that historical 5/5 run as fresh merely from source snapshot parity or this review's current artifact hashes.",
+          "consequence": "A passing actual-oracle comparison can still use an old reference binary and fail to prove the adopted current-subject acceptance requirement.",
+          "recommendation": "Reject non-absolute explicit paths without fallback. In the actual acceptance caller record/check both absolute task-private paths, existence/hash and successful build provenance, linking the S1 build record if reusing its exact outputs; retain a no-fallback counterexample. Recover existing actual evidence if available rather than inventing values or rerunning business work just for a receipt.",
+          "supplemental_checks": "Both nonexistent explicit Demo and Spike paths returned exit 1 at the explicit-path assertion while old default EXEs exist. Relative old Demo path returned exit 0 / 1 passed. These are direct executions of the existing S2 test EXE, not a fresh Cargo build or certification of the historical positive run."
+        },
+        {
+          "id": "S2-R2",
+          "priority": "P2",
+          "status": "open",
+          "category": "acceptance-coverage",
+          "title": "Check full Projection leakage and usage invariance against the carrier-free control",
+          "file": "native/codex-rollout-collector/tests/conformance.rs",
+          "start": 705,
+          "end": 723,
+          "related_locations": [
+            {
+              "file": "native/codex-rollout-collector/tests/conformance.rs",
+              "start": 628,
+              "end": 631
+            }
+          ],
+          "body": "The developer test scans only serialized AnalysisBatch. Neither new test constructs/scans the full AnalysisProjection required by adopted S2. The usage test merely asserts that some legacy UsageUpdated (120/70) and RateLimitUpdated (12.5%) exist; an additional UsageUpdated from token_usage_record would still satisfy it. The two-record usage fixture has no user/assistant/tool content or turn lifecycle, and there is no comparison to the same business fixture without the new carrier. It therefore does not exercise the required visible-content/per-turn/session usage invariance or prove absence of a second accounting source.",
+          "consequence": "Current 33/33 conformance count does not cover the promised Projection hidden-content boundary or duplicate usage regression. This is a coverage finding, not an assertion that current static-diagnostic Adapter branches actually leak or double count.",
+          "recommendation": "Extend the existing focused conformance tests to reduce/serialize the full Projection and check developer body/internal metadata and cumulative payload sentinels. Compare retained visible content and per-turn/session usage/rate values, plus UsageUpdated count, for the same business fixture with and without token_usage_record. Make the checks demonstrably reject injected leak/extra usage outcomes in temporary data or focused tests; preserve true unknown/malformed fail-closed coverage."
+        }
+      ],
+      "coverage": {
+        "code_reviewed": [
+          "Native payload-required serde variant and both wire conversions; exact 3-file Spike→formal patch promotion",
+          "formal decode known-envelope/type classification and typed-deserialization failure handling",
+          "CodexEventAdapter static developer/token diagnostics, unknown role behavior and existing metadata path",
+          "AnalysisReducer Diagnostic/ParseGap/UnknownEvent projection path; reducer unchanged",
+          "stage3 explicit-oracle selection and actual process status assertions",
+          "current positive/malformed fixtures, developer metadata sentinel, sanitized-session-5 future_developer and 1501-byte/hash protocol expectation",
+          "parity guard and both manifests; relevant compatibility/architecture/README/CR scope"
+        ],
+        "evidence_checked": [
+          "All 13 immutable S2 execution attachments still match current files",
+          "Fresh vendor parity guard PASS: revision 5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2, same declared closure/local_patches, 3 exact patch files",
+          "Current S1 Demo/Spike binary hashes match their recorded S1 repaired artifacts; this does not reveal which artifacts the past S2 stage3 run selected",
+          "Three direct supplemental oracle-selector probes using the retained S2 test EXE",
+          "git -c core.whitespace=cr-at-eol diff --check exit 0"
+        ],
+        "recorded_test_claims": [
+          {
+            "ref": ".workflow-system/records/events/key-e421dbcf71366c21a6de8a31e53a33085edc54adaaa95851d8df346149040695.json",
+            "observation": "Owner-reported build success, conformance 33/33, stage3 5/5, stage4 protocol 22/22, stage4 target 70/70; no raw output/binary selection metadata attached. Counts retained as reported, not rewritten as a freshly reproduced full run."
+          },
+          {
+            "ref": ".workflow-system/records/events/key-f8a3721cd5f071658a1b3abda802b3b0a0a12a527f7d437f492b61ab5ad396fd.json",
+            "observation": "Owner-reported temporary mutated-vendor mismatch exit 1 and build_ran=False; this review independently verified positive parity and guard code, did not repeat that negative build flow."
+          }
+        ],
+        "retained_limits": [
+          "Full cargo test owner-recorded 102 passed/1 failed in compact_tool_input_preserves_nested_absolute_paths_and_object_keys; this test/compact_tool_input logic was not modified by S2. Kept failed, not clean/PASS.",
+          "Formal full fmt and adapter existing format issues remain; vendor lib import formatting is preserved for exact byte parity. No formatting fix in this review.",
+          "Standalone vendored history tests not run without its Cargo.lock; no new vendor lockfile.",
+          "CR draft/TBD and doc-sync no-active-CR limit remain; no Git action.",
+          "No separate independent reviewer was used or certified.",
+          "Unassociated management record key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6 remains outside requested scope."
+        ],
+        "not_run": [
+          "No Cargo build/full test replay; direct probes use a retained, now-hashed existing S2 test EXE",
+          "No complete fixed-real-source backfill/canonical/ACK/restart acceptance; S3 remains not-started",
+          "No Node product history publication, Android first screen/ACK, IPC/host deployment or live device work",
+          "No step finish, review-decision, Task005 resume, closure or Git"
+        ],
+        "scope_conclusion": "Source-level S2 minimal compatibility implementation has no additional finding, but acceptance is incomplete for this exact reviewed execution. S1 historical verdicts stay unchanged; Task005 remains paused with its S2 failure."
+      },
+      "provenance": {
+        "review_type": "self-review",
+        "reviewer": "Current Codex agent",
+        "independence": "Not independently certified; conversation continuity includes this agent's S1 plan/repair. S2 execution is assessed here as a separate saved event, without claiming a separate reviewer identity.",
+        "instruction": "Current explicit review-change invocation only; product files and step/lifecycle dispositions are not modified."
+      },
+      "review_evidence": {
+        "test_executable": {
+          "path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/cargo/collector/debug/deps/stage3_conformance-08458f2277b6c47a.exe",
+          "sha256": "df81318e1defeb8f52de7530f33338f5b25a52d713db9808184e5f7811c6656a",
+          "bytes": 637140589,
+          "provenance_limit": "Existing S2 output; no new build performed or exact build-input linkage independently certified."
+        },
+        "selector": "--exact formal_projection_matches_actual_demo_reducer_and_spike_parser --nocapture",
+        "default_old_exes_exist": true,
+        "environments": [
+          {
+            "TERMLINK_STAGE3_DEMO_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/missing-demo.exe",
+            "TERMLINK_STAGE3_SPIKE_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe"
+          },
+          {
+            "TERMLINK_STAGE3_DEMO_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+            "TERMLINK_STAGE3_SPIKE_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/missing-spike.exe"
+          },
+          {
+            "TERMLINK_STAGE3_DEMO_BIN": "native/codex-rollout-demo/target/debug/codex-rollout-demo.exe",
+            "TERMLINK_STAGE3_SPIKE_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe"
+          }
+        ],
+        "probes": [
+          {
+            "chunk_id": "8419a0",
+            "wall_time_seconds": 0.1508779,
+            "exit_code": 1,
+            "original_token_count": 161,
+            "output": "\nrunning 1 test\n\nthread 'formal_projection_matches_actual_demo_reducer_and_spike_parser' (35728) panicked at tests\\stage3_conformance.rs:82:5:\nTERMLINK_STAGE3_DEMO_BIN must point to an existing oracle binary: \"C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/missing-demo.exe\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\ntest formal_projection_matches_actual_demo_reducer_and_spike_parser ... FAILED\n\nfailures:\n\nfailures:\n    formal_projection_matches_actual_demo_reducer_and_spike_parser\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.01s\n\n"
+          },
+          {
+            "chunk_id": "31677a",
+            "wall_time_seconds": 0.1749634,
+            "exit_code": 1,
+            "original_token_count": 162,
+            "output": "\nrunning 1 test\n\nthread 'formal_projection_matches_actual_demo_reducer_and_spike_parser' (37856) panicked at tests\\stage3_conformance.rs:82:5:\nTERMLINK_STAGE3_SPIKE_BIN must point to an existing oracle binary: \"C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/missing-spike.exe\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\ntest formal_projection_matches_actual_demo_reducer_and_spike_parser ... FAILED\n\nfailures:\n\nfailures:\n    formal_projection_matches_actual_demo_reducer_and_spike_parser\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.04s\n\n"
+          },
+          {
+            "chunk_id": "6782f1",
+            "wall_time_seconds": 0.2783563,
+            "exit_code": 0,
+            "original_token_count": 47,
+            "output": "\nrunning 1 test\ntest formal_projection_matches_actual_demo_reducer_and_spike_parser ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.14s\n\n"
+          }
+        ]
+      },
+      "links": [
+        {
+          "relation": "reviews-execution",
+          "ref": ".workflow-system/records/events/key-c69e4323d056ef05d8ac264d844c03c247e278db539bc2ea47b333a89e4f3f44.json"
+        },
+        {
+          "relation": "adopted-plan",
+          "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+        },
+        {
+          "relation": "preserves-prior-s1-review",
+          "ref": ".workflow-system/records/events/key-ba96f7c1bb58b04c309576e76adc2cef7cc17a36c49b1c4a785db4cd72c11506.json"
+        }
+      ],
+      "files": [
+        "native/codex-rollout-collector/tests/conformance.rs",
+        "native/codex-rollout-collector/vendor/codex/README.md",
+        "native/codex-rollout-collector/tests/stage4_protocol.rs",
+        "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+        "native/codex-rollout-collector/tests/fixtures/current/token-usage-record.jsonl",
+        "native/codex-rollout-collector/tests/stage3_conformance.rs",
+        "native/codex-rollout-collector/tests/fixtures/malformed/token-usage-record.jsonl",
+        "native/codex-rollout-collector/README.md",
+        "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/README.md",
+        "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+        "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl",
+        "native/codex-rollout-collector/Cargo.toml",
+        "native/codex-rollout-collector/Cargo.lock",
+        "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+        "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md",
+        "native/codex-rollout-collector/src/codex_wire/decode.rs",
+        "native/codex-rollout-collector/tests/fixtures/current/message-roles.jsonl",
+        "docs/codex/codex-rollout-collector-architecture.md",
+        "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml",
+        "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+        "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+        "docs/codex/codex-rollout-collector-codex-compatibility.md",
+        "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1"
+      ]
+    },
+    "files": [
+      "native/codex-rollout-collector/tests/conformance.rs",
+      "native/codex-rollout-collector/vendor/codex/README.md",
+      "native/codex-rollout-collector/tests/stage4_protocol.rs",
+      "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+      "native/codex-rollout-collector/tests/fixtures/current/token-usage-record.jsonl",
+      "native/codex-rollout-collector/tests/stage3_conformance.rs",
+      "native/codex-rollout-collector/tests/fixtures/malformed/token-usage-record.jsonl",
+      "native/codex-rollout-collector/README.md",
+      "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/README.md",
+      "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+      "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl",
+      "native/codex-rollout-collector/Cargo.toml",
+      "native/codex-rollout-collector/Cargo.lock",
+      "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+      "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md",
+      "native/codex-rollout-collector/src/codex_wire/decode.rs",
+      "native/codex-rollout-collector/tests/fixtures/current/message-roles.jsonl",
+      "docs/codex/codex-rollout-collector-architecture.md",
+      "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml",
+      "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+      "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+      "docs/codex/codex-rollout-collector-codex-compatibility.md",
+      "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-b83ed869538d97e7cff02784ce1e01f1ce26e0361f39eb04f81857519ec29efd.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-c69e4323d056ef05d8ac264d844c03c247e278db539bc2ea47b333a89e4f3f44.json",
+        "verdict": "needs-revision",
+        "summary": "S2 minimal formal wire promotion and static Adapter diagnostics are sound on code inspection; no new production correctness/leakage defect found in those branches. Two P2 findings prevent clean S2 acceptance: relative oracle paths still load an old EXE, and current evidence/coverage does not establish the required artifact provenance, complete Projection leakage checks or same-business-fixture usage/visible-content invariance. Prior full-suite and format limits remain; no disposition or progression performed.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "files": {
+            "native/codex-rollout-collector/tests/conformance.rs": "4b110bb076717a1a387ad0a39efb354605ddb76fa4a1992202f236bec36b6ecb",
+            "native/codex-rollout-collector/vendor/codex/README.md": "e72c6eff2afe91f5d5d4568a3fc2f585898fe7d5becc8d9b1e83b5e5cb1603cf",
+            "native/codex-rollout-collector/tests/stage4_protocol.rs": "f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7",
+            "native/codex-rollout-collector/src/codex_adapter/mod.rs": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+            "native/codex-rollout-collector/tests/fixtures/current/token-usage-record.jsonl": "5894211f6ece20171fa293b9c846a81ac66a2a7e1fe4a0fa50cee5023b9d6b62",
+            "native/codex-rollout-collector/tests/stage3_conformance.rs": "13787c989f7efaae8504fd2582432b66d5f45523ff7ef5c6063010c811b600b1",
+            "native/codex-rollout-collector/tests/fixtures/malformed/token-usage-record.jsonl": "ce5ee299bd2ed1fcd31567436f7b4ade648587efd14f71997c805ee1ebc1d3a5",
+            "native/codex-rollout-collector/README.md": "3522f87d6ae6c8c3393cc453bad4db687c12e4315798319935c71227f4f9ee03",
+            "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/README.md": "201edd8638c1d9a0db72244f1e58332e709b59c40b9c53875043d3522cda9292",
+            "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+            "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl": "9c024665ecd6adffafdcd52001a79f3bb0f695fe8009f297ad05842d720afc39",
+            "native/codex-rollout-collector/Cargo.toml": "dd4d85361ce0128a294b3f37ed9e4c5c2baaf6baf5cf691607c29fd54b69bb6a",
+            "native/codex-rollout-collector/Cargo.lock": "dcd8b1008b78e3ce8245df7de4f583ad65ec433f38198f5bdb73251393db3ff5",
+            "native/codex-rollout-collector/vendor/codex/history/src/tests.rs": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+            "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md": "6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679",
+            "native/codex-rollout-collector/src/codex_wire/decode.rs": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+            "native/codex-rollout-collector/tests/fixtures/current/message-roles.jsonl": "b90151fe073e745159115e4f1161eaa8f3b0426470b95977db2d3ed9fed9dd0d",
+            "docs/codex/codex-rollout-collector-architecture.md": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+            "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+            "native/codex-rollout-collector/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+            "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+            "docs/codex/codex-rollout-collector-codex-compatibility.md": "b0333e04e6a3f4af4de78e6ee7c9a1cf6b6fcd4be77d396b402543aed9dbdfe1",
+            "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1": "0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd"
+          },
+          "scope": "Current uncommitted S2 formal vendor/decode/Adapter/helper/tests/fixtures/docs. 13 captured execution attachments all match current bytes; additional 10 inputs/docs are hashed at this review. Unrelated workflow-system edits and S1 staging changes are not newly reviewed or reverted.",
+          "execution_snapshot_comparison": [
+            {
+              "path": "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+              "matches": true
+            },
+            {
+              "path": "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+              "matches": true
+            },
+            {
+              "path": "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+              "matches": true
+            },
+            {
+              "path": "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+              "matches": true
+            },
+            {
+              "path": "native/codex-rollout-collector/src/codex_wire/decode.rs",
+              "matches": true
+            },
+            {
+              "path": "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+              "matches": true
+            },
+            {
+              "path": "native/codex-rollout-collector/tests/conformance.rs",
+              "matches": true
+            },
+            {
+              "path": "native/codex-rollout-collector/tests/stage3_conformance.rs",
+              "matches": true
+            },
+            {
+              "path": "native/codex-rollout-collector/tests/stage4_protocol.rs",
+              "matches": true
+            },
+            {
+              "path": "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1",
+              "matches": true
+            },
+            {
+              "path": "docs/codex/codex-rollout-collector-codex-compatibility.md",
+              "matches": true
+            },
+            {
+              "path": "docs/codex/codex-rollout-collector-architecture.md",
+              "matches": true
+            },
+            {
+              "path": "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md",
+              "matches": true
+            }
+          ]
+        },
+        "findings": [
+          {
+            "id": "S2-R1",
+            "priority": "P2",
+            "status": "open",
+            "category": "compatibility-test-harness-and-evidence",
+            "title": "Enforce absolute oracle paths and preserve the selected artifact provenance",
+            "file": "native/codex-rollout-collector/tests/stage3_conformance.rs",
+            "start": 82,
+            "end": 86,
+            "body": "explicit_oracle_binary only checks is_file(). It accepts a relative path, although the adopted S2 work requires explicit absolute paths. The supplemental probe selected native/codex-rollout-demo/target/debug/codex-rollout-demo.exe (old 2026-08-25 artifact, SHA256 77c78d22c08a116b99320249c9a504c83fb82d058e3f8ec303f21512eb5baaf6) through a relative TERMLINK_STAGE3_DEMO_BIN and the actual oracle selector passed. The S2 execution and linked test/CR state only 'explicit binaries' and 5/5; they do not retain the actual two variable values, selected paths/hashes, build-input/profile/target-dir association, or a link identifying the reused S1 artifacts. The execution's 13 source snapshots establish source identity, but cannot establish the artifacts selected by that past run. Do not certify that historical 5/5 run as fresh merely from source snapshot parity or this review's current artifact hashes.",
+            "consequence": "A passing actual-oracle comparison can still use an old reference binary and fail to prove the adopted current-subject acceptance requirement.",
+            "recommendation": "Reject non-absolute explicit paths without fallback. In the actual acceptance caller record/check both absolute task-private paths, existence/hash and successful build provenance, linking the S1 build record if reusing its exact outputs; retain a no-fallback counterexample. Recover existing actual evidence if available rather than inventing values or rerunning business work just for a receipt.",
+            "supplemental_checks": "Both nonexistent explicit Demo and Spike paths returned exit 1 at the explicit-path assertion while old default EXEs exist. Relative old Demo path returned exit 0 / 1 passed. These are direct executions of the existing S2 test EXE, not a fresh Cargo build or certification of the historical positive run."
+          },
+          {
+            "id": "S2-R2",
+            "priority": "P2",
+            "status": "open",
+            "category": "acceptance-coverage",
+            "title": "Check full Projection leakage and usage invariance against the carrier-free control",
+            "file": "native/codex-rollout-collector/tests/conformance.rs",
+            "start": 705,
+            "end": 723,
+            "related_locations": [
+              {
+                "file": "native/codex-rollout-collector/tests/conformance.rs",
+                "start": 628,
+                "end": 631
+              }
+            ],
+            "body": "The developer test scans only serialized AnalysisBatch. Neither new test constructs/scans the full AnalysisProjection required by adopted S2. The usage test merely asserts that some legacy UsageUpdated (120/70) and RateLimitUpdated (12.5%) exist; an additional UsageUpdated from token_usage_record would still satisfy it. The two-record usage fixture has no user/assistant/tool content or turn lifecycle, and there is no comparison to the same business fixture without the new carrier. It therefore does not exercise the required visible-content/per-turn/session usage invariance or prove absence of a second accounting source.",
+            "consequence": "Current 33/33 conformance count does not cover the promised Projection hidden-content boundary or duplicate usage regression. This is a coverage finding, not an assertion that current static-diagnostic Adapter branches actually leak or double count.",
+            "recommendation": "Extend the existing focused conformance tests to reduce/serialize the full Projection and check developer body/internal metadata and cumulative payload sentinels. Compare retained visible content and per-turn/session usage/rate values, plus UsageUpdated count, for the same business fixture with and without token_usage_record. Make the checks demonstrably reject injected leak/extra usage outcomes in temporary data or focused tests; preserve true unknown/malformed fail-closed coverage."
+          }
+        ],
+        "coverage": {
+          "code_reviewed": [
+            "Native payload-required serde variant and both wire conversions; exact 3-file Spike→formal patch promotion",
+            "formal decode known-envelope/type classification and typed-deserialization failure handling",
+            "CodexEventAdapter static developer/token diagnostics, unknown role behavior and existing metadata path",
+            "AnalysisReducer Diagnostic/ParseGap/UnknownEvent projection path; reducer unchanged",
+            "stage3 explicit-oracle selection and actual process status assertions",
+            "current positive/malformed fixtures, developer metadata sentinel, sanitized-session-5 future_developer and 1501-byte/hash protocol expectation",
+            "parity guard and both manifests; relevant compatibility/architecture/README/CR scope"
+          ],
+          "evidence_checked": [
+            "All 13 immutable S2 execution attachments still match current files",
+            "Fresh vendor parity guard PASS: revision 5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2, same declared closure/local_patches, 3 exact patch files",
+            "Current S1 Demo/Spike binary hashes match their recorded S1 repaired artifacts; this does not reveal which artifacts the past S2 stage3 run selected",
+            "Three direct supplemental oracle-selector probes using the retained S2 test EXE",
+            "git -c core.whitespace=cr-at-eol diff --check exit 0"
+          ],
+          "recorded_test_claims": [
+            {
+              "ref": ".workflow-system/records/events/key-e421dbcf71366c21a6de8a31e53a33085edc54adaaa95851d8df346149040695.json",
+              "observation": "Owner-reported build success, conformance 33/33, stage3 5/5, stage4 protocol 22/22, stage4 target 70/70; no raw output/binary selection metadata attached. Counts retained as reported, not rewritten as a freshly reproduced full run."
+            },
+            {
+              "ref": ".workflow-system/records/events/key-f8a3721cd5f071658a1b3abda802b3b0a0a12a527f7d437f492b61ab5ad396fd.json",
+              "observation": "Owner-reported temporary mutated-vendor mismatch exit 1 and build_ran=False; this review independently verified positive parity and guard code, did not repeat that negative build flow."
+            }
+          ],
+          "retained_limits": [
+            "Full cargo test owner-recorded 102 passed/1 failed in compact_tool_input_preserves_nested_absolute_paths_and_object_keys; this test/compact_tool_input logic was not modified by S2. Kept failed, not clean/PASS.",
+            "Formal full fmt and adapter existing format issues remain; vendor lib import formatting is preserved for exact byte parity. No formatting fix in this review.",
+            "Standalone vendored history tests not run without its Cargo.lock; no new vendor lockfile.",
+            "CR draft/TBD and doc-sync no-active-CR limit remain; no Git action.",
+            "No separate independent reviewer was used or certified.",
+            "Unassociated management record key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6 remains outside requested scope."
+          ],
+          "not_run": [
+            "No Cargo build/full test replay; direct probes use a retained, now-hashed existing S2 test EXE",
+            "No complete fixed-real-source backfill/canonical/ACK/restart acceptance; S3 remains not-started",
+            "No Node product history publication, Android first screen/ACK, IPC/host deployment or live device work",
+            "No step finish, review-decision, Task005 resume, closure or Git"
+          ],
+          "scope_conclusion": "Source-level S2 minimal compatibility implementation has no additional finding, but acceptance is incomplete for this exact reviewed execution. S1 historical verdicts stay unchanged; Task005 remains paused with its S2 failure."
+        },
+        "provenance": {
+          "review_type": "self-review",
+          "reviewer": "Current Codex agent",
+          "independence": "Not independently certified; conversation continuity includes this agent's S1 plan/repair. S2 execution is assessed here as a separate saved event, without claiming a separate reviewer identity.",
+          "instruction": "Current explicit review-change invocation only; product files and step/lifecycle dispositions are not modified."
+        },
+        "review_evidence": {
+          "test_executable": {
+            "path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/cargo/collector/debug/deps/stage3_conformance-08458f2277b6c47a.exe",
+            "sha256": "df81318e1defeb8f52de7530f33338f5b25a52d713db9808184e5f7811c6656a",
+            "bytes": 637140589,
+            "provenance_limit": "Existing S2 output; no new build performed or exact build-input linkage independently certified."
+          },
+          "selector": "--exact formal_projection_matches_actual_demo_reducer_and_spike_parser --nocapture",
+          "default_old_exes_exist": true,
+          "environments": [
+            {
+              "TERMLINK_STAGE3_DEMO_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/missing-demo.exe",
+              "TERMLINK_STAGE3_SPIKE_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe"
+            },
+            {
+              "TERMLINK_STAGE3_DEMO_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+              "TERMLINK_STAGE3_SPIKE_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/missing-spike.exe"
+            },
+            {
+              "TERMLINK_STAGE3_DEMO_BIN": "native/codex-rollout-demo/target/debug/codex-rollout-demo.exe",
+              "TERMLINK_STAGE3_SPIKE_BIN": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe"
+            }
+          ],
+          "probes": [
+            {
+              "chunk_id": "8419a0",
+              "wall_time_seconds": 0.1508779,
+              "exit_code": 1,
+              "original_token_count": 161,
+              "output": "\nrunning 1 test\n\nthread 'formal_projection_matches_actual_demo_reducer_and_spike_parser' (35728) panicked at tests\\stage3_conformance.rs:82:5:\nTERMLINK_STAGE3_DEMO_BIN must point to an existing oracle binary: \"C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/missing-demo.exe\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\ntest formal_projection_matches_actual_demo_reducer_and_spike_parser ... FAILED\n\nfailures:\n\nfailures:\n    formal_projection_matches_actual_demo_reducer_and_spike_parser\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.01s\n\n"
+            },
+            {
+              "chunk_id": "31677a",
+              "wall_time_seconds": 0.1749634,
+              "exit_code": 1,
+              "original_token_count": 162,
+              "output": "\nrunning 1 test\n\nthread 'formal_projection_matches_actual_demo_reducer_and_spike_parser' (37856) panicked at tests\\stage3_conformance.rs:82:5:\nTERMLINK_STAGE3_SPIKE_BIN must point to an existing oracle binary: \"C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s2-20260930/missing-spike.exe\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\ntest formal_projection_matches_actual_demo_reducer_and_spike_parser ... FAILED\n\nfailures:\n\nfailures:\n    formal_projection_matches_actual_demo_reducer_and_spike_parser\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.04s\n\n"
+            },
+            {
+              "chunk_id": "6782f1",
+              "wall_time_seconds": 0.2783563,
+              "exit_code": 0,
+              "original_token_count": 47,
+              "output": "\nrunning 1 test\ntest formal_projection_matches_actual_demo_reducer_and_spike_parser ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.14s\n\n"
+            }
+          ]
+        },
+        "links": [
+          {
+            "relation": "reviews-execution",
+            "ref": ".workflow-system/records/events/key-c69e4323d056ef05d8ac264d844c03c247e278db539bc2ea47b333a89e4f3f44.json"
+          },
+          {
+            "relation": "adopted-plan",
+            "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+          },
+          {
+            "relation": "preserves-prior-s1-review",
+            "ref": ".workflow-system/records/events/key-ba96f7c1bb58b04c309576e76adc2cef7cc17a36c49b1c4a785db4cd72c11506.json"
+          }
+        ],
+        "files": [
+          "native/codex-rollout-collector/tests/conformance.rs",
+          "native/codex-rollout-collector/vendor/codex/README.md",
+          "native/codex-rollout-collector/tests/stage4_protocol.rs",
+          "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+          "native/codex-rollout-collector/tests/fixtures/current/token-usage-record.jsonl",
+          "native/codex-rollout-collector/tests/stage3_conformance.rs",
+          "native/codex-rollout-collector/tests/fixtures/malformed/token-usage-record.jsonl",
+          "native/codex-rollout-collector/README.md",
+          "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/README.md",
+          "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+          "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl",
+          "native/codex-rollout-collector/Cargo.toml",
+          "native/codex-rollout-collector/Cargo.lock",
+          "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+          "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md",
+          "native/codex-rollout-collector/src/codex_wire/decode.rs",
+          "native/codex-rollout-collector/tests/fixtures/current/message-roles.jsonl",
+          "docs/codex/codex-rollout-collector-architecture.md",
+          "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml",
+          "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+          "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+          "docs/codex/codex-rollout-collector-codex-compatibility.md",
+          "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

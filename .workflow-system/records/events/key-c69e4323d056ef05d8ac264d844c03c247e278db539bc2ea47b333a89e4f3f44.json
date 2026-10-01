@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T08:28:18.771Z",
+  "payload_sha256": "2b56ccb4ce8f250ba951fc65ad226e48ab40c9a4c970d179f99d907633329b82",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:execute-s2-formal-wire-adapter-20260930",
+    "request": {
+      "action": "execution",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": "key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8",
+      "step_id": "S2",
+      "source_revision": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+      "result": "completed_with_findings",
+      "commands": [
+        "Working tree based on 29a199d2eb3faa8838185d1577c40f0ec4779e00; S2 changes are uncommitted.",
+        "pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1 — PASS; revision and 3 patched files match.",
+        "pwsh child parity guard against a temporary mutated formal vendor copy — expected failure; build_ran=False.",
+        "cargo build --locked --manifest-path native/codex-rollout-collector/Cargo.toml — PASS.",
+        "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance — 33 passed, 0 failed.",
+        "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage3_conformance with explicit demo/spike binaries — 5 passed, 0 failed.",
+        "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_protocol — 22 passed, 0 failed.",
+        "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_target_protocol — 70 passed, 0 failed.",
+        "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml — 102 passed, 1 pre-existing failure in compact_tool_input_preserves_nested_absolute_paths_and_object_keys.",
+        "cargo fmt --manifest-path native/codex-rollout-compat-spike/Cargo.toml -- --check — PASS; formal full-crate fmt check remains affected by unrelated existing diffs; touched-file checks pass except the pre-existing formal adapter formatting diffs and exact-parity vendor import ordering.",
+        "Vendor standalone cargo test with --locked was not runnable because the isolated vendor workspace has no Cargo.lock; no lockfile was generated.",
+        "REQ and CR strict validators PASS; doc-sync reports no active CR because this execution is intentionally uncommitted and CR commit_ref remains TBD.",
+        "git -c core.whitespace=cr-at-eol diff --check — PASS."
+      ],
+      "files": [
+        "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+        "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+        "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+        "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+        "native/codex-rollout-collector/src/codex_wire/decode.rs",
+        "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+        "native/codex-rollout-collector/tests/conformance.rs",
+        "native/codex-rollout-collector/tests/stage3_conformance.rs",
+        "native/codex-rollout-collector/tests/stage4_protocol.rs",
+        "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1",
+        "docs/codex/codex-rollout-collector-codex-compatibility.md",
+        "docs/codex/codex-rollout-collector-architecture.md",
+        "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md"
+      ],
+      "idempotency_key": "execute-s2-formal-wire-adapter-20260930"
+    },
+    "files": [
+      "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+      "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+      "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+      "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+      "native/codex-rollout-collector/src/codex_wire/decode.rs",
+      "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+      "native/codex-rollout-collector/tests/conformance.rs",
+      "native/codex-rollout-collector/tests/stage3_conformance.rs",
+      "native/codex-rollout-collector/tests/stage4_protocol.rs",
+      "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1",
+      "docs/codex/codex-rollout-collector-codex-compatibility.md",
+      "docs/codex/codex-rollout-collector-architecture.md",
+      "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-d65efe5e82dcce575bbaaac1f0f2f4dcfc1262e4b1cee054993a116fd47edacf.json"
+      ],
+      "data": {
+        "plan_ref": "key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8",
+        "step_id": "S2",
+        "source_revision": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "result": "completed_with_findings",
+        "commands": [
+          "Working tree based on 29a199d2eb3faa8838185d1577c40f0ec4779e00; S2 changes are uncommitted.",
+          "pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1 — PASS; revision and 3 patched files match.",
+          "pwsh child parity guard against a temporary mutated formal vendor copy — expected failure; build_ran=False.",
+          "cargo build --locked --manifest-path native/codex-rollout-collector/Cargo.toml — PASS.",
+          "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance — 33 passed, 0 failed.",
+          "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage3_conformance with explicit demo/spike binaries — 5 passed, 0 failed.",
+          "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_protocol — 22 passed, 0 failed.",
+          "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_target_protocol — 70 passed, 0 failed.",
+          "cargo test --locked --manifest-path native/codex-rollout-collector/Cargo.toml — 102 passed, 1 pre-existing failure in compact_tool_input_preserves_nested_absolute_paths_and_object_keys.",
+          "cargo fmt --manifest-path native/codex-rollout-compat-spike/Cargo.toml -- --check — PASS; formal full-crate fmt check remains affected by unrelated existing diffs; touched-file checks pass except the pre-existing formal adapter formatting diffs and exact-parity vendor import ordering.",
+          "Vendor standalone cargo test with --locked was not runnable because the isolated vendor workspace has no Cargo.lock; no lockfile was generated.",
+          "REQ and CR strict validators PASS; doc-sync reports no active CR because this execution is intentionally uncommitted and CR commit_ref remains TBD.",
+          "git -c core.whitespace=cr-at-eol diff --check — PASS."
+        ],
+        "files": [
+          "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+          "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+          "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+          "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+          "native/codex-rollout-collector/src/codex_wire/decode.rs",
+          "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+          "native/codex-rollout-collector/tests/conformance.rs",
+          "native/codex-rollout-collector/tests/stage3_conformance.rs",
+          "native/codex-rollout-collector/tests/stage4_protocol.rs",
+          "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1",
+          "docs/codex/codex-rollout-collector-codex-compatibility.md",
+          "docs/codex/codex-rollout-collector-architecture.md",
+          "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

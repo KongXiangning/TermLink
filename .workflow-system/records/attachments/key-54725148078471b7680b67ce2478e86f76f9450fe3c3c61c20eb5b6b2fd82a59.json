@@ -1,0 +1,50 @@
+{
+  "event_ref": ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json",
+  "captured_at": "2026-09-30T17:25:25.999Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f0ee909668c37e90a461321770784387531dc70179d646c6116aa48d956df63a.blob",
+      "sha256": "f0ee909668c37e90a461321770784387531dc70179d646c6116aa48d956df63a",
+      "size": 78451,
+      "source_path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/41ac4572ad4425a50ca283838c12d5d65d2216e2b73210206f5b41b4bef489c3.blob",
+      "sha256": "41ac4572ad4425a50ca283838c12d5d65d2216e2b73210206f5b41b4bef489c3",
+      "size": 85737,
+      "source_path": "tests/codexHistoryProductFlow.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ecbe1df9f814346e403c635008b776f984d96f9ea654a3d4a8f1daa5f1cf8883.blob",
+      "sha256": "ecbe1df9f814346e403c635008b776f984d96f9ea654a3d4a8f1daa5f1cf8883",
+      "size": 3234,
+      "source_path": "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/01106cdc4e1c5e20168f883b7f6cfa8188c283634c33873e5408d4c26119e241.blob",
+      "sha256": "01106cdc4e1c5e20168f883b7f6cfa8188c283634c33873e5408d4c26119e241",
+      "size": 310577,
+      "source_path": "logs/task005-s2-repair-runtime-2/product-db-repair-final-expanded.png",
+      "issues": []
+    }
+  ]
+}

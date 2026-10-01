@@ -1,0 +1,94 @@
+{
+  "event_ref": ".workflow-system/records/events/key-f5671266ba911c12b2d05df45f9dec8a02d5dbb7a9aa032fda11daee7c758edf.json",
+  "captured_at": "2026-09-30T16:40:15.001Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/075a9a9f858346df696ec721bdad022ba743e1f3b970190e9d10f58ab2f6b23a.blob",
+      "sha256": "075a9a9f858346df696ec721bdad022ba743e1f3b970190e9d10f58ab2f6b23a",
+      "size": 35880,
+      "source_path": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2cde941c74f36f1c117ea4c22f6226c2ba9de0defdf01aca5ade37b57e7e9398.blob",
+      "sha256": "2cde941c74f36f1c117ea4c22f6226c2ba9de0defdf01aca5ade37b57e7e9398",
+      "size": 3432,
+      "source_path": ".workflow-system/records/events/key-a601eaa15fa13f905e8e4eca4873d3d5799408ffe7bb83bfd453000398a1f71e.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c01b10452d854144097bc2ef919c6ffaff0558bf7a58f1e2ab144a9acdbc1b32.blob",
+      "sha256": "c01b10452d854144097bc2ef919c6ffaff0558bf7a58f1e2ab144a9acdbc1b32",
+      "size": 4292,
+      "source_path": ".workflow-system/records/events/key-f51e7610b09cf057dbe07e1bd0391d6aa451e06bea629572b7b9bcf5c4fc3f61.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fc1f26d390a886cd1450d445a4c65a94b28bcbbd0847341c828919b8647c4847.blob",
+      "sha256": "fc1f26d390a886cd1450d445a4c65a94b28bcbbd0847341c828919b8647c4847",
+      "size": 77200,
+      "source_path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16.blob",
+      "sha256": "f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16",
+      "size": 27529,
+      "source_path": "src/services/codexHistoryProductStore.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d2dc52d6d52e9603d2d39ab867b4ce191e8d17599447d0d0371223c890d9b64c.blob",
+      "sha256": "d2dc52d6d52e9603d2d39ab867b4ce191e8d17599447d0d0371223c890d9b64c",
+      "size": 107819,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d.blob",
+      "sha256": "39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d",
+      "size": 19447,
+      "source_path": "docs/codex/codex-history-product-contract.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/03b5a4fa93bfe9e95a17f318a08e7e8bd79faf9ba1567c1d8fce72315047697f.blob",
+      "sha256": "03b5a4fa93bfe9e95a17f318a08e7e8bd79faf9ba1567c1d8fce72315047697f",
+      "size": 4660,
+      "source_path": "docs/workflow/test-admission-policy.md",
+      "issues": []
+    }
+  ]
+}

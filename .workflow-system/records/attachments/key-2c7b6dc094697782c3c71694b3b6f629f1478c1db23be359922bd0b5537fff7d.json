@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-2c7b6dc094697782c3c71694b3b6f629f1478c1db23be359922bd0b5537fff7d.json",
+  "captured_at": "2026-09-30T09:54:41.339Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1aef369a0d3ff5d899ac3599717a50669e202a0243453d46a826e65be1d567b8.blob",
+      "sha256": "1aef369a0d3ff5d899ac3599717a50669e202a0243453d46a826e65be1d567b8",
+      "size": 6831,
+      "source_path": "docs/changes/records/CR-20260930-1752-codex-rollout-compat-s3.md",
+      "issues": []
+    }
+  ]
+}

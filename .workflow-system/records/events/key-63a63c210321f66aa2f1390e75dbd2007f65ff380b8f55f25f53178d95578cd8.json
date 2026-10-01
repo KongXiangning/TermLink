@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T17:22:46.354Z",
+  "payload_sha256": "820fe681603a89495ba0cec3420114b2f380f0c2314f92bdc589bbf51718a80a",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s1-finished-446938f9a271af93a6d1cdc82141efcb5bf404ca5f77fc4a67d8684fd1e6751f",
+    "request": {
+      "action": "step",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "step_id": "S1",
+      "state": "finished",
+      "execution_ref": ".workflow-system/records/events/key-5da390e578b18c7950ab2ecd4bbc75c261e658587784e525a42d432669cdd81f.json",
+      "review_ref": ".workflow-system/records/events/key-3ea981a14fd0ffadc3b05a0aaf16ccbe29921a72b6cf8ea8305420556cc1ab90.json",
+      "decision_ref": ".workflow-system/records/events/key-ce6822d0d82a4cf25465c355e19e0c355976fdaada9ea3cbdb786243533e7abf.json",
+      "decision_source": "Current conversation: user invoked execute-step after pass-with-limits explanation",
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md)",
+      "remaining_work": [
+        "S2: real external Codex host to Android device bounded first-screen and ACK smoke, including structured event fact visibility.",
+        "Android SQLite instrumentation tests were compiled in S1 but not run on a device; destructive replacement and fail-closed behavior remain unverified on-device.",
+        "Activation retry path lacks a dedicated runtime WebSocket race reproduction; current support is static review and related JVM regression.",
+        "S3 detail/older/append/cache reopen/A-B-A work and S4 expanded E2E remain pending."
+      ],
+      "idempotency_key": "task005-s1-finished-446938f9a271af93a6d1cdc82141efcb5bf404ca5f77fc4a67d8684fd1e6751f"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "step",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-3ea981a14fd0ffadc3b05a0aaf16ccbe29921a72b6cf8ea8305420556cc1ab90.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+        "step_id": "S1",
+        "state": "finished",
+        "execution_ref": ".workflow-system/records/events/key-5da390e578b18c7950ab2ecd4bbc75c261e658587784e525a42d432669cdd81f.json",
+        "review_ref": ".workflow-system/records/events/key-3ea981a14fd0ffadc3b05a0aaf16ccbe29921a72b6cf8ea8305420556cc1ab90.json",
+        "decision_ref": ".workflow-system/records/events/key-ce6822d0d82a4cf25465c355e19e0c355976fdaada9ea3cbdb786243533e7abf.json",
+        "decision_source": "Current conversation: user invoked execute-step after pass-with-limits explanation",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md)",
+        "remaining_work": [
+          "S2: real external Codex host to Android device bounded first-screen and ACK smoke, including structured event fact visibility.",
+          "Android SQLite instrumentation tests were compiled in S1 but not run on a device; destructive replacement and fail-closed behavior remain unverified on-device.",
+          "Activation retry path lacks a dedicated runtime WebSocket race reproduction; current support is static review and related JVM regression.",
+          "S3 detail/older/append/cache reopen/A-B-A work and S4 expanded E2E remain pending."
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,406 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T17:34:25.251Z",
+  "payload_sha256": "8a8a629e066a5a76c5852b14b5411e9839c6fd320fdc89703fc0fa7eafdd4fcb",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-review-exec547-r4-resolved-r5-historybase-20261001",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json",
+      "previous_review_ref": ".workflow-system/records/events/key-128f3560c5cd50e717503bea40a683da250ad219f04b5432180e79c6fbac0cb5.json",
+      "idempotency_key": "task005-s2-review-exec547-r4-resolved-r5-historybase-20261001",
+      "verdict": "needs-revision",
+      "summary": "R4 source regression is repaired: verified non-reduced business context and rate-limit facts survive while internal carrier records are removed, including mixed groups. Fresh real-Rust focused product-flow test passes. An additional schema isolation gap remains: SessionContext.history_base is copied into the canonical product payload and the actual Provider serializes its internal parent-rollout identity and ordinal/byte source cut into App history DTO. Source-only repair has no new real-host canonical publication/device validation; historical R3 evidence and old cache limits remain historical.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "worktree_status": "dirty; exact current bytes match execution 547 attachments",
+        "files": [
+          {
+            "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+            "sha256": "f0ee909668c37e90a461321770784387531dc70179d646c6116aa48d956df63a"
+          },
+          {
+            "path": "tests/codexHistoryProductFlow.test.js",
+            "sha256": "41ac4572ad4425a50ca283838c12d5d65d2216e2b73210206f5b41b4bef489c3"
+          }
+        ],
+        "qualification": "self-review; no product edits or live service/device actions"
+      },
+      "findings": [
+        {
+          "id": "TASK005-S2-R5",
+          "priority": "P2",
+          "title": "Restored SessionContext exposes internal history_base source cut in product DTO",
+          "file": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "start_line": 1607,
+          "end_line": 1614,
+          "observation": "The restored eligibility of every non-internal AnalysisEvent includes SessionContext. CodexEventAdapter::adapt_session copies the typed HistoryBaseRef into payload.history_base (mod.rs:216). HistoryBaseRef contains parent_rollout_id, end_ordinal_exclusive and end_byte_offset (source/lineage.rs:21). productEventFact removes only payload.metadata (importer:1557-1568), retaining this schema-defined source locator/read cut. CodexHistoryProductProvider projectItems/projectValue serializes the object unchanged. A read-only exact-helper→actual-Provider in-memory fixture confirmed history.items[].payloadJson.eventFacts[0].payload.history_base contains all three fields while complete=true.",
+          "trigger": "A validated child rollout SessionContext with a non-null history_base; the current real target used for R3 is a root and does not exercise this optional field.",
+          "impact": "Internal rollout identity and source read boundaries cross the canonical product/App DTO boundary, violating product metadata isolation; Diagnostic exclusion alone does not make a non-diagnostic event payload entirely business data.",
+          "requirements": [
+            "docs/codex/codex-history-product-contract.md §3.2: source locator, read cursor and internal collection/recovery metadata must remain in staging/checkpoints, outside ConversationHistory/App DTO/Gateway payload",
+            "Rust analyzer data contract §3: history_items/AnalysisEvent is Rust→Node analysis output, not an App or stage-5 product DTO",
+            "Adopted S2 scope: preserve business facts while isolating internal analyzer/source metadata by schema; no arbitrary business-key filtering"
+          ],
+          "recommendation": "At canonical product construction, exclude the known SessionContext.history_base source-evidence field by event schema while retaining cwd/model_provider/source/session business facts and internal staging evidence. Do not recursively remove arbitrary history_base keys in tool/business payloads or add Gateway key-name filtering. Add a child SessionContext positive/negative importer→Store/provider regression with a non-null HistoryBaseRef."
+        }
+      ],
+      "prior_findings_assessment": [
+        {
+          "finding_id": "TASK005-S2-R4",
+          "status": "resolved-in-current-source-and-focused-integration",
+          "observation": "Exact current helper over the frozen real 270-event staging batch yields 98 rows (1 SessionContext, 3 TurnStarted, 3 user, 10 assistant, 39 tool, 21 RateLimitUpdated, 21 UsageUpdated), preserving cwd E:\\coding\\LawAgent and all 21 rate-limit facts while excluding 130 Diagnostic rows. Fresh real-Rust product flow passes positive cwd/model_provider and primary_used_percent/window assertions. No current real-host publication proof is claimed."
+        },
+        {
+          "finding_id": "TASK005-S2-R2",
+          "status": "diagnostic-carrier-filtering-valid; schema-source-isolation-gap-R5-remains",
+          "observation": "Current filter excludes Diagnostic/ParseGap/UnknownEvent by event type and removes those records from mixed-key eventFacts. Same-name legitimate diagnostic/code/sourcePath/requestId fields are retained. Staging unchanged. This is not full approval of product metadata isolation due R5."
+        },
+        {
+          "finding_id": "TASK005-S2-R3",
+          "status": "historical-minimum-smoke-evidence-retained",
+          "observation": "Screenshot and stable-item evidence are byte-identical to execution 585 and previous review 128; no new device run occurred on the R4 subject. Prior concrete command visibility plus product page/ACK/cache correlation remains its original historical observation, preserving healthy IPC authority."
+        }
+      ],
+      "coverage": {
+        "target": ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "requirements": [
+          "Product contract §3.1, §3.2 and §5.1",
+          "Collector architecture previous complete read reused; current hash e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3 unchanged",
+          "CONTRACTS IPC frozen core; DECISIONS AD-004/AD-022 retained",
+          "Rust AnalysisEvent::SessionContext, adapter adapt_session, typed source HistoryBaseRef",
+          "Product provider source payload serialization"
+        ],
+        "reviewed_changes": {
+          "src_sha256": "f0ee909668c37e90a461321770784387531dc70179d646c6116aa48d956df63a",
+          "test_sha256": "41ac4572ad4425a50ca283838c12d5d65d2216e2b73210206f5b41b4bef489c3",
+          "scope": "Schema carrier classification; businessEventKeys union; filtering mixed eventFacts; real-Rust positive context/rate-limit assertions",
+          "unchanged": "Canonical gate, transaction, staging ACK, Rust, IPC, Android schema/source and authority"
+        },
+        "new_validation": [
+          {
+            "command": "node --test --test-name-pattern \"product-history-real-rust\" tests/codexHistoryProductFlow.test.js",
+            "result": "passed",
+            "tests": 1,
+            "passed": 1,
+            "failed": 0,
+            "duration_ms": 1237.7192,
+            "observation": "Actual Rust analyzer→importer→canonical Store→test Gateway flow with new positive business assertions; fixture/local transport, not external host/device E2E"
+          },
+          {
+            "method": "Read-only exact production helper over immutable staging full batch",
+            "result": "R4 fixed",
+            "fixture_sha256": "3da0c917e9756ba95ce9d1a3a7aca7ee9304c796253a5dee8258fd57e538ea3b",
+            "batch_id": "batch-9fe2fdb713247f48662de293055084c8",
+            "rows": 98,
+            "session_cwd_facts": 1,
+            "rate_limit_facts": 21,
+            "internal_facts": 0
+          },
+          {
+            "method": "Read-only exact-helper mixed-key fixture",
+            "result": "passed",
+            "observation": "Diagnostic on a business key and separate ParseGap/UnknownEvent keys excluded; diagnostic=business, code=7, sourcePath=E:/business/path and requestId=business-id retained in business payload"
+          },
+          {
+            "method": "Read-only exact production helper + real CodexHistoryProductProvider with in-memory store fixture",
+            "result": "R5 reproduced",
+            "fixture": {
+              "projection": {
+                "turns": []
+              },
+              "event_type": "SessionContext",
+              "item_key": "session:review",
+              "cwd": "E:/review-business-cwd",
+              "model_provider": "openai",
+              "history_base": {
+                "parent_rollout_id": "review-parent-rollout",
+                "end_ordinal_exclusive": 14,
+                "end_byte_offset": 128
+              }
+            },
+            "provider_result": {
+              "complete": true,
+              "history_base": {
+                "parent_rollout_id": "review-parent-rollout",
+                "end_ordinal_exclusive": 14,
+                "end_byte_offset": 128
+              },
+              "cwd_preserved": true
+            },
+            "qualification": "Schema-shaped in-memory boundary counterexample, not a real child rollout or physical-device run"
+          }
+        ],
+        "reused_validation": {
+          "source": "Execution 547 request.commands (reported tests; no raw broad-suite stdout attachment)",
+          "product_flow_reported_passed": 22,
+          "collector_reported_passed": 122,
+          "reported_syntax_diff_checks": "passed",
+          "full_suites_rerun_by_review": false
+        },
+        "historical_runtime_evidence": {
+          "execution_ref": ".workflow-system/records/events/key-585fea80c03ac11b86aa9a07a548cef66acd890d4b58e1dfaf1c64fa9b1ed8f0.json",
+          "screenshot_sha256": "01106cdc4e1c5e20168f883b7f6cfa8188c283634c33873e5408d4c26119e241",
+          "evidence_json_sha256": "ecbe1df9f814346e403c635008b776f984d96f9ea654a3d4a8f1daa5f1cf8883",
+          "status": "unchanged historical bytes, not fresh R4 publication/device verification",
+          "old_canonical_item_count": 52,
+          "old_android_item_count": 122,
+          "old_android_diagnostic_count": 45,
+          "old_android_coverage": "partial"
+        },
+        "not_run": [
+          "New real external-host publication and Android validation",
+          "Manual DB/cache cleanup or cache clear",
+          "Broad Rust/Android tests",
+          "Independent review",
+          "S2 finish/S3/S4/Git/deployment"
+        ]
+      },
+      "provenance": {
+        "kind": "self-review",
+        "independent": false,
+        "reviewer": "current root agent",
+        "observation_sources": "Fresh source review, focused Rust integration rerun, read-only frozen real-batch replay and schema boundary counterexamples; historical device evidence kept separate"
+      },
+      "limits": [
+        "R4 source correctness is not proof of a new canonical publication, corrected existing DB or cleaned Android cache",
+        "Old partial cache contamination remains unresolved under no-manual-cleanup scope; no claim of current complete or clean cache",
+        "Four Task004 reports C2-store-final/C2-publish/C4-flow-final/C4-unattended remain stale and are not refreshed by this review",
+        "Existing issue-ec19a134aefeb23287cb519b retained without guessed associations",
+        "No product code edits or step advancement performed in review"
+      ],
+      "remaining_work": [
+        "Repair R5 schema-specific internal source evidence isolation and add a focused child-context boundary regression",
+        "Verify subsequent valid canonical publication/provider DTO on the normal authorized single chain; do not rewrite old batch receipts or clear caches",
+        "Preserve historical R3 and cache limits; revalidate affected live history behavior on current subject as necessary before S2 disposition",
+        "S2 remains in-progress; S3/S4 remain not-started"
+      ],
+      "recommendation": {
+        "next_route": "execute-step",
+        "next_mode": "repair",
+        "reason": "R4 is resolved; actionable P2 schema isolation gap R5 remains within adopted Node product projection scope"
+      },
+      "links": [
+        ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json",
+        ".workflow-system/records/events/key-128f3560c5cd50e717503bea40a683da250ad219f04b5432180e79c6fbac0cb5.json",
+        ".workflow-system/records/events/key-f5671266ba911c12b2d05df45f9dec8a02d5dbb7a9aa032fda11daee7c758edf.json"
+      ],
+      "files": [
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "tests/codexHistoryProductFlow.test.js",
+        "docs/codex/codex-history-product-contract.md"
+      ]
+    },
+    "files": [
+      "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "tests/codexHistoryProductFlow.test.js",
+      "docs/codex/codex-history-product-contract.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-88296ee5d1d16667a783219630cd28713ccac7d097b531b67d3586bf2ae41ce1.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json",
+        "previous_review_ref": ".workflow-system/records/events/key-128f3560c5cd50e717503bea40a683da250ad219f04b5432180e79c6fbac0cb5.json",
+        "verdict": "needs-revision",
+        "summary": "R4 source regression is repaired: verified non-reduced business context and rate-limit facts survive while internal carrier records are removed, including mixed groups. Fresh real-Rust focused product-flow test passes. An additional schema isolation gap remains: SessionContext.history_base is copied into the canonical product payload and the actual Provider serializes its internal parent-rollout identity and ordinal/byte source cut into App history DTO. Source-only repair has no new real-host canonical publication/device validation; historical R3 evidence and old cache limits remain historical.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "worktree_status": "dirty; exact current bytes match execution 547 attachments",
+          "files": [
+            {
+              "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+              "sha256": "f0ee909668c37e90a461321770784387531dc70179d646c6116aa48d956df63a"
+            },
+            {
+              "path": "tests/codexHistoryProductFlow.test.js",
+              "sha256": "41ac4572ad4425a50ca283838c12d5d65d2216e2b73210206f5b41b4bef489c3"
+            }
+          ],
+          "qualification": "self-review; no product edits or live service/device actions"
+        },
+        "findings": [
+          {
+            "id": "TASK005-S2-R5",
+            "priority": "P2",
+            "title": "Restored SessionContext exposes internal history_base source cut in product DTO",
+            "file": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+            "start_line": 1607,
+            "end_line": 1614,
+            "observation": "The restored eligibility of every non-internal AnalysisEvent includes SessionContext. CodexEventAdapter::adapt_session copies the typed HistoryBaseRef into payload.history_base (mod.rs:216). HistoryBaseRef contains parent_rollout_id, end_ordinal_exclusive and end_byte_offset (source/lineage.rs:21). productEventFact removes only payload.metadata (importer:1557-1568), retaining this schema-defined source locator/read cut. CodexHistoryProductProvider projectItems/projectValue serializes the object unchanged. A read-only exact-helper→actual-Provider in-memory fixture confirmed history.items[].payloadJson.eventFacts[0].payload.history_base contains all three fields while complete=true.",
+            "trigger": "A validated child rollout SessionContext with a non-null history_base; the current real target used for R3 is a root and does not exercise this optional field.",
+            "impact": "Internal rollout identity and source read boundaries cross the canonical product/App DTO boundary, violating product metadata isolation; Diagnostic exclusion alone does not make a non-diagnostic event payload entirely business data.",
+            "requirements": [
+              "docs/codex/codex-history-product-contract.md §3.2: source locator, read cursor and internal collection/recovery metadata must remain in staging/checkpoints, outside ConversationHistory/App DTO/Gateway payload",
+              "Rust analyzer data contract §3: history_items/AnalysisEvent is Rust→Node analysis output, not an App or stage-5 product DTO",
+              "Adopted S2 scope: preserve business facts while isolating internal analyzer/source metadata by schema; no arbitrary business-key filtering"
+            ],
+            "recommendation": "At canonical product construction, exclude the known SessionContext.history_base source-evidence field by event schema while retaining cwd/model_provider/source/session business facts and internal staging evidence. Do not recursively remove arbitrary history_base keys in tool/business payloads or add Gateway key-name filtering. Add a child SessionContext positive/negative importer→Store/provider regression with a non-null HistoryBaseRef."
+          }
+        ],
+        "prior_findings_assessment": [
+          {
+            "finding_id": "TASK005-S2-R4",
+            "status": "resolved-in-current-source-and-focused-integration",
+            "observation": "Exact current helper over the frozen real 270-event staging batch yields 98 rows (1 SessionContext, 3 TurnStarted, 3 user, 10 assistant, 39 tool, 21 RateLimitUpdated, 21 UsageUpdated), preserving cwd E:\\coding\\LawAgent and all 21 rate-limit facts while excluding 130 Diagnostic rows. Fresh real-Rust product flow passes positive cwd/model_provider and primary_used_percent/window assertions. No current real-host publication proof is claimed."
+          },
+          {
+            "finding_id": "TASK005-S2-R2",
+            "status": "diagnostic-carrier-filtering-valid; schema-source-isolation-gap-R5-remains",
+            "observation": "Current filter excludes Diagnostic/ParseGap/UnknownEvent by event type and removes those records from mixed-key eventFacts. Same-name legitimate diagnostic/code/sourcePath/requestId fields are retained. Staging unchanged. This is not full approval of product metadata isolation due R5."
+          },
+          {
+            "finding_id": "TASK005-S2-R3",
+            "status": "historical-minimum-smoke-evidence-retained",
+            "observation": "Screenshot and stable-item evidence are byte-identical to execution 585 and previous review 128; no new device run occurred on the R4 subject. Prior concrete command visibility plus product page/ACK/cache correlation remains its original historical observation, preserving healthy IPC authority."
+          }
+        ],
+        "coverage": {
+          "target": ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json",
+          "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+          "requirements": [
+            "Product contract §3.1, §3.2 and §5.1",
+            "Collector architecture previous complete read reused; current hash e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3 unchanged",
+            "CONTRACTS IPC frozen core; DECISIONS AD-004/AD-022 retained",
+            "Rust AnalysisEvent::SessionContext, adapter adapt_session, typed source HistoryBaseRef",
+            "Product provider source payload serialization"
+          ],
+          "reviewed_changes": {
+            "src_sha256": "f0ee909668c37e90a461321770784387531dc70179d646c6116aa48d956df63a",
+            "test_sha256": "41ac4572ad4425a50ca283838c12d5d65d2216e2b73210206f5b41b4bef489c3",
+            "scope": "Schema carrier classification; businessEventKeys union; filtering mixed eventFacts; real-Rust positive context/rate-limit assertions",
+            "unchanged": "Canonical gate, transaction, staging ACK, Rust, IPC, Android schema/source and authority"
+          },
+          "new_validation": [
+            {
+              "command": "node --test --test-name-pattern \"product-history-real-rust\" tests/codexHistoryProductFlow.test.js",
+              "result": "passed",
+              "tests": 1,
+              "passed": 1,
+              "failed": 0,
+              "duration_ms": 1237.7192,
+              "observation": "Actual Rust analyzer→importer→canonical Store→test Gateway flow with new positive business assertions; fixture/local transport, not external host/device E2E"
+            },
+            {
+              "method": "Read-only exact production helper over immutable staging full batch",
+              "result": "R4 fixed",
+              "fixture_sha256": "3da0c917e9756ba95ce9d1a3a7aca7ee9304c796253a5dee8258fd57e538ea3b",
+              "batch_id": "batch-9fe2fdb713247f48662de293055084c8",
+              "rows": 98,
+              "session_cwd_facts": 1,
+              "rate_limit_facts": 21,
+              "internal_facts": 0
+            },
+            {
+              "method": "Read-only exact-helper mixed-key fixture",
+              "result": "passed",
+              "observation": "Diagnostic on a business key and separate ParseGap/UnknownEvent keys excluded; diagnostic=business, code=7, sourcePath=E:/business/path and requestId=business-id retained in business payload"
+            },
+            {
+              "method": "Read-only exact production helper + real CodexHistoryProductProvider with in-memory store fixture",
+              "result": "R5 reproduced",
+              "fixture": {
+                "projection": {
+                  "turns": []
+                },
+                "event_type": "SessionContext",
+                "item_key": "session:review",
+                "cwd": "E:/review-business-cwd",
+                "model_provider": "openai",
+                "history_base": {
+                  "parent_rollout_id": "review-parent-rollout",
+                  "end_ordinal_exclusive": 14,
+                  "end_byte_offset": 128
+                }
+              },
+              "provider_result": {
+                "complete": true,
+                "history_base": {
+                  "parent_rollout_id": "review-parent-rollout",
+                  "end_ordinal_exclusive": 14,
+                  "end_byte_offset": 128
+                },
+                "cwd_preserved": true
+              },
+              "qualification": "Schema-shaped in-memory boundary counterexample, not a real child rollout or physical-device run"
+            }
+          ],
+          "reused_validation": {
+            "source": "Execution 547 request.commands (reported tests; no raw broad-suite stdout attachment)",
+            "product_flow_reported_passed": 22,
+            "collector_reported_passed": 122,
+            "reported_syntax_diff_checks": "passed",
+            "full_suites_rerun_by_review": false
+          },
+          "historical_runtime_evidence": {
+            "execution_ref": ".workflow-system/records/events/key-585fea80c03ac11b86aa9a07a548cef66acd890d4b58e1dfaf1c64fa9b1ed8f0.json",
+            "screenshot_sha256": "01106cdc4e1c5e20168f883b7f6cfa8188c283634c33873e5408d4c26119e241",
+            "evidence_json_sha256": "ecbe1df9f814346e403c635008b776f984d96f9ea654a3d4a8f1daa5f1cf8883",
+            "status": "unchanged historical bytes, not fresh R4 publication/device verification",
+            "old_canonical_item_count": 52,
+            "old_android_item_count": 122,
+            "old_android_diagnostic_count": 45,
+            "old_android_coverage": "partial"
+          },
+          "not_run": [
+            "New real external-host publication and Android validation",
+            "Manual DB/cache cleanup or cache clear",
+            "Broad Rust/Android tests",
+            "Independent review",
+            "S2 finish/S3/S4/Git/deployment"
+          ]
+        },
+        "provenance": {
+          "kind": "self-review",
+          "independent": false,
+          "reviewer": "current root agent",
+          "observation_sources": "Fresh source review, focused Rust integration rerun, read-only frozen real-batch replay and schema boundary counterexamples; historical device evidence kept separate"
+        },
+        "limits": [
+          "R4 source correctness is not proof of a new canonical publication, corrected existing DB or cleaned Android cache",
+          "Old partial cache contamination remains unresolved under no-manual-cleanup scope; no claim of current complete or clean cache",
+          "Four Task004 reports C2-store-final/C2-publish/C4-flow-final/C4-unattended remain stale and are not refreshed by this review",
+          "Existing issue-ec19a134aefeb23287cb519b retained without guessed associations",
+          "No product code edits or step advancement performed in review"
+        ],
+        "remaining_work": [
+          "Repair R5 schema-specific internal source evidence isolation and add a focused child-context boundary regression",
+          "Verify subsequent valid canonical publication/provider DTO on the normal authorized single chain; do not rewrite old batch receipts or clear caches",
+          "Preserve historical R3 and cache limits; revalidate affected live history behavior on current subject as necessary before S2 disposition",
+          "S2 remains in-progress; S3/S4 remain not-started"
+        ],
+        "recommendation": {
+          "next_route": "execute-step",
+          "next_mode": "repair",
+          "reason": "R4 is resolved; actionable P2 schema isolation gap R5 remains within adopted Node product projection scope"
+        },
+        "links": [
+          ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json",
+          ".workflow-system/records/events/key-128f3560c5cd50e717503bea40a683da250ad219f04b5432180e79c6fbac0cb5.json",
+          ".workflow-system/records/events/key-f5671266ba911c12b2d05df45f9dec8a02d5dbb7a9aa032fda11daee7c758edf.json"
+        ],
+        "files": [
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "tests/codexHistoryProductFlow.test.js",
+          "docs/codex/codex-history-product-contract.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T09:15:11.394Z",
+  "payload_sha256": "bc3a296454b867fabea7e415c2eb72d4befbb04118a4a8fa29d34c6af279f79e",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s2-repair-test-20260930-1",
+    "request": {
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+      "source_revision": {
+        "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00"
+      },
+      "selector": "S2-repair/explicit-oracle-negative-and-output-controls",
+      "command": "Current stage3 test EXE --exact formal_projection_matches_actual_demo_reducer_and_spike_parser --nocapture with seven distinct invalid explicit paths; existing conformance tests with injected output controls",
+      "result": "passed",
+      "observation": "Seven native expected failures exited101 for relative Demo/Spike, missing Demo/Spike, directory, invalid Demo/Spike executable. Old default EXEs exist, no fallback. Thirteen intentional leaked-output/extra usage mutations are rejected by the same output/invariance guards in conformance.",
+      "report_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+      "idempotency_key": "task20260830-s2-repair-test-20260930-1"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-2f70c9f666b5aa618449fb544c2bf0447ec28fe60f40ed035e743ad19b25476e.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+        "source_revision": {
+          "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00"
+        },
+        "selector": "S2-repair/explicit-oracle-negative-and-output-controls",
+        "command": "Current stage3 test EXE --exact formal_projection_matches_actual_demo_reducer_and_spike_parser --nocapture with seven distinct invalid explicit paths; existing conformance tests with injected output controls",
+        "result": "passed",
+        "observation": "Seven native expected failures exited101 for relative Demo/Spike, missing Demo/Spike, directory, invalid Demo/Spike executable. Old default EXEs exist, no fallback. Thirteen intentional leaked-output/extra usage mutations are rejected by the same output/invariance guards in conformance.",
+        "report_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json"
+      }
+    }
+  },
+  "issues": []
+}

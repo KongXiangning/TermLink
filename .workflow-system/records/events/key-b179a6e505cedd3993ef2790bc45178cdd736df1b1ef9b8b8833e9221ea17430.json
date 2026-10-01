@@ -1,0 +1,402 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T05:49:17.388Z",
+  "payload_sha256": "385c794c7e01d1a9477c117953b99eec7fd6565e8cc9199b54f25e3bda0aebe6",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:prepare-rust-rollout-token-usage-developer-compat-20260930",
+    "request": {
+      "action": "prepare",
+      "idempotency_key": "prepare-rust-rollout-token-usage-developer-compat-20260930",
+      "decision_source": "Current conversation; explicit prepare-task invocation",
+      "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) **本次 canonical 历史无法发布的直接阻塞在 Rust 解析／适配层。**\n\n- **Rust**：21 条 `token_usage_record` 未识别，3 条开发者消息被归为 `UnknownEvent`，分析结果为 `partial`。 d对RUST端的兼容性进行修复",
+      "source_revision": {
+        "git_head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "product_worktree_diff": "none at preparation",
+        "wire_decode_sha256": "e6d9648d16ab4c97a66138acbf33cbdf737418877cf5e9fbbf340734e104bdad",
+        "adapter_sha256": "0cfa86309e23af4863ede36e8234a2ab314addfc56cb721e4c307587c3499eb1",
+        "formal_and_spike_history_lib_sha256": "a0247aca4f948cf519ae1ef0f40d657fdf163ed293b6ca4cfe8b96ab1fe3658b",
+        "formal_and_spike_rollout_payload_sha256": "49f86787bcd9bd4d2975bd5a9564d26069f6f1533b7b1dd829346cb3ed7a2e8e",
+        "formal_vendor_manifest_sha256": "a2e20aed1e187ba5569b40ac7b609cbc92531b14f6de9902d7de332fcef9e506",
+        "real_source_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e"
+      },
+      "plan": {
+        "title": "Rust rollout 兼容修复：token_usage_record 与 developer 消息",
+        "goal": "修复已完成真实会话中两类已知记录在 Rust wire/Adapter 被降为 UnknownEvent 的兼容问题，使完整且有效的 source 能交付 canonical 分析结果；不放宽未知事件、来源完整性或 Node 产品发布门槛。该独立任务解除 Task 005 S2 的 Rust 阻塞，不替代其 Node/Android 纵向验收。",
+        "acceptance": [
+          "真实结构的 token_usage_record 被 vendored native wire 类型识别并经 Adapter 归为 diagnostics-only，不能仅按 type 名称跳过校验；21 条记录不再因 unknown_variant:token_usage_record 导致 partial。",
+          "合法 response_item/message/role:developer 被明确识别为非可见上下文，不生成 UserMessage/AssistantMessage 或历史正文；开发者正文、internal_chat_message_metadata_passthrough 和原始隐藏内容不出现在 Rust→Node AnalysisBatch/Projection 中。",
+          "未承诺的 role、真正未知 variant、合法类型的畸形或缺失必填字段仍保留 UnknownEvent/ParseGap/诊断与 partial；禁止通配忽略或直接修改 canonical/complete 判定。",
+          "已有 event_msg/token_count 的 UsageUpdated、每 turn 最后有效 last_token_usage 及 rate limit 语义保持；token_usage_record 不形成第二 usage 累计源，thread_token_usage 不进入 TermLink DTO、历史或持久化。",
+          "固定 SHA256 的原始 source 离线副本可在隔离 Rust target process 的普通 backfill 请求中得到 completed + canonical，batch/projection/source range/checkpoint/complete evidence 一致；开发者正文不泄漏。若仍有别的阻塞须如实定位记录，不能以删除未知记录或跳过完整性检查冒充通过。",
+          "preview/backfill/append、overlap/retry/restart item_key、显式 conversation binding 和现有 lineage/replacement 边界保持；sanitized-session-5 的重要 partial/validation_unavailable 反例改由真正未知事件保护，不因 developer 修复而删除负向覆盖。",
+          "如需 vendored wire 补丁，先在 Spike 验证再以相同补丁提升到正式 crate；两个 vendor manifest 的 revision、closure 和 local_patches 一致，自动校验能拒绝不一致。原 upstream_revision 不冒充新版，默认构建仍限仓库内 path closure。",
+          "留下当前 subject revision 的实际修复、命令、测试及限制记录；Task 005 仍 paused、S2 未通过，修复本身不代表 Node 已发布产品历史或 Android 首屏/ACK 已验证。"
+        ],
+        "scope": [
+          "native/codex-rollout-collector/src/codex_wire/* 与 src/codex_adapter/mod.rs：仅这两类事件所需的最小兼容适配；原则上不修改 reducer/canonical gate。",
+          "native/codex-rollout-compat-spike/vendor/codex/history 与必要的现有 protocol 类型引用，以及 native/codex-rollout-collector/vendor/codex 中完全相同的最小本地补丁；不整体升级 Codex workspace，不增加外部 Codex 构建依赖。",
+          "两个 vendor 根目录的 vendor-manifest.toml、相关 README/补丁 provenance；补齐目前缺失的 Spike manifest，采用本任务相关的原生测试/校验拒绝 revision/closure/patch 不一致。",
+          "复用并按缺陷扩展 conformance.rs、stage3_conformance.rs、stage4_target_protocol.rs 及相关 current/unknown/sanitized-session-5 fixtures/golden；只调整受本修复影响的预期，不编辑 Demo oracle。",
+          "docs/codex/codex-rollout-collector-codex-compatibility.md、codex-rollout-collector-architecture.md 中两类记录和 synthetic developer partial 的相关说明；实施批次对应 docs/changes/records/CR-*.md 记录。",
+          "隔离 Rust crate/process 构建与回归、固定真实日志的只读离线复验及脱敏证据；不对外部 Codex source 进行写入。"
+        ],
+        "exclusions": [
+          "不修改 Node product store/importer/publish gate、产品历史 HTTP/WS 接口或公共 DTO，不引入额外 analyze mode/capability。",
+          "不修改 Android、Codex IPC follower/desired subscription/reconnect/owner/authority 或会话绑定架构。",
+          "不改变 app-server 所有的 rollout 写入、lineage 事实、source_epoch 或单例 Node→Rust 采集协调；不启动第二条在线生产采集链。",
+          "不部署或替换开发机当前运行的 analyzer，不启动/停止本地服务，不做真机联调、提交、推送或发布。",
+          "不恢复或关闭 Task 005，不推进其 S2/S3/S4，不把历史旧报告变为 fresh；不修复未知归属的管理记录。"
+        ],
+        "steps": [
+          {
+            "id": "S1",
+            "title": "冻结两类记录兼容分类、最小 wire 补丁与 Spike 验证",
+            "environment": [
+              "当前 Windows 工作区；仓库内 vendored Codex 闭包；隔离 Cargo 输出目录",
+              "真实 source 只读；永久 fixture 只使用合成/脱敏值；不依赖开发者本机 Codex checkout"
+            ],
+            "work": [
+              "保留现有失败证据，冻结 token_usage_record 的绑定及 usage/turn/thread carrier 字段和 developer envelope 的实际结构；先用最小 fixture 复现，不保存真实开发者正文到仓库。",
+              "token_usage_record 定为已验证 diagnostics-only carrier，复用现有 native TokenUsage 等类型，不创建平行 typed-lite 模型；必填/可选字段依据已验证结构确定，错误仍 fail-closed。",
+              "在 Spike vendor 实施最小 history wire variant/serialization 补丁；补齐机器可读 manifest 与本地补丁 provenance，保持既有 upstream revision。",
+              "新鲜构建并验证 Spike 解析新 fixture、legacy/current 输入；Demo 仅对既有共同语义充当只读 oracle，新的未知变体不能伪造 Demo 支持。"
+            ],
+            "validation": [
+              "Spike cargo fmt/test/build 使用 --locked 和仓库内 path 依赖；禁止复用修补前的旧 Spike exe 作为 oracle。",
+              "同一脱敏输入的已知记录正向、缺字段/错误类型负向，以及已有共同 fixture 的 Spike/Demo 对照。永久负向只扩展有缺陷检出力的既有测试。",
+              "若本地 Demo oracle 构建仍指向历史外部 checkout，保留限制并复用已存在且可核验的只读 golden/reference；不改 Demo、不访问或修复外部 Codex workspace。"
+            ]
+          },
+          {
+            "id": "S2",
+            "title": "提升相同 wire 补丁并修复 Adapter，保留隐藏内容与未知事件边界",
+            "environment": [
+              "同一工作区内正式 Rust crate 与 Spike；不运行 Node/App-facing 采集路径"
+            ],
+            "work": [
+              "把 S1 已验证的相同补丁提升到正式 vendor，更新双 manifest 和 codex_wire profile/已知类型校验；加入必要的一致性校验。",
+              "显式识别合法 developer message 为非可见诊断；token_usage_record 仅记录已知分类及必要内部 provenance，不导出原始 payload/cumulative counters。",
+              "扩展现有 message role/usage conformance，证明 developer 不泄漏且未知 role 仍 partial；比较与不含新 carrier 的相同业务 fixture 的 usage 和可见正文。",
+              "更换 sanitized-session-5 中用于制造 partial 的 developer sentinel 为明确 unknown sentinel，并同步 README/相关预期及 byte/history_base evidence；保留 canonical replacement 正向和 partial 负向覆盖。",
+              "同步相关兼容文档和 CR；不修改 reducer/global canonical 或 Node 发布条件。"
+            ],
+            "validation": [
+              "正式 conformance message roles、usage/rate limit、unknown/缺字段、stable identity 和相关 golden；hidden text 哨兵对完整序列化 AnalysisBatch/Projection 检查，能检出意外正文输出。",
+              "manifest/closure/patch 正向与人为不一致负向校验；正式与 Spike 的补丁实际字节和 provenance 一致。",
+              "受影响 lineage fixture 的 full/preview/backfill/restart/replacement 正负向；禁止把旧 partial 断言统一改为 canonical。",
+              "git diff --check 与聚焦 cargo fmt --check；只记录真实执行结果。"
+            ]
+          },
+          {
+            "id": "S3",
+            "title": "新鲜构建 Rust target 进程回归、真实离线 source 复验与 Task 005 交接",
+            "environment": [
+              "隔离 Rust test harness/普通 target backfill+ACK；离线只读固定 source 副本",
+              "不启动第二条在线 Node→Rust 链、不改变运行中的开发机服务或手机"
+            ],
+            "work": [
+              "先新鲜构建已修补 Spike 和正式 analyzer，再运行已有 conformance/stage3/target protocol 中受影响的 selector；扩大回归仅在新增失败或未决影响面需要时。",
+              "对固定 source SHA256 的离线副本跑正式 Rust target 普通 backfill，观察 24 个既知兼容 UnknownEvent 消失，并核对 canonical complete/source/checkpoint/ACK evidence，不仅检查退出码。",
+              "同一隔离 target 入口跑带真正未知事件/畸形已知 payload 的反例，验证 partial 和无 canonical 提交证据，兼顾重读/overlap identity 和 append/restart 不变性。",
+              "保留脱敏统计、命令、subject hashes、通过/失败/未运行和构建限制；输出供 Task 005 后续显式 resume 后重跑 S2 的 Rust 修复交接说明。"
+            ],
+            "validation": [
+              "conformance；stage3_conformance 的 projection/幂等/unknown/promotion/restart；stage4_target_protocol 对 canonical、partial、lineage replacement 的相关 selectors，按实现影响面选择最小充分集。",
+              "真实离线 source 227 条记录/1303231 bytes/SHA256 的 before/after 完整性与 unknown 统计及使用现有完整性契约的 target process complete 检查。",
+              "UsageUpdated 不增加第二计费来源，visible user/assistant/tool 内容及 item_key 不因新 diagnostics carrier 改变；unknown/malformed 反例仍 fail-closed。",
+              "只证明 Rust 兼容修复；Node product publication、Android 首屏与 ACK 继续留在 Task 005 S2 未验证范围。"
+            ]
+          }
+        ],
+        "minimum_sufficient_validation": {
+          "policy": "复用相关既有测试和 fixtures，仅扩展本故障的识别、隐藏内容、usage、unknown fail-closed 及 vendor parity 保护；不要求全仓库或 Android/E2E 测试。",
+          "primary": [
+            "wire/Adapter conformance 正负向",
+            "受影响 stage3/target protocol/lineage regression",
+            "新鲜 Spike 与正式 crate 构建及 vendor patch parity",
+            "固定真实 source 隔离 backfill complete/canonical 证据"
+          ],
+          "not_evidence": [
+            "历史 TASK-004 报告不重新标 fresh",
+            "旧 Spike/analyzer 二进制测试不代表新 subject",
+            "Rust canonical 成功不代表 Node/Android E2E 已通过"
+          ]
+        },
+        "baseline_observation": {
+          "kind": "read-only preparation, not new test execution",
+          "real_conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+          "source_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+          "bytes": 1303231,
+          "records": 227,
+          "token_usage_record": 21,
+          "developer_messages": 3,
+          "token_count_events": 21,
+          "existing_analyzer_result": "partial; 24 UnknownEvent; no product canonical publication",
+          "token_payload_keys": [
+            "thread_id",
+            "turn_id",
+            "session_id",
+            "root_turn_id",
+            "response_id",
+            "usage",
+            "turn_token_usage",
+            "thread_token_usage"
+          ],
+          "token_usage_keys": [
+            "input_tokens",
+            "cached_input_tokens",
+            "cache_write_input_tokens",
+            "output_tokens",
+            "reasoning_output_tokens",
+            "total_tokens"
+          ],
+          "token_bindings": "all 21 thread_id/session_id equal selected conversation; three turn_id values; root_turn_id matches turn_id",
+          "vendor_revision": "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2",
+          "provenance_gap": "Spike vendor README exists with same pinned revision; Spike vendor-manifest.toml currently missing; formal manifest exists and local_patches=[]",
+          "fixture_coupling": "current/message-roles and sanitized-session-5 currently expect developer UnknownEvent/partial; retain true-unknown counterexamples when changing developer semantics",
+          "related_task": "TASK-005/task-7a4566ccf322e08968cd5c7935cf61dd paused at S2; no lifecycle/focus change requested"
+        },
+        "authority": [
+          "AGENTS.md: Codex IPC frozen authority and Rollout Collector isolated Rust boundary",
+          "docs/workflow/CONTRACTS.md: Codex native real-time synchronization / P0-RC",
+          "docs/workflow/DECISIONS.md: AD-004 and AD-022",
+          "docs/codex/codex-rollout-collector-architecture.md (read in full)",
+          "docs/codex/codex-rollout-collector-codex-compatibility.md: Spike→formal vendor patch promotion, diagnostics-only retention, usage semantics",
+          "Rust analyzer interface index/startup/wire/data/coordinator contracts: canonical and unknown/source/checkpoint boundaries",
+          "docs/workflow/test-admission-policy.md"
+        ],
+        "risks_and_open_points": [
+          "Observed record structure is current-host evidence, not a claim that a newer upstream Codex revision has been audited. Prefer a minimal disclosed local compatibility patch; whole closure update is out of scope.",
+          "Required/optional fields and any allowed binding mismatch must be chosen from verified wire evidence, not inferred cumulative usage semantics. Malformed typed records cannot be made canonical.",
+          "Existing tests may reuse old binaries and contain developer-as-unknown assumptions; new builds and genuine unknown sentinels are necessary for credible current revision evidence.",
+          "Actual full source can reveal additional blockers after these two fixes; retain exact diagnostics and resolve only within confirmed Rust compatibility scope.",
+          "Existing unassociated management review key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6 has no established target and remains deferred; it is not evidence of this task's draft review."
+        ],
+        "preparation_result": "Candidate only; implementation, draft review, adoption and task execution have not occurred in this invocation.",
+        "next_route": "review-draft"
+      },
+      "links": [
+        {
+          "relation": "unblocks-task",
+          "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+          "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json"
+        },
+        {
+          "relation": "failure-baseline",
+          "ref": ".workflow-system/records/events/key-2c0ccd20d3adcf1ac35e9ede5252704ece0615cb541a684e030a8f908775846c.json"
+        },
+        {
+          "relation": "retains-pause",
+          "ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json"
+        },
+        {
+          "relation": "failure-evidence",
+          "ref": ".workflow-system/records/evidence-objects/462d9c8e506ad6a83b559689b8b2dc405450418aaa7a7c10dd04d9e047571f2f.blob"
+        }
+      ]
+    },
+    "task_event": {
+      "version": 1,
+      "action": "prepare",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json"
+      ],
+      "data": {
+        "decision_source": "Current conversation; explicit prepare-task invocation",
+        "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) **本次 canonical 历史无法发布的直接阻塞在 Rust 解析／适配层。**\n\n- **Rust**：21 条 `token_usage_record` 未识别，3 条开发者消息被归为 `UnknownEvent`，分析结果为 `partial`。 d对RUST端的兼容性进行修复",
+        "source_revision": {
+          "git_head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "product_worktree_diff": "none at preparation",
+          "wire_decode_sha256": "e6d9648d16ab4c97a66138acbf33cbdf737418877cf5e9fbbf340734e104bdad",
+          "adapter_sha256": "0cfa86309e23af4863ede36e8234a2ab314addfc56cb721e4c307587c3499eb1",
+          "formal_and_spike_history_lib_sha256": "a0247aca4f948cf519ae1ef0f40d657fdf163ed293b6ca4cfe8b96ab1fe3658b",
+          "formal_and_spike_rollout_payload_sha256": "49f86787bcd9bd4d2975bd5a9564d26069f6f1533b7b1dd829346cb3ed7a2e8e",
+          "formal_vendor_manifest_sha256": "a2e20aed1e187ba5569b40ac7b609cbc92531b14f6de9902d7de332fcef9e506",
+          "real_source_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e"
+        },
+        "plan": {
+          "title": "Rust rollout 兼容修复：token_usage_record 与 developer 消息",
+          "goal": "修复已完成真实会话中两类已知记录在 Rust wire/Adapter 被降为 UnknownEvent 的兼容问题，使完整且有效的 source 能交付 canonical 分析结果；不放宽未知事件、来源完整性或 Node 产品发布门槛。该独立任务解除 Task 005 S2 的 Rust 阻塞，不替代其 Node/Android 纵向验收。",
+          "acceptance": [
+            "真实结构的 token_usage_record 被 vendored native wire 类型识别并经 Adapter 归为 diagnostics-only，不能仅按 type 名称跳过校验；21 条记录不再因 unknown_variant:token_usage_record 导致 partial。",
+            "合法 response_item/message/role:developer 被明确识别为非可见上下文，不生成 UserMessage/AssistantMessage 或历史正文；开发者正文、internal_chat_message_metadata_passthrough 和原始隐藏内容不出现在 Rust→Node AnalysisBatch/Projection 中。",
+            "未承诺的 role、真正未知 variant、合法类型的畸形或缺失必填字段仍保留 UnknownEvent/ParseGap/诊断与 partial；禁止通配忽略或直接修改 canonical/complete 判定。",
+            "已有 event_msg/token_count 的 UsageUpdated、每 turn 最后有效 last_token_usage 及 rate limit 语义保持；token_usage_record 不形成第二 usage 累计源，thread_token_usage 不进入 TermLink DTO、历史或持久化。",
+            "固定 SHA256 的原始 source 离线副本可在隔离 Rust target process 的普通 backfill 请求中得到 completed + canonical，batch/projection/source range/checkpoint/complete evidence 一致；开发者正文不泄漏。若仍有别的阻塞须如实定位记录，不能以删除未知记录或跳过完整性检查冒充通过。",
+            "preview/backfill/append、overlap/retry/restart item_key、显式 conversation binding 和现有 lineage/replacement 边界保持；sanitized-session-5 的重要 partial/validation_unavailable 反例改由真正未知事件保护，不因 developer 修复而删除负向覆盖。",
+            "如需 vendored wire 补丁，先在 Spike 验证再以相同补丁提升到正式 crate；两个 vendor manifest 的 revision、closure 和 local_patches 一致，自动校验能拒绝不一致。原 upstream_revision 不冒充新版，默认构建仍限仓库内 path closure。",
+            "留下当前 subject revision 的实际修复、命令、测试及限制记录；Task 005 仍 paused、S2 未通过，修复本身不代表 Node 已发布产品历史或 Android 首屏/ACK 已验证。"
+          ],
+          "scope": [
+            "native/codex-rollout-collector/src/codex_wire/* 与 src/codex_adapter/mod.rs：仅这两类事件所需的最小兼容适配；原则上不修改 reducer/canonical gate。",
+            "native/codex-rollout-compat-spike/vendor/codex/history 与必要的现有 protocol 类型引用，以及 native/codex-rollout-collector/vendor/codex 中完全相同的最小本地补丁；不整体升级 Codex workspace，不增加外部 Codex 构建依赖。",
+            "两个 vendor 根目录的 vendor-manifest.toml、相关 README/补丁 provenance；补齐目前缺失的 Spike manifest，采用本任务相关的原生测试/校验拒绝 revision/closure/patch 不一致。",
+            "复用并按缺陷扩展 conformance.rs、stage3_conformance.rs、stage4_target_protocol.rs 及相关 current/unknown/sanitized-session-5 fixtures/golden；只调整受本修复影响的预期，不编辑 Demo oracle。",
+            "docs/codex/codex-rollout-collector-codex-compatibility.md、codex-rollout-collector-architecture.md 中两类记录和 synthetic developer partial 的相关说明；实施批次对应 docs/changes/records/CR-*.md 记录。",
+            "隔离 Rust crate/process 构建与回归、固定真实日志的只读离线复验及脱敏证据；不对外部 Codex source 进行写入。"
+          ],
+          "exclusions": [
+            "不修改 Node product store/importer/publish gate、产品历史 HTTP/WS 接口或公共 DTO，不引入额外 analyze mode/capability。",
+            "不修改 Android、Codex IPC follower/desired subscription/reconnect/owner/authority 或会话绑定架构。",
+            "不改变 app-server 所有的 rollout 写入、lineage 事实、source_epoch 或单例 Node→Rust 采集协调；不启动第二条在线生产采集链。",
+            "不部署或替换开发机当前运行的 analyzer，不启动/停止本地服务，不做真机联调、提交、推送或发布。",
+            "不恢复或关闭 Task 005，不推进其 S2/S3/S4，不把历史旧报告变为 fresh；不修复未知归属的管理记录。"
+          ],
+          "steps": [
+            {
+              "id": "S1",
+              "title": "冻结两类记录兼容分类、最小 wire 补丁与 Spike 验证",
+              "environment": [
+                "当前 Windows 工作区；仓库内 vendored Codex 闭包；隔离 Cargo 输出目录",
+                "真实 source 只读；永久 fixture 只使用合成/脱敏值；不依赖开发者本机 Codex checkout"
+              ],
+              "work": [
+                "保留现有失败证据，冻结 token_usage_record 的绑定及 usage/turn/thread carrier 字段和 developer envelope 的实际结构；先用最小 fixture 复现，不保存真实开发者正文到仓库。",
+                "token_usage_record 定为已验证 diagnostics-only carrier，复用现有 native TokenUsage 等类型，不创建平行 typed-lite 模型；必填/可选字段依据已验证结构确定，错误仍 fail-closed。",
+                "在 Spike vendor 实施最小 history wire variant/serialization 补丁；补齐机器可读 manifest 与本地补丁 provenance，保持既有 upstream revision。",
+                "新鲜构建并验证 Spike 解析新 fixture、legacy/current 输入；Demo 仅对既有共同语义充当只读 oracle，新的未知变体不能伪造 Demo 支持。"
+              ],
+              "validation": [
+                "Spike cargo fmt/test/build 使用 --locked 和仓库内 path 依赖；禁止复用修补前的旧 Spike exe 作为 oracle。",
+                "同一脱敏输入的已知记录正向、缺字段/错误类型负向，以及已有共同 fixture 的 Spike/Demo 对照。永久负向只扩展有缺陷检出力的既有测试。",
+                "若本地 Demo oracle 构建仍指向历史外部 checkout，保留限制并复用已存在且可核验的只读 golden/reference；不改 Demo、不访问或修复外部 Codex workspace。"
+              ]
+            },
+            {
+              "id": "S2",
+              "title": "提升相同 wire 补丁并修复 Adapter，保留隐藏内容与未知事件边界",
+              "environment": [
+                "同一工作区内正式 Rust crate 与 Spike；不运行 Node/App-facing 采集路径"
+              ],
+              "work": [
+                "把 S1 已验证的相同补丁提升到正式 vendor，更新双 manifest 和 codex_wire profile/已知类型校验；加入必要的一致性校验。",
+                "显式识别合法 developer message 为非可见诊断；token_usage_record 仅记录已知分类及必要内部 provenance，不导出原始 payload/cumulative counters。",
+                "扩展现有 message role/usage conformance，证明 developer 不泄漏且未知 role 仍 partial；比较与不含新 carrier 的相同业务 fixture 的 usage 和可见正文。",
+                "更换 sanitized-session-5 中用于制造 partial 的 developer sentinel 为明确 unknown sentinel，并同步 README/相关预期及 byte/history_base evidence；保留 canonical replacement 正向和 partial 负向覆盖。",
+                "同步相关兼容文档和 CR；不修改 reducer/global canonical 或 Node 发布条件。"
+              ],
+              "validation": [
+                "正式 conformance message roles、usage/rate limit、unknown/缺字段、stable identity 和相关 golden；hidden text 哨兵对完整序列化 AnalysisBatch/Projection 检查，能检出意外正文输出。",
+                "manifest/closure/patch 正向与人为不一致负向校验；正式与 Spike 的补丁实际字节和 provenance 一致。",
+                "受影响 lineage fixture 的 full/preview/backfill/restart/replacement 正负向；禁止把旧 partial 断言统一改为 canonical。",
+                "git diff --check 与聚焦 cargo fmt --check；只记录真实执行结果。"
+              ]
+            },
+            {
+              "id": "S3",
+              "title": "新鲜构建 Rust target 进程回归、真实离线 source 复验与 Task 005 交接",
+              "environment": [
+                "隔离 Rust test harness/普通 target backfill+ACK；离线只读固定 source 副本",
+                "不启动第二条在线 Node→Rust 链、不改变运行中的开发机服务或手机"
+              ],
+              "work": [
+                "先新鲜构建已修补 Spike 和正式 analyzer，再运行已有 conformance/stage3/target protocol 中受影响的 selector；扩大回归仅在新增失败或未决影响面需要时。",
+                "对固定 source SHA256 的离线副本跑正式 Rust target 普通 backfill，观察 24 个既知兼容 UnknownEvent 消失，并核对 canonical complete/source/checkpoint/ACK evidence，不仅检查退出码。",
+                "同一隔离 target 入口跑带真正未知事件/畸形已知 payload 的反例，验证 partial 和无 canonical 提交证据，兼顾重读/overlap identity 和 append/restart 不变性。",
+                "保留脱敏统计、命令、subject hashes、通过/失败/未运行和构建限制；输出供 Task 005 后续显式 resume 后重跑 S2 的 Rust 修复交接说明。"
+              ],
+              "validation": [
+                "conformance；stage3_conformance 的 projection/幂等/unknown/promotion/restart；stage4_target_protocol 对 canonical、partial、lineage replacement 的相关 selectors，按实现影响面选择最小充分集。",
+                "真实离线 source 227 条记录/1303231 bytes/SHA256 的 before/after 完整性与 unknown 统计及使用现有完整性契约的 target process complete 检查。",
+                "UsageUpdated 不增加第二计费来源，visible user/assistant/tool 内容及 item_key 不因新 diagnostics carrier 改变；unknown/malformed 反例仍 fail-closed。",
+                "只证明 Rust 兼容修复；Node product publication、Android 首屏与 ACK 继续留在 Task 005 S2 未验证范围。"
+              ]
+            }
+          ],
+          "minimum_sufficient_validation": {
+            "policy": "复用相关既有测试和 fixtures，仅扩展本故障的识别、隐藏内容、usage、unknown fail-closed 及 vendor parity 保护；不要求全仓库或 Android/E2E 测试。",
+            "primary": [
+              "wire/Adapter conformance 正负向",
+              "受影响 stage3/target protocol/lineage regression",
+              "新鲜 Spike 与正式 crate 构建及 vendor patch parity",
+              "固定真实 source 隔离 backfill complete/canonical 证据"
+            ],
+            "not_evidence": [
+              "历史 TASK-004 报告不重新标 fresh",
+              "旧 Spike/analyzer 二进制测试不代表新 subject",
+              "Rust canonical 成功不代表 Node/Android E2E 已通过"
+            ]
+          },
+          "baseline_observation": {
+            "kind": "read-only preparation, not new test execution",
+            "real_conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+            "source_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+            "bytes": 1303231,
+            "records": 227,
+            "token_usage_record": 21,
+            "developer_messages": 3,
+            "token_count_events": 21,
+            "existing_analyzer_result": "partial; 24 UnknownEvent; no product canonical publication",
+            "token_payload_keys": [
+              "thread_id",
+              "turn_id",
+              "session_id",
+              "root_turn_id",
+              "response_id",
+              "usage",
+              "turn_token_usage",
+              "thread_token_usage"
+            ],
+            "token_usage_keys": [
+              "input_tokens",
+              "cached_input_tokens",
+              "cache_write_input_tokens",
+              "output_tokens",
+              "reasoning_output_tokens",
+              "total_tokens"
+            ],
+            "token_bindings": "all 21 thread_id/session_id equal selected conversation; three turn_id values; root_turn_id matches turn_id",
+            "vendor_revision": "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2",
+            "provenance_gap": "Spike vendor README exists with same pinned revision; Spike vendor-manifest.toml currently missing; formal manifest exists and local_patches=[]",
+            "fixture_coupling": "current/message-roles and sanitized-session-5 currently expect developer UnknownEvent/partial; retain true-unknown counterexamples when changing developer semantics",
+            "related_task": "TASK-005/task-7a4566ccf322e08968cd5c7935cf61dd paused at S2; no lifecycle/focus change requested"
+          },
+          "authority": [
+            "AGENTS.md: Codex IPC frozen authority and Rollout Collector isolated Rust boundary",
+            "docs/workflow/CONTRACTS.md: Codex native real-time synchronization / P0-RC",
+            "docs/workflow/DECISIONS.md: AD-004 and AD-022",
+            "docs/codex/codex-rollout-collector-architecture.md (read in full)",
+            "docs/codex/codex-rollout-collector-codex-compatibility.md: Spike→formal vendor patch promotion, diagnostics-only retention, usage semantics",
+            "Rust analyzer interface index/startup/wire/data/coordinator contracts: canonical and unknown/source/checkpoint boundaries",
+            "docs/workflow/test-admission-policy.md"
+          ],
+          "risks_and_open_points": [
+            "Observed record structure is current-host evidence, not a claim that a newer upstream Codex revision has been audited. Prefer a minimal disclosed local compatibility patch; whole closure update is out of scope.",
+            "Required/optional fields and any allowed binding mismatch must be chosen from verified wire evidence, not inferred cumulative usage semantics. Malformed typed records cannot be made canonical.",
+            "Existing tests may reuse old binaries and contain developer-as-unknown assumptions; new builds and genuine unknown sentinels are necessary for credible current revision evidence.",
+            "Actual full source can reveal additional blockers after these two fixes; retain exact diagnostics and resolve only within confirmed Rust compatibility scope.",
+            "Existing unassociated management review key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6 has no established target and remains deferred; it is not evidence of this task's draft review."
+          ],
+          "preparation_result": "Candidate only; implementation, draft review, adoption and task execution have not occurred in this invocation.",
+          "next_route": "review-draft"
+        },
+        "links": [
+          {
+            "relation": "unblocks-task",
+            "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+            "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json"
+          },
+          {
+            "relation": "failure-baseline",
+            "ref": ".workflow-system/records/events/key-2c0ccd20d3adcf1ac35e9ede5252704ece0615cb541a684e030a8f908775846c.json"
+          },
+          {
+            "relation": "retains-pause",
+            "ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json"
+          },
+          {
+            "relation": "failure-evidence",
+            "ref": ".workflow-system/records/evidence-objects/462d9c8e506ad6a83b559689b8b2dc405450418aaa7a7c10dd04d9e047571f2f.blob"
+          }
+        ],
+        "create": true,
+        "display_id": "TASK-20260830"
+      }
+    }
+  },
+  "issues": []
+}

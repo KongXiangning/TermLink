@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T09:54:56.356Z",
+  "payload_sha256": "d5cfce56df80181724f3c3b090747c63bd453e89a6525475fa317cf1992062d8",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:test-s3-fresh-builds-parity-20260930-1752",
+    "request": {
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S3",
+      "idempotency_key": "test-s3-fresh-builds-parity-20260930-1752",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s3-20260930",
+        "scope": "S3 isolated Rust build and vendor parity"
+      },
+      "command": "pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1; cargo build --locked for codex-rollout-demo, codex-rollout-compat-spike, and codex-rollout-collector with separate task-private CARGO_TARGET_DIR values",
+      "selector": "S3/fresh-builds-and-vendor-parity",
+      "result": "passed",
+      "observation": "Parity passed at revision 5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2; all three fresh builds exited 0. Artifact hashes: Demo 3713341b2f67f5847d136af7b9af31cadc67657eeb2029b5708cb218e32ec009; Spike f4f21a53f20ed8012c370e9ce10be88d30a9a6846089932c3eac26477990e6c9; formal a40feca794938be7d97e1a4d2476bbfb569fb5c60935e23d7389886714adb26b.",
+      "report_ref": "docs/changes/records/CR-20260930-1752-codex-rollout-compat-s3.md"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-2c7b6dc094697782c3c71694b3b6f629f1478c1db23be359922bd0b5537fff7d.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S3",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s3-20260930",
+          "scope": "S3 isolated Rust build and vendor parity"
+        },
+        "command": "pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1; cargo build --locked for codex-rollout-demo, codex-rollout-compat-spike, and codex-rollout-collector with separate task-private CARGO_TARGET_DIR values",
+        "selector": "S3/fresh-builds-and-vendor-parity",
+        "result": "passed",
+        "observation": "Parity passed at revision 5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2; all three fresh builds exited 0. Artifact hashes: Demo 3713341b2f67f5847d136af7b9af31cadc67657eeb2029b5708cb218e32ec009; Spike f4f21a53f20ed8012c370e9ce10be88d30a9a6846089932c3eac26477990e6c9; formal a40feca794938be7d97e1a4d2476bbfb569fb5c60935e23d7389886714adb26b.",
+        "report_ref": "docs/changes/records/CR-20260930-1752-codex-rollout-compat-s3.md"
+      }
+    }
+  },
+  "issues": []
+}

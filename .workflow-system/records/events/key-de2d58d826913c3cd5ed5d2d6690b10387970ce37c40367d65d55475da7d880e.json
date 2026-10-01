@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T06:21:17.669Z",
+  "payload_sha256": "70fb06abd9cd1e8372177f88e1ff3cda3dc2387a55b1aa591a8076a1b395b663",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:review-rust-compat-draft-v2-31fc8142-20260930",
+    "request": {
+      "action": "review",
+      "stage": "draft",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "idempotency_key": "review-rust-compat-draft-v2-31fc8142-20260930",
+      "verdict": "clean",
+      "summary": "草稿 v2 可供确认：D1/D2 已在计划层面实质处理，未发现新的阻塞性草稿问题。结论仅针对候选计划的范围、顺序、可行性与验证安排，未实施或运行测试，不代表 Rust 兼容缺陷已修复。",
+      "findings": [],
+      "finding_resolutions": [
+        {
+          "previous_review_ref": ".workflow-system/records/events/key-28f84a74a2e95580efdb3d56da1ad0ea1f2cf04f31c2aba40532f1f6c9428369.json",
+          "finding_id": "D1",
+          "disposition": "addressed-in-successor-draft",
+          "basis": "v2 acceptance[8]、S1 environment/build provenance、S2 oracle helper work/negative validation 与 S3 environment/work 指定私有 Cargo 输出目录、两个显式绝对路径、构建输入/产物哈希及实际 loader 选择。显式路径无效不回退旧 EXE，缺验收变量/当前 build evidence 不进入本次验收，解决了隔离构建与固定旧目录 loader 的证据断开。",
+          "qualification": "当前 helper 源码仍是旧实现；这是可执行计划的修订确认，不是已完成代码修复或测试通过。旧审查记录及其原 finding 状态不覆写。"
+        },
+        {
+          "previous_review_ref": ".workflow-system/records/events/key-28f84a74a2e95580efdb3d56da1ad0ea1f2cf04f31c2aba40532f1f6c9428369.json",
+          "finding_id": "D2",
+          "disposition": "addressed-in-successor-draft",
+          "basis": "v2 acceptance[9] 与 S1 validation[1..2] 要求当前 Demo、修补后的 Spike 在同一 fixture bytes/SHA256 上真实 A/B，之后才提升补丁；历史 golden 仅补充，未运行/失败不能替代。Demo 新 variant 不被声称支持。当前 Demo manifest 无外部 Codex path/Git dependency，方案有当前源码依据。",
+          "qualification": "本轮未执行 A/B，真实结果与可用性留给 S1；不把历史对照升级为本轮验证。"
+        }
+      ],
+      "coverage": {
+        "target": "exact successor v2; parent plan and its needs-revision review used for change comparison",
+        "scope_assessment": "目标、全部八项原验收、排除项和 S1→S2→S3 顺序保持。增加显式 oracle loader 与最小 native vendor guard 属于修复/验证范围；不编辑 Demo 源码，不拓展 Node/Android/IPC、协议 mode、数据库或部署。",
+        "classification_assessment": "合法 token_usage_record 作为 diagnostics-only，合法 developer 作为非可见上下文；保留 required-field/错误类型/unknown role/variant fail-closed、usage 不重复和隐藏正文哨兵。schema 规则在 S1 依据实际结构冻结，不凭记录名忽略任意 payload。",
+        "validation_assessment": "复用聚焦 conformance、stage3/target protocol 和 lineage 反例。新增 permanent helper test 仅有实质缺口时引入；无需全仓库/Android/E2E。本轮产物实际路径和 hash、真实同输入 A/B、unknown/privacy/usage 以及失配 vendor guard 正负向具有缺陷检出价值。",
+        "cross_step_assessment": "S1 允许 staging 更新暂不同于 formal；实际 Spike/A/B 成功后 S2 原样提升。guard 在提升后的本轮 native Cargo build/test 之前执行并在非零时中断该构建流程。guard 不作为正式 crate 的 Cargo path/source dependency，未引入对 Spike 的发布运行依赖或全局 Runtime gate。",
+        "source_facts": [
+          "完整读取 v2、对照 parent 与 D1/D2 原始 finding，并保留最初用户 Rust 修复请求与推断方案的区别。",
+          "当前 stage3_conformance.rs 与候选记录源哈希一致；其 helper 尚未支持所规划的两个路径变量。",
+          "当前 Demo Cargo.toml 仅含 registry dependencies，无 Codex path/Git dependency。",
+          "目前 Spike vendor manifest 和 verify-vendor-parity.ps1 仍不存在；候选明确把创建/验证安排在实施步骤中，并未假称已完成。",
+          "此前只读核对的真实 source/hash/count 为原故障输入依据；本轮未再分析真实 source，不产生新的 analyzer 结果。",
+          "live task-status: candidate v2 未 adopted、current_task null；Task 005 paused/S2 in-progress 与实际未通过结果保留。"
+        ],
+        "authority": [
+          "AGENTS.md Codex IPC frozen core / isolated Rollout Collector scope",
+          "docs/workflow/CONTRACTS.md relevant Codex authority and docs/workflow/DECISIONS.md AD-004/AD-022 (already read in this task)",
+          "docs/codex/codex-rollout-collector-architecture.md full read earlier in this task; §4.3.5 rechecked for this successor",
+          "docs/codex/codex-rollout-collector-codex-compatibility.md vendor/diagnostics/usage boundaries",
+          "docs/workflow/test-admission-policy.md",
+          "fresh review-draft SKILL.md, WORKFLOW_PROTOCOL.md and live task-status"
+        ],
+        "excluded": [
+          "实施或修改产品、草稿、fixture、契约或 guard 文件",
+          "Rust/Node/Android build/test 或真实 analyzer 请求",
+          "Task 005 resume/advance/close",
+          "Git commit/push、服务控制、外部部署或真机验证"
+        ]
+      },
+      "conditions": [
+        "执行中须满足候选已写明的路径/hash、真实 A/B、vendor guard、未知/畸形 fail-closed、privacy/usage/lineage 保护；真实构建/测试失败如实保留，不用这份草稿审查代替执行证据。",
+        "Rust compatibility 验证不会自动成为 Node product canonical 发布或 Android 首屏/ACK 验收，Task 005 保持 paused 直到用户另有指令。",
+        "计划确认须针对这个 v2 ref；本审查不替代用户 adoption，也不自动修改父计划的 needs-revision 或旧四份历史报告的新鲜度。"
+      ],
+      "provenance": {
+        "reviewer": "Codex primary agent, current conversation",
+        "independence": "self-review; same agent authored this candidate; no independent-review claim",
+        "method": "read-only draft/source review with normal Assistance task review persistence",
+        "tests_run": [],
+        "implementation_performed": false
+      },
+      "source_revision": {
+        "plan_payload_sha256": "7036e18a971d4c3319349e576f305558078ad2f94544a7bb498b9e82bed863e4",
+        "plan_file_sha256": "dd20d1ed1bf530167a90eeecd9df86e2d8ffe396b413aaba178d8ac8022736c0",
+        "git_head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "stage3_conformance_sha256": "5aa09ee1dce441e35fbfbab9e888dbfe047018f14b7de97d3dda313e7850e9bd",
+        "demo_manifest_sha256": "078ed27bd3d800be20ec183d694aaa255ff311b86d178b57ff189d4c93498839",
+        "wire_decode_sha256": "e6d9648d16ab4c97a66138acbf33cbdf737418877cf5e9fbbf340734e104bdad",
+        "adapter_sha256": "0cfa86309e23af4863ede36e8234a2ab314addfc56cb721e4c307587c3499eb1",
+        "product_worktree_diff": "none observed"
+      },
+      "remaining_management_data": {
+        "issue_id": "issue-ec19a134aefeb23287cb519b",
+        "record_ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+        "disposition": "existing unassociated review retained; no guessed target or retroactive clean/fresh designation; outside this draft review"
+      },
+      "next_route": "prepare-task",
+      "next_mode": "confirm",
+      "next_action": "Confirm/adopt exact reviewed v2 candidate if the user chooses it; no implementation authorized by this review alone",
+      "links": [
+        {
+          "relation": "reviews-plan",
+          "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+        },
+        {
+          "relation": "rechecks-prior-findings",
+          "ref": ".workflow-system/records/events/key-28f84a74a2e95580efdb3d56da1ad0ea1f2cf04f31c2aba40532f1f6c9428369.json"
+        },
+        {
+          "relation": "retains-task005-pause",
+          "ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json"
+        }
+      ]
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+      ],
+      "data": {
+        "stage": "draft",
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "verdict": "clean",
+        "summary": "草稿 v2 可供确认：D1/D2 已在计划层面实质处理，未发现新的阻塞性草稿问题。结论仅针对候选计划的范围、顺序、可行性与验证安排，未实施或运行测试，不代表 Rust 兼容缺陷已修复。",
+        "findings": [],
+        "finding_resolutions": [
+          {
+            "previous_review_ref": ".workflow-system/records/events/key-28f84a74a2e95580efdb3d56da1ad0ea1f2cf04f31c2aba40532f1f6c9428369.json",
+            "finding_id": "D1",
+            "disposition": "addressed-in-successor-draft",
+            "basis": "v2 acceptance[8]、S1 environment/build provenance、S2 oracle helper work/negative validation 与 S3 environment/work 指定私有 Cargo 输出目录、两个显式绝对路径、构建输入/产物哈希及实际 loader 选择。显式路径无效不回退旧 EXE，缺验收变量/当前 build evidence 不进入本次验收，解决了隔离构建与固定旧目录 loader 的证据断开。",
+            "qualification": "当前 helper 源码仍是旧实现；这是可执行计划的修订确认，不是已完成代码修复或测试通过。旧审查记录及其原 finding 状态不覆写。"
+          },
+          {
+            "previous_review_ref": ".workflow-system/records/events/key-28f84a74a2e95580efdb3d56da1ad0ea1f2cf04f31c2aba40532f1f6c9428369.json",
+            "finding_id": "D2",
+            "disposition": "addressed-in-successor-draft",
+            "basis": "v2 acceptance[9] 与 S1 validation[1..2] 要求当前 Demo、修补后的 Spike 在同一 fixture bytes/SHA256 上真实 A/B，之后才提升补丁；历史 golden 仅补充，未运行/失败不能替代。Demo 新 variant 不被声称支持。当前 Demo manifest 无外部 Codex path/Git dependency，方案有当前源码依据。",
+            "qualification": "本轮未执行 A/B，真实结果与可用性留给 S1；不把历史对照升级为本轮验证。"
+          }
+        ],
+        "coverage": {
+          "target": "exact successor v2; parent plan and its needs-revision review used for change comparison",
+          "scope_assessment": "目标、全部八项原验收、排除项和 S1→S2→S3 顺序保持。增加显式 oracle loader 与最小 native vendor guard 属于修复/验证范围；不编辑 Demo 源码，不拓展 Node/Android/IPC、协议 mode、数据库或部署。",
+          "classification_assessment": "合法 token_usage_record 作为 diagnostics-only，合法 developer 作为非可见上下文；保留 required-field/错误类型/unknown role/variant fail-closed、usage 不重复和隐藏正文哨兵。schema 规则在 S1 依据实际结构冻结，不凭记录名忽略任意 payload。",
+          "validation_assessment": "复用聚焦 conformance、stage3/target protocol 和 lineage 反例。新增 permanent helper test 仅有实质缺口时引入；无需全仓库/Android/E2E。本轮产物实际路径和 hash、真实同输入 A/B、unknown/privacy/usage 以及失配 vendor guard 正负向具有缺陷检出价值。",
+          "cross_step_assessment": "S1 允许 staging 更新暂不同于 formal；实际 Spike/A/B 成功后 S2 原样提升。guard 在提升后的本轮 native Cargo build/test 之前执行并在非零时中断该构建流程。guard 不作为正式 crate 的 Cargo path/source dependency，未引入对 Spike 的发布运行依赖或全局 Runtime gate。",
+          "source_facts": [
+            "完整读取 v2、对照 parent 与 D1/D2 原始 finding，并保留最初用户 Rust 修复请求与推断方案的区别。",
+            "当前 stage3_conformance.rs 与候选记录源哈希一致；其 helper 尚未支持所规划的两个路径变量。",
+            "当前 Demo Cargo.toml 仅含 registry dependencies，无 Codex path/Git dependency。",
+            "目前 Spike vendor manifest 和 verify-vendor-parity.ps1 仍不存在；候选明确把创建/验证安排在实施步骤中，并未假称已完成。",
+            "此前只读核对的真实 source/hash/count 为原故障输入依据；本轮未再分析真实 source，不产生新的 analyzer 结果。",
+            "live task-status: candidate v2 未 adopted、current_task null；Task 005 paused/S2 in-progress 与实际未通过结果保留。"
+          ],
+          "authority": [
+            "AGENTS.md Codex IPC frozen core / isolated Rollout Collector scope",
+            "docs/workflow/CONTRACTS.md relevant Codex authority and docs/workflow/DECISIONS.md AD-004/AD-022 (already read in this task)",
+            "docs/codex/codex-rollout-collector-architecture.md full read earlier in this task; §4.3.5 rechecked for this successor",
+            "docs/codex/codex-rollout-collector-codex-compatibility.md vendor/diagnostics/usage boundaries",
+            "docs/workflow/test-admission-policy.md",
+            "fresh review-draft SKILL.md, WORKFLOW_PROTOCOL.md and live task-status"
+          ],
+          "excluded": [
+            "实施或修改产品、草稿、fixture、契约或 guard 文件",
+            "Rust/Node/Android build/test 或真实 analyzer 请求",
+            "Task 005 resume/advance/close",
+            "Git commit/push、服务控制、外部部署或真机验证"
+          ]
+        },
+        "conditions": [
+          "执行中须满足候选已写明的路径/hash、真实 A/B、vendor guard、未知/畸形 fail-closed、privacy/usage/lineage 保护；真实构建/测试失败如实保留，不用这份草稿审查代替执行证据。",
+          "Rust compatibility 验证不会自动成为 Node product canonical 发布或 Android 首屏/ACK 验收，Task 005 保持 paused 直到用户另有指令。",
+          "计划确认须针对这个 v2 ref；本审查不替代用户 adoption，也不自动修改父计划的 needs-revision 或旧四份历史报告的新鲜度。"
+        ],
+        "provenance": {
+          "reviewer": "Codex primary agent, current conversation",
+          "independence": "self-review; same agent authored this candidate; no independent-review claim",
+          "method": "read-only draft/source review with normal Assistance task review persistence",
+          "tests_run": [],
+          "implementation_performed": false
+        },
+        "source_revision": {
+          "plan_payload_sha256": "7036e18a971d4c3319349e576f305558078ad2f94544a7bb498b9e82bed863e4",
+          "plan_file_sha256": "dd20d1ed1bf530167a90eeecd9df86e2d8ffe396b413aaba178d8ac8022736c0",
+          "git_head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "stage3_conformance_sha256": "5aa09ee1dce441e35fbfbab9e888dbfe047018f14b7de97d3dda313e7850e9bd",
+          "demo_manifest_sha256": "078ed27bd3d800be20ec183d694aaa255ff311b86d178b57ff189d4c93498839",
+          "wire_decode_sha256": "e6d9648d16ab4c97a66138acbf33cbdf737418877cf5e9fbbf340734e104bdad",
+          "adapter_sha256": "0cfa86309e23af4863ede36e8234a2ab314addfc56cb721e4c307587c3499eb1",
+          "product_worktree_diff": "none observed"
+        },
+        "remaining_management_data": {
+          "issue_id": "issue-ec19a134aefeb23287cb519b",
+          "record_ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+          "disposition": "existing unassociated review retained; no guessed target or retroactive clean/fresh designation; outside this draft review"
+        },
+        "next_route": "prepare-task",
+        "next_mode": "confirm",
+        "next_action": "Confirm/adopt exact reviewed v2 candidate if the user chooses it; no implementation authorized by this review alone",
+        "links": [
+          {
+            "relation": "reviews-plan",
+            "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+          },
+          {
+            "relation": "rechecks-prior-findings",
+            "ref": ".workflow-system/records/events/key-28f84a74a2e95580efdb3d56da1ad0ea1f2cf04f31c2aba40532f1f6c9428369.json"
+          },
+          {
+            "relation": "retains-task005-pause",
+            "ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T13:43:33.754Z",
+  "payload_sha256": "8e1057a87229c8863e83c664eb7fadbe47dd2021a3d1f69289fa2f8ece451210",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:termlink-task-7a4566ccf322e08968cd5c7935cf61dd-resume-20260930-r1",
+    "request": {
+      "action": "resume",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "previous_disposition_ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json",
+      "parents": [
+        ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json",
+        ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json"
+      ],
+      "focus": true,
+      "decision_source": "Current human user message explicitly requesting resume Task 005 on 2026-09-30",
+      "decision_text": "Resume Task 005 from its preserved paused S2 boundary; retain the partial Rust/no-canonical result, needs-revision review, existing workspace changes and verification limits; do not treat resume as E2E acceptance and do not automatically rerun commands.",
+      "checkpoint": "Resume at the existing S2 execution/review boundary recorded before pause; no completed command receipt is replayed.",
+      "remaining_work": [
+        "S2 real product_db bounded first-screen, authenticated Gateway path, Android device visibility and ACK remain unverified.",
+        "The selected real conversation previously had 21 unrecognized token_usage_record and 3 developer-message UnknownEvents; no canonical history was published at the paused boundary.",
+        "S2 has an applicable needs-revision review and must be explicitly repaired/reviewed before acceptance.",
+        "S3 details/history flow and S4 extended real-device validation remain not started.",
+        "Existing unrelated unassociated management record key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6 remains unresolved.",
+        "No Android build, device action, Node product publication, database transaction, deployment or Git operation is performed by this resume action."
+      ],
+      "idempotency_key": "termlink-task-7a4566ccf322e08968cd5c7935cf61dd-resume-20260930-r1"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "resume",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json",
+        ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+        "previous_disposition_ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json",
+        "focus": true,
+        "decision_source": "Current human user message explicitly requesting resume Task 005 on 2026-09-30",
+        "decision_text": "Resume Task 005 from its preserved paused S2 boundary; retain the partial Rust/no-canonical result, needs-revision review, existing workspace changes and verification limits; do not treat resume as E2E acceptance and do not automatically rerun commands.",
+        "checkpoint": "Resume at the existing S2 execution/review boundary recorded before pause; no completed command receipt is replayed.",
+        "remaining_work": [
+          "S2 real product_db bounded first-screen, authenticated Gateway path, Android device visibility and ACK remain unverified.",
+          "The selected real conversation previously had 21 unrecognized token_usage_record and 3 developer-message UnknownEvents; no canonical history was published at the paused boundary.",
+          "S2 has an applicable needs-revision review and must be explicitly repaired/reviewed before acceptance.",
+          "S3 details/history flow and S4 extended real-device validation remain not started.",
+          "Existing unrelated unassociated management record key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6 remains unresolved.",
+          "No Android build, device action, Node product publication, database transaction, deployment or Git operation is performed by this resume action."
+        ]
+      }
+    }
+  },
+  "issues": []
+}

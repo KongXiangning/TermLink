@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T20:08:46.050Z",
+  "payload_sha256": "46f9d5b90fcf14c14aa7c96f9bde4662de9c000268b966bcd6f4042d88e4fe35",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:exec-task005-s2-local-cache-01a0ee04-20261001",
+    "request": {
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "source_revision": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+      "idempotency_key": "exec-task005-s2-local-cache-01a0ee04-20261001",
+      "parents": [
+        ".workflow-system/records/events/key-8a1e14230983f2b2b3b2c89aceb0abb302bc52de692f283b34f1a5c5c4c9edae.json",
+        ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json"
+      ],
+      "decision_ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "decision_source": "current human user request, 2026-10-01 Asia/Shanghai",
+      "decision_text": "使用 App 现有清理功能，清除会话 `01a0ee04-a775-72b3-bd07-04aac804a3b4` 的本地缓存，再重新打开并同步，验证旧 Diagnostic 残留、历史展示和 ACK。保留其他会话、服务配置及远端数据，不修改产品代码。",
+      "result": {
+        "status": "partial-coverage",
+        "summary": "Completed the requested per-conversation App cache cleanup and cold reopen. The target history reloaded and was displayed; no structural Diagnostic item remained. The server accepted ACKs, while product history completeness remained partial.",
+        "target": {
+          "endpoint_id": "task005-s2-local",
+          "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+          "title": "提交 vNext 相关变更"
+        },
+        "cache_scope_evidence": {
+          "endpoint_thread_index_count_before": 133,
+          "endpoint_thread_index_count_after_clear": 132,
+          "target_related_rows_after_clear": 0,
+          "endpoint_thread_index_count_after_resync": 133,
+          "target_sync_sessions_after_resync": 0
+        },
+        "resync_evidence": {
+          "provider_mode": "product_db",
+          "item_count": 98,
+          "history_segments": 7,
+          "complete": false,
+          "coverage_state": "partial",
+          "coverage_complete": false,
+          "diagnostic_item_type_count": 0,
+          "diagnostic_discriminator_payload_count": 0,
+          "visible_history_message_text_count": 1,
+          "visible_diagnostic_text_count": 0
+        },
+        "ack_evidence": {
+          "event": "server.codex.history.ack_received",
+          "conversation_key": "e24639181f5f2684",
+          "latest_accepted_count_observed": 6,
+          "ok": true,
+          "state": "partial",
+          "purpose": "history_sync",
+          "time_local": "2026-10-01 03:38:16-03:38:19 Asia/Shanghai"
+        },
+        "scope_and_changes": {
+          "cleanup_path": "App Codex Storage Management per-task Clear UI; confirmation stated local history/media cache only",
+          "other_sessions_preserved": "The endpoint count dropped by one when the target was cleared and returned by one when that target reappeared; other 132 rows remained.",
+          "service_config_changed": false,
+          "remote_history_mutated": false,
+          "product_code_changed": false,
+          "build_or_tests_run": false
+        },
+        "remaining_work": [
+          "History is partial (98 items, 7 segments); no full-coverage or complete-history claim is supported.",
+          "Task005 S2 remains in progress; this execution does not dispose or close the step."
+        ]
+      },
+      "commands": [
+        "ADB device doctor: selected MQS7N19402011743; package com.termlink.app installed.",
+        "Local dev server status: already healthy on 127.0.0.1:3010; no start or configuration edit.",
+        "App UI: opened Codex Storage Management, selected the exact target conversation row, verified the local-only confirmation, and confirmed Clear.",
+        "Read-only local verification: adb run-as database stream deserialized into in-memory SQLite; exact target counts checked before and after cleanup/reload.",
+        "App cold reopen: adb am force-stop com.termlink.app followed by launcher monkey; reopened the same current target conversation.",
+        "Read-only ACK verification: filtered logs/diagnostics/termlink-diagnostics.jsonl by SHA-256 conversation key and server.codex.history.ack_received.",
+        "No Gradle build, install, automated test, product source edit, server configuration change, or remote database command."
+      ]
+    },
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-8a1e14230983f2b2b3b2c89aceb0abb302bc52de692f283b34f1a5c5c4c9edae.json",
+        ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "source_revision": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "decision_ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+        "decision_source": "current human user request, 2026-10-01 Asia/Shanghai",
+        "decision_text": "使用 App 现有清理功能，清除会话 `01a0ee04-a775-72b3-bd07-04aac804a3b4` 的本地缓存，再重新打开并同步，验证旧 Diagnostic 残留、历史展示和 ACK。保留其他会话、服务配置及远端数据，不修改产品代码。",
+        "result": {
+          "status": "partial-coverage",
+          "summary": "Completed the requested per-conversation App cache cleanup and cold reopen. The target history reloaded and was displayed; no structural Diagnostic item remained. The server accepted ACKs, while product history completeness remained partial.",
+          "target": {
+            "endpoint_id": "task005-s2-local",
+            "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+            "title": "提交 vNext 相关变更"
+          },
+          "cache_scope_evidence": {
+            "endpoint_thread_index_count_before": 133,
+            "endpoint_thread_index_count_after_clear": 132,
+            "target_related_rows_after_clear": 0,
+            "endpoint_thread_index_count_after_resync": 133,
+            "target_sync_sessions_after_resync": 0
+          },
+          "resync_evidence": {
+            "provider_mode": "product_db",
+            "item_count": 98,
+            "history_segments": 7,
+            "complete": false,
+            "coverage_state": "partial",
+            "coverage_complete": false,
+            "diagnostic_item_type_count": 0,
+            "diagnostic_discriminator_payload_count": 0,
+            "visible_history_message_text_count": 1,
+            "visible_diagnostic_text_count": 0
+          },
+          "ack_evidence": {
+            "event": "server.codex.history.ack_received",
+            "conversation_key": "e24639181f5f2684",
+            "latest_accepted_count_observed": 6,
+            "ok": true,
+            "state": "partial",
+            "purpose": "history_sync",
+            "time_local": "2026-10-01 03:38:16-03:38:19 Asia/Shanghai"
+          },
+          "scope_and_changes": {
+            "cleanup_path": "App Codex Storage Management per-task Clear UI; confirmation stated local history/media cache only",
+            "other_sessions_preserved": "The endpoint count dropped by one when the target was cleared and returned by one when that target reappeared; other 132 rows remained.",
+            "service_config_changed": false,
+            "remote_history_mutated": false,
+            "product_code_changed": false,
+            "build_or_tests_run": false
+          },
+          "remaining_work": [
+            "History is partial (98 items, 7 segments); no full-coverage or complete-history claim is supported.",
+            "Task005 S2 remains in progress; this execution does not dispose or close the step."
+          ]
+        },
+        "commands": [
+          "ADB device doctor: selected MQS7N19402011743; package com.termlink.app installed.",
+          "Local dev server status: already healthy on 127.0.0.1:3010; no start or configuration edit.",
+          "App UI: opened Codex Storage Management, selected the exact target conversation row, verified the local-only confirmation, and confirmed Clear.",
+          "Read-only local verification: adb run-as database stream deserialized into in-memory SQLite; exact target counts checked before and after cleanup/reload.",
+          "App cold reopen: adb am force-stop com.termlink.app followed by launcher monkey; reopened the same current target conversation.",
+          "Read-only ACK verification: filtered logs/diagnostics/termlink-diagnostics.jsonl by SHA-256 conversation key and server.codex.history.ack_received.",
+          "No Gradle build, install, automated test, product source edit, server configuration change, or remote database command."
+        ]
+      }
+    }
+  },
+  "issues": []
+}

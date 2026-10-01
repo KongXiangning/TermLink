@@ -1,0 +1,768 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T18:51:51.998Z",
+  "payload_sha256": "3796a7151de85c1016a8660e1aaeff03bb7f933f1c707971f72163bfc3abd37d",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-review-step-current-android-exec2d863-pass-limits-20261001",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-2d86332d4c64885bb8047c06afdc58b1114d2fba20c82f1e3c1137286a68cb05.json",
+      "previous_review_ref": ".workflow-system/records/events/key-dfa8c9707a8c5ed39b0f0e97a2ac39e174b87ce6ef3e11c388be4a4b650af185.json",
+      "idempotency_key": "task005-s2-review-step-current-android-exec2d863-pass-limits-20261001",
+      "verdict": "pass-with-limits",
+      "findings": [],
+      "summary": "Current-version physical Android smoke is now supported: all 98 current Node product items/payloads match the pulled Android product_db cache, two bounded tail reads and twelve older page ACKs correlate to completed cache page hashes, and the current expanded screenshot displays a concrete tool command. The execution's claimed tool key nPEy... does not match that screenshot; this review corrects the field correspondence to JLly... using exact Node/cache payload equality without rewriting the execution. No new actionable product code finding. 45 legacy Diagnostic rows, partial coverage and executor-reported transient WebSocket failure/Retry recovery remain limitations. S2 disposition is still pending.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "files": [
+          {
+            "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+            "sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8"
+          },
+          {
+            "path": "tests/codexHistoryProductFlow.test.js",
+            "sha256": "adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27"
+          }
+        ],
+        "scope": "Current physical Android execution on unchanged R5 source; no source edits"
+      },
+      "prior_findings_assessment": [
+        {
+          "finding_id": "TASK005-S2-R2",
+          "status": "current-canonical/provider-diagnostic-isolation-confirmed; legacy-client-pollution-unresolved",
+          "observation": "Current canonical product has 98 business rows and no internal Diagnostic carrier. Android has exactly those 98 rows/payloads plus 45 legacy Diagnostic rows. The latter are retained under no-manual-cleanup scope, not claimed repaired."
+        },
+        {
+          "finding_id": "TASK005-S2-R4",
+          "status": "resolved-with-current-device-business-context",
+          "observation": "Android now includes 1 SessionContext, 21 RateLimitUpdated, 21 UsageUpdated and 3 TurnStarted, alongside 52 message/tool items; all 98 product payloads match current Node product storage. SessionContext cwd/model_provider/source/session_id remain intact."
+        },
+        {
+          "finding_id": "TASK005-S2-R5",
+          "status": "resolved-source-boundary-regression-retained; current-root-device-output-consistent",
+          "observation": "Device SessionContext has no history_base. The unchanged source and previous schema-shaped child-boundary regression remain applicable; this real root target does not establish a new real external child-cut test."
+        },
+        {
+          "finding_id": "TASK005-S2-R3",
+          "status": "current-version-minimum-physical-smoke-observed-with-corrected-item-correspondence",
+          "observation": "Current screenshot shows git diff command prefix, which belongs to stable tool:call_JLlyFFyipOrJD1WYxH5VFYmB eventFacts[0].payload.input (sha256 06f85a6839eb406df7b7e788c253ab60a1b639ffca030e8623a5853d18a7e55b), not the execution-claimed nPEy Get-Content input. Actual JLly input matches current Node and Android bytes; its cache updated_at belongs to the current older sync 28f3368b-0099-4363-83dc-89b85a965549. This review adds a factual correction and preserves the original execution. Healthy IPC remains operation/body authority; no product-origin badge or entire input visibility is claimed."
+        }
+      ],
+      "coverage": {
+        "target": ".workflow-system/records/events/key-2d86332d4c64885bb8047c06afdc58b1114d2fba20c82f1e3c1137286a68cb05.json",
+        "request_intent": "review-step only; no finish/advance",
+        "requirements": [
+          "Effective S2 physical first-page/older/ACK/cache/concrete-field acceptance",
+          "Product contract §3.1 §3.2 §5.1 unchanged hash 39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d",
+          "Collector architecture full prior read reused with unchanged hash e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+          "CONTRACTS frozen healthy IPC core and DECISIONS AD-004/AD-022; no authority changes"
+        ],
+        "new_read_only_observations": {
+          "observed_at": "2026-09-30T18:48:05.946Z",
+          "source_hashes_unchanged": true,
+          "android": {
+            "provider_mode": "product_db",
+            "rows": 143,
+            "current_product_rows": 98,
+            "current_product_payload_matches": 98,
+            "legacy_diagnostic_rows": 45,
+            "coverage": {
+              "coverage_state": "partial",
+              "coverage_complete": 0,
+              "has_more_before": 0,
+              "range_id": "3a40acaf6b72e9f17f1865ad09f5769fc76b8a440a10e34842b0476b67d65f4a"
+            },
+            "committed_segments": 15
+          },
+          "visible_field": {
+            "actual_item_key": "tool:call_JLlyFFyipOrJD1WYxH5VFYmB",
+            "field_path": "eventFacts[0].payload.input",
+            "visible_command_prefix": "git diff -- .agents/skills/execute-step/SKILL.md .agents/skills/review-change/SKILL.md .workflow-system/WORKFLOW_PROTOCOL.md",
+            "input_sha256": "06f85a6839eb406df7b7e788c253ab60a1b639ffca030e8623a5853d18a7e55b",
+            "node_cache_exact_match": true,
+            "cache_updated_at": 1790793284822,
+            "execution_claimed_item_key": "tool:call_nPEysfQLD6w9kI2DDWFmD3IY",
+            "execution_claimed_input_command_prefix": "Get-Content .workflow-system/WORKFLOW_PROTOCOL.md",
+            "execution_item_matches_visible_command": false,
+            "qualification": "Current expanded screenshot shows git diff; review corrects the execution mapping by observation without rewriting its record"
+          },
+          "first_page_events": [
+            {
+              "ts": "2026-09-30T18:34:17.702Z",
+              "pid": 25092,
+              "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+              "seq": 167,
+              "level": "info",
+              "component": "server",
+              "event": "server.codex.history.product_read.started",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "5d06e385-474a-43a2-8714-8dd23833eed2",
+                "selectionGeneration": 1,
+                "itemCount": 22,
+                "resultKind": "tail",
+                "rangeEnabled": true,
+                "ok": true,
+                "state": "awaiting_manifest"
+              }
+            },
+            {
+              "ts": "2026-09-30T18:34:41.552Z",
+              "pid": 25092,
+              "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+              "seq": 225,
+              "level": "info",
+              "component": "server",
+              "event": "server.codex.history.product_read.started",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "efc63582-48d7-404a-9c27-a6a403d513dd",
+                "selectionGeneration": 1,
+                "itemCount": 22,
+                "resultKind": "tail",
+                "rangeEnabled": true,
+                "ok": true,
+                "state": "awaiting_manifest"
+              }
+            }
+          ],
+          "cache_correlated_acks": [
+            {
+              "ts": "2026-09-30T18:34:17.803Z",
+              "sync_id": "5d06e385-474a-43a2-8714-8dd23833eed2",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "tail",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793259567
+            },
+            {
+              "ts": "2026-09-30T18:34:19.082Z",
+              "sync_id": "e5ead02b-349e-4570-a080-d82c1f075e6f",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793260766
+            },
+            {
+              "ts": "2026-09-30T18:34:19.961Z",
+              "sync_id": "bf7d4d6f-5dd1-4519-a098-8698944800bb",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793261657
+            },
+            {
+              "ts": "2026-09-30T18:34:20.630Z",
+              "sync_id": "dc3af3e2-1195-4ba5-9dfd-185efe5c9267",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793262337
+            },
+            {
+              "ts": "2026-09-30T18:34:21.257Z",
+              "sync_id": "853a0480-b1b1-4438-8f4b-24c9daab30a3",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793262993
+            },
+            {
+              "ts": "2026-09-30T18:34:21.847Z",
+              "sync_id": "dfd9f7ba-63c3-4c43-ae35-230c6895e287",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793263559
+            },
+            {
+              "ts": "2026-09-30T18:34:22.401Z",
+              "sync_id": "c11ec531-5303-4166-babc-c438e89791d6",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793264134
+            },
+            {
+              "ts": "2026-09-30T18:34:41.679Z",
+              "sync_id": "efc63582-48d7-404a-9c27-a6a403d513dd",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "tail",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793283434
+            },
+            {
+              "ts": "2026-09-30T18:34:43.154Z",
+              "sync_id": "28f3368b-0099-4363-83dc-89b85a965549",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793284822
+            },
+            {
+              "ts": "2026-09-30T18:34:44.065Z",
+              "sync_id": "0f043864-8761-427d-be0e-6baf982f0219",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793285729
+            },
+            {
+              "ts": "2026-09-30T18:34:44.833Z",
+              "sync_id": "0ceae7e5-a18f-4b06-8667-fd5ee61ada32",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793286577
+            },
+            {
+              "ts": "2026-09-30T18:34:45.416Z",
+              "sync_id": "38ccca38-4469-4031-abc4-e3bd73e34700",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793287139
+            },
+            {
+              "ts": "2026-09-30T18:34:45.971Z",
+              "sync_id": "86bdf78c-4dfc-48c7-8659-2c9e5323d5c4",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793287702
+            },
+            {
+              "ts": "2026-09-30T18:34:46.520Z",
+              "sync_id": "b230c10a-fac6-4ca0-85f7-7ab9b45bc5ae",
+              "page_index": 0,
+              "ack_ok": true,
+              "state": "partial",
+              "request_kind": "older",
+              "cache_page_found": true,
+              "page_hash_matches": true,
+              "completed_at": 1790793288248
+            }
+          ],
+          "log": {
+            "path": "logs/diagnostics/termlink-diagnostics.jsonl",
+            "sha256_at_read": "133aedeaacc212800df7de8b963daeeb62569ddc9608aa62b094a1ac5d90dec4"
+          },
+          "evidence_files": [
+            {
+              "path": "logs/task005-s2-repair-runtime-2/android-current-codex_conversations.db",
+              "sha256": "c828f4214f83f9a392957baf7206ae031ba42961b0e68f41896495dc6e0de145"
+            },
+            {
+              "path": "logs/task005-s2-repair-runtime-2/android-current-product-smoke.png",
+              "sha256": "7e29ade5ee95199c12f09d041cee30702aad9297453a9cc2e9c411c1f2ed4e21"
+            },
+            {
+              "path": "logs/task005-s2-repair-runtime-2/android-current-product-tool-expanded.png",
+              "sha256": "0fe69ab2f7eae07d995b70e2010f6a4de0e67de80f85d56cfc328fbc4c5744b7"
+            }
+          ]
+        },
+        "screenshots": {
+          "paths": [
+            "logs/task005-s2-repair-runtime-2/android-current-product-smoke.png",
+            "logs/task005-s2-repair-runtime-2/android-current-product-tool-expanded.png"
+          ],
+          "observed": "Current connected Codex, LawAgent PATH and completed conversation body; expanded operation card shows PowerShell git diff command prefix. Collapsed screenshot alone is not specific-field proof.",
+          "scope": "Existing current execution artifacts visually inspected; no UI/device actions in review"
+        },
+        "cache_session_context": {
+          "cwd": "E:\\coding\\LawAgent",
+          "model_provider": "openai",
+          "source": "vscode",
+          "history_base_present": false
+        },
+        "evidence_interpretation": {
+          "complete_vs_partial": "All 98 canonical product rows are cached, but cache still contains 45 old rows and reports partial/coverage_complete=0. Neither exhaust older has_more_before=0 nor item equality implies clean cache/complete coverage.",
+          "page_correlation": "14 server ACKs in the current device execution have matching sync/page completed-cache entries and page hash prefix; all ok=true/partial. Later 18:37 server interactions are outside the pulled snapshot's completed-page window and are not falsely attributed to it.",
+          "clock": "Server timestamps and completed-cache clock differ slightly; correlation uses sync_id/page_index/hash, not assumed equal clocks.",
+          "missing_execution_attachments": "Original execution had evidence links but no frozen attachment index. Review captures current pulled DB and screenshots under their verified hashes and fixes selected query observations in this new immutable review."
+        },
+        "reused_validation": {
+          "source_review": ".workflow-system/records/events/key-0f6de2ad72ff5250103d91dd562954438bf52037cf08073384aa64484eaee997.json",
+          "live_publication_review": ".workflow-system/records/events/key-dfa8c9707a8c5ed39b0f0e97a2ac39e174b87ce6ef3e11c388be4a4b650af185.json",
+          "qualification": "Identical importer/test bytes; previous focused tests and normal publication checks reused without rerunning business work. Four stale Task004 reports are not refreshed."
+        },
+        "not_run": [
+          "ADB/device/service/Gateway-client actions in review",
+          "New builds/tests/real child lineage test",
+          "Manual SQL write/delete/cache clear",
+          "Independent review",
+          "S2 step disposition, S3/S4, Git/deployment"
+        ]
+      },
+      "provenance": {
+        "kind": "self-review",
+        "independent": false,
+        "reviewer": "current root agent",
+        "observation_sources": "Current physical-execution artifact visual inspection; read-only pulled cache versus Node product queries; retained server log ACK/hash correlation; previously verified identical-source tests reused. Device transient failure/Retry action is executor-reported."
+      },
+      "limits": [
+        "45 legacy Diagnostic rows remain in the pulled Android cache; cache coverage is partial with coverage_complete=0. pass-with-limits is not clean-cache or fully verified task completion.",
+        "Executor reports an initial WebSocket failure dialog recovered with Retry. Current screenshots show recovery, not that failure itself; root cause or repeated reconnect reliability is not established.",
+        "Source of live operation UI is healthy IPC as required. Screenshot validates a concrete correlated command prefix, not entire tool input or an exclusive product-only renderer.",
+        "Execution's claimed nPEy tool-field correspondence is inaccurate for supplied screenshot; corrected here by read-only observations, not silently rewritten.",
+        "No real external child rollout with a non-null history_base was tested on physical Android.",
+        "Other-target resource-limit failure/unresolved reconciliation intent retained from previous live-publication review; no clearing or new PASS.",
+        "Existing unrelated management issue-ec19a134aefeb23287cb519b retained.",
+        "Four Task004 C2-store-final/C2-publish/C4-flow-final/C4-unattended reports remain stale."
+      ],
+      "remaining_work": [
+        "Make and record S2 disposition against this pass-with-limits review, preserving legacy cache pollution, partial coverage, transient recovery and unverified scenarios; review alone does not finish.",
+        "If choosing to finish S2 with these limitations, that is a separate informed disposition rather than a clean verification. If choosing cache convergence repair, separately define/authorize changes beyond current no-cleanup boundary.",
+        "S3/S4 remain not-started and require their own planned work; no automatic advance."
+      ],
+      "recommendation": {
+        "next_route": "execute-step",
+        "reason": "Current-version physical smoke evidence is now present and no new source repair is identified. Next work is S2 disposition with explicit retention/treatment of cache and coverage limitations, then remaining plan work if authorized. Runtime repair suggestion for non-clean verdict is advisory.",
+        "step_ready_for_automatic_finish": false
+      },
+      "links": [
+        ".workflow-system/records/events/key-2d86332d4c64885bb8047c06afdc58b1114d2fba20c82f1e3c1137286a68cb05.json",
+        ".workflow-system/records/events/key-dfa8c9707a8c5ed39b0f0e97a2ac39e174b87ce6ef3e11c388be4a4b650af185.json"
+      ],
+      "files": [
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "tests/codexHistoryProductFlow.test.js",
+        "logs/task005-s2-repair-runtime-2/android-current-codex_conversations.db",
+        "logs/task005-s2-repair-runtime-2/android-current-product-smoke.png",
+        "logs/task005-s2-repair-runtime-2/android-current-product-tool-expanded.png"
+      ]
+    },
+    "files": [
+      "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "tests/codexHistoryProductFlow.test.js",
+      "logs/task005-s2-repair-runtime-2/android-current-codex_conversations.db",
+      "logs/task005-s2-repair-runtime-2/android-current-product-smoke.png",
+      "logs/task005-s2-repair-runtime-2/android-current-product-tool-expanded.png"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-420bf923a7e38e55d67ce9b9f27488c3951cfde0e61faeed38cdd2bca97e0f47.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-2d86332d4c64885bb8047c06afdc58b1114d2fba20c82f1e3c1137286a68cb05.json",
+        "previous_review_ref": ".workflow-system/records/events/key-dfa8c9707a8c5ed39b0f0e97a2ac39e174b87ce6ef3e11c388be4a4b650af185.json",
+        "verdict": "pass-with-limits",
+        "findings": [],
+        "summary": "Current-version physical Android smoke is now supported: all 98 current Node product items/payloads match the pulled Android product_db cache, two bounded tail reads and twelve older page ACKs correlate to completed cache page hashes, and the current expanded screenshot displays a concrete tool command. The execution's claimed tool key nPEy... does not match that screenshot; this review corrects the field correspondence to JLly... using exact Node/cache payload equality without rewriting the execution. No new actionable product code finding. 45 legacy Diagnostic rows, partial coverage and executor-reported transient WebSocket failure/Retry recovery remain limitations. S2 disposition is still pending.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "files": [
+            {
+              "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+              "sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8"
+            },
+            {
+              "path": "tests/codexHistoryProductFlow.test.js",
+              "sha256": "adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27"
+            }
+          ],
+          "scope": "Current physical Android execution on unchanged R5 source; no source edits"
+        },
+        "prior_findings_assessment": [
+          {
+            "finding_id": "TASK005-S2-R2",
+            "status": "current-canonical/provider-diagnostic-isolation-confirmed; legacy-client-pollution-unresolved",
+            "observation": "Current canonical product has 98 business rows and no internal Diagnostic carrier. Android has exactly those 98 rows/payloads plus 45 legacy Diagnostic rows. The latter are retained under no-manual-cleanup scope, not claimed repaired."
+          },
+          {
+            "finding_id": "TASK005-S2-R4",
+            "status": "resolved-with-current-device-business-context",
+            "observation": "Android now includes 1 SessionContext, 21 RateLimitUpdated, 21 UsageUpdated and 3 TurnStarted, alongside 52 message/tool items; all 98 product payloads match current Node product storage. SessionContext cwd/model_provider/source/session_id remain intact."
+          },
+          {
+            "finding_id": "TASK005-S2-R5",
+            "status": "resolved-source-boundary-regression-retained; current-root-device-output-consistent",
+            "observation": "Device SessionContext has no history_base. The unchanged source and previous schema-shaped child-boundary regression remain applicable; this real root target does not establish a new real external child-cut test."
+          },
+          {
+            "finding_id": "TASK005-S2-R3",
+            "status": "current-version-minimum-physical-smoke-observed-with-corrected-item-correspondence",
+            "observation": "Current screenshot shows git diff command prefix, which belongs to stable tool:call_JLlyFFyipOrJD1WYxH5VFYmB eventFacts[0].payload.input (sha256 06f85a6839eb406df7b7e788c253ab60a1b639ffca030e8623a5853d18a7e55b), not the execution-claimed nPEy Get-Content input. Actual JLly input matches current Node and Android bytes; its cache updated_at belongs to the current older sync 28f3368b-0099-4363-83dc-89b85a965549. This review adds a factual correction and preserves the original execution. Healthy IPC remains operation/body authority; no product-origin badge or entire input visibility is claimed."
+          }
+        ],
+        "coverage": {
+          "target": ".workflow-system/records/events/key-2d86332d4c64885bb8047c06afdc58b1114d2fba20c82f1e3c1137286a68cb05.json",
+          "request_intent": "review-step only; no finish/advance",
+          "requirements": [
+            "Effective S2 physical first-page/older/ACK/cache/concrete-field acceptance",
+            "Product contract §3.1 §3.2 §5.1 unchanged hash 39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d",
+            "Collector architecture full prior read reused with unchanged hash e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+            "CONTRACTS frozen healthy IPC core and DECISIONS AD-004/AD-022; no authority changes"
+          ],
+          "new_read_only_observations": {
+            "observed_at": "2026-09-30T18:48:05.946Z",
+            "source_hashes_unchanged": true,
+            "android": {
+              "provider_mode": "product_db",
+              "rows": 143,
+              "current_product_rows": 98,
+              "current_product_payload_matches": 98,
+              "legacy_diagnostic_rows": 45,
+              "coverage": {
+                "coverage_state": "partial",
+                "coverage_complete": 0,
+                "has_more_before": 0,
+                "range_id": "3a40acaf6b72e9f17f1865ad09f5769fc76b8a440a10e34842b0476b67d65f4a"
+              },
+              "committed_segments": 15
+            },
+            "visible_field": {
+              "actual_item_key": "tool:call_JLlyFFyipOrJD1WYxH5VFYmB",
+              "field_path": "eventFacts[0].payload.input",
+              "visible_command_prefix": "git diff -- .agents/skills/execute-step/SKILL.md .agents/skills/review-change/SKILL.md .workflow-system/WORKFLOW_PROTOCOL.md",
+              "input_sha256": "06f85a6839eb406df7b7e788c253ab60a1b639ffca030e8623a5853d18a7e55b",
+              "node_cache_exact_match": true,
+              "cache_updated_at": 1790793284822,
+              "execution_claimed_item_key": "tool:call_nPEysfQLD6w9kI2DDWFmD3IY",
+              "execution_claimed_input_command_prefix": "Get-Content .workflow-system/WORKFLOW_PROTOCOL.md",
+              "execution_item_matches_visible_command": false,
+              "qualification": "Current expanded screenshot shows git diff; review corrects the execution mapping by observation without rewriting its record"
+            },
+            "first_page_events": [
+              {
+                "ts": "2026-09-30T18:34:17.702Z",
+                "pid": 25092,
+                "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+                "seq": 167,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.product_read.started",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "5d06e385-474a-43a2-8714-8dd23833eed2",
+                  "selectionGeneration": 1,
+                  "itemCount": 22,
+                  "resultKind": "tail",
+                  "rangeEnabled": true,
+                  "ok": true,
+                  "state": "awaiting_manifest"
+                }
+              },
+              {
+                "ts": "2026-09-30T18:34:41.552Z",
+                "pid": 25092,
+                "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+                "seq": 225,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.product_read.started",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "efc63582-48d7-404a-9c27-a6a403d513dd",
+                  "selectionGeneration": 1,
+                  "itemCount": 22,
+                  "resultKind": "tail",
+                  "rangeEnabled": true,
+                  "ok": true,
+                  "state": "awaiting_manifest"
+                }
+              }
+            ],
+            "cache_correlated_acks": [
+              {
+                "ts": "2026-09-30T18:34:17.803Z",
+                "sync_id": "5d06e385-474a-43a2-8714-8dd23833eed2",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "tail",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793259567
+              },
+              {
+                "ts": "2026-09-30T18:34:19.082Z",
+                "sync_id": "e5ead02b-349e-4570-a080-d82c1f075e6f",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793260766
+              },
+              {
+                "ts": "2026-09-30T18:34:19.961Z",
+                "sync_id": "bf7d4d6f-5dd1-4519-a098-8698944800bb",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793261657
+              },
+              {
+                "ts": "2026-09-30T18:34:20.630Z",
+                "sync_id": "dc3af3e2-1195-4ba5-9dfd-185efe5c9267",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793262337
+              },
+              {
+                "ts": "2026-09-30T18:34:21.257Z",
+                "sync_id": "853a0480-b1b1-4438-8f4b-24c9daab30a3",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793262993
+              },
+              {
+                "ts": "2026-09-30T18:34:21.847Z",
+                "sync_id": "dfd9f7ba-63c3-4c43-ae35-230c6895e287",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793263559
+              },
+              {
+                "ts": "2026-09-30T18:34:22.401Z",
+                "sync_id": "c11ec531-5303-4166-babc-c438e89791d6",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793264134
+              },
+              {
+                "ts": "2026-09-30T18:34:41.679Z",
+                "sync_id": "efc63582-48d7-404a-9c27-a6a403d513dd",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "tail",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793283434
+              },
+              {
+                "ts": "2026-09-30T18:34:43.154Z",
+                "sync_id": "28f3368b-0099-4363-83dc-89b85a965549",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793284822
+              },
+              {
+                "ts": "2026-09-30T18:34:44.065Z",
+                "sync_id": "0f043864-8761-427d-be0e-6baf982f0219",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793285729
+              },
+              {
+                "ts": "2026-09-30T18:34:44.833Z",
+                "sync_id": "0ceae7e5-a18f-4b06-8667-fd5ee61ada32",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793286577
+              },
+              {
+                "ts": "2026-09-30T18:34:45.416Z",
+                "sync_id": "38ccca38-4469-4031-abc4-e3bd73e34700",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793287139
+              },
+              {
+                "ts": "2026-09-30T18:34:45.971Z",
+                "sync_id": "86bdf78c-4dfc-48c7-8659-2c9e5323d5c4",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793287702
+              },
+              {
+                "ts": "2026-09-30T18:34:46.520Z",
+                "sync_id": "b230c10a-fac6-4ca0-85f7-7ab9b45bc5ae",
+                "page_index": 0,
+                "ack_ok": true,
+                "state": "partial",
+                "request_kind": "older",
+                "cache_page_found": true,
+                "page_hash_matches": true,
+                "completed_at": 1790793288248
+              }
+            ],
+            "log": {
+              "path": "logs/diagnostics/termlink-diagnostics.jsonl",
+              "sha256_at_read": "133aedeaacc212800df7de8b963daeeb62569ddc9608aa62b094a1ac5d90dec4"
+            },
+            "evidence_files": [
+              {
+                "path": "logs/task005-s2-repair-runtime-2/android-current-codex_conversations.db",
+                "sha256": "c828f4214f83f9a392957baf7206ae031ba42961b0e68f41896495dc6e0de145"
+              },
+              {
+                "path": "logs/task005-s2-repair-runtime-2/android-current-product-smoke.png",
+                "sha256": "7e29ade5ee95199c12f09d041cee30702aad9297453a9cc2e9c411c1f2ed4e21"
+              },
+              {
+                "path": "logs/task005-s2-repair-runtime-2/android-current-product-tool-expanded.png",
+                "sha256": "0fe69ab2f7eae07d995b70e2010f6a4de0e67de80f85d56cfc328fbc4c5744b7"
+              }
+            ]
+          },
+          "screenshots": {
+            "paths": [
+              "logs/task005-s2-repair-runtime-2/android-current-product-smoke.png",
+              "logs/task005-s2-repair-runtime-2/android-current-product-tool-expanded.png"
+            ],
+            "observed": "Current connected Codex, LawAgent PATH and completed conversation body; expanded operation card shows PowerShell git diff command prefix. Collapsed screenshot alone is not specific-field proof.",
+            "scope": "Existing current execution artifacts visually inspected; no UI/device actions in review"
+          },
+          "cache_session_context": {
+            "cwd": "E:\\coding\\LawAgent",
+            "model_provider": "openai",
+            "source": "vscode",
+            "history_base_present": false
+          },
+          "evidence_interpretation": {
+            "complete_vs_partial": "All 98 canonical product rows are cached, but cache still contains 45 old rows and reports partial/coverage_complete=0. Neither exhaust older has_more_before=0 nor item equality implies clean cache/complete coverage.",
+            "page_correlation": "14 server ACKs in the current device execution have matching sync/page completed-cache entries and page hash prefix; all ok=true/partial. Later 18:37 server interactions are outside the pulled snapshot's completed-page window and are not falsely attributed to it.",
+            "clock": "Server timestamps and completed-cache clock differ slightly; correlation uses sync_id/page_index/hash, not assumed equal clocks.",
+            "missing_execution_attachments": "Original execution had evidence links but no frozen attachment index. Review captures current pulled DB and screenshots under their verified hashes and fixes selected query observations in this new immutable review."
+          },
+          "reused_validation": {
+            "source_review": ".workflow-system/records/events/key-0f6de2ad72ff5250103d91dd562954438bf52037cf08073384aa64484eaee997.json",
+            "live_publication_review": ".workflow-system/records/events/key-dfa8c9707a8c5ed39b0f0e97a2ac39e174b87ce6ef3e11c388be4a4b650af185.json",
+            "qualification": "Identical importer/test bytes; previous focused tests and normal publication checks reused without rerunning business work. Four stale Task004 reports are not refreshed."
+          },
+          "not_run": [
+            "ADB/device/service/Gateway-client actions in review",
+            "New builds/tests/real child lineage test",
+            "Manual SQL write/delete/cache clear",
+            "Independent review",
+            "S2 step disposition, S3/S4, Git/deployment"
+          ]
+        },
+        "provenance": {
+          "kind": "self-review",
+          "independent": false,
+          "reviewer": "current root agent",
+          "observation_sources": "Current physical-execution artifact visual inspection; read-only pulled cache versus Node product queries; retained server log ACK/hash correlation; previously verified identical-source tests reused. Device transient failure/Retry action is executor-reported."
+        },
+        "limits": [
+          "45 legacy Diagnostic rows remain in the pulled Android cache; cache coverage is partial with coverage_complete=0. pass-with-limits is not clean-cache or fully verified task completion.",
+          "Executor reports an initial WebSocket failure dialog recovered with Retry. Current screenshots show recovery, not that failure itself; root cause or repeated reconnect reliability is not established.",
+          "Source of live operation UI is healthy IPC as required. Screenshot validates a concrete correlated command prefix, not entire tool input or an exclusive product-only renderer.",
+          "Execution's claimed nPEy tool-field correspondence is inaccurate for supplied screenshot; corrected here by read-only observations, not silently rewritten.",
+          "No real external child rollout with a non-null history_base was tested on physical Android.",
+          "Other-target resource-limit failure/unresolved reconciliation intent retained from previous live-publication review; no clearing or new PASS.",
+          "Existing unrelated management issue-ec19a134aefeb23287cb519b retained.",
+          "Four Task004 C2-store-final/C2-publish/C4-flow-final/C4-unattended reports remain stale."
+        ],
+        "remaining_work": [
+          "Make and record S2 disposition against this pass-with-limits review, preserving legacy cache pollution, partial coverage, transient recovery and unverified scenarios; review alone does not finish.",
+          "If choosing to finish S2 with these limitations, that is a separate informed disposition rather than a clean verification. If choosing cache convergence repair, separately define/authorize changes beyond current no-cleanup boundary.",
+          "S3/S4 remain not-started and require their own planned work; no automatic advance."
+        ],
+        "recommendation": {
+          "next_route": "execute-step",
+          "reason": "Current-version physical smoke evidence is now present and no new source repair is identified. Next work is S2 disposition with explicit retention/treatment of cache and coverage limitations, then remaining plan work if authorized. Runtime repair suggestion for non-clean verdict is advisory.",
+          "step_ready_for_automatic_finish": false
+        },
+        "links": [
+          ".workflow-system/records/events/key-2d86332d4c64885bb8047c06afdc58b1114d2fba20c82f1e3c1137286a68cb05.json",
+          ".workflow-system/records/events/key-dfa8c9707a8c5ed39b0f0e97a2ac39e174b87ce6ef3e11c388be4a4b650af185.json"
+        ],
+        "files": [
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "tests/codexHistoryProductFlow.test.js",
+          "logs/task005-s2-repair-runtime-2/android-current-codex_conversations.db",
+          "logs/task005-s2-repair-runtime-2/android-current-product-smoke.png",
+          "logs/task005-s2-repair-runtime-2/android-current-product-tool-expanded.png"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

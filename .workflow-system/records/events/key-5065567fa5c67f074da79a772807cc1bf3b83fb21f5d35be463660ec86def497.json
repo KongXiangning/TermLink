@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T17:46:11.983Z",
+  "payload_sha256": "9930a25f7c3b41eb14c058ea87068e1573a54fd9183a04f42edefe860fd1d0b8",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-r5-repair-execution-20261001",
+    "request": {
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "idempotency_key": "task005-s2-r5-repair-execution-20261001",
+      "decision_source": "current user execute-step repair invocation",
+      "decision_text": "Repair TASK005-S2-R5 within the adopted Node product projection scope: remove SessionContext.history_base source-cut evidence from canonical product/App DTOs while retaining business context and durable staging evidence; add a focused importer-to-provider regression.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "scope": "S2 R5 schema-specific SessionContext source-evidence isolation in Node importer plus product-flow regression; Rust collector, IPC authority, Android source, database schema, service/device state, deployment, and unrelated dirty-worktree changes preserved",
+        "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+        "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+        "worktree_status": "dirty; unrelated user and workflow changes preserved"
+      },
+      "result": "completed_with_findings",
+      "summary": "Repaired TASK005-S2-R5 by removing history_base only from SessionContext event facts at canonical product construction. The parent rollout identity and ordinal/byte source cut remain in durable staging, while SessionContext cwd/source/model_provider remain in the product item. Added a schema-shaped child-context importer-to-Store-to-provider regression proving staging retention and canonical/App DTO isolation. Existing R2/R4 diagnostic/business-fact behavior remains covered by the same product-flow suite.",
+      "commands": [
+        {
+          "command": "node --test --test-name-pattern \"SessionContext history_base\" tests/codexHistoryProductFlow.test.js",
+          "result": "passed",
+          "observation": "1 passed, 0 failed; schema boundary regression retains history_base in staging and excludes it from Store/provider output."
+        },
+        {
+          "command": "node --test tests/codexHistoryProductFlow.test.js",
+          "result": "passed",
+          "observation": "23 passed, 0 failed; all product-flow, real-Rust, ACK, append, provider, and R2/R4/R5 assertions passed."
+        },
+        {
+          "command": "node --test tests/codexRolloutCollector.test.js",
+          "result": "passed",
+          "observation": "122 passed, 0 failed; collector/protocol regression remains green."
+        },
+        {
+          "command": "node --check src/services/codexRolloutCollector/analysisBatchImporter.js; node --check tests/codexHistoryProductFlow.test.js; git diff --check -- src/services/codexRolloutCollector/analysisBatchImporter.js tests/codexHistoryProductFlow.test.js",
+          "result": "passed",
+          "observation": "Syntax and changed-line checks passed; only LF/CRLF conversion warnings were reported."
+        }
+      ],
+      "limits": [
+        "The child-context regression is schema-shaped through the actual Rust batch/importer/store/provider boundary; no new external child rollout or physical-device run was performed.",
+        "No manual SQL cleanup, cache clear, destructive migration, Rust/IPC/Android source change, Git commit, or deployment was performed.",
+        "Prior R3 Android evidence remains historical; existing Android cache contamination and partial coverage remain retained and unresolved under the adopted exclusion.",
+        "Existing unassociated management issue issue-ec19a134aefeb23287cb519b remains unresolved.",
+        "No independent formal review or S2 step finish was created."
+      ],
+      "remaining_work": [
+        "Run change review against this exact R5 repair execution and verify R2/R4/R5 disposition.",
+        "Verify a subsequent normal authorized canonical publication/provider DTO if the review requires fresh live-path evidence; do not rewrite old receipts or clear caches.",
+        "S2 disposition, S3/S4 work, Git commit, and deployment remain pending."
+      ],
+      "files": [
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "tests/codexHistoryProductFlow.test.js",
+        "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json"
+      ],
+      "links": [
+        {
+          "relation": "review-target",
+          "ref": ".workflow-system/records/events/key-7bf0b19941c21feeb18e4d3c73b88c5c2917e68f0183a590b1034d1602225772.json"
+        },
+        {
+          "relation": "prior-R4-execution",
+          "ref": ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json"
+        },
+        {
+          "relation": "retained-R3-evidence",
+          "ref": "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json"
+        }
+      ]
+    },
+    "files": [
+      "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "tests/codexHistoryProductFlow.test.js",
+      "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-7bf0b19941c21feeb18e4d3c73b88c5c2917e68f0183a590b1034d1602225772.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "decision_source": "current user execute-step repair invocation",
+        "decision_text": "Repair TASK005-S2-R5 within the adopted Node product projection scope: remove SessionContext.history_base source-cut evidence from canonical product/App DTOs while retaining business context and durable staging evidence; add a focused importer-to-provider regression.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "scope": "S2 R5 schema-specific SessionContext source-evidence isolation in Node importer plus product-flow regression; Rust collector, IPC authority, Android source, database schema, service/device state, deployment, and unrelated dirty-worktree changes preserved",
+          "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+          "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+          "worktree_status": "dirty; unrelated user and workflow changes preserved"
+        },
+        "result": "completed_with_findings",
+        "summary": "Repaired TASK005-S2-R5 by removing history_base only from SessionContext event facts at canonical product construction. The parent rollout identity and ordinal/byte source cut remain in durable staging, while SessionContext cwd/source/model_provider remain in the product item. Added a schema-shaped child-context importer-to-Store-to-provider regression proving staging retention and canonical/App DTO isolation. Existing R2/R4 diagnostic/business-fact behavior remains covered by the same product-flow suite.",
+        "commands": [
+          {
+            "command": "node --test --test-name-pattern \"SessionContext history_base\" tests/codexHistoryProductFlow.test.js",
+            "result": "passed",
+            "observation": "1 passed, 0 failed; schema boundary regression retains history_base in staging and excludes it from Store/provider output."
+          },
+          {
+            "command": "node --test tests/codexHistoryProductFlow.test.js",
+            "result": "passed",
+            "observation": "23 passed, 0 failed; all product-flow, real-Rust, ACK, append, provider, and R2/R4/R5 assertions passed."
+          },
+          {
+            "command": "node --test tests/codexRolloutCollector.test.js",
+            "result": "passed",
+            "observation": "122 passed, 0 failed; collector/protocol regression remains green."
+          },
+          {
+            "command": "node --check src/services/codexRolloutCollector/analysisBatchImporter.js; node --check tests/codexHistoryProductFlow.test.js; git diff --check -- src/services/codexRolloutCollector/analysisBatchImporter.js tests/codexHistoryProductFlow.test.js",
+            "result": "passed",
+            "observation": "Syntax and changed-line checks passed; only LF/CRLF conversion warnings were reported."
+          }
+        ],
+        "limits": [
+          "The child-context regression is schema-shaped through the actual Rust batch/importer/store/provider boundary; no new external child rollout or physical-device run was performed.",
+          "No manual SQL cleanup, cache clear, destructive migration, Rust/IPC/Android source change, Git commit, or deployment was performed.",
+          "Prior R3 Android evidence remains historical; existing Android cache contamination and partial coverage remain retained and unresolved under the adopted exclusion.",
+          "Existing unassociated management issue issue-ec19a134aefeb23287cb519b remains unresolved.",
+          "No independent formal review or S2 step finish was created."
+        ],
+        "remaining_work": [
+          "Run change review against this exact R5 repair execution and verify R2/R4/R5 disposition.",
+          "Verify a subsequent normal authorized canonical publication/provider DTO if the review requires fresh live-path evidence; do not rewrite old receipts or clear caches.",
+          "S2 disposition, S3/S4 work, Git commit, and deployment remain pending."
+        ],
+        "files": [
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "tests/codexHistoryProductFlow.test.js",
+          "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json"
+        ],
+        "links": [
+          {
+            "relation": "review-target",
+            "ref": ".workflow-system/records/events/key-7bf0b19941c21feeb18e4d3c73b88c5c2917e68f0183a590b1034d1602225772.json"
+          },
+          {
+            "relation": "prior-R4-execution",
+            "ref": ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json"
+          },
+          {
+            "relation": "retained-R3-evidence",
+            "ref": "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,279 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T06:45:02.306Z",
+  "payload_sha256": "96080bfbf9421cd6eaf5f90bd0704b9be88b48efd6c83c1169b14a05db65f386",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s1-execution-20260930-compat-spike-01",
+    "request": {
+      "action": "execution",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S1",
+      "idempotency_key": "task20260830-s1-execution-20260930-compat-spike-01",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "scope": "S1 Rust Spike only: native/codex-rollout-compat-spike vendor wire/serialization/tests, parser tests, sanitized fixtures, manifest/provenance/readmes, and one draft change record; no formal collector, Node, Android, IPC, deployment, or Git commit changes",
+        "files": {
+          "native/codex-rollout-compat-spike/src/lib.rs": "de8eb0db64adcceed884b9b070af672a222d1394d22f342b7ae710abe03c4060",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs": "00392e3d7f75c731507bcd5e6c5e76bdf0f29a707cc3bcd8fce5111efc8613ec",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs": "69d41b61cdc627f6fd8fcad0c8c257a5f5e118bb0d27ac254a9cd7dc3faa7c88",
+          "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+          "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl": "8735cc9656bd9448be36ce0a0479e6787d9244bb8d6543f4cb20d3da5c8b489e",
+          "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl": "55a8f7f0de8f3a3b5c064108f5da533c524721b36dc93d186de4af84bd078f4f",
+          "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md": "draft-record-validated"
+        },
+        "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+        "vendor_revision": "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2"
+      },
+      "result": "S1 implementation completed in the isolated Rust compatibility Spike; focused validation and same-input Demo/Spike evidence passed; formal collector promotion, Adapter work, and S2/S3 remain pending.",
+      "summary": "Added the minimal top-level token_usage_record history wire/serialization variant in the Spike vendor using native TokenUsage carriers and fail-closed required-field decoding. Added sanitized positive and malformed fixtures, parser coverage preserving legacy event_msg/token_count, machine-readable vendor manifest/provenance, and clarified Demo read-only boundaries. Fresh task-private Demo and Spike binaries were built and exercised on the same current/minimal-rollout fixture; projection-level stable semantic fields matched while parser provenance and the expected provisional task-outcome detail remained explicit.",
+      "commands": [
+        {
+          "command": "cargo fmt --manifest-path native/codex-rollout-compat-spike/Cargo.toml -- --check",
+          "result": "passed",
+          "observation": "exit 0"
+        },
+        {
+          "command": "cargo fmt --manifest-path native/codex-rollout-demo/Cargo.toml -- --check",
+          "result": "passed",
+          "observation": "exit 0"
+        },
+        {
+          "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike cargo test --locked --manifest-path native/codex-rollout-compat-spike/Cargo.toml",
+          "result": "passed",
+          "observation": "7 passed, 0 failed"
+        },
+        {
+          "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike cargo build --locked --manifest-path native/codex-rollout-compat-spike/Cargo.toml",
+          "result": "passed",
+          "observation": "debug build succeeded"
+        },
+        {
+          "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo cargo test --locked --manifest-path native/codex-rollout-demo/Cargo.toml",
+          "result": "passed",
+          "observation": "26 passed, 0 failed"
+        },
+        {
+          "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo cargo build --locked --manifest-path native/codex-rollout-demo/Cargo.toml --bin codex-rollout-demo",
+          "result": "passed",
+          "observation": "debug reference build succeeded"
+        },
+        {
+          "command": "git diff --check -- native/codex-rollout-compat-spike",
+          "result": "passed",
+          "observation": "exit 0; only line-ending warnings"
+        },
+        {
+          "command": "codex-rollout-compat-spike.exe --rollout token-usage-record.jsonl --output token-positive.parsed.jsonl --mode stream",
+          "result": "passed",
+          "observation": "2 valid/emitted, 0 parse errors; item_kinds event_msg=1 and token_usage_record=1"
+        },
+        {
+          "command": "codex-rollout-compat-spike.exe --rollout token-usage-record-malformed.jsonl --output token-malformed.parsed.jsonl --mode stream",
+          "result": "passed",
+          "observation": "0 valid/emitted, 2 parse errors; missing required input_tokens and wrong usage type remained fail-closed"
+        },
+        {
+          "command": "codex-rollout-demo.exe --rollout rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl --full-oracle --allow-partial --report demo-common-report.json",
+          "result": "passed",
+          "observation": "exit 0; 14 valid records, 0 parse errors; report retained 2 turns, 8 items, usage totals 70/120"
+        },
+        {
+          "command": "codex-rollout-compat-spike.exe --rollout rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl --output spike-common.parsed.jsonl --mode stream",
+          "result": "passed",
+          "observation": "exit 0; 13 emitted records and 1 explicit unknown future_rollout_variant parse error"
+        },
+        {
+          "command": "codex-rollout-demo.exe --rollout rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl --full-oracle --allow-partial --parser spike --spike-bin codex-rollout-compat-spike.exe --report demo-spike-common-report.json",
+          "result": "passed",
+          "observation": "stable turns/items/tool IDs/usage totals/plan state matched Demo; only parser provenance and explicit provisional task-outcome detail differed"
+        },
+        {
+          "command": "powershell -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -RecordPath docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md -Strict",
+          "result": "passed",
+          "observation": "PASS: Change record validation succeeded"
+        }
+      ],
+      "artifacts": {
+        "common_fixture_sha256": "0933c505c2331b525e7d52cfee574acee3c88761455121ced60b93ffe63afa29",
+        "common_fixture_bytes": 3714,
+        "demo_exe": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+        "demo_exe_sha256": "fc6995f5de2f5271c9f35a2da5a78629965cb3b85f265ba4ff9c2513602946f2",
+        "demo_exe_bytes": 44842953,
+        "spike_exe": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+        "spike_exe_sha256": "507ad73ef6a741b6edb0636560c378b7f2a93a16fb5301fcc67225d61ef6b3bb",
+        "spike_exe_bytes": 613830946,
+        "reports": [
+          "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/demo-common-report.json",
+          "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/demo-spike-common-report.projection.json",
+          "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-positive.stdout.json",
+          "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-malformed.stdout.json"
+        ]
+      },
+      "limits": [
+        "This is staging-only Spike work; the formal collector vendor and formal CodexEventAdapter were not changed.",
+        "Developer-message semantics and real-source 227-record canonical backfill remain S2/S3 work; no product publication or Android conclusion is made.",
+        "The Demo is a read-only reference and is not claimed to support the new token_usage_record variant.",
+        "No Node, Android, IPC, local service, deployment, Git commit, push, or Task 005 lifecycle change was performed.",
+        "The change record remains draft with commit_ref=TBD because commit was explicitly excluded.",
+        "The pre-existing unassociated historical review issue remains preserved and unresolved; no guessed association was made."
+      ],
+      "remaining_work": [
+        "S1 still needs its separate review/step disposition if the user requests formal closure.",
+        "S2 must promote the same validated wire patch to the formal collector and implement the Adapter/developer hidden-content boundary.",
+        "S3 must run fresh formal target-process and fixed real-source offline validation before any Task 005 handoff."
+      ],
+      "links": [
+        {
+          "relation": "change-record",
+          "ref": "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md"
+        },
+        {
+          "relation": "adopted-plan",
+          "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+        }
+      ]
+    },
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-d541cb97ed966f0411f7d9df6baeb4e447d062044e94dba489a3dd8fd14590bd.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S1",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "scope": "S1 Rust Spike only: native/codex-rollout-compat-spike vendor wire/serialization/tests, parser tests, sanitized fixtures, manifest/provenance/readmes, and one draft change record; no formal collector, Node, Android, IPC, deployment, or Git commit changes",
+          "files": {
+            "native/codex-rollout-compat-spike/src/lib.rs": "de8eb0db64adcceed884b9b070af672a222d1394d22f342b7ae710abe03c4060",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs": "00392e3d7f75c731507bcd5e6c5e76bdf0f29a707cc3bcd8fce5111efc8613ec",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs": "69d41b61cdc627f6fd8fcad0c8c257a5f5e118bb0d27ac254a9cd7dc3faa7c88",
+            "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+            "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl": "8735cc9656bd9448be36ce0a0479e6787d9244bb8d6543f4cb20d3da5c8b489e",
+            "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl": "55a8f7f0de8f3a3b5c064108f5da533c524721b36dc93d186de4af84bd078f4f",
+            "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md": "draft-record-validated"
+          },
+          "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+          "vendor_revision": "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2"
+        },
+        "result": "S1 implementation completed in the isolated Rust compatibility Spike; focused validation and same-input Demo/Spike evidence passed; formal collector promotion, Adapter work, and S2/S3 remain pending.",
+        "summary": "Added the minimal top-level token_usage_record history wire/serialization variant in the Spike vendor using native TokenUsage carriers and fail-closed required-field decoding. Added sanitized positive and malformed fixtures, parser coverage preserving legacy event_msg/token_count, machine-readable vendor manifest/provenance, and clarified Demo read-only boundaries. Fresh task-private Demo and Spike binaries were built and exercised on the same current/minimal-rollout fixture; projection-level stable semantic fields matched while parser provenance and the expected provisional task-outcome detail remained explicit.",
+        "commands": [
+          {
+            "command": "cargo fmt --manifest-path native/codex-rollout-compat-spike/Cargo.toml -- --check",
+            "result": "passed",
+            "observation": "exit 0"
+          },
+          {
+            "command": "cargo fmt --manifest-path native/codex-rollout-demo/Cargo.toml -- --check",
+            "result": "passed",
+            "observation": "exit 0"
+          },
+          {
+            "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike cargo test --locked --manifest-path native/codex-rollout-compat-spike/Cargo.toml",
+            "result": "passed",
+            "observation": "7 passed, 0 failed"
+          },
+          {
+            "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike cargo build --locked --manifest-path native/codex-rollout-compat-spike/Cargo.toml",
+            "result": "passed",
+            "observation": "debug build succeeded"
+          },
+          {
+            "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo cargo test --locked --manifest-path native/codex-rollout-demo/Cargo.toml",
+            "result": "passed",
+            "observation": "26 passed, 0 failed"
+          },
+          {
+            "command": "CARGO_TARGET_DIR=C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo cargo build --locked --manifest-path native/codex-rollout-demo/Cargo.toml --bin codex-rollout-demo",
+            "result": "passed",
+            "observation": "debug reference build succeeded"
+          },
+          {
+            "command": "git diff --check -- native/codex-rollout-compat-spike",
+            "result": "passed",
+            "observation": "exit 0; only line-ending warnings"
+          },
+          {
+            "command": "codex-rollout-compat-spike.exe --rollout token-usage-record.jsonl --output token-positive.parsed.jsonl --mode stream",
+            "result": "passed",
+            "observation": "2 valid/emitted, 0 parse errors; item_kinds event_msg=1 and token_usage_record=1"
+          },
+          {
+            "command": "codex-rollout-compat-spike.exe --rollout token-usage-record-malformed.jsonl --output token-malformed.parsed.jsonl --mode stream",
+            "result": "passed",
+            "observation": "0 valid/emitted, 2 parse errors; missing required input_tokens and wrong usage type remained fail-closed"
+          },
+          {
+            "command": "codex-rollout-demo.exe --rollout rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl --full-oracle --allow-partial --report demo-common-report.json",
+            "result": "passed",
+            "observation": "exit 0; 14 valid records, 0 parse errors; report retained 2 turns, 8 items, usage totals 70/120"
+          },
+          {
+            "command": "codex-rollout-compat-spike.exe --rollout rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl --output spike-common.parsed.jsonl --mode stream",
+            "result": "passed",
+            "observation": "exit 0; 13 emitted records and 1 explicit unknown future_rollout_variant parse error"
+          },
+          {
+            "command": "codex-rollout-demo.exe --rollout rollout-019b2b40-beb6-7b23-bed0-37d570e76816.jsonl --full-oracle --allow-partial --parser spike --spike-bin codex-rollout-compat-spike.exe --report demo-spike-common-report.json",
+            "result": "passed",
+            "observation": "stable turns/items/tool IDs/usage totals/plan state matched Demo; only parser provenance and explicit provisional task-outcome detail differed"
+          },
+          {
+            "command": "powershell -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1 -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex -RecordPath docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md -Strict",
+            "result": "passed",
+            "observation": "PASS: Change record validation succeeded"
+          }
+        ],
+        "artifacts": {
+          "common_fixture_sha256": "0933c505c2331b525e7d52cfee574acee3c88761455121ced60b93ffe63afa29",
+          "common_fixture_bytes": 3714,
+          "demo_exe": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/demo/debug/codex-rollout-demo.exe",
+          "demo_exe_sha256": "fc6995f5de2f5271c9f35a2da5a78629965cb3b85f265ba4ff9c2513602946f2",
+          "demo_exe_bytes": 44842953,
+          "spike_exe": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+          "spike_exe_sha256": "507ad73ef6a741b6edb0636560c378b7f2a93a16fb5301fcc67225d61ef6b3bb",
+          "spike_exe_bytes": 613830946,
+          "reports": [
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/demo-common-report.json",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/demo-spike-common-report.projection.json",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-positive.stdout.json",
+            "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-malformed.stdout.json"
+          ]
+        },
+        "limits": [
+          "This is staging-only Spike work; the formal collector vendor and formal CodexEventAdapter were not changed.",
+          "Developer-message semantics and real-source 227-record canonical backfill remain S2/S3 work; no product publication or Android conclusion is made.",
+          "The Demo is a read-only reference and is not claimed to support the new token_usage_record variant.",
+          "No Node, Android, IPC, local service, deployment, Git commit, push, or Task 005 lifecycle change was performed.",
+          "The change record remains draft with commit_ref=TBD because commit was explicitly excluded.",
+          "The pre-existing unassociated historical review issue remains preserved and unresolved; no guessed association was made."
+        ],
+        "remaining_work": [
+          "S1 still needs its separate review/step disposition if the user requests formal closure.",
+          "S2 must promote the same validated wire patch to the formal collector and implement the Adapter/developer hidden-content boundary.",
+          "S3 must run fresh formal target-process and fixed real-source offline validation before any Task 005 handoff."
+        ],
+        "links": [
+          {
+            "relation": "change-record",
+            "ref": "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md"
+          },
+          {
+            "relation": "adopted-plan",
+            "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

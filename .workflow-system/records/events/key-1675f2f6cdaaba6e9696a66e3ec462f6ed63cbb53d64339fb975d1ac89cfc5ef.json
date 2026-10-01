@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T17:46:34.033Z",
+  "payload_sha256": "fe4e1a673805d2244202b5fb99190f72039a08e6f66042dcb9017dd45c659e6e",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-r5-test-product-flow-20261001",
+    "request": {
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "idempotency_key": "task005-s2-r5-test-product-flow-20261001",
+      "decision_source": "current user execute-step repair invocation",
+      "decision_text": "Record R5 repair validation without finishing S2 or manufacturing an independent review.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+        "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+        "scope": "R5 product-flow integration"
+      },
+      "command": "node --test tests/codexHistoryProductFlow.test.js",
+      "selector": "S2/R2/R4/R5 product-history flow regression",
+      "result": "passed",
+      "observation": "23 passed, 0 failed; real-Rust product flow, diagnostic isolation, business facts, history-base isolation, ACK, append and provider regressions passed.",
+      "report_ref": "tests/codexHistoryProductFlow.test.js"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-d21de4a930a3e73959ae2d88d0647ed5816c790998fd8d36159d4f2be8a59770.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "decision_source": "current user execute-step repair invocation",
+        "decision_text": "Record R5 repair validation without finishing S2 or manufacturing an independent review.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+          "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+          "scope": "R5 product-flow integration"
+        },
+        "command": "node --test tests/codexHistoryProductFlow.test.js",
+        "selector": "S2/R2/R4/R5 product-history flow regression",
+        "result": "passed",
+        "observation": "23 passed, 0 failed; real-Rust product flow, diagnostic isolation, business facts, history-base isolation, ACK, append and provider regressions passed.",
+        "report_ref": "tests/codexHistoryProductFlow.test.js"
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T09:41:16.903Z",
+  "payload_sha256": "c13aad8c7ff7782957a563c753f1d685e2b82c8d926dc999ed13016d64ba4852",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:finish-s2-step-20260930",
+    "request": {
+      "action": "step",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S2",
+      "state": "finished",
+      "decision_ref": ".workflow-system/records/events/key-1c687630566112746be08ca0ff7e6a8e912e6e345e6077257cd9036f5926f5b6.json",
+      "decision_source": "Current user explicit execute-step finish request after the applicable clean S2 review.",
+      "decision_text": "[$execute-step] finish",
+      "remaining_work": [
+        "S3 remains not-started: fresh formal target-process validation, fixed real-source canonical/backfill/ACK/restart and lineage acceptance.",
+        "Task005 remains paused; no Node product publication, Android first-screen/ACK, IPC or deployment conclusion is implied.",
+        "S2 clean review is self-review, not independent certification; historical full cargo test 102/1, formal full-formatting, standalone vendor lockfile and draft/TBD/no-active-CR limitations remain recorded.",
+        "No Git commit, push or task closure was authorized or performed."
+      ],
+      "idempotency_key": "finish-s2-step-20260930"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "step",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-1c687630566112746be08ca0ff7e6a8e912e6e345e6077257cd9036f5926f5b6.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S2",
+        "state": "finished",
+        "decision_ref": ".workflow-system/records/events/key-1c687630566112746be08ca0ff7e6a8e912e6e345e6077257cd9036f5926f5b6.json",
+        "decision_source": "Current user explicit execute-step finish request after the applicable clean S2 review.",
+        "decision_text": "[$execute-step] finish",
+        "remaining_work": [
+          "S3 remains not-started: fresh formal target-process validation, fixed real-source canonical/backfill/ACK/restart and lineage acceptance.",
+          "Task005 remains paused; no Node product publication, Android first-screen/ACK, IPC or deployment conclusion is implied.",
+          "S2 clean review is self-review, not independent certification; historical full cargo test 102/1, formal full-formatting, standalone vendor lockfile and draft/TBD/no-active-CR limitations remain recorded.",
+          "No Git commit, push or task closure was authorized or performed."
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T16:45:08.505Z",
+  "payload_sha256": "9e860d6a38b631c1021629a6d4e1fc0d725b37f32b65e48e58e7e27adbce36b1",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s1-repair-26259df7e7e1e4a992096e58e900dfc16dc89c8f5fc738faceb79c210178e260",
+    "request": {
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "step_id": "S1",
+      "source_revision": {
+        "head": "280cae898aefc8f3970ae156fb691b875a963d4b",
+        "worktree_sha256": "26259df7e7e1e4a992096e58e900dfc16dc89c8f5fc738faceb79c210178e260",
+        "scope": "13 named product, Android, test, fixture and contract files; hash of path and raw bytes"
+      },
+      "result": "S1 repair implemented; focused validation passed; change review remains pending",
+      "summary": "Repaired three findings from Task 005 S1 self-review key-ea41b6d82fdc1a964b1cc721b0bf2afdd6e12fc7ec450919c16e7c9cf1e69a52: product older overlap and changed-detail tail retain existing positions while refreshing segment metadata; complete-cache selections issue one DB-only product probe without snapshot downgrade on miss; explicit product detail capability keeps old clients on compatible full v2 pages. Product tail switches incompatible static providers atomically. No Rust collector or IPC authority change.",
+      "review_ref": ".workflow-system/records/events/key-ea41b6d82fdc1a964b1cc721b0bf2afdd6e12fc7ec450919c16e7c9cf1e69a52.json",
+      "commands": [
+        {
+          "command": "node --test tests/codexHistoryProductFlow.test.js tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+          "result": "passed",
+          "observation": "159/159, 0 failures"
+        },
+        {
+          "command": "JDK21 gradlew :app:testDebugUnitTest --tests CodexHistoryPageHashTest --tests CodexHistoryWireTest --tests CodexViewModelThreadReadyTest",
+          "result": "passed",
+          "observation": "BUILD SUCCESSFUL; XML 3+28+163=194 tests, 0 failures; task executed"
+        },
+        {
+          "command": "JDK21 gradlew :app:compileDebugAndroidTestKotlin",
+          "result": "passed",
+          "observation": "BUILD SUCCESSFUL; instrumented tests compiled, not executed on device"
+        },
+        {
+          "command": "git diff --check",
+          "result": "passed",
+          "observation": "exit 0; Git only reported line-ending conversion warnings"
+        },
+        {
+          "command": "node --test --test-name-pattern='keeps old clients' tests/codexHistoryProductFlow.test.js",
+          "result": "initial failed then corrected and passed",
+          "observation": "Initial new test used an invalid syncId and Gateway returned invalid_sync_id; fixed fixture to valid UUID; targeted rerun passed"
+        }
+      ],
+      "limits": [
+        "No physical Android device or external Codex host E2E in S1; planned S2.",
+        "New SQLite overlap/refresh and provider-switch instrumentation tests compiled but were not executed on a device.",
+        "Prior needs-revision review remains historical; no formal review or step disposition was performed in this repair invocation.",
+        "No Git commit, deployment or step advancement was requested."
+      ],
+      "idempotency_key": "task005-s1-repair-26259df7e7e1e4a992096e58e900dfc16dc89c8f5fc738faceb79c210178e260"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-ea41b6d82fdc1a964b1cc721b0bf2afdd6e12fc7ec450919c16e7c9cf1e69a52.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+        "step_id": "S1",
+        "source_revision": {
+          "head": "280cae898aefc8f3970ae156fb691b875a963d4b",
+          "worktree_sha256": "26259df7e7e1e4a992096e58e900dfc16dc89c8f5fc738faceb79c210178e260",
+          "scope": "13 named product, Android, test, fixture and contract files; hash of path and raw bytes"
+        },
+        "result": "S1 repair implemented; focused validation passed; change review remains pending",
+        "summary": "Repaired three findings from Task 005 S1 self-review key-ea41b6d82fdc1a964b1cc721b0bf2afdd6e12fc7ec450919c16e7c9cf1e69a52: product older overlap and changed-detail tail retain existing positions while refreshing segment metadata; complete-cache selections issue one DB-only product probe without snapshot downgrade on miss; explicit product detail capability keeps old clients on compatible full v2 pages. Product tail switches incompatible static providers atomically. No Rust collector or IPC authority change.",
+        "review_ref": ".workflow-system/records/events/key-ea41b6d82fdc1a964b1cc721b0bf2afdd6e12fc7ec450919c16e7c9cf1e69a52.json",
+        "commands": [
+          {
+            "command": "node --test tests/codexHistoryProductFlow.test.js tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+            "result": "passed",
+            "observation": "159/159, 0 failures"
+          },
+          {
+            "command": "JDK21 gradlew :app:testDebugUnitTest --tests CodexHistoryPageHashTest --tests CodexHistoryWireTest --tests CodexViewModelThreadReadyTest",
+            "result": "passed",
+            "observation": "BUILD SUCCESSFUL; XML 3+28+163=194 tests, 0 failures; task executed"
+          },
+          {
+            "command": "JDK21 gradlew :app:compileDebugAndroidTestKotlin",
+            "result": "passed",
+            "observation": "BUILD SUCCESSFUL; instrumented tests compiled, not executed on device"
+          },
+          {
+            "command": "git diff --check",
+            "result": "passed",
+            "observation": "exit 0; Git only reported line-ending conversion warnings"
+          },
+          {
+            "command": "node --test --test-name-pattern='keeps old clients' tests/codexHistoryProductFlow.test.js",
+            "result": "initial failed then corrected and passed",
+            "observation": "Initial new test used an invalid syncId and Gateway returned invalid_sync_id; fixed fixture to valid UUID; targeted rerun passed"
+          }
+        ],
+        "limits": [
+          "No physical Android device or external Codex host E2E in S1; planned S2.",
+          "New SQLite overlap/refresh and provider-switch instrumentation tests compiled but were not executed on a device.",
+          "Prior needs-revision review remains historical; no formal review or step disposition was performed in this repair invocation.",
+          "No Git commit, deployment or step advancement was requested."
+        ]
+      }
+    }
+  },
+  "issues": []
+}

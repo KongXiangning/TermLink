@@ -1,0 +1,549 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T06:58:41.559Z",
+  "payload_sha256": "391d54452ee9bcd098a41971cb84b5efa66ed16afdfe1a0e5ae5ee747a4fddb4",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s1-change-review-20260930-payload-envelope-v1",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S1",
+      "execution_ref": ".workflow-system/records/events/key-e0af9387d83643740bc55919abce22c16b3dd8a11f1dce91d399b994fcea084b.json",
+      "idempotency_key": "task20260830-s1-change-review-20260930-payload-envelope-v1",
+      "verdict": "needs-revision",
+      "summary": "S1 does not decode the observed token_usage_record envelope. All 21 host records put the native fields under payload, but the added wire variant and fixtures require them at the outer item level. The exact recorded Spike binary rejects a sanitized payload-wrapped record with missing field thread_id. Existing flattened-fixture PASS and common-fixture A/B remain historical facts but do not meet the real-shape compatibility requirement.",
+      "findings": [
+        {
+          "id": "S1-R1",
+          "priority": "P1",
+          "status": "open",
+          "title": "Decode token_usage_record fields inside the persisted payload envelope",
+          "file": "native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs",
+          "start_line": 52,
+          "end_line": 56,
+          "description": "RolloutItemWire::TokenUsageRecord expects thread_id/turn_id/usage and the other native fields beside type. The fixed real source contains 21 token_usage_record objects with outer ordinal,payload,timestamp,type, and all binding/usage fields inside payload. decode_rollout_line only removes timestamp and ordinal before native deserialization; there is no payload unwrapping. Therefore all 21 legitimate current records still fail decoding, now as missing thread_id rather than unknown variant. The positive fixture and round_trip_without_a_payload_wrapper test mirror the incorrect flattened structure and cannot prove the fix.",
+          "consequence": "S1's real-structure acceptance is not met. Promoting this patch unchanged would retain parse gaps/partial analysis and would not remove Task 005's canonical publication blocker.",
+          "evidence": [
+            "Current source read-only shape/hash observation: all 21 token records are payload-wrapped",
+            "Exact S1 source hashes and Spike artifact SHA256 match the recorded execution",
+            "Sanitized flat control: valid/emitted=1, parse_errors=0",
+            "Same native values under payload: valid/emitted=0, parse_errors=1, first error line 1: missing field thread_id",
+            "Common A/B input has no token_usage_record and does not exercise this new envelope"
+          ],
+          "correction": "Correct the native wire serializer/deserializer to the observed payload envelope; replace the new synthetic fixtures and round-trip assertion with that envelope, and keep malformed required fields/types fail-closed. Rebuild the affected Spike artifact and rerun the focused native/parser positive and negative checks plus required common-fixture A/B. Correct the implementation/provenance claims in README/CR; do not alter the old execution/review facts or promote to S2 on the present evidence."
+        }
+      ],
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "files": {
+          "native/codex-rollout-compat-spike/src/lib.rs": "de8eb0db64adcceed884b9b070af672a222d1394d22f342b7ae710abe03c4060",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs": "00392e3d7f75c731507bcd5e6c5e76bdf0f29a707cc3bcd8fce5111efc8613ec",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs": "69d41b61cdc627f6fd8fcad0c8c257a5f5e118bb0d27ac254a9cd7dc3faa7c88",
+          "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+          "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl": "8735cc9656bd9448be36ce0a0479e6787d9244bb8d6543f4cb20d3da5c8b489e",
+          "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl": "55a8f7f0de8f3a3b5c064108f5da533c524721b36dc93d186de4af84bd078f4f",
+          "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md": "60e386d16a746e33f935f9cefda7003ae613c965d902c15d5a83638d83f73dcf",
+          "native/codex-rollout-compat-spike/README.md": "c0a0b08eda5cab7b869952e5d74cb13dc56d0d11cdf763b9f19650b10c6c1501",
+          "native/codex-rollout-compat-spike/vendor/codex/README.md": "ad3e7600f7406d3740bbf75069eaaa8bb2ba34b0064d20ea371c640de321a867",
+          "native/codex-rollout-compat-spike/src/codex_decode.rs": "027a18602515e667899ee244527617590859db1022148d3d0429b38a69a472be",
+          "native/codex-rollout-compat-spike/src/reader.rs": "d36d7b30dbf288cc733cbb72c3bd3c8862e20de610099f2da31ae3677b094aba"
+        },
+        "execution_subject_matches": true,
+        "spike_exe": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+        "spike_exe_sha256": "507ad73ef6a741b6edb0636560c378b7f2a93a16fb5301fcc67225d61ef6b3bb",
+        "artifact_hash_rechecked": true
+      },
+      "coverage": {
+        "reviewed": [
+          "All S1 tracked diffs, new fixtures/manifest/CR and native history wire conversions",
+          "reader -> codex_decode -> native RolloutItem deserialization call chain",
+          "Adopted v2 plan and preserved Rust/IPC architecture constraints",
+          "Recorded S1 reports and common-fixture parser/projection evidence",
+          "Read-only key/type-only observation of the unchanged fixed real source",
+          "Two actual sanitized structural-control runs using the recorded task-private Spike binary"
+        ],
+        "not_run": [
+          "No Cargo rebuild or full test replay in this review",
+          "No full real-source analyzer backfill/canonical execution",
+          "No S2 formal vendor promotion/Adapter implementation or S3 acceptance",
+          "No Node/Android/IPC product tests, service operations, deployment or Git actions"
+        ],
+        "evidence_limits": [
+          "The 7/7 Spike and 26/26 Demo Cargo tests are prior S1 execution observations, not new review runs",
+          "Added vendored history unit test functions are not independently certified by the listed Spike root cargo test command",
+          "Legacy unknown future_rollout_variant and provisional projection differences remain explicit; no historical report is recertified fresh",
+          "This review diagnoses native wire compatibility only; developer hidden-content semantics remain pending S2 work"
+        ]
+      },
+      "provenance": {
+        "review_type": "self-review",
+        "reviewer": "Current Codex agent; no independent reviewer assignment or delegation is claimed",
+        "target": "Exact recorded S1 execution and matching current source/artifact hashes",
+        "note": "S1 implementation was read from its separate saved execution; current invocation performs review and diagnostic probes only. The agent previously prepared the task plan."
+      },
+      "review_evidence": {
+        "fixed_source": {
+          "source_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+          "bytes": 1303231,
+          "records": 227,
+          "token_usage_records": 21,
+          "outer_keys": [
+            "ordinal",
+            "payload",
+            "timestamp",
+            "type"
+          ],
+          "payload_keys": [
+            "response_id",
+            "root_turn_id",
+            "session_id",
+            "thread_id",
+            "thread_token_usage",
+            "turn_id",
+            "turn_token_usage",
+            "usage"
+          ],
+          "all_payload_objects": true,
+          "all_usage_and_thread_id_nested": true,
+          "observation": "Fresh read-only inspection; no private content retained and no source mutation"
+        },
+        "sanitized_probe": {
+          "purpose": "S1 review only: synthetic sanitized record with identical native fields; envelope placement is the sole change",
+          "probe_root": "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1",
+          "observations": [
+            {
+              "name": "flat-control",
+              "input": "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\flat-control.jsonl",
+              "input_sha256": "1616413b9cf2531dc492673845a65b572bd1615ebf727ebca8ce8a0b29ce41ae",
+              "command": [
+                "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+                "--rollout",
+                "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\flat-control.jsonl",
+                "--output",
+                "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\flat-control.parsed.jsonl",
+                "--mode",
+                "stream"
+              ],
+              "process_exit": 0,
+              "valid_records": 1,
+              "emitted_records": 1,
+              "parse_errors": 0,
+              "first_parse_error": null,
+              "item_kinds": {
+                "token_usage_record": 1
+              },
+              "parsed_bytes": 952
+            },
+            {
+              "name": "actual-envelope",
+              "input": "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\actual-envelope.jsonl",
+              "input_sha256": "674c840013ba294b5f0a75b1528a86f047d162244c55933b9805bb7168bb06d1",
+              "command": [
+                "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+                "--rollout",
+                "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\actual-envelope.jsonl",
+                "--output",
+                "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\actual-envelope.parsed.jsonl",
+                "--mode",
+                "stream"
+              ],
+              "process_exit": 0,
+              "valid_records": 0,
+              "emitted_records": 0,
+              "parse_errors": 1,
+              "first_parse_error": "line 1: missing field `thread_id`",
+              "item_kinds": {},
+              "parsed_bytes": 0
+            }
+          ],
+          "evidence_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/review-evidence.json",
+          "evidence_sha256": "a027fc6f9ab8b93f884ad23328b7772d2d223db82ba4292c3dbf0334ad877351",
+          "flat_input": {
+            "timestamp": "2026-08-18T10:00:02.000Z",
+            "ordinal": 4,
+            "type": "token_usage_record",
+            "thread_id": "00000000-0000-0000-0000-000000000001",
+            "turn_id": "00000000-0000-0000-0000-000000000002",
+            "session_id": "00000000-0000-0000-0000-000000000001",
+            "root_turn_id": "00000000-0000-0000-0000-000000000002",
+            "response_id": "response-sanitized-1",
+            "usage": {
+              "input_tokens": 101,
+              "cached_input_tokens": 11,
+              "cache_write_input_tokens": 1,
+              "output_tokens": 21,
+              "reasoning_output_tokens": 3,
+              "total_tokens": 122
+            },
+            "turn_token_usage": {
+              "input_tokens": 101,
+              "cached_input_tokens": 11,
+              "cache_write_input_tokens": 1,
+              "output_tokens": 21,
+              "reasoning_output_tokens": 3,
+              "total_tokens": 122
+            },
+            "thread_token_usage": {
+              "input_tokens": 101,
+              "cached_input_tokens": 11,
+              "cache_write_input_tokens": 1,
+              "output_tokens": 21,
+              "reasoning_output_tokens": 3,
+              "total_tokens": 122
+            }
+          },
+          "wrapped_input": {
+            "timestamp": "2026-08-18T10:00:02.000Z",
+            "ordinal": 4,
+            "type": "token_usage_record",
+            "payload": {
+              "thread_id": "00000000-0000-0000-0000-000000000001",
+              "turn_id": "00000000-0000-0000-0000-000000000002",
+              "session_id": "00000000-0000-0000-0000-000000000001",
+              "root_turn_id": "00000000-0000-0000-0000-000000000002",
+              "response_id": "response-sanitized-1",
+              "usage": {
+                "input_tokens": 101,
+                "cached_input_tokens": 11,
+                "cache_write_input_tokens": 1,
+                "output_tokens": 21,
+                "reasoning_output_tokens": 3,
+                "total_tokens": 122
+              },
+              "turn_token_usage": {
+                "input_tokens": 101,
+                "cached_input_tokens": 11,
+                "cache_write_input_tokens": 1,
+                "output_tokens": 21,
+                "reasoning_output_tokens": 3,
+                "total_tokens": 122
+              },
+              "thread_token_usage": {
+                "input_tokens": 101,
+                "cached_input_tokens": 11,
+                "cache_write_input_tokens": 1,
+                "output_tokens": 21,
+                "reasoning_output_tokens": 3,
+                "total_tokens": 122
+              }
+            }
+          }
+        },
+        "prior_reports": {
+          "demo_common_report_sha256": "24f33629ee6760ec1496256594dbb9db49eac4b931e97b2295a9d09668655901",
+          "demo_projection_sha256": "70fc78e01beec31116d43a4f44433caefd10c5a6dfe84b8eeb6e44594dc820f4",
+          "demo_spike_projection_sha256": "daae084b313c5d3acc8f3a3887169e7b936bbc7efd6e55c21f708f92dff57757"
+        }
+      },
+      "remaining_work": [
+        "Repair S1-R1 and record the new execution, then review the corrected subject",
+        "S1 has no finish disposition; S2/S3 remain not-started",
+        "Task 005 remains paused with S2 acceptance not passed"
+      ],
+      "remaining_management_data": {
+        "issue_id": "issue-ec19a134aefeb23287cb519b",
+        "record_ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+        "disposition": "Pre-existing unassociated record retained; no guessed link or correction"
+      },
+      "limits": [
+        "No product, governance source or documentation file edits; only assistance review persistence/view publication and task-private temporary probes",
+        "No review-decision, finish, advancement, Task 005 resume, close or Git operation performed"
+      ],
+      "links": [
+        {
+          "relation": "reviews-execution",
+          "ref": ".workflow-system/records/events/key-e0af9387d83643740bc55919abce22c16b3dd8a11f1dce91d399b994fcea084b.json"
+        },
+        {
+          "relation": "adopted-plan",
+          "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+        },
+        {
+          "relation": "change-record-reviewed",
+          "ref": "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md"
+        }
+      ],
+      "next_route": "execute-step",
+      "next_mode": "repair",
+      "next_action": "Repair the identified S1 envelope mismatch within the adopted Rust-only scope; no automatic execution by this review"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-3330bdacafed700085873b930fb6072a113535d7a6d7a2a63ad872323690c11e.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S1",
+        "execution_ref": ".workflow-system/records/events/key-e0af9387d83643740bc55919abce22c16b3dd8a11f1dce91d399b994fcea084b.json",
+        "verdict": "needs-revision",
+        "summary": "S1 does not decode the observed token_usage_record envelope. All 21 host records put the native fields under payload, but the added wire variant and fixtures require them at the outer item level. The exact recorded Spike binary rejects a sanitized payload-wrapped record with missing field thread_id. Existing flattened-fixture PASS and common-fixture A/B remain historical facts but do not meet the real-shape compatibility requirement.",
+        "findings": [
+          {
+            "id": "S1-R1",
+            "priority": "P1",
+            "status": "open",
+            "title": "Decode token_usage_record fields inside the persisted payload envelope",
+            "file": "native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs",
+            "start_line": 52,
+            "end_line": 56,
+            "description": "RolloutItemWire::TokenUsageRecord expects thread_id/turn_id/usage and the other native fields beside type. The fixed real source contains 21 token_usage_record objects with outer ordinal,payload,timestamp,type, and all binding/usage fields inside payload. decode_rollout_line only removes timestamp and ordinal before native deserialization; there is no payload unwrapping. Therefore all 21 legitimate current records still fail decoding, now as missing thread_id rather than unknown variant. The positive fixture and round_trip_without_a_payload_wrapper test mirror the incorrect flattened structure and cannot prove the fix.",
+            "consequence": "S1's real-structure acceptance is not met. Promoting this patch unchanged would retain parse gaps/partial analysis and would not remove Task 005's canonical publication blocker.",
+            "evidence": [
+              "Current source read-only shape/hash observation: all 21 token records are payload-wrapped",
+              "Exact S1 source hashes and Spike artifact SHA256 match the recorded execution",
+              "Sanitized flat control: valid/emitted=1, parse_errors=0",
+              "Same native values under payload: valid/emitted=0, parse_errors=1, first error line 1: missing field thread_id",
+              "Common A/B input has no token_usage_record and does not exercise this new envelope"
+            ],
+            "correction": "Correct the native wire serializer/deserializer to the observed payload envelope; replace the new synthetic fixtures and round-trip assertion with that envelope, and keep malformed required fields/types fail-closed. Rebuild the affected Spike artifact and rerun the focused native/parser positive and negative checks plus required common-fixture A/B. Correct the implementation/provenance claims in README/CR; do not alter the old execution/review facts or promote to S2 on the present evidence."
+          }
+        ],
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "files": {
+            "native/codex-rollout-compat-spike/src/lib.rs": "de8eb0db64adcceed884b9b070af672a222d1394d22f342b7ae710abe03c4060",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/rollout_payload.rs": "00392e3d7f75c731507bcd5e6c5e76bdf0f29a707cc3bcd8fce5111efc8613ec",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/tests.rs": "69d41b61cdc627f6fd8fcad0c8c257a5f5e118bb0d27ac254a9cd7dc3faa7c88",
+            "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+            "native/codex-rollout-compat-spike/fixtures/token-usage-record.jsonl": "8735cc9656bd9448be36ce0a0479e6787d9244bb8d6543f4cb20d3da5c8b489e",
+            "native/codex-rollout-compat-spike/fixtures/token-usage-record-malformed.jsonl": "55a8f7f0de8f3a3b5c064108f5da533c524721b36dc93d186de4af84bd078f4f",
+            "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md": "60e386d16a746e33f935f9cefda7003ae613c965d902c15d5a83638d83f73dcf",
+            "native/codex-rollout-compat-spike/README.md": "c0a0b08eda5cab7b869952e5d74cb13dc56d0d11cdf763b9f19650b10c6c1501",
+            "native/codex-rollout-compat-spike/vendor/codex/README.md": "ad3e7600f7406d3740bbf75069eaaa8bb2ba34b0064d20ea371c640de321a867",
+            "native/codex-rollout-compat-spike/src/codex_decode.rs": "027a18602515e667899ee244527617590859db1022148d3d0429b38a69a472be",
+            "native/codex-rollout-compat-spike/src/reader.rs": "d36d7b30dbf288cc733cbb72c3bd3c8862e20de610099f2da31ae3677b094aba"
+          },
+          "execution_subject_matches": true,
+          "spike_exe": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+          "spike_exe_sha256": "507ad73ef6a741b6edb0636560c378b7f2a93a16fb5301fcc67225d61ef6b3bb",
+          "artifact_hash_rechecked": true
+        },
+        "coverage": {
+          "reviewed": [
+            "All S1 tracked diffs, new fixtures/manifest/CR and native history wire conversions",
+            "reader -> codex_decode -> native RolloutItem deserialization call chain",
+            "Adopted v2 plan and preserved Rust/IPC architecture constraints",
+            "Recorded S1 reports and common-fixture parser/projection evidence",
+            "Read-only key/type-only observation of the unchanged fixed real source",
+            "Two actual sanitized structural-control runs using the recorded task-private Spike binary"
+          ],
+          "not_run": [
+            "No Cargo rebuild or full test replay in this review",
+            "No full real-source analyzer backfill/canonical execution",
+            "No S2 formal vendor promotion/Adapter implementation or S3 acceptance",
+            "No Node/Android/IPC product tests, service operations, deployment or Git actions"
+          ],
+          "evidence_limits": [
+            "The 7/7 Spike and 26/26 Demo Cargo tests are prior S1 execution observations, not new review runs",
+            "Added vendored history unit test functions are not independently certified by the listed Spike root cargo test command",
+            "Legacy unknown future_rollout_variant and provisional projection differences remain explicit; no historical report is recertified fresh",
+            "This review diagnoses native wire compatibility only; developer hidden-content semantics remain pending S2 work"
+          ]
+        },
+        "provenance": {
+          "review_type": "self-review",
+          "reviewer": "Current Codex agent; no independent reviewer assignment or delegation is claimed",
+          "target": "Exact recorded S1 execution and matching current source/artifact hashes",
+          "note": "S1 implementation was read from its separate saved execution; current invocation performs review and diagnostic probes only. The agent previously prepared the task plan."
+        },
+        "review_evidence": {
+          "fixed_source": {
+            "source_sha256": "0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e",
+            "bytes": 1303231,
+            "records": 227,
+            "token_usage_records": 21,
+            "outer_keys": [
+              "ordinal",
+              "payload",
+              "timestamp",
+              "type"
+            ],
+            "payload_keys": [
+              "response_id",
+              "root_turn_id",
+              "session_id",
+              "thread_id",
+              "thread_token_usage",
+              "turn_id",
+              "turn_token_usage",
+              "usage"
+            ],
+            "all_payload_objects": true,
+            "all_usage_and_thread_id_nested": true,
+            "observation": "Fresh read-only inspection; no private content retained and no source mutation"
+          },
+          "sanitized_probe": {
+            "purpose": "S1 review only: synthetic sanitized record with identical native fields; envelope placement is the sole change",
+            "probe_root": "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1",
+            "observations": [
+              {
+                "name": "flat-control",
+                "input": "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\flat-control.jsonl",
+                "input_sha256": "1616413b9cf2531dc492673845a65b572bd1615ebf727ebca8ce8a0b29ce41ae",
+                "command": [
+                  "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+                  "--rollout",
+                  "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\flat-control.jsonl",
+                  "--output",
+                  "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\flat-control.parsed.jsonl",
+                  "--mode",
+                  "stream"
+                ],
+                "process_exit": 0,
+                "valid_records": 1,
+                "emitted_records": 1,
+                "parse_errors": 0,
+                "first_parse_error": null,
+                "item_kinds": {
+                  "token_usage_record": 1
+                },
+                "parsed_bytes": 952
+              },
+              {
+                "name": "actual-envelope",
+                "input": "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\actual-envelope.jsonl",
+                "input_sha256": "674c840013ba294b5f0a75b1528a86f047d162244c55933b9805bb7168bb06d1",
+                "command": [
+                  "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/cargo/spike/debug/codex-rollout-compat-spike.exe",
+                  "--rollout",
+                  "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\actual-envelope.jsonl",
+                  "--output",
+                  "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task-20260830-s1-20260930\\review-payload-1rQrd1\\actual-envelope.parsed.jsonl",
+                  "--mode",
+                  "stream"
+                ],
+                "process_exit": 0,
+                "valid_records": 0,
+                "emitted_records": 0,
+                "parse_errors": 1,
+                "first_parse_error": "line 1: missing field `thread_id`",
+                "item_kinds": {},
+                "parsed_bytes": 0
+              }
+            ],
+            "evidence_path": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/review-payload-1rQrd1/review-evidence.json",
+            "evidence_sha256": "a027fc6f9ab8b93f884ad23328b7772d2d223db82ba4292c3dbf0334ad877351",
+            "flat_input": {
+              "timestamp": "2026-08-18T10:00:02.000Z",
+              "ordinal": 4,
+              "type": "token_usage_record",
+              "thread_id": "00000000-0000-0000-0000-000000000001",
+              "turn_id": "00000000-0000-0000-0000-000000000002",
+              "session_id": "00000000-0000-0000-0000-000000000001",
+              "root_turn_id": "00000000-0000-0000-0000-000000000002",
+              "response_id": "response-sanitized-1",
+              "usage": {
+                "input_tokens": 101,
+                "cached_input_tokens": 11,
+                "cache_write_input_tokens": 1,
+                "output_tokens": 21,
+                "reasoning_output_tokens": 3,
+                "total_tokens": 122
+              },
+              "turn_token_usage": {
+                "input_tokens": 101,
+                "cached_input_tokens": 11,
+                "cache_write_input_tokens": 1,
+                "output_tokens": 21,
+                "reasoning_output_tokens": 3,
+                "total_tokens": 122
+              },
+              "thread_token_usage": {
+                "input_tokens": 101,
+                "cached_input_tokens": 11,
+                "cache_write_input_tokens": 1,
+                "output_tokens": 21,
+                "reasoning_output_tokens": 3,
+                "total_tokens": 122
+              }
+            },
+            "wrapped_input": {
+              "timestamp": "2026-08-18T10:00:02.000Z",
+              "ordinal": 4,
+              "type": "token_usage_record",
+              "payload": {
+                "thread_id": "00000000-0000-0000-0000-000000000001",
+                "turn_id": "00000000-0000-0000-0000-000000000002",
+                "session_id": "00000000-0000-0000-0000-000000000001",
+                "root_turn_id": "00000000-0000-0000-0000-000000000002",
+                "response_id": "response-sanitized-1",
+                "usage": {
+                  "input_tokens": 101,
+                  "cached_input_tokens": 11,
+                  "cache_write_input_tokens": 1,
+                  "output_tokens": 21,
+                  "reasoning_output_tokens": 3,
+                  "total_tokens": 122
+                },
+                "turn_token_usage": {
+                  "input_tokens": 101,
+                  "cached_input_tokens": 11,
+                  "cache_write_input_tokens": 1,
+                  "output_tokens": 21,
+                  "reasoning_output_tokens": 3,
+                  "total_tokens": 122
+                },
+                "thread_token_usage": {
+                  "input_tokens": 101,
+                  "cached_input_tokens": 11,
+                  "cache_write_input_tokens": 1,
+                  "output_tokens": 21,
+                  "reasoning_output_tokens": 3,
+                  "total_tokens": 122
+                }
+              }
+            }
+          },
+          "prior_reports": {
+            "demo_common_report_sha256": "24f33629ee6760ec1496256594dbb9db49eac4b931e97b2295a9d09668655901",
+            "demo_projection_sha256": "70fc78e01beec31116d43a4f44433caefd10c5a6dfe84b8eeb6e44594dc820f4",
+            "demo_spike_projection_sha256": "daae084b313c5d3acc8f3a3887169e7b936bbc7efd6e55c21f708f92dff57757"
+          }
+        },
+        "remaining_work": [
+          "Repair S1-R1 and record the new execution, then review the corrected subject",
+          "S1 has no finish disposition; S2/S3 remain not-started",
+          "Task 005 remains paused with S2 acceptance not passed"
+        ],
+        "remaining_management_data": {
+          "issue_id": "issue-ec19a134aefeb23287cb519b",
+          "record_ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+          "disposition": "Pre-existing unassociated record retained; no guessed link or correction"
+        },
+        "limits": [
+          "No product, governance source or documentation file edits; only assistance review persistence/view publication and task-private temporary probes",
+          "No review-decision, finish, advancement, Task 005 resume, close or Git operation performed"
+        ],
+        "links": [
+          {
+            "relation": "reviews-execution",
+            "ref": ".workflow-system/records/events/key-e0af9387d83643740bc55919abce22c16b3dd8a11f1dce91d399b994fcea084b.json"
+          },
+          {
+            "relation": "adopted-plan",
+            "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+          },
+          {
+            "relation": "change-record-reviewed",
+            "ref": "docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md"
+          }
+        ],
+        "next_route": "execute-step",
+        "next_mode": "repair",
+        "next_action": "Repair the identified S1 envelope mismatch within the adopted Rust-only scope; no automatic execution by this review"
+      }
+    }
+  },
+  "issues": []
+}

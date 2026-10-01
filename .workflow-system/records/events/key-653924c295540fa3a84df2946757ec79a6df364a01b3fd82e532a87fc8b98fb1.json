@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T17:02:21.294Z",
+  "payload_sha256": "70190262a693cd01fae9602a0f2bda698c33a8a6571c08f7b18769c84fca7ecd",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-repair-test-product-flow-20261001",
+    "request": {
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "idempotency_key": "task005-s2-repair-test-product-flow-20261001",
+      "decision_source": "current user execute-step repair invocation",
+      "decision_text": "Record the actual S2 repair validation result without finishing the step or creating an independent review.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "scope": "Node product projection repair and regression"
+      },
+      "command": "node --test tests/codexHistoryProductFlow.test.js",
+      "selector": "S2/R2 product-history flow and real-Rust product-history integration",
+      "result": "passed",
+      "observation": "22 passed, 0 failed; internal token_usage_record remains in projection diagnostics while canonical history contains no diagnostic carrier rows and legitimate product fields remain covered.",
+      "report_ref": "tests/codexHistoryProductFlow.test.js"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-585fea80c03ac11b86aa9a07a548cef66acd890d4b58e1dfaf1c64fa9b1ed8f0.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "decision_source": "current user execute-step repair invocation",
+        "decision_text": "Record the actual S2 repair validation result without finishing the step or creating an independent review.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "scope": "Node product projection repair and regression"
+        },
+        "command": "node --test tests/codexHistoryProductFlow.test.js",
+        "selector": "S2/R2 product-history flow and real-Rust product-history integration",
+        "result": "passed",
+        "observation": "22 passed, 0 failed; internal token_usage_record remains in projection diagnostics while canonical history contains no diagnostic carrier rows and legitimate product fields remain covered.",
+        "report_ref": "tests/codexHistoryProductFlow.test.js"
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T09:15:13.220Z",
+  "payload_sha256": "161af1306de5e8cabb72064177d009adf147b7cf5ef4438e6374c1bde2bf579c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s2-repair-test-20260930-3",
+    "request": {
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+      "source_revision": {
+        "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00"
+      },
+      "selector": "S2-repair/focused-format-and-docs",
+      "command": "rustfmt --edition2024 --check conformance.rs stage3_conformance.rs; git -c core.whitespace=cr-at-eol diff --check; validate-change-record.ps1 -ProjectRoot . -Strict; validate-req.ps1 -ProjectRoot . -Strict",
+      "result": "passed",
+      "observation": "Focused fmt, diff, strict CR and explicit-root REQ checks pass. Initial REQ default-root error retained in execution. Full formal fmt/full library102/1/vendor lockfile/draft doc-sync limitations unchanged and not rerun.",
+      "report_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+      "idempotency_key": "task20260830-s2-repair-test-20260930-3"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-ac802b49fa2a649077a873b19795e42e0942c40a117177a0397b174d2413922c.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+        "source_revision": {
+          "execution_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00"
+        },
+        "selector": "S2-repair/focused-format-and-docs",
+        "command": "rustfmt --edition2024 --check conformance.rs stage3_conformance.rs; git -c core.whitespace=cr-at-eol diff --check; validate-change-record.ps1 -ProjectRoot . -Strict; validate-req.ps1 -ProjectRoot . -Strict",
+        "result": "passed",
+        "observation": "Focused fmt, diff, strict CR and explicit-root REQ checks pass. Initial REQ default-root error retained in execution. Full formal fmt/full library102/1/vendor lockfile/draft doc-sync limitations unchanged and not rerun.",
+        "report_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json"
+      }
+    }
+  },
+  "issues": []
+}

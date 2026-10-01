@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T06:46:02.509Z",
+  "payload_sha256": "0830e356dbddb3e407b8ed1703a34a6f82dccb592f161f7684c3f3bd921684c4",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260830-s1-test-sanitized-wire-20260930-01",
+    "request": {
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "step_id": "S1",
+      "idempotency_key": "task20260830-s1-test-sanitized-wire-20260930-01",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+        "scope": "sanitized token_usage_record positive/negative CLI validation"
+      },
+      "command": "codex-rollout-compat-spike.exe on token-usage-record.jsonl and token-usage-record-malformed.jsonl",
+      "selector": "S1/sanitized-wire-fixtures",
+      "result": "passed",
+      "observation": "Positive: 2 valid/emitted, 0 parse errors, item_kinds event_msg=1 and token_usage_record=1. Malformed: 0 valid/emitted, 2 parse errors, missing input_tokens and wrong usage type remained fail-closed.",
+      "report_ref": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-positive.stdout.json; C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-malformed.stdout.json"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "parents": [
+        ".workflow-system/records/events/key-97c18f2b31c0ddc9cc2f4adc0aab6e5abbac2962cc6e95e86d67b84ba09845ea.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "step_id": "S1",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "task_temp_root": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930",
+          "scope": "sanitized token_usage_record positive/negative CLI validation"
+        },
+        "command": "codex-rollout-compat-spike.exe on token-usage-record.jsonl and token-usage-record-malformed.jsonl",
+        "selector": "S1/sanitized-wire-fixtures",
+        "result": "passed",
+        "observation": "Positive: 2 valid/emitted, 0 parse errors, item_kinds event_msg=1 and token_usage_record=1. Malformed: 0 valid/emitted, 2 parse errors, missing input_tokens and wrong usage type remained fail-closed.",
+        "report_ref": "C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-positive.stdout.json; C:/Users/kongx/AppData/Local/Temp/termlink-task-20260830-s1-20260930/token-malformed.stdout.json"
+      }
+    }
+  },
+  "issues": []
+}

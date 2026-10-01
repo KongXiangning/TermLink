@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T18:15:46.056Z",
+  "payload_sha256": "a67d9a76a464a7fb8aa7c60ce5ff3d5d0930456d8e1db88eefce82dca2fad5eb",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-r5-product-flow-test-20261001",
+    "request": {
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "idempotency_key": "task005-s2-r5-product-flow-test-20261001",
+      "decision_source": "current user execute-step request",
+      "decision_text": "补齐当前版本真实发布及 DTO 验证；目前无需继续修改源代码。",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+        "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+        "scope": "S2 current-version product-history regression"
+      },
+      "command": "node --test tests/codexHistoryProductFlow.test.js",
+      "selector": "S2 product-history/importer canonical projection, real-Rust business facts, append/reopen/ACK/provider/range and SessionContext history_base isolation",
+      "result": "passed",
+      "observation": "23 passed, 0 failed in 6262 ms. The regression includes the real-Rust product flow and the R5 schema-specific SessionContext history_base staging-versus-product DTO boundary.",
+      "report_ref": "tests/codexHistoryProductFlow.test.js"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-56abf257b1b774cbef4fc6d21f08e7ed9f6c77fafc2c8a2fc1acc9f4a1270195.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "decision_source": "current user execute-step request",
+        "decision_text": "补齐当前版本真实发布及 DTO 验证；目前无需继续修改源代码。",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+          "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+          "scope": "S2 current-version product-history regression"
+        },
+        "command": "node --test tests/codexHistoryProductFlow.test.js",
+        "selector": "S2 product-history/importer canonical projection, real-Rust business facts, append/reopen/ACK/provider/range and SessionContext history_base isolation",
+        "result": "passed",
+        "observation": "23 passed, 0 failed in 6262 ms. The regression includes the real-Rust product flow and the R5 schema-specific SessionContext history_base staging-versus-product DTO boundary.",
+        "report_ref": "tests/codexHistoryProductFlow.test.js"
+      }
+    }
+  },
+  "issues": []
+}

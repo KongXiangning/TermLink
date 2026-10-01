@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T20:05:26.284Z",
+  "payload_sha256": "e01d7d68ea39fe3d923e238f1f22e8b9c74fb509393aae96e89e5eb4438fb10f",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "decision",
+    "task_ref": "task-7a4566ccf322e08968cd5c7935cf61dd",
+    "source_revision": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+    "idempotency_key": "app-cache-clear-01a0ee04-20261001",
+    "body": {
+      "action": "user-authorized S2 local cache cleanup and resync",
+      "decision_source": "current human user message, 2026-10-01 Asia/Shanghai",
+      "decision_text": "使用 App 现有清理功能，清除会话 `01a0ee04-a775-72b3-bd07-04aac804a3b4` 的本地缓存，再重新打开并同步，验证旧 Diagnostic 残留、历史展示和 ACK。保留其他会话、服务配置及远端数据，不修改产品代码。",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "scope_interpretation": "Use only TermLink App's existing per-task local cache cleaner for the named conversation, then reopen that same conversation and observe its history and ACK. No other conversation cache, endpoint/profile configuration, remote source/database, or product code is authorized."
+    }
+  },
+  "issues": []
+}

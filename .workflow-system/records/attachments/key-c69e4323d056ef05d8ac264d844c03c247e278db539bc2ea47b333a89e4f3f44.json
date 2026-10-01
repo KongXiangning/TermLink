@@ -1,0 +1,149 @@
+{
+  "event_ref": ".workflow-system/records/events/key-c69e4323d056ef05d8ac264d844c03c247e278db539bc2ea47b333a89e4f3f44.json",
+  "captured_at": "2026-09-30T08:28:18.810Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02.blob",
+      "sha256": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+      "size": 1027,
+      "source_path": "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e.blob",
+      "sha256": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+      "size": 14450,
+      "source_path": "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625.blob",
+      "sha256": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+      "size": 9599,
+      "source_path": "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00.blob",
+      "sha256": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+      "size": 20398,
+      "source_path": "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21.blob",
+      "sha256": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+      "size": 10885,
+      "source_path": "native/codex-rollout-collector/src/codex_wire/decode.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75.blob",
+      "sha256": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+      "size": 67392,
+      "source_path": "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/4b110bb076717a1a387ad0a39efb354605ddb76fa4a1992202f236bec36b6ecb.blob",
+      "sha256": "4b110bb076717a1a387ad0a39efb354605ddb76fa4a1992202f236bec36b6ecb",
+      "size": 44647,
+      "source_path": "native/codex-rollout-collector/tests/conformance.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/13787c989f7efaae8504fd2582432b66d5f45523ff7ef5c6063010c811b600b1.blob",
+      "sha256": "13787c989f7efaae8504fd2582432b66d5f45523ff7ef5c6063010c811b600b1",
+      "size": 32505,
+      "source_path": "native/codex-rollout-collector/tests/stage3_conformance.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7.blob",
+      "sha256": "f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7",
+      "size": 66210,
+      "source_path": "native/codex-rollout-collector/tests/stage4_protocol.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd.blob",
+      "sha256": "0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd",
+      "size": 3914,
+      "source_path": "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b0333e04e6a3f4af4de78e6ee7c9a1cf6b6fcd4be77d396b402543aed9dbdfe1.blob",
+      "sha256": "b0333e04e6a3f4af4de78e6ee7c9a1cf6b6fcd4be77d396b402543aed9dbdfe1",
+      "size": 36868,
+      "source_path": "docs/codex/codex-rollout-collector-codex-compatibility.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3.blob",
+      "sha256": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+      "size": 121992,
+      "source_path": "docs/codex/codex-rollout-collector-architecture.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679.blob",
+      "sha256": "6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679",
+      "size": 7516,
+      "source_path": "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,259 @@
+{
+  "event_ref": ".workflow-system/records/events/key-1555d65d43b9682902d8877749b5e815bf16a758e54112576f85065a3b891dbf.json",
+  "captured_at": "2026-09-30T08:45:52.540Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/4b110bb076717a1a387ad0a39efb354605ddb76fa4a1992202f236bec36b6ecb.blob",
+      "sha256": "4b110bb076717a1a387ad0a39efb354605ddb76fa4a1992202f236bec36b6ecb",
+      "size": 44647,
+      "source_path": "native/codex-rollout-collector/tests/conformance.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/e72c6eff2afe91f5d5d4568a3fc2f585898fe7d5becc8d9b1e83b5e5cb1603cf.blob",
+      "sha256": "e72c6eff2afe91f5d5d4568a3fc2f585898fe7d5becc8d9b1e83b5e5cb1603cf",
+      "size": 2813,
+      "source_path": "native/codex-rollout-collector/vendor/codex/README.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7.blob",
+      "sha256": "f67af06616152851354d9b29c9304335fdf3ca83d638acd081f13dec5c76cfa7",
+      "size": 66210,
+      "source_path": "native/codex-rollout-collector/tests/stage4_protocol.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75.blob",
+      "sha256": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+      "size": 67392,
+      "source_path": "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/5894211f6ece20171fa293b9c846a81ac66a2a7e1fe4a0fa50cee5023b9d6b62.blob",
+      "sha256": "5894211f6ece20171fa293b9c846a81ac66a2a7e1fe4a0fa50cee5023b9d6b62",
+      "size": 1320,
+      "source_path": "native/codex-rollout-collector/tests/fixtures/current/token-usage-record.jsonl",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/13787c989f7efaae8504fd2582432b66d5f45523ff7ef5c6063010c811b600b1.blob",
+      "sha256": "13787c989f7efaae8504fd2582432b66d5f45523ff7ef5c6063010c811b600b1",
+      "size": 32505,
+      "source_path": "native/codex-rollout-collector/tests/stage3_conformance.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ce5ee299bd2ed1fcd31567436f7b4ade648587efd14f71997c805ee1ebc1d3a5.blob",
+      "sha256": "ce5ee299bd2ed1fcd31567436f7b4ade648587efd14f71997c805ee1ebc1d3a5",
+      "size": 1340,
+      "source_path": "native/codex-rollout-collector/tests/fixtures/malformed/token-usage-record.jsonl",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/3522f87d6ae6c8c3393cc453bad4db687c12e4315798319935c71227f4f9ee03.blob",
+      "sha256": "3522f87d6ae6c8c3393cc453bad4db687c12e4315798319935c71227f4f9ee03",
+      "size": 2131,
+      "source_path": "native/codex-rollout-collector/README.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/201edd8638c1d9a0db72244f1e58332e709b59c40b9c53875043d3522cda9292.blob",
+      "sha256": "201edd8638c1d9a0db72244f1e58332e709b59c40b9c53875043d3522cda9292",
+      "size": 918,
+      "source_path": "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/README.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02.blob",
+      "sha256": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+      "size": 1027,
+      "source_path": "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9c024665ecd6adffafdcd52001a79f3bb0f695fe8009f297ad05842d720afc39.blob",
+      "sha256": "9c024665ecd6adffafdcd52001a79f3bb0f695fe8009f297ad05842d720afc39",
+      "size": 1501,
+      "source_path": "native/codex-rollout-collector/tests/fixtures/sanitized-session-5/2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/dd4d85361ce0128a294b3f37ed9e4c5c2baaf6baf5cf691607c29fd54b69bb6a.blob",
+      "sha256": "dd4d85361ce0128a294b3f37ed9e4c5c2baaf6baf5cf691607c29fd54b69bb6a",
+      "size": 532,
+      "source_path": "native/codex-rollout-collector/Cargo.toml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/dcd8b1008b78e3ce8245df7de4f583ad65ec433f38198f5bdb73251393db3ff5.blob",
+      "sha256": "dcd8b1008b78e3ce8245df7de4f583ad65ec433f38198f5bdb73251393db3ff5",
+      "size": 134120,
+      "source_path": "native/codex-rollout-collector/Cargo.lock",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00.blob",
+      "sha256": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+      "size": 20398,
+      "source_path": "native/codex-rollout-collector/vendor/codex/history/src/tests.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679.blob",
+      "sha256": "6d19ad63ad3ec58dac4168533852d86b9b33a6229e6083df9b07272ea5936679",
+      "size": 7516,
+      "source_path": "docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21.blob",
+      "sha256": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+      "size": 10885,
+      "source_path": "native/codex-rollout-collector/src/codex_wire/decode.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b90151fe073e745159115e4f1161eaa8f3b0426470b95977db2d3ed9fed9dd0d.blob",
+      "sha256": "b90151fe073e745159115e4f1161eaa8f3b0426470b95977db2d3ed9fed9dd0d",
+      "size": 899,
+      "source_path": "native/codex-rollout-collector/tests/fixtures/current/message-roles.jsonl",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3.blob",
+      "sha256": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+      "size": 121992,
+      "source_path": "docs/codex/codex-rollout-collector-architecture.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c.blob",
+      "sha256": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+      "size": 817,
+      "source_path": "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e.blob",
+      "sha256": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+      "size": 14450,
+      "source_path": "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625.blob",
+      "sha256": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+      "size": 9599,
+      "source_path": "native/codex-rollout-collector/vendor/codex/history/src/rollout_payload.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b0333e04e6a3f4af4de78e6ee7c9a1cf6b6fcd4be77d396b402543aed9dbdfe1.blob",
+      "sha256": "b0333e04e6a3f4af4de78e6ee7c9a1cf6b6fcd4be77d396b402543aed9dbdfe1",
+      "size": 36868,
+      "source_path": "docs/codex/codex-rollout-collector-codex-compatibility.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd.blob",
+      "sha256": "0205c126dcc09369fbdb92e6d60d6b0e84847db928b2ee202830583e452179cd",
+      "size": 3914,
+      "source_path": "native/codex-rollout-collector/scripts/verify-vendor-parity.ps1",
+      "issues": []
+    }
+  ]
+}

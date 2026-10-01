@@ -1,0 +1,1024 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T18:30:04.215Z",
+  "payload_sha256": "4182cc9f38d159041a1ddca08718c85088a6910e7dd38f72a8c50caa09d5e3f0",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-review-live-exec56ab-current-publish-pass-limits-20261001",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-56abf257b1b774cbef4fc6d21f08e7ed9f6c77fafc2c8a2fc1acc9f4a1270195.json",
+      "previous_review_ref": ".workflow-system/records/events/key-0f6de2ad72ff5250103d91dd562954438bf52037cf08073384aa64484eaee997.json",
+      "idempotency_key": "task005-s2-review-live-exec56ab-current-publish-pass-limits-20261001",
+      "verdict": "pass-with-limits",
+      "findings": [],
+      "summary": "Current unchanged R5 source has now produced real normal append canonical publications for the accepted completed target. Live read-only database evidence verifies 98 business items, zero internal carriers, SessionContext business fields retained, and seven old receipts preserved. Actual product Provider replay over the SQL product rows confirms full 98 and bounded 22-item product_db tail. Retained real server IPC/product_read/delta/ACK logs support the execution's authenticated Gateway observation. No new actionable code finding. Current-version physical Android/UI/cache/ACK validation remains unobserved; whole S2 is not PASS or finished.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "files": [
+          {
+            "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+            "sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8"
+          },
+          {
+            "path": "tests/codexHistoryProductFlow.test.js",
+            "sha256": "adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27"
+          }
+        ],
+        "scope": "Live publication/DTO execution with no source changes; exact bytes match previous scoped review and execution"
+      },
+      "prior_findings_assessment": [
+        {
+          "finding_id": "TASK005-S2-R2",
+          "status": "resolved-for-current-published-product-and-provider",
+          "observation": "Current canonical rows include business facts while zero Diagnostic/ParseGap/UnknownEvent facts enter product output; 130 internal diagnostics remain in staged projection evidence. Current physical Android propagation/cache cleanup not claimed."
+        },
+        {
+          "finding_id": "TASK005-S2-R4",
+          "status": "resolved-and-live-publication-confirmed",
+          "observation": "Published product history is 98, retaining SessionContext cwd/model_provider/session_id/source, 21 rate-limit records, and message/tool content. Seven old publication receipts preserved without rewriting."
+        },
+        {
+          "finding_id": "TASK005-S2-R5",
+          "status": "previously-resolved-source-repair-retained; live-product-boundary-consistent",
+          "observation": "Source equals previously reviewed 6f957f bytes. Current real target is a root with no non-null history_base, so live Store/provider absence confirms output consistency but does not exercise an external child source cut. Previous current-source boundary test is the R5 counterexample regression; original needs-revision report 7bf remains an immutable historical report, while subsequent 0f6 already assessed the repair as pass-with-limits."
+        },
+        {
+          "finding_id": "TASK005-S2-R3",
+          "status": "historical-minimum-Android-smoke-retained; current-version-device-refresh-not-observed",
+          "observation": "Prior stable field/screenshot/Android cache evidence is retained as its original observation; no fresh physical Android evidence on the new publication. Gateway ACK here is a protocol client's ACK, not a physical Android observation."
+        }
+      ],
+      "coverage": {
+        "target": ".workflow-system/records/events/key-56abf257b1b774cbef4fc6d21f08e7ed9f6c77fafc2c8a2fc1acc9f4a1270195.json",
+        "requirements": [
+          "Adopted S2 normal publication/provider/physical smoke acceptance; no manual SQL/cache cleanup exclusions",
+          "Product contract §3.1 §3.2 §5.1; hash 39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d unchanged",
+          "Collector architecture complete prior read reused with unchanged hash e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+          "CONTRACTS IPC authority and DECISIONS AD-004/AD-022 remain effective"
+        ],
+        "new_observations": {
+          "observed_at": "2026-09-30T18:24:58.166Z",
+          "database": {
+            "coverage": {
+              "completeness": "canonical",
+              "coverageComplete": true,
+              "itemCount": 98,
+              "turnCount": 3
+            },
+            "types": {
+              "SessionContext": 1,
+              "TurnStarted": 3,
+              "user_message": 3,
+              "assistant_message": 10,
+              "tool": 39,
+              "RateLimitUpdated": 21,
+              "UsageUpdated": 21
+            },
+            "receipt_count": 9,
+            "new_receipts": [
+              {
+                "batch_id": "batch-648c4844b248b79e748f7c00d2ae713c",
+                "canonical_hash": "cf29b3132f57647cefe1cfd33bb4189d2cdbfee6b9b9023a42bbb67e06ae6347",
+                "committed_at": 1790791817181
+              },
+              {
+                "batch_id": "batch-57e2b1abf51dc3eb6d1631d537011043",
+                "canonical_hash": "98a965e9047dfbe30f0529a3f67911193d1856b2911a3a8fd24c9c3f87e0b3ca",
+                "committed_at": 1790791892163
+              }
+            ],
+            "old_receipts_preserved": 7,
+            "checkpoint": {
+              "job_id": "job-e27c47c8-fa2a-4f77-8179-8907abb87f63",
+              "request_id": "request-884d0be2-0849-4773-b53b-b83c48c8762e",
+              "completeness": "canonical",
+              "watermark": {
+                "batch_id": "batch-57e2b1abf51dc3eb6d1631d537011043",
+                "complete_source_end": 1305277,
+                "logical_item_count": 0,
+                "schema_version": 1,
+                "segment_id": "seg-1e15de1cc8b04e4d21829080f2664f59",
+                "source_epoch": "lineage:01a0ee04-a775-72b3-bd07-04aac804a3b4:01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                "source_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4"
+              }
+            },
+            "staged": [
+              {
+                "batch_id": "batch-57e2b1abf51dc3eb6d1631d537011043",
+                "published_at": 1790791892163,
+                "complete": true,
+                "completeness": "canonical",
+                "event_count": 0,
+                "projection_complete": true,
+                "internal_diagnostics": 130
+              },
+              {
+                "batch_id": "batch-648c4844b248b79e748f7c00d2ae713c",
+                "published_at": 1790791817181,
+                "complete": true,
+                "completeness": "canonical",
+                "event_count": 0,
+                "projection_complete": true,
+                "internal_diagnostics": 130
+              }
+            ],
+            "unresolved_intents": [
+              {
+                "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+                "intent_id": "7da0395a-7c96-4311-8122-988b82db70ce",
+                "revision": "1"
+              }
+            ]
+          },
+          "provider": {
+            "method": "Actual Provider over read-only SQL rows mapped using Store.readConversation shape; no Store.init or writes",
+            "full_count": 98,
+            "full_complete": true,
+            "session_payload": {
+              "cwd": "E:\\coding\\LawAgent",
+              "model_provider": "openai",
+              "session_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+              "source": "vscode"
+            },
+            "internal_carrier_facts": 0,
+            "event_metadata_present": false,
+            "tail_count": 22,
+            "range": {
+              "providerMode": "product_db",
+              "sourceItemCount": 98,
+              "hasMoreBefore": true,
+              "coverageComplete": false
+            },
+            "full_itemkeys_digest": "b0865abb22ff5c168aa2bc277f1a8021d29c4e849b2ae4acbc95bb6e2bd2ac2b"
+          },
+          "run_records": [
+            {
+              "ref": "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/003c098c3e502794473954d8249a876380ac4fc07cf1a6486ac2ff80bb3d2111.json",
+              "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+              "job_id": "job-2d5194d6-d5fc-4d8b-9f24-50d1aa255337",
+              "status": "completed",
+              "mode": "append",
+              "last_batch_id": "batch-648c4844b248b79e748f7c00d2ae713c",
+              "completed_at": 1790791817516,
+              "completeness": "canonical",
+              "error": null
+            },
+            {
+              "ref": "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/3349ddd5adca184415f162a667f10afad5fb45c5c8f9f2e1c8933eaf6fae5159.json",
+              "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+              "job_id": "job-6b895632-1795-4909-b55c-f5772746527e",
+              "status": "failed",
+              "mode": "backfill",
+              "last_batch_id": null,
+              "completed_at": 1790791645830,
+              "error": {
+                "code": "resource_limit_exceeded",
+                "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+              }
+            },
+            {
+              "ref": "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/e3fd3221988ae73b7299d67ea5d137c387beba5214f6f59808a3b42be2423289.json",
+              "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+              "job_id": "job-e27c47c8-fa2a-4f77-8179-8907abb87f63",
+              "status": "completed",
+              "mode": "append",
+              "last_batch_id": "batch-57e2b1abf51dc3eb6d1631d537011043",
+              "completed_at": 1790791892360,
+              "completeness": "canonical",
+              "error": null
+            }
+          ]
+        },
+        "gateway_evidence": {
+          "log_path": "logs/diagnostics/termlink-diagnostics.jsonl",
+          "log_sha256_at_read": "ba25becc1755d0f5794f48ead348df6e76c89fa46d54eb4b92d8abe3ed8841ae",
+          "observed_at": "2026-09-30T18:26:22.628Z",
+          "run_id": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+          "sync_id": "123e4567-e89b-12d3-a456-4266141742a0",
+          "events": [
+            {
+              "ts": "2026-09-30T18:11:30.874Z",
+              "pid": 25092,
+              "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+              "seq": 95,
+              "level": "info",
+              "component": "server",
+              "event": "server.codex.history.sync.request_received",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                "active": true,
+                "historyOnly": false,
+                "selectionGeneration": 1,
+                "clientSelectionGeneration": 9004,
+                "cacheSchemaVersion": 3,
+                "rangeSegments": true,
+                "serverSnapshotSegments": false
+              }
+            },
+            {
+              "ts": "2026-09-30T18:11:30.910Z",
+              "pid": 25092,
+              "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+              "seq": 96,
+              "level": "info",
+              "component": "server",
+              "event": "server.codex.history.outbound",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "type": "conversation_history_manifest_required",
+                "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                "baselineComplete": false,
+                "fullOrderIncluded": false,
+                "canonicalOrderCount": 0,
+                "upsertCount": 0,
+                "chunkBytes": 0
+              }
+            },
+            {
+              "ts": "2026-09-30T18:11:30.910Z",
+              "pid": 25092,
+              "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+              "seq": 97,
+              "level": "info",
+              "component": "server",
+              "event": "server.codex.history.product_read.started",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                "selectionGeneration": 1,
+                "itemCount": 22,
+                "resultKind": "tail",
+                "rangeEnabled": true,
+                "ok": true,
+                "state": "awaiting_manifest"
+              }
+            },
+            {
+              "ts": "2026-09-30T18:11:30.915Z",
+              "pid": 25092,
+              "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+              "seq": 98,
+              "level": "info",
+              "component": "server",
+              "event": "server.codex.history.outbound",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "type": "conversation_history_delta",
+                "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                "pageIndex": 0,
+                "pageCount": 1,
+                "pageHash": "05bf3bcc0f13f721",
+                "targetRoot": "1d2bbe726d868667",
+                "baselineComplete": false,
+                "fullOrderIncluded": false,
+                "canonicalOrderCount": 0,
+                "upsertCount": 22,
+                "chunkBytes": 0
+              }
+            },
+            {
+              "ts": "2026-09-30T18:11:30.917Z",
+              "pid": 25092,
+              "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+              "seq": 99,
+              "level": "info",
+              "component": "server",
+              "event": "server.codex.history.manifest_page_received",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                "pageIndex": 0,
+                "lastPage": true,
+                "itemCount": 0,
+                "ok": true,
+                "pending": false,
+                "purpose": "history_sync"
+              }
+            },
+            {
+              "ts": "2026-09-30T18:11:30.933Z",
+              "pid": 25092,
+              "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+              "seq": 100,
+              "level": "info",
+              "component": "server",
+              "event": "server.codex.history.outbound",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "type": "conversation_history_sync_state",
+                "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                "baselineComplete": false,
+                "fullOrderIncluded": false,
+                "canonicalOrderCount": 0,
+                "upsertCount": 0,
+                "chunkBytes": 0
+              }
+            },
+            {
+              "ts": "2026-09-30T18:11:30.934Z",
+              "pid": 25092,
+              "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+              "seq": 101,
+              "level": "info",
+              "component": "server",
+              "event": "server.codex.history.ack_received",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              }
+            }
+          ],
+          "ipc_evidence": [
+            {
+              "ts": "2026-09-30T18:10:14.723Z",
+              "seq": 63,
+              "event": "server.ipc_feed.following_announcement",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "hostId": "local",
+                "desiredGeneration": 3,
+                "refCount": 1,
+                "connectionGeneration": 1,
+                "source": "initial",
+                "result": "sent",
+                "following": true,
+                "targetClientCount": 0
+              }
+            },
+            {
+              "ts": "2026-09-30T18:10:14.744Z",
+              "seq": 64,
+              "event": "server.ipc.surface.changed",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "status": "completed",
+                "revision": 8,
+                "sourceEpoch": "ipc:1:7acb3fb0-596b-4abe-a063-63d088bb77c8",
+                "itemCount": 34,
+                "hasActiveGoal": false,
+                "hasPendingApproval": false,
+                "hasPendingPlanAction": false,
+                "desynced": false
+              }
+            },
+            {
+              "ts": "2026-09-30T18:10:14.745Z",
+              "seq": 65,
+              "event": "server.ipc.surface.status_transition",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "status": "completed",
+                "latestTurnIdPresent": true,
+                "revision": 8,
+                "sourceEpoch": "ipc:1:7acb3fb0-596b-4abe-a063-63d088bb77c8",
+                "connectionGeneration": 1,
+                "desynced": false
+              }
+            },
+            {
+              "ts": "2026-09-30T18:10:14.745Z",
+              "seq": 66,
+              "event": "server.ipc.subscription_cycle.surface_received",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "generation": 1,
+                "waitMs": 23,
+                "status": "completed"
+              }
+            },
+            {
+              "ts": "2026-09-30T18:11:30.750Z",
+              "seq": 91,
+              "event": "server.ipc_feed.following_announcement",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "hostId": "local",
+                "desiredGeneration": 4,
+                "refCount": 1,
+                "connectionGeneration": 1,
+                "source": "initial",
+                "result": "sent",
+                "following": true,
+                "targetClientCount": 0
+              }
+            },
+            {
+              "ts": "2026-09-30T18:11:30.759Z",
+              "seq": 92,
+              "event": "server.ipc.surface.status_transition",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "previousStatus": "completed",
+                "status": "completed",
+                "latestTurnIdPresent": true,
+                "revision": 9,
+                "sourceEpoch": "ipc:1:7acb3fb0-596b-4abe-a063-63d088bb77c8",
+                "connectionGeneration": 1,
+                "desynced": false
+              }
+            },
+            {
+              "ts": "2026-09-30T18:11:30.760Z",
+              "seq": 93,
+              "event": "server.ipc.subscription_cycle.surface_received",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "generation": 1,
+                "waitMs": 10,
+                "status": "completed"
+              }
+            }
+          ]
+        },
+        "evidence_qualification": {
+          "execution_attachment_index": "No index exists; execution supplied links but no files. Read attempt returned ENOENT. Current retained database/logs were inspected directly instead of inventing frozen attachments.",
+          "database": "Read-only sqlite transaction; selected results fixed in this review payload. No Store.init, migration or SQL write.",
+          "provider": "Actual CodexHistoryProductProvider called over a read-only facade mapping queried rows with Store.readConversation item/detail shape; no new Gateway connection.",
+          "gateway": "Existing real server log records correlated by run, conversation key and sync ID; raw authenticated delta body was not attached. Provider replay independently verifies payload construction from current canonical rows.",
+          "log": "Selected original log events embedded in this immutable review; whole live log hash is at read time only and is not a claim of frozen whole-file availability.",
+          "receipt_drift": "Execution called 648c... the latest receipt. It still exists and matches its stated hash; a subsequent normal append 57e... is now latest, and current watermark matches it. New observation recorded separately, not retroactively attributed to the execution."
+        },
+        "server_process_observation": {
+          "pid": 25092,
+          "executable": "D:/ProgramCode/nodejs/node.exe",
+          "command_line": "D:\\ProgramCode\\nodejs\\node.exe src/server.js",
+          "qualification": "Read-only process observation; repository-root service configuration is reported by execution, not inferred solely from relative command line."
+        },
+        "reused_validation": {
+          "review_ref": ".workflow-system/records/events/key-0f6de2ad72ff5250103d91dd562954438bf52037cf08073384aa64484eaee997.json",
+          "scope": "Prior focused tests 2/2 on identical importer/test bytes remain applicable to this source repair; no test rerun solely for evidence recording",
+          "other_old_reports": "Task004 C2-store-final/C2-publish/C4-flow-final/C4-unattended are not refreshed by this review"
+        },
+        "not_run": [
+          "New physical Android/UI/ACK/cache verification",
+          "New external child rollout test",
+          "New external-host interaction, service restart or Gateway client connection during review",
+          "Tests/builds rerun; unchanged source checks reused",
+          "Manual SQL/cache cleanup, Git/deployment, S2 finish/S3/S4"
+        ]
+      },
+      "provenance": {
+        "kind": "self-review",
+        "independent": false,
+        "reviewer": "current root agent",
+        "observation_sources": "New read-only retained live DB/run/log/process queries and actual Provider replay; execution claims separated from new observations and older device evidence"
+      },
+      "limits": [
+        "pass-with-limits covers the reviewed normal publication/DTO execution, not whole S2 verified completion.",
+        "Current-version physical Android first-page/UI/ACK/cache observation is still missing; historical device evidence is not fresh for the new 98-item publication.",
+        "Old Android partial cache snapshot contained 45 Diagnostic rows; review did not read the current device or clean the cache, so neither current cache cleanliness nor convergence is claimed.",
+        "Resource-limited other-target attempt retained as failure: independently observed discovery fingerprint_bytes limit 67108864 exceeded, with unresolved reconciliation intent for 01a0e60a-a819-7ed3-99d2-f64d77a0eb8c. Other decoded-byte failures are execution-reported rather than independently re-executed.",
+        "Original execution had no frozen DB/raw DTO attachments; selected live observations are now persisted separately, without changing its historical record.",
+        "Existing unassociated management issue issue-ec19a134aefeb23287cb519b retained; no guessed association.",
+        "Four older Task004 reports remain stale; no fresh label or historical verdict rewrite."
+      ],
+      "remaining_work": [
+        "Complete already planned current-subject physical Android first-page/ACK/cache and concrete event-field validation through normal history flow, preserving healthy IPC authority.",
+        "Retain actual coverage and old-cache limits; if normal flow cannot converge legacy rows safely, separately scope a change rather than using excluded SQL/cache deletion.",
+        "Record the resulting real observations and review/disposition before finishing S2; S3 and S4 remain not-started.",
+        "Preserve other-target resource failures and durable intent for later scoped treatment; no automatic retry, deletion or new Rust compatibility claim."
+      ],
+      "recommendation": {
+        "next_route": "execute-step",
+        "reason": "Server canonical publication/provider/Gateway evidence is now established. Remaining S2 work is current-version physical Android verification and honest cache/coverage disposition, not a new source repair finding.",
+        "do_not_finish_yet": true
+      },
+      "links": [
+        ".workflow-system/records/events/key-56abf257b1b774cbef4fc6d21f08e7ed9f6c77fafc2c8a2fc1acc9f4a1270195.json",
+        ".workflow-system/records/events/key-0f6de2ad72ff5250103d91dd562954438bf52037cf08073384aa64484eaee997.json"
+      ],
+      "files": [
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "tests/codexHistoryProductFlow.test.js",
+        "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/003c098c3e502794473954d8249a876380ac4fc07cf1a6486ac2ff80bb3d2111.json",
+        "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/e3fd3221988ae73b7299d67ea5d137c387beba5214f6f59808a3b42be2423289.json",
+        "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/3349ddd5adca184415f162a667f10afad5fb45c5c8f9f2e1c8933eaf6fae5159.json"
+      ]
+    },
+    "files": [
+      "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "tests/codexHistoryProductFlow.test.js",
+      "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/003c098c3e502794473954d8249a876380ac4fc07cf1a6486ac2ff80bb3d2111.json",
+      "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/e3fd3221988ae73b7299d67ea5d137c387beba5214f6f59808a3b42be2423289.json",
+      "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/3349ddd5adca184415f162a667f10afad5fb45c5c8f9f2e1c8933eaf6fae5159.json"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-5d07b7b019c3d2c1aa7c9f3ed9ed58f1061328212b2c79473360348ed672b317.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-56abf257b1b774cbef4fc6d21f08e7ed9f6c77fafc2c8a2fc1acc9f4a1270195.json",
+        "previous_review_ref": ".workflow-system/records/events/key-0f6de2ad72ff5250103d91dd562954438bf52037cf08073384aa64484eaee997.json",
+        "verdict": "pass-with-limits",
+        "findings": [],
+        "summary": "Current unchanged R5 source has now produced real normal append canonical publications for the accepted completed target. Live read-only database evidence verifies 98 business items, zero internal carriers, SessionContext business fields retained, and seven old receipts preserved. Actual product Provider replay over the SQL product rows confirms full 98 and bounded 22-item product_db tail. Retained real server IPC/product_read/delta/ACK logs support the execution's authenticated Gateway observation. No new actionable code finding. Current-version physical Android/UI/cache/ACK validation remains unobserved; whole S2 is not PASS or finished.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "files": [
+            {
+              "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+              "sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8"
+            },
+            {
+              "path": "tests/codexHistoryProductFlow.test.js",
+              "sha256": "adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27"
+            }
+          ],
+          "scope": "Live publication/DTO execution with no source changes; exact bytes match previous scoped review and execution"
+        },
+        "prior_findings_assessment": [
+          {
+            "finding_id": "TASK005-S2-R2",
+            "status": "resolved-for-current-published-product-and-provider",
+            "observation": "Current canonical rows include business facts while zero Diagnostic/ParseGap/UnknownEvent facts enter product output; 130 internal diagnostics remain in staged projection evidence. Current physical Android propagation/cache cleanup not claimed."
+          },
+          {
+            "finding_id": "TASK005-S2-R4",
+            "status": "resolved-and-live-publication-confirmed",
+            "observation": "Published product history is 98, retaining SessionContext cwd/model_provider/session_id/source, 21 rate-limit records, and message/tool content. Seven old publication receipts preserved without rewriting."
+          },
+          {
+            "finding_id": "TASK005-S2-R5",
+            "status": "previously-resolved-source-repair-retained; live-product-boundary-consistent",
+            "observation": "Source equals previously reviewed 6f957f bytes. Current real target is a root with no non-null history_base, so live Store/provider absence confirms output consistency but does not exercise an external child source cut. Previous current-source boundary test is the R5 counterexample regression; original needs-revision report 7bf remains an immutable historical report, while subsequent 0f6 already assessed the repair as pass-with-limits."
+          },
+          {
+            "finding_id": "TASK005-S2-R3",
+            "status": "historical-minimum-Android-smoke-retained; current-version-device-refresh-not-observed",
+            "observation": "Prior stable field/screenshot/Android cache evidence is retained as its original observation; no fresh physical Android evidence on the new publication. Gateway ACK here is a protocol client's ACK, not a physical Android observation."
+          }
+        ],
+        "coverage": {
+          "target": ".workflow-system/records/events/key-56abf257b1b774cbef4fc6d21f08e7ed9f6c77fafc2c8a2fc1acc9f4a1270195.json",
+          "requirements": [
+            "Adopted S2 normal publication/provider/physical smoke acceptance; no manual SQL/cache cleanup exclusions",
+            "Product contract §3.1 §3.2 §5.1; hash 39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d unchanged",
+            "Collector architecture complete prior read reused with unchanged hash e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+            "CONTRACTS IPC authority and DECISIONS AD-004/AD-022 remain effective"
+          ],
+          "new_observations": {
+            "observed_at": "2026-09-30T18:24:58.166Z",
+            "database": {
+              "coverage": {
+                "completeness": "canonical",
+                "coverageComplete": true,
+                "itemCount": 98,
+                "turnCount": 3
+              },
+              "types": {
+                "SessionContext": 1,
+                "TurnStarted": 3,
+                "user_message": 3,
+                "assistant_message": 10,
+                "tool": 39,
+                "RateLimitUpdated": 21,
+                "UsageUpdated": 21
+              },
+              "receipt_count": 9,
+              "new_receipts": [
+                {
+                  "batch_id": "batch-648c4844b248b79e748f7c00d2ae713c",
+                  "canonical_hash": "cf29b3132f57647cefe1cfd33bb4189d2cdbfee6b9b9023a42bbb67e06ae6347",
+                  "committed_at": 1790791817181
+                },
+                {
+                  "batch_id": "batch-57e2b1abf51dc3eb6d1631d537011043",
+                  "canonical_hash": "98a965e9047dfbe30f0529a3f67911193d1856b2911a3a8fd24c9c3f87e0b3ca",
+                  "committed_at": 1790791892163
+                }
+              ],
+              "old_receipts_preserved": 7,
+              "checkpoint": {
+                "job_id": "job-e27c47c8-fa2a-4f77-8179-8907abb87f63",
+                "request_id": "request-884d0be2-0849-4773-b53b-b83c48c8762e",
+                "completeness": "canonical",
+                "watermark": {
+                  "batch_id": "batch-57e2b1abf51dc3eb6d1631d537011043",
+                  "complete_source_end": 1305277,
+                  "logical_item_count": 0,
+                  "schema_version": 1,
+                  "segment_id": "seg-1e15de1cc8b04e4d21829080f2664f59",
+                  "source_epoch": "lineage:01a0ee04-a775-72b3-bd07-04aac804a3b4:01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                  "source_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4"
+                }
+              },
+              "staged": [
+                {
+                  "batch_id": "batch-57e2b1abf51dc3eb6d1631d537011043",
+                  "published_at": 1790791892163,
+                  "complete": true,
+                  "completeness": "canonical",
+                  "event_count": 0,
+                  "projection_complete": true,
+                  "internal_diagnostics": 130
+                },
+                {
+                  "batch_id": "batch-648c4844b248b79e748f7c00d2ae713c",
+                  "published_at": 1790791817181,
+                  "complete": true,
+                  "completeness": "canonical",
+                  "event_count": 0,
+                  "projection_complete": true,
+                  "internal_diagnostics": 130
+                }
+              ],
+              "unresolved_intents": [
+                {
+                  "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+                  "intent_id": "7da0395a-7c96-4311-8122-988b82db70ce",
+                  "revision": "1"
+                }
+              ]
+            },
+            "provider": {
+              "method": "Actual Provider over read-only SQL rows mapped using Store.readConversation shape; no Store.init or writes",
+              "full_count": 98,
+              "full_complete": true,
+              "session_payload": {
+                "cwd": "E:\\coding\\LawAgent",
+                "model_provider": "openai",
+                "session_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                "source": "vscode"
+              },
+              "internal_carrier_facts": 0,
+              "event_metadata_present": false,
+              "tail_count": 22,
+              "range": {
+                "providerMode": "product_db",
+                "sourceItemCount": 98,
+                "hasMoreBefore": true,
+                "coverageComplete": false
+              },
+              "full_itemkeys_digest": "b0865abb22ff5c168aa2bc277f1a8021d29c4e849b2ae4acbc95bb6e2bd2ac2b"
+            },
+            "run_records": [
+              {
+                "ref": "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/003c098c3e502794473954d8249a876380ac4fc07cf1a6486ac2ff80bb3d2111.json",
+                "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                "job_id": "job-2d5194d6-d5fc-4d8b-9f24-50d1aa255337",
+                "status": "completed",
+                "mode": "append",
+                "last_batch_id": "batch-648c4844b248b79e748f7c00d2ae713c",
+                "completed_at": 1790791817516,
+                "completeness": "canonical",
+                "error": null
+              },
+              {
+                "ref": "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/3349ddd5adca184415f162a667f10afad5fb45c5c8f9f2e1c8933eaf6fae5159.json",
+                "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+                "job_id": "job-6b895632-1795-4909-b55c-f5772746527e",
+                "status": "failed",
+                "mode": "backfill",
+                "last_batch_id": null,
+                "completed_at": 1790791645830,
+                "error": {
+                  "code": "resource_limit_exceeded",
+                  "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+                }
+              },
+              {
+                "ref": "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/e3fd3221988ae73b7299d67ea5d137c387beba5214f6f59808a3b42be2423289.json",
+                "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+                "job_id": "job-e27c47c8-fa2a-4f77-8179-8907abb87f63",
+                "status": "completed",
+                "mode": "append",
+                "last_batch_id": "batch-57e2b1abf51dc3eb6d1631d537011043",
+                "completed_at": 1790791892360,
+                "completeness": "canonical",
+                "error": null
+              }
+            ]
+          },
+          "gateway_evidence": {
+            "log_path": "logs/diagnostics/termlink-diagnostics.jsonl",
+            "log_sha256_at_read": "ba25becc1755d0f5794f48ead348df6e76c89fa46d54eb4b92d8abe3ed8841ae",
+            "observed_at": "2026-09-30T18:26:22.628Z",
+            "run_id": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+            "sync_id": "123e4567-e89b-12d3-a456-4266141742a0",
+            "events": [
+              {
+                "ts": "2026-09-30T18:11:30.874Z",
+                "pid": 25092,
+                "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+                "seq": 95,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.sync.request_received",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                  "active": true,
+                  "historyOnly": false,
+                  "selectionGeneration": 1,
+                  "clientSelectionGeneration": 9004,
+                  "cacheSchemaVersion": 3,
+                  "rangeSegments": true,
+                  "serverSnapshotSegments": false
+                }
+              },
+              {
+                "ts": "2026-09-30T18:11:30.910Z",
+                "pid": 25092,
+                "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+                "seq": 96,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_manifest_required",
+                  "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 0,
+                  "chunkBytes": 0
+                }
+              },
+              {
+                "ts": "2026-09-30T18:11:30.910Z",
+                "pid": 25092,
+                "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+                "seq": 97,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.product_read.started",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                  "selectionGeneration": 1,
+                  "itemCount": 22,
+                  "resultKind": "tail",
+                  "rangeEnabled": true,
+                  "ok": true,
+                  "state": "awaiting_manifest"
+                }
+              },
+              {
+                "ts": "2026-09-30T18:11:30.915Z",
+                "pid": 25092,
+                "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+                "seq": 98,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "05bf3bcc0f13f721",
+                  "targetRoot": "1d2bbe726d868667",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 22,
+                  "chunkBytes": 0
+                }
+              },
+              {
+                "ts": "2026-09-30T18:11:30.917Z",
+                "pid": 25092,
+                "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+                "seq": 99,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.manifest_page_received",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                  "pageIndex": 0,
+                  "lastPage": true,
+                  "itemCount": 0,
+                  "ok": true,
+                  "pending": false,
+                  "purpose": "history_sync"
+                }
+              },
+              {
+                "ts": "2026-09-30T18:11:30.933Z",
+                "pid": 25092,
+                "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+                "seq": 100,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_sync_state",
+                  "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 0,
+                  "chunkBytes": 0
+                }
+              },
+              {
+                "ts": "2026-09-30T18:11:30.934Z",
+                "pid": 25092,
+                "runId": "c841c7ff-bd07-47c9-b4e1-b22a8e2210f5",
+                "seq": 101,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.ack_received",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "123e4567-e89b-12d3-a456-4266141742a0",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                }
+              }
+            ],
+            "ipc_evidence": [
+              {
+                "ts": "2026-09-30T18:10:14.723Z",
+                "seq": 63,
+                "event": "server.ipc_feed.following_announcement",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "hostId": "local",
+                  "desiredGeneration": 3,
+                  "refCount": 1,
+                  "connectionGeneration": 1,
+                  "source": "initial",
+                  "result": "sent",
+                  "following": true,
+                  "targetClientCount": 0
+                }
+              },
+              {
+                "ts": "2026-09-30T18:10:14.744Z",
+                "seq": 64,
+                "event": "server.ipc.surface.changed",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "status": "completed",
+                  "revision": 8,
+                  "sourceEpoch": "ipc:1:7acb3fb0-596b-4abe-a063-63d088bb77c8",
+                  "itemCount": 34,
+                  "hasActiveGoal": false,
+                  "hasPendingApproval": false,
+                  "hasPendingPlanAction": false,
+                  "desynced": false
+                }
+              },
+              {
+                "ts": "2026-09-30T18:10:14.745Z",
+                "seq": 65,
+                "event": "server.ipc.surface.status_transition",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "status": "completed",
+                  "latestTurnIdPresent": true,
+                  "revision": 8,
+                  "sourceEpoch": "ipc:1:7acb3fb0-596b-4abe-a063-63d088bb77c8",
+                  "connectionGeneration": 1,
+                  "desynced": false
+                }
+              },
+              {
+                "ts": "2026-09-30T18:10:14.745Z",
+                "seq": 66,
+                "event": "server.ipc.subscription_cycle.surface_received",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "generation": 1,
+                  "waitMs": 23,
+                  "status": "completed"
+                }
+              },
+              {
+                "ts": "2026-09-30T18:11:30.750Z",
+                "seq": 91,
+                "event": "server.ipc_feed.following_announcement",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "hostId": "local",
+                  "desiredGeneration": 4,
+                  "refCount": 1,
+                  "connectionGeneration": 1,
+                  "source": "initial",
+                  "result": "sent",
+                  "following": true,
+                  "targetClientCount": 0
+                }
+              },
+              {
+                "ts": "2026-09-30T18:11:30.759Z",
+                "seq": 92,
+                "event": "server.ipc.surface.status_transition",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "previousStatus": "completed",
+                  "status": "completed",
+                  "latestTurnIdPresent": true,
+                  "revision": 9,
+                  "sourceEpoch": "ipc:1:7acb3fb0-596b-4abe-a063-63d088bb77c8",
+                  "connectionGeneration": 1,
+                  "desynced": false
+                }
+              },
+              {
+                "ts": "2026-09-30T18:11:30.760Z",
+                "seq": 93,
+                "event": "server.ipc.subscription_cycle.surface_received",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "generation": 1,
+                  "waitMs": 10,
+                  "status": "completed"
+                }
+              }
+            ]
+          },
+          "evidence_qualification": {
+            "execution_attachment_index": "No index exists; execution supplied links but no files. Read attempt returned ENOENT. Current retained database/logs were inspected directly instead of inventing frozen attachments.",
+            "database": "Read-only sqlite transaction; selected results fixed in this review payload. No Store.init, migration or SQL write.",
+            "provider": "Actual CodexHistoryProductProvider called over a read-only facade mapping queried rows with Store.readConversation item/detail shape; no new Gateway connection.",
+            "gateway": "Existing real server log records correlated by run, conversation key and sync ID; raw authenticated delta body was not attached. Provider replay independently verifies payload construction from current canonical rows.",
+            "log": "Selected original log events embedded in this immutable review; whole live log hash is at read time only and is not a claim of frozen whole-file availability.",
+            "receipt_drift": "Execution called 648c... the latest receipt. It still exists and matches its stated hash; a subsequent normal append 57e... is now latest, and current watermark matches it. New observation recorded separately, not retroactively attributed to the execution."
+          },
+          "server_process_observation": {
+            "pid": 25092,
+            "executable": "D:/ProgramCode/nodejs/node.exe",
+            "command_line": "D:\\ProgramCode\\nodejs\\node.exe src/server.js",
+            "qualification": "Read-only process observation; repository-root service configuration is reported by execution, not inferred solely from relative command line."
+          },
+          "reused_validation": {
+            "review_ref": ".workflow-system/records/events/key-0f6de2ad72ff5250103d91dd562954438bf52037cf08073384aa64484eaee997.json",
+            "scope": "Prior focused tests 2/2 on identical importer/test bytes remain applicable to this source repair; no test rerun solely for evidence recording",
+            "other_old_reports": "Task004 C2-store-final/C2-publish/C4-flow-final/C4-unattended are not refreshed by this review"
+          },
+          "not_run": [
+            "New physical Android/UI/ACK/cache verification",
+            "New external child rollout test",
+            "New external-host interaction, service restart or Gateway client connection during review",
+            "Tests/builds rerun; unchanged source checks reused",
+            "Manual SQL/cache cleanup, Git/deployment, S2 finish/S3/S4"
+          ]
+        },
+        "provenance": {
+          "kind": "self-review",
+          "independent": false,
+          "reviewer": "current root agent",
+          "observation_sources": "New read-only retained live DB/run/log/process queries and actual Provider replay; execution claims separated from new observations and older device evidence"
+        },
+        "limits": [
+          "pass-with-limits covers the reviewed normal publication/DTO execution, not whole S2 verified completion.",
+          "Current-version physical Android first-page/UI/ACK/cache observation is still missing; historical device evidence is not fresh for the new 98-item publication.",
+          "Old Android partial cache snapshot contained 45 Diagnostic rows; review did not read the current device or clean the cache, so neither current cache cleanliness nor convergence is claimed.",
+          "Resource-limited other-target attempt retained as failure: independently observed discovery fingerprint_bytes limit 67108864 exceeded, with unresolved reconciliation intent for 01a0e60a-a819-7ed3-99d2-f64d77a0eb8c. Other decoded-byte failures are execution-reported rather than independently re-executed.",
+          "Original execution had no frozen DB/raw DTO attachments; selected live observations are now persisted separately, without changing its historical record.",
+          "Existing unassociated management issue issue-ec19a134aefeb23287cb519b retained; no guessed association.",
+          "Four older Task004 reports remain stale; no fresh label or historical verdict rewrite."
+        ],
+        "remaining_work": [
+          "Complete already planned current-subject physical Android first-page/ACK/cache and concrete event-field validation through normal history flow, preserving healthy IPC authority.",
+          "Retain actual coverage and old-cache limits; if normal flow cannot converge legacy rows safely, separately scope a change rather than using excluded SQL/cache deletion.",
+          "Record the resulting real observations and review/disposition before finishing S2; S3 and S4 remain not-started.",
+          "Preserve other-target resource failures and durable intent for later scoped treatment; no automatic retry, deletion or new Rust compatibility claim."
+        ],
+        "recommendation": {
+          "next_route": "execute-step",
+          "reason": "Server canonical publication/provider/Gateway evidence is now established. Remaining S2 work is current-version physical Android verification and honest cache/coverage disposition, not a new source repair finding.",
+          "do_not_finish_yet": true
+        },
+        "links": [
+          ".workflow-system/records/events/key-56abf257b1b774cbef4fc6d21f08e7ed9f6c77fafc2c8a2fc1acc9f4a1270195.json",
+          ".workflow-system/records/events/key-0f6de2ad72ff5250103d91dd562954438bf52037cf08073384aa64484eaee997.json"
+        ],
+        "files": [
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "tests/codexHistoryProductFlow.test.js",
+          "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/003c098c3e502794473954d8249a876380ac4fc07cf1a6486ac2ff80bb3d2111.json",
+          "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/e3fd3221988ae73b7299d67ea5d137c387beba5214f6f59808a3b42be2423289.json",
+          "logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/3349ddd5adca184415f162a667f10afad5fb45c5c8f9f2e1c8933eaf6fae5159.json"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

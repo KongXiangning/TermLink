@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-29T17:23:14.913Z",
+  "payload_sha256": "946bb2d2ad31f517f18d66af89b347fd9704146653a780da58242071ff46bfc7",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s1-link-finish-with-limits-decision",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-ce6822d0d82a4cf25465c355e19e0c355976fdaada9ea3cbdb786243533e7abf.json",
+      "event": {
+        "action": "review-decision",
+        "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+        "data": {
+          "review_ref": ".workflow-system/records/events/key-3ea981a14fd0ffadc3b05a0aaf16ccbe29921a72b6cf8ea8305420556cc1ab90.json",
+          "choice": "finish-with-limits",
+          "decision_source": "Current conversation: execute-step invoked after pass-with-limits explanation",
+          "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md)"
+        },
+        "parents": [
+          ".workflow-system/records/events/key-3ea981a14fd0ffadc3b05a0aaf16ccbe29921a72b6cf8ea8305420556cc1ab90.json"
+        ]
+      },
+      "idempotency_key": "task005-s1-link-finish-with-limits-decision"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "link",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-63a63c210321f66aa2f1390e75dbd2007f65ff380b8f55f25f53178d95578cd8.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-ce6822d0d82a4cf25465c355e19e0c355976fdaada9ea3cbdb786243533e7abf.json",
+        "event": {
+          "action": "review-decision",
+          "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+          "data": {
+            "review_ref": ".workflow-system/records/events/key-3ea981a14fd0ffadc3b05a0aaf16ccbe29921a72b6cf8ea8305420556cc1ab90.json",
+            "choice": "finish-with-limits",
+            "decision_source": "Current conversation: execute-step invoked after pass-with-limits explanation",
+            "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md)"
+          },
+          "parents": [
+            ".workflow-system/records/events/key-3ea981a14fd0ffadc3b05a0aaf16ccbe29921a72b6cf8ea8305420556cc1ab90.json"
+          ]
+        }
+      }
+    }
+  },
+  "issues": []
+}

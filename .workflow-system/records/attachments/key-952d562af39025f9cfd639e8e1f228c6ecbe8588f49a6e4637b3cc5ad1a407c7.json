@@ -1,0 +1,48 @@
+{
+  "event_ref": ".workflow-system/records/events/key-952d562af39025f9cfd639e8e1f228c6ecbe8588f49a6e4637b3cc5ad1a407c7.json",
+  "captured_at": "2026-09-30T13:55:17.446Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "found",
+      "ref": "docs/workflow/evidence-objects/fc1f26d390a886cd1450d445a4c65a94b28bcbbd0847341c828919b8647c4847.blob",
+      "sha256": "fc1f26d390a886cd1450d445a4c65a94b28bcbbd0847341c828919b8647c4847",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/00b4da43488098bcb67bc35879cbfe9ddb3676dd0f83c23216023c71393201de.blob",
+      "sha256": "00b4da43488098bcb67bc35879cbfe9ddb3676dd0f83c23216023c71393201de",
+      "size": 19964,
+      "source_path": "src/services/codexHistoryProductProvider.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ad0f206de6eb7b03c5a1f78a56345641c640c4bcd48c56dcdbb97c70c039d5d6.blob",
+      "sha256": "ad0f206de6eb7b03c5a1f78a56345641c640c4bcd48c56dcdbb97c70c039d5d6",
+      "size": 12763,
+      "source_path": "src/server.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d.blob",
+      "sha256": "39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d",
+      "size": 19447,
+      "source_path": "docs/codex/codex-history-product-contract.md",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "event_ref": ".workflow-system/records/events/key-585fea80c03ac11b86aa9a07a548cef66acd890d4b58e1dfaf1c64fa9b1ed8f0.json",
+  "captured_at": "2026-09-30T17:02:01.417Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2caf1e11cc7b56d4bb773e6fa1ef956a198686a3e3d3d8f9ed136a59bff96813.blob",
+      "sha256": "2caf1e11cc7b56d4bb773e6fa1ef956a198686a3e3d3d8f9ed136a59bff96813",
+      "size": 77628,
+      "source_path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/56443c543b71b45735dae9e6bc34f9373ec6e4fe2ca543f56fb77be21dfebba2.blob",
+      "sha256": "56443c543b71b45735dae9e6bc34f9373ec6e4fe2ca543f56fb77be21dfebba2",
+      "size": 83788,
+      "source_path": "tests/codexHistoryProductFlow.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ecbe1df9f814346e403c635008b776f984d96f9ea654a3d4a8f1daa5f1cf8883.blob",
+      "sha256": "ecbe1df9f814346e403c635008b776f984d96f9ea654a3d4a8f1daa5f1cf8883",
+      "size": 3234,
+      "source_path": "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/01106cdc4e1c5e20168f883b7f6cfa8188c283634c33873e5408d4c26119e241.blob",
+      "sha256": "01106cdc4e1c5e20168f883b7f6cfa8188c283634c33873e5408d4c26119e241",
+      "size": 310577,
+      "source_path": "logs/task005-s2-repair-runtime-2/product-db-repair-final-expanded.png",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/61d020063a62fac2d2425ca0dee5528daadf7733dd127e7cafeb50ba7d5b2e9a.blob",
+      "sha256": "61d020063a62fac2d2425ca0dee5528daadf7733dd127e7cafeb50ba7d5b2e9a",
+      "size": 5582848,
+      "source_path": "logs/task005-s2-repair-runtime-2/android-cache-repair-4.sqlite",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/3da0c917e9756ba95ce9d1a3a7aca7ee9304c796253a5dee8258fd57e538ea3b.blob",
+      "sha256": "3da0c917e9756ba95ce9d1a3a7aca7ee9304c796253a5dee8258fd57e538ea3b",
+      "size": 16359424,
+      "source_path": "logs/task005-s2-repair-runtime-2/data/codex-history.sqlite",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/39fd13a212d6dfb94cc289d9e453331e6a8fdc9bbc5c86cd4e12a7cf76e1b3ad.blob",
+      "sha256": "39fd13a212d6dfb94cc289d9e453331e6a8fdc9bbc5c86cd4e12a7cf76e1b3ad",
+      "size": 2321682,
+      "source_path": "logs/diagnostics/termlink-diagnostics.jsonl",
+      "issues": []
+    }
+  ]
+}

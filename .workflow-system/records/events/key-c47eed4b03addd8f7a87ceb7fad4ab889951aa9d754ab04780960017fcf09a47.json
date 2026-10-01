@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T17:02:24.866Z",
+  "payload_sha256": "687ba2ebad484ef61a836c5b5a6f3157b87ccf2dc8fc9017cf7454a871cd93cd",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-repair-test-android-evidence-20261001",
+    "request": {
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "idempotency_key": "task005-s2-repair-test-android-evidence-20261001",
+      "decision_source": "current user execute-step repair invocation",
+      "decision_text": "Record the actual S2 repair validation result without finishing the step or creating an independent review.",
+      "source_revision": {
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "scope": "Physical Android R3 evidence"
+      },
+      "command": "Real Android product-history tail/older sync with authenticated Gateway, cache inspection, logcat, and expanded UI screenshot on MQS7N19402011743",
+      "selector": "S2/R3 concrete product item field visibility and ACK/cache correlation",
+      "result": "passed_with_limits",
+      "observation": "Stable key tool:call_JLlyFFyipOrJD1WYxH5VFYmB and eventFacts[0].payload.input were correlated to the clean product DB, product_db page/ACK evidence, and Android cache. The expanded healthy IPC UI visibly showed the corresponding PowerShell/git-diff operation. Tail plus seven older-page ACKs succeeded; cache retained legacy internal rows and coverage remained partial, with no manual cleanup.",
+      "report_ref": "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-17fda1ea02882e02cee8a246ff4979dfecd0225e7df03497383bcd52e638cf59.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "decision_source": "current user execute-step repair invocation",
+        "decision_text": "Record the actual S2 repair validation result without finishing the step or creating an independent review.",
+        "source_revision": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "scope": "Physical Android R3 evidence"
+        },
+        "command": "Real Android product-history tail/older sync with authenticated Gateway, cache inspection, logcat, and expanded UI screenshot on MQS7N19402011743",
+        "selector": "S2/R3 concrete product item field visibility and ACK/cache correlation",
+        "result": "passed_with_limits",
+        "observation": "Stable key tool:call_JLlyFFyipOrJD1WYxH5VFYmB and eventFacts[0].payload.input were correlated to the clean product DB, product_db page/ACK evidence, and Android cache. The expanded healthy IPC UI visibly showed the corresponding PowerShell/git-diff operation. Tail plus seven older-page ACKs succeeded; cache retained legacy internal rows and coverage remained partial, with no manual cleanup.",
+        "report_ref": "logs/task005-s2-repair-runtime-2/r3-product-ui-evidence.json"
+      }
+    }
+  },
+  "issues": []
+}

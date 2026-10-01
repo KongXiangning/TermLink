@@ -1,0 +1,39 @@
+{
+  "event_ref": ".workflow-system/records/events/key-4cd0b6b1402eff409b3ac62af932f2c6b78a52c3cf23dcf7ca2dba22a709dd33.json",
+  "captured_at": "2026-09-30T10:09:29.284Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/70017328250790c23226b8b11d8df48a462c663438d318fa98bb944116b82faf.blob",
+      "sha256": "70017328250790c23226b8b11d8df48a462c663438d318fa98bb944116b82faf",
+      "size": 67693,
+      "source_path": "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52.blob",
+      "sha256": "bc2819499fdbc6a9f6885d462fa5877e5832c052a393fc0221838f6f2eb6ca52",
+      "size": 64053,
+      "source_path": "native/codex-rollout-collector/src/analysis.rs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55.blob",
+      "sha256": "cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55",
+      "size": 10477,
+      "source_path": "native/codex-rollout-collector/src/model/analysis_event.rs",
+      "issues": []
+    }
+  ]
+}

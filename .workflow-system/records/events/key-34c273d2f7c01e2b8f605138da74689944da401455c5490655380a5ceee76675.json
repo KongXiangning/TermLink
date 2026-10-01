@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T14:48:02.120Z",
+  "payload_sha256": "b77f4c8380571d2d47490cfea2520f5984b1116a6da6d3765e81d662d8be0eb0",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-test-product-db-android-20260930-r2",
+    "request": {
+      "action": "test",
+      "idempotency_key": "task005-s2-test-product-db-android-20260930-r2",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "step_id": "S2",
+      "command": "real target 01a0ee04-a775-72b3-bd07-04aac804a3b4 -> product_db -> Android history sync/ACK",
+      "selector": "canonical product_db publication and tail/older ACK path",
+      "result": "passed_with_limits",
+      "report_ref": "logs/diagnostics/termlink-diagnostics.jsonl",
+      "observation": "Product DB has canonical 228-item history; Android committed tail 42 and older 53 product_db items with successful ACKs; coverage remains partial by bounded range design."
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-0d7b928bb4bd7554958a55c4a918bd811804749c12d306123232aec45f86ad9d.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+        "step_id": "S2",
+        "command": "real target 01a0ee04-a775-72b3-bd07-04aac804a3b4 -> product_db -> Android history sync/ACK",
+        "selector": "canonical product_db publication and tail/older ACK path",
+        "result": "passed_with_limits",
+        "report_ref": "logs/diagnostics/termlink-diagnostics.jsonl",
+        "observation": "Product DB has canonical 228-item history; Android committed tail 42 and older 53 product_db items with successful ACKs; coverage remains partial by bounded range design."
+      }
+    }
+  },
+  "issues": []
+}

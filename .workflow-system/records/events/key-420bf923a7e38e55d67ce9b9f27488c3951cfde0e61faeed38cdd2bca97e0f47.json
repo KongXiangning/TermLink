@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-09-30T18:41:51.179Z",
+  "payload_sha256": "354db6b3287710c80748a1930cab1ffb77444b2f8b667ee7e1a84747a0d5ffeb",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-current-android-physical-test-20261001",
+    "request": {
+      "command": "adb-doctor + ensure-local-server + launch/retry + authenticated product-history sync/ACK correlation + read-only Android DB query + expanded UI screenshot",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "decision_text": "补齐当前版本真实发布及 DTO 验证；目前无需继续修改源代码。",
+      "result": "passed_with_limits",
+      "action": "test",
+      "source_revision": {
+        "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+        "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+        "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "scope": "S2 current-version physical Android product_db first-page/older/ACK/cache/structured event visibility; no source edits"
+      },
+      "step_id": "S2",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "decision_source": "current user execute-step request",
+      "report_ref": "logs/task005-s2-repair-runtime-2/android-current-product-tool-expanded.png",
+      "observation": "MQS7N19402011743 Android 10 真实 App 恢复到 Codex·已连接；服务端记录 product_read tail itemCount=22、manifest/delta 和 ACK state=partial，并记录多个 older upsert/chunk ACK。Android product_db cache 目标会话为 item_count=143、coverage_state=partial、coverage_complete=0、15 个 committed segments；其中 45 行 Diagnostic 为既有旧缓存。稳定 item_key tool:call_nPEysfQLD6w9kI2DDWFmD3IY 的 payload.input 命令前缀在 App 展开工具卡可见，SessionContext cwd/model_provider/source 在缓存中存在且 history_base 未进入产品行。一次 WebSocket failure 经 Retry 恢复；无源代码或缓存写入。",
+      "selector": "S2 current-version physical Android product_db bounded first-page/older/ACK/cache/structured event visibility",
+      "idempotency_key": "task005-s2-current-android-physical-test-20261001"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-2d86332d4c64885bb8047c06afdc58b1114d2fba20c82f1e3c1137286a68cb05.json"
+      ],
+      "data": {
+        "command": "adb-doctor + ensure-local-server + launch/retry + authenticated product-history sync/ACK correlation + read-only Android DB query + expanded UI screenshot",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "decision_text": "补齐当前版本真实发布及 DTO 验证；目前无需继续修改源代码。",
+        "result": "passed_with_limits",
+        "source_revision": {
+          "test_sha256": "ADB82BE729EA7A8CE806976B734E38F05AC3D53EAAA49D13E247AE6682EB8E27",
+          "importer_sha256": "6F957F30811EC01E0DDDE392E7DC38C309D22B91BE1EE9D9C30B7C901F9BCFB8",
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "scope": "S2 current-version physical Android product_db first-page/older/ACK/cache/structured event visibility; no source edits"
+        },
+        "step_id": "S2",
+        "decision_source": "current user execute-step request",
+        "report_ref": "logs/task005-s2-repair-runtime-2/android-current-product-tool-expanded.png",
+        "observation": "MQS7N19402011743 Android 10 真实 App 恢复到 Codex·已连接；服务端记录 product_read tail itemCount=22、manifest/delta 和 ACK state=partial，并记录多个 older upsert/chunk ACK。Android product_db cache 目标会话为 item_count=143、coverage_state=partial、coverage_complete=0、15 个 committed segments；其中 45 行 Diagnostic 为既有旧缓存。稳定 item_key tool:call_nPEysfQLD6w9kI2DDWFmD3IY 的 payload.input 命令前缀在 App 展开工具卡可见，SessionContext cwd/model_provider/source 在缓存中存在且 history_base 未进入产品行。一次 WebSocket failure 经 Retry 恢复；无源代码或缓存写入。",
+        "selector": "S2 current-version physical Android product_db bounded first-page/older/ACK/cache/structured event visibility"
+      }
+    }
+  },
+  "issues": []
+}
