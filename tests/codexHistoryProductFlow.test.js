@@ -75,6 +75,34 @@ function productRolloutFixture(conversationId = RUST_CONVERSATION_ID) {
             collaboration_mode_kind: 'default'
         }],
         ['event_msg', {
+            type: 'token_count',
+            info: {
+                total_token_usage: {
+                    input_tokens: 101,
+                    cached_input_tokens: 11,
+                    output_tokens: 21,
+                    reasoning_output_tokens: 3,
+                    total_tokens: 122
+                },
+                last_token_usage: {
+                    input_tokens: 101,
+                    cached_input_tokens: 11,
+                    output_tokens: 21,
+                    reasoning_output_tokens: 3,
+                    total_tokens: 122
+                },
+                model_context_window: 258400
+            },
+            rate_limits: {
+                primary: {
+                    used_percent: 42.5,
+                    window_minutes: 60,
+                    resets_at: 1893456000
+                },
+                secondary: null
+            }
+        }],
+        ['event_msg', {
             type: 'user_message',
             client_id: 'client-1',
             message: 'product history initial message',
@@ -117,6 +145,37 @@ function productRolloutFixture(conversationId = RUST_CONVERSATION_ID) {
                 duration: { secs: 1, nanos: 0 }
             }
         }],
+        ['token_usage_record', {
+            thread_id: conversationId,
+            turn_id: 'turn-1',
+            session_id: conversationId,
+            root_turn_id: 'turn-1',
+            response_id: 'response-1',
+            usage: {
+                input_tokens: 101,
+                cached_input_tokens: 11,
+                cache_write_input_tokens: 1,
+                output_tokens: 21,
+                reasoning_output_tokens: 3,
+                total_tokens: 122
+            },
+            turn_token_usage: {
+                input_tokens: 101,
+                cached_input_tokens: 11,
+                cache_write_input_tokens: 1,
+                output_tokens: 21,
+                reasoning_output_tokens: 3,
+                total_tokens: 122
+            },
+            thread_token_usage: {
+                input_tokens: 101,
+                cached_input_tokens: 11,
+                cache_write_input_tokens: 1,
+                output_tokens: 21,
+                reasoning_output_tokens: 3,
+                total_tokens: 122
+            }
+        }],
         ['event_msg', {
             type: 'task_complete',
             turn_id: 'turn-1',
@@ -127,7 +186,7 @@ function productRolloutFixture(conversationId = RUST_CONVERSATION_ID) {
     return events.map(([type, payload], ordinal) => rolloutLine(ordinal, type, payload)).join('');
 }
 
-function appendedProductTurn(ordinalStart = 7) {
+function appendedProductTurn(ordinalStart = 9) {
     const events = [
         ['event_msg', { type: 'task_started', turn_id: 'turn-2', model_context_window: 258400 }],
         ['event_msg', { type: 'user_message', client_id: 'client-2', message: 'restart append message', images: [] }],
@@ -361,12 +420,36 @@ test('product-history-real-rust stages before ACK, publishes validated canonical
     assert.ok(staged.payload.history_items.length > 0);
     assert.equal(staged.deliveryIdentity.source_scope.conversation_id, RUST_CONVERSATION_ID);
     assert.ok(staged.publishedAt, 'validated complete must publish the staged batch');
+    const projectionDiagnosticCodes = result.state.projection.diagnostics.map((diagnostic) => diagnostic.code);
+    assert.ok(projectionDiagnosticCodes.includes('token_usage_record'));
 
     const history = await productStore.readConversation(RUST_CONVERSATION_ID);
     assert.ok(history);
     assert.equal(history.coverage.completeness, 'canonical');
     assert.equal(history.coverage.coverageComplete, true);
     assert.ok(history.items.length > 0);
+    assert.equal(history.items.some((item) => item.itemKey.startsWith('diagnostic:')), false);
+    assert.equal(history.items.some((item) => item.itemType === 'Diagnostic'), false);
+    const sessionContext = history.items.find((item) => item.itemType === 'SessionContext');
+    assert.ok(sessionContext, 'verified SessionContext must remain a product history fact');
+    assert.equal(
+        sessionContext.payload.eventFacts.find((fact) => fact.event_type === 'SessionContext')?.payload.cwd,
+        'file:///synthetic/private/workspace'
+    );
+    assert.equal(
+        sessionContext.payload.eventFacts.find((fact) => fact.event_type === 'SessionContext')?.payload.model_provider,
+        'openai'
+    );
+    const rateLimit = history.items.find((item) => item.itemType === 'RateLimitUpdated');
+    assert.ok(rateLimit, 'verified RateLimitUpdated must remain a product history fact');
+    assert.equal(
+        rateLimit.payload.eventFacts.find((fact) => fact.event_type === 'RateLimitUpdated')?.payload.primary_used_percent,
+        42.5
+    );
+    assert.equal(
+        rateLimit.payload.eventFacts.find((fact) => fact.event_type === 'RateLimitUpdated')?.payload.primary_window_minutes,
+        60
+    );
     const storedPayloads = JSON.stringify(history.items.map((item) => item.payload));
     assert.ok(storedPayloads.includes('product history initial message'));
     assert.ok(storedPayloads.includes('file:///synthetic/private/workspace'));
@@ -429,6 +512,63 @@ test('product-history-real-rust stages before ACK, publishes validated canonical
     assertDoesNotContainPath(gatewayPayload, path.join(root, 'codex-home', 'sessions'));
     assert.equal(gateway.codexService.requests.some((entry) => entry.method === 'thread/read'), false);
     client.ws.close();
+});
+
+test('product-history projection isolates SessionContext history_base while staging retains child lineage evidence', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-product-session-context-boundary-'));
+    const productStore = makeStore(path.join(root, 'history.sqlite'));
+    const analyzerPath = await resolveRustTargetBinary();
+    await productStore.init();
+    const { collector, importer } = await createRealProductCollector(root, productStore, analyzerPath, 'session-context-boundary');
+    t.after(async () => {
+        await collector.stop();
+        await fs.promises.rm(root, { recursive: true, force: true });
+    });
+
+    const childHistoryBase = {
+        parent_rollout_id: 'review-parent-rollout',
+        end_ordinal_exclusive: 14,
+        end_byte_offset: 128
+    };
+    const importBatch = importer.importBatch.bind(importer);
+    importer.importBatch = async (batch, options) => {
+        const mutated = structuredClone(batch);
+        const sessionContext = mutated.payload.history_items.find((item) => item.event_type === 'SessionContext');
+        assert.ok(sessionContext, 'the Rust batch must include SessionContext');
+        sessionContext.payload.history_base = structuredClone(childHistoryBase);
+        return importBatch(mutated, options);
+    };
+
+    const result = await collector.analyze(createAnalyzeRequest({
+        requestId: 'session-context-boundary-request',
+        jobId: 'session-context-boundary-job',
+        conversationId: RUST_CONVERSATION_ID,
+        mode: 'backfill',
+        priority: 'background'
+    }));
+    assert.equal(result.complete.completeness, 'canonical');
+
+    const batchId = result.complete.checkpoint.projection_watermark.batch_id;
+    const staged = await productStore.readStagedBatch(RUST_CONVERSATION_ID, batchId);
+    const stagedSessionContext = staged.payload.history_items.find((item) => item.event_type === 'SessionContext');
+    assert.deepEqual(stagedSessionContext.payload.history_base, childHistoryBase);
+
+    const history = await productStore.readConversation(RUST_CONVERSATION_ID);
+    const sessionItem = history.items.find((item) => item.itemType === 'SessionContext');
+    assert.ok(sessionItem);
+    const sessionFact = sessionItem.payload.eventFacts.find((fact) => fact.event_type === 'SessionContext');
+    assert.equal(sessionFact.payload.cwd, 'file:///synthetic/private/workspace');
+    assert.equal(sessionFact.payload.model_provider, 'openai');
+    assert.equal(Object.hasOwn(sessionFact.payload, 'history_base'), false);
+
+    const provider = new CodexHistoryProductProvider({ store: productStore });
+    const page = await provider.readInitial(RUST_CONVERSATION_ID);
+    const providerSessionItem = page.items.find((item) => item.itemKey === sessionItem.itemKey);
+    const providerSessionPayload = JSON.parse(providerSessionItem.payloadJson);
+    const providerSessionFact = providerSessionPayload.eventFacts.find(
+        (fact) => fact.event_type === 'SessionContext'
+    );
+    assert.equal(Object.hasOwn(providerSessionFact.payload, 'history_base'), false);
 });
 
 test('product-history-unattended wakes on cached terminal source-ready state and resumes from the product checkpoint after restart', async (t) => {

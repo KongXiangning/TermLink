@@ -45,6 +45,16 @@ const OPAQUE_BATCH_PAYLOAD_FIELDS = Object.freeze([
     'source_prefix_anchor'
 ]);
 
+// These event types are analyzer evidence carriers, not product history
+// facts.  All other validated AnalysisEvent types remain eligible for the
+// product projection, including non-reduced business facts such as
+// SessionContext and RateLimitUpdated.
+const INTERNAL_ANALYSIS_EVENT_TYPES = new Set([
+    'Diagnostic',
+    'ParseGap',
+    'UnknownEvent'
+]);
+
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 function clone(value) {
@@ -1550,6 +1560,13 @@ function productEventFact(record) {
     const metadata = isObject(eventPayload.metadata) ? eventPayload.metadata : {};
     delete eventPayload.metadata;
 
+    // SessionContext.history_base is lineage/source-cut evidence used by the
+    // Rust collector to resolve a child rollout. It is not session business
+    // context and must stay in staging/checkpoint evidence. Keep this
+    // schema-specific removal local to SessionContext; business payloads with
+    // a field named history_base are not recursively filtered.
+    if (event.event_type === 'SessionContext') delete eventPayload.history_base;
+
     return {
         ...(typeof event.event_type === 'string' ? { event_type: event.event_type } : {}),
         ...(typeof metadata.timestamp === 'string' ? { timestamp: metadata.timestamp } : {}),
@@ -1557,6 +1574,11 @@ function productEventFact(record) {
         ...(typeof metadata.related_item_key === 'string' ? { related_item_key: metadata.related_item_key } : {}),
         payload: eventPayload
     };
+}
+
+function isProductHistoryEvent(record) {
+    const eventType = record?.event?.event_type;
+    return typeof eventType === 'string' && !INTERNAL_ANALYSIS_EVENT_TYPES.has(eventType);
 }
 
 function productRowsFromSnapshot(snapshot) {
@@ -1583,11 +1605,21 @@ function productRowsFromSnapshot(snapshot) {
         eventGroups.set(itemKey, group);
     }
 
-    const keys = new Set([...eventGroups.keys(), ...projectedByKey.keys()]);
+    // `snapshot.items` contains every adapted AnalysisEvent, including the
+    // Diagnostic/ParseGap/UnknownEvent carriers that the reducer keeps only
+    // as internal evidence.  Product rows are justified by reduced items or
+    // schema-validated business events.  Do not use a field-name heuristic:
+    // non-reduced SessionContext/RateLimitUpdated facts and business fields
+    // named diagnostic/code/sourcePath/requestId must remain visible.
+    const businessEventKeys = [...eventGroups.entries()]
+        .filter(([, records]) => records.some(isProductHistoryEvent))
+        .map(([itemKey]) => itemKey);
+    const keys = new Set([...projectedByKey.keys(), ...businessEventKeys]);
     const ordered = [...keys].map((itemKey) => {
-        const records = eventGroups.get(itemKey) || [];
+        const rawRecords = eventGroups.get(itemKey) || [];
+        const records = rawRecords.filter(isProductHistoryEvent);
         const projected = projectedByKey.get(itemKey) || null;
-        const first = records[0] || null;
+        const first = records[0] || rawRecords[0] || null;
         const metadata = first?.event?.payload?.metadata || {};
         return {
             itemKey,
