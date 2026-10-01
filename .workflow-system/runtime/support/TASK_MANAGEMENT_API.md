@@ -64,14 +64,22 @@ management files it produces just to record that new commit's SHA.
 
 ## Read model and publication
 
-`task-status {}` and `context {}` return the same current_task and task list. Use task_ref to
-request selected_task. They scan the entire saved task journal, not a bounded search page.
-The response includes adopted_plan_ref, plan/steps/environment, current_step_id, execution,
-review status and findings, review decisions, actual commits, remaining work, and advisory
-next_route/next_action. `finish-step` means the reviewed current step still needs a
-separate work disposition; it is not an automatic finish or closure. `state_completeness`,
-issues and unassociated_records must be reported; unknown
-association is not evidence that a plan/decision never existed.
+`task-status {}`, `context {}` and `task {"action":"status"}` now default to compact
+query presentation after the same complete journal rebuild. `context` contains task
+data once under `management`. Use `detail=task` with `task_ref` to expand one task,
+`detail=step` with an exact `step_id` for its adopted/legacy plan step, or `detail=full`
+for the original full CLI response. Existing JS `taskStatus/context/task` exports and
+all mutation response shapes remain unchanged. Inputs, paging and selection semantics:
+**ASSISTANCE_API.md — Task queries: full computation, on-demand presentation**.
+
+The summary carries task/plan/lifecycle refs, the current step's result and review
+state, decision refs, remaining work and advisory next_route/next_mode/next_action.
+It does not include full plan or history bodies; read the returned detail_request
+before using those contents. `execute-step` with `next_mode: finish` means the
+reviewed step still needs a separate work disposition, not automatic finish/closure.
+Global issues, unassociated_records and state_completeness remain visible regardless
+of selected task or summary page. Unknown association is not evidence that a
+plan/decision never existed. A complete summary page is not complete history evidence.
 
 Reads do not write. `projection.cache` and `projection.display` describe persisted freshness;
 the returned state itself was recomputed. Cache failure never makes the old cache authoritative.
@@ -159,3 +167,16 @@ Arbitrary old YAML, compact encoded task details and natural-language decisions 
 automatic semantic conversion: use their exact sources and link the missing interpretation.
 Unknown fields and body text remain available via record/read/find. Large-history incremental
 projection is not implemented in this version; correctness does not rely on a truncated page.
+
+## Git checkpoints versus task/commit associations
+
+The installed Git checkpoint policy and ASSISTANCE_API's `git-checkpoint` section define
+how one git-commit invocation saves existing project-wide facts and recovery material,
+excludes rebuildable caches, and verifies actual index/commit bytes. This helper is read-only;
+it is not a `task` action and does not append an association. Explicit files-only instructions
+and existing project storage exclusions take precedence over the checkpoint default.
+
+Saving records neither requires nor changes task closure, review, findings or unassociated
+history. A persistent task/commit association is still an optional separate semantic request.
+Do not generate it just because a checkpoint succeeded; never recursively commit its own SHA.
+The two existing native modules still suffice; no storage format or causality change is needed.

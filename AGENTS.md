@@ -1,9 +1,9 @@
 <!-- vnext-assistance-guidance:start -->
 ## vNext workflow assistance
 
-- Read `.workflow-system/WORKFLOW_PROTOCOL.md` and the selected `.agents/skills/<entry>/SKILL.md`. Their assistance and one-time confirmation rules supersede older workflow admission/terminal instructions; project business constraints remain effective.
+- On every explicit workflow Skill invocation, read the selected `.agents/skills/<entry>/SKILL.md` from disk again, even in an existing conversation. Read `.workflow-system/WORKFLOW_PROTOCOL.md` for the shared rules. Earlier Skill contents and earlier next_route suggestions are historical context; project business constraints remain effective.
 - Runtime assists recording, evidence, snapshots and lookup. Use `.workflow-system/runtime/support/assistance.mjs` and `ASSISTANCE_API.md`; no mandatory preflight, run-entry, waiver, review receipt, retry budget or legacy state repair is needed for authorized work.
-- Query `assistance.mjs task-status` or `context.management` for current task/plan/step state. The journal-backed view replaces stale CURRENT_TASK tuples; ordinary `find` pages are not state queries. `task-context --legacy` is historical only.
+- Query `assistance.mjs task-status` or `context.management` on every workflow invocation for current task/plan/step state, including a repeated invocation in the same conversation. The journal-backed view replaces stale CURRENT_TASK tuples; ordinary `find` pages are not state queries. Report a query failure without turning it into a development gate.
 - Use the assistance `task` actions for prepare/adopt/execution/review/review-decision/step/git/close. Check fact persistence, association and view publication separately; normal state maintenance is not optional. Offer rebuild/link/correct/resolve/defer for unresolved management data, without replaying business work.
 - Read/search/record operations, stale metadata and equivalent details already authorized need no new confirmation. Report actual service failures and continue independent authorized work; never rerun business work just to obtain a receipt.
 - For a material deviation from a still-effective workflow commitment, disclose the action, gaps and concrete consequences together and ask once only if that informed choice is unresolved. Silence is not consent.
