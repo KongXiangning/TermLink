@@ -1,0 +1,63 @@
+---
+title: Rust rollout compatibility S3: isolated target and offline source validation
+status: draft
+record_id: CR-20260930-1752-codex-rollout-compat-s3
+req_id: REQ-20260309-codex-capability-mvp
+commit_ref: TBD
+owner: @maintainer
+last_updated: 2026-09-30
+source_of_truth: code
+related_code: [native/codex-rollout-collector/src/main.rs, native/codex-rollout-collector/src/protocol, native/codex-rollout-collector/src/source, native/codex-rollout-collector/tests/stage3_conformance.rs, native/codex-rollout-collector/tests/stage4_target_protocol.rs]
+related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md, docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md, docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md, docs/changes/records/INDEX.md]
+---
+
+# CR-20260930-1752-codex-rollout-compat-s3
+
+## 1. 变更意图（Compact Summary）
+
+- 背景：S2 已完成 formal wire/Adapter 兼容修复；S3 需要在任务专用 Cargo target 目录中重新构建 Demo、Spike 与 formal collector，并验证 Rust target 的真实 stdio backfill/ACK 生命周期。
+- 目标：用明确的 Demo/Spike oracle 路径完成 stage3 回归，复验 unknown/malformed、partial、overlap、append/restart 与 ACK 约束，并对一个真实但只读的离线 rollout source 记录 source scope、物理读取进度、完成性与 checkpoint 证据。
+- 本次边界：仅执行隔离 Rust collector 的构建与回归；不修改 Node、Android、IPC、数据库、服务部署或产品历史发布状态，不把 partial source 晋级为 canonical。
+
+REQ 的 linked product plan 是 Android/WebView 后台保活与断线续接计划，没有 Rust rollout-collector 的阶段或 checklist。本批只同步 adopted Assistance plan 的 S3 执行证据与本 CR，不改变该产品计划或 REQ 的既有 `done` 状态；Task 005 的 Node consumer 交接仍保持独立后续范围。
+
+## 2. 实施内容（What changed）
+
+1. 在 `C:\Users\kongx\AppData\Local\Temp\termlink-task-20260830-s3-20260930\cargo` 下 fresh build Demo、Spike 与 formal target，避免复用仓库默认 target 产物。
+2. 使用显式 `TERMLINK_STAGE3_DEMO_BIN` 与 `TERMLINK_STAGE3_SPIKE_BIN` 路径运行 stage3 actual-oracle parity；运行 formal conformance 与 target protocol 回归。
+3. 通过 formal target 的 `--startup-config-version 1 --sessions-root` stdio JSONL 入口，对 conversation `01a0ee04-a775-72b3-bd07-04aac804a3b4` 发起普通 `backfill`，对 batch 发送正 ACK，并只保存聚合结果，不复制 rollout 正文。
+
+## 3. 影响范围（Files/Modules/Runtime）
+
+- 文件：本批只新增本 CR；Rust 业务源、Node/Android/IPC/DB 文件均未修改。
+- 模块：formal target startup、source locating/read、target mapping、batch/checkpoint/ACK lifecycle，以及既有 stage3/stage4 conformance harness。
+- 运行时行为（原执行结果）：真实离线 source 成功读取并交付一个 batch，target 返回 `status=partial`、`completeness=partial`，不发布 cursor 或 canonical `complete_source_end`。原先归因为“source 没有可证明的 canonical boundary”不成立：补充 S3 审查以固定 source 和最小载体反例定位到已知 Present diagnostic 被错误拒绝的 target/Reducer 判定。修复与新验证单独记录在 `CR-20260930-1948-codex-rollout-compat-s3-repair`，不改写本报告的原始 partial 结果。
+
+## 4. 回滚方案（命令级）
+
+本批尚未提交，`commit_ref=TBD`。若未来形成独立提交，使用 `git revert <commit_ref>` 回滚；未提交时只删除本 CR 文件即可。不得 broad reset/checkout，也不得回滚 S2 或其他会话改动。任务临时 Cargo target 目录保留用于复核，不属于仓库交付物。
+
+## 5. 验证记录（Tests/Checks）
+
+- 固定 source 只读核对：`C:\Users\kongx\.codex\sessions\2026\09\30\rollout-2026-09-30T00-34-37-01a0ee04-a775-72b3-bd07-04aac804a3b4.jsonl`，before/after 均为 227 records、1,303,231 bytes，SHA-256=`0deda040fde81d23c5a662cd6296080701a43e76ccb049a8490930f084bd9a6e`。未输出或写入 rollout 正文。
+- vendor parity：`pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1` 通过，revision=`5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2`，3 个 patch 均通过字节校验。
+- Fresh artifacts：
+  - Demo：`...\cargo\demo\debug\codex-rollout-demo.exe`，48,429,953 bytes，SHA-256=`3713341b2f67f5847d136af7b9af31cadc67657eeb2029b5708cb218e32ec009`。
+  - Spike：`...\cargo\spike\debug\codex-rollout-compat-spike.exe`，613,855,756 bytes，SHA-256=`f4f21a53f20ed8012c370e9ce10be88d30a9a6846089932c3eac26477990e6c9`。
+  - formal target：`...\cargo\collector\debug\codex-rollout-collector.exe`，637,772,463 bytes，SHA-256=`a40feca794938be7d97e1a4d2476bbfb569fb5c60935e23d7389886714adb26b`。
+- `cargo test --locked --test stage3_conformance`（显式 Demo/Spike 路径）：5/5 通过；覆盖 actual oracle、partial/unknown、tail→backfill→append→restart、duplicate read 与 fail-closed promotion。
+- `cargo test --locked --test conformance --test stage4_target_protocol`：33/33 conformance、70/70 target protocol 通过；覆盖 malformed/unknown、overlap identity、partial/no-canonical evidence、append/restart、single-flight、negative ACK、source locating 与 target process error boundaries。
+- 真实 target process：Node hello 成功，1 个 batch 交付，1 个正 ACK，0 个 wire error，进程 exit code 0；batch 为 227/227 records、1,303,231 bytes，`complete=false`、`completeness=partial`，checkpoint 保留 source id/epoch/range 但 `cursor_kind=null`、`complete_source_end=null`。该结果是 fail-closed finding，不是 canonical acceptance。
+- 限制：本批没有第二条在线 Node→Rust 链，没有 Node consumer、产品 DB、Android IPC、真机或服务部署验证；也没有以 partial source 推断完整产品 history projection。
+
+## 6. 后续修改入口（How to continue）
+
+- 先对本 S3 执行结果进行 `review-change`；review 需要保留真实 partial/canonical 缺口和上面的 source/artifact evidence。
+- Task 005 只能依据已复核的 Rust target contract 另行设计 Node consumer；本批不提前恢复或实施 Task 005。
+- canonical 缺口应按补充审查定位的兼容判定修复，再以同一 source 的固定只读副本重新验证并保存独立证据；不得修改外部 source 或伪造 checkpoint。原执行未保留精确 dirty subject、实际 oracle 选择与完整原始日志，本轮新验证不能使旧 S3 报告 fresh。
+
+## 7. 风险与注意事项
+
+1. 当前真实 rollout 的 target backfill 是可读且协议完整的 partial delivery；任何把 `status=partial`、空 cursor 或缺少 complete-source-end 改写成 completed/canonical 的调用方都违反冻结契约。
+2. fresh artifact hash 只证明本次任务专用构建产物，不能证明 Node/Android/IPC 集成或产品发布就绪。
+3. CR 保持 `draft/TBD`，因为本批未获授权提交；既有未关联 management issue 不猜测归属、不重放业务工作。

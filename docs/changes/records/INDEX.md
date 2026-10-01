@@ -23,6 +23,13 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260930-2035-codex-rollout-compat-s3-r3-repair | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-09-30 |  | `docs/changes/records/CR-20260930-2035-codex-rollout-compat-s3-r3-repair.md` |
+| CR-20260930-1948-codex-rollout-compat-s3-repair | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-09-30 |  | `docs/changes/records/CR-20260930-1948-codex-rollout-compat-s3-repair.md` |
+| CR-20260930-1752-codex-rollout-compat-s3 | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-09-30 |  | `docs/changes/records/CR-20260930-1752-codex-rollout-compat-s3.md` |
+| CR-20260930-1650-codex-rollout-compat-s2-repair | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-09-30 |  | `docs/changes/records/CR-20260930-1650-codex-rollout-compat-s2-repair.md` |
+| CR-20260930-1600-codex-rollout-compat-s2 | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-09-30 |  | `docs/changes/records/CR-20260930-1600-codex-rollout-compat-s2.md` |
+| CR-20260930-1509-codex-rollout-compat-s1-repair | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-09-30 |  | `docs/changes/records/CR-20260930-1509-codex-rollout-compat-s1-repair.md` |
+| CR-20260930-1441-codex-rollout-compat-s1 | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-09-30 |  | `docs/changes/records/CR-20260930-1441-codex-rollout-compat-s1.md` |
 | CR-20260928-task004-s3 | none | draft | TBD | @maintainer | 2026-09-29 |  | `docs/changes/records/CR-20260928-task004-s3.md` |
 | CR-20260928-task004-s2 | none | draft | TBD | @maintainer | 2026-09-28 |  | `docs/changes/records/CR-20260928-task004-s2.md` |
 | CR-20260928-task004-s1 | none | draft | TBD | @maintainer | 2026-09-28 |  | `docs/changes/records/CR-20260928-task004-s1.md` |
