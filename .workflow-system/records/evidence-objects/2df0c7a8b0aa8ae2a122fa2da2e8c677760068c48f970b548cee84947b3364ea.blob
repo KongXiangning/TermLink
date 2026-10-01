@@ -1,0 +1,2 @@
+{"timestamp":"2026-08-26T00:00:00","ordinal":0,"type":"session_meta","payload":{"id":"019b2b40-beb6-7b23-bed0-37d570e76816","timestamp":"2026-08-26T00:00:00Z","cwd":"fixture://termlink/target-session","originator":"synthetic_cli","cli_version":"synthetic-0.0.1","source":"cli","model_provider":"synthetic-provider","git":{}}}
+{"timestamp":"2026-08-26T00:00:01","ordinal":1,"type":"event_msg","payload":{"type":"task_started","turn_id":"target-turn-1","model_context_window":128000,"collaboration_mode_kind":"default"}}

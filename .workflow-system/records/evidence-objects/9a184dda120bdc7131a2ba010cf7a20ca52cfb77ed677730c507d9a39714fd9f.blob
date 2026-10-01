@@ -1,0 +1,110 @@
+[workspace]
+members = [
+    "history",
+    "protocol",
+    "async-utils",
+    "execpolicy",
+    "ext/items",
+    "http-client",
+    "network-proxy",
+    "utils/absolute-path",
+    "utils/cache",
+    "utils/cargo-bin",
+    "utils/home-dir",
+    "utils/image",
+    "utils/path-uri",
+    "utils/rustls-provider",
+    "utils/string",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[workspace.lints]
+rust = {}
+
+[workspace.dependencies]
+# These are the Codex crates used by the rollout/history protocol closure.
+codex-async-utils = { path = "async-utils" }
+codex-execpolicy = { path = "execpolicy" }
+codex-extension-items = { path = "ext/items" }
+codex-history = { path = "history" }
+codex-http-client = { path = "http-client" }
+codex-network-proxy = { path = "network-proxy" }
+codex-protocol = { path = "protocol" }
+codex-utils-absolute-path = { path = "utils/absolute-path" }
+codex-utils-cache = { path = "utils/cache" }
+codex-utils-cargo-bin = { path = "utils/cargo-bin" }
+codex-utils-home-dir = { path = "utils/home-dir" }
+codex-utils-image = { path = "utils/image" }
+codex-utils-path-uri = { path = "utils/path-uri" }
+codex-utils-rustls-provider = { path = "utils/rustls-provider" }
+codex-utils-string = { path = "utils/string" }
+
+# External dependencies mirror the versions/features used by the pinned
+# Codex checkout. They remain ordinary crates.io dependencies; no Codex
+# workspace or checkout is required to build this vendored closure.
+anyhow = "1"
+assert_cmd = "2"
+base64 = "0.22.1"
+bytes = "1.10.1"
+chardetng = "0.1.17"
+chrono = "0.4.43"
+clap = "4"
+dirs = "6"
+divan = "0.1.21"
+dunce = "1.0.4"
+encoding_rs = "0.8.35"
+futures = { version = "0.3", default-features = false }
+globset = "0.4"
+http = "1.3.1"
+icu_decimal = "2.1"
+icu_locale_core = "2.1"
+icu_provider = { version = "2.1", features = ["sync"] }
+image = { version = "^0.25.9", default-features = false }
+landlock = "0.4.4"
+lru = "0.18.2"
+mime_guess = "2.0.5"
+multimap = "0.10.0"
+opentelemetry = "0.31.0"
+opentelemetry_sdk = "0.31.0"
+pretty_assertions = "1.4.1"
+quick-xml = "0.41.0"
+rand = "0.9"
+rcgen = { version = "0.14.7", default-features = false, features = ["aws_lc_rs", "pem"] }
+regex-lite = "0.1.8"
+reqwest = { version = "0.12", features = ["cookies"] }
+runfiles = { git = "https://github.com/dzbarsky/rules_rust", rev = "b56cbaa8465e74127f1ea216f813cd377295ad81" }
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std"] }
+rustls-native-certs = "0.8.3"
+rustls-pki-types = "1.14.0"
+schemars = "0.8.22"
+seccompiler = "0.5.0"
+serde = { version = "1", features = ["rc"] }
+serde_json = "1"
+serde_with = "3.17"
+sha1 = "0.10.6"
+sha2 = "0.10"
+shlex = "1.3.0"
+starlark = { version = "0.14.2", default-features = false }
+strum = "0.27.2"
+strum_macros = "0.28.0"
+sys-locale = "0.3.2"
+system-configuration = "0.7"
+tempfile = "3.23.0"
+thiserror = "2.0.17"
+time = "0.3.47"
+tokio = "1"
+tokio-util = "0.7.18"
+tracing = "0.1.44"
+tracing-opentelemetry = "0.32.0"
+tracing-subscriber = "0.3.22"
+ts-rs = "11"
+url = "2"
+urlencoding = "2.1"
+uuid = "1"
+wildmatch = "2.6.1"
+zstd = "0.13"

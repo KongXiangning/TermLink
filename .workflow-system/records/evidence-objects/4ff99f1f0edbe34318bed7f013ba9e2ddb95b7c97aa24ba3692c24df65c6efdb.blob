@@ -1,0 +1,2 @@
+{"timestamp":"2026-08-19T02:03:00.000Z","ordinal":1,"type":"response_item","payload":{"type":"custom_tool_call","id":"ctc-content","status":"completed","call_id":"call-content","name":"memory_query","namespace":"mcp","input":"{\"query\":\"fixture\"}"}}
+{"timestamp":"2026-08-19T02:03:01.000Z","ordinal":2,"type":"response_item","payload":{"type":"custom_tool_call_output","id":"ctco-content","call_id":"call-content","name":"memory_query","output":[{"type":"input_text","text":"structured result"},{"type":"input_image","image_url":"data:image/png;base64,fixture"}]}}

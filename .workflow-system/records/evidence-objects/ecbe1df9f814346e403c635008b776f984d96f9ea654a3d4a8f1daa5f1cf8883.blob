@@ -1,0 +1,63 @@
+{
+  "task": "TASK-005",
+  "step": "S2",
+  "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+  "product_db": {
+    "path": "logs/task005-s2-repair-runtime-2/data/codex-history.sqlite",
+    "canonical_item_count": 52,
+    "item_types": {
+      "assistant_message": 10,
+      "tool": 39,
+      "user_message": 3
+    },
+    "internal_diagnostic_rows_in_read_projection": 0,
+    "stable_item_key": "tool:call_JLlyFFyipOrJD1WYxH5VFYmB",
+    "field_path": "eventFacts[0].payload.input",
+    "field_value": "const r = await tools.exec_command({\n  cmd: \"git diff -- .agents/skills/execute-step/SKILL.md .agents/skills/review-change/SKILL.md .workflow-system/WORKFLOW_PROTOCOL.md .workflow-system/runtime/package-lock.json .workflow-system/runtime/package.json .workflow-system/runtime/src/host-guidance.ts .workflow-system/runtime/src/kernel.ts .workflow-system/runtime/support/TASK_MANAGEMENT_API.md .workflow-system/runtime/support/task-management.mjs .workflow-system/vnext/DISTRIBUTION_STATE.json .workflow-system/vnext/RUNTIME_CONTRACT.yaml AGENTS.md\",\n  workdir: \"E:\\\\coding\\\\LawAgent\",\n  shell: \"powershell\",\n  login: false,\n  max_output_tokens: 8000\n});\ntext(r.output);\n",
+    "event_types": [
+      "ToolStarted",
+      "ToolCompleted"
+    ]
+  },
+  "android_cache": {
+    "path": "logs/task005-s2-repair-runtime-2/android-cache-repair-4.sqlite",
+    "provider_mode": "product_db",
+    "range_kind": "older",
+    "item_count": 122,
+    "coverage_state": "partial",
+    "has_more_before": 0,
+    "same_stable_item_key_present": true,
+    "legacy_rows_retained": {
+      "Diagnostic": 45,
+      "RateLimitUpdated": 12,
+      "UsageUpdated": 12,
+      "TurnStarted": 1
+    },
+    "retention_note": "The existing incremental cache was not manually cleaned or cleared; the old internal rows remain observable while newly served product pages ACK successfully."
+  },
+  "server_history_evidence": {
+    "product_read": {
+      "event": "server.codex.history.product_read.started",
+      "sync_id": "abfbb2dc-107c-4af9-afc9-69503548356a",
+      "item_count": 11,
+      "result_kind": "tail",
+      "range_enabled": true,
+      "ok": true
+    },
+    "initial_ack": {
+      "event": "server.codex.history.ack_received",
+      "sync_id": "abfbb2dc-107c-4af9-afc9-69503548356a",
+      "ok": true,
+      "state": "partial"
+    },
+    "older_acks": 7,
+    "diagnostics_path": "logs/diagnostics/termlink-diagnostics.jsonl"
+  },
+  "android_visible_observation": {
+    "screenshot": "logs/task005-s2-repair-runtime-2/product-db-repair-final-expanded.png",
+    "screen": "Codex · 已连接",
+    "control": "expanded tool card labeled 运行了多个命令",
+    "visible_value_prefix": "$ \"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -NoProfile -Command 'git diff -- .agents/skills/execute-step/SKILL.md .agents/skills/review-change/SKILL.md .workflow-system/WORKFLOW_PROTOCOL.md .workflow-system/runtime/package-lock.json .workflow-system/runtime/package.json .workflow-system/runtime/src/",
+    "authority_note": "The visible body/operation is the healthy IPC surface. The product item key, field value, product_db page, ACKs, and cache presence are correlated evidence; no UI provenance badge was added."
+  }
+}

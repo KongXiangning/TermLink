@@ -1,0 +1,7 @@
+{"timestamp":"2026-08-19T02:06:00.000Z","ordinal":1,"type":"event_msg","payload":{"type":"web_search_begin","call_id":"search-1","query":"TermLink compatibility"}}
+{"timestamp":"2026-08-19T02:06:01.000Z","ordinal":2,"type":"event_msg","payload":{"type":"web_search_end","call_id":"search-1","query":"TermLink compatibility","result":"fixture result"}}
+{"timestamp":"2026-08-19T02:06:02.000Z","ordinal":3,"type":"response_item","payload":{"type":"web_search_call","id":"ws-1","status":"completed","action":{"type":"search","query":"TermLink compatibility"}}}
+{"timestamp":"2026-08-19T02:06:03.000Z","ordinal":4,"type":"response_item","payload":{"type":"image_generation_call","id":"ig-1","status":"completed","result":"fixture-media"}}
+{"timestamp":"2026-08-19T02:06:04.000Z","ordinal":5,"type":"event_msg","payload":{"type":"patch_apply_begin","call_id":"patch-1","turn_id":"current-turn-1","auto_approved":true,"changes":{"src/lib.rs":{"type":"add","content":"fn fixture() {}"}}}}
+{"timestamp":"2026-08-19T02:06:05.000Z","ordinal":6,"type":"event_msg","payload":{"type":"patch_apply_end","call_id":"patch-1","turn_id":"current-turn-1","stdout":"applied","stderr":"","success":true,"changes":{"src/lib.rs":{"type":"add","content":"fn fixture() {}"}},"status":"completed"}}
+{"timestamp":"2026-08-19T02:06:06.000Z","ordinal":7,"type":"event_msg","payload":{"type":"image_generation_end","call_id":"ig-end-1","status":"completed","revised_prompt":"fixture artifact","result":"fixture-media"}}
