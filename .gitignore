@@ -80,3 +80,7 @@ data/design-picture/*.svg
 
 native/parse-probe/target/
 native/smoke/
+
+# Local Codex product history databases
+/data/codex-history.sqlite
+/undefined/data/codex-history.sqlite
