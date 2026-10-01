@@ -9,6 +9,7 @@ use super::ResponseItemEnvelope;
 use super::RolloutItem;
 use super::SecurityRiskScore;
 use super::SessionMetaLine;
+use super::TokenUsageRecord;
 use super::TurnContextItem;
 use super::WorldStateItem;
 use schemars::JsonSchema;
@@ -48,6 +49,9 @@ pub(super) enum RolloutItemWire<'a> {
     EventMsg {
         payload: Cow<'a, EventMsg>,
     },
+    TokenUsageRecord {
+        payload: Cow<'a, TokenUsageRecord>,
+    },
 }
 
 impl<'a> From<&'a RolloutItem> for RolloutItemWire<'a> {
@@ -85,6 +89,9 @@ impl<'a> From<&'a RolloutItem> for RolloutItemWire<'a> {
             RolloutItem::EventMsg(payload) => Self::EventMsg {
                 payload: Cow::Borrowed(payload),
             },
+            RolloutItem::TokenUsageRecord(payload) => Self::TokenUsageRecord {
+                payload: Cow::Borrowed(payload),
+            },
         }
     }
 }
@@ -114,6 +121,9 @@ impl From<RolloutItemWire<'_>> for RolloutItem {
                 Self::SecurityRiskScore(payload.into_owned())
             }
             RolloutItemWire::EventMsg { payload } => Self::EventMsg(payload.into_owned()),
+            RolloutItemWire::TokenUsageRecord { payload } => {
+                Self::TokenUsageRecord(payload.into_owned())
+            }
         }
     }
 }

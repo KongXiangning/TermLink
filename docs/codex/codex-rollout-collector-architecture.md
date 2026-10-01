@@ -2009,7 +2009,7 @@ child 尚未 terminal 或 child 读取仍 partial 属于“replacement 尚未具
 - 固定 synthetic/sanitized rollout fixture 和小型合成 fixture；
 - 当前可复用的五文件 synthetic session fixture 位于
   `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/`，固定两个日期分区、一个
-  stale root-like candidate 和四级有效 parent/child chain；其 synthetic unknown developer-role 事件
+  stale root-like candidate 和四级有效 parent/child chain；其显式未知的 `future_developer` role 事件
   预期保持 partial/`validation_unavailable`，不生成 active replacement mutation；
 - 固定 history-schema:5、AnalysisBatch 和 availability 语义；
 - 保留 Demo 全量正序模式作为正确性 oracle；

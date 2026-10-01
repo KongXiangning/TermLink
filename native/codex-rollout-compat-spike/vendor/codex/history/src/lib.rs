@@ -18,6 +18,7 @@ use codex_protocol::protocol::MultiAgentVersion;
 use codex_protocol::protocol::SessionMeta;
 use codex_protocol::protocol::SessionMetaLine;
 use codex_protocol::protocol::SessionSource;
+use codex_protocol::protocol::TokenUsage;
 use codex_protocol::protocol::ThreadHistoryMode;
 use codex_protocol::protocol::ThreadSource;
 use codex_protocol::protocol::TurnContextItem;
@@ -101,6 +102,25 @@ pub enum RolloutItem {
     WorldState(WorldStateItem),
     SecurityRiskScore(SecurityRiskScore),
     EventMsg(EventMsg),
+    TokenUsageRecord(TokenUsageRecord),
+}
+
+/// Persisted exact usage reported for one Responses API completion.
+///
+/// This is a diagnostics-only history carrier. It is intentionally kept at
+/// the Codex history boundary so downstream code can decide how to use the
+/// already-typed usage without treating the cumulative fields as a second
+/// accounting source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct TokenUsageRecord {
+    pub thread_id: String,
+    pub turn_id: String,
+    pub session_id: String,
+    pub root_turn_id: String,
+    pub response_id: String,
+    pub usage: TokenUsage,
+    pub turn_token_usage: TokenUsage,
+    pub thread_token_usage: TokenUsage,
 }
 
 impl Serialize for RolloutItem {
@@ -413,7 +433,8 @@ fn multi_agent_version_from_items(
             | RolloutItem::Compacted(_)
             | RolloutItem::WorldState(_)
             | RolloutItem::SecurityRiskScore(_)
-            | RolloutItem::EventMsg(_) => None,
+            | RolloutItem::EventMsg(_)
+            | RolloutItem::TokenUsageRecord(_) => None,
         })
     })
 }

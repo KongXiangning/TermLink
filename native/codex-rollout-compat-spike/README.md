@@ -40,16 +40,8 @@ Demo 的 plain JSONL 实现。不会定义 TermLink 自己的
 `decode_rollout_line` Serde workaround。实际 envelope、payload、ResponseItem、
 EventMsg 和工具类型仍由当前 Codex 的 `codex-history`、`codex-protocol` crate 提供。
 
-当前 Demo 是否引用 Codex 源码：是。Demo 的
-`native/codex-rollout-demo/Cargo.toml` 使用了：
-
-```text
-E:/coding/github/codex/codex-rs/rollout
-E:/coding/github/codex/codex-rs/protocol
-E:/coding/github/codex/codex-rs/app-server-protocol
-```
-
-本 Spike 不再依赖本机 Codex checkout。`Cargo.toml` 只引用目录内的：
+当前 Demo 与 Spike 的输入边界不同：Demo 仍是只读语义参考，Spike 的
+`Cargo.toml` 只引用目录内的：
 
 ```text
 vendor/codex/history
@@ -59,6 +51,14 @@ vendor/codex/protocol
 这些目录保留了 Codex 原始 crate 名称和模块结构，并包含编译这两个 crate
 所需的最小 Codex path-dependency closure。这样 Spike 仍然直接使用 Codex
 原始解析类型，同时可以在没有 Codex checkout 的机器上 clean build。
+
+本 Spike 当前包含一个最小、明确的本地 history wire 补丁：识别真实结构的
+`token_usage_record` 记录的 `payload` envelope，并复用 Codex 原生 `TokenUsage`。
+五个字符串绑定和 `usage`、`turn_token_usage`、`thread_token_usage` 均位于 `payload`
+内且为必填；缺失、类型错误或没有 `payload` 的扁平结构仍然 fail-closed。
+Spike 只输出原生解析结果，正式 Adapter 的 diagnostics-only 分类仍待后续实施。
+补丁文件、固定 upstream revision
+和 source closure 记录在 [`vendor/codex/vendor-manifest.toml`](vendor/codex/vendor-manifest.toml)。
 
 没有引入完整 `codex-rollout` crate，避免把 Git、网络、遥测和 PTY 运行时依赖
 带入 parser-only Spike。Codex 兼容源码的来源、覆盖更新方式和当前 revision

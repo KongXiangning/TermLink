@@ -72,7 +72,30 @@ impl Drop for ActualOracleRun {
     }
 }
 
+fn explicit_oracle_binary(crate_name: &str) -> Option<PathBuf> {
+    let variable = match crate_name {
+        "codex-rollout-demo" => "TERMLINK_STAGE3_DEMO_BIN",
+        "codex-rollout-compat-spike" => "TERMLINK_STAGE3_SPIKE_BIN",
+        _ => return None,
+    };
+    let path = std::env::var_os(variable).map(PathBuf::from)?;
+    assert!(
+        path.is_absolute(),
+        "{variable} must be an absolute oracle binary path: {path:?}"
+    );
+    assert!(
+        path.is_file(),
+        "{variable} must point to an existing oracle binary: {path:?}"
+    );
+    eprintln!("{variable}={}", path.display());
+    Some(path)
+}
+
 fn oracle_binary(crate_name: &str, binary_name: &str) -> PathBuf {
+    if let Some(path) = explicit_oracle_binary(crate_name) {
+        return path;
+    }
+
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("native directory");

@@ -198,6 +198,7 @@ fn recognized_envelope(value: &Value) -> bool {
                 | "security_risk_score"
                 | "inter_agent_communication"
                 | "inter_agent_communication_metadata"
+                | "token_usage_record"
         )
     )
 }
@@ -230,7 +231,8 @@ fn known_nested_variant(value: &Value) -> bool {
         | "world_state"
         | "security_risk_score"
         | "inter_agent_communication"
-        | "inter_agent_communication_metadata" => true,
+        | "inter_agent_communication_metadata"
+        | "token_usage_record" => true,
         "response_item" => object
             .get("payload")
             .and_then(Value::as_object)

@@ -5,7 +5,11 @@ license = "Apache-2.0"
 license_files = ["LICENSE"]
 notice_files = ["NOTICE"]
 source_copy_policy = "spike-validated-closure-promoted-after-demo-spike-conformance"
-local_patches = []
+local_patches = [
+    "history/src/lib.rs",
+    "history/src/rollout_payload.rs",
+    "history/src/tests.rs",
+]
 
 direct_crates = [
     "codex-history",
@@ -32,4 +36,4 @@ path_dependency_closure = [
 
 # This manifest describes the promoted Spike closure. It intentionally does
 # not contain a developer checkout path or a mutable Codex workspace reference.
-source_provenance = "native/codex-rollout-compat-spike/vendor/codex"
+source_provenance = "native/codex-rollout-collector/vendor/codex"

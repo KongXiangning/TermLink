@@ -6,7 +6,7 @@ discovery、lineage、Replay/Preview/Backfill 与 latest-path restart 回归；�
 
 fixture 保留最小协议形状：两个日期分区、5 个候选文件、一个更早的 stale root-like
 候选、一个 root 与三个 paginated child 的 root→head 链、3 条 `history_base` 边，以及
-active head 中一个 synthetic `developer` role 事件，用于维持 `partial` /
+active head 中一个显式未知的 synthetic `future_developer` role 事件，用于维持 `partial` /
 `validation_unavailable` 断言。
 
 所有 JSONL 使用 UTF-8 + LF。测试中的 manifest、文件长度及 SHA-256 均按当前文件 bytes

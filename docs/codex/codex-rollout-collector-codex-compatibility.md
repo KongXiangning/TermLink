@@ -244,9 +244,9 @@ member。
 
 ### 3.4 Spike 到正式 Analyzer 的 vendor 同步规则
 
-当前正式 Analyzer 尚未建立时，`native/codex-rollout-compat-spike/vendor/codex` 是
-staging source of truth；正式 Analyzer 建立后，正式目录中的副本是发布构建的 source of
-truth。两者允许同时存在，但不允许独立演进。
+正式 Analyzer 已建立后，`native/codex-rollout-collector/vendor/codex` 是发布构建的
+source of truth；`native/codex-rollout-compat-spike/vendor/codex` 仍是未来 revision 的
+staging source。两者允许同时存在，但不允许独立演进，当前 patch 必须通过 parity guard。
 
 升级流程固定为：
 
@@ -271,6 +271,47 @@ manifest 还要列出 path dependency 闭包和本地补丁。默认不允许只
 vendored 源码；确需补丁时，先在 Spike 验证，再以相同 patch 应用到正式 Analyzer，并同步
 manifest。两个 manifest 的 revision、闭包或 patch 集合不一致时，构建/发布检查必须失败，
 不能依赖人工确认。
+
+S2 已将 Spike 验证过的最小 patch 提升到 `native/codex-rollout-collector/vendor/codex`：
+当前 patch 文件固定为 `history/src/lib.rs`、`history/src/rollout_payload.rs` 和
+`history/src/tests.rs`。`scripts/verify-vendor-parity.ps1` 同时比较两个 manifest 的
+revision、path dependency closure、local patch 集合和这些 patch 的实际 SHA-256 bytes；
+formal build/test 前必须先通过该 guard。`token_usage_record` 使用真实的
+`type + payload` envelope，在 Adapter 中只形成 diagnostics-only 事件；五个 binding 和
+三个累计 usage carrier 不进入 `AnalysisEvent` 或 projection。`developer` response message
+同样只形成静态 hidden diagnostic，不把正文或内部 passthrough metadata 当作可见历史。
+
+stage3 的显式 `TERMLINK_STAGE3_DEMO_BIN` / `TERMLINK_STAGE3_SPIKE_BIN` 必须是绝对文件
+路径；相对路径、不存在的路径、目录或执行失败均立即失败，不回退旧 EXE。验收调用方
+须核对并记录实际路径、SHA-256、构建 profile/输入与成功构建记录；测试输出打印实际
+选中的路径。未提供显式路径时的普通回归默认行为不能作为本任务的新产物证据。
+
+S2 修复版 conformance 对完整序列化 `AnalysisBatch` 和 `AnalysisProjection` 检查隐藏
+内容，并用注入诊断泄漏验证检查有效。两个回合的同一业务输入在有／无
+`token_usage_record` 时保留相同 source positions，比较完整回合正文、工具、item keys、
+usage/rate events、每回合最后 usage 和会话 usage；额外 usage 事件必须使对照失败。
+本批修复与验证见 `CR-20260930-1650-codex-rollout-compat-s2-repair`。原 S2 报告仍仅描述
+原执行；修复后的结果须单独复审，不把旧报告重新标为 fresh，也不代表 S3 或产品接入通过。
+
+S3 兼容修复同步 target 的 canonical projection 判定和 Reducer 的 canonical commit 判定：
+完整、Complete coverage 且 Present 的投影可以保留 availability=present 的已知说明性
+diagnostic；这些 diagnostic 不再单独触发 partial。诊断仍原样保留，未知、畸形输入及其他
+非 Present diagnostic 继续阻止 canonical，source/lineage/cursor 的安全判定保持不变。
+已提交的完整投影（含上述 diagnostic）不能被后续不完整 overlap 降级。进程回归覆盖
+baseline、token、developer、组合、未知 role 和畸形 token 六种输入，检查 ACK、checkpoint、
+游标及隐藏内容不泄漏。本轮构建输入、实际 oracle 路径、原始测试输出和固定离线 source
+的聚合证据单独保存，详见 `CR-20260930-1948-codex-rollout-compat-s3-repair`；旧 S3
+记录的 provenance 缺口不能用本轮结果补写成 fresh，Task 005 的产品接入仍未验证。
+
+S3-R3 的补充修复让完整 canonical batch 仅清理非 Present diagnostic，保留已接受的
+说明性诊断及其稳定 item_key/source provenance；`seen_event_ids` 与按 item_key 的诊断
+去重逻辑保持不变。既有回归扩展为 checkpoint 重启后的无增长 append、增长 append、
+同一增长区间的旧 anchor 重试和最新 checkpoint 的再次无增长 append，并核对累积
+projection 与新 checkpoint 的诊断一致且不重复。canonical replay、空 canonical delta
+以及后续 partial overlap 也在 Reducer 回归中验证。source/lineage 变化时仍由 target
+既有恢复规则隔离 reducer state；未知事件、畸形输入和非 Present 可用性仍 fail-closed。
+修复及本轮独立证据见 `CR-20260930-2035-codex-rollout-compat-s3-r3-repair`，原 S3-R3
+失败反例及此前所有报告的原始结果保留，不以本轮修复倒填 freshness。
 
 ### 3.5 会话 rollout 发现和 lineage 关系
 
@@ -385,6 +426,7 @@ TurnContext
 WorldState
 SecurityRiskScore
 EventMsg
+TokenUsageRecord
 ```
 
 正式兼容层不必把每个 variant 都投影为历史 item，但必须做到：
@@ -399,6 +441,7 @@ EventMsg
 | `WorldState` | 提取有业务价值的状态；其余明确跳过或报告 |
 | `SecurityRiskScore` | 保存有业务价值的安全诊断，不能伪造审批结论 |
 | inter-agent 类型 | 可保存关联诊断或明确跳过，不得污染当前会话身份 |
+| `TokenUsageRecord` | 保留 native wire 解码和 provenance 诊断；不得把 binding、raw usage 或累计字段投影为第二条 usage source |
 | 未知 variant | 生成 `UnknownRecord`，保存受限类型诊断并标记 availability；继续读取后续记录，不映射成已知成功事件 |
 
 解码顺序必须是：
@@ -585,6 +628,8 @@ ImageGenerationCall
 - `CustomToolCall.input` 的原始 wire 形状必须可恢复；
 - `call_id`、item `id`、namespace、turn id 等关联字段必须原样保留；
 - `Message` 的 phase 和可见内容规则必须传给 Adapter；
+- `Message.role == "developer"` 是已知但不可见的 carrier，只允许生成不带正文和 passthrough
+  metadata 的 hidden diagnostic；其他未知 role 仍必须 fail-closed 为 `UnknownEvent`；
 - `Reasoning` 可以用于判断和丢弃 hidden reasoning，但不得把隐藏内容投影为可见助手消息；
 - output 的字符串和结构化 content 两种形态都必须有 fixture 和 round-trip 测试。
 
@@ -656,12 +701,18 @@ TurnContextItem
 HistoryPosition
 TokenCountEvent
 TokenUsage
+TokenUsageRecord
 RateLimitSnapshot
 GitInfo
 TurnCompleteEvent
 TurnAbortedEvent
 ThreadSettingsApplied
 ```
+
+`event_msg/token_count` 继续是当前 usage projection 的唯一输入。`TokenUsageRecord` 的
+`usage`、`turn_token_usage` 和 `thread_token_usage` 是 host history 的累计 carrier，只在
+wire/provenance 兼容边界保留；本阶段 Adapter 只输出静态 diagnostics-only 证据，避免重试、
+overlap 或 child lineage 产生第二条累计 usage 事实。
 
 这些字段必须转换为 TermLink 自有字段：
 
@@ -861,7 +912,7 @@ AnalysisBatch
     `history_base`，并能验证跨日期发现、完整 lineage 和 replacement 证据边界；当前可复用样本为
     `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/`，其五个文件还固定了
     stale root-like provenance、full/preview/backfill 和最新 active path 重启恢复的预期；
-    因其中存在当前 adapter 未承诺的 synthetic developer-role 事件，该 fixture 的预期是 partial、
+    因其中存在显式未知的 synthetic `future_developer` role 事件，该 fixture 的预期是 partial、
     `validation_unavailable` 和无 replacement mutation，complete replacement 由独立小型合成
     parent/child fixture 覆盖；README 与 manifest 不包含真实正文、旧 ID 或本机路径；
 12. 一个文件名候选与 `SessionMeta/history_base` 冲突的 fixture，以及 parent 缺失、多个 head、

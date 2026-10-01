@@ -245,6 +245,7 @@ pub fn report_json(report: &ParseReport) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use codex_history::RolloutItem;
 
     #[test]
     fn parser_returns_codex_rollout_line_without_a_termlink_wire_model() {
@@ -257,5 +258,49 @@ mod tests {
 
         assert_eq!(encoded["timestamp"], "2026-08-18T10:00:00.000Z");
         assert_eq!(encoded["type"], "session_meta");
+    }
+
+    #[test]
+    fn parser_accepts_token_usage_record_and_preserves_legacy_usage_carrier() {
+        let lines: Vec<_> = include_str!("../fixtures/token-usage-record.jsonl")
+            .lines()
+            .collect();
+        let parsed: Vec<_> = lines
+            .iter()
+            .copied()
+            .map(reader::parse_rollout_line)
+            .collect::<Result<_, _>>()
+            .expect("sanitized current and legacy usage records parse");
+
+        assert!(matches!(parsed[0].item, RolloutItem::TokenUsageRecord(_)));
+        assert!(matches!(parsed[1].item, RolloutItem::EventMsg(_)));
+        let expected: Value = serde_json::from_str(lines[0]).expect("fixture is JSON");
+        let encoded = serde_json::to_value(&parsed[0]).expect("native line serializes");
+        assert_eq!(encoded, expected);
+        let restored: codex_history::RolloutLine =
+            serde_json::from_value(encoded).expect("native payload envelope round-trips");
+        let RolloutItem::TokenUsageRecord(record) = restored.item else {
+            panic!("expected token usage record");
+        };
+        assert_eq!(record.usage.input_tokens, 101);
+        assert_eq!(record.turn_token_usage.total_tokens, 122);
+        assert_eq!(record.thread_token_usage.total_tokens, 122);
+    }
+
+    #[test]
+    fn parser_rejects_malformed_token_usage_records() {
+        let errors: Vec<_> = include_str!("../fixtures/token-usage-record-malformed.jsonl")
+            .lines()
+            .map(reader::parse_rollout_line)
+            .map(|result| match result {
+                Err(error) => error,
+                Ok(_) => panic!("each malformed record must fail"),
+            })
+            .collect();
+
+        assert_eq!(errors.len(), 3);
+        assert!(errors[0].to_string().contains("missing field `usage`"));
+        assert!(errors[1].to_string().contains("invalid type"));
+        assert!(errors[2].to_string().contains("missing field `payload`"));
     }
 }

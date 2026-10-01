@@ -1423,7 +1423,12 @@ fn projection_is_canonical(projection: &AnalysisProjection) -> bool {
     projection.complete
         && projection.coverage == ProjectionCoverage::Complete
         && projection.availability == Availability::Present
-        && projection.diagnostics.is_empty()
+        // Recognized informational carriers retain Present diagnostics; only
+        // incomplete diagnostics prevent canonical projection acceptance.
+        && projection
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.availability == Availability::Present)
 }
 
 fn to_batch_completeness(value: TargetCompleteness) -> BatchCompleteness {

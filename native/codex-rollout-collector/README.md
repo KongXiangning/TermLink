@@ -12,6 +12,15 @@ facade and decode workaround, the Codex-to-TermLink Adapter, the owned
 for legacy/current aliases, unknown records, partial rollouts, tools, plans,
 usage/rate limits, and deterministic output.
 
+The formal vendor currently carries the S2 `token_usage_record` compatibility
+patch promoted byte-for-byte from the Spike. The Adapter treats that carrier as
+diagnostics-only and keeps `developer` response messages hidden; unknown roles
+remain partial. Check formal/Spike synchronization before Rust validation:
+
+```powershell
+.\scripts\verify-vendor-parity.ps1
+```
+
 ## Dependency boundary
 
 The package uses only relative path dependencies under `vendor/codex` for the

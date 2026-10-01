@@ -103,6 +103,81 @@ fn response_item_envelope_stores_metadata_beside_rollout_payload() -> Result<()>
 }
 
 #[test]
+/// Preserves the observed payload envelope with native usage types.
+fn token_usage_record_round_trips_with_payload_wrapper() -> Result<()> {
+    let payload = json!({
+        "thread_id": "00000000-0000-0000-0000-000000000001",
+        "turn_id": "00000000-0000-0000-0000-000000000002",
+        "session_id": "00000000-0000-0000-0000-000000000001",
+        "root_turn_id": "00000000-0000-0000-0000-000000000002",
+        "response_id": "response-sanitized-1",
+        "usage": {
+            "input_tokens": 101,
+            "cached_input_tokens": 11,
+            "cache_write_input_tokens": 1,
+            "output_tokens": 21,
+            "reasoning_output_tokens": 3,
+            "total_tokens": 122,
+        },
+        "turn_token_usage": {
+            "input_tokens": 101,
+            "cached_input_tokens": 11,
+            "cache_write_input_tokens": 1,
+            "output_tokens": 21,
+            "reasoning_output_tokens": 3,
+            "total_tokens": 122,
+        },
+        "thread_token_usage": {
+            "input_tokens": 101,
+            "cached_input_tokens": 11,
+            "cache_write_input_tokens": 1,
+            "output_tokens": 21,
+            "reasoning_output_tokens": 3,
+            "total_tokens": 122,
+        },
+    });
+    let raw = json!({
+        "timestamp": "2026-08-18T10:00:02.000Z",
+        "ordinal": 4,
+        "type": "token_usage_record",
+        "payload": payload,
+    });
+
+    let line = serde_json::from_value::<RolloutLine>(raw.clone())?;
+    let RolloutItem::TokenUsageRecord(record) = &line.item else {
+        panic!("expected token usage record");
+    };
+    assert_eq!(record.usage.input_tokens, 101);
+    assert_eq!(record.turn_token_usage.total_tokens, 122);
+    assert_eq!(record.thread_token_usage.total_tokens, 122);
+    assert_eq!(serde_json::to_value(line)?, raw);
+    Ok(())
+}
+
+#[test]
+fn token_usage_record_missing_required_carrier_is_rejected() {
+    let raw = json!({
+        "timestamp": "2026-08-18T10:00:02.000Z",
+        "type": "token_usage_record",
+        "payload": {
+            "thread_id": "00000000-0000-0000-0000-000000000001",
+            "turn_id": "00000000-0000-0000-0000-000000000002",
+            "session_id": "00000000-0000-0000-0000-000000000001",
+            "root_turn_id": "00000000-0000-0000-0000-000000000002",
+            "response_id": "response-sanitized-1",
+            "turn_token_usage": TokenUsage::default(),
+            "thread_token_usage": TokenUsage::default(),
+        },
+    });
+
+    let error = match serde_json::from_value::<RolloutLine>(raw) {
+        Err(error) => error,
+        Ok(_) => panic!("missing usage must fail"),
+    };
+    assert!(error.to_string().contains("missing field `usage`"));
+}
+
+#[test]
 /// Keeps future metadata fields from making older binaries reject persisted items.
 fn response_item_envelope_ignores_unknown_harness_metadata_fields() -> Result<()> {
     let line = serde_json::from_value::<RolloutLine>(json!({

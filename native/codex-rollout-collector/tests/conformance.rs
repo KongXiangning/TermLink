@@ -1,13 +1,16 @@
 use std::path::{Path, PathBuf};
 
+use codex_rollout_collector::codex_adapter::CodexEventAdapter;
 use codex_rollout_collector::codex_wire::{DecodedRecord, UnknownReason, decode_value};
 use codex_rollout_collector::model::{
     AnalysisEvent, Availability, IdentityOrigin, TerminalEvidence, TurnStatus,
 };
 use codex_rollout_collector::{
-    CompatibilityProfile, JsonlSourceBackend, SourceSpec, analyze_source,
+    AnalysisBatch, AnalysisReducer, BatchCompleteness, CompatibilityProfile, JsonlSourceBackend,
+    SourceBackend, SourceSpec, analyze_records_with_adapter, analyze_source,
 };
-use serde_json::json;
+use serde::Serialize;
+use serde_json::{Value, json};
 
 fn fixture(relative: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -23,6 +26,28 @@ fn analyze(
     let backend = JsonlSourceBackend;
     analyze_source(&backend, &SourceSpec::new(fixture(relative)), profile)
         .expect("fixture analyzes")
+}
+
+fn serialized_leak(subject: &impl Serialize, sentinels: &[&str]) -> Option<String> {
+    let encoded = serde_json::to_string(subject).expect("analysis output serializes");
+    sentinels
+        .iter()
+        .find(|sentinel| encoded.contains(**sentinel))
+        .map(|sentinel| (*sentinel).to_string())
+}
+
+fn business_surface(batch: &AnalysisBatch) -> Value {
+    let projection = AnalysisReducer::reduce_batch(batch);
+    json!({
+        "turns": projection.turns,
+        "usage_total": projection.usage_total,
+        "complete": projection.complete,
+        "coverage": projection.coverage,
+        "availability": projection.availability,
+        "usage_and_rate_events": batch.items.iter().filter(|event| matches!(
+            event, AnalysisEvent::UsageUpdated { .. } | AnalysisEvent::RateLimitUpdated { .. }
+        )).collect::<Vec<_>>(),
+    })
 }
 
 #[test]
@@ -594,7 +619,7 @@ fn plan_answer_and_action_require_pending_question_state() {
 #[test]
 fn response_item_non_ui_roles_are_not_user_messages() {
     let batch = analyze("current/message-roles.jsonl", CompatibilityProfile::Current);
-    assert!(!batch.complete);
+    assert!(batch.complete);
     assert_eq!(
         batch
             .items
@@ -610,6 +635,12 @@ fn response_item_non_ui_roles_are_not_user_messages() {
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
+        AnalysisEvent::Diagnostic { code, message, .. }
+            if code == "developer_message_hidden"
+                && message.as_deref() == Some("non-visible developer message")
+    )));
+    assert!(!batch.items.iter().any(|event| matches!(
+        event,
         AnalysisEvent::UnknownEvent {
             raw_type: Some(raw_type),
             ..
@@ -619,6 +650,42 @@ fn response_item_non_ui_roles_are_not_user_messages() {
         event,
         AnalysisEvent::Diagnostic { code, .. } if code == "response_user_message_carrier"
     )));
+    let projection = AnalysisReducer::reduce_batch(&batch);
+    let sentinels = [
+        "history developer carrier",
+        "hidden-turn-sentinel",
+        "internal_chat_message_metadata_passthrough",
+    ];
+    assert_eq!(serialized_leak(&batch, &sentinels), None);
+    assert_eq!(serialized_leak(&projection, &sentinels), None);
+
+    // Check that the same whole-output guard catches leaks in diagnostics,
+    // not just visible message items. These controls never alter the source.
+    for sentinel in sentinels {
+        let mut leaked_batch = batch.clone();
+        let diagnostic = leaked_batch.items.iter_mut().find(|event| matches!(
+            event, AnalysisEvent::Diagnostic { code, .. } if code == "developer_message_hidden"
+        )).expect("developer diagnostic");
+        if let AnalysisEvent::Diagnostic { message, .. } = diagnostic {
+            *message = Some(sentinel.to_string());
+        }
+        assert_eq!(
+            serialized_leak(&leaked_batch, &sentinels),
+            Some(sentinel.to_string())
+        );
+
+        let mut leaked_projection = projection.clone();
+        leaked_projection
+            .diagnostics
+            .iter_mut()
+            .find(|diagnostic| diagnostic.code == "developer_message_hidden")
+            .expect("projected developer diagnostic")
+            .message = Some(sentinel.to_string());
+        assert_eq!(
+            serialized_leak(&leaked_projection, &sentinels),
+            Some(sentinel.to_string())
+        );
+    }
 }
 
 #[test]
@@ -671,6 +738,191 @@ fn usage_and_rate_limit_mapping() {
         }
     )));
     assert!(batch.items.iter().any(|event| matches!(event, AnalysisEvent::RateLimitUpdated { primary_used_percent: Some(value), .. } if (*value - 12.5).abs() < f64::EPSILON)));
+}
+
+#[test]
+fn token_usage_record_is_diagnostics_only_and_preserves_legacy_usage() {
+    let profile = CompatibilityProfile::Current;
+    let mut records = Vec::new();
+    JsonlSourceBackend
+        .read(
+            &SourceSpec::new(fixture("current/token-usage-record.jsonl")),
+            &mut |record| {
+                records.push(record);
+                Ok(())
+            },
+        )
+        .expect("usage fixture reads");
+    let adapt = |records| {
+        analyze_records_with_adapter(
+            &CodexEventAdapter::new_with_conversation_id(
+                profile,
+                Some("usage-control".to_string()),
+            ),
+            records,
+            profile,
+            BatchCompleteness::Canonical,
+        )
+    };
+    // Only the known new carrier is omitted in the control. Keep the original
+    // source positions/ordinals for all identical business records and keys.
+    let control = adapt(
+        records
+            .iter()
+            .filter(|record| {
+                record
+                    .raw
+                    .as_ref()
+                    .and_then(|value| value.get("type"))
+                    .and_then(Value::as_str)
+                    != Some("token_usage_record")
+            })
+            .cloned()
+            .collect::<Vec<_>>(),
+    );
+    let batch = adapt(records);
+    assert!(batch.complete);
+    assert!(!batch.items.iter().any(|event| matches!(
+        event,
+        AnalysisEvent::UnknownEvent { .. } | AnalysisEvent::ParseGap { .. }
+    )));
+    assert!(batch.items.iter().any(|event| matches!(
+        event,
+        AnalysisEvent::Diagnostic { code, message, .. }
+            if code == "token_usage_record"
+                && message.as_deref()
+                    == Some("diagnostics-only carrier; cumulative usage is not projected")
+    )));
+    assert!(batch.items.iter().any(|event| matches!(
+        event,
+        AnalysisEvent::UsageUpdated {
+            total_tokens: Some(120),
+            last_total_tokens: Some(70),
+            ..
+        }
+    )));
+    assert!(batch.items.iter().any(|event| matches!(
+        event,
+        AnalysisEvent::RateLimitUpdated {
+            primary_used_percent: Some(value),
+            ..
+        } if (*value - 12.5).abs() < f64::EPSILON
+    )));
+    assert!(control.complete);
+    assert_eq!(
+        batch
+            .items
+            .iter()
+            .filter(|event| matches!(event, AnalysisEvent::UsageUpdated { .. }))
+            .count(),
+        3
+    );
+    assert_eq!(business_surface(&batch), business_surface(&control));
+    let projection = AnalysisReducer::reduce_batch(&batch);
+    assert_eq!(projection.turns.len(), 2);
+    assert_eq!(
+        projection.turns[0]
+            .usage
+            .as_ref()
+            .and_then(|usage| usage.total_tokens),
+        Some(70)
+    );
+    assert_eq!(
+        projection.turns[1]
+            .usage
+            .as_ref()
+            .and_then(|usage| usage.total_tokens),
+        Some(60)
+    );
+    assert_eq!(
+        projection
+            .usage_total
+            .as_ref()
+            .and_then(|usage| usage.total_tokens),
+        Some(180)
+    );
+    assert!(
+        projection
+            .turns
+            .iter()
+            .flat_map(|turn| &turn.items)
+            .any(|item| item.kind == "user_message")
+    );
+    assert!(
+        projection
+            .turns
+            .iter()
+            .flat_map(|turn| &turn.items)
+            .any(|item| item.kind == "assistant_message")
+    );
+    assert!(
+        projection
+            .turns
+            .iter()
+            .flat_map(|turn| &turn.items)
+            .any(|item| item.tool.as_ref().is_some_and(|tool| tool.completed))
+    );
+    let sentinels = [
+        "response-sanitized-1",
+        "response-sanitized-2",
+        "thread_token_usage",
+        "turn_token_usage",
+        "cache_write_input_tokens",
+        "00000000-0000-0000-0000-000000000001",
+    ];
+    assert_eq!(serialized_leak(&batch, &sentinels), None);
+    assert_eq!(serialized_leak(&projection, &sentinels), None);
+
+    for sentinel in sentinels {
+        let mut leaked_projection = projection.clone();
+        leaked_projection
+            .diagnostics
+            .iter_mut()
+            .find(|diagnostic| diagnostic.code == "token_usage_record")
+            .expect("projected token diagnostic")
+            .message = Some(sentinel.to_string());
+        assert_eq!(
+            serialized_leak(&leaked_projection, &sentinels),
+            Some(sentinel.to_string())
+        );
+    }
+
+    let mut duplicate_usage = batch.clone();
+    let mut extra = batch
+        .items
+        .iter()
+        .rfind(|event| matches!(event, AnalysisEvent::UsageUpdated { .. }))
+        .expect("legacy usage event")
+        .clone();
+    extra.metadata_mut().event_id.push_str("-extra-carrier");
+    extra.metadata_mut().item_key.push_str("-extra-carrier");
+    duplicate_usage.items.push(extra);
+    assert_ne!(
+        business_surface(&duplicate_usage),
+        business_surface(&control),
+        "a second usage source must fail the same invariance check"
+    );
+}
+
+#[test]
+fn malformed_token_usage_record_remains_fail_closed() {
+    let batch = analyze(
+        "malformed/token-usage-record.jsonl",
+        CompatibilityProfile::Current,
+    );
+    assert!(!batch.complete);
+    assert_eq!(
+        batch
+            .items
+            .iter()
+            .filter(|event| matches!(event, AnalysisEvent::ParseGap { .. }))
+            .count(),
+        2
+    );
+    assert!(!batch.items.iter().any(|event| matches!(
+        event,
+        AnalysisEvent::Diagnostic { code, .. } if code == "token_usage_record"
+    )));
 }
 
 #[test]

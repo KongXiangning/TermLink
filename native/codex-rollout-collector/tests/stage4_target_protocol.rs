@@ -4777,41 +4777,270 @@ fn target_process_keeps_cancelled_source_worker_occupied_until_exit() {
 
 #[test]
 fn target_process_delivers_mapped_batch_and_waits_for_positive_ack() {
-    let root = target_protocol_fixture_root();
-    let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
-    process.send(target_node_hello("target-mapping-process-generation"));
-    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
-
-    let request = TargetAnalyzeRequest::new(
-        "target-mapping-process-request",
-        "target-mapping-process-job",
+    let base = fs::read_to_string(target_fixture_path(
+        &target_protocol_fixture_root(),
         TARGET_MAPPING_CONVERSATION_ID,
-        TargetAnalyzeMode::Backfill,
-    );
-    process.send(TargetMessage::Analyze(request));
-    let batch = match process.read() {
-        TargetMessage::Batch(batch) => batch,
-        other => panic!("expected mapped target batch, got {other:?}"),
-    };
-    assert_eq!(batch.payload.completeness, TargetCompleteness::Canonical);
+    ))
+    .expect("target baseline reads");
+    let token = current_fixture_contents("token-usage-record.jsonl")
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("token fixture JSON"))
+        .find(|line| line["type"] == "token_usage_record")
+        .expect("known token carrier");
+    let developer = current_fixture_contents("message-roles.jsonl")
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("role fixture JSON"))
+        .find(|line| line["payload"]["role"] == "developer")
+        .expect("known developer carrier");
+    let mut unknown = developer.clone();
+    unknown["payload"]["role"] = json!("future_developer");
+    let mut malformed = token.clone();
+    malformed["payload"]["usage"] = json!("not-an-object");
+    let growth_token = token.clone();
 
-    process.send(TargetMessage::Ack(TargetAckMessage::new(
-        "target-mapping-process-request",
-        batch.job_id.clone(),
-        batch.segment_id.clone(),
-        batch.batch_id.clone(),
-        true,
-        true,
-        None::<String>,
-    )));
-    let complete = match process.read() {
-        TargetMessage::Complete(complete) => complete,
-        other => panic!("expected mapped target complete, got {other:?}"),
-    };
-    assert_eq!(complete.completeness, TargetCompleteness::Canonical);
-    assert_eq!(
-        complete.checkpoint.projection_watermark.batch_id,
-        batch.batch_id
-    );
-    process.finish();
+    for (label, carriers, canonical) in [
+        ("baseline", vec![], true),
+        ("token", vec![token.clone()], true),
+        ("developer", vec![developer.clone()], true),
+        ("both", vec![token.clone(), developer.clone()], true),
+        (
+            "unknown",
+            vec![token.clone(), developer.clone(), unknown],
+            false,
+        ),
+        ("malformed", vec![token, developer, malformed], false),
+    ] {
+        let root = unique_temp_path(&format!("present-diagnostics-{label}"));
+        let mut contents = base.clone();
+        for (index, mut carrier) in carriers.into_iter().enumerate() {
+            carrier["ordinal"] = json!(index + 2);
+            contents.push_str(&serde_json::to_string(&carrier).expect("carrier serializes"));
+            contents.push('\n');
+        }
+        let source_path = write_target_fixture(&root, TARGET_MAPPING_CONVERSATION_ID, &contents);
+        let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+        process.send(target_node_hello(&format!("{label}-generation")));
+        assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+
+        let request_id = format!("{label}-request");
+        process.send(TargetMessage::Analyze(TargetAnalyzeRequest::new(
+            request_id.clone(),
+            format!("{label}-job"),
+            TARGET_MAPPING_CONVERSATION_ID,
+            TargetAnalyzeMode::Backfill,
+        )));
+        let batch = match process.read() {
+            TargetMessage::Batch(batch) => batch,
+            other => panic!("expected mapped target batch for {label}, got {other:?}"),
+        };
+        let expected = if canonical {
+            TargetCompleteness::Canonical
+        } else {
+            TargetCompleteness::Partial
+        };
+        assert_eq!(batch.payload.completeness, expected, "{label}");
+        assert_eq!(batch.payload.complete, canonical, "{label}");
+        let encoded = serde_json::to_string(&batch).expect("batch serializes");
+        for sentinel in [
+            "history developer carrier",
+            "hidden-turn-sentinel",
+            "internal_chat_message_metadata_passthrough",
+            "thread_token_usage",
+            "turn_token_usage",
+            "response-sanitized-1",
+        ] {
+            assert!(!encoded.contains(sentinel), "{label} leaked {sentinel}");
+        }
+        if canonical {
+            assert!(batch.payload.diagnostics.is_empty(), "{label}");
+            assert_eq!(batch.payload.projection["coverage"], "complete", "{label}");
+            assert_eq!(
+                batch
+                    .payload
+                    .next_cursor
+                    .as_ref()
+                    .map(|cursor| cursor.cursor_kind),
+                Some(TargetCursorKind::ForwardAppend),
+                "{label}"
+            );
+            let diagnostics = batch.payload.projection["diagnostics"]
+                .as_array()
+                .expect("projection diagnostics");
+            assert_eq!(
+                diagnostics.len(),
+                if label == "both" {
+                    2
+                } else if label == "baseline" {
+                    0
+                } else {
+                    1
+                }
+            );
+            assert!(
+                diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic["availability"] == "present")
+            );
+        } else {
+            assert!(!batch.payload.diagnostics.is_empty(), "{label}");
+            assert!(
+                !batch
+                    .payload
+                    .mutations
+                    .iter()
+                    .any(|mutation| { matches!(mutation, TargetMutation::CompleteRange { .. }) }),
+                "{label} published canonical range evidence"
+            );
+        }
+
+        process.send(TargetMessage::Ack(TargetAckMessage::new(
+            request_id,
+            batch.job_id.clone(),
+            batch.segment_id.clone(),
+            batch.batch_id.clone(),
+            true,
+            true,
+            None::<String>,
+        )));
+        let complete = match process.read() {
+            TargetMessage::Complete(complete) => complete,
+            other => panic!("expected mapped target complete for {label}, got {other:?}"),
+        };
+        assert_eq!(complete.completeness, expected, "{label}");
+        assert_eq!(
+            complete.checkpoint.projection_watermark.batch_id,
+            batch.batch_id
+        );
+        if canonical {
+            assert_eq!(complete.status, TargetCompleteStatus::Completed, "{label}");
+            assert_eq!(
+                complete.checkpoint.projection_watermark.complete_source_end,
+                Some(contents.len() as u64),
+                "{label}"
+            );
+        } else {
+            assert_eq!(complete.status, TargetCompleteStatus::Partial, "{label}");
+            assert_ne!(
+                complete.checkpoint.cursor_kind,
+                Some(TargetCursorKind::ForwardAppend),
+                "{label}"
+            );
+        }
+        process.finish();
+
+        if canonical {
+            let original_diagnostics = batch.payload.projection["diagnostics"]
+                .as_array()
+                .expect("initial diagnostics")
+                .clone();
+            let mut checkpoint = complete.checkpoint.clone();
+            let mut cursor = batch.payload.next_cursor.clone().expect("canonical cursor");
+            let mut expected_projection = batch.payload.projection.clone();
+            let mut growth_anchor = None;
+
+            for phase in ["no-growth", "growth", "growth-replay", "no-growth-latest"] {
+                if phase == "growth" {
+                    growth_anchor = Some((checkpoint.clone(), cursor.clone()));
+                    let mut carrier = growth_token.clone();
+                    carrier["ordinal"] = json!(contents.lines().count());
+                    let line = serde_json::to_string(&carrier).expect("growth carrier serializes");
+                    let mut file = fs::OpenOptions::new()
+                        .append(true)
+                        .open(&source_path)
+                        .expect("synthetic source opens for append");
+                    writeln!(file, "{line}").expect("synthetic source grows");
+                    file.sync_all().expect("synthetic growth syncs");
+                    contents.push_str(&line);
+                    contents.push('\n');
+                }
+
+                let (anchor, append_cursor) = if phase == "growth-replay" {
+                    growth_anchor
+                        .clone()
+                        .expect("pre-growth checkpoint retained")
+                } else {
+                    (checkpoint.clone(), cursor.clone())
+                };
+                let mut resumed = InteractiveTargetProcess::spawn_with_root(&root, None);
+                resumed.send(target_node_hello(&format!("{label}-{phase}-generation")));
+                assert!(matches!(resumed.read(), TargetMessage::AnalyzerHello(_)));
+                let request_id = format!("{label}-{phase}-request");
+                let mut request = TargetAnalyzeRequest::new(
+                    request_id.clone(),
+                    format!("{label}-{phase}-job"),
+                    TARGET_MAPPING_CONVERSATION_ID,
+                    TargetAnalyzeMode::Append,
+                );
+                request.cursor = Some(append_cursor);
+                request.persisted_anchor = Some(anchor);
+                resumed.send(TargetMessage::Analyze(request));
+                let next = match resumed.read() {
+                    TargetMessage::Batch(batch) => batch,
+                    other => panic!("expected append batch for {label}/{phase}, got {other:?}"),
+                };
+                assert_eq!(next.payload.completeness, TargetCompleteness::Canonical);
+                assert!(next.payload.complete);
+                assert_eq!(
+                    next.payload.history_items.len(),
+                    usize::from(phase == "growth" || phase == "growth-replay"),
+                    "{label}/{phase} must deliver only the expected delta"
+                );
+                let diagnostics = next.payload.projection["diagnostics"]
+                    .as_array()
+                    .expect("resumed diagnostics");
+                for original in &original_diagnostics {
+                    assert!(
+                        diagnostics.contains(original),
+                        "{label}/{phase} lost diagnostic"
+                    );
+                }
+                assert_eq!(
+                    diagnostics.len(),
+                    original_diagnostics.len() + usize::from(phase != "no-growth"),
+                    "{label}/{phase} must retain and deduplicate old and new diagnostics"
+                );
+                if phase == "growth" {
+                    expected_projection = next.payload.projection.clone();
+                } else {
+                    assert_eq!(
+                        next.payload.projection, expected_projection,
+                        "{label}/{phase}"
+                    );
+                }
+
+                resumed.send(TargetMessage::Ack(TargetAckMessage::new(
+                    request_id,
+                    next.job_id.clone(),
+                    next.segment_id.clone(),
+                    next.batch_id.clone(),
+                    true,
+                    true,
+                    None::<String>,
+                )));
+                let done = match resumed.read() {
+                    TargetMessage::Complete(done) => done,
+                    other => panic!("expected append complete for {label}/{phase}, got {other:?}"),
+                };
+                assert_eq!(done.status, TargetCompleteStatus::Completed);
+                assert_eq!(done.completeness, TargetCompleteness::Canonical);
+                assert_eq!(
+                    done.checkpoint.cursor_kind,
+                    Some(TargetCursorKind::ForwardAppend)
+                );
+                assert_eq!(
+                    done.checkpoint.projection_watermark.complete_source_end,
+                    Some(contents.len() as u64)
+                );
+                assert_eq!(
+                    done.checkpoint.reducer_state.payload["reducer"]["projection"]["diagnostics"],
+                    next.payload.projection["diagnostics"],
+                    "{label}/{phase} checkpoint must preserve diagnostic evidence"
+                );
+                cursor = next.payload.next_cursor.expect("append keeps cursor");
+                checkpoint = done.checkpoint;
+                resumed.finish();
+            }
+        }
+        fs::remove_dir_all(root).expect("temporary target fixture removes");
+    }
 }

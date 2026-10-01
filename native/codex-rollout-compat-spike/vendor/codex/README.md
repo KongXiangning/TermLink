@@ -7,10 +7,25 @@ continues to use Codex's `RolloutLine`, `RolloutItem`, `ResponseItemEnvelope`,
 
 ## Pinned source
 
-- Upstream checkout: `E:/coding/github/codex`
+- Upstream checkout: a separate temporary checkout used only when refreshing
+  this source copy; it is not a build input.
 - Source revision copied into this directory: `5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2`
 - The local `Cargo.toml` is a small workspace manifest for this vendored
   closure. It is not a dependency on the upstream Codex workspace.
+
+## Local compatibility patch
+
+The Spike carries a minimal history-wire patch for the observed
+`token_usage_record` carrier with its fields inside a `payload` envelope.
+It reuses Codex's native `TokenUsage` type and requires all five string
+bindings plus `usage`, `turn_token_usage`, and `thread_token_usage` inside
+that payload. Missing or malformed fields and the unsupported flattened
+shape remain deserialization errors. The initial S1 flattened fixtures did
+not match the observed host envelope; the S1 repair corrects both wire
+conversions and fixtures without changing the upstream revision.
+The machine-readable file list and pinned source provenance are in
+`vendor-manifest.toml`. This staging patch must be validated before it is
+copied byte-for-byte into the formal collector vendor tree.
 
 ## Included closure
 

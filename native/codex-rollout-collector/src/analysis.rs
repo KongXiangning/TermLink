@@ -704,7 +704,12 @@ impl AnalysisReducer {
                     ProjectionCoverage::Partial
                 };
                 if batch.complete {
-                    self.projection.diagnostics.clear();
+                    // A canonical append/replay only delivers the new records.
+                    // Keep accepted informational diagnostics; clear incomplete
+                    // evidence without dropping diagnostics behind the cursor.
+                    self.projection
+                        .diagnostics
+                        .retain(|item| item.availability == Availability::Present);
                 } else {
                     self.projection
                         .diagnostics
@@ -742,7 +747,11 @@ impl AnalysisReducer {
         }
         if is_canonical
             && batch.complete
-            && self.projection.diagnostics.is_empty()
+            && self
+                .projection
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.availability == Availability::Present)
             && self.projection.availability == Availability::Present
         {
             self.projection.complete = true;
@@ -1468,9 +1477,38 @@ mod tests {
     #[test]
     fn late_incomplete_overlap_cannot_downgrade_canonical_projection() {
         let mut reducer = AnalysisReducer::new(Some("conversation-1".to_string()));
-        let mut canonical = AnalysisBatch::empty(CompatibilityProfile::Current);
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/current/message-roles.jsonl");
+        let mut canonical = analyze_source(
+            &JsonlSourceBackend,
+            &SourceSpec::new(path),
+            CompatibilityProfile::Current,
+        )
+        .expect("known informational carriers analyze");
+        assert!(canonical.complete);
         canonical.completeness = crate::protocol::BatchCompleteness::Canonical;
         reducer.apply_batch(&canonical);
+        let committed = reducer.snapshot();
+        assert!(committed.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "developer_message_hidden"
+                && diagnostic.availability == Availability::Present
+        }));
+
+        reducer = serde_json::from_value(
+            serde_json::to_value(&reducer).expect("reducer checkpoint serializes"),
+        )
+        .expect("reducer checkpoint restores");
+        reducer.apply_batch(&canonical);
+        assert_eq!(reducer.snapshot(), committed, "canonical replay is idempotent");
+
+        let mut no_growth = AnalysisBatch::empty(CompatibilityProfile::Current);
+        no_growth.completeness = crate::protocol::BatchCompleteness::Canonical;
+        reducer.apply_batch(&no_growth);
+        assert_eq!(
+            reducer.snapshot(),
+            committed,
+            "an empty canonical delta retains committed diagnostics"
+        );
 
         let mut overlap = AnalysisBatch::empty(CompatibilityProfile::Current);
         overlap.completeness = crate::protocol::BatchCompleteness::Partial;
@@ -1481,6 +1519,7 @@ mod tests {
         assert!(!projection.provisional);
         assert_eq!(projection.coverage, ProjectionCoverage::Complete);
         assert_eq!(projection.availability, Availability::Present);
+        assert_eq!(projection, committed);
     }
 
     #[test]

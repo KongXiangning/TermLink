@@ -11,6 +11,22 @@ The formal collector treats this checked-in copy as its source of truth. The
 Spike remains the staging source for future revisions; it is not a runtime or
 build-time dependency of this package.
 
+## TermLink compatibility patch
+
+The promoted local patch is intentionally limited to the observed
+`token_usage_record` history carrier. Its wire shape is `type` plus a required
+`payload` containing native Codex `TokenUsage` fields. The formal Adapter keeps
+that carrier diagnostics-only and does not project its binding or cumulative
+usage fields. The patch is byte-identical to the Spike in:
+
+- `history/src/lib.rs`
+- `history/src/rollout_payload.rs`
+- `history/src/tests.rs`
+
+Run `scripts/verify-vendor-parity.ps1` from the collector package before a
+formal build or test. A mismatch in revision, dependency closure, patch list,
+or patch bytes is a hard failure.
+
 ## Pinned source
 
 - Upstream repository: `https://github.com/openai/codex`

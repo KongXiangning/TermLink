@@ -92,8 +92,8 @@ const SANITIZED_SESSION_FIXTURE_FILES: [(&str, u64, &str); 5] = [
     ),
     (
         "2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl",
-        1492,
-        "f030e72d36a8b079a889be12476583a7a6e8c405e686000787ef81ababbe901e",
+        1501,
+        "9c024665ecd6adffafdcd52001a79f3bb0f695fe8009f297ad05842d720afc39",
     ),
 ];
 

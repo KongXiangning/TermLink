@@ -184,6 +184,12 @@ impl CodexEventAdapter {
                 Some("inter_agent_communication_metadata"),
                 0,
             )],
+            RolloutItem::TokenUsageRecord(_) => vec![self.diagnostic(
+                record,
+                "token_usage_record",
+                Some("diagnostics-only carrier; cumulative usage is not projected"),
+                0,
+            )],
         }
     }
 
@@ -476,6 +482,12 @@ impl CodexEventAdapter {
                 record,
                 "response_user_message_carrier",
                 Some("response_item user message is represented by item_completed"),
+                0,
+            )],
+            "developer" => vec![self.diagnostic(
+                record,
+                "developer_message_hidden",
+                Some("non-visible developer message"),
                 0,
             )],
             _ => vec![self.unknown_event(
