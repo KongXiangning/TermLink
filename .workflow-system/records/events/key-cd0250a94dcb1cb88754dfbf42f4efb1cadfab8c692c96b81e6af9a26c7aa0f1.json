@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T10:49:58.746Z",
+  "payload_sha256": "27800c2ef0a07d065c53f53157652056a09724ff1eaad5f538e5cc067f9b79e1",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s4-change-self-review-20261002",
+    "request": {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "idempotency_key": "task005-s4-change-self-review-20261002",
+      "findings": [],
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "verdict": "clean",
+      "step_id": "S4",
+      "action": "review",
+      "remaining_work": [
+        "S4 work disposition remains pending; finish must explicitly retain unverified checks and failures, not declare full PASS",
+        "No code repair inferred solely from absent validation prerequisites",
+        "Original gaps and two historical management associations retained"
+      ],
+      "provenance": "self-review",
+      "source_revision": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+      "stage": "change",
+      "summary": "No new actionable correctness/security/data/compatibility or evidence misstatement found in the exact S4 validation-only execution. Clean is limited to reviewed claims and does not certify untested S4 acceptance, readiness or completion.",
+      "execution_ref": ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+      "coverage": {
+        "inspected": [
+          "Adopted plan acceptance/exclusions and S4 scope; IPC CONTRACTS / AD-004 and product-history contract",
+          "All 11 execution attachment entries: CAS SHA256, byte size and equality with local evidence verified",
+          "Original and corrected ephemeral probe code plus preserved initial ack_mismatch result; Gateway detail handler and per-page payload ACK fencing",
+          "Two saved authentic raw protocol flows independently recomputed: 7 pages each, 6 boundary overlaps, 98 unique item keys, 39 detailRefs",
+          "Payload chunk bodies reconstructed at 139757 bytes with matching payloadHash in both flows; detail bodies reconstructed at 1900 and 69427 bytes with correct offsets and final hashes",
+          "Android XML detail/copy/reopen SHA256 and empty composer assertions; B/A visible body markers and matching gateway selection logs",
+          "Read-only exported cache comparison: identical 98 target item rows and 39 refs before/after; partial metadata retained",
+          "Git HEAD matches execution revision; no tracked business/index diff; no new tests, service restarts, device operations, product edits or Git writes in this review"
+        ],
+        "evidence_retention": "Execution report/results/UI XML are immutable CAS attachments. Raw authentic protocol streams and full DB exports remain local-only by explicit privacy choice; this review inspected them without persisting secret/unrelated content.",
+        "preserved": [
+          "Initial ephemeral probe ACK-before-chunks failure and correction; no product patch",
+          "Service restart transport errors and actual later reconnect/cache restoration",
+          "Existing reconciliation intent 01a0e60a-a819-7ed3-99d2-f64d77a0eb8c discovery fingerprint_bytes limit 67108864 failure",
+          "S3 162 Node / 286 Android results remain historical; no fresh rerun asserted",
+          "Two historical unresolved management associations"
+        ],
+        "evidence": {
+          "attachments": {
+            "checked": 11,
+            "hash_and_size": "all-match",
+            "local_bytes": "all-match"
+          },
+          "device_detail": {
+            "bytes": 1900,
+            "composer_final_bytes": 0,
+            "display_copy_reopen": "matching",
+            "hash": "e686d23b01c6c8517f1510118b0cdaee11482341661e15d5ffccc242cc3644ce"
+          },
+          "cache": {
+            "coverage": "partial",
+            "after_items": 98,
+            "before_items": 98,
+            "complete": 0,
+            "rows_equal": true
+          },
+          "aba": "Cached A/B bodies differ and A restored; not healthy IPC or actual late-response proof",
+          "protocol": {
+            "unique_items": 98,
+            "large_detail_bytes": 69427,
+            "detail_refs": 39,
+            "boundary_overlaps": 6,
+            "stale_request": "failed/stale_selection without content",
+            "pages_per_run": 7,
+            "large_detail_chunks": [
+              49152,
+              20275
+            ],
+            "coverage_complete": false,
+            "runs": 2,
+            "android_durable_ack": "not-verified-by-logical-probe",
+            "large_detail_hash": "0c5a7e563c522a3784bce3c8ecce4288b3017b47f760fbf95cfffe646345229c"
+          }
+        },
+        "unverified": [
+          "Natural append/new turn in original A",
+          "Detail-ref-only update and invalid/changed ref or cursor on physical device",
+          "Android 69427-byte multi-chunk dialog/clipboard integration",
+          "Android physical older range durable ACK/overlap integration from existing cache",
+          "Healthy IPC exclusive authority for running/operation/current turn and healthy A-B-A",
+          "Actual in-flight detail response crossing A/B selection"
+        ],
+        "target": "S4 validation-only execution and its evidence at 241becbc; not a fresh whole-product implementation review",
+        "status": "partial",
+        "conclusion": "No new repair finding in reviewed S4 evidence. Full planned S4 business acceptance remains unverified in the listed areas. A clean self-review is not independent review, whole-product PASS, gap acceptance, step finish or task closure."
+      }
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json"
+      ],
+      "data": {
+        "findings": [],
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "verdict": "clean",
+        "step_id": "S4",
+        "remaining_work": [
+          "S4 work disposition remains pending; finish must explicitly retain unverified checks and failures, not declare full PASS",
+          "No code repair inferred solely from absent validation prerequisites",
+          "Original gaps and two historical management associations retained"
+        ],
+        "provenance": "self-review",
+        "source_revision": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+        "stage": "change",
+        "summary": "No new actionable correctness/security/data/compatibility or evidence misstatement found in the exact S4 validation-only execution. Clean is limited to reviewed claims and does not certify untested S4 acceptance, readiness or completion.",
+        "execution_ref": ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+        "coverage": {
+          "inspected": [
+            "Adopted plan acceptance/exclusions and S4 scope; IPC CONTRACTS / AD-004 and product-history contract",
+            "All 11 execution attachment entries: CAS SHA256, byte size and equality with local evidence verified",
+            "Original and corrected ephemeral probe code plus preserved initial ack_mismatch result; Gateway detail handler and per-page payload ACK fencing",
+            "Two saved authentic raw protocol flows independently recomputed: 7 pages each, 6 boundary overlaps, 98 unique item keys, 39 detailRefs",
+            "Payload chunk bodies reconstructed at 139757 bytes with matching payloadHash in both flows; detail bodies reconstructed at 1900 and 69427 bytes with correct offsets and final hashes",
+            "Android XML detail/copy/reopen SHA256 and empty composer assertions; B/A visible body markers and matching gateway selection logs",
+            "Read-only exported cache comparison: identical 98 target item rows and 39 refs before/after; partial metadata retained",
+            "Git HEAD matches execution revision; no tracked business/index diff; no new tests, service restarts, device operations, product edits or Git writes in this review"
+          ],
+          "evidence_retention": "Execution report/results/UI XML are immutable CAS attachments. Raw authentic protocol streams and full DB exports remain local-only by explicit privacy choice; this review inspected them without persisting secret/unrelated content.",
+          "preserved": [
+            "Initial ephemeral probe ACK-before-chunks failure and correction; no product patch",
+            "Service restart transport errors and actual later reconnect/cache restoration",
+            "Existing reconciliation intent 01a0e60a-a819-7ed3-99d2-f64d77a0eb8c discovery fingerprint_bytes limit 67108864 failure",
+            "S3 162 Node / 286 Android results remain historical; no fresh rerun asserted",
+            "Two historical unresolved management associations"
+          ],
+          "evidence": {
+            "attachments": {
+              "checked": 11,
+              "hash_and_size": "all-match",
+              "local_bytes": "all-match"
+            },
+            "device_detail": {
+              "bytes": 1900,
+              "composer_final_bytes": 0,
+              "display_copy_reopen": "matching",
+              "hash": "e686d23b01c6c8517f1510118b0cdaee11482341661e15d5ffccc242cc3644ce"
+            },
+            "cache": {
+              "coverage": "partial",
+              "after_items": 98,
+              "before_items": 98,
+              "complete": 0,
+              "rows_equal": true
+            },
+            "aba": "Cached A/B bodies differ and A restored; not healthy IPC or actual late-response proof",
+            "protocol": {
+              "unique_items": 98,
+              "large_detail_bytes": 69427,
+              "detail_refs": 39,
+              "boundary_overlaps": 6,
+              "stale_request": "failed/stale_selection without content",
+              "pages_per_run": 7,
+              "large_detail_chunks": [
+                49152,
+                20275
+              ],
+              "coverage_complete": false,
+              "runs": 2,
+              "android_durable_ack": "not-verified-by-logical-probe",
+              "large_detail_hash": "0c5a7e563c522a3784bce3c8ecce4288b3017b47f760fbf95cfffe646345229c"
+            }
+          },
+          "unverified": [
+            "Natural append/new turn in original A",
+            "Detail-ref-only update and invalid/changed ref or cursor on physical device",
+            "Android 69427-byte multi-chunk dialog/clipboard integration",
+            "Android physical older range durable ACK/overlap integration from existing cache",
+            "Healthy IPC exclusive authority for running/operation/current turn and healthy A-B-A",
+            "Actual in-flight detail response crossing A/B selection"
+          ],
+          "target": "S4 validation-only execution and its evidence at 241becbc; not a fresh whole-product implementation review",
+          "status": "partial",
+          "conclusion": "No new repair finding in reviewed S4 evidence. Full planned S4 business acceptance remains unverified in the listed areas. A clean self-review is not independent review, whole-product PASS, gap acceptance, step finish or task closure."
+        }
+      }
+    }
+  },
+  "issues": []
+}

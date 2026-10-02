@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T10:59:22.593Z",
+  "payload_sha256": "1e6daf045a77a005eb522c44d43437760f1c2294bb2885f6efc3904d8ad71ca5",
+  "assurance": "caller-reported",
+  "payload": {
+    "task_ref": "task-7a4566ccf322e08968cd5c7935cf61dd",
+    "source_revision": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+    "links": [
+      ".workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json",
+      ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json"
+    ],
+    "idempotency_key": "task005-s4-finish-user-decision-20261002",
+    "kind": "decision",
+    "body": {
+      "user_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) finish",
+      "disclosed_consequences": [
+        "Clean self-review is limited to actual S4 validation evidence, not all acceptance checks",
+        "Natural append, ref mutation/invalidity, healthy IPC, actual in-flight A/B isolation, Android large detail and physical older durable ACK remain unverified",
+        "Existing discovery budget error and two historical association issues remain unresolved",
+        "Finished work disposition does not certify readiness or close TASK-005"
+      ],
+      "scope": [
+        "Record the finish decision and S4 finished disposition only",
+        "No new implementation, tests, services, ADB operations, Git commit/push or task closure"
+      ],
+      "agent_interpretation": "Finish S4 disposition with the disclosed partial coverage and failures retained. This is not full business PASS, task closure or Git authorization.",
+      "decision_source": "Latest user message in this conversation, immediately following the S4 review result and disclosed retained gaps",
+      "target": {
+        "step_id": "S4",
+        "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+        "action": "step-finish-only",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"
+      }
+    }
+  },
+  "issues": []
+}

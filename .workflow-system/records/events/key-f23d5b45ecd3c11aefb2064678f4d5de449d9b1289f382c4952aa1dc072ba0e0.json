@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T10:43:17.189Z",
+  "payload_sha256": "020fbc1f50340aa08b30559378c5967470e9745809f7a13ecf2d78183ec5baad",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s4-actual-validation-20261002",
+    "request": {
+      "summary": "Verified actual Android 1900-byte detail UI/copy/reopen, cached A-B-A, authenticated product_db older/overlap/detail/stale-selection probe and Node restart persistence. No product code changes, formal review, finish or Git writes.",
+      "files": [
+        "logs/task005-s4-validation.md",
+        "logs/task005-s4-probe-result.json",
+        "logs/task005-s4-probe-corrected-result.json",
+        "logs/task005-s4-after-node-restart-result.json",
+        "logs/task005-s4-detail-1900.xml",
+        "logs/task005-s4-paste.xml",
+        "logs/task005-s4-empty-draft.xml",
+        "logs/task005-s4-reopen-detail.xml",
+        "logs/task005-s4-b.xml",
+        "logs/task005-s4-aba-restored.xml",
+        "logs/task005-s4-final.xml"
+      ],
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "commands": [
+        "Project-local adb doctor and dev-server status; explicit validation process environment with existing S2 isolated product DB/analyzer and range=1; service skill restart -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex",
+        "adb -s MQS7N19402011743 existing CodexActivity selection A/B/A; uiautomator dump/pull; real copy/paste/full-select-delete; am force-stop and reopen without clearing data",
+        "node logs/task005-s4-probe.cjs: first early ACK failed ack_mismatch; corrected probe waits and validates payload chunks before ACK",
+        "node logs/task005-s4-probe.cjs logs/task005-s4-after-node-restart",
+        "run-as databases export before/after; read-only copies comparison of target A item identity/payload/detailRefs/availability"
+      ],
+      "step_id": "S4",
+      "remaining_work": [
+        "Review this exact execution; no automatic step finish",
+        "Physical Android large-detail assembly/copy and older durable ACK remain unverified",
+        "Natural append and detail-reference mutation/invalidity remain unverified",
+        "Healthy IPC real-time authority and true in-flight stale-response A/B isolation remain unverified",
+        "Existing reconciliation fingerprint_bytes budget failure retained; no budget relaxation or source changes",
+        "Two historical management associations remain unresolved"
+      ],
+      "result": "partial-validation-with-gaps",
+      "idempotency_key": "task005-s4-actual-validation-20261002",
+      "source_revision": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+      "action": "execution"
+    },
+    "files": [
+      "logs/task005-s4-validation.md",
+      "logs/task005-s4-probe-result.json",
+      "logs/task005-s4-probe-corrected-result.json",
+      "logs/task005-s4-after-node-restart-result.json",
+      "logs/task005-s4-detail-1900.xml",
+      "logs/task005-s4-paste.xml",
+      "logs/task005-s4-empty-draft.xml",
+      "logs/task005-s4-reopen-detail.xml",
+      "logs/task005-s4-b.xml",
+      "logs/task005-s4-aba-restored.xml",
+      "logs/task005-s4-final.xml"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-78c3ce971c7d838b76e0eaf93856d1c5e3bff623acccd4c504d1f1eb48deba2c.json"
+      ],
+      "data": {
+        "summary": "Verified actual Android 1900-byte detail UI/copy/reopen, cached A-B-A, authenticated product_db older/overlap/detail/stale-selection probe and Node restart persistence. No product code changes, formal review, finish or Git writes.",
+        "files": [
+          "logs/task005-s4-validation.md",
+          "logs/task005-s4-probe-result.json",
+          "logs/task005-s4-probe-corrected-result.json",
+          "logs/task005-s4-after-node-restart-result.json",
+          "logs/task005-s4-detail-1900.xml",
+          "logs/task005-s4-paste.xml",
+          "logs/task005-s4-empty-draft.xml",
+          "logs/task005-s4-reopen-detail.xml",
+          "logs/task005-s4-b.xml",
+          "logs/task005-s4-aba-restored.xml",
+          "logs/task005-s4-final.xml"
+        ],
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "commands": [
+          "Project-local adb doctor and dev-server status; explicit validation process environment with existing S2 isolated product DB/analyzer and range=1; service skill restart -ProjectRoot E:/coding/TermLink-rust-source-resolution-codex",
+          "adb -s MQS7N19402011743 existing CodexActivity selection A/B/A; uiautomator dump/pull; real copy/paste/full-select-delete; am force-stop and reopen without clearing data",
+          "node logs/task005-s4-probe.cjs: first early ACK failed ack_mismatch; corrected probe waits and validates payload chunks before ACK",
+          "node logs/task005-s4-probe.cjs logs/task005-s4-after-node-restart",
+          "run-as databases export before/after; read-only copies comparison of target A item identity/payload/detailRefs/availability"
+        ],
+        "step_id": "S4",
+        "remaining_work": [
+          "Review this exact execution; no automatic step finish",
+          "Physical Android large-detail assembly/copy and older durable ACK remain unverified",
+          "Natural append and detail-reference mutation/invalidity remain unverified",
+          "Healthy IPC real-time authority and true in-flight stale-response A/B isolation remain unverified",
+          "Existing reconciliation fingerprint_bytes budget failure retained; no budget relaxation or source changes",
+          "Two historical management associations remain unresolved"
+        ],
+        "result": "partial-validation-with-gaps",
+        "source_revision": "241becbc2e72f3a1c90970e47f7e95ccf0021dba"
+      }
+    }
+  },
+  "issues": []
+}

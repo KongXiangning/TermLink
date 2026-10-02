@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T15:31:07.254Z",
+  "payload_sha256": "2b70581dde9f0c56a61ac00bb3e0f9e75bd9f5fc12ff06cdc061deb1631a9ee2",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-close-with-retained-gaps-20261002",
+    "request": {
+      "delivered": [
+        "S1 additive detailRefs/availability synchronization identity and Android range/cache compatibility, under retained pass-with-limits review",
+        "S2 minimal canonical product projection diagnostic isolation and cached business eventFacts display; true visible field associated to a unique product item",
+        "S3 on-demand authenticated read-only detail dialog/copy with UTF-8 offset/identity/final hash validation and selection/cache guards",
+        "S4 actual 1900-byte Android detail display/copy/reopen; 98-item/39-ref cache preservation; cached A-B-A; authentic product_db older/overlap/detail/stale-generation probe before/after Node restart"
+      ],
+      "result": "closed-with-retained-validation-gaps",
+      "lessons": [
+        "Physical UI dumps can be stale while the screen is asleep; wake before validation interactions",
+        "The installed service script needs explicit current ProjectRoot, and authentic product validation needs a known non-empty isolated canonical DB",
+        "Payload chunks must finish and pass hash/size validation before per-page ACK",
+        "hasMoreBefore=false and clean self-review do not imply complete coverage, healthy IPC or full E2E PASS"
+      ],
+      "gaps": [
+        "Validation coverage partial, not full business PASS",
+        "Self-review retained as self-review",
+        "Historical initial probe ACK failure, restart transport failures, compilation/path-copy/strict CR failures remain original facts, not rewritten as PASS",
+        "No new tests/build/device/service/rollback/commit/push/deployment or filesystem deletion during closure"
+      ],
+      "decision_text": "[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\close-task\\SKILL.md)",
+      "summary": "TASK-005 Android read-only product history implementation and scoped real-device validation are retained; S1-S4 have finished dispositions. Latest S4 clean self-review covers validation evidence only with partial coverage. Lifecycle closure does not assert all acceptance checks passed.",
+      "idempotency_key": "task005-close-with-retained-gaps-20261002",
+      "git": {
+        "pending_scope": "Only persistent workflow records/attachments/evidence/recovery material observed; generated local views and ignored diagnostics are not automatically staged",
+        "head": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+        "uncommitted_before_close": [
+          "?? .workflow-system/records/attachments/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+          "?? .workflow-system/records/events/key-2e8e1c6dea2f1134b29db0bf4f14e886c8dcb397a8c38fce9938d2d63ba5b98b.json",
+          "?? .workflow-system/records/events/key-7d03c850cd1718899027ca1d6be587309d8a88621254746cdc7d1d3e7a2e314f.json",
+          "?? .workflow-system/records/events/key-8101e2aa81fec8d79cbad8b4fe23212e9f8101191e5bbebb05f7f380acfe0c4f.json",
+          "?? .workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json",
+          "?? .workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+          "?? .workflow-system/records/evidence-objects/1b495441d9200a8a2832c1ce7d30a06f0805a35bbd9895d60c3fcc0d270068b3.blob",
+          "?? .workflow-system/records/evidence-objects/4e2509c7a63cdd85d338b62c2d263d7ae475fc21f42893c025d1a710ab78c098.blob",
+          "?? .workflow-system/records/evidence-objects/69377e5b950acbc0fc7a49e65d0314bc7e6d4b5882319216e91febc1ea629ed4.blob",
+          "?? .workflow-system/records/evidence-objects/6e9b4f83975b6c95b35a179c02e7056ed915e7f041082d776da6e9026d272c56.blob",
+          "?? .workflow-system/records/evidence-objects/7be035db36760143ac7f9e15da788b1df3c7bb6f9eb4e4e98bfbd06da57cf9a6.blob",
+          "?? .workflow-system/records/evidence-objects/9f40cf000ca2b30f0cb451b5facf73db0a0726cdff813a33ed2d63ec01f1a802.blob",
+          "?? .workflow-system/records/evidence-objects/a7d9ce0b638c3c9f6ca27f2c8b391f36872d39a582997b6c570441b01e1598eb.blob",
+          "?? .workflow-system/records/evidence-objects/b237025a566d0399d8dfe45cbc41143274633c03f30a65a3560f2e9e062fbc10.blob",
+          "?? .workflow-system/records/evidence-objects/b5b5f94605d85387ba7ea31f35e00b04ffa893d6d9fdae3239d8a2f75569c9a8.blob",
+          "?? .workflow-system/records/evidence-objects/f05e96e086d5ce0683a66ed5adcc759041bdb8fd843cfe31407500a9eb08035b.blob",
+          "?? .workflow-system/records/legacy/display-42a37d9033d332693dbaddf14b64ce1573041f4d7c57f37ee93045de8545cbaa.md",
+          "?? .workflow-system/records/legacy/display-49dc1e390e822776d29dd91924c6d7028e04210151d951510ea459e68d9b2f59.md",
+          "?? .workflow-system/records/legacy/display-681a0e7daf7d15d1d6a73e2f6c301d7d986a563f1188e29ecbb30248969e0927.md",
+          "?? .workflow-system/records/legacy/display-9e5883702b94d256bdf36d7502a9d9d5d9d4dde53b19548d6ab0816f251eb4ad.md",
+          "?? .workflow-system/records/legacy/display-c441da9909e28bd7cc15bb7b0e7b8481d0f52cb0c00834b58e44601030526874.md",
+          "?? .workflow-system/records/legacy/display-capture-053be764-120e-42be-950d-ca6ac6c155eb.md",
+          "?? .workflow-system/records/legacy/display-capture-16bd212b-5365-4aa0-9935-a6f9bbeff307.md",
+          "?? .workflow-system/records/legacy/display-capture-301d44e9-bf8c-4360-9c17-453518ff4dc3.md",
+          "?? .workflow-system/records/legacy/display-capture-8b7672dd-4e4b-48e9-8cde-a20c838d7ded.md",
+          "?? .workflow-system/records/legacy/display-capture-b6602871-c495-4852-b80f-89d4a426a2c3.md"
+        ],
+        "tracked_business_diff": "none",
+        "scope_notice": "No task git association or Git writes performed",
+        "index_diff": "none"
+      },
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "decision": {
+        "agent_interpretation": "Close TASK-005 lifecycle with all S1-S4 finished dispositions and disclosed validation limits/failures retained. Not a full product PASS, release readiness certification, Git checkpoint, environment stop, rollback or deletion.",
+        "consequences": "Remove TASK-005 from active focus while preserving original executions, self-reviews, failures and uncommitted records. Further validation needs an explicit follow-up; closure does not run skipped checks.",
+        "requested_action": "close-task"
+      },
+      "environment": {
+        "disposition": "No stop/reset/rollback requested or performed",
+        "last_observed": "3010 validation service retained with isolated S2 persistent root and range enabled; physical App restored to A with empty composer; this closure does not re-probe or alter the environment"
+      },
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "action": "close",
+      "step_dispositions": {
+        "S2": ".workflow-system/records/events/key-76d0264cd3c153c69ccf37b71658c5e0f28d8c81da020c1d329365eb0b69062d.json",
+        "S4": ".workflow-system/records/events/key-8101e2aa81fec8d79cbad8b4fe23212e9f8101191e5bbebb05f7f380acfe0c4f.json",
+        "S1": ".workflow-system/records/events/key-63a63c210321f66aa2f1390e75dbd2007f65ff380b8f55f25f53178d95578cd8.json",
+        "S3": ".workflow-system/records/events/key-78c3ce971c7d838b76e0eaf93856d1c5e3bff623acccd4c504d1f1eb48deba2c.json"
+      },
+      "remaining_work": [
+        "Natural append/new turn and physical detail-ref update/invalidity remain unverified",
+        "Android large-detail dialog/copy and physical older durable ACK/overlap remain unverified",
+        "Healthy IPC exclusive realtime authority/healthy A-B-A and actual in-flight stale-response isolation remain unverified",
+        "Full ViewModel coroutine timeout/retry/cache-update edge integration and historical S1 activation-retry race coverage are not asserted by the executed probes",
+        "Existing reconciliation fingerprint_bytes budget exceeded (67108864) remains unresolved; no resource bounds relaxed",
+        "CR draft/none/TBD strict-format limitation remains historical and unresolved; no fabricated REQ or commit ref",
+        "Two historical management association issues remain unresolved",
+        "Uncommitted persistent S4 execution/review/finish evidence and this closure fact remain local; a Git checkpoint is a separate user-requested operation",
+        "Raw wire and full exported cache/backup artifacts remain private ignored local evidence, not included in persistent attachments or Git",
+        "Independent review, production release/deployment and additional full E2E are not certified by this closure"
+      ],
+      "decision_source": "Current human close-task invocation following the S4 finish result and explicit recommendation to close with gaps retained",
+      "review_refs": [
+        ".workflow-system/records/events/key-3ea981a14fd0ffadc3b05a0aaf16ccbe29921a72b6cf8ea8305420556cc1ab90.json",
+        ".workflow-system/records/events/key-db3e4f2097642ba3587359efb1ea3b4ee95ea733b2d5345ed8ef79ff72e09253.json",
+        ".workflow-system/records/events/key-e0991607a22e95500150b00d105037edf65c6a4b8cdcb483029c647a0de11942.json",
+        ".workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json"
+      ],
+      "evidence": {
+        "latest_step_disposition_ref": ".workflow-system/records/events/key-8101e2aa81fec8d79cbad8b4fe23212e9f8101191e5bbebb05f7f380acfe0c4f.json",
+        "latest_review_ref": ".workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json",
+        "coverage": "partial",
+        "S2_regressions": "Historical executed 139 Node / 279 Android results, not rerun at closure",
+        "S4": "98 unique item keys, 39 detailRefs; seven protocol pages and six boundary overlaps; 1900-byte physical detail matching SHA256; 69427-byte detail protocol chunks 49152+20275 matching SHA256; no Android older durable ACK or healthy IPC claim",
+        "latest_execution_ref": ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+        "review_provenance": "self-review, not independent review",
+        "S3_regressions": "Historical executed 162 Node / 286 Android results, not rerun at closure"
+      },
+      "source_revision": "241becbc2e72f3a1c90970e47f7e95ccf0021dba"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "close",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-7d03c850cd1718899027ca1d6be587309d8a88621254746cdc7d1d3e7a2e314f.json",
+        ".workflow-system/records/events/key-2e8e1c6dea2f1134b29db0bf4f14e886c8dcb397a8c38fce9938d2d63ba5b98b.json"
+      ],
+      "data": {
+        "delivered": [
+          "S1 additive detailRefs/availability synchronization identity and Android range/cache compatibility, under retained pass-with-limits review",
+          "S2 minimal canonical product projection diagnostic isolation and cached business eventFacts display; true visible field associated to a unique product item",
+          "S3 on-demand authenticated read-only detail dialog/copy with UTF-8 offset/identity/final hash validation and selection/cache guards",
+          "S4 actual 1900-byte Android detail display/copy/reopen; 98-item/39-ref cache preservation; cached A-B-A; authentic product_db older/overlap/detail/stale-generation probe before/after Node restart"
+        ],
+        "result": "closed-with-retained-validation-gaps",
+        "lessons": [
+          "Physical UI dumps can be stale while the screen is asleep; wake before validation interactions",
+          "The installed service script needs explicit current ProjectRoot, and authentic product validation needs a known non-empty isolated canonical DB",
+          "Payload chunks must finish and pass hash/size validation before per-page ACK",
+          "hasMoreBefore=false and clean self-review do not imply complete coverage, healthy IPC or full E2E PASS"
+        ],
+        "gaps": [
+          "Validation coverage partial, not full business PASS",
+          "Self-review retained as self-review",
+          "Historical initial probe ACK failure, restart transport failures, compilation/path-copy/strict CR failures remain original facts, not rewritten as PASS",
+          "No new tests/build/device/service/rollback/commit/push/deployment or filesystem deletion during closure"
+        ],
+        "decision_text": "[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\close-task\\SKILL.md)",
+        "summary": "TASK-005 Android read-only product history implementation and scoped real-device validation are retained; S1-S4 have finished dispositions. Latest S4 clean self-review covers validation evidence only with partial coverage. Lifecycle closure does not assert all acceptance checks passed.",
+        "git": {
+          "pending_scope": "Only persistent workflow records/attachments/evidence/recovery material observed; generated local views and ignored diagnostics are not automatically staged",
+          "head": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+          "uncommitted_before_close": [
+            "?? .workflow-system/records/attachments/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+            "?? .workflow-system/records/events/key-2e8e1c6dea2f1134b29db0bf4f14e886c8dcb397a8c38fce9938d2d63ba5b98b.json",
+            "?? .workflow-system/records/events/key-7d03c850cd1718899027ca1d6be587309d8a88621254746cdc7d1d3e7a2e314f.json",
+            "?? .workflow-system/records/events/key-8101e2aa81fec8d79cbad8b4fe23212e9f8101191e5bbebb05f7f380acfe0c4f.json",
+            "?? .workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json",
+            "?? .workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+            "?? .workflow-system/records/evidence-objects/1b495441d9200a8a2832c1ce7d30a06f0805a35bbd9895d60c3fcc0d270068b3.blob",
+            "?? .workflow-system/records/evidence-objects/4e2509c7a63cdd85d338b62c2d263d7ae475fc21f42893c025d1a710ab78c098.blob",
+            "?? .workflow-system/records/evidence-objects/69377e5b950acbc0fc7a49e65d0314bc7e6d4b5882319216e91febc1ea629ed4.blob",
+            "?? .workflow-system/records/evidence-objects/6e9b4f83975b6c95b35a179c02e7056ed915e7f041082d776da6e9026d272c56.blob",
+            "?? .workflow-system/records/evidence-objects/7be035db36760143ac7f9e15da788b1df3c7bb6f9eb4e4e98bfbd06da57cf9a6.blob",
+            "?? .workflow-system/records/evidence-objects/9f40cf000ca2b30f0cb451b5facf73db0a0726cdff813a33ed2d63ec01f1a802.blob",
+            "?? .workflow-system/records/evidence-objects/a7d9ce0b638c3c9f6ca27f2c8b391f36872d39a582997b6c570441b01e1598eb.blob",
+            "?? .workflow-system/records/evidence-objects/b237025a566d0399d8dfe45cbc41143274633c03f30a65a3560f2e9e062fbc10.blob",
+            "?? .workflow-system/records/evidence-objects/b5b5f94605d85387ba7ea31f35e00b04ffa893d6d9fdae3239d8a2f75569c9a8.blob",
+            "?? .workflow-system/records/evidence-objects/f05e96e086d5ce0683a66ed5adcc759041bdb8fd843cfe31407500a9eb08035b.blob",
+            "?? .workflow-system/records/legacy/display-42a37d9033d332693dbaddf14b64ce1573041f4d7c57f37ee93045de8545cbaa.md",
+            "?? .workflow-system/records/legacy/display-49dc1e390e822776d29dd91924c6d7028e04210151d951510ea459e68d9b2f59.md",
+            "?? .workflow-system/records/legacy/display-681a0e7daf7d15d1d6a73e2f6c301d7d986a563f1188e29ecbb30248969e0927.md",
+            "?? .workflow-system/records/legacy/display-9e5883702b94d256bdf36d7502a9d9d5d9d4dde53b19548d6ab0816f251eb4ad.md",
+            "?? .workflow-system/records/legacy/display-c441da9909e28bd7cc15bb7b0e7b8481d0f52cb0c00834b58e44601030526874.md",
+            "?? .workflow-system/records/legacy/display-capture-053be764-120e-42be-950d-ca6ac6c155eb.md",
+            "?? .workflow-system/records/legacy/display-capture-16bd212b-5365-4aa0-9935-a6f9bbeff307.md",
+            "?? .workflow-system/records/legacy/display-capture-301d44e9-bf8c-4360-9c17-453518ff4dc3.md",
+            "?? .workflow-system/records/legacy/display-capture-8b7672dd-4e4b-48e9-8cde-a20c838d7ded.md",
+            "?? .workflow-system/records/legacy/display-capture-b6602871-c495-4852-b80f-89d4a426a2c3.md"
+          ],
+          "tracked_business_diff": "none",
+          "scope_notice": "No task git association or Git writes performed",
+          "index_diff": "none"
+        },
+        "decision": {
+          "agent_interpretation": "Close TASK-005 lifecycle with all S1-S4 finished dispositions and disclosed validation limits/failures retained. Not a full product PASS, release readiness certification, Git checkpoint, environment stop, rollback or deletion.",
+          "consequences": "Remove TASK-005 from active focus while preserving original executions, self-reviews, failures and uncommitted records. Further validation needs an explicit follow-up; closure does not run skipped checks.",
+          "requested_action": "close-task"
+        },
+        "environment": {
+          "disposition": "No stop/reset/rollback requested or performed",
+          "last_observed": "3010 validation service retained with isolated S2 persistent root and range enabled; physical App restored to A with empty composer; this closure does not re-probe or alter the environment"
+        },
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_dispositions": {
+          "S2": ".workflow-system/records/events/key-76d0264cd3c153c69ccf37b71658c5e0f28d8c81da020c1d329365eb0b69062d.json",
+          "S4": ".workflow-system/records/events/key-8101e2aa81fec8d79cbad8b4fe23212e9f8101191e5bbebb05f7f380acfe0c4f.json",
+          "S1": ".workflow-system/records/events/key-63a63c210321f66aa2f1390e75dbd2007f65ff380b8f55f25f53178d95578cd8.json",
+          "S3": ".workflow-system/records/events/key-78c3ce971c7d838b76e0eaf93856d1c5e3bff623acccd4c504d1f1eb48deba2c.json"
+        },
+        "remaining_work": [
+          "Natural append/new turn and physical detail-ref update/invalidity remain unverified",
+          "Android large-detail dialog/copy and physical older durable ACK/overlap remain unverified",
+          "Healthy IPC exclusive realtime authority/healthy A-B-A and actual in-flight stale-response isolation remain unverified",
+          "Full ViewModel coroutine timeout/retry/cache-update edge integration and historical S1 activation-retry race coverage are not asserted by the executed probes",
+          "Existing reconciliation fingerprint_bytes budget exceeded (67108864) remains unresolved; no resource bounds relaxed",
+          "CR draft/none/TBD strict-format limitation remains historical and unresolved; no fabricated REQ or commit ref",
+          "Two historical management association issues remain unresolved",
+          "Uncommitted persistent S4 execution/review/finish evidence and this closure fact remain local; a Git checkpoint is a separate user-requested operation",
+          "Raw wire and full exported cache/backup artifacts remain private ignored local evidence, not included in persistent attachments or Git",
+          "Independent review, production release/deployment and additional full E2E are not certified by this closure"
+        ],
+        "decision_source": "Current human close-task invocation following the S4 finish result and explicit recommendation to close with gaps retained",
+        "review_refs": [
+          ".workflow-system/records/events/key-3ea981a14fd0ffadc3b05a0aaf16ccbe29921a72b6cf8ea8305420556cc1ab90.json",
+          ".workflow-system/records/events/key-db3e4f2097642ba3587359efb1ea3b4ee95ea733b2d5345ed8ef79ff72e09253.json",
+          ".workflow-system/records/events/key-e0991607a22e95500150b00d105037edf65c6a4b8cdcb483029c647a0de11942.json",
+          ".workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json"
+        ],
+        "evidence": {
+          "latest_step_disposition_ref": ".workflow-system/records/events/key-8101e2aa81fec8d79cbad8b4fe23212e9f8101191e5bbebb05f7f380acfe0c4f.json",
+          "latest_review_ref": ".workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json",
+          "coverage": "partial",
+          "S2_regressions": "Historical executed 139 Node / 279 Android results, not rerun at closure",
+          "S4": "98 unique item keys, 39 detailRefs; seven protocol pages and six boundary overlaps; 1900-byte physical detail matching SHA256; 69427-byte detail protocol chunks 49152+20275 matching SHA256; no Android older durable ACK or healthy IPC claim",
+          "latest_execution_ref": ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+          "review_provenance": "self-review, not independent review",
+          "S3_regressions": "Historical executed 162 Node / 286 Android results, not rerun at closure"
+        },
+        "source_revision": "241becbc2e72f3a1c90970e47f7e95ccf0021dba"
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,53 @@
+# TASK-005 / S4 扩展验证（2026-10-02）
+
+结果：partial / validation-with-gaps。仅执行验证和保存管理事实，未修改产品源代码、vNext 软件、默认开关、数据库 schema；未清缓存、手工 SQL、发送 Codex 消息、创建 turn、提交或推送。不是 formal review，也不是 S4 finish。
+
+源版本：241becbc2e72f3a1c90970e47f7e95ccf0021dba。复用已安装 S3 APK，未重建/重装；原 APK SHA-256 为 a3d60ef2e4506950ca44f7b5ec1eaf777f32dbccda13532416e1c5eb9da9505f。
+
+## 环境和范围
+
+- 使用项目 execute-step、adb-real-device-debug、local-dev-server-control 技能。
+- 设备 MQS7N19402011743，Android 10，包 com.termlink.app。USB reverse tcp:3010 已存在。交互前 KEYCODE_WAKEUP，未修改屏幕超时设置。
+- A：01a0ee04-a775-72b3-bd07-04aac804a3b4，原 S2 真实会话“提交 vNext 相关变更”；B：01a0ee4c-9088-7d83-a15d-43f724f03a1a，既有“梳理知识内核任务流程”。沿用 profile task005-s2-local 与 session 00dd05bf-6d54-4735-a623-3d4c93c184a3，通过已有 CodexActivity selection 入口切换；没有创建外部会话。
+- 3010 服务最初指向空默认产品库，不能据此声称有真实 DTO。先导出 Android cache，然后以已有隔离 S2 产品库重启验证服务：TERMLINK_PERSISTENT_ROOT=logs/task005-s2-repair-runtime-2，TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH=native/codex-rollout-collector/target/debug/codex-rollout-collector.exe，TERMLINK_HISTORY_RANGE_SEGMENTS=1。只改启动进程环境，没有写 .env。
+- 服务技能必须传当前仓库的 -ProjectRoot；安装版脚本默认推导到 .agents，最初只读 status 的结果不足以识别当前开发链，已改用显式根目录。只停止其识别的当前仓库 dev 链。
+- 第二次 Node 重启后服务 PID 76820，2026-10-02T10:35:46Z 启动，3010 health 正常；验证结束保留此服务。App 重开后 PID 11761，最终停留 A，输入框为空。
+
+## 真机直接观察
+
+1. 原 A 可见只读详情入口“查看历史详情 1 · 1900 字节”，弹窗“历史详情（只读）”、tool_detail、1900 字节及复制按钮。
+2. 具体 item：tool:exec-05292237-6358-4f2e-b60a-b80fdbcde06b；refId c6dcda9c6ffca9f681d196b19ecc4848991d164f28ca71fb6c85ed64585e7562；contentHash e686d23b01c6c8517f1510118b0cdaee11482341661e15d5ffccc242cc3644ce，application/json，truncated=false。
+3. XML 提取的完整弹窗正文 UTF-8 长度 1900，SHA-256 与上述 ref 相同。含真实 git rev-parse HEAD / git show / git status 命令、E:/coding/LawAgent cwd 和 b0830bb 提交输出。
+4. 点击“复制详情”，粘贴到原本为空的 composer（没有发送）；EditText 的 1900 字节内容哈希也相同。通过真实全选/删除清掉仅本次粘贴草稿，empty-draft.xml 与 final.xml 均确认输入为空。最初批量 DEL 未完整清除，随后改用观察到的全选操作；该交互失败未当作成功。
+5. am force-stop com.termlink.app 后，用同一 selection intent 重开 A；已有正文仍可见，再次打开 1900 字节详情，长度、哈希一致。没有清数据或重新安装。
+6. A→B→A：B 显示真实不同正文（知识内核 SQL/迁移命令），A 恢复原 b0830bb / vNext 正文；gateway set-active-conversation 日志匹配实际 IDs。不能以固定 PATH header（仍显示 TermLink）证明 conversation 身份。
+7. Node 服务重启产生 WebSocket failure / unexpected end of stream，App 随后显示已连接及 A 正文。记录连接中断，不把重启过程当作无错误。
+8. 真机滚动检查了若干详情入口，但未在本轮打开 69427 字节弹窗；协议多块验证不能替代 Android 完整组装/复制该大详情的实测。
+
+## 真实鉴权协议探针（非 Android ACK 证据）
+
+命令：node logs/task005-s4-probe.cjs；重启后 node logs/task005-s4-probe.cjs logs/task005-s4-after-node-restart。只经既有鉴权 WebSocket 发送 selection / sync / manifest / ACK / older / detail 读取，没有直接请求 Rust。空 manifest 是新逻辑客户端的合法协商，不是伪造 App DTO 或清空手机 cache。原始响应保留在本地 *-wire.jsonl；不将可能含其他配置/全文的原始流或整机 cache 作为持久附件。
+
+- 初次探针失败：第五页 payloadChunkCount=2，探针收到 delta 后未等待分片就提前 ACK，服务 fail-closed ack_mismatch。原 task005-s4-probe-result.json、task005-s4-wire.jsonl 保留不覆盖。经服务 handleAck/pumpPayloadChunks 实现核对，修正仅临时探针，不是产品代码修复。
+- 修正后先收齐各 payload chunk 并验证字节数/哈希再 ACK。共 7 页：22、32、26、5、6、6、7 个 upsert；6 个 older 页各重叠 1 个 item，合并为 98 个唯一 item、39 个 detailRefs。各页 state=partial、coverageComplete=false，最终 hasMoreBefore=false，没有把“到达最早”升级为 complete。
+- 1900 字节详情：一块，哈希与真机上述 ref 一致。
+- 69427 字节详情：refId 17d733d6771cf9a236fb98184fa2e1b58e715629d07479ab3278ab8eff5a684b；两块 49152 + 20275；最终 SHA-256 0c5a7e563c522a3784bce3c8ecce4288b3017b47f760fbf95cfffe646345229c，与 ref 相同。
+- selectionGeneration=50 请求对当前 51 返回 failed / stale_selection，不含正文。没有伪造/注入在途响应，因此不声称真实晚到包 UI 隔离已测。
+- 第二次 Node 重启后重复这一只读协议验证，98 个唯一 item、39 条引用、两条详情 hash 与 stale rejection 均一致；不是重新执行产品采集发布或 S2 首屏验收。
+
+## 缓存保留核对
+
+run-as tar 导出前后 Android databases 到 ignored logs，副本只读查询。目标 A 的 item_key、content_hash、payload_json、detail_refs_json、detail_refs_truncated、availability 按键逐项比较：before=98、after=98、distinct=98、missing=[]、changed=[]、detailRefs=39。缓存 complete=0、provider_mode=product_db、coverage_state=partial、has_more_before=0。
+
+前导出主 DB SHA-256：9be9bef8264d91264e5652adf0deeee3f9e313d3c7e88371737f968abaeee0af；后导出主 DB SHA-256：7a1c90681a35db73e33111aed92ab60fba6da29e19c2629417de24e9ed532fb1。整体 DB 哈希不同并不代表目标 item 变更；包含正常 metadata/其他会话更新。数据库与 tar 不作为持久附件。
+
+## 失败与覆盖限制
+
+- 启动时已有 01a0e60a-a819-7ed3-99d2-f64d77a0eb8c reconciliation intent 失败：rollout discovery fingerprint_bytes budget exceeded (limit 67108864)，phase=reconcile，第二次重启仍出现。未放宽预算、修改 source/Rust 或增加采集链。
+- IPC status online，但未观察到目标 healthy surface。A/B 缓存正文隔离不构成 healthy IPC authority / running / operation / turn 实时验收。
+- 原 A 为既有历史，没有本轮自然追加新 turn；append、detail-ref 变化/失效、真实在途详情响应遇 A→B 的隔离未验证。未发送测试 turn、修改 rollout/DB 或注入 DTO 制造这些条件。
+- Android 已有 98 个 item，未清 cache 来制造物理 older 请求。older / overlap / per-page ACK 仅有逻辑客户端实测，不能宣称 Android 本轮从空 cache 回填或 durable ACK 已测。
+- S3 的 162 Node / 286 Android JVM 回归仅为既有版本证据，本轮没有重跑或重新标为 fresh PASS。
+- 两条旧管理关联问题保留；本次执行不修复/覆写旧历史。
+
+建议 next_route: review-change，对本次实际执行和 retained gaps 审查；S4 未 finish，任务未关闭。

@@ -1,0 +1,127 @@
+{
+  "event_ref": ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+  "captured_at": "2026-10-02T10:43:17.218Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1b495441d9200a8a2832c1ce7d30a06f0805a35bbd9895d60c3fcc0d270068b3.blob",
+      "sha256": "1b495441d9200a8a2832c1ce7d30a06f0805a35bbd9895d60c3fcc0d270068b3",
+      "size": 7532,
+      "source_path": "logs/task005-s4-validation.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b5b5f94605d85387ba7ea31f35e00b04ffa893d6d9fdae3239d8a2f75569c9a8.blob",
+      "sha256": "b5b5f94605d85387ba7ea31f35e00b04ffa893d6d9fdae3239d8a2f75569c9a8",
+      "size": 2582,
+      "source_path": "logs/task005-s4-probe-result.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b237025a566d0399d8dfe45cbc41143274633c03f30a65a3560f2e9e062fbc10.blob",
+      "sha256": "b237025a566d0399d8dfe45cbc41143274633c03f30a65a3560f2e9e062fbc10",
+      "size": 4190,
+      "source_path": "logs/task005-s4-probe-corrected-result.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/69377e5b950acbc0fc7a49e65d0314bc7e6d4b5882319216e91febc1ea629ed4.blob",
+      "sha256": "69377e5b950acbc0fc7a49e65d0314bc7e6d4b5882319216e91febc1ea629ed4",
+      "size": 4190,
+      "source_path": "logs/task005-s4-after-node-restart-result.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f05e96e086d5ce0683a66ed5adcc759041bdb8fd843cfe31407500a9eb08035b.blob",
+      "sha256": "f05e96e086d5ce0683a66ed5adcc759041bdb8fd843cfe31407500a9eb08035b",
+      "size": 8218,
+      "source_path": "logs/task005-s4-detail-1900.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/4e2509c7a63cdd85d338b62c2d263d7ae475fc21f42893c025d1a710ab78c098.blob",
+      "sha256": "4e2509c7a63cdd85d338b62c2d263d7ae475fc21f42893c025d1a710ab78c098",
+      "size": 25986,
+      "source_path": "logs/task005-s4-paste.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9f40cf000ca2b30f0cb451b5facf73db0a0726cdff813a33ed2d63ec01f1a802.blob",
+      "sha256": "9f40cf000ca2b30f0cb451b5facf73db0a0726cdff813a33ed2d63ec01f1a802",
+      "size": 26959,
+      "source_path": "logs/task005-s4-empty-draft.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f05e96e086d5ce0683a66ed5adcc759041bdb8fd843cfe31407500a9eb08035b.blob",
+      "sha256": "f05e96e086d5ce0683a66ed5adcc759041bdb8fd843cfe31407500a9eb08035b",
+      "size": 8218,
+      "source_path": "logs/task005-s4-reopen-detail.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/6e9b4f83975b6c95b35a179c02e7056ed915e7f041082d776da6e9026d272c56.blob",
+      "sha256": "6e9b4f83975b6c95b35a179c02e7056ed915e7f041082d776da6e9026d272c56",
+      "size": 21372,
+      "source_path": "logs/task005-s4-b.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a7d9ce0b638c3c9f6ca27f2c8b391f36872d39a582997b6c570441b01e1598eb.blob",
+      "sha256": "a7d9ce0b638c3c9f6ca27f2c8b391f36872d39a582997b6c570441b01e1598eb",
+      "size": 30880,
+      "source_path": "logs/task005-s4-aba-restored.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/7be035db36760143ac7f9e15da788b1df3c7bb6f9eb4e4e98bfbd06da57cf9a6.blob",
+      "sha256": "7be035db36760143ac7f9e15da788b1df3c7bb6f9eb4e4e98bfbd06da57cf9a6",
+      "size": 28260,
+      "source_path": "logs/task005-s4-final.xml",
+      "issues": []
+    }
+  ]
+}

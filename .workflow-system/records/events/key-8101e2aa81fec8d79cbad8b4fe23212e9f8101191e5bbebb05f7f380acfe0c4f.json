@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T10:59:56.010Z",
+  "payload_sha256": "0bf80342a3ce2a8cec7ef3c38487cf9ebf93d593a3ee732f0bc4234ccfa61dd3",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s4-finish-disposition-20261002",
+    "request": {
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) finish",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "result": "finished-with-validation-gaps",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "state": "finished",
+      "decision_source": "Latest user execute-step finish message, after review disclosed partial coverage and retained failures",
+      "remaining_work": [
+        "Natural append/new turn in original A remains unverified",
+        "Physical detail-ref-only update and invalid/changed ref or cursor remain unverified",
+        "Android 69427-byte multi-chunk dialog/clipboard integration remains unverified",
+        "Android physical older durable ACK and overlap integration remain unverified",
+        "Healthy IPC authority for running/operation/current turn and healthy A-B-A remain unverified",
+        "Actual in-flight detail response crossing A/B selection remains unverified",
+        "Existing reconciliation discovery fingerprint_bytes budget error (67108864) remains retained, not resolved",
+        "Initial probe early-ACK failure and service restart transport errors remain in original evidence; corrected probe result does not erase failures",
+        "S3 Node/JVM regression results remain historical, not rerun for this disposition",
+        "Two historical management association issues remain unresolved",
+        "TASK-005 task closure requires a separate user request; record gaps rather than asserting full PASS"
+      ],
+      "action": "step",
+      "review_ref": ".workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json",
+      "source_revision": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+      "step_id": "S4",
+      "idempotency_key": "task005-s4-finish-disposition-20261002",
+      "summary": "S4 work disposition finished per explicit user finish request. Exact execution has applicable clean self-review with partial coverage; source HEAD and tracked business/index diff unchanged. No tests or business actions replayed. Full business acceptance is not certified, TASK-005 remains active, and no Git operation is authorized or performed.",
+      "execution_ref": ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+      "decision_ref": ".workflow-system/records/events/key-2e8e1c6dea2f1134b29db0bf4f14e886c8dcb397a8c38fce9938d2d63ba5b98b.json"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "step",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json"
+      ],
+      "data": {
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) finish",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "result": "finished-with-validation-gaps",
+        "state": "finished",
+        "decision_source": "Latest user execute-step finish message, after review disclosed partial coverage and retained failures",
+        "remaining_work": [
+          "Natural append/new turn in original A remains unverified",
+          "Physical detail-ref-only update and invalid/changed ref or cursor remain unverified",
+          "Android 69427-byte multi-chunk dialog/clipboard integration remains unverified",
+          "Android physical older durable ACK and overlap integration remain unverified",
+          "Healthy IPC authority for running/operation/current turn and healthy A-B-A remain unverified",
+          "Actual in-flight detail response crossing A/B selection remains unverified",
+          "Existing reconciliation discovery fingerprint_bytes budget error (67108864) remains retained, not resolved",
+          "Initial probe early-ACK failure and service restart transport errors remain in original evidence; corrected probe result does not erase failures",
+          "S3 Node/JVM regression results remain historical, not rerun for this disposition",
+          "Two historical management association issues remain unresolved",
+          "TASK-005 task closure requires a separate user request; record gaps rather than asserting full PASS"
+        ],
+        "review_ref": ".workflow-system/records/events/key-cd0250a94dcb1cb88754dfbf42f4efb1cadfab8c692c96b81e6af9a26c7aa0f1.json",
+        "source_revision": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+        "step_id": "S4",
+        "summary": "S4 work disposition finished per explicit user finish request. Exact execution has applicable clean self-review with partial coverage; source HEAD and tracked business/index diff unchanged. No tests or business actions replayed. Full business acceptance is not certified, TASK-005 remains active, and no Git operation is authorized or performed.",
+        "execution_ref": ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+        "decision_ref": ".workflow-system/records/events/key-2e8e1c6dea2f1134b29db0bf4f14e886c8dcb397a8c38fce9938d2d63ba5b98b.json"
+      }
+    }
+  },
+  "issues": []
+}
