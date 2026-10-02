@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T10:04:11.743Z",
+  "payload_sha256": "2a7cd164d9cf78e595b585e276ac270de9ddb2d0730c2ee1d0c1efcd94dd343c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s3-change-selfreview-clean-20261002",
+    "request": {
+      "findings": [],
+      "idempotency_key": "task005-s3-change-selfreview-clean-20261002",
+      "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822 + exact S3 worktree source_files",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "verdict": "clean",
+      "coverage": {
+        "preserved": [
+          "Initial compilation failure and correction history",
+          "CR none/TBD strict-format limitation",
+          "Two pre-existing unresolved management associations"
+        ],
+        "unverified": [
+          "Real product detail download/copy and ref invalidation on physical device",
+          "Actual ViewModel coroutine-level detail open/chunk/timeout/retry/cache-update integration; new tests cover assembler, response matching, decode and identity helpers",
+          "In-flight A->B->A response injection and healthy IPC in both physical conversations",
+          "S4 older/append/reopen/restart extended longitudinal E2E"
+        ],
+        "conclusion": "No concrete new correctness, security, data or compatibility defect found within reviewed S3 implementation. Clean self-review is not independent review, full product PASS or task/step closure; existing physical coverage gaps remain for explicit disposition and planned S4 validation.",
+        "version_check": "All seven current source SHA256 values equal the execution source_files; execution attachment CAS digests verified without altering blobs.",
+        "source_files": [
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+            "sha256": "2a8439a85cdea3425afded287a095a4ac7c1f1621d475bbece1b2dd0e46b8f00"
+          },
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+            "sha256": "677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320"
+          },
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+            "sha256": "6778d2c34b06af92e5b593a373e72cde3d7143c9c9699e29558ad0db16e93714"
+          },
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+            "sha256": "32766b8542e13d6850d4321218d0b27db038ca50fb97791ff2568c0aadc05469"
+          },
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+            "sha256": "d492655da7973dbaedf10e3d507c0dd5cddada9679485f9ee6c1b6c6bc733d49"
+          },
+          {
+            "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+            "sha256": "4f2b0f4fa7583137e63589a183a6743ef3b5639690febe13a3e8b4d68a0fa5ef"
+          },
+          {
+            "path": "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt",
+            "sha256": "1ee75d417ab2a09ee7bdef2ca201c168500d289b38f89a8f779a5b213bac0699"
+          }
+        ],
+        "evidence": {
+          "node": {
+            "tests": 162,
+            "status": "passed",
+            "ref": ".workflow-system/records/events/key-145ebaf2ca430f26139989a3f37610e27eb2240906013a17da85ba4181032989.json",
+            "qualification": "Prior observed tool output and persisted summary; full stdout is not separately attached."
+          },
+          "android": {
+            "failures": 0,
+            "tests": 286,
+            "skipped": 0,
+            "status": "passed",
+            "ref": ".workflow-system/records/events/key-dfc91e11d2b5aaa3bf69fe95332fcb601380712c95ebe8d53fbe4891c600bba8.json",
+            "qualification": "JDK21 executed tests and successful APK build; eight XML reports and CAS evidence checked. Last edit after run only moved helper before existing KDoc, with no semantic change.",
+            "errors": 0
+          },
+          "diff_check": "passed (line-ending warnings only)",
+          "device": {
+            "observed": "APK install and A body restoration after B loading. Earlier B recovery failed. No observed cross-conversation contamination, but not a full healthy-IPC or in-flight-response proof.",
+            "status": "partial",
+            "ref": ".workflow-system/records/events/key-978c4fdd8bb047fd1492b5bdb6fba33fe5d16169981594dcffc39c5ac612a988.json"
+          }
+        },
+        "inspected": [
+          "S3 seven-file implementation/test diff including untracked detail assembler",
+          "UI stable item/ref association and verified-only read/copy dialog",
+          "ViewModel selection/request/ref identity, cache invalidation, bounded sequential reads, timeout/retry and disconnect handling",
+          "UTF-8 offsets, cursor progress, immutable metadata, final SHA256 validation and memory limits",
+          "existing Android cache hydrate/delta and IPC operation identity paths",
+          "authenticated Gateway detail response and Node canonical product provider",
+          "adopted S3/S4 plan and frozen IPC/product-history contracts"
+        ],
+        "status": "partial"
+      },
+      "execution_ref": ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json",
+      "action": "review",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S3",
+      "stage": "change",
+      "provenance": "self-review"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-978c4fdd8bb047fd1492b5bdb6fba33fe5d16169981594dcffc39c5ac612a988.json"
+      ],
+      "data": {
+        "findings": [],
+        "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822 + exact S3 worktree source_files",
+        "verdict": "clean",
+        "coverage": {
+          "preserved": [
+            "Initial compilation failure and correction history",
+            "CR none/TBD strict-format limitation",
+            "Two pre-existing unresolved management associations"
+          ],
+          "unverified": [
+            "Real product detail download/copy and ref invalidation on physical device",
+            "Actual ViewModel coroutine-level detail open/chunk/timeout/retry/cache-update integration; new tests cover assembler, response matching, decode and identity helpers",
+            "In-flight A->B->A response injection and healthy IPC in both physical conversations",
+            "S4 older/append/reopen/restart extended longitudinal E2E"
+          ],
+          "conclusion": "No concrete new correctness, security, data or compatibility defect found within reviewed S3 implementation. Clean self-review is not independent review, full product PASS or task/step closure; existing physical coverage gaps remain for explicit disposition and planned S4 validation.",
+          "version_check": "All seven current source SHA256 values equal the execution source_files; execution attachment CAS digests verified without altering blobs.",
+          "source_files": [
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+              "sha256": "2a8439a85cdea3425afded287a095a4ac7c1f1621d475bbece1b2dd0e46b8f00"
+            },
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+              "sha256": "677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320"
+            },
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+              "sha256": "6778d2c34b06af92e5b593a373e72cde3d7143c9c9699e29558ad0db16e93714"
+            },
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+              "sha256": "32766b8542e13d6850d4321218d0b27db038ca50fb97791ff2568c0aadc05469"
+            },
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+              "sha256": "d492655da7973dbaedf10e3d507c0dd5cddada9679485f9ee6c1b6c6bc733d49"
+            },
+            {
+              "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+              "sha256": "4f2b0f4fa7583137e63589a183a6743ef3b5639690febe13a3e8b4d68a0fa5ef"
+            },
+            {
+              "path": "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt",
+              "sha256": "1ee75d417ab2a09ee7bdef2ca201c168500d289b38f89a8f779a5b213bac0699"
+            }
+          ],
+          "evidence": {
+            "node": {
+              "tests": 162,
+              "status": "passed",
+              "ref": ".workflow-system/records/events/key-145ebaf2ca430f26139989a3f37610e27eb2240906013a17da85ba4181032989.json",
+              "qualification": "Prior observed tool output and persisted summary; full stdout is not separately attached."
+            },
+            "android": {
+              "failures": 0,
+              "tests": 286,
+              "skipped": 0,
+              "status": "passed",
+              "ref": ".workflow-system/records/events/key-dfc91e11d2b5aaa3bf69fe95332fcb601380712c95ebe8d53fbe4891c600bba8.json",
+              "qualification": "JDK21 executed tests and successful APK build; eight XML reports and CAS evidence checked. Last edit after run only moved helper before existing KDoc, with no semantic change.",
+              "errors": 0
+            },
+            "diff_check": "passed (line-ending warnings only)",
+            "device": {
+              "observed": "APK install and A body restoration after B loading. Earlier B recovery failed. No observed cross-conversation contamination, but not a full healthy-IPC or in-flight-response proof.",
+              "status": "partial",
+              "ref": ".workflow-system/records/events/key-978c4fdd8bb047fd1492b5bdb6fba33fe5d16169981594dcffc39c5ac612a988.json"
+            }
+          },
+          "inspected": [
+            "S3 seven-file implementation/test diff including untracked detail assembler",
+            "UI stable item/ref association and verified-only read/copy dialog",
+            "ViewModel selection/request/ref identity, cache invalidation, bounded sequential reads, timeout/retry and disconnect handling",
+            "UTF-8 offsets, cursor progress, immutable metadata, final SHA256 validation and memory limits",
+            "existing Android cache hydrate/delta and IPC operation identity paths",
+            "authenticated Gateway detail response and Node canonical product provider",
+            "adopted S3/S4 plan and frozen IPC/product-history contracts"
+          ],
+          "status": "partial"
+        },
+        "execution_ref": ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S3",
+        "stage": "change",
+        "provenance": "self-review"
+      }
+    }
+  },
+  "issues": []
+}

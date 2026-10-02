@@ -9,6 +9,110 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CodexHistoryWireTest {
+    private fun detailRef(body: String) = CodexHistoryDetailRef("tool_detail", "a".repeat(64),
+        java.security.MessageDigest.getInstance("SHA-256").digest(body.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }, body.toByteArray(Charsets.UTF_8).size.toLong(),
+        "application/json", false)
+
+    private fun detailPage(ref: CodexHistoryDetailRef, content: String, offset: Long = 0,
+                           cursor: String? = null) = JSONObject()
+        .put("state", "ok").put("refId", ref.refId).put("contentHash", ref.contentHash)
+        .put("byteSize", ref.byteSize).put("byteOffset", offset).put("content", content)
+        .put("nextCursor", cursor ?: JSONObject.NULL).put("selectionGeneration", 7)
+
+    @Test
+    fun detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent() {
+        val chunks = listOf("  {\"output\":\"界", "🙂\\nline\"}  ")
+        val body = chunks.joinToString("")
+        val ref = detailRef(body)
+        val assembly = CodexHistoryDetailAssembly(ref)
+        assembly.accept(detailPage(ref, chunks[0], cursor = "opaque-cursor"))
+        assertNull(assembly.content)
+        val offset = chunks[0].toByteArray(Charsets.UTF_8).size
+        assertEquals(offset, assembly.receivedBytes)
+        assembly.accept(detailPage(ref, chunks[1], offset.toLong()))
+        assertEquals(body, assembly.content)
+        assertEquals(ref.byteSize.toInt(), assembly.receivedBytes)
+    }
+
+    @Test
+    fun detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate() {
+        val ref = detailRef("界🙂")
+        val invalid = listOf(
+            detailPage(ref, "界🙂", 1),
+            detailPage(ref, "界🙂").put("byteSize", ref.byteSize + 1),
+            detailPage(ref, "界🙂").put("contentHash", "b".repeat(64)),
+            detailPage(ref, "界🙂", cursor = "unnecessary"),
+            detailPage(ref, "界"),
+            detailPage(ref, "界").put("byteOffset", "0"),
+            detailPage(ref, "界").put("byteOffset", 0.5),
+            detailPage(ref, "\uD83D"),
+            detailPage(ref, "界🙂").apply { remove("nextCursor") }
+        )
+        invalid.forEach { page ->
+            val assembly = CodexHistoryDetailAssembly(ref)
+            assertTrue(page.toString(), runCatching { assembly.accept(page) }.isFailure)
+            assertNull(assembly.content)
+        }
+        val sameSizeTamper = CodexHistoryDetailAssembly(detailRef("one"))
+        assertTrue(runCatching { sameSizeTamper.accept(detailPage(detailRef("one"), "two")) }.isFailure)
+        assertNull(sameSizeTamper.content)
+    }
+
+    @Test
+    fun detailRejectsCursorLoopAndServerSelectionChange() {
+        val ref = detailRef("abc")
+        val assembly = CodexHistoryDetailAssembly(ref)
+        assembly.accept(detailPage(ref, "a", cursor = "cursor"))
+        assertTrue(runCatching { assembly.accept(detailPage(ref, "b", 1, "cursor")) }.isFailure)
+        val changed = CodexHistoryDetailAssembly(ref)
+        changed.accept(detailPage(ref, "a", cursor = "cursor"))
+        assertTrue(runCatching { changed.accept(detailPage(ref, "bc", 1).put("selectionGeneration", 8)) }.isFailure)
+        assertNull(changed.content)
+    }
+
+    @Test
+    fun detailResponseIsFencedAcrossAtoBtoAAndRequestRetry() {
+        val response = JSONObject().put("conversationId", "A").put("requestId", "first")
+            .put("clientSelectionGeneration", 1)
+        assertTrue(CodexHistoryDetailAssembly.matchesResponse(response, "A", "first", 1))
+        assertFalse(CodexHistoryDetailAssembly.matchesResponse(response, "B", "first", 2))
+        assertFalse(CodexHistoryDetailAssembly.matchesResponse(response, "A", "first", 3))
+        assertFalse(CodexHistoryDetailAssembly.matchesResponse(response, "A", "retry", 1))
+        response.remove("clientSelectionGeneration")
+        assertFalse(CodexHistoryDetailAssembly.matchesResponse(response, "A", "first", 1))
+    }
+
+    @Test
+    fun detailRequestIsReadOnlyScopedAndBounded() {
+        val request = CodexHistoryDetailAssembly.request("A", "request", 3, detailRef("body"), "cursor")
+        assertEquals("conversation_history_detail_request", request.getString("type"))
+        assertEquals(3, request.getLong("selectionGeneration"))
+        assertEquals(48 * 1024, request.getInt("maxBytes"))
+        assertEquals("cursor", request.getString("cursor"))
+        assertFalse(request.has("path"))
+        assertFalse(request.has("sourceEpoch"))
+        assertTrue(runCatching {
+            CodexHistoryDetailAssembly(detailRef("body").copy(byteSize = 8 * 1024 * 1024 + 1L))
+        }.isFailure)
+        assertTrue(runCatching {
+            CodexHistoryDetailAssembly(detailRef("body").copy(availability = "unsupported"))
+        }.isFailure)
+    }
+
+    @Test
+    fun nodeGeneratedDetailReferenceVerifiesActualBody() {
+        val fixture = JSONObject(javaClass.classLoader!!.getResourceAsStream("codex_product_db_detail_delta.json")!!
+            .bufferedReader().use { it.readText() })
+        val refs = fixture.getJSONObject("page").getJSONArray("upserts").getJSONObject(0).getJSONArray("detailRefs")
+        val ref = CodexHistoryDetailRef.parseList(refs.toString()).single()
+        val assembly = CodexHistoryDetailAssembly(ref)
+        assembly.accept(detailPage(ref, "{\"output\":\"details\"}"))
+        assertEquals("{\"output\":\"details\"}", assembly.content)
+        refs.getJSONObject(0).put("truncated", "false")
+        assertTrue(CodexHistoryDetailRef.parseList(refs.toString()).isEmpty())
+    }
+
     @Test
     fun oversizedEnvelopeIsRejectedBeforeJsonObjectConstruction() {
         val text = JSONObject()

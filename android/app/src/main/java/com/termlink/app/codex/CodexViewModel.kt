@@ -2595,6 +2595,11 @@ private fun permissionConfigForSandboxOverride(sandboxOverride: String?): CodexE
 
 private const val COMMAND_BATCH_ID_PREFIX_FOR_UI = "command-batch:"
 
+internal fun historyDetailItemsForUiMessage(message: ChatMessage, cached: List<ChatMessage>): List<ChatMessage> {
+    val aliases = historyItemAliasesForUiMessage(message)
+    return cached.filter { it.id in aliases && (it.historyDetailRefs.isNotEmpty() || it.historyDetailRefsTruncated) }
+}
+
 /**
  * Return the stable cache ids represented by a UI/live message.  IPC
  * operation entries use a presentation key such as
@@ -2953,7 +2958,7 @@ internal fun extractHistoryPayloadTextForUi(payload: JSONObject): String {
     return (listOfNotNull(body) + facts(payload) + eventTexts).distinct().joinToString("\n")
 }
 
-private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
+internal fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
     return runCatching {
         val payload = JSONObject(item.payloadJson)
         val role = when (item.role?.lowercase() ?: payload.optString("role", "assistant").lowercase()) {
@@ -2969,7 +2974,9 @@ private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
             contentType = item.itemType,
             clientRequestId = item.clientRequestId,
             attachments = extractCachedMediaAttachments(payload),
-            sourceTurnId = item.turnId?.trim()?.takeIf(String::isNotEmpty)
+            sourceTurnId = item.turnId?.trim()?.takeIf(String::isNotEmpty),
+            historyDetailRefs = CodexHistoryDetailRef.parseList(item.detailRefsJson),
+            historyDetailRefsTruncated = item.detailRefsTruncated
         )
     }.getOrNull()
 }
@@ -3908,6 +3915,16 @@ class CodexViewModel(
     private val pendingTerminalReconcilePages = ConcurrentHashMap<String, CodexHistoryDeltaPage>()
     /** Client token carried by history envelopes to reject stale A→B→A work. */
     private var historySelectionGeneration: Long = 0L
+    private data class DetailRead(
+        val key: CodexHistorySelectionKey,
+        val itemKey: String,
+        val assembly: CodexHistoryDetailAssembly,
+        val deadlineElapsed: Long = SystemClock.elapsedRealtime() + 120_000L,
+        var requestId: String = ""
+    )
+    private var detailRead: DetailRead? = null
+    private var detailSelectionKey: CodexHistorySelectionKey? = null
+    private var detailTimeoutJob: Job? = null
     private var historyRecoveryInFlightConversationId: String? = null
     private var historyRecoveryInFlightSyncId: String? = null
     private var historyActivationRetryGeneration: Long = -1L
@@ -3975,6 +3992,105 @@ class CodexViewModel(
     init {
         observeConnectionState()
         observeWsEvents()
+        viewModelScope.launch {
+            uiState.collect { state ->
+                val detail = state.historyDetail ?: return@collect
+                val read = detailRead
+                if (detailSelectionKey?.let(::isCurrentHistorySelection) != true) {
+                    dismissHistoryDetail()
+                } else if (read != null && !hasCurrentDetailRef(read) && detail.error != "detail_ref_changed") {
+                    failHistoryDetail("detail_ref_changed")
+                }
+            }
+        }
+    }
+
+    fun dismissHistoryDetail() {
+        detailTimeoutJob?.cancel()
+        detailTimeoutJob = null
+        detailRead = null
+        detailSelectionKey = null
+        _uiState.update { it.copy(historyDetail = null) }
+    }
+
+    fun openHistoryDetail(itemKey: String, ref: CodexHistoryDetailRef) {
+        dismissHistoryDetail()
+        val conversationId = _uiState.value.activeConversationId ?: return
+        val key = currentHistorySelectionKey(conversationId, historySelectionGeneration) ?: return
+        if (_uiState.value.cachedCanonicalMessages.none { it.id == itemKey && ref in it.historyDetailRefs }) return
+        val assembly = runCatching { CodexHistoryDetailAssembly(ref) }
+        val read = assembly.getOrNull()?.let { DetailRead(key, itemKey, it) }
+        detailRead = read
+        detailSelectionKey = key
+        _uiState.update { it.copy(historyDetail = CodexHistoryDetailUiState(itemKey, ref,
+            loading = read != null, error = assembly.exceptionOrNull()?.message)) }
+        if (read == null) return
+        if (historyCapability?.productHistory?.isSupported() != true) {
+            failHistoryDetail("detail_unsupported")
+            return
+        }
+        sendHistoryDetailChunk(read)
+    }
+
+    private fun hasCurrentDetailRef(read: DetailRead): Boolean =
+        _uiState.value.cachedCanonicalMessages.any {
+            it.id == read.itemKey && read.assembly.ref in it.historyDetailRefs
+        }
+
+    private fun failHistoryDetail(code: String) {
+        detailTimeoutJob?.cancel()
+        detailTimeoutJob = null
+        _uiState.update { state -> state.copy(historyDetail = state.historyDetail?.copy(
+            loading = false, content = null, error = code)) }
+    }
+
+    private fun sendHistoryDetailChunk(read: DetailRead) {
+        if (!isCurrentHistorySelection(read.key) || !hasCurrentDetailRef(read)) {
+            failHistoryDetail("detail_ref_changed")
+            return
+        }
+        val remainingMillis = read.deadlineElapsed - SystemClock.elapsedRealtime()
+        if (remainingMillis <= 0L) {
+            failHistoryDetail("detail_timeout")
+            return
+        }
+        read.requestId = UUID.randomUUID().toString()
+        val sent = connectionManager.send(CodexHistoryDetailAssembly.request(
+            read.key.conversationId, read.requestId, read.key.generation,
+            read.assembly.ref, read.assembly.nextCursor).toString())
+        if (!sent) {
+            failHistoryDetail("detail_send_failed")
+            return
+        }
+        detailTimeoutJob?.cancel()
+        detailTimeoutJob = viewModelScope.launch {
+            delay(minOf(35_000L, remainingMillis))
+            if (detailRead === read) failHistoryDetail("detail_timeout")
+        }
+    }
+
+    private fun handleHistoryDetailResponse(json: JSONObject) {
+        val read = detailRead ?: return
+        if (!isCurrentHistorySelection(read.key) || _uiState.value.historyDetail?.loading != true ||
+            !CodexHistoryDetailAssembly.matchesResponse(json, read.key.conversationId,
+                read.requestId, read.key.generation)) return
+        if (!hasCurrentDetailRef(read)) {
+            failHistoryDetail("detail_ref_changed")
+            return
+        }
+        runCatching { read.assembly.accept(json) }.onFailure {
+            failHistoryDetail(it.message ?: "detail_invalid")
+        }.onSuccess {
+            _uiState.update { state -> state.copy(historyDetail = state.historyDetail?.copy(
+                loading = read.assembly.content == null,
+                receivedBytes = read.assembly.receivedBytes,
+                content = read.assembly.content)) }
+            if (read.assembly.content == null) sendHistoryDetailChunk(read)
+            else {
+                detailTimeoutJob?.cancel()
+                detailTimeoutJob = null
+            }
+        }
     }
 
     // ── Public actions ────────────────────────────────────────────────
@@ -4012,6 +4128,7 @@ class CodexViewModel(
         launchHydrateTargetThreadId = normalizeThreadId(params.threadId)
         launchHydrateInFlightThreadId = null
         val launchConversationId = normalizeThreadId(params.threadId)
+        dismissHistoryDetail()
         historySelectionGeneration += 1L
         historySyncInFlightConversationId = null
         historySyncInFlightSyncId = null
@@ -7110,6 +7227,7 @@ class CodexViewModel(
                             handleEnvelope(event.envelope)
                         }
                         is WsEvent.Closed -> {
+                            if (_uiState.value.historyDetail?.loading == true) failHistoryDetail("detail_disconnected")
                             resetHistoryRecoveryAfterTransportLoss("websocket-closed:${event.code}")
                             markPendingThreadResyncIfNeeded(_uiState.value)
                             val registrationSessionMismatch = event.code == 4403 && (
@@ -7138,6 +7256,7 @@ class CodexViewModel(
                         }
                         is WsEvent.Closing -> { /* handled by Closed */ }
                         is WsEvent.Failure -> {
+                            if (_uiState.value.historyDetail?.loading == true) failHistoryDetail("detail_disconnected")
                             resetHistoryRecoveryAfterTransportLoss("websocket-failure:${event.code}")
                             markPendingThreadResyncIfNeeded(_uiState.value)
                             val message = event.throwable.message ?: "WebSocket failure"
@@ -7363,6 +7482,7 @@ class CodexViewModel(
     }
 
     private fun advanceHistorySelectionGeneration(reason: String) {
+        dismissHistoryDetail()
         val interruptedConversationId = historySyncInFlightConversationId
         val interruptedEndpointId = currentProfile?.id
         val interruptedSelectionGeneration = historySelectionGeneration
@@ -9303,6 +9423,7 @@ class CodexViewModel(
     private fun handleEnvelope(envelope: CodexWsEnvelope) {
         val json = envelope.raw
         when (envelope.type) {
+            "conversation_history_detail_response" -> handleHistoryDetailResponse(json)
             "session_info" -> {
                 val info = SessionInfo.from(json)
                 var conversationToSubscribe: String? = null

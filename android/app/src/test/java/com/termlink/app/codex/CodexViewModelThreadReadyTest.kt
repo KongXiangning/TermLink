@@ -65,6 +65,26 @@ private class FakeAutomaticOlderPumpScheduler {
 
 class CodexViewModelThreadReadyTest {
     @Test
+    fun cachedDetailRefsRemainAvailableAfterDecodeWithoutReplacingLiveBody() {
+        val fixture = JSONObject(javaClass.classLoader!!.getResourceAsStream("codex_product_db_detail_delta.json")!!
+            .bufferedReader().use { it.readText() })
+        val wire = fixture.getJSONObject("page").getJSONArray("upserts").getJSONObject(0)
+        val cached = decodeCachedHistoryItem(CodexHistoryItem(
+            itemKey = wire.getString("itemKey"), turnId = "turn-1", position = 0,
+            itemType = "tool", role = "tool", clientRequestId = null,
+            payloadJson = wire.getString("payloadJson"), contentHash = wire.getString("contentHash"),
+            detailRefsJson = wire.getJSONArray("detailRefs").toString(), detailRefsTruncated = true))!!
+        val live = ChatMessage(id = "turn-1:operation:command:item-1", role = ChatMessage.Role.TOOL,
+            content = "healthy IPC body", operationTurnId = "turn-1", operationType = "command")
+        assertEquals(listOf(cached), historyDetailItemsForUiMessage(live, listOf(cached)))
+        assertEquals("healthy IPC body", live.content)
+        assertTrue(cached.historyDetailRefsTruncated)
+        assertEquals(1, cached.historyDetailRefs.size)
+        assertTrue(historyDetailItemsForUiMessage(live.copy(id = "different", operationType = null), listOf(cached)).isEmpty())
+        assertTrue(historyDetailItemsForUiMessage(live, emptyList()).isEmpty())
+    }
+
+    @Test
     fun liveReplayTailOnlyAppendsAndNeverDeletesOlderVisibleMessages() {
         val current = listOf(
             ChatMessage(id = "item-1", role = ChatMessage.Role.USER, content = "one"),

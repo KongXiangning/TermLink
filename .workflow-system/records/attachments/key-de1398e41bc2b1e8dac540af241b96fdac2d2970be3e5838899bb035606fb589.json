@@ -1,0 +1,226 @@
+{
+  "event_ref": ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json",
+  "captured_at": "2026-10-02T09:38:50.378Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2a8439a85cdea3425afded287a095a4ac7c1f1621d475bbece1b2dd0e46b8f00.blob",
+      "sha256": "2a8439a85cdea3425afded287a095a4ac7c1f1621d475bbece1b2dd0e46b8f00",
+      "size": 79359,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320.blob",
+      "sha256": "677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320",
+      "size": 696268,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/6778d2c34b06af92e5b593a373e72cde3d7143c9c9699e29558ad0db16e93714.blob",
+      "sha256": "6778d2c34b06af92e5b593a373e72cde3d7143c9c9699e29558ad0db16e93714",
+      "size": 6221,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/32766b8542e13d6850d4321218d0b27db038ca50fb97791ff2568c0aadc05469.blob",
+      "sha256": "32766b8542e13d6850d4321218d0b27db038ca50fb97791ff2568c0aadc05469",
+      "size": 13001,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d492655da7973dbaedf10e3d507c0dd5cddada9679485f9ee6c1b6c6bc733d49.blob",
+      "sha256": "d492655da7973dbaedf10e3d507c0dd5cddada9679485f9ee6c1b6c6bc733d49",
+      "size": 285703,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/4f2b0f4fa7583137e63589a183a6743ef3b5639690febe13a3e8b4d68a0fa5ef.blob",
+      "sha256": "4f2b0f4fa7583137e63589a183a6743ef3b5639690febe13a3e8b4d68a0fa5ef",
+      "size": 179779,
+      "source_path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1ee75d417ab2a09ee7bdef2ca201c168500d289b38f89a8f779a5b213bac0699.blob",
+      "sha256": "1ee75d417ab2a09ee7bdef2ca201c168500d289b38f89a8f779a5b213bac0699",
+      "size": 32320,
+      "source_path": "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/be0a8eead952d10c0342bcd1577754580736e602b79f1f94b45c59218d5dce1b.blob",
+      "sha256": "be0a8eead952d10c0342bcd1577754580736e602b79f1f94b45c59218d5dce1b",
+      "size": 6606,
+      "source_path": "docs/changes/records/CR-20261002-1745-task005-s3-readonly-details.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/09fa72fa7d615ae01668b57d8fe959baba30a6c0e525cf50a3d941f53dffc293.blob",
+      "sha256": "09fa72fa7d615ae01668b57d8fe959baba30a6c0e525cf50a3d941f53dffc293",
+      "size": 25809,
+      "source_path": "logs/task005-s3-final-a1.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1f0124bbce51bb5c4efeba51e1b43ad99461ea1c75e38aa3de58dab981310c60.blob",
+      "sha256": "1f0124bbce51bb5c4efeba51e1b43ad99461ea1c75e38aa3de58dab981310c60",
+      "size": 20839,
+      "source_path": "logs/task005-s3-final-b.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/7025eee1b3911b4872cb5cd018a284c3a30cc99509fdaf5b98fe561ea415525b.blob",
+      "sha256": "7025eee1b3911b4872cb5cd018a284c3a30cc99509fdaf5b98fe561ea415525b",
+      "size": 25802,
+      "source_path": "logs/task005-s3-final-a2.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/940574ecb33b5c412cc9ddb3608fc1ea3c0db4c32c1023f6f8e709cc42df3b4d.blob",
+      "sha256": "940574ecb33b5c412cc9ddb3608fc1ea3c0db4c32c1023f6f8e709cc42df3b4d",
+      "size": 19447,
+      "source_path": "logs/task005-s3-b.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/8851d63f72d9d1fe10ba8360925191dc7515f6446b1f42ea77520799f04f1e55.blob",
+      "sha256": "8851d63f72d9d1fe10ba8360925191dc7515f6446b1f42ea77520799f04f1e55",
+      "size": 625,
+      "source_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/70862a35e343be8e5b4d4353f1273e316db4e7b0a9c91d8dc4e92b8462d75b64.blob",
+      "sha256": "70862a35e343be8e5b4d4353f1273e316db4e7b0a9c91d8dc4e92b8462d75b64",
+      "size": 1203,
+      "source_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/da010dd75b3660c8293d1ec43d85660e53f7f182f49da83111b47c340d4cf32e.blob",
+      "sha256": "da010dd75b3660c8293d1ec43d85660e53f7f182f49da83111b47c340d4cf32e",
+      "size": 5164,
+      "source_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a8f31975f63901414229bca83fe17fd59f5c7981059b101091e90e5473605a86.blob",
+      "sha256": "a8f31975f63901414229bca83fe17fd59f5c7981059b101091e90e5473605a86",
+      "size": 27017,
+      "source_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/62cfb7cc99ca954205fb62701818b34a9280d3d486434f947f2877c520466412.blob",
+      "sha256": "62cfb7cc99ca954205fb62701818b34a9280d3d486434f947f2877c520466412",
+      "size": 901,
+      "source_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/5e5cfe74ce64d1da73b60dc4a6d0a7592b9fe9d5d0a58f41e569bfb1de228de1.blob",
+      "sha256": "5e5cfe74ce64d1da73b60dc4a6d0a7592b9fe9d5d0a58f41e569bfb1de228de1",
+      "size": 1777,
+      "source_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/8b890dfdc493175319afe06e6ecfb76bc3a62dc5efce139d8d95ad21320ebfbf.blob",
+      "sha256": "8b890dfdc493175319afe06e6ecfb76bc3a62dc5efce139d8d95ad21320ebfbf",
+      "size": 5392,
+      "source_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/8938bba53cebdeaec477541885b7cf4dcdfa788c4d82ecef2d8366323d908805.blob",
+      "sha256": "8938bba53cebdeaec477541885b7cf4dcdfa788c4d82ecef2d8366323d908805",
+      "size": 5209,
+      "source_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml",
+      "issues": []
+    }
+  ]
+}

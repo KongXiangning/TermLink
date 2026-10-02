@@ -1,5 +1,9 @@
 package com.termlink.app.codex.ui
 
+import com.termlink.app.codex.data.CodexHistoryDetailRef
+import com.termlink.app.codex.data.CodexHistoryDetailUiState
+import com.termlink.app.codex.historyDetailItemsForUiMessage
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -327,6 +331,8 @@ fun CodexScreen(
     onOpenDocs: () -> Unit,
     onOpenFileMention: (FileMention) -> Unit,
     onOpenAttachment: (CodexMessageAttachment) -> Unit,
+    onOpenHistoryDetail: (String, CodexHistoryDetailRef) -> Unit = { _, _ -> },
+    onDismissHistoryDetail: () -> Unit = {},
     onNewThread: () -> Unit,
     onResolveThreadRecovery: (String) -> Unit,
     onConsumeComposerRecoveryText: () -> Unit,
@@ -384,6 +390,14 @@ fun CodexScreen(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    state.historyDetail?.let { detail ->
+        HistoryDetailDialog(
+            detail = detail,
+            current = state.cachedCanonicalMessages.any { it.id == detail.itemKey && detail.ref in it.historyDetailRefs },
+            onDismiss = onDismissHistoryDetail,
+            onRetry = { onOpenHistoryDetail(detail.itemKey, detail.ref) }
+        )
+    }
     val coroutineScope = rememberCoroutineScope()
     var autoFollowEnabled by remember { mutableStateOf(true) }
     var suppressAutoFollowPause by remember { mutableStateOf(false) }
@@ -713,19 +727,27 @@ fun CodexScreen(
                             }
                         }
                         items(state.messages, key = { it.id }) { message ->
-                            MessageBubble(
-                                message = message,
-                                mediaDownloadHash = state.mediaDownloadHash,
-                                mediaDownloadBytes = state.mediaDownloadBytes,
-                                mediaDownloadTotalBytes = state.mediaDownloadTotalBytes,
-                                onAddSelectionToTask = { selectedText ->
-                                    selectedTextContext = CodexSelectedTextContext(
-                                        text = selectedText
-                                    )
-                                },
-                                onOpenFileMention = onOpenFileMention,
-                                onOpenAttachment = onOpenAttachment
-                            )
+                            Column {
+                                MessageBubble(
+                                    message = message,
+                                    mediaDownloadHash = state.mediaDownloadHash,
+                                    mediaDownloadBytes = state.mediaDownloadBytes,
+                                    mediaDownloadTotalBytes = state.mediaDownloadTotalBytes,
+                                    onAddSelectionToTask = { selectedText ->
+                                        selectedTextContext = CodexSelectedTextContext(text = selectedText)
+                                    },
+                                    onOpenFileMention = onOpenFileMention,
+                                    onOpenAttachment = onOpenAttachment
+                                )
+                                historyDetailItemsForUiMessage(message, state.cachedCanonicalMessages).forEach { cached ->
+                                    cached.historyDetailRefs.forEachIndexed { index, ref ->
+                                        TextButton(onClick = { onOpenHistoryDetail(cached.id, ref) }) {
+                                            Text("查看历史详情 ${index + 1} · ${ref.byteSize} 字节")
+                                        }
+                                    }
+                                    if (cached.historyDetailRefsTruncated) Text("更多详情引用未提供 / partial", fontSize = 11.sp)
+                                }
+                            }
                         }
                         if (state.messages.isNotEmpty()) {
                             item(key = "_bottom_anchor") {
@@ -2219,6 +2241,48 @@ private fun formatHeaderCwdForDisplay(cwd: String): String {
     // visible and leave the complete value to the path sheet.
     val suffix = parts.last()
     return if (root.isNotBlank()) "$root…\\$suffix" else "…\\$suffix"
+}
+
+@Composable
+private fun HistoryDetailDialog(
+    detail: CodexHistoryDetailUiState,
+    current: Boolean,
+    onDismiss: () -> Unit,
+    onRetry: () -> Unit
+) {
+    val verifiedContent = detail.content?.takeIf { current }
+    val context = LocalContext.current
+    var copyFailed by remember(detail) { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("历史详情（只读）") },
+        text = {
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                Text("${detail.ref.kind} · ${detail.ref.byteSize} 字节", fontSize = 12.sp)
+                if (detail.ref.truncated || detail.ref.availability == "partial") Text("来源不完整 / partial")
+                when {
+                    !current -> Text("详情引用已更新，请关闭后重新打开。")
+                    detail.loading -> {
+                        CircularProgressIndicator(Modifier.size(24.dp))
+                        Text("加载并校验：${detail.receivedBytes} / ${detail.ref.byteSize}")
+                    }
+                    detail.error != null -> Text("详情不可用：${detail.error}")
+                    verifiedContent != null -> SelectionContainer { Text(verifiedContent) }
+                }
+                if (copyFailed) Text("系统剪贴板无法复制此详情，请尝试选取较小片段。")
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
+        dismissButton = {
+            if (verifiedContent != null) TextButton(onClick = {
+                copyFailed = runCatching {
+                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                        .setPrimaryClip(ClipData.newPlainText("历史详情", verifiedContent))
+                }.isFailure
+            }) { Text("复制详情") }
+            else if (!detail.loading && current) TextButton(onClick = onRetry) { Text("重试") }
+        }
+    )
 }
 
 @Composable

@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T09:39:18.117Z",
+  "payload_sha256": "90cc8e8f3c80ecdd9791a2cc4744f599156d4973765d1e3056d8071c5d7449a5",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s3-jvm-286-20261002",
+    "request": {
+      "report_ref": "android/app/build/test-results/testDebugUnitTest",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "result": {
+        "skipped": 0,
+        "source_qualification": "last source edit after this run only moves helper before KDoc; no behavior change",
+        "tests": 286,
+        "build": "BUILD SUCCESSFUL",
+        "test_task": "executed, not UP-TO-DATE",
+        "status": "passed",
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0
+      },
+      "step_id": "S3",
+      "action": "test",
+      "idempotency_key": "task005-s3-jvm-286-20261002",
+      "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822 + S3 dirty worktree (see execution source_files)",
+      "command": "JDK21 gradlew :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModel* --tests com.termlink.app.codex.data.CodexHistoryWireTest --tests com.termlink.app.codex.data.CodexIpcWireModelTest --tests com.termlink.app.codex.data.CodexHistoryPageHashTest --tests com.termlink.app.codex.data.CodexHistoryRangeStorageTest :app:assembleDebug",
+      "files": [
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml"
+      ],
+      "selector": [
+        "CodexViewModel*",
+        "CodexHistoryWireTest",
+        "CodexIpcWireModelTest",
+        "CodexHistoryPageHashTest",
+        "CodexHistoryRangeStorageTest"
+      ],
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"
+    },
+    "files": [
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-145ebaf2ca430f26139989a3f37610e27eb2240906013a17da85ba4181032989.json"
+      ],
+      "data": {
+        "report_ref": "android/app/build/test-results/testDebugUnitTest",
+        "result": {
+          "skipped": 0,
+          "source_qualification": "last source edit after this run only moves helper before KDoc; no behavior change",
+          "tests": 286,
+          "build": "BUILD SUCCESSFUL",
+          "test_task": "executed, not UP-TO-DATE",
+          "status": "passed",
+          "exit_code": 0,
+          "failures": 0,
+          "errors": 0
+        },
+        "step_id": "S3",
+        "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822 + S3 dirty worktree (see execution source_files)",
+        "command": "JDK21 gradlew :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModel* --tests com.termlink.app.codex.data.CodexHistoryWireTest --tests com.termlink.app.codex.data.CodexIpcWireModelTest --tests com.termlink.app.codex.data.CodexHistoryPageHashTest --tests com.termlink.app.codex.data.CodexHistoryRangeStorageTest :app:assembleDebug",
+        "files": [
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml"
+        ],
+        "selector": [
+          "CodexViewModel*",
+          "CodexHistoryWireTest",
+          "CodexIpcWireModelTest",
+          "CodexHistoryPageHashTest",
+          "CodexHistoryRangeStorageTest"
+        ],
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"
+      }
+    }
+  },
+  "issues": []
+}

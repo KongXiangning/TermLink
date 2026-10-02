@@ -448,6 +448,8 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         onOpenDocs = ::openDocsWorkspace,
                         onOpenFileMention = ::openConversationFileMention,
                         onOpenAttachment = ::openConversationAttachment,
+                        onOpenHistoryDetail = viewModel::openHistoryDetail,
+                        onDismissHistoryDetail = viewModel::dismissHistoryDetail,
                         onNewThread = viewModel::newThread,
                         onResolveThreadRecovery = viewModel::resolveThreadRecovery,
                         onConsumeComposerRecoveryText = viewModel::consumeComposerRecoveryText,

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.termlink.app.codex.CodexViewModelFastModeTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-02T09:35:16.127Z" hostname="K-PC" time="0.013">
+  <properties/>
+  <testcase name="fastModeUsesDesktopCompatibleLowReasoningEffort" classname="com.termlink.app.codex.CodexViewModelFastModeTest" time="0.0"/>
+  <testcase name="onlyAnExplicitFastOverrideActivatesFastIndicator" classname="com.termlink.app.codex.CodexViewModelFastModeTest" time="0.008"/>
+  <testcase name="fastModeUsesExistingRememberedOverrideEncoding" classname="com.termlink.app.codex.CodexViewModelFastModeTest" time="0.005"/>
+  <testcase name="enablingFastModePreservesOtherNextTurnOverrides" classname="com.termlink.app.codex.CodexViewModelFastModeTest" time="0.0"/>
+  <testcase name="explicitFastOverrideSurvivesMatchingOwnerConfirmation" classname="com.termlink.app.codex.CodexViewModelFastModeTest" time="0.0"/>
+  <testcase name="disablingFastModeClearsOnlyTheReasoningOverride" classname="com.termlink.app.codex.CodexViewModelFastModeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

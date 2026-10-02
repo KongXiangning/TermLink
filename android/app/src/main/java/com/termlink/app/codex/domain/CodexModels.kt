@@ -52,7 +52,9 @@ data class ChatMessage(
      * an IPC surface row when their provider item ids differ. This is UI-only
      * metadata and is not persisted as part of the cache payload.
      */
-    val sourceTurnId: String? = null
+    val sourceTurnId: String? = null,
+    val historyDetailRefs: List<com.termlink.app.codex.data.CodexHistoryDetailRef> = emptyList(),
+    val historyDetailRefsTruncated: Boolean = false
 ) {
     enum class Role { USER, ASSISTANT, SYSTEM, TOOL, ERROR }
 }
@@ -284,6 +286,7 @@ data class CodexUiState(
     val currentTurnId: String? = null,
     val status: String = "idle",
     val cachedCanonicalMessages: List<ChatMessage> = emptyList(),
+    val historyDetail: com.termlink.app.codex.data.CodexHistoryDetailUiState? = null,
     val liveAuthoritativeConversationId: String? = null,
     val liveAuthoritativeDesynced: Boolean = false,
     val historyCacheState: CodexHistoryCacheUiState = CodexHistoryCacheUiState(),

@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T10:07:55.101Z",
+  "payload_sha256": "a3b3c67d9b399e27faf0c839a0484da1fbc9c41a42aeb00d116b8755bf0d6592",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s3-finished-20261002",
+    "request": {
+      "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822 + exact S3 source_files verified unchanged",
+      "action": "step",
+      "idempotency_key": "task005-s3-finished-20261002",
+      "gaps": [
+        "Partial coverage and self-review only, not independent review or complete product PASS",
+        "Real-device detail and full longitudinal verification pending",
+        "CR association/format limitation and two historical unassociated records retained"
+      ],
+      "review_ref": ".workflow-system/records/events/key-e0991607a22e95500150b00d105037edf65c6a4b8cdcb483029c647a0de11942.json",
+      "execution_ref": ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json",
+      "remaining_work": [
+        "S4 remains not started: real older backfill/overlap, append, App/Node restart, detail change/invalidation, healthy IPC and A->B->A longitudinal verification",
+        "Physical product detail download/copy, ref invalidation, in-flight response isolation and healthy IPC in both conversations remain unverified; earlier B recovery failure retained",
+        "Full ViewModel coroutine detail-open/chunk/timeout/retry/cache-update interaction not proven by new pure-helper tests",
+        "Node test evidence retains original observed output and summary without separate full stdout attachment; Android test applicability retains nonsemantic post-run helper relocation qualification",
+        "CR remains draft with req_id none and commit_ref TBD; strict-format limitation retained without fabricating REQ or commit",
+        "Two pre-existing unrelated management association issues remain unresolved",
+        "Current S3 business files and persistent records remain uncommitted; finish does not stage, commit, push, deploy or authorize S4 automatically"
+      ],
+      "decision_ref": ".workflow-system/records/events/key-346c1fc0da9b41e1b787cd0dd94e74c9d64294ce416d1834bf9979910e961441.json",
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) finish",
+      "decision_source": "Current human user explicit execute-step finish, after S3 clean self-review and coverage disclosures",
+      "state": "finished",
+      "result": {
+        "disposition": "finished-with-validation-limits",
+        "tests_rerun_this_turn": false,
+        "next_step_started": false,
+        "actual_work_this_turn": "Fresh skill/protocol/API and task-state reads, current seven-file hash applicability check, separate decision and step journal writes with view publication",
+        "review_provenance": "self-review",
+        "android_jvm_tests": 286,
+        "review_verdict": "clean",
+        "node_tests": 162,
+        "task_closed": false,
+        "no_business_reexecution": true,
+        "full_e2e_verified": false,
+        "review_coverage": "partial",
+        "git_writes": false
+      },
+      "step_id": "S3",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "step",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-346c1fc0da9b41e1b787cd0dd94e74c9d64294ce416d1834bf9979910e961441.json"
+      ],
+      "data": {
+        "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822 + exact S3 source_files verified unchanged",
+        "gaps": [
+          "Partial coverage and self-review only, not independent review or complete product PASS",
+          "Real-device detail and full longitudinal verification pending",
+          "CR association/format limitation and two historical unassociated records retained"
+        ],
+        "review_ref": ".workflow-system/records/events/key-e0991607a22e95500150b00d105037edf65c6a4b8cdcb483029c647a0de11942.json",
+        "execution_ref": ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json",
+        "remaining_work": [
+          "S4 remains not started: real older backfill/overlap, append, App/Node restart, detail change/invalidation, healthy IPC and A->B->A longitudinal verification",
+          "Physical product detail download/copy, ref invalidation, in-flight response isolation and healthy IPC in both conversations remain unverified; earlier B recovery failure retained",
+          "Full ViewModel coroutine detail-open/chunk/timeout/retry/cache-update interaction not proven by new pure-helper tests",
+          "Node test evidence retains original observed output and summary without separate full stdout attachment; Android test applicability retains nonsemantic post-run helper relocation qualification",
+          "CR remains draft with req_id none and commit_ref TBD; strict-format limitation retained without fabricating REQ or commit",
+          "Two pre-existing unrelated management association issues remain unresolved",
+          "Current S3 business files and persistent records remain uncommitted; finish does not stage, commit, push, deploy or authorize S4 automatically"
+        ],
+        "decision_ref": ".workflow-system/records/events/key-346c1fc0da9b41e1b787cd0dd94e74c9d64294ce416d1834bf9979910e961441.json",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) finish",
+        "decision_source": "Current human user explicit execute-step finish, after S3 clean self-review and coverage disclosures",
+        "state": "finished",
+        "result": {
+          "disposition": "finished-with-validation-limits",
+          "tests_rerun_this_turn": false,
+          "next_step_started": false,
+          "actual_work_this_turn": "Fresh skill/protocol/API and task-state reads, current seven-file hash applicability check, separate decision and step journal writes with view publication",
+          "review_provenance": "self-review",
+          "android_jvm_tests": 286,
+          "review_verdict": "clean",
+          "node_tests": 162,
+          "task_closed": false,
+          "no_business_reexecution": true,
+          "full_e2e_verified": false,
+          "review_coverage": "partial",
+          "git_writes": false
+        },
+        "step_id": "S3",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T09:39:17.249Z",
+  "payload_sha256": "bdaa463b2a6f278254cdc7873d8f7324c2f05c42fca46532aa4eb71b354d4ce0",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s3-node-162-20261002",
+    "request": {
+      "report_ref": ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "result": {
+        "exit_code": 0,
+        "skipped": 0,
+        "duration_ms": 32598.0734,
+        "fail": 0,
+        "pass": 162,
+        "tests": 162,
+        "status": "passed"
+      },
+      "step_id": "S3",
+      "action": "test",
+      "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822 + S3 dirty worktree (see execution source_files)",
+      "idempotency_key": "task005-s3-node-162-20261002",
+      "selector": [
+        "codexOwnerSurfaceTracker",
+        "terminalGateway.codexIpc",
+        "codexHistoryProductFlow"
+      ],
+      "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js tests/codexHistoryProductFlow.test.js",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json"
+      ],
+      "data": {
+        "report_ref": ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json",
+        "result": {
+          "exit_code": 0,
+          "skipped": 0,
+          "duration_ms": 32598.0734,
+          "fail": 0,
+          "pass": 162,
+          "tests": 162,
+          "status": "passed"
+        },
+        "step_id": "S3",
+        "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822 + S3 dirty worktree (see execution source_files)",
+        "selector": [
+          "codexOwnerSurfaceTracker",
+          "terminalGateway.codexIpc",
+          "codexHistoryProductFlow"
+        ],
+        "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js tests/codexHistoryProductFlow.test.js",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"
+      }
+    }
+  },
+  "issues": []
+}

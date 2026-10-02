@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T09:38:50.324Z",
+  "payload_sha256": "4766416c872d44a149d96593250e4555e67a2df6d7438f818d23c430fe0c5073",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s3-readonly-details-20261002",
+    "request": {
+      "action": "execution",
+      "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822",
+      "step_id": "S3",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "idempotency_key": "task005-s3-readonly-details-20261002",
+      "result": {
+        "physical": {
+          "detail_download_copy": "not verified on real product refs",
+          "healthy_ipc_both_conversations": "not verified",
+          "aba": "A body restored after B loading; earlier B recovery failed; no observed B contamination",
+          "device": "MQS7N19402011743"
+        },
+        "apk_build": "passed",
+        "exclusions": [
+          "no Rust or Node implementation change",
+          "no vNext software change",
+          "no DB/schema/cache clear",
+          "no Git stage/commit/push",
+          "no fake DTO or manual SQL"
+        ],
+        "source_files": [
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+            "sha256": "2a8439a85cdea3425afded287a095a4ac7c1f1621d475bbece1b2dd0e46b8f00"
+          },
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+            "sha256": "677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320"
+          },
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+            "sha256": "6778d2c34b06af92e5b593a373e72cde3d7143c9c9699e29558ad0db16e93714"
+          },
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+            "sha256": "32766b8542e13d6850d4321218d0b27db038ca50fb97791ff2568c0aadc05469"
+          },
+          {
+            "path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+            "sha256": "d492655da7973dbaedf10e3d507c0dd5cddada9679485f9ee6c1b6c6bc733d49"
+          },
+          {
+            "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+            "sha256": "4f2b0f4fa7583137e63589a183a6743ef3b5639690febe13a3e8b4d68a0fa5ef"
+          },
+          {
+            "path": "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt",
+            "sha256": "1ee75d417ab2a09ee7bdef2ca201c168500d289b38f89a8f779a5b213bac0699"
+          }
+        ],
+        "android_tests": 286,
+        "status": "implemented-with-validation-gaps",
+        "node_tests": 162,
+        "source_kind": "HEAD plus uncommitted worktree",
+        "apk_sha256": "a3d60ef2e4506950ca44f7b5ec1eaf777f32dbccda13532416e1c5eb9da9505f",
+        "validation_attempts": {
+          "final": "286 tests and build passed",
+          "last_source_change": "helper moved before original KDoc only; no behavior change after final tests",
+          "initial_gradle": "compileDebugKotlin failed: callback defaults, method invocation, JSONObject/String mismatch",
+          "corrected": "247 tests and build passed"
+        },
+        "remaining_work": [
+          "S3 review and disposition not performed",
+          "Physical detail/copy/ref-change/in-flight ABA not verified",
+          "S4 older/append/reopen/full longitudinal E2E remains",
+          "CR none/TBD strict format limitation and two old management issues retained"
+        ]
+      },
+      "files": [
+        "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+        "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+        "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+        "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+        "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+        "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+        "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt",
+        "docs/changes/records/CR-20261002-1745-task005-s3-readonly-details.md",
+        "logs/task005-s3-final-a1.xml",
+        "logs/task005-s3-final-b.xml",
+        "logs/task005-s3-final-a2.xml",
+        "logs/task005-s3-b.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml"
+      ],
+      "commands": [
+        "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js tests/codexHistoryProductFlow.test.js",
+        ":app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModel* --tests com.termlink.app.codex.data.CodexHistoryWireTest --tests com.termlink.app.codex.data.CodexIpcWireModelTest --tests com.termlink.app.codex.data.CodexHistoryPageHashTest --tests com.termlink.app.codex.data.CodexHistoryRangeStorageTest :app:assembleDebug (JDK21)",
+        "adb doctor / install -r / existing history A->B->A / UI XML",
+        "git diff --check"
+      ]
+    },
+    "files": [
+      "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+      "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+      "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+      "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+      "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt",
+      "docs/changes/records/CR-20261002-1745-task005-s3-readonly-details.md",
+      "logs/task005-s3-final-a1.xml",
+      "logs/task005-s3-final-b.xml",
+      "logs/task005-s3-final-a2.xml",
+      "logs/task005-s3-b.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-76d0264cd3c153c69ccf37b71658c5e0f28d8c81da020c1d329365eb0b69062d.json"
+      ],
+      "data": {
+        "source_revision": "bc7ff0a715c193bc5063b46c5ce035a8656ec822",
+        "step_id": "S3",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "result": {
+          "physical": {
+            "detail_download_copy": "not verified on real product refs",
+            "healthy_ipc_both_conversations": "not verified",
+            "aba": "A body restored after B loading; earlier B recovery failed; no observed B contamination",
+            "device": "MQS7N19402011743"
+          },
+          "apk_build": "passed",
+          "exclusions": [
+            "no Rust or Node implementation change",
+            "no vNext software change",
+            "no DB/schema/cache clear",
+            "no Git stage/commit/push",
+            "no fake DTO or manual SQL"
+          ],
+          "source_files": [
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+              "sha256": "2a8439a85cdea3425afded287a095a4ac7c1f1621d475bbece1b2dd0e46b8f00"
+            },
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+              "sha256": "677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320"
+            },
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+              "sha256": "6778d2c34b06af92e5b593a373e72cde3d7143c9c9699e29558ad0db16e93714"
+            },
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+              "sha256": "32766b8542e13d6850d4321218d0b27db038ca50fb97791ff2568c0aadc05469"
+            },
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+              "sha256": "d492655da7973dbaedf10e3d507c0dd5cddada9679485f9ee6c1b6c6bc733d49"
+            },
+            {
+              "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+              "sha256": "4f2b0f4fa7583137e63589a183a6743ef3b5639690febe13a3e8b4d68a0fa5ef"
+            },
+            {
+              "path": "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt",
+              "sha256": "1ee75d417ab2a09ee7bdef2ca201c168500d289b38f89a8f779a5b213bac0699"
+            }
+          ],
+          "android_tests": 286,
+          "status": "implemented-with-validation-gaps",
+          "node_tests": 162,
+          "source_kind": "HEAD plus uncommitted worktree",
+          "apk_sha256": "a3d60ef2e4506950ca44f7b5ec1eaf777f32dbccda13532416e1c5eb9da9505f",
+          "validation_attempts": {
+            "final": "286 tests and build passed",
+            "last_source_change": "helper moved before original KDoc only; no behavior change after final tests",
+            "initial_gradle": "compileDebugKotlin failed: callback defaults, method invocation, JSONObject/String mismatch",
+            "corrected": "247 tests and build passed"
+          },
+          "remaining_work": [
+            "S3 review and disposition not performed",
+            "Physical detail/copy/ref-change/in-flight ABA not verified",
+            "S4 older/append/reopen/full longitudinal E2E remains",
+            "CR none/TBD strict format limitation and two old management issues retained"
+          ]
+        },
+        "files": [
+          "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+          "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+          "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+          "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+          "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+          "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+          "android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt",
+          "docs/changes/records/CR-20261002-1745-task005-s3-readonly-details.md",
+          "logs/task005-s3-final-a1.xml",
+          "logs/task005-s3-final-b.xml",
+          "logs/task005-s3-final-a2.xml",
+          "logs/task005-s3-b.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\android\\app\\build\\test-results\\testDebugUnitTest\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml"
+        ],
+        "commands": [
+          "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js tests/codexHistoryProductFlow.test.js",
+          ":app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModel* --tests com.termlink.app.codex.data.CodexHistoryWireTest --tests com.termlink.app.codex.data.CodexIpcWireModelTest --tests com.termlink.app.codex.data.CodexHistoryPageHashTest --tests com.termlink.app.codex.data.CodexHistoryRangeStorageTest :app:assembleDebug (JDK21)",
+          "adb doctor / install -r / existing history A->B->A / UI XML",
+          "git diff --check"
+        ]
+      }
+    }
+  },
+  "issues": []
+}
