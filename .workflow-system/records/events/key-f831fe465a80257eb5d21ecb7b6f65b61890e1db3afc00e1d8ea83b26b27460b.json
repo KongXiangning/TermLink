@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T18:39:52.973Z",
+  "payload_sha256": "f398ae31b64f4394ec0c8b53080b49497bccfc6a1f04bc27a6c3b9c3a9550da6",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:codex-history-real-e2e-confirm-adopt-20261003-v2",
+    "request": {
+      "action": "adopt",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "review_ref": ".workflow-system/records/events/key-f1bf25177e4eec2abb5100a23f810138efccfbe518af3decc0f62e8dde5e6724.json",
+      "focus": true,
+      "source_revision": "2c9ff5e5e5574dc34ab5c6280f30634b15e6394f",
+      "idempotency_key": "codex-history-real-e2e-confirm-adopt-20261003-v2",
+      "decision_source": "当前对话用户在 v2 草案 clean（自审）结果及 next_route: prepare-task 范围确认说明后，显式调用 prepare-task confirm。",
+      "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+      "decision_summary": "确认并采纳 TASK-20260831 的候选 v2 原范围、六步骤、E01–E12 验收及已披露的测试副作用。当前无其他活动任务，将本任务设为当前采用计划并由 Runtime 初始化工作位置；本次办理确认与采纳，不登记或声称已执行验证。",
+      "adopted_subject": {
+        "display_id": "TASK-20260831",
+        "title": "Codex 历史全链路 E2E 补齐验证（默认不改源码）",
+        "revision": 2,
+        "plan_file_sha256": "94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d",
+        "draft_review_file_sha256": "a3665b46f93b3485d0e566acebfbf21253ae18c141e3fce9f45af324de47a086",
+        "scope_unchanged": true,
+        "step_ids": [
+          "S1",
+          "S2",
+          "S3",
+          "S4",
+          "S5",
+          "S6"
+        ],
+        "scenario_ids": [
+          "E01",
+          "E02",
+          "E03",
+          "E04",
+          "E05",
+          "E06",
+          "E07",
+          "E08",
+          "E09",
+          "E10",
+          "E11",
+          "E12"
+        ]
+      },
+      "confirmed_scope": [
+        "业务域限定 Codex 实时 IPC 与只读产品历史的衔接、自然 source 演进、Gateway 同步、Android 可见内容/详情/持久缓存及恢复隔离；不是整个 TermLink 的全产品 E2E。",
+        "用新证据补齐 E01–E12；现存 DB/cache/UI、分页及详情协议证据作为历史基线，明确原版本、原设备、原样本和覆盖限制。",
+        "仅从产品正常入口触发采集与发布；验证读者可有界只读查看自然生成的 rollout、产品库快照和 App 缓存用于交叉核对，不作为第二采集链或产品实时来源。",
+        "任务专用、忽略目录内的一次性探针/检查脚本和运行日志允许作为后续验证辅助；不修改旧脚本、源代码、现有测试资产或旧证据。优先复用现有工具，不默认建设永久 E2E 框架。",
+        "分别保存实际执行、测试结果、失败、未验证条件、证据关联与管理状态，不以写入记录替代业务验证。"
+      ],
+      "confirmed_operational_limits": {
+        "real_test_conversations": "拟创建专用真实宿主会话 A，并从 A 使用真实 Branch 入口创建 C；B 可复用已有会话作只读对照。A 最多四次正常测试 turn（S2 两次主链/append，S4 最多两次用于运行中切换及跨重启）、一次 resend；C 一次短验证 turn。可复用观察窗口时减少调用；测试指令仅生成有界、无敏感、确定性输出，不编辑业务文件。会消耗模型额度并生成真实会话/rollout；额外实质性操作另行说明。",
+        "service": "仅已确认归属本仓库的本地开发服务，可按计划启动或短暂重启；会中断其现有连接。先记录端口/PID/持久根/环境，确认没有占用中的无关作业；若有则另选窗口。限定同一 collector 实例，不并行运行第二采集链；不影响其他服务。",
+        "device": "限定 S1 选定的 Android 真机；打开应用、切换测试会话、后台/前台、force-stop/重开、读取测试缓存/截图、详情复制及在空草稿中校验。先保护已有草稿/配置/剪贴板，结束恢复；不清 App 数据。仅当前二进制不一致且确有必要时，用 JDK 21 构建同一未修改版本并备份后 install -r。",
+        "connection_control": "仅测试连接可进行短暂断开或透明延迟以观察在途响应/恢复；不得伪造或修改帧，不改系统级防火墙/网络策略，不降低认证。若现有客户端无法安全隔离控制，记录该条件缺失，不静默扩展到整机网络干扰。",
+        "configuration_and_storage": "优先使用可核实的既有隔离验证持久根；不改 .env、默认配置或系统级变量。确需建立专用持久根时只作为明确命名的测试数据目录且维持单例采集，并与旧实例隔离；不得借换库掩盖旧失败。range 能力仅对验证进程显式设置并记录，与生产默认能力分开报告。",
+        "evidence": "允许产品正常运行产生测试数据，保存有界只读快照、脱敏截图、摘要和哈希；原始私有材料留本地 ignored 目录，管理记录仅保存必要安全附件。恢复临时连接/环境及测试草稿；保留数据，不自动清理删除。"
+      },
+      "retained_exclusions": [
+        "不改 Node、Rust、Android、Web 或 vNext Runtime/Skill 源码，不更改契约、架构、资源预算、默认功能开关、构建配置和已存在永久测试。",
+        "不提交、不暂存、不推送、不生产部署、不发布新版本、不绕过钩子；必要时只构建并安装同一未修改版本的本地测试 APK。",
+        "不编辑、改名、截断、替换或伪造外部 Codex rollout，不直接写产品库、伪造 DTO/ACK、清空 App 数据或通过删除失败 intent 制造通过。",
+        "不增加采集 worker 或直接从 App/历史查询/探针请求 Rust，不引入新的恢复 mode、product source epoch、commitFence、第二实时权威或持久 live event log。",
+        "不覆盖旧 evidence blob、原哈希、旧日志及历史失败；不提交原始 wire、全量 cache/DB、配置或凭据。",
+        "不向现有工作会话发送测试指令，不自动删除会话、文件或已有数据；不扩展到文件/图片完整传输、Goal/Plan 新交互、多手机矩阵或无关终端/SSH 功能。"
+      ],
+      "review_conditions": {
+        "verdict": "clean",
+        "provenance": "同一代理自审，不是独立审查；草案 clean 不代表 E2E PASS。",
+        "findings_in_v2": [],
+        "prior_findings": "RD-E2E-01/02 已在 v2 验收定义中处理；v1 草案与 changes_requested review 保持原字节，不改写历史。",
+        "detail_acceptance": "遵守 E07-a–f 的稳定 ref/content hash/cursor/本地预期校验分层，不新增 expectedHash wire 字段。",
+        "replacement_acceptance": "只对 A 最后已 terminal 测试 user turn resend；取证窗口不向 A 追加 turn，普通 append 与末轮 replacement 分开验收。",
+        "product_chain_evidence": "产品发布后从正常 history 入口确认实际产品 provider/同步身份及 App durable commit/ACK，fallback 或同文不替代该段证明。",
+        "isolation": "保留 ordinary selection generation 隔离与既有 terminal-reconcile A partition 独立 fence 的区别。"
+      },
+      "authority_boundary": {
+        "interpretation": "本次原话为 prepare-task confirm；确认当前 v2 计划及已披露边界，不把本轮采纳登记当成业务执行、源码修复、步骤完成或任务关闭。",
+        "source_changes": "默认不改源码；发现缺陷先记录证据与最小拟修复文件/回归范围，取得明确修复范围确认后才修改。",
+        "execution_position": "后续验证从 S1 锁定环境、样本和已有证据开始；同一已确认范围/副作用无需重复确认，只有新实质性变化才另行说明。",
+        "no_external_actions_this_turn": [
+          "未启动/重启服务",
+          "未进行 ADB/真机操作",
+          "未构建/安装 APK",
+          "未运行测试",
+          "未创建或发送测试会话消息",
+          "未进行 resend/Branch",
+          "未暂存/提交/推送/部署"
+        ]
+      },
+      "retained_gaps": [
+        "现存 64 MiB fingerprint budget 失败与历史 partial 不因计划采纳变为通过或已修复。",
+        "现场服务/设备/healthy surface/自然样本能力待 S1 核实；自然 metadata-only、在途响应或 pending 窗口缺条件时保持未验证。",
+        "两条历史管理关联问题及旧 CR 格式限制保留；不在本次确认中自动 link/correct/resolve/defer。",
+        "TASK-005 及其他已关闭任务保持原状态，不重开或重跑旧业务。"
+      ],
+      "preservation": "不修改 v1/v2 候选、两个 draft review、旧证据 blob/哈希、产品源码或 Git index；仅追加采纳事实与正常生成的管理视图/恢复快照。",
+      "recommendation": {
+        "next_route": "execute-step",
+        "reason": "v2 已获用户确认；下一业务步骤为 S1 环境/样本/证据基线验证，尚未执行。"
+      }
+    },
+    "task_event": {
+      "version": 1,
+      "action": "adopt",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-f1bf25177e4eec2abb5100a23f810138efccfbe518af3decc0f62e8dde5e6724.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "review_ref": ".workflow-system/records/events/key-f1bf25177e4eec2abb5100a23f810138efccfbe518af3decc0f62e8dde5e6724.json",
+        "focus": true,
+        "source_revision": "2c9ff5e5e5574dc34ab5c6280f30634b15e6394f",
+        "decision_source": "当前对话用户在 v2 草案 clean（自审）结果及 next_route: prepare-task 范围确认说明后，显式调用 prepare-task confirm。",
+        "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+        "decision_summary": "确认并采纳 TASK-20260831 的候选 v2 原范围、六步骤、E01–E12 验收及已披露的测试副作用。当前无其他活动任务，将本任务设为当前采用计划并由 Runtime 初始化工作位置；本次办理确认与采纳，不登记或声称已执行验证。",
+        "adopted_subject": {
+          "display_id": "TASK-20260831",
+          "title": "Codex 历史全链路 E2E 补齐验证（默认不改源码）",
+          "revision": 2,
+          "plan_file_sha256": "94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d",
+          "draft_review_file_sha256": "a3665b46f93b3485d0e566acebfbf21253ae18c141e3fce9f45af324de47a086",
+          "scope_unchanged": true,
+          "step_ids": [
+            "S1",
+            "S2",
+            "S3",
+            "S4",
+            "S5",
+            "S6"
+          ],
+          "scenario_ids": [
+            "E01",
+            "E02",
+            "E03",
+            "E04",
+            "E05",
+            "E06",
+            "E07",
+            "E08",
+            "E09",
+            "E10",
+            "E11",
+            "E12"
+          ]
+        },
+        "confirmed_scope": [
+          "业务域限定 Codex 实时 IPC 与只读产品历史的衔接、自然 source 演进、Gateway 同步、Android 可见内容/详情/持久缓存及恢复隔离；不是整个 TermLink 的全产品 E2E。",
+          "用新证据补齐 E01–E12；现存 DB/cache/UI、分页及详情协议证据作为历史基线，明确原版本、原设备、原样本和覆盖限制。",
+          "仅从产品正常入口触发采集与发布；验证读者可有界只读查看自然生成的 rollout、产品库快照和 App 缓存用于交叉核对，不作为第二采集链或产品实时来源。",
+          "任务专用、忽略目录内的一次性探针/检查脚本和运行日志允许作为后续验证辅助；不修改旧脚本、源代码、现有测试资产或旧证据。优先复用现有工具，不默认建设永久 E2E 框架。",
+          "分别保存实际执行、测试结果、失败、未验证条件、证据关联与管理状态，不以写入记录替代业务验证。"
+        ],
+        "confirmed_operational_limits": {
+          "real_test_conversations": "拟创建专用真实宿主会话 A，并从 A 使用真实 Branch 入口创建 C；B 可复用已有会话作只读对照。A 最多四次正常测试 turn（S2 两次主链/append，S4 最多两次用于运行中切换及跨重启）、一次 resend；C 一次短验证 turn。可复用观察窗口时减少调用；测试指令仅生成有界、无敏感、确定性输出，不编辑业务文件。会消耗模型额度并生成真实会话/rollout；额外实质性操作另行说明。",
+          "service": "仅已确认归属本仓库的本地开发服务，可按计划启动或短暂重启；会中断其现有连接。先记录端口/PID/持久根/环境，确认没有占用中的无关作业；若有则另选窗口。限定同一 collector 实例，不并行运行第二采集链；不影响其他服务。",
+          "device": "限定 S1 选定的 Android 真机；打开应用、切换测试会话、后台/前台、force-stop/重开、读取测试缓存/截图、详情复制及在空草稿中校验。先保护已有草稿/配置/剪贴板，结束恢复；不清 App 数据。仅当前二进制不一致且确有必要时，用 JDK 21 构建同一未修改版本并备份后 install -r。",
+          "connection_control": "仅测试连接可进行短暂断开或透明延迟以观察在途响应/恢复；不得伪造或修改帧，不改系统级防火墙/网络策略，不降低认证。若现有客户端无法安全隔离控制，记录该条件缺失，不静默扩展到整机网络干扰。",
+          "configuration_and_storage": "优先使用可核实的既有隔离验证持久根；不改 .env、默认配置或系统级变量。确需建立专用持久根时只作为明确命名的测试数据目录且维持单例采集，并与旧实例隔离；不得借换库掩盖旧失败。range 能力仅对验证进程显式设置并记录，与生产默认能力分开报告。",
+          "evidence": "允许产品正常运行产生测试数据，保存有界只读快照、脱敏截图、摘要和哈希；原始私有材料留本地 ignored 目录，管理记录仅保存必要安全附件。恢复临时连接/环境及测试草稿；保留数据，不自动清理删除。"
+        },
+        "retained_exclusions": [
+          "不改 Node、Rust、Android、Web 或 vNext Runtime/Skill 源码，不更改契约、架构、资源预算、默认功能开关、构建配置和已存在永久测试。",
+          "不提交、不暂存、不推送、不生产部署、不发布新版本、不绕过钩子；必要时只构建并安装同一未修改版本的本地测试 APK。",
+          "不编辑、改名、截断、替换或伪造外部 Codex rollout，不直接写产品库、伪造 DTO/ACK、清空 App 数据或通过删除失败 intent 制造通过。",
+          "不增加采集 worker 或直接从 App/历史查询/探针请求 Rust，不引入新的恢复 mode、product source epoch、commitFence、第二实时权威或持久 live event log。",
+          "不覆盖旧 evidence blob、原哈希、旧日志及历史失败；不提交原始 wire、全量 cache/DB、配置或凭据。",
+          "不向现有工作会话发送测试指令，不自动删除会话、文件或已有数据；不扩展到文件/图片完整传输、Goal/Plan 新交互、多手机矩阵或无关终端/SSH 功能。"
+        ],
+        "review_conditions": {
+          "verdict": "clean",
+          "provenance": "同一代理自审，不是独立审查；草案 clean 不代表 E2E PASS。",
+          "findings_in_v2": [],
+          "prior_findings": "RD-E2E-01/02 已在 v2 验收定义中处理；v1 草案与 changes_requested review 保持原字节，不改写历史。",
+          "detail_acceptance": "遵守 E07-a–f 的稳定 ref/content hash/cursor/本地预期校验分层，不新增 expectedHash wire 字段。",
+          "replacement_acceptance": "只对 A 最后已 terminal 测试 user turn resend；取证窗口不向 A 追加 turn，普通 append 与末轮 replacement 分开验收。",
+          "product_chain_evidence": "产品发布后从正常 history 入口确认实际产品 provider/同步身份及 App durable commit/ACK，fallback 或同文不替代该段证明。",
+          "isolation": "保留 ordinary selection generation 隔离与既有 terminal-reconcile A partition 独立 fence 的区别。"
+        },
+        "authority_boundary": {
+          "interpretation": "本次原话为 prepare-task confirm；确认当前 v2 计划及已披露边界，不把本轮采纳登记当成业务执行、源码修复、步骤完成或任务关闭。",
+          "source_changes": "默认不改源码；发现缺陷先记录证据与最小拟修复文件/回归范围，取得明确修复范围确认后才修改。",
+          "execution_position": "后续验证从 S1 锁定环境、样本和已有证据开始；同一已确认范围/副作用无需重复确认，只有新实质性变化才另行说明。",
+          "no_external_actions_this_turn": [
+            "未启动/重启服务",
+            "未进行 ADB/真机操作",
+            "未构建/安装 APK",
+            "未运行测试",
+            "未创建或发送测试会话消息",
+            "未进行 resend/Branch",
+            "未暂存/提交/推送/部署"
+          ]
+        },
+        "retained_gaps": [
+          "现存 64 MiB fingerprint budget 失败与历史 partial 不因计划采纳变为通过或已修复。",
+          "现场服务/设备/healthy surface/自然样本能力待 S1 核实；自然 metadata-only、在途响应或 pending 窗口缺条件时保持未验证。",
+          "两条历史管理关联问题及旧 CR 格式限制保留；不在本次确认中自动 link/correct/resolve/defer。",
+          "TASK-005 及其他已关闭任务保持原状态，不重开或重跑旧业务。"
+        ],
+        "preservation": "不修改 v1/v2 候选、两个 draft review、旧证据 blob/哈希、产品源码或 Git index；仅追加采纳事实与正常生成的管理视图/恢复快照。",
+        "recommendation": {
+          "next_route": "execute-step",
+          "reason": "v2 已获用户确认；下一业务步骤为 S1 环境/样本/证据基线验证，尚未执行。"
+        },
+        "activate": true
+      }
+    }
+  },
+  "issues": []
+}

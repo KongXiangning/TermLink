@@ -1,0 +1,383 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T18:35:12.673Z",
+  "payload_sha256": "86e1ab8d695e2b4c2ae6999346bc081cdcf9412dd6f753ae29444c25de5d694e",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:codex-history-real-e2e-draft-review-20261003-v2",
+    "request": {
+      "action": "review",
+      "stage": "draft",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "source_revision": "2c9ff5e5e5574dc34ab5c6280f30634b15e6394f",
+      "idempotency_key": "codex-history-real-e2e-draft-review-20261003-v2",
+      "decision_source": "当前对话用户显式调用 review-draft；审查最新候选 v2，不是范围确认、采纳或执行授权。",
+      "decision_text": "[$review-draft](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\review-draft\\SKILL.md)",
+      "verdict": "clean",
+      "summary": "候选 v2 草案自审 clean：RD-E2E-01/02 已在计划验收定义中处理到位；C1/C2 已落实且与现有产品/IPC 契约一致，未发现新增需修改问题。六步骤、12 个顶层场景及操作副作用上限不变。该结论只针对草案，不表示 E2E 通过、独立审查、计划采纳或执行授权。",
+      "subject": {
+        "display_id": "TASK-20260831",
+        "title": "Codex 历史全链路 E2E 补齐验证（默认不改源码）",
+        "revision": 2,
+        "plan_file_sha256": "94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d",
+        "plan_status_at_review": "candidate",
+        "adopted_plan_ref": null,
+        "executions_at_review": 0,
+        "tests_at_review": 0,
+        "selection": "本次 fresh task-status detail=task 从完整 journal 定位同一任务的 v2 candidate head；实际读取全部 v2 内容并对照 v1，不以旧 next_route 或 CURRENT_TASK 旧元组代替状态。"
+      },
+      "findings": [],
+      "prior_findings_assessment": [
+        {
+          "finding_id": "RD-E2E-01",
+          "previous_review_ref": ".workflow-system/records/events/key-c22790fc73857472594a6c1235afe3444dc0ef0b1f2ade9ac0f4660512e82a69.json",
+          "assessment": "addressed-in-reviewed-v2-draft",
+          "locations": [
+            "acceptance[5]",
+            "E07 request_contract / E07-a–f",
+            "S3 actions/validation"
+          ],
+          "reasoning": "稳定 refId 由 conversationId+detailKey 决定；内容变化可保持相同 refId/byteSize，但 hash 和有效同步身份更新。v2 区分未变化 cursor 仍有效、内容变化的旧 cursor 拒绝、实际不存在的 ref、App 本地旧预期 hash 校验及 metadata-only 更新。明确没有 expectedHash wire 字段；旧 assembly 若因既有上下文门禁提前取消/丢弃，也不误判为必须走 detail_ref_changed。自然条件不足单列未验证。",
+          "evidence": [
+            {
+              "path": "src/services/codexHistoryProductProvider.js",
+              "line": 167,
+              "claim": "实际 ref 定位与 contentHash/cursor 校验分开；内容更新不自动使稳定 refId 无效。"
+            },
+            {
+              "path": "src/services/codexHistoryProductProvider.js",
+              "line": 405,
+              "claim": "refId 仅绑定 conversationId+detailKey。"
+            },
+            {
+              "path": "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+              "claim": "request 无 expectedHash 参数；assembly 持本地 ref/hash/size 并在接受响应和最终完整字节时校验。"
+            },
+            {
+              "path": "src/ws/terminalGateway.js",
+              "line": 8136,
+              "claim": "selection、ref 可用性和 detail cursor 错误独立；有效稳定 ref 可返回当前详情。"
+            },
+            {
+              "path": "docs/codex/codex-history-product-contract.md",
+              "line": 123,
+              "claim": "有效 item 同步 hash 包含 detail metadata，正文 payloadHash 独立。"
+            }
+          ],
+          "distinction": "解决的是 v2 草案的判定歧义；不表示真实详情更新 E2E 已通过，不修改 v1 finding 或旧 review 原字节。"
+        },
+        {
+          "finding_id": "RD-E2E-02",
+          "previous_review_ref": ".workflow-system/records/events/key-c22790fc73857472594a6c1235afe3444dc0ef0b1f2ade9ac0f4660512e82a69.json",
+          "assessment": "addressed-in-reviewed-v2-draft",
+          "locations": [
+            "acceptance[3]",
+            "E04",
+            "E11-a–d",
+            "S5 actions/validation/outputs"
+          ],
+          "reasoning": "v2 限定 A 最后已 terminal user turn 的一次 resend，记录实际绑定/history_base cut、old/new IDs、child 单 user turn 与逐层完整性。观察窗口内不再向 A 追加 turn；Branch C 在该窗口完成或限制记录后进行。cut 前保留前缀与替换末轮分别核对，未就绪保留旧 canonical，普通只增不减的 append 断言只在 S2/E04 使用；不要求新增 superseded DTO、旧版本查询或删除策略。",
+          "evidence": [
+            {
+              "path": "docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md",
+              "line": 356,
+              "claim": "LastTurnReplacement 的末轮、cut、old/new 身份和 completeness 条件。"
+            },
+            {
+              "path": "native/codex-rollout-collector/src/analysis.rs",
+              "line": 91,
+              "claim": "选择最后 parent user turn，cut 必须匹配其起点；parent terminal、child 恰好一 user turn、old/new ID 不同。"
+            },
+            {
+              "path": "docs/codex/codex-rollout-collector-architecture.md",
+              "line": 1999,
+              "claim": "child 未 terminal 或读取 partial 时不发布 replacement，不能删除旧 turn。"
+            }
+          ],
+          "distinction": "对 v2 草案已处理到位，不代表实际 resend/Branch 已运行；旧 changes_requested 历史结论仍保持原样。"
+        }
+      ],
+      "incorporated_conditions_assessment": [
+        {
+          "id": "C1",
+          "assessment": "consistent",
+          "locations": [
+            "acceptance[1]",
+            "E01/E03",
+            "S2"
+          ],
+          "reasoning": "发布后走正常重选/重开/sync 命中产品 provider，并绑定 syncId/generation、实际 provider、page/root/hash 与 App commit/ACK。range 下核对 product_db；不把 fallback/同文误算产品链路，不要求新自动推送/轮询。",
+          "sources": [
+            "docs/codex/codex-history-product-contract.md:133",
+            "docs/codex/codex-history-product-contract.md:135",
+            "src/ws/terminalGateway.js:7599",
+            "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:8563",
+            "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:8785"
+          ]
+        },
+        {
+          "id": "C2",
+          "assessment": "consistent",
+          "locations": [
+            "acceptance[6]",
+            "E08",
+            "S4"
+          ],
+          "reasoning": "普通旧 selection history/details 仍隔离；仅既有 terminal-reconcile A job 在独立 fence 有效时可写 A partition，不影响 B。没有扩大为普通旧 generation 结果可写库。",
+          "sources": [
+            "docs/workflow/DECISIONS.md:146",
+            "docs/workflow/CONTRACTS.md:243"
+          ]
+        }
+      ],
+      "coverage": {
+        "review_type": "static-draft-self-review",
+        "examined": [
+          "用户原要求：整理新计划、确认范围后执行、默认不改源码、缺陷另确认最小修复范围。",
+          "journal 中实际 v2 完整内容：目标/授权/验收、范围/排除、六步骤及依赖、12 场景和子项、操作上限、历史证据及缺陷处置。",
+          "结构化比较 v1/v2：title/goal/scope/exclusions/confirmation_scope/evidence_baseline/minimum_validation/defect_policy/constraints_and_references/known_risks 全部不变；步骤 ID/顺序/依赖/environment 与顶层场景 ID 不变。",
+          "重新核对 product provider 的 ref/hash/cursor、Android detail 请求/assembly、Gateway 实际错误语义；核对 Rust 末轮 replacement preflight 和数据契约。",
+          "重新核对 AD-004/IPC 冻结核心、terminal durable fence 例外、产品历史 DTO/读取契约、architecture §10.1；此前完整读取的主架构与四模块接口文档在相同 HEAD、无 tracked diff 下继续作为设计依据。",
+          "复核 S2 产品命中证据、S4 当前 selection 与 A durable fence 分离、S5 样本窗口不新增 A turn、Branch C 不污染 replacement 样本；未发现交叉步骤冲突。",
+          "重读 test-admission-policy，确认沿用最小充分证据与既有集成补充，不要求新增永久测试或无差别全套回归。"
+        ],
+        "not_performed": [
+          "未运行测试、编译、APK 安装、ADB/设备操作或服务检查/重启。",
+          "未创建会话、发送测试 turn、resend、Branch 或真实源/数据库/缓存探针。",
+          "未更改源码、候选计划、旧审查、契约、证据 blob 或 Git index；未采纳、激活、提交、推送或部署。",
+          "未验证当前 live 环境/自然样本时序及新 E2E；这些留待用户范围确认后的 S1–S6。"
+        ],
+        "remaining_limitations": [
+          "真机/服务/healthy surface 当前可用性与自然 metadata-only、在途响应、pending 窗口仍需现场核实；条件不足按子项未验证，不补造 PASS。",
+          "旧 64 MiB fingerprint budget 失败与历史 partial 继续保留；本次草案 clean 不解决这些运行问题。",
+          "同一代理复核自己准备的草案，不是独立审查。"
+        ],
+        "diagnostic_notes": [
+          "首次 task-status 使用不受支持的 --input 参数，返回 INVALID_ARGUMENT；改为 stdin JSON 后成功取得当前状态。未因此重跑业务操作。",
+          "部分大输出被工具截断；完整实际 v2 已分组读完，判定依赖的契约/源码缺段另行定向补读。"
+        ]
+      },
+      "provenance": {
+        "reviewer": "Codex",
+        "mode": "self-review",
+        "same_agent_as_draft_author": true,
+        "independent": false,
+        "method": "静态比对实际 v2、原审查意见、当前本地契约/源码与原始用户范围。"
+      },
+      "preservation": {
+        "v1_plan_sha256": "181f241917ffe1d3d92ff895c5f28198bfe433cae75d47c3970f95d688e32db0",
+        "v1_review_sha256": "dab93b73a0139c51efc6d7c1ee252a889606d2bfa2082557205ad92a336f2ef9",
+        "note": "旧 v1 及其 changes_requested review 不重写；v2 也不修改。新增本条 exact-target review，管理视图按正常动作发布。"
+      },
+      "remaining_work": [
+        "候选 v2 可进入用户范围确认，无需为本次审查再生成修订版。",
+        "用户尚未确认六步骤范围及已披露的专用会话/模型消耗、指定本地服务短暂中断、指定真机和必要同源构建安装等副作用；本轮不执行 adoption 或验证。",
+        "收到范围确认后可记录采纳并完成已授权执行，无需为同一决定反复调用 Skill；发现缺陷仍先限定并确认源码修复范围。"
+      ],
+      "recommendation": {
+        "next_route": "prepare-task",
+        "purpose": "plan-confirmation",
+        "reason": "v2 草案 clean 但未获用户范围确认；下一步是确认本版，不是继续 repair 或重做计划。路由仅建议，用户可以直接确认范围。"
+      },
+      "unresolved_management": {
+        "existing_issue_ids": [
+          "issue-bb8b7308bc64f7d580f3cfae",
+          "issue-ec19a134aefeb23287cb519b"
+        ],
+        "disposition": "保留两条旧关联问题和旧 CR 格式限制，不新作 resolve/defer、不设为业务门禁。需要单独整理时可依据原事实 link/correct 或由用户选择 defer。"
+      }
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json"
+      ],
+      "data": {
+        "stage": "draft",
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "source_revision": "2c9ff5e5e5574dc34ab5c6280f30634b15e6394f",
+        "decision_source": "当前对话用户显式调用 review-draft；审查最新候选 v2，不是范围确认、采纳或执行授权。",
+        "decision_text": "[$review-draft](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\review-draft\\SKILL.md)",
+        "verdict": "clean",
+        "summary": "候选 v2 草案自审 clean：RD-E2E-01/02 已在计划验收定义中处理到位；C1/C2 已落实且与现有产品/IPC 契约一致，未发现新增需修改问题。六步骤、12 个顶层场景及操作副作用上限不变。该结论只针对草案，不表示 E2E 通过、独立审查、计划采纳或执行授权。",
+        "subject": {
+          "display_id": "TASK-20260831",
+          "title": "Codex 历史全链路 E2E 补齐验证（默认不改源码）",
+          "revision": 2,
+          "plan_file_sha256": "94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d",
+          "plan_status_at_review": "candidate",
+          "adopted_plan_ref": null,
+          "executions_at_review": 0,
+          "tests_at_review": 0,
+          "selection": "本次 fresh task-status detail=task 从完整 journal 定位同一任务的 v2 candidate head；实际读取全部 v2 内容并对照 v1，不以旧 next_route 或 CURRENT_TASK 旧元组代替状态。"
+        },
+        "findings": [],
+        "prior_findings_assessment": [
+          {
+            "finding_id": "RD-E2E-01",
+            "previous_review_ref": ".workflow-system/records/events/key-c22790fc73857472594a6c1235afe3444dc0ef0b1f2ade9ac0f4660512e82a69.json",
+            "assessment": "addressed-in-reviewed-v2-draft",
+            "locations": [
+              "acceptance[5]",
+              "E07 request_contract / E07-a–f",
+              "S3 actions/validation"
+            ],
+            "reasoning": "稳定 refId 由 conversationId+detailKey 决定；内容变化可保持相同 refId/byteSize，但 hash 和有效同步身份更新。v2 区分未变化 cursor 仍有效、内容变化的旧 cursor 拒绝、实际不存在的 ref、App 本地旧预期 hash 校验及 metadata-only 更新。明确没有 expectedHash wire 字段；旧 assembly 若因既有上下文门禁提前取消/丢弃，也不误判为必须走 detail_ref_changed。自然条件不足单列未验证。",
+            "evidence": [
+              {
+                "path": "src/services/codexHistoryProductProvider.js",
+                "line": 167,
+                "claim": "实际 ref 定位与 contentHash/cursor 校验分开；内容更新不自动使稳定 refId 无效。"
+              },
+              {
+                "path": "src/services/codexHistoryProductProvider.js",
+                "line": 405,
+                "claim": "refId 仅绑定 conversationId+detailKey。"
+              },
+              {
+                "path": "android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryDetail.kt",
+                "claim": "request 无 expectedHash 参数；assembly 持本地 ref/hash/size 并在接受响应和最终完整字节时校验。"
+              },
+              {
+                "path": "src/ws/terminalGateway.js",
+                "line": 8136,
+                "claim": "selection、ref 可用性和 detail cursor 错误独立；有效稳定 ref 可返回当前详情。"
+              },
+              {
+                "path": "docs/codex/codex-history-product-contract.md",
+                "line": 123,
+                "claim": "有效 item 同步 hash 包含 detail metadata，正文 payloadHash 独立。"
+              }
+            ],
+            "distinction": "解决的是 v2 草案的判定歧义；不表示真实详情更新 E2E 已通过，不修改 v1 finding 或旧 review 原字节。"
+          },
+          {
+            "finding_id": "RD-E2E-02",
+            "previous_review_ref": ".workflow-system/records/events/key-c22790fc73857472594a6c1235afe3444dc0ef0b1f2ade9ac0f4660512e82a69.json",
+            "assessment": "addressed-in-reviewed-v2-draft",
+            "locations": [
+              "acceptance[3]",
+              "E04",
+              "E11-a–d",
+              "S5 actions/validation/outputs"
+            ],
+            "reasoning": "v2 限定 A 最后已 terminal user turn 的一次 resend，记录实际绑定/history_base cut、old/new IDs、child 单 user turn 与逐层完整性。观察窗口内不再向 A 追加 turn；Branch C 在该窗口完成或限制记录后进行。cut 前保留前缀与替换末轮分别核对，未就绪保留旧 canonical，普通只增不减的 append 断言只在 S2/E04 使用；不要求新增 superseded DTO、旧版本查询或删除策略。",
+            "evidence": [
+              {
+                "path": "docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md",
+                "line": 356,
+                "claim": "LastTurnReplacement 的末轮、cut、old/new 身份和 completeness 条件。"
+              },
+              {
+                "path": "native/codex-rollout-collector/src/analysis.rs",
+                "line": 91,
+                "claim": "选择最后 parent user turn，cut 必须匹配其起点；parent terminal、child 恰好一 user turn、old/new ID 不同。"
+              },
+              {
+                "path": "docs/codex/codex-rollout-collector-architecture.md",
+                "line": 1999,
+                "claim": "child 未 terminal 或读取 partial 时不发布 replacement，不能删除旧 turn。"
+              }
+            ],
+            "distinction": "对 v2 草案已处理到位，不代表实际 resend/Branch 已运行；旧 changes_requested 历史结论仍保持原样。"
+          }
+        ],
+        "incorporated_conditions_assessment": [
+          {
+            "id": "C1",
+            "assessment": "consistent",
+            "locations": [
+              "acceptance[1]",
+              "E01/E03",
+              "S2"
+            ],
+            "reasoning": "发布后走正常重选/重开/sync 命中产品 provider，并绑定 syncId/generation、实际 provider、page/root/hash 与 App commit/ACK。range 下核对 product_db；不把 fallback/同文误算产品链路，不要求新自动推送/轮询。",
+            "sources": [
+              "docs/codex/codex-history-product-contract.md:133",
+              "docs/codex/codex-history-product-contract.md:135",
+              "src/ws/terminalGateway.js:7599",
+              "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:8563",
+              "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:8785"
+            ]
+          },
+          {
+            "id": "C2",
+            "assessment": "consistent",
+            "locations": [
+              "acceptance[6]",
+              "E08",
+              "S4"
+            ],
+            "reasoning": "普通旧 selection history/details 仍隔离；仅既有 terminal-reconcile A job 在独立 fence 有效时可写 A partition，不影响 B。没有扩大为普通旧 generation 结果可写库。",
+            "sources": [
+              "docs/workflow/DECISIONS.md:146",
+              "docs/workflow/CONTRACTS.md:243"
+            ]
+          }
+        ],
+        "coverage": {
+          "review_type": "static-draft-self-review",
+          "examined": [
+            "用户原要求：整理新计划、确认范围后执行、默认不改源码、缺陷另确认最小修复范围。",
+            "journal 中实际 v2 完整内容：目标/授权/验收、范围/排除、六步骤及依赖、12 场景和子项、操作上限、历史证据及缺陷处置。",
+            "结构化比较 v1/v2：title/goal/scope/exclusions/confirmation_scope/evidence_baseline/minimum_validation/defect_policy/constraints_and_references/known_risks 全部不变；步骤 ID/顺序/依赖/environment 与顶层场景 ID 不变。",
+            "重新核对 product provider 的 ref/hash/cursor、Android detail 请求/assembly、Gateway 实际错误语义；核对 Rust 末轮 replacement preflight 和数据契约。",
+            "重新核对 AD-004/IPC 冻结核心、terminal durable fence 例外、产品历史 DTO/读取契约、architecture §10.1；此前完整读取的主架构与四模块接口文档在相同 HEAD、无 tracked diff 下继续作为设计依据。",
+            "复核 S2 产品命中证据、S4 当前 selection 与 A durable fence 分离、S5 样本窗口不新增 A turn、Branch C 不污染 replacement 样本；未发现交叉步骤冲突。",
+            "重读 test-admission-policy，确认沿用最小充分证据与既有集成补充，不要求新增永久测试或无差别全套回归。"
+          ],
+          "not_performed": [
+            "未运行测试、编译、APK 安装、ADB/设备操作或服务检查/重启。",
+            "未创建会话、发送测试 turn、resend、Branch 或真实源/数据库/缓存探针。",
+            "未更改源码、候选计划、旧审查、契约、证据 blob 或 Git index；未采纳、激活、提交、推送或部署。",
+            "未验证当前 live 环境/自然样本时序及新 E2E；这些留待用户范围确认后的 S1–S6。"
+          ],
+          "remaining_limitations": [
+            "真机/服务/healthy surface 当前可用性与自然 metadata-only、在途响应、pending 窗口仍需现场核实；条件不足按子项未验证，不补造 PASS。",
+            "旧 64 MiB fingerprint budget 失败与历史 partial 继续保留；本次草案 clean 不解决这些运行问题。",
+            "同一代理复核自己准备的草案，不是独立审查。"
+          ],
+          "diagnostic_notes": [
+            "首次 task-status 使用不受支持的 --input 参数，返回 INVALID_ARGUMENT；改为 stdin JSON 后成功取得当前状态。未因此重跑业务操作。",
+            "部分大输出被工具截断；完整实际 v2 已分组读完，判定依赖的契约/源码缺段另行定向补读。"
+          ]
+        },
+        "provenance": {
+          "reviewer": "Codex",
+          "mode": "self-review",
+          "same_agent_as_draft_author": true,
+          "independent": false,
+          "method": "静态比对实际 v2、原审查意见、当前本地契约/源码与原始用户范围。"
+        },
+        "preservation": {
+          "v1_plan_sha256": "181f241917ffe1d3d92ff895c5f28198bfe433cae75d47c3970f95d688e32db0",
+          "v1_review_sha256": "dab93b73a0139c51efc6d7c1ee252a889606d2bfa2082557205ad92a336f2ef9",
+          "note": "旧 v1 及其 changes_requested review 不重写；v2 也不修改。新增本条 exact-target review，管理视图按正常动作发布。"
+        },
+        "remaining_work": [
+          "候选 v2 可进入用户范围确认，无需为本次审查再生成修订版。",
+          "用户尚未确认六步骤范围及已披露的专用会话/模型消耗、指定本地服务短暂中断、指定真机和必要同源构建安装等副作用；本轮不执行 adoption 或验证。",
+          "收到范围确认后可记录采纳并完成已授权执行，无需为同一决定反复调用 Skill；发现缺陷仍先限定并确认源码修复范围。"
+        ],
+        "recommendation": {
+          "next_route": "prepare-task",
+          "purpose": "plan-confirmation",
+          "reason": "v2 草案 clean 但未获用户范围确认；下一步是确认本版，不是继续 repair 或重做计划。路由仅建议，用户可以直接确认范围。"
+        },
+        "unresolved_management": {
+          "existing_issue_ids": [
+            "issue-bb8b7308bc64f7d580f3cfae",
+            "issue-ec19a134aefeb23287cb519b"
+          ],
+          "disposition": "保留两条旧关联问题和旧 CR 格式限制，不新作 resolve/defer、不设为业务门禁。需要单独整理时可依据原事实 link/correct 或由用户选择 defer。"
+        }
+      }
+    }
+  },
+  "issues": []
+}
