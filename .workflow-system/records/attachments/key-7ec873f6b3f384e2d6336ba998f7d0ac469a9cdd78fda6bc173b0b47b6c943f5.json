@@ -1,0 +1,39 @@
+{
+  "event_ref": ".workflow-system/records/events/key-7ec873f6b3f384e2d6336ba998f7d0ac469a9cdd78fda6bc173b0b47b6c943f5.json",
+  "captured_at": "2026-10-02T03:59:19.539Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/60eb030defff24e99e76034f6bf7dac9b9d4f5ceb30e93033f7e7eb44cb8c844.blob",
+      "sha256": "60eb030defff24e99e76034f6bf7dac9b9d4f5ceb30e93033f7e7eb44cb8c844",
+      "size": 24122,
+      "source_path": "logs/task005-s2-cache-repair-20261002/evidence.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b1a5df34e3dc6f59974bbccbb5abf8d97d42afc9340f8e35ac7b848cfee67820.blob",
+      "sha256": "b1a5df34e3dc6f59974bbccbb5abf8d97d42afc9340f8e35ac7b848cfee67820",
+      "size": 199471,
+      "source_path": "logs/task005-s2-cache-repair-20261002/history-visible.png",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fb0f66daf94dd1cd182e4feda35f94d50eda540e99e6cb29cbffbf86b7e6b5a6.blob",
+      "sha256": "fb0f66daf94dd1cd182e4feda35f94d50eda540e99e6cb29cbffbf86b7e6b5a6",
+      "size": 31550,
+      "source_path": "logs/task005-s2-cache-repair-20261002/history-visible.xml",
+      "issues": []
+    }
+  ]
+}

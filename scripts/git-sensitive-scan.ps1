@@ -52,6 +52,66 @@ function Normalize-Path {
     return ($Path -replace '\\', '/')
 }
 
+function Get-UiXmlCredentialScanText {
+    param([string]$Text)
+
+    if ($Text -notmatch '^[\s\uFEFF]*<') { return $Text }
+
+    $settings = [System.Xml.XmlReaderSettings]::new()
+    $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
+    $settings.XmlResolver = $null
+    $inputReader = [System.IO.StringReader]::new($Text)
+    $reader = $null
+    $booleanAttribute = [regex]::new('\Gpassword\s*=\s*(?:"(?:true|false)"|''(?:true|false)'')')
+    $attributeOffsets = [System.Collections.Generic.List[int]]::new()
+    $lineStarts = [System.Collections.Generic.List[int]]::new()
+    $lineStarts.Add(0)
+    foreach ($newline in [regex]::Matches($Text, '\r\n|\n|\r')) {
+        $lineStarts.Add($newline.Index + $newline.Length)
+    }
+
+    try {
+        $reader = [System.Xml.XmlReader]::Create($inputReader, $settings)
+        $lineInfo = [System.Xml.IXmlLineInfo]$reader
+        while ($reader.Read()) {
+            if ($reader.NodeType -ne [System.Xml.XmlNodeType]::Element) { continue }
+
+            # Android UI dumps have an unqualified hierarchy root and node elements.
+            # A non-UI document or any parse error gets no exemption at all.
+            if ($reader.NamespaceURI -ne '' -or
+                ($reader.Depth -eq 0 -and $reader.Name -cne 'hierarchy') -or
+                ($reader.Depth -gt 0 -and $reader.Name -cne 'node')) {
+                return $Text
+            }
+            if ($reader.Depth -eq 0 -or -not $reader.MoveToAttribute('password')) { continue }
+            if ($reader.Value -ceq 'true' -or $reader.Value -ceq 'false') {
+                $offset = $lineStarts[$lineInfo.LineNumber - 1] + $lineInfo.LinePosition - 1
+                # Match the original attribute at its parser-reported position, not
+                # lookalikes in comments, text, CDATA or another attribute's value.
+                $attribute = $booleanAttribute.Match($Text, $offset)
+                if ($attribute.Success) { $attributeOffsets.Add($offset) }
+            }
+            [void]$reader.MoveToElement()
+        }
+    }
+    catch {
+        return $Text
+    }
+    finally {
+        if ($null -ne $reader) { $reader.Dispose() }
+        $inputReader.Dispose()
+    }
+
+    if ($attributeOffsets.Count -eq 0) { return $Text }
+    $scanChars = $Text.ToCharArray()
+    foreach ($offset in $attributeOffsets) {
+        # Mask only this attribute name in memory, retaining all other content,
+        # line positions and the original evidence bytes on disk/in the index.
+        for ($j = 0; $j -lt 'password'.Length; $j++) { $scanChars[$offset + $j] = ' ' }
+    }
+    return (-join $scanChars)
+}
+
 $allowMarker = 'sensitive-scan:allow'
 $targetFiles = Get-TargetFiles
 $useStagedContent = $Staged -and -not ($Files -and $Files.Count -gt 0)
@@ -91,6 +151,7 @@ foreach ($rawPath in $targetFiles) {
     }
 
     $lines = $text -split "`r?`n"
+    $credentialLines = (Get-UiXmlCredentialScanText -Text $text) -split "`r?`n"
 
     for ($i = 0; $i -lt $lines.Length; $i++) {
         $line = $lines[$i]
@@ -99,7 +160,9 @@ foreach ($rawPath in $targetFiles) {
         }
 
         foreach ($rule in $rules) {
-            if ($line -match $rule.Regex) {
+            $scanLine = $line
+            if ($rule.Name -eq 'Credential assignment') { $scanLine = $credentialLines[$i] }
+            if ($scanLine -match $rule.Regex) {
                 $findings.Add([PSCustomObject]@{
                         file = $path
                         line = $i + 1

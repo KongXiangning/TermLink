@@ -3072,6 +3072,36 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun cachedNodeProductEventFactsShowToolInputAndOutput() {
+        val stream = javaClass.classLoader!!.getResourceAsStream("codex_product_db_event_facts.json")!!
+        val item = JSONObject(stream.bufferedReader().use { it.readText() }).getJSONObject("item")
+        assertEquals("tool:call_JLlyFFyipOrJD1WYxH5VFYmB", item.getString("itemKey"))
+        val text = extractHistoryPayloadTextForUi(JSONObject(item.getString("payloadJson")))
+
+        assertTrue(text.startsWith("const r = await tools.exec_command({\n  cmd: \"git diff --"))
+        assertTrue(text.contains("workdir: \"E:\\\\coding\\\\LawAgent\""))
+        assertTrue(text.endsWith("\ngit diff completed"))
+        assertFalse(text.contains("call_id"))
+    }
+
+    @Test
+    fun cachedProductEventFactsKeepTopLevelTextAndOnlyKnownBusinessFields() {
+        val payload = JSONObject().put("text", "正文").put(
+            "eventFacts", JSONArray()
+                .put(JSONObject().put("payload", JSONObject()
+                    .put("text", "不重复正文")
+                    .put("cwd", "E:\\workspace")
+                    .put("command", JSONArray().put("cargo").put("test"))
+                    .put("source_ref", JSONObject().put("path", "internal-source"))
+                    .put("checkpoint", "internal-checkpoint")))
+                .put(JSONObject().put("payload", JSONObject().put("cwd", "E:\\workspace")))
+                .put(JSONObject().put("payload", JSONObject.NULL))
+        )
+
+        assertEquals("正文\ncwd: E:\\workspace\ncommand: cargo test", extractHistoryPayloadTextForUi(payload))
+    }
+
+    @Test
     fun cacheFirstSelectionShowsCached正文BeforeLiveSurfaceArrives() {
         val state = CodexUiState(
             activeConversationId = "conv-a",

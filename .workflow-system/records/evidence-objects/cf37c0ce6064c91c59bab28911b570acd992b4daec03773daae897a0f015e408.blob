@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.termlink.app.codex.data.CodexIpcWireModelTest" tests="34" skipped="0" failures="0" errors="0" timestamp="2026-10-02T04:20:48.822Z" hostname="K-PC" time="0.007">
+  <properties/>
+  <testcase name="followerSendMessage builder" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="followerSendMessage builder carries one request id and rich turn input" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.001"/>
+  <testcase name="followerApprovalResponse builder with execpolicy amendment" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse follower mode changed" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="followerStartGoal builder" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse surface snapshot without snapshot wrapper" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.001"/>
+  <testcase name="permission profile catalog preserves dynamic ids descriptions and availability" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="followerInterruptTurn builder" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.001"/>
+  <testcase name="followerGoalControl builder" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="followerSendMessage builder preserves explicit config permission reset" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="model list request can opt into hidden catalog entries" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse surface snapshot with pending approval" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="followerPlanResponse builder without requestId" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="setActiveFollowerMode builder" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="followerPlanResponse builder with explicit response" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse ipc conversations summary list" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse session info with last codex thread id" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.001"/>
+  <testcase name="model catalog merges data and models compatibility arrays by id" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="unknown envelope type parses safely" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="followerPlanResponse builder with requestId" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse surface snapshot with pending user input action" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="setActiveConversation carries client selection generation when provided" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse ipc status online" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="model catalog keeps user facing legacy models but filters internal hidden models" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.001"/>
+  <testcase name="setActiveConversation builder" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="model catalog accepts string entries without inventing reasoning levels" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="followerSendMessage builder includes optional next turn config" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse surface snapshot with pending plan action" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse surface snapshot with messages" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="thread recovery action builder" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="parse ipc status offline with reason" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="model catalog keeps per-model reasoning metadata and filters hidden entries" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="capabilities do not invent reasoning levels when absent" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.0"/>
+  <testcase name="followerApprovalResponse builder" classname="com.termlink.app.codex.data.CodexIpcWireModelTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

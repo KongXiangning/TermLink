@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T04:36:30.071Z",
+  "payload_sha256": "34f9af01f397a30d15d72dd4afa8a729bb020d827642cd77dd9bc52cb85819b7",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-finish-20261002-r1",
+    "request": {
+      "decision_source": "Current human user message, 2026-10-02, explicitly invoking execute-step finish",
+      "links": [
+        {
+          "ref": ".workflow-system/records/events/key-db3e4f2097642ba3587359efb1ea3b4ee95ea733b2d5345ed8ef79ff72e09253.json",
+          "relation": "review"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-fd6d130f9dc0afb35fbf55cf5f50b895869dddb4c86c671bbb90c0947e74944f.json",
+          "relation": "execution"
+        },
+        {
+          "ref": "docs/changes/records/CR-20261002-1230-task005-s2-app-event-facts.md",
+          "relation": "cr"
+        }
+      ],
+      "step_id": "S2",
+      "remaining_work": [
+        "partial coverage limitation remains retained; this disposition does not claim complete/full-history acceptance or independent review",
+        "CR remains draft/TBD with no associated REQ; strict validation failure req_id=none remains retained; no commit_ref is fabricated",
+        "two unrelated historical management association issues remain unresolved",
+        "S3 and S4 are not started",
+        "broader external source publication and healthy target IPC surface are not newly claimed beyond the exact reviewed S2 subject"
+      ],
+      "execution_ref": ".workflow-system/records/events/key-fd6d130f9dc0afb35fbf55cf5f50b895869dddb4c86c671bbb90c0947e74944f.json",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "state": "finished",
+      "gaps": [
+        "Self-review only; not independent review",
+        "Partial coverage retained",
+        "CR/REQ association and strict-format limitation retained",
+        "Two historical unassociated management records retained"
+      ],
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "idempotency_key": "task005-s2-finish-20261002-r1",
+      "action": "step",
+      "decision_text": "审查结果为 clean（自审），R9 已解决；139 项 Node、279 项 Android 回归证据有效；保留 partial 覆盖、CR 格式限制和两条旧关联问题；办理 S2 步骤结束，不继续 repair。",
+      "decision_ref": ".workflow-system/records/events/key-db3e4f2097642ba3587359efb1ea3b4ee95ea733b2d5345ed8ef79ff72e09253.json",
+      "review_ref": ".workflow-system/records/events/key-db3e4f2097642ba3587359efb1ea3b4ee95ea733b2d5345ed8ef79ff72e09253.json"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "step",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-db3e4f2097642ba3587359efb1ea3b4ee95ea733b2d5345ed8ef79ff72e09253.json",
+        ".workflow-system/records/events/key-c7d5a62897e6bccc4137cefe430717b10b949bbaa8947441fc057e0f6b6ee744.json"
+      ],
+      "data": {
+        "decision_source": "Current human user message, 2026-10-02, explicitly invoking execute-step finish",
+        "links": [
+          {
+            "ref": ".workflow-system/records/events/key-db3e4f2097642ba3587359efb1ea3b4ee95ea733b2d5345ed8ef79ff72e09253.json",
+            "relation": "review"
+          },
+          {
+            "ref": ".workflow-system/records/events/key-fd6d130f9dc0afb35fbf55cf5f50b895869dddb4c86c671bbb90c0947e74944f.json",
+            "relation": "execution"
+          },
+          {
+            "ref": "docs/changes/records/CR-20261002-1230-task005-s2-app-event-facts.md",
+            "relation": "cr"
+          }
+        ],
+        "step_id": "S2",
+        "remaining_work": [
+          "partial coverage limitation remains retained; this disposition does not claim complete/full-history acceptance or independent review",
+          "CR remains draft/TBD with no associated REQ; strict validation failure req_id=none remains retained; no commit_ref is fabricated",
+          "two unrelated historical management association issues remain unresolved",
+          "S3 and S4 are not started",
+          "broader external source publication and healthy target IPC surface are not newly claimed beyond the exact reviewed S2 subject"
+        ],
+        "execution_ref": ".workflow-system/records/events/key-fd6d130f9dc0afb35fbf55cf5f50b895869dddb4c86c671bbb90c0947e74944f.json",
+        "state": "finished",
+        "gaps": [
+          "Self-review only; not independent review",
+          "Partial coverage retained",
+          "CR/REQ association and strict-format limitation retained",
+          "Two historical unassociated management records retained"
+        ],
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "decision_text": "审查结果为 clean（自审），R9 已解决；139 项 Node、279 项 Android 回归证据有效；保留 partial 覆盖、CR 格式限制和两条旧关联问题；办理 S2 步骤结束，不继续 repair。",
+        "decision_ref": ".workflow-system/records/events/key-db3e4f2097642ba3587359efb1ea3b4ee95ea733b2d5345ed8ef79ff72e09253.json",
+        "review_ref": ".workflow-system/records/events/key-db3e4f2097642ba3587359efb1ea3b4ee95ea733b2d5345ed8ef79ff72e09253.json"
+      }
+    }
+  },
+  "issues": []
+}

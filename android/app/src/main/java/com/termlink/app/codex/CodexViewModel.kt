@@ -2925,15 +2925,32 @@ internal fun extractHistoryPayloadTextForUi(payload: JSONObject): String {
     val body = extract(payload.opt("text"))
         ?: extract(payload.opt("content"))
         ?: extract(payload.opt("summary"))
-    val facts = listOf("eventFilePath", "sourcePath", "artifactPath", "cwd", "command")
+    fun facts(valuePayload: JSONObject): List<String> =
+        listOf("eventFilePath", "sourcePath", "artifactPath", "cwd", "command")
         .mapNotNull { key ->
-            val value = payload.opt(key)
+            val value = valuePayload.opt(key)
             val fact = if (key == "command" && value is JSONArray) {
                 (0 until value.length()).mapNotNull { index -> extract(value.opt(index)) }.joinToString(" ")
             } else extract(value)
             fact?.takeIf { it.isNotBlank() }?.let { "$key: $it" }
         }
-    return (listOfNotNull(body) + facts).joinToString("\n")
+    // Product items group business events under eventFacts. Read only their
+    // known display fields; do not flatten event envelopes or provenance.
+    val eventTexts = buildList {
+        val events = payload.optJSONArray("eventFacts") ?: return@buildList
+        for (index in 0 until events.length()) {
+            val eventPayload = events.optJSONObject(index)?.optJSONObject("payload") ?: continue
+            if (body == null) {
+                (extract(eventPayload.opt("text"))
+                    ?: extract(eventPayload.opt("content"))
+                    ?: extract(eventPayload.opt("summary")))?.let(::add)
+            }
+            extract(eventPayload.opt("input"))?.let(::add)
+            extract(eventPayload.opt("output"))?.let(::add)
+            addAll(facts(eventPayload))
+        }
+    }
+    return (listOfNotNull(body) + facts(payload) + eventTexts).distinct().joinToString("\n")
 }
 
 private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {

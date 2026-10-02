@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-01T19:33:39.449Z",
+  "payload_sha256": "3c742c63964d8fce2ea425b4422b95def9f21777b3f27d9ac40b77686b2d0476",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:correct-review-task005-s2-local-cache-resync-20261002-v3",
+    "request": {
+      "action": "correct",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "record_ref": ".workflow-system/records/events/key-00a433f780bb0b90653bb6901c34737a114c3457fd3343c4198dcfa1751570dc.json",
+      "parents": [
+        ".workflow-system/records/events/key-e96cf06cd5174062b7f29a64ea77f83eb9d3df00b8b064da6a87ec153b48706d.json"
+      ],
+      "idempotency_key": "correct-review-task005-s2-local-cache-resync-20261002-v3",
+      "event": {
+        "action": "review",
+        "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+        "data": {
+          "prior_findings_assessment": [
+            {
+              "review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+              "finding_id": "TASK005-S2-R2",
+              "status": "retained",
+              "assessment": "本次是既有 App 清理与重同步验证，没有修改 Node 投影或产品代码；本次目标缓存无 Diagnostic 不能替代对 Node 全局投影边界的独立评定。"
+            },
+            {
+              "review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+              "finding_id": "TASK005-S2-R3",
+              "status": "still-open",
+              "assessment": "本次可见历史与无 Diagnostic 证据得到补强，但仍没有稳定结构化字段值与 App 可见事件的逐项关联。"
+            }
+          ]
+        }
+      },
+      "decision_source": "Current review record correction by the same reviewer; preserve original immutable review and append the corrected interpretation",
+      "decision_text": "Correct the malformed prior-review reference in the review annotation only; no product or business evidence changes."
+    },
+    "task_event": {
+      "version": 1,
+      "action": "correct",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-e96cf06cd5174062b7f29a64ea77f83eb9d3df00b8b064da6a87ec153b48706d.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-00a433f780bb0b90653bb6901c34737a114c3457fd3343c4198dcfa1751570dc.json",
+        "event": {
+          "action": "review",
+          "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+          "data": {
+            "prior_findings_assessment": [
+              {
+                "review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+                "finding_id": "TASK005-S2-R2",
+                "status": "retained",
+                "assessment": "本次是既有 App 清理与重同步验证，没有修改 Node 投影或产品代码；本次目标缓存无 Diagnostic 不能替代对 Node 全局投影边界的独立评定。"
+              },
+              {
+                "review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+                "finding_id": "TASK005-S2-R3",
+                "status": "still-open",
+                "assessment": "本次可见历史与无 Diagnostic 证据得到补强，但仍没有稳定结构化字段值与 App 可见事件的逐项关联。"
+              }
+            ]
+          }
+        },
+        "decision_source": "Current review record correction by the same reviewer; preserve original immutable review and append the corrected interpretation",
+        "decision_text": "Correct the malformed prior-review reference in the review annotation only; no product or business evidence changes."
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-01T19:32:09.672Z",
+  "payload_sha256": "ede42dd59f04eaf09d4fbad8f838064adead698332135633283e3fd1735b05bc",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:review-task005-s2-local-cache-resync-20261002",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json",
+      "previous_review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+      "idempotency_key": "review-task005-s2-local-cache-resync-20261002",
+      "verdict": "pass-with-limits",
+      "summary": "本次评审覆盖 TASK-005 S2 的本地清理、冷重开、重新同步、旧 Diagnostic 残留检查、历史展示和 ACK。目标会话按 App 现有 per-task Clear 被清空后重新出现；目标缓存中没有 Diagnostic item 或 Diagnostic discriminator，UI 有历史文本且没有可见 Diagnostic，服务端 ACK 均 ok=true。覆盖保持 partial，且没有把稳定结构化事件字段和值逐项对应到 App 可见内容，因此不把 S2 或完整历史标记为通过。",
+      "source_revision": {
+        "executed_subject": {
+          "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "execution_ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json",
+          "scope": "Task005 S2 App per-conversation cache clear, cold reopen, product history resync, Diagnostic residual, UI and ACK evidence"
+        },
+        "reviewed_at": "2026-10-02 Asia/Shanghai",
+        "state": "read-only review; no product source, service configuration, remote data or device cache mutation"
+      },
+      "findings": [
+        {
+          "id": "TASK005-S2-R8",
+          "priority": "P2",
+          "type": "coverage-limit",
+          "status": "open",
+          "title": "同步覆盖仍为 partial，不能宣称完整历史",
+          "body": "重开后目标会话有 98 个 item、7 个 committed history segment，provider_mode=product_db，complete=false、coverage_state=partial、coverage_complete=false；最新 server.codex.history.ack_received 均 ok=true 但 state=partial。清理、首屏展示和 ACK 证据成立，完整历史覆盖仍未验证。",
+          "requirements": [
+            "Task005 S2 保持 bounded/partial coverage 真实"
+          ],
+          "evidence_ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json"
+        },
+        {
+          "id": "TASK005-S2-R9",
+          "priority": "P2",
+          "type": "verification-gap",
+          "status": "open",
+          "title": "本次重开证据未把具体结构化字段值对应到 App 可见事件",
+          "body": "数据库 item type 与递归 discriminator 检查均未发现 Diagnostic，UI XML 显示历史文本且没有可见 Diagnostic；但本次执行只记录 visible_history_message_text_count=1，没有稳定 item_key、字段路径和值与该可见事件的逐项关联。因此本次操作验证了历史可见性和 Diagnostic 缺失，仍不能单独满足 S2 的具体结构化事件字段可见性要求。",
+          "requirements": [
+            "Task005 S2 acceptance: concrete structured event field visible"
+          ],
+          "evidence_ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json"
+        }
+      ],
+      "prior_findings_assessment": [
+        {
+          "review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+          "finding_id": "TASK005-S2-R2",
+          "status": "retained",
+          "assessment": "本次是既有 App 清理与重同步验证，没有修改 Node 投影或产品代码；本次目标缓存无 Diagnostic 不能替代对 Node 全局投影边界的独立评定。"
+        },
+        {
+          "review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+          "finding_id": "TASK005-S2-R3",
+          "status": "still-open",
+          "assessment": "本次可见历史与无 Diagnostic 证据得到补强，但仍没有稳定结构化字段值与 App 可见事件的逐项关联。"
+        }
+      ],
+      "coverage": {
+        "target": "Latest Task005 S2 execution key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8",
+        "checks": [
+          {
+            "name": "target selection and clear scope",
+            "result": "observed",
+            "detail": "App Codex Storage Management exact target row; local history/media-only confirmation; target rows became zero while endpoint count changed 133 to 132."
+          },
+          {
+            "name": "other sessions and configuration",
+            "result": "observed",
+            "detail": "Other 132 endpoint rows remained; count returned to 133 after target resync; service configuration and remote history were not changed."
+          },
+          {
+            "name": "reopen and history display",
+            "result": "observed",
+            "detail": "Cold force-stop/launcher reopen; target row and Codex connected surface returned; target cache repopulated with 98 items and 7 segments; one visible history message."
+          },
+          {
+            "name": "Diagnostic residual",
+            "result": "observed",
+            "detail": "Target cache item type count and recursive discriminator payload count were both zero; visible Diagnostic text count was zero."
+          },
+          {
+            "name": "ACK",
+            "result": "observed-with-limit",
+            "detail": "80 matching server.codex.history.ack_received records; latest six were ok=true, purpose=history_sync, state=partial."
+          },
+          {
+            "name": "source and mutation boundary",
+            "result": "observed",
+            "detail": "No product source edit, build/test, server configuration edit, remote database command, or manual cache/database deletion."
+          }
+        ],
+        "actual_commands": [
+          "ADB device doctor on MQS7N19402011743 and existing local server health check",
+          "App Codex Storage Management per-task Clear confirmation",
+          "Read-only run-as SQLite extraction before/after clear and after resync",
+          "adb am force-stop com.termlink.app and launcher monkey cold reopen",
+          "Read-only diagnostic log filtering by SHA-256 conversation key e24639181f5f2684"
+        ],
+        "not_run": [
+          "No new Gradle build, automated test, product code change, service restart, remote mutation, S3 or S4 validation",
+          "No full-history completion claim; no independent reviewer"
+        ],
+        "excluded": [
+          "Other sessions, service configuration, remote data, product source and IPC/Rust/Node architecture remained outside scope"
+        ]
+      },
+      "provenance": {
+        "kind": "self-review",
+        "independent": false,
+        "reviewer": "current root agent",
+        "observation_sources": "Recorded execution, read-only Android cache aggregates, UI XML, local server health and diagnostic ACK logs",
+        "review_scope": "Exact execution key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8"
+      },
+      "limits": [
+        "The execution and review are caller-reported/self-reviewed rather than independent review.",
+        "The target history remains partial; item and segment counts do not establish complete historical coverage.",
+        "A generic visible history message does not establish a stable structured event field/value mapping in the App.",
+        "Existing unassociated management records remain unresolved and are not repaired by this review."
+      ],
+      "remaining_work": [
+        "Keep S2 in progress; do not finish or close it from this review.",
+        "If S2 acceptance is required, record a concrete stable item/field/value to App-visible correlation and preserve partial coverage truth.",
+        "Retain prior Node projection-boundary finding TASK005-S2-R2 until its separately scoped evidence or repair is reviewed.",
+        "S3 details/history and S4 extended real-device validation remain not started."
+      ],
+      "recommendation": {
+        "next_route": "execute-step",
+        "reason": "The exact execution is acceptable with limits, but the current step remains in progress with open findings; use execute-step only if the user authorizes repair or a finish disposition."
+      },
+      "decision_source": "Current human user message invoking review-change on 2026-10-02 Asia/Shanghai",
+      "decision_text": "[$review-change](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\review-change\\SKILL.md)"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json",
+        "previous_review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+        "verdict": "pass-with-limits",
+        "summary": "本次评审覆盖 TASK-005 S2 的本地清理、冷重开、重新同步、旧 Diagnostic 残留检查、历史展示和 ACK。目标会话按 App 现有 per-task Clear 被清空后重新出现；目标缓存中没有 Diagnostic item 或 Diagnostic discriminator，UI 有历史文本且没有可见 Diagnostic，服务端 ACK 均 ok=true。覆盖保持 partial，且没有把稳定结构化事件字段和值逐项对应到 App 可见内容，因此不把 S2 或完整历史标记为通过。",
+        "source_revision": {
+          "executed_subject": {
+            "head": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+            "execution_ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json",
+            "scope": "Task005 S2 App per-conversation cache clear, cold reopen, product history resync, Diagnostic residual, UI and ACK evidence"
+          },
+          "reviewed_at": "2026-10-02 Asia/Shanghai",
+          "state": "read-only review; no product source, service configuration, remote data or device cache mutation"
+        },
+        "findings": [
+          {
+            "id": "TASK005-S2-R8",
+            "priority": "P2",
+            "type": "coverage-limit",
+            "status": "open",
+            "title": "同步覆盖仍为 partial，不能宣称完整历史",
+            "body": "重开后目标会话有 98 个 item、7 个 committed history segment，provider_mode=product_db，complete=false、coverage_state=partial、coverage_complete=false；最新 server.codex.history.ack_received 均 ok=true 但 state=partial。清理、首屏展示和 ACK 证据成立，完整历史覆盖仍未验证。",
+            "requirements": [
+              "Task005 S2 保持 bounded/partial coverage 真实"
+            ],
+            "evidence_ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json"
+          },
+          {
+            "id": "TASK005-S2-R9",
+            "priority": "P2",
+            "type": "verification-gap",
+            "status": "open",
+            "title": "本次重开证据未把具体结构化字段值对应到 App 可见事件",
+            "body": "数据库 item type 与递归 discriminator 检查均未发现 Diagnostic，UI XML 显示历史文本且没有可见 Diagnostic；但本次执行只记录 visible_history_message_text_count=1，没有稳定 item_key、字段路径和值与该可见事件的逐项关联。因此本次操作验证了历史可见性和 Diagnostic 缺失，仍不能单独满足 S2 的具体结构化事件字段可见性要求。",
+            "requirements": [
+              "Task005 S2 acceptance: concrete structured event field visible"
+            ],
+            "evidence_ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json"
+          }
+        ],
+        "prior_findings_assessment": [
+          {
+            "review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+            "finding_id": "TASK005-S2-R2",
+            "status": "retained",
+            "assessment": "本次是既有 App 清理与重同步验证，没有修改 Node 投影或产品代码；本次目标缓存无 Diagnostic 不能替代对 Node 全局投影边界的独立评定。"
+          },
+          {
+            "review_ref": ".workflow-system/records/events/key-06d2c68e01478a26ef0e9f22bef0e9f22bef727c0b518b5f6f2285660488c0632e77a738b.json",
+            "finding_id": "TASK005-S2-R3",
+            "status": "still-open",
+            "assessment": "本次可见历史与无 Diagnostic 证据得到补强，但仍没有稳定结构化字段值与 App 可见事件的逐项关联。"
+          }
+        ],
+        "coverage": {
+          "target": "Latest Task005 S2 execution key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8",
+          "checks": [
+            {
+              "name": "target selection and clear scope",
+              "result": "observed",
+              "detail": "App Codex Storage Management exact target row; local history/media-only confirmation; target rows became zero while endpoint count changed 133 to 132."
+            },
+            {
+              "name": "other sessions and configuration",
+              "result": "observed",
+              "detail": "Other 132 endpoint rows remained; count returned to 133 after target resync; service configuration and remote history were not changed."
+            },
+            {
+              "name": "reopen and history display",
+              "result": "observed",
+              "detail": "Cold force-stop/launcher reopen; target row and Codex connected surface returned; target cache repopulated with 98 items and 7 segments; one visible history message."
+            },
+            {
+              "name": "Diagnostic residual",
+              "result": "observed",
+              "detail": "Target cache item type count and recursive discriminator payload count were both zero; visible Diagnostic text count was zero."
+            },
+            {
+              "name": "ACK",
+              "result": "observed-with-limit",
+              "detail": "80 matching server.codex.history.ack_received records; latest six were ok=true, purpose=history_sync, state=partial."
+            },
+            {
+              "name": "source and mutation boundary",
+              "result": "observed",
+              "detail": "No product source edit, build/test, server configuration edit, remote database command, or manual cache/database deletion."
+            }
+          ],
+          "actual_commands": [
+            "ADB device doctor on MQS7N19402011743 and existing local server health check",
+            "App Codex Storage Management per-task Clear confirmation",
+            "Read-only run-as SQLite extraction before/after clear and after resync",
+            "adb am force-stop com.termlink.app and launcher monkey cold reopen",
+            "Read-only diagnostic log filtering by SHA-256 conversation key e24639181f5f2684"
+          ],
+          "not_run": [
+            "No new Gradle build, automated test, product code change, service restart, remote mutation, S3 or S4 validation",
+            "No full-history completion claim; no independent reviewer"
+          ],
+          "excluded": [
+            "Other sessions, service configuration, remote data, product source and IPC/Rust/Node architecture remained outside scope"
+          ]
+        },
+        "provenance": {
+          "kind": "self-review",
+          "independent": false,
+          "reviewer": "current root agent",
+          "observation_sources": "Recorded execution, read-only Android cache aggregates, UI XML, local server health and diagnostic ACK logs",
+          "review_scope": "Exact execution key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8"
+        },
+        "limits": [
+          "The execution and review are caller-reported/self-reviewed rather than independent review.",
+          "The target history remains partial; item and segment counts do not establish complete historical coverage.",
+          "A generic visible history message does not establish a stable structured event field/value mapping in the App.",
+          "Existing unassociated management records remain unresolved and are not repaired by this review."
+        ],
+        "remaining_work": [
+          "Keep S2 in progress; do not finish or close it from this review.",
+          "If S2 acceptance is required, record a concrete stable item/field/value to App-visible correlation and preserve partial coverage truth.",
+          "Retain prior Node projection-boundary finding TASK005-S2-R2 until its separately scoped evidence or repair is reviewed.",
+          "S3 details/history and S4 extended real-device validation remain not started."
+        ],
+        "recommendation": {
+          "next_route": "execute-step",
+          "reason": "The exact execution is acceptable with limits, but the current step remains in progress with open findings; use execute-step only if the user authorizes repair or a finish disposition."
+        },
+        "decision_source": "Current human user message invoking review-change on 2026-10-02 Asia/Shanghai",
+        "decision_text": "[$review-change](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\review-change\\SKILL.md)"
+      }
+    }
+  },
+  "issues": []
+}

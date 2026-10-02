@@ -1,0 +1,1833 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T04:22:33.560Z",
+  "payload_sha256": "9ecdc0d9499866734d91e3dd9015ea0927c21d77f4f0c46d2f2236e9d217c01b",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-minimal-app-event-facts-repair-20261002",
+    "request": {
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "step_id": "S2",
+      "source_revision": {
+        "head": "c95f94d641248c3d45765d8dc83b133b10aa5f83",
+        "file_sha256": [
+          {
+            "sha256": "D623B657373145F77C24A6ED0722855D25D7068AC9A9AAC2A8D5C265CEA4D662",
+            "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt"
+          },
+          {
+            "sha256": "5AA717974BFDEA0BA380D4B16529AAC31E39E6B9D100B4A2419766DFA88ADC9B",
+            "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt"
+          },
+          {
+            "sha256": "F3A788FE5BD9D78954D28DD63D9B2ED2087764841A8DBF94B0DB34E32F1B9FDC",
+            "path": "android/app/src/test/resources/codex_product_db_event_facts.json"
+          },
+          {
+            "sha256": "EBA2AB24C55A752A25DFF0FFD70539B4F2459735D78BFA8B7456614008BEFC8E",
+            "path": "docs/changes/records/CR-20261002-1230-task005-s2-app-event-facts.md"
+          }
+        ],
+        "working_tree_scope": "Minimal App history display repair, no commit"
+      },
+      "idempotency_key": "task005-s2-minimal-app-event-facts-repair-20261002",
+      "parents": [
+        ".workflow-system/records/events/key-47cc383f16cc4f52af3a556c82ac8e301417649c79cdd2755d443e3d82465944.json",
+        ".workflow-system/records/events/key-7ec873f6b3f384e2d6336ba998f7d0ac469a9cdd78fda6bc173b0b47b6c943f5.json"
+      ],
+      "decision_ref": ".workflow-system/records/events/key-c7d5a62897e6bccc4137cefe430717b10b949bbaa8947441fc057e0f6b6ee744.json",
+      "decision_source": "Current human annotation 1 and execute-step invocation",
+      "decision_text": "授权最小 App 历史字段展示修复及必要验证，解除此次修复的“不修改产品代码”限制；其余范围和排除项保持有效。",
+      "result": {
+        "status": "repair-implemented-validated-with-coverage-limit",
+        "summary": "Minimal App known business eventFacts text projection now shows cached tool input/output and cwd. Necessary Node IPC and Android regressions pass and physical cached tool body matches one product item exactly. Step is not finished and no formal review created.",
+        "mode": "repair",
+        "implemented_plan_coverage": "TASK-005/S2 concrete structured business field visibility; existing S1 minimal projection correction only, no S3 full detail UI",
+        "affected_files": [
+          "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+          "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+          "android/app/src/test/resources/codex_product_db_event_facts.json",
+          "docs/changes/records/CR-20261002-1230-task005-s2-app-event-facts.md"
+        ],
+        "physical_evidence": {
+          "observed_at": "2026-10-02T12:20:27.090324+08:00",
+          "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+          "device": "MQS7N19402011743",
+          "source_head": "c95f94d641248c3d45765d8dc83b133b10aa5f83",
+          "visible_field_matches": [
+            {
+              "item_key": "tool:exec-a555eeea-bba5-447b-8ae0-5a01d38d2496",
+              "field_path": "eventFacts[0].payload.input",
+              "field_value": "{\"command\":[\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\",\"-NoProfile\",\"-Command\",\"git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch\"],\"cwd\":\"file:///E:/coding/LawAgent\"}",
+              "input_sha256": "e74a3f20d0c3533b872495b67520fb594d692c57ffb1afe5a20eebc2abb02369",
+              "full_rendered_body_equals_ui_text": false,
+              "node_payload_equal": true,
+              "cache_segment_id": "4f7fd9b40d0a9543875d75a009e1a997718749a2ee24d8821b8d89c3f812a2e3",
+              "updated_at": 1790914740670,
+              "updated_at_utc": "2026-10-02T12:19:00.67+08:00",
+              "content_hash": "209a52083f2d7508633e74d47c080cc0e5d20705b8ae56980725888c2a0454e0"
+            },
+            {
+              "item_key": "tool:exec-05292237-6358-4f2e-b60a-b80fdbcde06b",
+              "field_path": "eventFacts[0].payload.input",
+              "field_value": "{\"command\":[\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\",\"-NoProfile\",\"-Command\",\"git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch\"],\"cwd\":\"file:///E:/coding/LawAgent\"}",
+              "input_sha256": "e74a3f20d0c3533b872495b67520fb594d692c57ffb1afe5a20eebc2abb02369",
+              "full_rendered_body_equals_ui_text": true,
+              "node_payload_equal": true,
+              "cache_segment_id": "55b0b23b05161d77ca4a6ffbfc13ca8b9dc68b90cbdf5ba0f8f6f5d1ad66c617",
+              "updated_at": 1790797097414,
+              "updated_at_utc": "2026-10-01T03:38:17.414+08:00",
+              "content_hash": "0b29f9e24fd066904b05dd376d24862ff13182b6e699d7e3883c908bd0630824"
+            },
+            {
+              "item_key": "tool:exec-db6916d1-43ed-4316-9834-10c385f4a990",
+              "field_path": "eventFacts[0].payload.input",
+              "field_value": "{\"command\":[\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\",\"-NoProfile\",\"-Command\",\"git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch\"],\"cwd\":\"file:///E:/coding/LawAgent\"}",
+              "input_sha256": "e74a3f20d0c3533b872495b67520fb594d692c57ffb1afe5a20eebc2abb02369",
+              "full_rendered_body_equals_ui_text": false,
+              "node_payload_equal": true,
+              "cache_segment_id": "8da2951dc3516a09d8203a4437668dd142bde08a709e4e9ad5d3f7e2287f64ed",
+              "updated_at": 1790914741270,
+              "updated_at_utc": "2026-10-02T12:19:01.27+08:00",
+              "content_hash": "894aa38d33cbf6908bbe0b8328534fd53d21a2ad5d2f2b56cf4ab35c661e6488"
+            }
+          ],
+          "ui": {
+            "screenshot": "logs\\task005-s2-app-display-repair-20261002\\tool-visible.png",
+            "xml": "logs\\task005-s2-app-display-repair-20261002\\tool-visible.xml",
+            "visual_observation": "Input git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch and cwd file:///E:/coding/LawAgent are visibly shown in tool history card below prior completed tool output. This is cached history, not a PATH header or IPC surface.",
+            "identity_limit": "Repeated native command inputs exist; full rendered input+output text is used to identify the visible row, not input alone."
+          },
+          "cache_metadata": {
+            "endpoint_id": "task005-s2-local",
+            "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+            "schema_version": 3,
+            "root_hash": "0071db82bbd576539eedebe8195f1843252b721d6775940eb57b79ac3cc84138",
+            "item_count": 98,
+            "complete": 0,
+            "last_synced_at": 1790914743583,
+            "last_opened_at": 1790914743583,
+            "payload_bytes": 0,
+            "root_schema_version": 2,
+            "provider_mode": "product_db",
+            "provider_identity_hash": "0684ef35b8d2846c3d8b1c30b3f25f02d8475849b7c1697b2715ca52410ca7cb",
+            "range_id": "3a40acaf6b72e9f17f1865ad09f5769fc76b8a440a10e34842b0476b67d65f4a",
+            "range_kind": "older",
+            "newest_anchor_key": "usage:ordinal-224:0",
+            "newest_anchor_hash": "518c58963ef5f5976cbd04ae48ffccc6a9a7eb5759ac4e4e8686b5c8daf88c52",
+            "oldest_anchor_key": "session:01a0ee04-a775-72b3-bd07-04aac804a3b4",
+            "oldest_anchor_hash": "c9c0bd25b85332c30d1623b984264d39e3d52e7604c1b503b685f30666cb94a8",
+            "next_older_cursor": null,
+            "coverage_root": "0071db82bbd576539eedebe8195f1843252b721d6775940eb57b79ac3cc84138",
+            "has_more_before": 0,
+            "coverage_complete": 0,
+            "coverage_state": "partial",
+            "committed_at": 1790914743583
+          },
+          "comparison": {
+            "app_items": 98,
+            "node_items": 98,
+            "equal_payloads": 98,
+            "missing_keys": [],
+            "extra_keys": [],
+            "diagnostic_keys": []
+          },
+          "preservation": {
+            "other_item_rows_unchanged": true,
+            "other_item_count": 385,
+            "thread_index_before": 133,
+            "thread_index_after": 133,
+            "original_thread_index_keys_preserved": true,
+            "service_table_unchanged": false,
+            "shared_preferences_hashes_unchanged": true,
+            "service_fields_changed": {
+              "384a2e11-2e52-45ed-9cf1-ee8ac3d16488": [],
+              "task005-s2-local": [
+                "last_seen_at"
+              ]
+            },
+            "service_config_columns_unchanged": true
+          },
+          "ack_correlation": [
+            {
+              "ts": "2026-10-02T04:18:50.085Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "a51b2483-49bf-4d08-894e-3c639ac33321",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "a51b2483-49bf-4d08-894e-3c639ac33321",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "dacafb98c66eeebc60220317c3c3ef5a805bc4398672fae2bdc21c71e8bb6847",
+                  "completed_at": 1790914730371
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:18:49.914Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 173,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "a51b2483-49bf-4d08-894e-3c639ac33321",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "dacafb98c66eeebc",
+                  "targetRoot": "4112614153a31fea",
+                  "baseRoot": "0071db82bbd57653",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 0,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:18:50.585Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "3b3d216e-4bea-4496-ba28-74fc30d3cb65",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "3b3d216e-4bea-4496-ba28-74fc30d3cb65",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "8bf62b42a51522c8ca0dfc82ef80165e4a1a8c5bf18e20d33a5466841b9a72c6",
+                  "completed_at": 1790914730854
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:18:50.427Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 178,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "3b3d216e-4bea-4496-ba28-74fc30d3cb65",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "8bf62b42a51522c8",
+                  "targetRoot": "26adfd312f114844",
+                  "baseRoot": "1d2bbe726d868667",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 32,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:18:51.16Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "4b0f735c-ca09-405d-a190-887d1bd3e0ee",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "4b0f735c-ca09-405d-a190-887d1bd3e0ee",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "6b51474eb6ba6280b1a7ba4d91eb67aba725529960028030e5e635be880d3f02",
+                  "completed_at": 1790914731417
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:18:50.978Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 183,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "4b0f735c-ca09-405d-a190-887d1bd3e0ee",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "6b51474eb6ba6280",
+                  "targetRoot": "ef38d2de6b5f8464",
+                  "baseRoot": "26adfd312f114844",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 26,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:18:51.716Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "50ad3438-3bc2-4521-b20d-0a081913cfcb",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "50ad3438-3bc2-4521-b20d-0a081913cfcb",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "4bc8d4588cd3008f58348f6697a4296d6f773a7a3ed4ed260df903b3f97d814a",
+                  "completed_at": 1790914731979
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:18:51.545Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 188,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "50ad3438-3bc2-4521-b20d-0a081913cfcb",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "4bc8d4588cd3008f",
+                  "targetRoot": "31a3d876b7d2abf6",
+                  "baseRoot": "ef38d2de6b5f8464",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 5,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:18:52.3Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "58f6a9f8-8814-4773-8b37-348c4b7df100",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "58f6a9f8-8814-4773-8b37-348c4b7df100",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "82f687a989646bf304a46a959efcc7e54fa91c7cfe6004f4fdb01f8dd5d81fa1",
+                  "completed_at": 1790914732585
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:18:52.118Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 193,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "58f6a9f8-8814-4773-8b37-348c4b7df100",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "82f687a989646bf3",
+                  "targetRoot": "39c3bb4f95c3ecef",
+                  "baseRoot": "31a3d876b7d2abf6",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 6,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:18:52.87Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "cedd4e50-a7dd-4389-8ec5-18162db87bc9",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "cedd4e50-a7dd-4389-8ec5-18162db87bc9",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "df89d53342966d2b1084a321a6b197a15849717215823af9493d82b15d72befb",
+                  "completed_at": 1790914733128
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:18:52.673Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 200,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "cedd4e50-a7dd-4389-8ec5-18162db87bc9",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "df89d53342966d2b",
+                  "targetRoot": "0f40079fc9330eda",
+                  "baseRoot": "39c3bb4f95c3ecef",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 6,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:18:53.349Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "6af6cac7-8bdc-4efd-a9f5-2bd4364f0dfd",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "6af6cac7-8bdc-4efd-a9f5-2bd4364f0dfd",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "26893aea7aa25a21470b4dbcc7087f25cdc7196c757b572a81384e23dc7fa78d",
+                  "completed_at": 1790914733634
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:18:53.22Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 207,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "6af6cac7-8bdc-4efd-a9f5-2bd4364f0dfd",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "26893aea7aa25a21",
+                  "targetRoot": "0071db82bbd57653",
+                  "baseRoot": "0f40079fc9330eda",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 7,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:18:59.813Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "a61ac36e-844d-4724-bb53-0b37a55a3f7e",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "a61ac36e-844d-4724-bb53-0b37a55a3f7e",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "641bbdd238af7d4c7c4e66c8fcc186cf90957a220342164e615974fdd4d9efa6",
+                  "completed_at": 1790914740098
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:18:59.693Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 218,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "a61ac36e-844d-4724-bb53-0b37a55a3f7e",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "641bbdd238af7d4c",
+                  "targetRoot": "4112614153a31fea",
+                  "baseRoot": "0071db82bbd57653",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 0,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:19:00.433Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "02dfeb1e-50de-4a64-ae69-d155d243bdd8",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "02dfeb1e-50de-4a64-ae69-d155d243bdd8",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "9c1fdd85569a4f9244e5ee20bfa8e959dba7b8d379846702bfd9b887167cb383",
+                  "completed_at": 1790914740670
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:19:00.241Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 223,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "02dfeb1e-50de-4a64-ae69-d155d243bdd8",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "9c1fdd85569a4f92",
+                  "targetRoot": "26adfd312f114844",
+                  "baseRoot": "1d2bbe726d868667",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 32,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:19:01.052Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "57ed179b-e1c0-4891-af3f-427dd767733c",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "57ed179b-e1c0-4891-af3f-427dd767733c",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "96986af60707b79f18e92a3e2f900e9dbfcf99629fe77dc4a73d2d3878114529",
+                  "completed_at": 1790914741270
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:19:00.842Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 228,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "57ed179b-e1c0-4891-af3f-427dd767733c",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "96986af60707b79f",
+                  "targetRoot": "ef38d2de6b5f8464",
+                  "baseRoot": "26adfd312f114844",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 26,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:19:01.597Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "c4a00c8d-43d9-4f9e-8087-ada68ce9d26d",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "c4a00c8d-43d9-4f9e-8087-ada68ce9d26d",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "a0b74acff0729b7bd7daf9baa8d36f1a98a7e5de0f45038e1e8b318a3362a636",
+                  "completed_at": 1790914741869
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:19:01.443Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 233,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "c4a00c8d-43d9-4f9e-8087-ada68ce9d26d",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "a0b74acff0729b7b",
+                  "targetRoot": "31a3d876b7d2abf6",
+                  "baseRoot": "ef38d2de6b5f8464",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 5,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:19:02.183Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "26d939d6-585e-45cc-95d4-2b650d5d06d0",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "26d939d6-585e-45cc-95d4-2b650d5d06d0",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "cc6b3cdb6da1a2ffe0c04692fc271f66794571598407f61e19d2cc6b84360289",
+                  "completed_at": 1790914742434
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:19:01.958Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 238,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "26d939d6-585e-45cc-95d4-2b650d5d06d0",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "cc6b3cdb6da1a2ff",
+                  "targetRoot": "39c3bb4f95c3ecef",
+                  "baseRoot": "31a3d876b7d2abf6",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 6,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:19:02.814Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "28f64334-8517-42d9-9caa-4fffa6b23c35",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "28f64334-8517-42d9-9caa-4fffa6b23c35",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "e4e06c6868fc0c8582dcabbf591229ff5ae0e6fd3716a3df480f98ea0304d801",
+                  "completed_at": 1790914743093
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:19:02.613Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 245,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "28f64334-8517-42d9-9caa-4fffa6b23c35",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "e4e06c6868fc0c85",
+                  "targetRoot": "0f40079fc9330eda",
+                  "baseRoot": "39c3bb4f95c3ecef",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 6,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            },
+            {
+              "ts": "2026-10-02T04:19:03.285Z",
+              "fields": {
+                "conversationKey": "e24639181f5f2684",
+                "syncId": "cd63131d-a4e8-45b7-b91e-a58f79386020",
+                "pageIndex": 0,
+                "ok": true,
+                "state": "partial",
+                "purpose": "history_sync"
+              },
+              "cache_pages": [
+                {
+                  "sync_id": "cd63131d-a4e8-45b7-b91e-a58f79386020",
+                  "sequence": 1,
+                  "page_index": 0,
+                  "page_hash": "fb814f6eb09070a165b1c16fb15a628bc5c48b2fd8f80c2873471001306f7b35",
+                  "completed_at": 1790914743583
+                }
+              ],
+              "delta": {
+                "ts": "2026-10-02T04:19:03.16Z",
+                "pid": 59616,
+                "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                "seq": 252,
+                "level": "info",
+                "component": "server",
+                "event": "server.codex.history.outbound",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "type": "conversation_history_delta",
+                  "syncId": "cd63131d-a4e8-45b7-b91e-a58f79386020",
+                  "pageIndex": 0,
+                  "pageCount": 1,
+                  "pageHash": "fb814f6eb09070a1",
+                  "targetRoot": "0071db82bbd57653",
+                  "baseRoot": "0f40079fc9330eda",
+                  "baselineComplete": false,
+                  "fullOrderIncluded": false,
+                  "canonicalOrderCount": 0,
+                  "upsertCount": 7,
+                  "chunkBytes": 0
+                }
+              },
+              "hash_matches": true
+            }
+          ],
+          "ipc_observation": {
+            "current_target_healthy_surface_observed": false,
+            "server_memory_latest_surface_count": 0,
+            "authority_changes": false
+          },
+          "coverage": "partial retained; no complete history claim",
+          "backup": {
+            "apk": "rollback-installed.apk",
+            "apk_sha256": "043caf67c405ac09d947716a6472d7845feba4c42e5dbfd44168a833fe2958ae",
+            "local_data_tar": "before-local-data.tar",
+            "local_data_sha256": "38098edc67583563e0d656d7a7b326099e288fc228333e4b21febc9c95529065",
+            "scope": "private gitignored local backup, not attached to workflow"
+          },
+          "installed_apk_sha256": "85cd0bc6425011286f2ca22185113aa5660fbd64c369a7b1ea6888ca8c338603",
+          "scope": {
+            "cache_clear_repeated": false,
+            "manual_sql_writes": false,
+            "server_configuration_edits": false,
+            "node_or_rust_code_changes": false
+          },
+          "jvm_final": {
+            "tests": 279,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "test_task": "executed"
+          },
+          "selected_visible_item": {
+            "item_key": "tool:exec-05292237-6358-4f2e-b60a-b80fdbcde06b",
+            "field_path": "eventFacts[0].payload.input",
+            "field_value": "{\"command\":[\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\",\"-NoProfile\",\"-Command\",\"git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch\"],\"cwd\":\"file:///E:/coding/LawAgent\"}",
+            "input_sha256": "e74a3f20d0c3533b872495b67520fb594d692c57ffb1afe5a20eebc2abb02369",
+            "full_rendered_body_equals_ui_text": true,
+            "node_payload_equal": true,
+            "cache_segment_id": "55b0b23b05161d77ca4a6ffbfc13ca8b9dc68b90cbdf5ba0f8f6f5d1ad66c617",
+            "updated_at": 1790797097414,
+            "updated_at_utc": "2026-10-01T03:38:17.414+08:00",
+            "content_hash": "0b29f9e24fd066904b05dd376d24862ff13182b6e699d7e3883c908bd0630824"
+          }
+        },
+        "retained_cache_interpretation": "Visible item updated_at is historical 2026-09-30; installed App renders existing durable product data. Fresh ACKs verify normal refresh, not a new remote source publication.",
+        "regression": {
+          "build": "assembleDebug succeeded with JDK21, installed -r",
+          "node_ipc": {
+            "passed": 139,
+            "failed": 0,
+            "raw": "logs/task005-s2-app-display-repair-20261002/node-ipc-regression.txt"
+          },
+          "android_final": {
+            "tests": 279,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "test_task": "executed"
+          }
+        },
+        "findings": [
+          {
+            "implementation_outcome": "addressed-pending-review",
+            "id": "TASK005-S2-R9",
+            "detail": "Current screenshot shows command and cwd from eventFacts[0].payload.input. Full rendered body uniquely matches tool:exec-05292237-6358-4f2e-b60a-b80fdbcde06b and exact Node/cache payload; no IPC live operation used as substitute."
+          },
+          {
+            "implementation_outcome": "coverage-limit-retained",
+            "id": "TASK005-S2-R8",
+            "detail": "App coverage remains partial, provider coverage not changed; no full-history acceptance claimed."
+          }
+        ],
+        "docs_updated": [
+          "CR-20261002-1230-task005-s2-app-event-facts",
+          "Current adopted plan progress via this execution; S2 in-progress"
+        ],
+        "validation_failures_retained": [
+          "Initial git diff --check reported new CRLF lines as trailing whitespace; normalized added lines while preserving old bytes and final diff check passed.",
+          "Initial Copy-Item used wrong working-directory relative path and failed; final JVM XML saved successfully under correct path.",
+          "CR Strict validation failed: req_id format invalid none; no associated REQ exists and no fabricated ID added."
+        ],
+        "excluded_actions": [
+          "Repeated cache Clear",
+          "Manual SQL or remote mutation",
+          "Node/Rust/schema/IPC authority/selection changes",
+          "Persistent service config edits",
+          "Formal review or independent review",
+          "S2 finish, S3/S4 work",
+          "Git staging/commit/push"
+        ],
+        "remaining_work": [
+          "Current execution needs change review; S2 remains in-progress.",
+          "Bounded partial coverage limitation retained.",
+          "S3/S4 not started.",
+          "CR remains draft/TBD without associated REQ; old validator rejects req_id=none.",
+          "Two unrelated preexisting management records remain unassociated."
+        ]
+      },
+      "commands": [
+        "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js : 139 passed,0 failed",
+        "JAVA_HOME D:\\ProgramCode\\openjdk\\jdk-21; gradlew :app:testDebugUnitTest with CodexViewModel*,CodexIpcWireModelTest,CodexHistoryWireTest,CodexHistoryRangeStorageTest,CodexHistoryPageHashTest : 279 tests,0 failures/errors/skipped, task executed",
+        "Same JDK21 gradlew :app:assembleDebug : BUILD SUCCESSFUL; direct Gradle native build avoids unrelated android:sync mutations",
+        "Final reduced Node fixture two focused regression selectors passed; all required Android selectors then re-executed successfully",
+        "Existing service health checked on port3010, already healthy; no start/restart/config edit this turn",
+        "ADB MQS7N19402011743 force-stop, pull existing APK, private local databases/shared_prefs tar backup; installed -r via project local script with SkipLaunch",
+        "Restore adb reverse tcp:3010, wake, explicit CodexActivity target conversation, scroll, dump/screenshot",
+        "Read-only App SQLite comparison and server diagnostic ACK correlation; 98 exact payload matches, Diagnostic0,14 accepted ACKs with cache completion hash matches; other385 items unchanged",
+        "git diff --check : final exit0",
+        "CR Strict validator : failed req_id none, retained"
+      ],
+      "files": [
+        "logs/task005-s2-app-display-repair-20261002/physical-evidence.json",
+        "logs/task005-s2-app-display-repair-20261002/tool-visible.png",
+        "logs/task005-s2-app-display-repair-20261002/tool-visible.xml",
+        "logs/task005-s2-app-display-repair-20261002/node-ipc-regression.txt",
+        "logs/task005-s2-app-display-repair-20261002/android-validation-build.txt",
+        "logs/task005-s2-app-display-repair-20261002/android-focused-regression.txt",
+        "logs/task005-s2-app-display-repair-20261002/android-final-regression.txt",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+        "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml"
+      ]
+    },
+    "files": [
+      "logs/task005-s2-app-display-repair-20261002/physical-evidence.json",
+      "logs/task005-s2-app-display-repair-20261002/tool-visible.png",
+      "logs/task005-s2-app-display-repair-20261002/tool-visible.xml",
+      "logs/task005-s2-app-display-repair-20261002/node-ipc-regression.txt",
+      "logs/task005-s2-app-display-repair-20261002/android-validation-build.txt",
+      "logs/task005-s2-app-display-repair-20261002/android-focused-regression.txt",
+      "logs/task005-s2-app-display-repair-20261002/android-final-regression.txt",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-47cc383f16cc4f52af3a556c82ac8e301417649c79cdd2755d443e3d82465944.json",
+        ".workflow-system/records/events/key-7ec873f6b3f384e2d6336ba998f7d0ac469a9cdd78fda6bc173b0b47b6c943f5.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "step_id": "S2",
+        "source_revision": {
+          "head": "c95f94d641248c3d45765d8dc83b133b10aa5f83",
+          "file_sha256": [
+            {
+              "sha256": "D623B657373145F77C24A6ED0722855D25D7068AC9A9AAC2A8D5C265CEA4D662",
+              "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt"
+            },
+            {
+              "sha256": "5AA717974BFDEA0BA380D4B16529AAC31E39E6B9D100B4A2419766DFA88ADC9B",
+              "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt"
+            },
+            {
+              "sha256": "F3A788FE5BD9D78954D28DD63D9B2ED2087764841A8DBF94B0DB34E32F1B9FDC",
+              "path": "android/app/src/test/resources/codex_product_db_event_facts.json"
+            },
+            {
+              "sha256": "EBA2AB24C55A752A25DFF0FFD70539B4F2459735D78BFA8B7456614008BEFC8E",
+              "path": "docs/changes/records/CR-20261002-1230-task005-s2-app-event-facts.md"
+            }
+          ],
+          "working_tree_scope": "Minimal App history display repair, no commit"
+        },
+        "decision_ref": ".workflow-system/records/events/key-c7d5a62897e6bccc4137cefe430717b10b949bbaa8947441fc057e0f6b6ee744.json",
+        "decision_source": "Current human annotation 1 and execute-step invocation",
+        "decision_text": "授权最小 App 历史字段展示修复及必要验证，解除此次修复的“不修改产品代码”限制；其余范围和排除项保持有效。",
+        "result": {
+          "status": "repair-implemented-validated-with-coverage-limit",
+          "summary": "Minimal App known business eventFacts text projection now shows cached tool input/output and cwd. Necessary Node IPC and Android regressions pass and physical cached tool body matches one product item exactly. Step is not finished and no formal review created.",
+          "mode": "repair",
+          "implemented_plan_coverage": "TASK-005/S2 concrete structured business field visibility; existing S1 minimal projection correction only, no S3 full detail UI",
+          "affected_files": [
+            "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+            "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+            "android/app/src/test/resources/codex_product_db_event_facts.json",
+            "docs/changes/records/CR-20261002-1230-task005-s2-app-event-facts.md"
+          ],
+          "physical_evidence": {
+            "observed_at": "2026-10-02T12:20:27.090324+08:00",
+            "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+            "device": "MQS7N19402011743",
+            "source_head": "c95f94d641248c3d45765d8dc83b133b10aa5f83",
+            "visible_field_matches": [
+              {
+                "item_key": "tool:exec-a555eeea-bba5-447b-8ae0-5a01d38d2496",
+                "field_path": "eventFacts[0].payload.input",
+                "field_value": "{\"command\":[\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\",\"-NoProfile\",\"-Command\",\"git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch\"],\"cwd\":\"file:///E:/coding/LawAgent\"}",
+                "input_sha256": "e74a3f20d0c3533b872495b67520fb594d692c57ffb1afe5a20eebc2abb02369",
+                "full_rendered_body_equals_ui_text": false,
+                "node_payload_equal": true,
+                "cache_segment_id": "4f7fd9b40d0a9543875d75a009e1a997718749a2ee24d8821b8d89c3f812a2e3",
+                "updated_at": 1790914740670,
+                "updated_at_utc": "2026-10-02T12:19:00.67+08:00",
+                "content_hash": "209a52083f2d7508633e74d47c080cc0e5d20705b8ae56980725888c2a0454e0"
+              },
+              {
+                "item_key": "tool:exec-05292237-6358-4f2e-b60a-b80fdbcde06b",
+                "field_path": "eventFacts[0].payload.input",
+                "field_value": "{\"command\":[\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\",\"-NoProfile\",\"-Command\",\"git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch\"],\"cwd\":\"file:///E:/coding/LawAgent\"}",
+                "input_sha256": "e74a3f20d0c3533b872495b67520fb594d692c57ffb1afe5a20eebc2abb02369",
+                "full_rendered_body_equals_ui_text": true,
+                "node_payload_equal": true,
+                "cache_segment_id": "55b0b23b05161d77ca4a6ffbfc13ca8b9dc68b90cbdf5ba0f8f6f5d1ad66c617",
+                "updated_at": 1790797097414,
+                "updated_at_utc": "2026-10-01T03:38:17.414+08:00",
+                "content_hash": "0b29f9e24fd066904b05dd376d24862ff13182b6e699d7e3883c908bd0630824"
+              },
+              {
+                "item_key": "tool:exec-db6916d1-43ed-4316-9834-10c385f4a990",
+                "field_path": "eventFacts[0].payload.input",
+                "field_value": "{\"command\":[\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\",\"-NoProfile\",\"-Command\",\"git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch\"],\"cwd\":\"file:///E:/coding/LawAgent\"}",
+                "input_sha256": "e74a3f20d0c3533b872495b67520fb594d692c57ffb1afe5a20eebc2abb02369",
+                "full_rendered_body_equals_ui_text": false,
+                "node_payload_equal": true,
+                "cache_segment_id": "8da2951dc3516a09d8203a4437668dd142bde08a709e4e9ad5d3f7e2287f64ed",
+                "updated_at": 1790914741270,
+                "updated_at_utc": "2026-10-02T12:19:01.27+08:00",
+                "content_hash": "894aa38d33cbf6908bbe0b8328534fd53d21a2ad5d2f2b56cf4ab35c661e6488"
+              }
+            ],
+            "ui": {
+              "screenshot": "logs\\task005-s2-app-display-repair-20261002\\tool-visible.png",
+              "xml": "logs\\task005-s2-app-display-repair-20261002\\tool-visible.xml",
+              "visual_observation": "Input git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch and cwd file:///E:/coding/LawAgent are visibly shown in tool history card below prior completed tool output. This is cached history, not a PATH header or IPC surface.",
+              "identity_limit": "Repeated native command inputs exist; full rendered input+output text is used to identify the visible row, not input alone."
+            },
+            "cache_metadata": {
+              "endpoint_id": "task005-s2-local",
+              "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+              "schema_version": 3,
+              "root_hash": "0071db82bbd576539eedebe8195f1843252b721d6775940eb57b79ac3cc84138",
+              "item_count": 98,
+              "complete": 0,
+              "last_synced_at": 1790914743583,
+              "last_opened_at": 1790914743583,
+              "payload_bytes": 0,
+              "root_schema_version": 2,
+              "provider_mode": "product_db",
+              "provider_identity_hash": "0684ef35b8d2846c3d8b1c30b3f25f02d8475849b7c1697b2715ca52410ca7cb",
+              "range_id": "3a40acaf6b72e9f17f1865ad09f5769fc76b8a440a10e34842b0476b67d65f4a",
+              "range_kind": "older",
+              "newest_anchor_key": "usage:ordinal-224:0",
+              "newest_anchor_hash": "518c58963ef5f5976cbd04ae48ffccc6a9a7eb5759ac4e4e8686b5c8daf88c52",
+              "oldest_anchor_key": "session:01a0ee04-a775-72b3-bd07-04aac804a3b4",
+              "oldest_anchor_hash": "c9c0bd25b85332c30d1623b984264d39e3d52e7604c1b503b685f30666cb94a8",
+              "next_older_cursor": null,
+              "coverage_root": "0071db82bbd576539eedebe8195f1843252b721d6775940eb57b79ac3cc84138",
+              "has_more_before": 0,
+              "coverage_complete": 0,
+              "coverage_state": "partial",
+              "committed_at": 1790914743583
+            },
+            "comparison": {
+              "app_items": 98,
+              "node_items": 98,
+              "equal_payloads": 98,
+              "missing_keys": [],
+              "extra_keys": [],
+              "diagnostic_keys": []
+            },
+            "preservation": {
+              "other_item_rows_unchanged": true,
+              "other_item_count": 385,
+              "thread_index_before": 133,
+              "thread_index_after": 133,
+              "original_thread_index_keys_preserved": true,
+              "service_table_unchanged": false,
+              "shared_preferences_hashes_unchanged": true,
+              "service_fields_changed": {
+                "384a2e11-2e52-45ed-9cf1-ee8ac3d16488": [],
+                "task005-s2-local": [
+                  "last_seen_at"
+                ]
+              },
+              "service_config_columns_unchanged": true
+            },
+            "ack_correlation": [
+              {
+                "ts": "2026-10-02T04:18:50.085Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "a51b2483-49bf-4d08-894e-3c639ac33321",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "a51b2483-49bf-4d08-894e-3c639ac33321",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "dacafb98c66eeebc60220317c3c3ef5a805bc4398672fae2bdc21c71e8bb6847",
+                    "completed_at": 1790914730371
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:18:49.914Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 173,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "a51b2483-49bf-4d08-894e-3c639ac33321",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "dacafb98c66eeebc",
+                    "targetRoot": "4112614153a31fea",
+                    "baseRoot": "0071db82bbd57653",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 0,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:18:50.585Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "3b3d216e-4bea-4496-ba28-74fc30d3cb65",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "3b3d216e-4bea-4496-ba28-74fc30d3cb65",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "8bf62b42a51522c8ca0dfc82ef80165e4a1a8c5bf18e20d33a5466841b9a72c6",
+                    "completed_at": 1790914730854
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:18:50.427Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 178,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "3b3d216e-4bea-4496-ba28-74fc30d3cb65",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "8bf62b42a51522c8",
+                    "targetRoot": "26adfd312f114844",
+                    "baseRoot": "1d2bbe726d868667",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 32,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:18:51.16Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "4b0f735c-ca09-405d-a190-887d1bd3e0ee",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "4b0f735c-ca09-405d-a190-887d1bd3e0ee",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "6b51474eb6ba6280b1a7ba4d91eb67aba725529960028030e5e635be880d3f02",
+                    "completed_at": 1790914731417
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:18:50.978Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 183,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "4b0f735c-ca09-405d-a190-887d1bd3e0ee",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "6b51474eb6ba6280",
+                    "targetRoot": "ef38d2de6b5f8464",
+                    "baseRoot": "26adfd312f114844",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 26,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:18:51.716Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "50ad3438-3bc2-4521-b20d-0a081913cfcb",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "50ad3438-3bc2-4521-b20d-0a081913cfcb",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "4bc8d4588cd3008f58348f6697a4296d6f773a7a3ed4ed260df903b3f97d814a",
+                    "completed_at": 1790914731979
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:18:51.545Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 188,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "50ad3438-3bc2-4521-b20d-0a081913cfcb",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "4bc8d4588cd3008f",
+                    "targetRoot": "31a3d876b7d2abf6",
+                    "baseRoot": "ef38d2de6b5f8464",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 5,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:18:52.3Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "58f6a9f8-8814-4773-8b37-348c4b7df100",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "58f6a9f8-8814-4773-8b37-348c4b7df100",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "82f687a989646bf304a46a959efcc7e54fa91c7cfe6004f4fdb01f8dd5d81fa1",
+                    "completed_at": 1790914732585
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:18:52.118Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 193,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "58f6a9f8-8814-4773-8b37-348c4b7df100",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "82f687a989646bf3",
+                    "targetRoot": "39c3bb4f95c3ecef",
+                    "baseRoot": "31a3d876b7d2abf6",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 6,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:18:52.87Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "cedd4e50-a7dd-4389-8ec5-18162db87bc9",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "cedd4e50-a7dd-4389-8ec5-18162db87bc9",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "df89d53342966d2b1084a321a6b197a15849717215823af9493d82b15d72befb",
+                    "completed_at": 1790914733128
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:18:52.673Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 200,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "cedd4e50-a7dd-4389-8ec5-18162db87bc9",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "df89d53342966d2b",
+                    "targetRoot": "0f40079fc9330eda",
+                    "baseRoot": "39c3bb4f95c3ecef",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 6,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:18:53.349Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "6af6cac7-8bdc-4efd-a9f5-2bd4364f0dfd",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "6af6cac7-8bdc-4efd-a9f5-2bd4364f0dfd",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "26893aea7aa25a21470b4dbcc7087f25cdc7196c757b572a81384e23dc7fa78d",
+                    "completed_at": 1790914733634
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:18:53.22Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 207,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "6af6cac7-8bdc-4efd-a9f5-2bd4364f0dfd",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "26893aea7aa25a21",
+                    "targetRoot": "0071db82bbd57653",
+                    "baseRoot": "0f40079fc9330eda",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 7,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:18:59.813Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "a61ac36e-844d-4724-bb53-0b37a55a3f7e",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "a61ac36e-844d-4724-bb53-0b37a55a3f7e",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "641bbdd238af7d4c7c4e66c8fcc186cf90957a220342164e615974fdd4d9efa6",
+                    "completed_at": 1790914740098
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:18:59.693Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 218,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "a61ac36e-844d-4724-bb53-0b37a55a3f7e",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "641bbdd238af7d4c",
+                    "targetRoot": "4112614153a31fea",
+                    "baseRoot": "0071db82bbd57653",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 0,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:19:00.433Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "02dfeb1e-50de-4a64-ae69-d155d243bdd8",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "02dfeb1e-50de-4a64-ae69-d155d243bdd8",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "9c1fdd85569a4f9244e5ee20bfa8e959dba7b8d379846702bfd9b887167cb383",
+                    "completed_at": 1790914740670
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:19:00.241Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 223,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "02dfeb1e-50de-4a64-ae69-d155d243bdd8",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "9c1fdd85569a4f92",
+                    "targetRoot": "26adfd312f114844",
+                    "baseRoot": "1d2bbe726d868667",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 32,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:19:01.052Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "57ed179b-e1c0-4891-af3f-427dd767733c",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "57ed179b-e1c0-4891-af3f-427dd767733c",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "96986af60707b79f18e92a3e2f900e9dbfcf99629fe77dc4a73d2d3878114529",
+                    "completed_at": 1790914741270
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:19:00.842Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 228,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "57ed179b-e1c0-4891-af3f-427dd767733c",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "96986af60707b79f",
+                    "targetRoot": "ef38d2de6b5f8464",
+                    "baseRoot": "26adfd312f114844",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 26,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:19:01.597Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "c4a00c8d-43d9-4f9e-8087-ada68ce9d26d",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "c4a00c8d-43d9-4f9e-8087-ada68ce9d26d",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "a0b74acff0729b7bd7daf9baa8d36f1a98a7e5de0f45038e1e8b318a3362a636",
+                    "completed_at": 1790914741869
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:19:01.443Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 233,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "c4a00c8d-43d9-4f9e-8087-ada68ce9d26d",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "a0b74acff0729b7b",
+                    "targetRoot": "31a3d876b7d2abf6",
+                    "baseRoot": "ef38d2de6b5f8464",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 5,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:19:02.183Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "26d939d6-585e-45cc-95d4-2b650d5d06d0",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "26d939d6-585e-45cc-95d4-2b650d5d06d0",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "cc6b3cdb6da1a2ffe0c04692fc271f66794571598407f61e19d2cc6b84360289",
+                    "completed_at": 1790914742434
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:19:01.958Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 238,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "26d939d6-585e-45cc-95d4-2b650d5d06d0",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "cc6b3cdb6da1a2ff",
+                    "targetRoot": "39c3bb4f95c3ecef",
+                    "baseRoot": "31a3d876b7d2abf6",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 6,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:19:02.814Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "28f64334-8517-42d9-9caa-4fffa6b23c35",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "28f64334-8517-42d9-9caa-4fffa6b23c35",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "e4e06c6868fc0c8582dcabbf591229ff5ae0e6fd3716a3df480f98ea0304d801",
+                    "completed_at": 1790914743093
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:19:02.613Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 245,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "28f64334-8517-42d9-9caa-4fffa6b23c35",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "e4e06c6868fc0c85",
+                    "targetRoot": "0f40079fc9330eda",
+                    "baseRoot": "39c3bb4f95c3ecef",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 6,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              },
+              {
+                "ts": "2026-10-02T04:19:03.285Z",
+                "fields": {
+                  "conversationKey": "e24639181f5f2684",
+                  "syncId": "cd63131d-a4e8-45b7-b91e-a58f79386020",
+                  "pageIndex": 0,
+                  "ok": true,
+                  "state": "partial",
+                  "purpose": "history_sync"
+                },
+                "cache_pages": [
+                  {
+                    "sync_id": "cd63131d-a4e8-45b7-b91e-a58f79386020",
+                    "sequence": 1,
+                    "page_index": 0,
+                    "page_hash": "fb814f6eb09070a165b1c16fb15a628bc5c48b2fd8f80c2873471001306f7b35",
+                    "completed_at": 1790914743583
+                  }
+                ],
+                "delta": {
+                  "ts": "2026-10-02T04:19:03.16Z",
+                  "pid": 59616,
+                  "runId": "ea2283cc-40f0-4b20-8640-d356d20d38bf",
+                  "seq": 252,
+                  "level": "info",
+                  "component": "server",
+                  "event": "server.codex.history.outbound",
+                  "fields": {
+                    "conversationKey": "e24639181f5f2684",
+                    "type": "conversation_history_delta",
+                    "syncId": "cd63131d-a4e8-45b7-b91e-a58f79386020",
+                    "pageIndex": 0,
+                    "pageCount": 1,
+                    "pageHash": "fb814f6eb09070a1",
+                    "targetRoot": "0071db82bbd57653",
+                    "baseRoot": "0f40079fc9330eda",
+                    "baselineComplete": false,
+                    "fullOrderIncluded": false,
+                    "canonicalOrderCount": 0,
+                    "upsertCount": 7,
+                    "chunkBytes": 0
+                  }
+                },
+                "hash_matches": true
+              }
+            ],
+            "ipc_observation": {
+              "current_target_healthy_surface_observed": false,
+              "server_memory_latest_surface_count": 0,
+              "authority_changes": false
+            },
+            "coverage": "partial retained; no complete history claim",
+            "backup": {
+              "apk": "rollback-installed.apk",
+              "apk_sha256": "043caf67c405ac09d947716a6472d7845feba4c42e5dbfd44168a833fe2958ae",
+              "local_data_tar": "before-local-data.tar",
+              "local_data_sha256": "38098edc67583563e0d656d7a7b326099e288fc228333e4b21febc9c95529065",
+              "scope": "private gitignored local backup, not attached to workflow"
+            },
+            "installed_apk_sha256": "85cd0bc6425011286f2ca22185113aa5660fbd64c369a7b1ea6888ca8c338603",
+            "scope": {
+              "cache_clear_repeated": false,
+              "manual_sql_writes": false,
+              "server_configuration_edits": false,
+              "node_or_rust_code_changes": false
+            },
+            "jvm_final": {
+              "tests": 279,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0,
+              "test_task": "executed"
+            },
+            "selected_visible_item": {
+              "item_key": "tool:exec-05292237-6358-4f2e-b60a-b80fdbcde06b",
+              "field_path": "eventFacts[0].payload.input",
+              "field_value": "{\"command\":[\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\",\"-NoProfile\",\"-Command\",\"git rev-parse HEAD; git show --stat --oneline --no-renames HEAD; git status --short --branch\"],\"cwd\":\"file:///E:/coding/LawAgent\"}",
+              "input_sha256": "e74a3f20d0c3533b872495b67520fb594d692c57ffb1afe5a20eebc2abb02369",
+              "full_rendered_body_equals_ui_text": true,
+              "node_payload_equal": true,
+              "cache_segment_id": "55b0b23b05161d77ca4a6ffbfc13ca8b9dc68b90cbdf5ba0f8f6f5d1ad66c617",
+              "updated_at": 1790797097414,
+              "updated_at_utc": "2026-10-01T03:38:17.414+08:00",
+              "content_hash": "0b29f9e24fd066904b05dd376d24862ff13182b6e699d7e3883c908bd0630824"
+            }
+          },
+          "retained_cache_interpretation": "Visible item updated_at is historical 2026-09-30; installed App renders existing durable product data. Fresh ACKs verify normal refresh, not a new remote source publication.",
+          "regression": {
+            "build": "assembleDebug succeeded with JDK21, installed -r",
+            "node_ipc": {
+              "passed": 139,
+              "failed": 0,
+              "raw": "logs/task005-s2-app-display-repair-20261002/node-ipc-regression.txt"
+            },
+            "android_final": {
+              "tests": 279,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0,
+              "test_task": "executed"
+            }
+          },
+          "findings": [
+            {
+              "implementation_outcome": "addressed-pending-review",
+              "id": "TASK005-S2-R9",
+              "detail": "Current screenshot shows command and cwd from eventFacts[0].payload.input. Full rendered body uniquely matches tool:exec-05292237-6358-4f2e-b60a-b80fdbcde06b and exact Node/cache payload; no IPC live operation used as substitute."
+            },
+            {
+              "implementation_outcome": "coverage-limit-retained",
+              "id": "TASK005-S2-R8",
+              "detail": "App coverage remains partial, provider coverage not changed; no full-history acceptance claimed."
+            }
+          ],
+          "docs_updated": [
+            "CR-20261002-1230-task005-s2-app-event-facts",
+            "Current adopted plan progress via this execution; S2 in-progress"
+          ],
+          "validation_failures_retained": [
+            "Initial git diff --check reported new CRLF lines as trailing whitespace; normalized added lines while preserving old bytes and final diff check passed.",
+            "Initial Copy-Item used wrong working-directory relative path and failed; final JVM XML saved successfully under correct path.",
+            "CR Strict validation failed: req_id format invalid none; no associated REQ exists and no fabricated ID added."
+          ],
+          "excluded_actions": [
+            "Repeated cache Clear",
+            "Manual SQL or remote mutation",
+            "Node/Rust/schema/IPC authority/selection changes",
+            "Persistent service config edits",
+            "Formal review or independent review",
+            "S2 finish, S3/S4 work",
+            "Git staging/commit/push"
+          ],
+          "remaining_work": [
+            "Current execution needs change review; S2 remains in-progress.",
+            "Bounded partial coverage limitation retained.",
+            "S3/S4 not started.",
+            "CR remains draft/TBD without associated REQ; old validator rejects req_id=none.",
+            "Two unrelated preexisting management records remain unassociated."
+          ]
+        },
+        "commands": [
+          "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js : 139 passed,0 failed",
+          "JAVA_HOME D:\\ProgramCode\\openjdk\\jdk-21; gradlew :app:testDebugUnitTest with CodexViewModel*,CodexIpcWireModelTest,CodexHistoryWireTest,CodexHistoryRangeStorageTest,CodexHistoryPageHashTest : 279 tests,0 failures/errors/skipped, task executed",
+          "Same JDK21 gradlew :app:assembleDebug : BUILD SUCCESSFUL; direct Gradle native build avoids unrelated android:sync mutations",
+          "Final reduced Node fixture two focused regression selectors passed; all required Android selectors then re-executed successfully",
+          "Existing service health checked on port3010, already healthy; no start/restart/config edit this turn",
+          "ADB MQS7N19402011743 force-stop, pull existing APK, private local databases/shared_prefs tar backup; installed -r via project local script with SkipLaunch",
+          "Restore adb reverse tcp:3010, wake, explicit CodexActivity target conversation, scroll, dump/screenshot",
+          "Read-only App SQLite comparison and server diagnostic ACK correlation; 98 exact payload matches, Diagnostic0,14 accepted ACKs with cache completion hash matches; other385 items unchanged",
+          "git diff --check : final exit0",
+          "CR Strict validator : failed req_id none, retained"
+        ],
+        "files": [
+          "logs/task005-s2-app-display-repair-20261002/physical-evidence.json",
+          "logs/task005-s2-app-display-repair-20261002/tool-visible.png",
+          "logs/task005-s2-app-display-repair-20261002/tool-visible.xml",
+          "logs/task005-s2-app-display-repair-20261002/node-ipc-regression.txt",
+          "logs/task005-s2-app-display-repair-20261002/android-validation-build.txt",
+          "logs/task005-s2-app-display-repair-20261002/android-focused-regression.txt",
+          "logs/task005-s2-app-display-repair-20261002/android-final-regression.txt",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelConnectionFailureTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelFastModeTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelHydrateFollowTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+          "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-app-display-repair-20261002\\jvm-final-results\\TEST-com.termlink.app.codex.data.CodexIpcWireModelTest.xml"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

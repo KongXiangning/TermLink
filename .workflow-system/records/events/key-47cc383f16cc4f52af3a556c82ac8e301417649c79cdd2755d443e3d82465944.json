@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T04:21:41.571Z",
+  "payload_sha256": "a107ef70289ab8981fdabe0150d31952f911ce93739f75fad176cb6fe9e7d447",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task005-s2-link-app-display-scope-20261002",
+    "request": {
+      "record_ref": ".workflow-system/records/events/key-c7d5a62897e6bccc4137cefe430717b10b949bbaa8947441fc057e0f6b6ee744.json",
+      "action": "link",
+      "idempotency_key": "task005-s2-link-app-display-scope-20261002",
+      "event": {
+        "action": "review-decision",
+        "data": {
+          "choice": "authorize-minimal-app-display-fix-and-validation",
+          "decision_source": "Current human annotation 1 plus execute-step",
+          "findings_disposition": "R8 coverage limitation retained; R9 to be repaired and verified. This decision is not a review verdict.",
+          "review_ref": ".workflow-system/records/events/key-00a433f780bb0b90653bb6901c34737a114c3457fd3343c4198dcfa1751570dc.json",
+          "scope": "Repair S2/R9 cached eventFacts display under existing Task005 App scope; no acceptance or architecture change",
+          "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+          "step_id": "S2",
+          "decision_text": "授权最小 App 历史字段展示修复及必要验证，解除此次修复的“不修改产品代码”限制；其余范围和排除项保持有效。"
+        },
+        "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd"
+      }
+    },
+    "task_event": {
+      "version": 1,
+      "action": "link",
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "parents": [
+        ".workflow-system/records/events/key-7ec873f6b3f384e2d6336ba998f7d0ac469a9cdd78fda6bc173b0b47b6c943f5.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-c7d5a62897e6bccc4137cefe430717b10b949bbaa8947441fc057e0f6b6ee744.json",
+        "event": {
+          "action": "review-decision",
+          "data": {
+            "choice": "authorize-minimal-app-display-fix-and-validation",
+            "decision_source": "Current human annotation 1 plus execute-step",
+            "findings_disposition": "R8 coverage limitation retained; R9 to be repaired and verified. This decision is not a review verdict.",
+            "review_ref": ".workflow-system/records/events/key-00a433f780bb0b90653bb6901c34737a114c3457fd3343c4198dcfa1751570dc.json",
+            "scope": "Repair S2/R9 cached eventFacts display under existing Task005 App scope; no acceptance or architecture change",
+            "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+            "step_id": "S2",
+            "decision_text": "授权最小 App 历史字段展示修复及必要验证，解除此次修复的“不修改产品代码”限制；其余范围和排除项保持有效。"
+          },
+          "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd"
+        }
+      }
+    }
+  },
+  "issues": []
+}
