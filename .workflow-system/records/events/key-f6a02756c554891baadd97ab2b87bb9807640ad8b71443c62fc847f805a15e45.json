@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-03T18:06:46.699Z",
+  "payload_sha256": "4ddc4d6f31820aa239c1890edea8021569d4e6863df82f18c8e3330b35603564",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260831-s3-change-review-20261004-partial-exec2ca151-1",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "idempotency_key": "task20260831-s3-change-review-20261004-partial-exec2ca151-1",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S3",
+      "execution_ref": ".workflow-system/records/events/key-2ca151f99db0ae2a1a48fe59ab4e8df4faf81bf2e36b8bba846d07f813d691af.json",
+      "source_revision": "0bf998452a3f86afa3d68bd0e43d3d9c515499ed",
+      "verdict": "clean",
+      "summary": "Self-review clean only for S3 recorded partial execution/evidence: no new actionable reporting/correctness/scope finding.19/19 retained-evidence checks agree; historical Node3/JVM3 selected passes valid, not physical E2E. Same target now adb device, removing current missing-device prerequisite without rewriting historical blocked execution. S3 physical acceptance remains incomplete and not finished.",
+      "subject": {
+        "execution_sha256": "47deef481763f8eb2b6d3c349fd80c9db4370c9872c82aa1f2287f41220b7b2c",
+        "report_ref": "logs/e2e-validation-20261003/s3/report.md",
+        "test_refs": [
+          ".workflow-system/records/events/key-49f69c72fbb4e1d59b00ed99c36698bc1863e8a87c75d847d940540f43e39d84.json",
+          ".workflow-system/records/events/key-95e03a227bad22a8e3fba2f17843374b6f95fa9876d433e0566492eb92b37fb7.json"
+        ]
+      },
+      "findings": [],
+      "coverage": {
+        "reviewed": [
+          "Adopted v2 S3/E07 scope and distinctions among actual source/provider/Gateway/phone/fixture evidence",
+          "Exact execution/two linked tests and10 CAS attachment entries; payload/file digests and source revision/index/tracked diff",
+          "Read-only snapshot adapter, unchanged provider/store/cursor/detail identity/UTF8 boundary implementation and original one-off test runners",
+          "Historical real snapshot/F98 items/39 refs/7 pages/6 overlaps, exact item key set and incomplete coverage",
+          "Historical real69,427-byte detail/hash/chunk offsets and unchanged-reference repeated read",
+          "Raw Node3 selected passes, exact fresh Android3 JUnit cases/timestamps/no failures and JDK21 scope",
+          "Same target current read-only adb readiness and model/version; historical absent-device observation kept separate"
+        ],
+        "mechanical_check": {
+          "command": "node logs/e2e-validation-20261003/s3/review-20261004-checks.cjs",
+          "result": "exit0;19/19",
+          "meaning": "Retained evidence/readiness assertions, not19 E2E tests or a rerun of the6 selected tests"
+        },
+        "not_performed": [
+          "Independent review, live service start/health reconfirmation or physical E2E",
+          "Phone UI/pagination/durable cache/ACK/reopen/clipboard/copy/draft operations",
+          "Natural detail updates, old-content detail cursor, real in-flight App expectation, actual disappearance or metadata-only lifecycle",
+          "Node/Gradle regression reruns, model turns/resend/Branch or analyzer/source requests",
+          "Source/config/runtime/skill/test changes, Git writes, step disposition or task closure"
+        ]
+      },
+      "provenance": {
+        "reviewer": "Codex",
+        "mode": "self-review",
+        "same_agent_as_execution_author": true,
+        "independent": false,
+        "method": "Static scope/call-chain/test assertion review plus independent preserved-snapshot/event/CAS recomputation and read-only exact-device readiness check"
+      },
+      "environment_delta": {
+        "user_source": "Current user message in this chat,2026-10-04 Asia/Shanghai",
+        "user_text": "真机已经连上可以进行USB调试。",
+        "observed_at": "2026-10-03T18:04:25.735Z",
+        "serial": "MQS7N19402011743",
+        "command": "adb -s MQS7N19402011743 get-state",
+        "exit_code": 0,
+        "state": "device",
+        "model": "VOG-AL00",
+        "android": "10",
+        "meaning": "Current missing-device prerequisite removed; readiness does not certify any physical S3 scenario. Original partial execution/old absence retained. Service readiness must be reconfirmed before actual live tests."
+      },
+      "retained_conditions": [
+        {
+          "id": "S3-C1",
+          "kind": "acceptance-incomplete",
+          "condition": "E05 physical pages/overlap/durable commit/ACK/reopen and E06 large-detail UI/copy absent.",
+          "required_handling": "Continue planned same-device verification; offline/fixture checks not substitutes; protect and restore clipboard/draft before copy."
+        },
+        {
+          "id": "S3-C2",
+          "kind": "coverage-layer-boundary",
+          "condition": "E07-a offline only; b/f Node fixture supplement, d JVM fixture supplement, c/e no real conditions.",
+          "required_handling": "Keep natural/phone coverage separate. Stable ref, old detail cursor, App expected hash and disappeared ref must not be conflated; do not fabricate source/DB changes."
+        },
+        {
+          "id": "S3-C3",
+          "kind": "partial-preserved",
+          "condition": "Final provider page hasMoreBefore=false but coverageComplete=false; new A remains without canonical projection.",
+          "required_handling": "No full history or source-to-product-to-phone PASS; preserve S2 gap and genuine fallback provenance."
+        },
+        {
+          "id": "S3-C4",
+          "kind": "existing-unresolved-work",
+          "condition": "Old Q failure/intent, S6 restoration, three old management associations and CR format limit remain.",
+          "required_handling": "Retain; do not infer source repair, scope/budget changes, linking/deferral, closure or Git authority from review."
+        }
+      ],
+      "remaining_work": [
+        "S3 executed-partial and reviewed, not finished. Clean covers evidence integrity/report scope, not E2E acceptance.",
+        "Same phone now online: resume still-planned physical S3 after confirming normal repo-owned local service/single collector/persistent root/range settings; clipboard/draft protection before copy.",
+        "Preserve historical device absence and all existing failures; do not rerun past tests to change old receipt/status.",
+        "Natural E07-a-f, S2 main chain and remaining S4-S6 coverage still incomplete."
+      ],
+      "recommendation": {
+        "next_route": "execute-step",
+        "next_mode": "finish",
+        "reason": "Clean review leaves executed S3 without separate step disposition. Finish is an advisory option retaining gaps only, not implied consent/PASS and not a prerequisite for remaining authorized work.",
+        "business_priority": "For the user's E2E objective, continue the planned S3 physical validation now the same target is online rather than silently finish it with physical gaps."
+      },
+      "files": [
+        "logs/e2e-validation-20261003/s3/review-20261004.md",
+        "logs/e2e-validation-20261003/s3/review-20261004-checks.json",
+        "logs/e2e-validation-20261003/s3/review-20261004-checks.cjs"
+      ]
+    },
+    "files": [
+      "logs/e2e-validation-20261003/s3/review-20261004.md",
+      "logs/e2e-validation-20261003/s3/review-20261004-checks.json",
+      "logs/e2e-validation-20261003/s3/review-20261004-checks.cjs"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-95e03a227bad22a8e3fba2f17843374b6f95fa9876d433e0566492eb92b37fb7.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S3",
+        "execution_ref": ".workflow-system/records/events/key-2ca151f99db0ae2a1a48fe59ab4e8df4faf81bf2e36b8bba846d07f813d691af.json",
+        "source_revision": "0bf998452a3f86afa3d68bd0e43d3d9c515499ed",
+        "verdict": "clean",
+        "summary": "Self-review clean only for S3 recorded partial execution/evidence: no new actionable reporting/correctness/scope finding.19/19 retained-evidence checks agree; historical Node3/JVM3 selected passes valid, not physical E2E. Same target now adb device, removing current missing-device prerequisite without rewriting historical blocked execution. S3 physical acceptance remains incomplete and not finished.",
+        "subject": {
+          "execution_sha256": "47deef481763f8eb2b6d3c349fd80c9db4370c9872c82aa1f2287f41220b7b2c",
+          "report_ref": "logs/e2e-validation-20261003/s3/report.md",
+          "test_refs": [
+            ".workflow-system/records/events/key-49f69c72fbb4e1d59b00ed99c36698bc1863e8a87c75d847d940540f43e39d84.json",
+            ".workflow-system/records/events/key-95e03a227bad22a8e3fba2f17843374b6f95fa9876d433e0566492eb92b37fb7.json"
+          ]
+        },
+        "findings": [],
+        "coverage": {
+          "reviewed": [
+            "Adopted v2 S3/E07 scope and distinctions among actual source/provider/Gateway/phone/fixture evidence",
+            "Exact execution/two linked tests and10 CAS attachment entries; payload/file digests and source revision/index/tracked diff",
+            "Read-only snapshot adapter, unchanged provider/store/cursor/detail identity/UTF8 boundary implementation and original one-off test runners",
+            "Historical real snapshot/F98 items/39 refs/7 pages/6 overlaps, exact item key set and incomplete coverage",
+            "Historical real69,427-byte detail/hash/chunk offsets and unchanged-reference repeated read",
+            "Raw Node3 selected passes, exact fresh Android3 JUnit cases/timestamps/no failures and JDK21 scope",
+            "Same target current read-only adb readiness and model/version; historical absent-device observation kept separate"
+          ],
+          "mechanical_check": {
+            "command": "node logs/e2e-validation-20261003/s3/review-20261004-checks.cjs",
+            "result": "exit0;19/19",
+            "meaning": "Retained evidence/readiness assertions, not19 E2E tests or a rerun of the6 selected tests"
+          },
+          "not_performed": [
+            "Independent review, live service start/health reconfirmation or physical E2E",
+            "Phone UI/pagination/durable cache/ACK/reopen/clipboard/copy/draft operations",
+            "Natural detail updates, old-content detail cursor, real in-flight App expectation, actual disappearance or metadata-only lifecycle",
+            "Node/Gradle regression reruns, model turns/resend/Branch or analyzer/source requests",
+            "Source/config/runtime/skill/test changes, Git writes, step disposition or task closure"
+          ]
+        },
+        "provenance": {
+          "reviewer": "Codex",
+          "mode": "self-review",
+          "same_agent_as_execution_author": true,
+          "independent": false,
+          "method": "Static scope/call-chain/test assertion review plus independent preserved-snapshot/event/CAS recomputation and read-only exact-device readiness check"
+        },
+        "environment_delta": {
+          "user_source": "Current user message in this chat,2026-10-04 Asia/Shanghai",
+          "user_text": "真机已经连上可以进行USB调试。",
+          "observed_at": "2026-10-03T18:04:25.735Z",
+          "serial": "MQS7N19402011743",
+          "command": "adb -s MQS7N19402011743 get-state",
+          "exit_code": 0,
+          "state": "device",
+          "model": "VOG-AL00",
+          "android": "10",
+          "meaning": "Current missing-device prerequisite removed; readiness does not certify any physical S3 scenario. Original partial execution/old absence retained. Service readiness must be reconfirmed before actual live tests."
+        },
+        "retained_conditions": [
+          {
+            "id": "S3-C1",
+            "kind": "acceptance-incomplete",
+            "condition": "E05 physical pages/overlap/durable commit/ACK/reopen and E06 large-detail UI/copy absent.",
+            "required_handling": "Continue planned same-device verification; offline/fixture checks not substitutes; protect and restore clipboard/draft before copy."
+          },
+          {
+            "id": "S3-C2",
+            "kind": "coverage-layer-boundary",
+            "condition": "E07-a offline only; b/f Node fixture supplement, d JVM fixture supplement, c/e no real conditions.",
+            "required_handling": "Keep natural/phone coverage separate. Stable ref, old detail cursor, App expected hash and disappeared ref must not be conflated; do not fabricate source/DB changes."
+          },
+          {
+            "id": "S3-C3",
+            "kind": "partial-preserved",
+            "condition": "Final provider page hasMoreBefore=false but coverageComplete=false; new A remains without canonical projection.",
+            "required_handling": "No full history or source-to-product-to-phone PASS; preserve S2 gap and genuine fallback provenance."
+          },
+          {
+            "id": "S3-C4",
+            "kind": "existing-unresolved-work",
+            "condition": "Old Q failure/intent, S6 restoration, three old management associations and CR format limit remain.",
+            "required_handling": "Retain; do not infer source repair, scope/budget changes, linking/deferral, closure or Git authority from review."
+          }
+        ],
+        "remaining_work": [
+          "S3 executed-partial and reviewed, not finished. Clean covers evidence integrity/report scope, not E2E acceptance.",
+          "Same phone now online: resume still-planned physical S3 after confirming normal repo-owned local service/single collector/persistent root/range settings; clipboard/draft protection before copy.",
+          "Preserve historical device absence and all existing failures; do not rerun past tests to change old receipt/status.",
+          "Natural E07-a-f, S2 main chain and remaining S4-S6 coverage still incomplete."
+        ],
+        "recommendation": {
+          "next_route": "execute-step",
+          "next_mode": "finish",
+          "reason": "Clean review leaves executed S3 without separate step disposition. Finish is an advisory option retaining gaps only, not implied consent/PASS and not a prerequisite for remaining authorized work.",
+          "business_priority": "For the user's E2E objective, continue the planned S3 physical validation now the same target is online rather than silently finish it with physical gaps."
+        },
+        "files": [
+          "logs/e2e-validation-20261003/s3/review-20261004.md",
+          "logs/e2e-validation-20261003/s3/review-20261004-checks.json",
+          "logs/e2e-validation-20261003/s3/review-20261004-checks.cjs"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

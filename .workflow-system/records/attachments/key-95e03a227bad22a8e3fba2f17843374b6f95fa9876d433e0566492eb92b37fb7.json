@@ -1,0 +1,28 @@
+{
+  "event_ref": ".workflow-system/records/events/key-95e03a227bad22a8e3fba2f17843374b6f95fa9876d433e0566492eb92b37fb7.json",
+  "captured_at": "2026-10-03T09:16:47.079Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/5aceb4c64d4442cd755918a5cff78f214f51fdd06a785ce70d9b88644cd3d67f.blob",
+      "sha256": "5aceb4c64d4442cd755918a5cff78f214f51fdd06a785ce70d9b88644cd3d67f",
+      "size": 788,
+      "source_path": "logs/e2e-validation-20261003/s3/android-focused-junit.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b934b4601ee53e5a62571f154729f71e6a60121514d629cd52d70c82e597c505.blob",
+      "sha256": "b934b4601ee53e5a62571f154729f71e6a60121514d629cd52d70c82e597c505",
+      "size": 1502,
+      "source_path": "logs/e2e-validation-20261003/s3/android-focused-result.json",
+      "issues": []
+    }
+  ]
+}

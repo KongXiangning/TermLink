@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-03T09:16:47.070Z",
+  "payload_sha256": "fd98a16868b402f2b76829113cad08b2c47fb14ac07688f287124711507dcddd",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260831-s3-android-selected-20261003-1",
+    "request": {
+      "action": "test",
+      "idempotency_key": "task20260831-s3-android-selected-20261003-1",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "result": "passed",
+      "selector": [
+        "com.termlink.app.codex.data.CodexHistoryWireTest.detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent",
+        "com.termlink.app.codex.data.CodexHistoryWireTest.detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate",
+        "com.termlink.app.codex.data.CodexHistoryWireTest.deltaPreservesProductDetailRefsAndAvailability"
+      ],
+      "execution_ref": ".workflow-system/records/events/key-2ca151f99db0ae2a1a48fe59ab4e8df4faf81bf2e36b8bba846d07f813d691af.json",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "coverage": {
+        "layer": "existing JVM unit fixtures, not physical Android E2E",
+        "passed": 3,
+        "errors": 0,
+        "failed": 0,
+        "jdk": "D:/ProgramCode/openjdk/jdk-21"
+      },
+      "files": [
+        "logs/e2e-validation-20261003/s3/android-focused-junit.xml",
+        "logs/e2e-validation-20261003/s3/android-focused-result.json"
+      ],
+      "source_revision": "0bf998452a3f86afa3d68bd0e43d3d9c515499ed",
+      "report_ref": "logs/e2e-validation-20261003/s3/android-focused-junit.xml",
+      "step_id": "S3",
+      "command": "gradlew.bat :app:testDebugUnitTest --offline --console=plain --tests com.termlink.app.codex.data.CodexHistoryWireTest.detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent --tests com.termlink.app.codex.data.CodexHistoryWireTest.detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate --tests com.termlink.app.codex.data.CodexHistoryWireTest.deltaPreservesProductDetailRefsAndAvailability"
+    },
+    "files": [
+      "logs/e2e-validation-20261003/s3/android-focused-junit.xml",
+      "logs/e2e-validation-20261003/s3/android-focused-result.json"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-49f69c72fbb4e1d59b00ed99c36698bc1863e8a87c75d847d940540f43e39d84.json"
+      ],
+      "data": {
+        "result": "passed",
+        "selector": [
+          "com.termlink.app.codex.data.CodexHistoryWireTest.detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent",
+          "com.termlink.app.codex.data.CodexHistoryWireTest.detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate",
+          "com.termlink.app.codex.data.CodexHistoryWireTest.deltaPreservesProductDetailRefsAndAvailability"
+        ],
+        "execution_ref": ".workflow-system/records/events/key-2ca151f99db0ae2a1a48fe59ab4e8df4faf81bf2e36b8bba846d07f813d691af.json",
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "coverage": {
+          "layer": "existing JVM unit fixtures, not physical Android E2E",
+          "passed": 3,
+          "errors": 0,
+          "failed": 0,
+          "jdk": "D:/ProgramCode/openjdk/jdk-21"
+        },
+        "files": [
+          "logs/e2e-validation-20261003/s3/android-focused-junit.xml",
+          "logs/e2e-validation-20261003/s3/android-focused-result.json"
+        ],
+        "source_revision": "0bf998452a3f86afa3d68bd0e43d3d9c515499ed",
+        "report_ref": "logs/e2e-validation-20261003/s3/android-focused-junit.xml",
+        "step_id": "S3",
+        "command": "gradlew.bat :app:testDebugUnitTest --offline --console=plain --tests com.termlink.app.codex.data.CodexHistoryWireTest.detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent --tests com.termlink.app.codex.data.CodexHistoryWireTest.detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate --tests com.termlink.app.codex.data.CodexHistoryWireTest.deltaPreservesProductDetailRefsAndAvailability"
+      }
+    }
+  },
+  "issues": []
+}

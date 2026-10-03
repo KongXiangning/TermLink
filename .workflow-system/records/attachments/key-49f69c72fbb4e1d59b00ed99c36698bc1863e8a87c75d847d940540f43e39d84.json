@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-49f69c72fbb4e1d59b00ed99c36698bc1863e8a87c75d847d940540f43e39d84.json",
+  "captured_at": "2026-10-03T09:16:46.233Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/433353b7a4fe8ca1cc72162e530bfae46cfcaf3b800621eacf642bc383f2e32b.blob",
+      "sha256": "433353b7a4fe8ca1cc72162e530bfae46cfcaf3b800621eacf642bc383f2e32b",
+      "size": 753,
+      "source_path": "logs/e2e-validation-20261003/s3/node-focused.txt",
+      "issues": []
+    }
+  ]
+}

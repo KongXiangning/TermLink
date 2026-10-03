@@ -1,0 +1,135 @@
+{
+  "observed_at": "2026-10-03T09:11:56.311Z",
+  "layer": "offline real-snapshot provider observation plus existing fixture/unit tests; not phone E2E",
+  "physical": {
+    "serial": "MQS7N19402011743",
+    "status": "blocked-target-not-online"
+  },
+  "exclusions": [
+    "No source/config/fixture changes",
+    "No product/phone DB writes",
+    "No model/Rust/product-service requests",
+    "No clipboard/UI/cache clearing or Git mutation"
+  ],
+  "head": "0bf998452a3f86afa3d68bd0e43d3d9c515499ed",
+  "devices": {
+    "status": 0,
+    "stdout": "List of devices attached",
+    "stderr": ""
+  },
+  "service": {
+    "exit_code": 0,
+    "summary": "Action: status\nProjectRoot: E:\\coding\\TermLink-rust-source-resolution-codex\nBaseUrl: http://127.0.0.1:3010\nPort: 3010\nTrackedProcessCount: 0\nListening: none\nHealth: unavailable (http://127.0.0.1:3010/api/health)",
+    "started_or_restarted": false,
+    "reason": "No target phone; no live test performed, so do not start collector solely for unavailable physical validation."
+  },
+  "snapshot": {
+    "bytes": 31301632,
+    "sha256": "255dd3247f408badf30a0d99834723c872e774fc43b9da65ce8f7688cfdc00c5",
+    "stable_during_copy": true,
+    "quick_check": "ok",
+    "F": {
+      "conversationId": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "items": 98,
+      "details": 39
+    },
+    "A_canonical_count": 0
+  },
+  "offline_pages": {
+    "pages": [
+      {
+        "kind": "tail",
+        "count": 22,
+        "overlap": 0,
+        "unique": 22,
+        "provider": "product_db",
+        "hasMoreBefore": true,
+        "coverageComplete": false
+      },
+      {
+        "kind": "older",
+        "count": 32,
+        "overlap": 1,
+        "unique": 53,
+        "provider": "product_db",
+        "hasMoreBefore": true,
+        "coverageComplete": false
+      },
+      {
+        "kind": "older",
+        "count": 26,
+        "overlap": 1,
+        "unique": 78,
+        "provider": "product_db",
+        "hasMoreBefore": true,
+        "coverageComplete": false
+      },
+      {
+        "kind": "older",
+        "count": 5,
+        "overlap": 1,
+        "unique": 82,
+        "provider": "product_db",
+        "hasMoreBefore": true,
+        "coverageComplete": false
+      },
+      {
+        "kind": "older",
+        "count": 6,
+        "overlap": 1,
+        "unique": 87,
+        "provider": "product_db",
+        "hasMoreBefore": true,
+        "coverageComplete": false
+      },
+      {
+        "kind": "older",
+        "count": 6,
+        "overlap": 1,
+        "unique": 92,
+        "provider": "product_db",
+        "hasMoreBefore": true,
+        "coverageComplete": false
+      },
+      {
+        "kind": "older",
+        "count": 7,
+        "overlap": 1,
+        "unique": 98,
+        "provider": "product_db",
+        "hasMoreBefore": false,
+        "coverageComplete": false
+      }
+    ],
+    "unique": 98,
+    "refs": 39,
+    "complete_item_set": true,
+    "qualification": "Current provider on read-only real snapshot. No Gateway/page ACK/phone durable commit or UI proof."
+  },
+  "offline_detail": {
+    "refId": "17d733d6771cf9a236fb98184fa2e1b58e715629d07479ab3278ab8eff5a684b",
+    "contentHash": "0c5a7e563c522a3784bce3c8ecce4288b3017b47f760fbf95cfffe646345229c",
+    "descriptor_bytes": 69427,
+    "actual_bytes": 69427,
+    "actual_hash": "0c5a7e563c522a3784bce3c8ecce4288b3017b47f760fbf95cfffe646345229c",
+    "chunks": [
+      49152,
+      20275
+    ],
+    "byte_offsets": [
+      0,
+      49152
+    ],
+    "complete": true,
+    "unicode_present": true,
+    "unchanged_ref_repeated_read": true,
+    "qualification": "E07-a offline unchanged-reference observation only. No physical display/copy or natural-update lifecycle proof."
+  },
+  "node_test": {
+    "command": "node \"--test\" \"--test-name-pattern\" \"^product-history-read (refreshes a complete root and range cursor when only a detail changes|detail pages are authenticated-provider-ready, bounded, and path preserving|Gateway serves product baseline, older pages, and details without a source read)$\" \"tests/codexHistoryProductFlow.test.js\"",
+    "exit_code": 0,
+    "signal": null,
+    "summary": [],
+    "qualification": "Existing fixture/provider and isolated mocked Gateway integration; not physical E2E or natural source update."
+  }
+}

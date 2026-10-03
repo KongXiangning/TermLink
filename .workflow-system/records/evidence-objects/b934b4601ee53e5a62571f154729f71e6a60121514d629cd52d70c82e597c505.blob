@@ -1,0 +1,26 @@
+{
+  "command": "gradlew.bat :app:testDebugUnitTest --offline --console=plain --tests com.termlink.app.codex.data.CodexHistoryWireTest.detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent --tests com.termlink.app.codex.data.CodexHistoryWireTest.detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate --tests com.termlink.app.codex.data.CodexHistoryWireTest.deltaPreservesProductDetailRefsAndAvailability",
+  "cwd": "android",
+  "jdk": "D:/ProgramCode/openjdk/jdk-21",
+  "started_at": "2026-10-03T09:12:37.346Z",
+  "finished_at": "2026-10-03T09:13:13.630Z",
+  "exit_code": 0,
+  "signal": null,
+  "selectors": [
+    "com.termlink.app.codex.data.CodexHistoryWireTest.detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent",
+    "com.termlink.app.codex.data.CodexHistoryWireTest.detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate",
+    "com.termlink.app.codex.data.CodexHistoryWireTest.deltaPreservesProductDetailRefsAndAvailability"
+  ],
+  "suite": {
+    "tests": "3",
+    "failures": "0",
+    "errors": "0",
+    "names": [
+      "deltaPreservesProductDetailRefsAndAvailability",
+      "detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate",
+      "detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent"
+    ],
+    "report_mtime": "2026-10-03T09:13:13.486Z"
+  },
+  "qualification": "Existing JVM fixture/unit tests only; no Android device, clipboard, UI or natural detail-update proof. Offline avoids fetching missing build dependencies. No source/test modification."
+}

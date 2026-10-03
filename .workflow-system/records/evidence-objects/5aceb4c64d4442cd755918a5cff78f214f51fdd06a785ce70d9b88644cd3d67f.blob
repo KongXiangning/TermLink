@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.termlink.app.codex.data.CodexHistoryWireTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-03T09:13:12.946Z" hostname="K-PC" time="0.037">
+  <properties/>
+  <testcase name="deltaPreservesProductDetailRefsAndAvailability" classname="com.termlink.app.codex.data.CodexHistoryWireTest" time="0.021"/>
+  <testcase name="detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate" classname="com.termlink.app.codex.data.CodexHistoryWireTest" time="0.014"/>
+  <testcase name="detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent" classname="com.termlink.app.codex.data.CodexHistoryWireTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

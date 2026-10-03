@@ -1,0 +1,58 @@
+# TASK-20260831 S3 execution — physical validation unavailable
+
+- Date: 2026-10-03 Asia/Shanghai; support observation/test window 09:11:56–09:13:13 UTC.
+- Task: `task-25654b249109f357a559899562804c15`; adopted v2 plan `key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json`.
+- Current source revision: `0bf998452a3f86afa3d68bd0e43d3d9c515499ed`; changes since the S2 reviewed revision are only management/evidence records.
+- Fresh state identified S2 finished with retained failures by disposition `key-a99610bd386b5bf7b237d3a588b265f57ce4c0519e980868d0ebfc2bc3f0b74d.json`; S3 was not started. This invocation is default execution, not S2 finish replay.
+- Result: **partial execution; S3 physical E2E blocked by absent target device**. Implementation self-check only, no formal review or S3 finish.
+
+## Actual environment
+
+`adb -s MQS7N19402011743 get-state` and pid query returned device not found. `adb devices -l` returned no attached devices, including during the saved support observation. ADB started its own daemon as part of the diagnostic command; no phone was found or substituted. No phone launch, selection, install, UI action, clipboard read/write, backup, clear, force-stop or Send occurred.
+
+The project local-dev-server-control status helper ran with explicit worktree root and returned tracked process count 0, no 3010 listener and health unavailable. No development service or collector was started/restarted: physical prerequisite was unavailable, so no live Android verification was attempted. The selected Node Gateway integration test uses its existing isolated loopback fixture and mock upstream, not the real 3010 service or a second Rust collector.
+
+The adb skill's historical shared-script wrapper points to absent `skills/android-local-build-debug/scripts`; its project mirror exists under `.agents/skills/android-local-build-debug/scripts`. Direct target-qualified adb checks suffice for the actual absence; no skill/script/path repair was performed. Earlier path/glob inspection errors are retained as diagnostic limitations, not business failures or reasons to replay test operations.
+
+## Read-only fallback sample verification
+
+New A still has zero canonical conversation rows; its S2 parse-gap/partial failures remain. The plan permits an existing genuine fallback sample, so F `01a0ee04-a775-72b3-bd07-04aac804a3b4` was read from the retained current product database. The local SQLite file was copied once into private ignored evidence and queried with `PRAGMA query_only=ON` in memory. No Store initialization/migration or source/Rust request was performed. A snapshot reader supplied the existing readConversation shape to the unchanged product provider; this is offline provider observation, not a Gateway/phone path.
+
+- Product DB: 31,301,632 bytes, SHA-256 `255dd3247f408badf30a0d99834723c872e774fc43b9da65ce8f7688cfdc00c5`, same before/after support work and as the S2 after snapshot; quick_check=ok.
+- F: 98 items, 39 details. Current provider returned tail 22 then older pages 32/26/5/6/6/7, six one-item overlaps, 98 unique items and 39 refs. Final hasMoreBefore=false, **coverageComplete remains false**. No physical page receipt, phone durable commit or ACK was observed.
+- F detail ref `17d733d6771cf9a236fb98184fa2e1b58e715629d07479ab3278ab8eff5a684b`: descriptor and reconstructed body both 69,427 UTF-8 bytes, SHA-256 `0c5a7e563c522a3784bce3c8ecce4288b3017b47f760fbf95cfffe646345229c`; chunks 49,152 + 20,275 at offsets 0/49,152, Unicode present. A repeated unchanged read preserves hash/size. No raw private body is attached or printed; no natural source-to-original-field fidelity or phone display/copy is certified.
+
+## Existing focused supplemental tests
+
+Node command: `node --test --test-name-pattern "^product-history-read (refreshes a complete root and range cursor when only a detail changes|detail pages are authenticated-provider-ready, bounded, and path preserving|Gateway serves product baseline, older pages, and details without a source read)$" tests/codexHistoryProductFlow.test.js`
+
+Exit 0, 3 tests passed, 0 failed. Existing fixtures cover detail-only effective item/root/range changes and stale older cursor, bounded provider detail reconstruction, and isolated Gateway baseline/older/detail flow. They do not create natural detail updates or prove Android durable ACK.
+
+Android command from android directory, JAVA_HOME/PATH scoped to `D:/ProgramCode/openjdk/jdk-21`: `gradlew.bat :app:testDebugUnitTest --offline --console=plain` with three exact --tests selectors:
+
+- `com.termlink.app.codex.data.CodexHistoryWireTest.detailChunksUseUtf8BytesAndNeverExposeUnverifiedOrTrimmedContent`
+- `com.termlink.app.codex.data.CodexHistoryWireTest.detailRejectsBadOffsetHashSizeCursorAndSplitSurrogate`
+- `com.termlink.app.codex.data.CodexHistoryWireTest.deltaPreservesProductDetailRefsAndAvailability`
+
+Exit 0, fresh JUnit XML timestamp within this run, 3 tests, 0 failures/errors. Existing JVM fixtures check UTF-8 assembly, unverified/hash/size/offset rejection and metadata preservation. This is not live ViewModel/UI/copy/in-flight E2E. No existing source, tests or fixtures were changed; no APK build/install or full regression suite was requested/run.
+
+## Separate scenario qualifications
+
+| Scenario | Actual current coverage | Still missing |
+| --- | --- | --- |
+| E05 phone older/overlap/durable ACK/reopen | Offline real F provider 7 pages/6 overlaps; isolated Gateway existing test | All physical receipt/commit/ACK/reopen evidence |
+| E06 large detail UI/copy | Actual existing F 69,427-byte descriptor/body/chunks/hash verified offline; existing Node/JVM assembly tests pass | Phone display, copy length/hash and safe clipboard/draft preservation/restoration |
+| E07-a unchanged reference | Actual F ref repeated offline read unchanged | Physical verified read/render; no unrelated natural new-turn condition exercised |
+| E07-b natural content update | Existing Node fixture shows detail-only effective item/root/range change | Natural same-detailKey update, stable-ref and before/after phone sync/read |
+| E07-c old detail cursor | No natural update window and no old-content detail cursor attempt | Exact history_detail_cursor_invalid cause under valid selection; stale older cursor fixture is not this subcase |
+| E07-d old App expected hash | Existing JVM wrong expected hash/size fixture rejects unverified body | Natural in-flight old assembly path, actual error/cancellation and no-render proof |
+| E07-e real disappeared ref | No real disappearance established or fabricated | Actual disappeared-ref lookup under valid auth/selection |
+| E07-f metadata/availability only | Existing Node detailRefsTruncated/effective hash fixture and JVM metadata parsing pass | Natural metadata-only sync/root/cache/older-cursor lifecycle |
+
+## Preservation and remaining work
+
+Default no-source-change restriction remains. Original product DB hash, old evidence and index/tracked worktree content are unchanged. The private DB snapshot and authored one-off readers/logs live under ignored logs; management attachments contain only safe summaries/test logs, never raw product DB, configuration, clipboard or source content.
+
+S2 failures, old Q budget failure, outstanding S6 restoration, three pre-existing unassociated management records and old CR limitation are retained. No new permanent test, vendor/runtime/skill edit, model turn/Branch/resend, direct Rust call, product DTO/ACK fabrication, budget/config change, Git stage/commit/push or deployment occurred. Build caches/test reports are normal generated outputs.
+
+Connect the same target phone and enable/authorize USB debugging to resume physical S3. Before then, no business repeat is useful. Once online, confirm/start the repo-owned local service through its normal helper while preserving the existing single collector/persistent root/range test configuration, protect draft/clipboard before copy, and perform normal phone pagination/detail operations. Do not replace the device or fabricate natural updates. S3 remains executed-partial, not reviewed or finished; recommended next route review-change to assess this exact partial evidence. This is not a task pause/closure or product PASS.

@@ -1,0 +1,39 @@
+{
+  "event_ref": ".workflow-system/records/events/key-f6a02756c554891baadd97ab2b87bb9807640ad8b71443c62fc847f805a15e45.json",
+  "captured_at": "2026-10-03T18:06:46.710Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c28e3fbeecba9dfe2e4723723aa304dde0b74ce7d63bb9485376e12b8a5a0719.blob",
+      "sha256": "c28e3fbeecba9dfe2e4723723aa304dde0b74ce7d63bb9485376e12b8a5a0719",
+      "size": 4555,
+      "source_path": "logs/e2e-validation-20261003/s3/review-20261004.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/00437b918ef53dd1a167a49659f1b2d859d41105420987951b78e30fbb5e2716.blob",
+      "sha256": "00437b918ef53dd1a167a49659f1b2d859d41105420987951b78e30fbb5e2716",
+      "size": 3345,
+      "source_path": "logs/e2e-validation-20261003/s3/review-20261004-checks.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/5359f2bac6d12d707a8ebbb2f48fd3e1e16e0e7b79d89c897812d28202e661cd.blob",
+      "sha256": "5359f2bac6d12d707a8ebbb2f48fd3e1e16e0e7b79d89c897812d28202e661cd",
+      "size": 10443,
+      "source_path": "logs/e2e-validation-20261003/s3/review-20261004-checks.cjs",
+      "issues": []
+    }
+  ]
+}

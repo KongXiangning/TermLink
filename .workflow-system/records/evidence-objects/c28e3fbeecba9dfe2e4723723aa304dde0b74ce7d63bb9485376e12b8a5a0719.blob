@@ -1,0 +1,26 @@
+# TASK-20260831 S3 change review — 2026-10-04 Asia/Shanghai
+
+- Exact execution: `.workflow-system/records/events/key-2ca151f99db0ae2a1a48fe59ab4e8df4faf81bf2e36b8bba846d07f813d691af.json`.
+- Execution SHA-256: `47deef481763f8eb2b6d3c349fd80c9db4370c9872c82aa1f2287f41220b7b2c`.
+- Source revision: `0bf998452a3f86afa3d68bd0e43d3d9c515499ed`, unchanged HEAD and empty tracked/index diff.
+- Verdict: **clean for the recorded partial execution and evidence, self-review**. No new actionable correctness, scope or reporting finding. This is not independent review, physical E2E PASS, S3 acceptance, step finish or task closure.
+
+## Review scope and verification
+
+Reviewed the fresh skill/protocol/task state, adopted v2 S3 and E07 scope, exact execution and two test records, their ten attachment entries, offline reader/test runner scripts, provider/store read shape and relevant Node/JVM assertions. Architecture was completely read earlier in this task and unchanged; protected IPC/history/single-collector contracts remain in force. Review performed no implementation, live business test, Node/Gradle test rerun, service start, device UI/clipboard/cache action, model/Rust request, Git stage/commit/push or deployment.
+
+`node logs/e2e-validation-20261003/s3/review-20261004-checks.cjs` exited 0 with 19/19 retained-evidence/readiness checks. All event payload digests and attachment hashes/sizes/local bytes agree. The private historical snapshot hash/size/quick_check and genuine F98 items/39 details match. Current unchanged provider recomputation returns the same seven page descriptors; the exact item key set equals all98 stored keys, all39 ref IDs bind the actual conversation/detail keys, and last-page hasMoreBefore=false retains coverageComplete=false.
+
+The same real69,427-byte detail reconstructs from49,152+20,275 UTF-8 byte chunks at offsets0/49,152, with exact descriptor/body hash. Each chunk round-trips UTF-8 bytes and an unchanged-reference repeated read remains consistent. These are offline snapshot observations, not authenticated live Gateway/phone cache/ACK/UI/copy proof.
+
+The retained raw Node log substantiates the exact3 selected passes/0 failures despite its machine-readable summary array being empty. Fresh JUnit content and saved report time fall within the actual Android run, with exactly the3 selected methods and0 failures/errors; runner uses required JDK21 and Gradle log is successful. Existing fixture mutations and mocked Gateway are explicitly separated from natural source/product changes and real device scenarios. In particular, stale older cursor does not establish E07-c old-content detail cursor rejection, and JVM wrong-hash rejection does not establish a real E07-d in-flight App response.
+
+## New environmental observation, not a historical rewrite
+
+User reported: “真机已经连上可以进行USB调试。” Read-only checks now confirm `adb -s MQS7N19402011743 get-state` returns `device`; target model VOG-AL00, Android10. Persisted readiness sample at2026-10-03T18:04:25.735Z (2026-10-04 02:04:25 Asia/Shanghai). This removes the present missing-target prerequisite. The old2026-10-03 absence remains a valid observation of its own execution window and is not changed into a successful E2E run. Service availability was not rechecked/started in this review; reconfirm it before physical verification.
+
+## Retained acceptance gaps
+
+E05 physical older/overlap/durable commit/ACK/reopen and E06 actual large-detail display/copy are still not executed. Original clipboard/draft protection and restoration are still required before copy. E07-a has only unchanged-ref offline observation; b/f fixture support, d JVM fixture support, c/e no established natural conditions. All natural/physical lifecycle subcases remain separately qualified, not merged into PASS. S2 delegation parse-gap/canonical-publication failure, old Q budget intent/failure, S6 restoration, three old management association issues and CR limit remain unchanged.
+
+S3 stays executed-partial, now reviewed, not finished. Advisory next_route is execute-step. The state/skill finish recommendation is only a possible step disposition retaining gaps, never automatic acceptance or a prerequisite to further authorized business work. To achieve the E2E goal, resume the still-planned S3 physical checks now that the same target is online, after confirming the repo-owned service/single-collector/persistence/range configuration and protecting draft/clipboard. Do not silently finish S3 or substitute fixture results for device evidence.
