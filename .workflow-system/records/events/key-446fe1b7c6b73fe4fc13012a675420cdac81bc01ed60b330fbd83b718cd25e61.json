@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-03T07:58:18.540Z",
+  "payload_sha256": "7ece74036e2d7be4fba07c0ae8f9952aa99d684348df08bf5c3f788137ff5753",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task-20260831-s2-change-review-20261003-exec5f905-1",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "idempotency_key": "task-20260831-s2-change-review-20261003-exec5f905-1",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-5f905bc784d5c8156da8bd91a6a9029ea02f7a52389aa6e88dab9d67b85aebf9.json",
+      "source_revision": "ee5d491204f9c684b8c90cb2a5ae60943db9f026",
+      "verdict": "clean",
+      "summary": "S2 actual execution/evidence self-review clean: no additional actionable correctness or reporting finding. Retain delegation-carrier compatibility failure, partial staging without canonical publication, IPC-only phone baseline, output truncation and incomplete coverage. Clean does not mean E2E PASS, independent review, step finish or user acceptance of remaining gaps.",
+      "subject": {
+        "execution_sha256": "ebb0aa8faafb160cf1d6ea941608385edfc8aca74e566d474e3a9eadef8e1022",
+        "report_ref": ".workflow-system/records/evidence-objects/ae2158d88c4988f67ab06a496c06b34e84cc9830218b9c3aec5c3d38f4ce35aa.blob",
+        "adopted_plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "adoption_ref": ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json"
+      },
+      "findings": [],
+      "coverage": {
+        "reviewed": [
+          "Adopted v2 S2 scope/actions/acceptance/defect policy and exact execution event/CAS attachment digests",
+          "Current protected IPC/Rollout contracts and AD-004/AD-018/AD-019/AD-022; architecture fully read earlier and unchanged",
+          "Captured source carrier shapes, Unicode command fields, run/checkpoint parse gaps and partial availability",
+          "Vendor models/items, formal decoder/Adapter bound, collector callback ACK ordering, importer publication guard and scheduler partial-intent retention",
+          "Captured product DB staging/delivery/publication facts and preservation of all prior canonical rows",
+          "Captured Android DB, diagnostics, hashed sync state, exact durable sync/page and server ACK correlation, healthy IPC authority logs",
+          "Terminal screenshot visual review and UI XML; running black screenshot excluded",
+          "One-off readers/follower scope, preserved credentials/history and Git version/index/tracked diff"
+        ],
+        "mechanical_check": {
+          "command": "node logs/e2e-validation-20261003/s2/review-checks.cjs",
+          "result": "exit 0; 28/28; review-checks-reconciled.json",
+          "meaning": "Retained-evidence consistency assertions, not E2E test PASS",
+          "initial_checker_error": "Initial 27/28 output preserved. delta_applied omits syncId; corrected correlation uses exact durable page/server IDs and hashed Android sync_state plus same-device sequence. No business rerun or original evidence rewrite."
+        },
+        "not_performed": [
+          "Independent reviewer, live model/phone/service/Rust rerun or regression suite",
+          "Ordinary user-message replacement sample, second turn, resend or Branch",
+          "Canonical product provider DTO/cache ACK/reopen or S3-S6 E2E",
+          "Raw Rust ACK capture, running pixel visibility, cross-file transactional backup proof",
+          "Source/config/vendor/runtime/skill changes, staging, commit, push, deployment, step finish or task closure"
+        ]
+      },
+      "provenance": {
+        "reviewer": "Codex",
+        "mode": "self-review",
+        "same_agent_as_execution_author": true,
+        "independent": false,
+        "method": "Read-only static call-chain review, preserved artifacts queried independently in memory, immutable digest checks and existing terminal screenshot visual inspection. Model switch does not establish reviewer independence."
+      },
+      "retained_conditions": [
+        {
+          "id": "S2-C1",
+          "kind": "existing-execution-failure",
+          "condition": "S2-G1 actual create_thread delegation carrier produces two parse gaps; partial staging, no canonical publication.",
+          "required_handling": "Retain failure and intent. No fake call_id, skipped source records, relaxed partial gate or presumed ordinary user-input result."
+        },
+        {
+          "id": "S2-C2",
+          "kind": "acceptance-not-achieved",
+          "condition": "E01/E03 blocked, E02 partial, E04 unexecuted; phone commits/ACKs are IPC baseline, not product_db.",
+          "required_handling": "No E2E/S2 PASS; product DTO/provider/reopen and ordinary append still need actual validation."
+        },
+        {
+          "id": "S2-C3",
+          "kind": "field-fidelity-limitation",
+          "condition": "CommandExecution staging output bounded to 65536 bytes versus original 74489; last line/END absent.",
+          "required_handling": "No full-detail fidelity/S3 copy pass or automatic limit change; keep as separately scoped observation."
+        },
+        {
+          "id": "S2-C4",
+          "kind": "observability-limitation",
+          "condition": "Running black screenshot excluded; raw Rust ACK not captured; live copies not transactional and cross-device clocks differ.",
+          "required_handling": "Keep explicit evidence qualifications; do not convert guarded-path inference or UI hierarchy into direct wire/pixel proof."
+        },
+        {
+          "id": "S2-C5",
+          "kind": "existing-unresolved-work",
+          "condition": "Old Q budget failure/intent, restoration and clipboard protection, three old management associations and CR format limit remain.",
+          "required_handling": "Retain; do not infer repair, restoration, semantic linking or deferral authorization from clean review."
+        }
+      ],
+      "remaining_work": [
+        "S2 executed and reviewed, not finished; clean review is not a disposition or acceptance of gaps.",
+        "Ordinary-input replacement/sample-budget scope or minimum Rust compatibility repair requires actual informed choice before further affected business execution; default no source edits remains effective.",
+        "Product canonical publication, real product provider DTO/phone commit/ACK/reopen, ordinary second-turn append and S3-S6 remain incomplete."
+      ],
+      "recommendation": {
+        "next_route": "execute-step",
+        "next_mode": "finish",
+        "reason": "Clean review leaves current S2 executed without finish disposition. This route is advisory for a user-chosen disposition retaining failures/gaps, not E2E completion or automatic repair/closure."
+      },
+      "files": [
+        "logs/e2e-validation-20261003/s2/review.md",
+        "logs/e2e-validation-20261003/s2/review-checks-reconciled.json",
+        "logs/e2e-validation-20261003/s2/review-checks.json",
+        "logs/e2e-validation-20261003/s2/review-checks.cjs"
+      ]
+    },
+    "files": [
+      "logs/e2e-validation-20261003/s2/review.md",
+      "logs/e2e-validation-20261003/s2/review-checks-reconciled.json",
+      "logs/e2e-validation-20261003/s2/review-checks.json",
+      "logs/e2e-validation-20261003/s2/review-checks.cjs"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-5f905bc784d5c8156da8bd91a6a9029ea02f7a52389aa6e88dab9d67b85aebf9.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-5f905bc784d5c8156da8bd91a6a9029ea02f7a52389aa6e88dab9d67b85aebf9.json",
+        "source_revision": "ee5d491204f9c684b8c90cb2a5ae60943db9f026",
+        "verdict": "clean",
+        "summary": "S2 actual execution/evidence self-review clean: no additional actionable correctness or reporting finding. Retain delegation-carrier compatibility failure, partial staging without canonical publication, IPC-only phone baseline, output truncation and incomplete coverage. Clean does not mean E2E PASS, independent review, step finish or user acceptance of remaining gaps.",
+        "subject": {
+          "execution_sha256": "ebb0aa8faafb160cf1d6ea941608385edfc8aca74e566d474e3a9eadef8e1022",
+          "report_ref": ".workflow-system/records/evidence-objects/ae2158d88c4988f67ab06a496c06b34e84cc9830218b9c3aec5c3d38f4ce35aa.blob",
+          "adopted_plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+          "adoption_ref": ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json"
+        },
+        "findings": [],
+        "coverage": {
+          "reviewed": [
+            "Adopted v2 S2 scope/actions/acceptance/defect policy and exact execution event/CAS attachment digests",
+            "Current protected IPC/Rollout contracts and AD-004/AD-018/AD-019/AD-022; architecture fully read earlier and unchanged",
+            "Captured source carrier shapes, Unicode command fields, run/checkpoint parse gaps and partial availability",
+            "Vendor models/items, formal decoder/Adapter bound, collector callback ACK ordering, importer publication guard and scheduler partial-intent retention",
+            "Captured product DB staging/delivery/publication facts and preservation of all prior canonical rows",
+            "Captured Android DB, diagnostics, hashed sync state, exact durable sync/page and server ACK correlation, healthy IPC authority logs",
+            "Terminal screenshot visual review and UI XML; running black screenshot excluded",
+            "One-off readers/follower scope, preserved credentials/history and Git version/index/tracked diff"
+          ],
+          "mechanical_check": {
+            "command": "node logs/e2e-validation-20261003/s2/review-checks.cjs",
+            "result": "exit 0; 28/28; review-checks-reconciled.json",
+            "meaning": "Retained-evidence consistency assertions, not E2E test PASS",
+            "initial_checker_error": "Initial 27/28 output preserved. delta_applied omits syncId; corrected correlation uses exact durable page/server IDs and hashed Android sync_state plus same-device sequence. No business rerun or original evidence rewrite."
+          },
+          "not_performed": [
+            "Independent reviewer, live model/phone/service/Rust rerun or regression suite",
+            "Ordinary user-message replacement sample, second turn, resend or Branch",
+            "Canonical product provider DTO/cache ACK/reopen or S3-S6 E2E",
+            "Raw Rust ACK capture, running pixel visibility, cross-file transactional backup proof",
+            "Source/config/vendor/runtime/skill changes, staging, commit, push, deployment, step finish or task closure"
+          ]
+        },
+        "provenance": {
+          "reviewer": "Codex",
+          "mode": "self-review",
+          "same_agent_as_execution_author": true,
+          "independent": false,
+          "method": "Read-only static call-chain review, preserved artifacts queried independently in memory, immutable digest checks and existing terminal screenshot visual inspection. Model switch does not establish reviewer independence."
+        },
+        "retained_conditions": [
+          {
+            "id": "S2-C1",
+            "kind": "existing-execution-failure",
+            "condition": "S2-G1 actual create_thread delegation carrier produces two parse gaps; partial staging, no canonical publication.",
+            "required_handling": "Retain failure and intent. No fake call_id, skipped source records, relaxed partial gate or presumed ordinary user-input result."
+          },
+          {
+            "id": "S2-C2",
+            "kind": "acceptance-not-achieved",
+            "condition": "E01/E03 blocked, E02 partial, E04 unexecuted; phone commits/ACKs are IPC baseline, not product_db.",
+            "required_handling": "No E2E/S2 PASS; product DTO/provider/reopen and ordinary append still need actual validation."
+          },
+          {
+            "id": "S2-C3",
+            "kind": "field-fidelity-limitation",
+            "condition": "CommandExecution staging output bounded to 65536 bytes versus original 74489; last line/END absent.",
+            "required_handling": "No full-detail fidelity/S3 copy pass or automatic limit change; keep as separately scoped observation."
+          },
+          {
+            "id": "S2-C4",
+            "kind": "observability-limitation",
+            "condition": "Running black screenshot excluded; raw Rust ACK not captured; live copies not transactional and cross-device clocks differ.",
+            "required_handling": "Keep explicit evidence qualifications; do not convert guarded-path inference or UI hierarchy into direct wire/pixel proof."
+          },
+          {
+            "id": "S2-C5",
+            "kind": "existing-unresolved-work",
+            "condition": "Old Q budget failure/intent, restoration and clipboard protection, three old management associations and CR format limit remain.",
+            "required_handling": "Retain; do not infer repair, restoration, semantic linking or deferral authorization from clean review."
+          }
+        ],
+        "remaining_work": [
+          "S2 executed and reviewed, not finished; clean review is not a disposition or acceptance of gaps.",
+          "Ordinary-input replacement/sample-budget scope or minimum Rust compatibility repair requires actual informed choice before further affected business execution; default no source edits remains effective.",
+          "Product canonical publication, real product provider DTO/phone commit/ACK/reopen, ordinary second-turn append and S3-S6 remain incomplete."
+        ],
+        "recommendation": {
+          "next_route": "execute-step",
+          "next_mode": "finish",
+          "reason": "Clean review leaves current S2 executed without finish disposition. This route is advisory for a user-chosen disposition retaining failures/gaps, not E2E completion or automatic repair/closure."
+        },
+        "files": [
+          "logs/e2e-validation-20261003/s2/review.md",
+          "logs/e2e-validation-20261003/s2/review-checks-reconciled.json",
+          "logs/e2e-validation-20261003/s2/review-checks.json",
+          "logs/e2e-validation-20261003/s2/review-checks.cjs"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

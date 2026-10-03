@@ -1,0 +1,109 @@
+# TASK-20260831 S2 — 真实主链执行记录
+
+- 日期：2026-10-03（Asia/Shanghai）；主要业务窗口为 2026-10-02 19:44:17–19:45:25 UTC。
+- task_id：`task-25654b249109f357a559899562804c15`；step_id：`S2`。
+- 采纳计划：`.workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json`。
+- 本轮入口：execute-step / default；只做执行与实施自检，不是正式审查、finish 或任务关闭。
+- 结果：**部分执行，真实主链未闭合。专用 A 的真实宿主输入载体存在兼容缺口，canonical 发布被正确保留为未完成。**
+
+## 范围、版本与前态
+
+当前 HEAD `ee5d491204f9c684b8c90cb2a5ae60943db9f026`。相对 S1 的 `2c9ff5e5e5574dc34ab5c6280f30634b15e6394f` 只有 35 个流程/证据保存路径变化；业务源码没有变化。最近业务版本仍为 `241becbc2e72f3a1c90970e47f7e95ccf0021dba`。
+
+本轮没有启动/重启服务、构建、安装、改默认配置、提升资源预算、增加 Rust worker、直接请求 Rust、手写 rollout/产品库、暂存、提交、推送或部署。仅新增 ignored 一次性取证脚本、私有快照及本次管理事实。
+
+- 服务沿用 S1：Node PID 39736 → 唯一 Rust PID 40296；本仓库开发服务，原验证持久根 `logs/task005-s2-repair-runtime-2`，进程级 range=1。最后健康检查正常。
+- Rust 二进制 SHA-256：`81a4448219a17cbe54ed827af3214205d49820033275a32d1f8ff46a11599564`。
+- 手机 `MQS7N19402011743`，Android 10，`com.termlink.app` PID 11761；本地 APK 与安装 base.apk 均为 `a3d60ef2e4506950ca44f7b5ec1eaf777f32dbccda13532416e1c5eb9da9505f`。
+- 产品 DB 前态 SHA-256：`4d40c1ec1b98548d5e0e40c17aff5d8ae1ab93863a8bef260787ae29a7565ae0`；1 个 canonical 会话、98 items、39 details、16 staging、16 publication receipts。
+- 手机空草稿前态已保存；仅通过已有导出 Activity 的正常 intent 选择 A、指定正确 cwd，没有改偏好文件或 DB。原 transport 的 cwd 仍为旧工作区；目标选择由明确 conversation ID 绑定，不凭 cwd 猜测。
+- 私有原始备份保留在本目录 `private/`，数据库仅对内存副本开启 query_only 查询。备份是 live copy；SQLite quick_check=ok、journal=0 不等于跨文件事务快照。
+
+## 真实样本与入口限制
+
+创建桌面本地测试会话 **TermLink E2E A 20261003**：
+
+- conversation：`01a0fe25-56a2-7910-ba22-61e8016e8ad9`。
+- turn：`01a0fe25-654b-7c40-b815-1848c9c56744`。
+- CommandExecution：`exec-f763bc43-72ba-4d9a-853d-1ce04ecbdd3a`。
+- A 仅进行了 1 轮真实模型执行；未发送第二轮，未 resend、Branch 或向 B 发送消息。
+- 初始 prompt 通过桌面 `create_thread` 发送，工具实际将其保存为 `codex_app.create_thread` 委派载体，而非通常的 UserMessage。这个差异是在读取自然生成的 rollout 后确认，不能把本样本描述为普通用户输入主链通过，也不能推定普通输入一定失败。
+- 只读命令执行成功，输出 600 条确定性 Unicode 行，包含 `汉字🙂é`；原始 aggregated_output 为 74,489 bytes，SHA-256 `771272b217144d0eab8d1d72d8f489d3cde2253006b6bfa78b8a13e0375c79e1`。未编辑业务文件。
+- 外部宿主自然生成的 source 有 31 行 / 399,136 bytes，SessionMeta.id 精确匹配 A；快照与之后原文件哈希相同：`94aa8b3d2eff5aff57f4660d3d05732c940e0eb398ee90fa07fba41bcc002c67`。
+
+## 时间线与链路分层
+
+| 观察 | 实际结果 | 不代表什么 |
+| --- | --- | --- |
+| 19:44:36 UTC 开始正常鉴权 follower；手机 19:44:47–48 UTC 按 A 选择 | 目标 healthy surface、运行态和 operation；手机日志从等待/短暂 desynced 进入 `IPC_AUTHORITATIVE` | 独立观察客户端不是 Android 持久化或 ACK |
+| 手机运行中 UI hierarchy | 有 BEGIN、正在运行命令、流式输出中、正确 cwd；层级中侧栏仍打开 | 没有合格的运行中像素截图；后续截图为黑屏/熄屏，明确排除 |
+| 19:45:22.528 UTC healthy terminal surface | 同一 turn、revision 15–17，3 个 surface item；手机仍为 IPC_AUTHORITATIVE | healthy surface 不等于产品历史已发布 |
+| 19:45:22.752–24.181 UTC 第一次自然 backfill | `request-a659ee6a-04ef-4e94-a63f-e779d263c466`，completed / partial | completed 不是 canonical |
+| 19:45:24.233–25.604 UTC 第二次自然 backfill | `request-9f28d7cf-16f6-419a-b9e7-651f966495b9`，completed / partial；顺序执行，非手工重试 | 不代表进行了第二个模型 turn；不代表普通 append |
+| 两次产品 staging COMMIT | 2 个独立 batch、相同 payload hash、published_at=null；每次 accepted delivery 和 receipt_count=1 | 未抓原始 Rust ACK 帧；ACK 只由受校验的成功 complete/accepted-delivery 及实现路径支持，非直接抓包证据 |
+| canonical 发布 | A 的 conversations/history_items/tool_details/checkpoints/publication_receipts 全为 0 | 不能继续声称产品 provider DTO、产品→App 或发布后重开通过 |
+| 终态截图 | BEGIN、工具完成、DONE/Unicode 可见，截图 SHA `f0c23ad2e71db3fd31d9eb10e656803a9c19c6c9e6f031ee1e15cfd269ef01dc` | 这是 IPC 可见终态，不是产品历史或完整大详情展示 |
+
+双次调度来自同一终态窗口内正常 revision 事实，保持一个 Node→Rust 链。本轮 A 未报旧 fingerprint 64 MiB budget 错误，证明该单例链可以处理这两个普通请求；旧 Q 错误/intent 仍未修复，不能据此认定其他来源都不会命中预算。
+
+## 阻断证据：S2-G1
+
+真实 source 的两条委派载体均产生 `parse_gap`：
+
+1. 0-based ordinal 7（物理第 8 行）：`response_item/function_call_output`，有 `id/name/namespace/output`，没有 `call_id`。当前仓库 vendor `protocol/src/models.rs` 的 ResponseItem::FunctionCallOutput 要求 call_id。
+2. ordinal 8（物理第 9 行）：`event_msg/item_completed`，嵌套 `item.type=FunctionCallOutput`，相同 fco ID、name=create_thread、namespace=codex_app。当前 vendor `protocol/src/items.rs` 的 TurnItem 没有这个 variant。
+
+`src/codex_wire/decode.rs` 将已识别外层/嵌套外层名的 native 解码失败统一归为 MissingRequiredField，因此第二条的报告文案同样是 `missing_required_field:event_msg/item_completed`；不能仅凭该文案断言它也是缺 call_id。
+
+两次 checkpoint 均为 complete=false、provisional=true、coverage=partial、availability=not_recoverable_from_rollout，保留上述两个 parse_gap。Node importer 仅在 canonical complete 时发布；scheduler 保留 intent，不立即对不变的 partial 输入热重试。这次没有放宽判断、忽略源行、构造 call_id、伪造 DTO/ACK、删除 intent 或切换数据库。
+
+影响仅由本次真实 `create_thread` 委派载体样本证明；普通用户输入入口仍未通过本轮验证。A 也不能直接当成 S5 所要求的“最后一个普通已 terminal user turn”样本。
+
+## 手机真实提交/ACK：属于 fallback，不属于 product_db
+
+手机 client selectionGeneration=7；服务端 selectionGeneration=1；观察者自己的 generation=1 另行区分。两个手机 sync：
+
+| syncId | upserts | 持久 pageHash | 结果 |
+| --- | --- | --- | --- |
+| `f2f99148-ffcd-4017-9394-dc25942b1a1d` | 1 | 见 observations.json 中 completed_pages；与服务端前 16 位 `7d72666b2a6f128d` 相符 | COMMITTED → 服务端 ACK accepted → baseline_partial |
+| `9856a85a-e2fd-4124-9cd7-5d4d341366a8` | 0 | 见 completed_pages；与前 16 位 `20430226536ed622` 相符 | COMMITTED → 服务端 ACK accepted → baseline_partial |
+
+手机 DB 保存了两个 completed_page。A 仅有 1 个 commentary item，root=`bd4133399b19838b312dea02dd6c9c066c61abb839971340fce55519a19f69d9`，provider_mode=null，complete=0，coverage_state=legacy_unknown。服务端基线日志为 sourceKind=ipc_surface，观察窗口没有 A 的 product_read.started。
+
+这 1 个缓存 item 的 item_key 与真实 commentary message ID 唯一匹配；工具完成与最终 DONE 则来自 healthy IPC surface。Android 在这些历史提交之后仍持续应用 IPC_AUTHORITATIVE 运行/终态，没有据本次日志观察到缓存替代 live 权威。Android/Windows 时钟有偏差，跨层顺序以请求身份、持久 completed_page 和 ACK 关联为依据，不按不同机器墙钟值直接推断。
+
+## 字段与大样本限制
+
+原 CommandExecution ID → IPC operation key → staged projection `tool:exec-f763bc43-72ba-4d9a-853d-1ce04ecbdd3a` 可以唯一关联。详细 argv/cwd、长度及哈希见 field-check.json。
+
+原始 74,489-byte aggregated_output 并未完整进入该 CommandExecution 的 staging tool detail：其 output 为 65,536 bytes，缺末行/END；另一个宿主工具包装输出为 40,874 bytes，包含首尾但不是原输出。这与当前 Adapter `bounded_text(..., 64 * 1024)` 及工具输出包装层有关，不能把现有大样本记成原字段全量保真或 S3 完整复制通过。截断是独立保留观察，本轮没有擅自扩大 output 上限或将其一并修复。
+
+## 场景结论
+
+| 场景 | 本轮状态 |
+| --- | --- |
+| E01 同一 source→产品→App 字段主链 | 未闭合：staging partial，没有 canonical/Product DTO |
+| E02 healthy IPC 唯一权威 | 部分证据：真实运行/operation/终态和手机 authority 日志；终态像素可见。运行中像素证据缺失，不记整项通过 |
+| E03 终态发布/持久化/重开 | 发布被阻断；仅 fallback 的手机 commit/ACK 有证据；产品命中后的重开未运行 |
+| E04 普通第二 turn/append | 未运行；第一轮没有 canonical checkpoint，按缺陷策略暂停依赖项 |
+| S3–S6 其他验证 | 本轮未执行；没有顺势发送第二轮/Branch/resend 或扩大验证范围 |
+
+## 保存、保持与遗留
+
+- 本轮 21 个证据一致性自检全部符合实际观察；**这是对证据的自检数量，不是 21 项 E2E PASS，也不是正式 review**。
+- 原 21 个 run 哈希全部不变；新总数 23，两个 A run 都 terminal partial；旧 Q 失败保留。
+- 所有原产品 canonical 表行完全一致；DB 总哈希变化是 A staging 与 intent 的正常写入。现存 98 item/39 details 未改。
+- 手机原有 1688 个 item 全行逐项保持；新增 A commentary 1 项、completed pages 从 201→203。认证/注册/服务器配置偏好原字节未变；restore、shell、session_list_cache 经正常操作变化。
+- 草稿未输入；剪贴板未读取/修改。没有备份剪贴板内容，S3 复制前仍需保护。
+- 观察者连接及其 logcat 子进程在 300 秒上限后结束；桌面已返回原工作会话，手机恢复 Asleep/OFF。服务与已有 USB reverse 保留；手机仍选择 A，测试配置为当前配置，restore cwd 为本工作区，transport cwd 仍为旧目录。后续 S6 按实际使用情况恢复，不直接重写旧偏好/旧 session。
+- 业务操作结束、管理记录写入前 Git worktree/index 为空；旧 blob/源码没有改动。后续只新增本轮管理事件/附件，既有管理关联问题 3 条及旧 CR 限制保留。
+- 辅助读操作中出现过路径猜测失败、Node 临时表达式类型/引号错误；均为取证脚本本地读取失败，修正后才生成本报告。未因此重跑模型 turn 或改动产品输入。
+
+## 后续选择（均未执行）
+
+建议先 review-change 复核本轮失败与样本入口限制。继续前需明确选择：
+
+1. 保持默认不改源码，改用普通用户输入入口建立替代样本；旧 A/失败保留，不冒充已恢复。新增真实会话及调整 A 的预算/身份应在当前任务中明确确认。
+2. 另行锁定最小 Rust 兼容修复：以两条脱敏载体为依据，限定 formal `codex_wire/decode.rs`、确有需要的 Adapter 输入处理与 conformance/target-protocol fixture 测试。先确定其业务/上下文语义，不虚构 call_id、不粗暴跳过未知载体、不降低 partial 发布标准；若需 vendor 类型更新，单独列明仓库内 closure 变化。Node、Android、IPC 权威、单例采集及预算不默认纳入。
+
+最小回归候选为新载体与缺字段/未知 variant 的 fail-closed 对照、同一普通读取链的 staging/ACK/canonical 条件，以及本轮真实主链重验。当前没有任何源码修复授权，没有新正式审查或步骤结束记录。

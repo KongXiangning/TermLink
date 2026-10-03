@@ -1,0 +1,50 @@
+{
+  "event_ref": ".workflow-system/records/events/key-446fe1b7c6b73fe4fc13012a675420cdac81bc01ed60b330fbd83b718cd25e61.json",
+  "captured_at": "2026-10-03T07:58:18.555Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a6e20e6b966dc4ea8af5c879f268567b6586ff19bd8d36988b963d45451f4236.blob",
+      "sha256": "a6e20e6b966dc4ea8af5c879f268567b6586ff19bd8d36988b963d45451f4236",
+      "size": 4650,
+      "source_path": "logs/e2e-validation-20261003/s2/review.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/301b50d3a6db5d2c97134d902e5fdf411ec047c9d277cff876e3a446cb08570e.blob",
+      "sha256": "301b50d3a6db5d2c97134d902e5fdf411ec047c9d277cff876e3a446cb08570e",
+      "size": 4535,
+      "source_path": "logs/e2e-validation-20261003/s2/review-checks-reconciled.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/4479e9071474f012b9d96a622e62aa5a465366d6bf0be6e454cffe382d833c7f.blob",
+      "sha256": "4479e9071474f012b9d96a622e62aa5a465366d6bf0be6e454cffe382d833c7f",
+      "size": 4207,
+      "source_path": "logs/e2e-validation-20261003/s2/review-checks.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d3718eb37e63dd0aa09ba390684f2ab6a1429a9e9512308ea80804661ae25580.blob",
+      "sha256": "d3718eb37e63dd0aa09ba390684f2ab6a1429a9e9512308ea80804661ae25580",
+      "size": 14392,
+      "source_path": "logs/e2e-validation-20261003/s2/review-checks.cjs",
+      "issues": []
+    }
+  ]
+}

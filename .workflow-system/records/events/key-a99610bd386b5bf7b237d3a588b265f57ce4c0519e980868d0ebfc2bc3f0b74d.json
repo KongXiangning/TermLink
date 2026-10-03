@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-03T07:59:58.767Z",
+  "payload_sha256": "c0e5ca04425420cdd849ba119a73f56e1a0ea18bf56e90773845314ec7482bf0",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:execute-step-finish-task-25654b249109f357a559899562804c15-S2-20261003",
+    "request": {
+      "action": "step",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S2",
+      "state": "finished",
+      "idempotency_key": "execute-step-finish-task-25654b249109f357a559899562804c15-S2-20261003",
+      "decision_source": "当前对话用户显式指令；已明确选择办理保留缺口的步骤处置",
+      "decision_text": "finish。审查结果 clean（自审，仅针对 S2 执行记录与证据），未发现新增需修正问题；28 项证据一致性检查通过，不代表 E2E 通过。仍保留：委派载体解析缺口阻断产品发布；手机 ACK 仅证明 IPC baseline；大输出截断、运行中截图及第二 turn 等验证尚未补齐。",
+      "review_ref": ".workflow-system/records/events/key-446fe1b7c6b73fe4fc13012a675420cdac81bc01ed60b330fbd83b718cd25e61.json",
+      "execution_ref": ".workflow-system/records/events/key-5f905bc784d5c8156da8bd91a6a9029ea02f7a52389aa6e88dab9d67b85aebf9.json",
+      "source_revision": "ee5d491204f9c684b8c90cb2a5ae60943db9f026",
+      "remaining_work": [
+        "委派载体与 vendor TurnItem/FunctionCallOutput 不兼容的 S2-G1 parse gaps 保留；产品 canonical conversation/item/detail/checkpoint/publication 行仍为 0，不伪造 call_id、不跳过 source、不放宽 partial gate。",
+        "E01/E03 被 canonical publication 阻断，E02 仅部分观察，E04 第二个普通 user turn 未执行；产品 provider DTO、手机 product_db commit/ACK、重开与普通 append 仍未验证。",
+        "手机两次 durable COMMITTED/ACK 只属于 IPC-surface baseline，不作为产品库 E2E 证据；raw Rust ACK、运行中可见性和跨文件事务性备份仍未直接证明。",
+        "74489 字节原始输出在 staging 被既有限界截为 65536 字节，未见末尾标记；不得宣称完整 detail/DTO/UI copy fidelity。",
+        "S3 仍需先保护/恢复剪贴板；S6 恢复测试选择、profile、service/reverse 等残留环境；旧 Q budget failure/intent 继续保留。",
+        "三条当前未关联管理记录及旧 CR 格式限制继续保留；本次不作 semantic link/correct/defer，不修改源码、配置、契约、Node/Android/IPC 或预算。",
+        "S3–S6 及 E01–E12 其余真实 E2E 覆盖、独立审查、产品发布就绪仍未完成。"
+      ]
+    },
+    "task_event": {
+      "version": 1,
+      "action": "step",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-446fe1b7c6b73fe4fc13012a675420cdac81bc01ed60b330fbd83b718cd25e61.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S2",
+        "state": "finished",
+        "decision_source": "当前对话用户显式指令；已明确选择办理保留缺口的步骤处置",
+        "decision_text": "finish。审查结果 clean（自审，仅针对 S2 执行记录与证据），未发现新增需修正问题；28 项证据一致性检查通过，不代表 E2E 通过。仍保留：委派载体解析缺口阻断产品发布；手机 ACK 仅证明 IPC baseline；大输出截断、运行中截图及第二 turn 等验证尚未补齐。",
+        "review_ref": ".workflow-system/records/events/key-446fe1b7c6b73fe4fc13012a675420cdac81bc01ed60b330fbd83b718cd25e61.json",
+        "execution_ref": ".workflow-system/records/events/key-5f905bc784d5c8156da8bd91a6a9029ea02f7a52389aa6e88dab9d67b85aebf9.json",
+        "source_revision": "ee5d491204f9c684b8c90cb2a5ae60943db9f026",
+        "remaining_work": [
+          "委派载体与 vendor TurnItem/FunctionCallOutput 不兼容的 S2-G1 parse gaps 保留；产品 canonical conversation/item/detail/checkpoint/publication 行仍为 0，不伪造 call_id、不跳过 source、不放宽 partial gate。",
+          "E01/E03 被 canonical publication 阻断，E02 仅部分观察，E04 第二个普通 user turn 未执行；产品 provider DTO、手机 product_db commit/ACK、重开与普通 append 仍未验证。",
+          "手机两次 durable COMMITTED/ACK 只属于 IPC-surface baseline，不作为产品库 E2E 证据；raw Rust ACK、运行中可见性和跨文件事务性备份仍未直接证明。",
+          "74489 字节原始输出在 staging 被既有限界截为 65536 字节，未见末尾标记；不得宣称完整 detail/DTO/UI copy fidelity。",
+          "S3 仍需先保护/恢复剪贴板；S6 恢复测试选择、profile、service/reverse 等残留环境；旧 Q budget failure/intent 继续保留。",
+          "三条当前未关联管理记录及旧 CR 格式限制继续保留；本次不作 semantic link/correct/defer，不修改源码、配置、契约、Node/Android/IPC 或预算。",
+          "S3–S6 及 E01–E12 其余真实 E2E 覆盖、独立审查、产品发布就绪仍未完成。"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

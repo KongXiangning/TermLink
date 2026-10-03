@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-02T20:04:55.559Z",
+  "payload_sha256": "9702f53b11feb838a8b30a78d25c1df8b92ebebc3649ef78b6c6c00242292ca4",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task-20260831-s2-execution-20261003-delegation-carrier-gap-v1",
+    "request": {
+      "action": "execution",
+      "idempotency_key": "task-20260831-s2-execution-20261003-delegation-carrier-gap-v1",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S2",
+      "source_revision": "ee5d491204f9c684b8c90cb2a5ae60943db9f026",
+      "result": "partial-execution-main-chain-blocked-by-delegation-carrier-gap",
+      "summary": {
+        "mode": "default",
+        "scope": "S2 actual first host turn, healthy IPC/phone observations, normal single collector delivery, product/phone snapshots and field checks. Implementation self-check only; no formal review or finish.",
+        "environment": "Same source/binaries as S1; current HEAD adds only management checkpoint. Node39736→Rust40296, existing persistent root/range=1, MQS7N19402011743 Android10 original APK hash matched. No rebuild/restart/install/default configuration change.",
+        "sample": "Dedicated real local desktop A 01a0fe25-56a2-7910-ba22-61e8016e8ad9, title TermLink E2E A 20261003, turn 01a0fe25-654b-7c40-b815-1848c9c56744. One actual model turn/one read-only command produced 600 Unicode lines, 74489 output bytes. create_thread input is actually a codex_app delegation carrier, not an ordinary UserMessage. A2/resend/Branch not sent; no B message.",
+        "observed": "Healthy running and completed surfaces, exact operation/turn IDs, Android IPC_AUTHORITATIVE application and valid terminal screenshot. Source SessionMeta matches A; 31-line natural source unchanged. Two sequential normal backfill runs completed partial with accepted deliveries and two durable staging rows; no direct analyzer call or manual retry.",
+        "blocker": "S2-G1: real source ordinal7 response_item/function_call_output lacks vendor-required call_id; ordinal8 item_completed nested FunctionCallOutput is absent from current vendor TurnItem. Both are parse_gap, projection complete=false/provisional=true/partial. A has zero canonical conversation/item/detail/checkpoint/publication rows. This demonstrates the delegation-carrier gap only, not failure of ordinary user-input paths. Old 64MiB Q error is retained but did not block A requests.",
+        "phone_history": "Phone generation7/server generation1, syncs f2f99148-ffcd-4017-9394-dc25942b1a1d and 9856a85a-e2fd-4124-9cd7-5d4d341366a8 each durable COMMITTED and server accepted ACK; both baseline_partial from IPC-surface baseline. Phone A has only one commentary item/provider_mode null; no A product_read.started. These are not product_db E2E evidence.",
+        "field_limit": "Source CommandExecution→IPC operation→staged item identity matches; original output74489 bytes, staged CommandExecution detail65536 bytes lacking last marker under existing bounded_text cap. Another tool wrapper output40874 bytes is not original output. No complete detail/DTO/UI copy fidelity claimed.",
+        "preservation": "21 prior run files unchanged; all existing canonical product table rows unchanged; all 1688 existing phone item rows unchanged. 21 evidence consistency checks matched expected observations, not 21 E2E tests. Product DB only adds A staging/intent, phone adds one partial baseline item/two completed pages. Source/index/old blobs unchanged before this record.",
+        "limitations": "Running screenshot black/asleep and excluded; hierarchy still had drawer. Rust ACK not captured as raw wire/timestamp, inferred only from guarded complete/accepted delivery. Live backups not cross-file transactional; clocks differ. Source→published product→phone and post-publication reopen not closed. Second turn held under defect policy. No formal review or independent assessment.",
+        "residual_state": "Observer/logcat stopped at bounded300s; desktop returned to original work chat; phone Asleep/OFF, blank draft, clipboard untouched. Phone selects A and test profile; service/reverse retained for later safe S6 restoration. Credentials/registration/server configuration bytes preserved; restore/shell/session list cache normal changes. Three management association issues and old CR restrictions remain."
+      },
+      "commands": [
+        "Fresh execute-step/protocol reads and JSON-stdin assistance task-status identified S1 already finished with gaps and S2 current; no finish replay.",
+        "git log/diff/status: ee5d4912 vs 2c9ff5e5 management-only; no source/index changes.",
+        "Service skill status with exact project root; APK/analyzer SHA256, installed base.apk SHA256, process/listener/health checks.",
+        "node logs/e2e-validation-20261003/s2/observe.cjs before; a1-terminal; after — read-only product snapshots and private adb run-as DB/prefs tar backups.",
+        "Codex app list_projects/create_thread for dedicated real A; navigate to A; wait_threads observed actual completed turn; navigate back to original chat. No follow-up message or model override.",
+        "node logs/e2e-validation-20261003/s2/watch.cjs 01a0fe25-56a2-7910-ba22-61e8016e8ad9 a1 — existing registered test session, normal Basic auth, one set_active_conversation, no turn/history/ACK/analyzer request, bounded300s.",
+        "adb -s MQS7N19402011743 wake/history/sessions observation, exported CodexActivity explicit existing profile/session/A/cwd selection, UI dump/pull/screenshots, PID-filtered logcat and persistent diagnostic copy, KEYCODE_SLEEP; no source/prefs/DB direct writes.",
+        "Bounded read-only natural source snapshot after exact SessionMeta binding, existing A run snapshots, staging and canonical query_only checks, server/Android diagnostic correlation.",
+        "node logs/e2e-validation-20261003/s2/summarize.cjs — 21 observation consistency checks; node logs/e2e-validation-20261003/s2/field-check.cjs — original/staged field hash comparison.",
+        "git check-ignore private evidence; git diff and git diff --cached empty before task record; phone Asleep/OFF verified. No tests/full suites, build, commit, push, source fix or manual Rust execution."
+      ],
+      "remaining_work": [
+        "S2 main chain remains incomplete; actual execution not reviewed or finished. E01/E03 blocked at canonical publication, E02 partial observation, E04 not run.",
+        "Review actual delegation-carrier compatibility gap and sample suitability. Continuing with replacement ordinary-user sample changes identity/call budget and requires explicit choice; repairing Rust requires separately confirmed minimum scope. No automatic repair or extra test conversation.",
+        "If repair is chosen, candidate formal wire/Adapter input plus sanitized conformance/target-protocol coverage only; no invented call_id, source rewrite, broad ignored lines, relaxed partial gate, Node/Android/IPC/budget expansion. Vendor closure update only if separately identified as necessary.",
+        "Published product DTO/phone product provider commit/ACK, ordinary append and post-publication reopen remain unverified. Large detail sample is bounded/truncated in staging and must not be declared complete original-output fidelity.",
+        "Preserve old Q budget failure/intent and all new A partial facts; A initial turn is not an ordinary user-message candidate for S5 latest-user-turn resend.",
+        "S3 copy requires clipboard protection; S6 later restores remaining test selection/profile/service/reverse by safe normal paths. All prior unrelated history and credentials retained.",
+        "Three current unassociated management records and old CR format limitation remain; no semantic link/correct/defer choice was inferred."
+      ],
+      "files": [
+        "logs/e2e-validation-20261003/s2/report.md",
+        "logs/e2e-validation-20261003/s2/observations.json",
+        "logs/e2e-validation-20261003/s2/field-check.json",
+        "logs/e2e-validation-20261003/s2/private/ui-a1-terminal.png"
+      ]
+    },
+    "files": [
+      "logs/e2e-validation-20261003/s2/report.md",
+      "logs/e2e-validation-20261003/s2/observations.json",
+      "logs/e2e-validation-20261003/s2/field-check.json",
+      "logs/e2e-validation-20261003/s2/private/ui-a1-terminal.png"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-ea989eb86798e4d9e8e374a22e529de91b9e62597476d3975b6e67b89d20638c.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S2",
+        "source_revision": "ee5d491204f9c684b8c90cb2a5ae60943db9f026",
+        "result": "partial-execution-main-chain-blocked-by-delegation-carrier-gap",
+        "summary": {
+          "mode": "default",
+          "scope": "S2 actual first host turn, healthy IPC/phone observations, normal single collector delivery, product/phone snapshots and field checks. Implementation self-check only; no formal review or finish.",
+          "environment": "Same source/binaries as S1; current HEAD adds only management checkpoint. Node39736→Rust40296, existing persistent root/range=1, MQS7N19402011743 Android10 original APK hash matched. No rebuild/restart/install/default configuration change.",
+          "sample": "Dedicated real local desktop A 01a0fe25-56a2-7910-ba22-61e8016e8ad9, title TermLink E2E A 20261003, turn 01a0fe25-654b-7c40-b815-1848c9c56744. One actual model turn/one read-only command produced 600 Unicode lines, 74489 output bytes. create_thread input is actually a codex_app delegation carrier, not an ordinary UserMessage. A2/resend/Branch not sent; no B message.",
+          "observed": "Healthy running and completed surfaces, exact operation/turn IDs, Android IPC_AUTHORITATIVE application and valid terminal screenshot. Source SessionMeta matches A; 31-line natural source unchanged. Two sequential normal backfill runs completed partial with accepted deliveries and two durable staging rows; no direct analyzer call or manual retry.",
+          "blocker": "S2-G1: real source ordinal7 response_item/function_call_output lacks vendor-required call_id; ordinal8 item_completed nested FunctionCallOutput is absent from current vendor TurnItem. Both are parse_gap, projection complete=false/provisional=true/partial. A has zero canonical conversation/item/detail/checkpoint/publication rows. This demonstrates the delegation-carrier gap only, not failure of ordinary user-input paths. Old 64MiB Q error is retained but did not block A requests.",
+          "phone_history": "Phone generation7/server generation1, syncs f2f99148-ffcd-4017-9394-dc25942b1a1d and 9856a85a-e2fd-4124-9cd7-5d4d341366a8 each durable COMMITTED and server accepted ACK; both baseline_partial from IPC-surface baseline. Phone A has only one commentary item/provider_mode null; no A product_read.started. These are not product_db E2E evidence.",
+          "field_limit": "Source CommandExecution→IPC operation→staged item identity matches; original output74489 bytes, staged CommandExecution detail65536 bytes lacking last marker under existing bounded_text cap. Another tool wrapper output40874 bytes is not original output. No complete detail/DTO/UI copy fidelity claimed.",
+          "preservation": "21 prior run files unchanged; all existing canonical product table rows unchanged; all 1688 existing phone item rows unchanged. 21 evidence consistency checks matched expected observations, not 21 E2E tests. Product DB only adds A staging/intent, phone adds one partial baseline item/two completed pages. Source/index/old blobs unchanged before this record.",
+          "limitations": "Running screenshot black/asleep and excluded; hierarchy still had drawer. Rust ACK not captured as raw wire/timestamp, inferred only from guarded complete/accepted delivery. Live backups not cross-file transactional; clocks differ. Source→published product→phone and post-publication reopen not closed. Second turn held under defect policy. No formal review or independent assessment.",
+          "residual_state": "Observer/logcat stopped at bounded300s; desktop returned to original work chat; phone Asleep/OFF, blank draft, clipboard untouched. Phone selects A and test profile; service/reverse retained for later safe S6 restoration. Credentials/registration/server configuration bytes preserved; restore/shell/session list cache normal changes. Three management association issues and old CR restrictions remain."
+        },
+        "commands": [
+          "Fresh execute-step/protocol reads and JSON-stdin assistance task-status identified S1 already finished with gaps and S2 current; no finish replay.",
+          "git log/diff/status: ee5d4912 vs 2c9ff5e5 management-only; no source/index changes.",
+          "Service skill status with exact project root; APK/analyzer SHA256, installed base.apk SHA256, process/listener/health checks.",
+          "node logs/e2e-validation-20261003/s2/observe.cjs before; a1-terminal; after — read-only product snapshots and private adb run-as DB/prefs tar backups.",
+          "Codex app list_projects/create_thread for dedicated real A; navigate to A; wait_threads observed actual completed turn; navigate back to original chat. No follow-up message or model override.",
+          "node logs/e2e-validation-20261003/s2/watch.cjs 01a0fe25-56a2-7910-ba22-61e8016e8ad9 a1 — existing registered test session, normal Basic auth, one set_active_conversation, no turn/history/ACK/analyzer request, bounded300s.",
+          "adb -s MQS7N19402011743 wake/history/sessions observation, exported CodexActivity explicit existing profile/session/A/cwd selection, UI dump/pull/screenshots, PID-filtered logcat and persistent diagnostic copy, KEYCODE_SLEEP; no source/prefs/DB direct writes.",
+          "Bounded read-only natural source snapshot after exact SessionMeta binding, existing A run snapshots, staging and canonical query_only checks, server/Android diagnostic correlation.",
+          "node logs/e2e-validation-20261003/s2/summarize.cjs — 21 observation consistency checks; node logs/e2e-validation-20261003/s2/field-check.cjs — original/staged field hash comparison.",
+          "git check-ignore private evidence; git diff and git diff --cached empty before task record; phone Asleep/OFF verified. No tests/full suites, build, commit, push, source fix or manual Rust execution."
+        ],
+        "remaining_work": [
+          "S2 main chain remains incomplete; actual execution not reviewed or finished. E01/E03 blocked at canonical publication, E02 partial observation, E04 not run.",
+          "Review actual delegation-carrier compatibility gap and sample suitability. Continuing with replacement ordinary-user sample changes identity/call budget and requires explicit choice; repairing Rust requires separately confirmed minimum scope. No automatic repair or extra test conversation.",
+          "If repair is chosen, candidate formal wire/Adapter input plus sanitized conformance/target-protocol coverage only; no invented call_id, source rewrite, broad ignored lines, relaxed partial gate, Node/Android/IPC/budget expansion. Vendor closure update only if separately identified as necessary.",
+          "Published product DTO/phone product provider commit/ACK, ordinary append and post-publication reopen remain unverified. Large detail sample is bounded/truncated in staging and must not be declared complete original-output fidelity.",
+          "Preserve old Q budget failure/intent and all new A partial facts; A initial turn is not an ordinary user-message candidate for S5 latest-user-turn resend.",
+          "S3 copy requires clipboard protection; S6 later restores remaining test selection/profile/service/reverse by safe normal paths. All prior unrelated history and credentials retained.",
+          "Three current unassociated management records and old CR format limitation remain; no semantic link/correct/defer choice was inferred."
+        ],
+        "files": [
+          "logs/e2e-validation-20261003/s2/report.md",
+          "logs/e2e-validation-20261003/s2/observations.json",
+          "logs/e2e-validation-20261003/s2/field-check.json",
+          "logs/e2e-validation-20261003/s2/private/ui-a1-terminal.png"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

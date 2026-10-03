@@ -1,0 +1,50 @@
+{
+  "event_ref": ".workflow-system/records/events/key-5f905bc784d5c8156da8bd91a6a9029ea02f7a52389aa6e88dab9d67b85aebf9.json",
+  "captured_at": "2026-10-02T20:04:55.573Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ae2158d88c4988f67ab06a496c06b34e84cc9830218b9c3aec5c3d38f4ce35aa.blob",
+      "sha256": "ae2158d88c4988f67ab06a496c06b34e84cc9830218b9c3aec5c3d38f4ce35aa",
+      "size": 12402,
+      "source_path": "logs/e2e-validation-20261003/s2/report.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/7eae9b75f7a27829dff7449b338900581eda0e307187eb186570615312761dfb.blob",
+      "sha256": "7eae9b75f7a27829dff7449b338900581eda0e307187eb186570615312761dfb",
+      "size": 84774,
+      "source_path": "logs/e2e-validation-20261003/s2/observations.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a135627b192b230d60eb58821b26c3a9e2ad02434b99b493cb561cc67a75e754.blob",
+      "sha256": "a135627b192b230d60eb58821b26c3a9e2ad02434b99b493cb561cc67a75e754",
+      "size": 1554,
+      "source_path": "logs/e2e-validation-20261003/s2/field-check.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f0c23ad2e71db3fd31d9eb10e656803a9c19c6c9e6f031ee1e15cfd269ef01dc.blob",
+      "sha256": "f0c23ad2e71db3fd31d9eb10e656803a9c19c6c9e6f031ee1e15cfd269ef01dc",
+      "size": 148650,
+      "source_path": "logs/e2e-validation-20261003/s2/private/ui-a1-terminal.png",
+      "issues": []
+    }
+  ]
+}

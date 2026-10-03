@@ -1,0 +1,32 @@
+# TASK-20260831 S2 change review
+
+- Reviewed execution: `.workflow-system/records/events/key-5f905bc784d5c8156da8bd91a6a9029ea02f7a52389aa6e88dab9d67b85aebf9.json`.
+- Execution file SHA-256: `ebb0aa8faafb160cf1d6ea941608385edfc8aca74e566d474e3a9eadef8e1022`.
+- Source revision: `ee5d491204f9c684b8c90cb2a5ae60943db9f026`; latest business revision remains `241becbc2e72f3a1c90970e47f7e95ccf0021dba`.
+- Verdict: **clean, self-review of recorded execution and evidence**. No additional actionable correctness or reporting finding. This is not independent review, product PASS, S2 completion, or acceptance of remaining gaps.
+
+## Evidence and scope
+
+The adopted v2 plan, its S2 actions/acceptance/defect policy, captured source/run/SQLite/wire/phone/UI evidence, immutable execution and four CAS attachments were reviewed against the unchanged production path. Relative to S1 HEAD, the 35 committed paths are management records only. Working tree/index tracked content remains unchanged. One-off ignored reader scripts were inspected; the follower only sends the normal A selection and does not send model turns, analyzer requests, history requests or ACKs. Product and phone queries use captured DB bytes in query-only memory databases.
+
+The two natural sequential backfills have matching accepted-delivery/staging identities and preserve parse gaps at ordinals 7/8. Current vendor ResponseItem requires call_id, while its TurnItem enum lacks FunctionCallOutput; decode.rs uses the generic missing-required-field classification for the latter. Partial availability and the importer canonical-only publication guard explain the zero A canonical rows. The scheduler retains the unresolved intent rather than immediately retrying an unchanged partial source. Raw Rust ACK frames were not captured; ACK ordering is supported by the guarded callback/complete path and persisted delivery evidence, not direct wire timestamps.
+
+Both actual phone sync IDs bind durable completed-page hashes and accepted server ACKs. Android delta_applied does not include syncId; correlation also uses the SHA-256-shortened syncId on sync_state, the exact conversation/generation, and same-device sequence. Cache remains one incomplete IPC baseline item, provider_mode=null. Healthy IPC operation/body/terminal authority is separately evidenced. The awake terminal screenshot was visually inspected; running black screenshot remains excluded.
+
+All seven prior canonical product table rows and 1688 prior phone item rows match the captured pre-state. Authentication/registration/server configuration preference bytes and prior run digests remain consistent. No live E2E, model turn, adb, service restart, build, source/config edit, staging, commit, push or deployment was performed during review.
+
+## Mechanical check
+
+`node logs/e2e-validation-20261003/s2/review-checks.cjs`: exit 0, **28/28 retained-evidence consistency assertions**, output `review-checks-reconciled.json`. These are not 28 E2E tests. The initial `review-checks.json` (27/28) remains retained: the checker incorrectly expected raw syncId on delta_applied. The corrected assertion uses fields actually emitted and same-device ordering; no business/evidence rerun or original artifact correction occurred.
+
+## Conditions retained unchanged
+
+1. S2-G1: actual create_thread delegation carrier compatibility gap blocks canonical publication. Ordinary user-message failure/success is not established; this A turn is not the ordinary user-turn sample required for S5 resend.
+2. E01/E03 remain blocked, E02 partial, E04 unexecuted. No product provider DTO/commit/ACK, post-publication reopen or second-turn append evidence exists.
+3. CommandExecution staging output is 65536 bytes versus original 74489, without last line/END. No full output fidelity or S3 complete-copy claim is accepted.
+4. Running pixel evidence, raw Rust ACK, cross-file transactional snapshot proof and cross-machine timestamp ordering proof are absent.
+5. Old Q budget failure/intent, remaining phone selection/profile/service/reverse restoration, clipboard protection before copy, old CR limit and three pre-existing management association issues remain unresolved.
+
+## Remaining action
+
+S2 is still executed, not finished. The advisory route is execute-step / finish for an actual user-chosen step disposition that retains these gaps; clean review itself neither finishes S2 nor accepts proceeding despite gaps. If pursuing E2E completion instead, first choose the ordinary-input replacement/sample-budget scope or separately confirm the minimum Rust compatibility repair. No repair or replacement conversation is authorized by this review.
