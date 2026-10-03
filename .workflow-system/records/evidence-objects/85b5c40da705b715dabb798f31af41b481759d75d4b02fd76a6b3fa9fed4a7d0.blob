@@ -1,0 +1,45 @@
+# S4-R1 证据更正（追加记录）
+
+本更正仅替代原 report.md:54 指向 observations.json 的持久分页引用，以及该摘要的空 phone_pages 结果。原 report.md、observations.json、summarize.cjs、审查/执行事件与所有原 blob 均保留原字节，不修改历史结论。今后核对这三次 sync 请读取 [更正摘要](repair-r1-observations.json)；原故障脚本仅保留作历史来源，不用于重新生成结果。
+
+原执行：.workflow-system/records/events/key-80adab6cdb9d564d9c2d729f2e0415a0b66e64d0871efb83c8bc599215602030.json。
+原审查：.workflow-system/records/events/key-9550ab96b8d1fbcc0ace3cb4de914a5f5931acc04d7639f47c31330f13e4fec3.json。
+用户 repair 决定：.workflow-system/records/events/key-a2320db8e134613e9f7f802d92538b58f2e345c9523863edef82ab44de9e8587.json。
+版本保持 19bf3121203ba17ad21147ffe02877d50a22d4a0。
+
+## 修正方法和真实结果
+
+原 sync_completed_pages 没有 conversation_id；新的一次性 repair-r1.cjs 从保留数据库读取真实页，按服务端 ACK 的 conversationKey/syncId/pageIndex 关联，不再用不存在的列。A 的 conversation_id 为 01a0fe25-56a2-7910-ba22-61e8016e8ad9，conversationKey=d710f9d09d0248bf；已只读核对 terminalGateway.js:605 的 SHA256(trim(id)).slice(0,16) 规则。
+
+新摘要附带数据源 SHA、真实 ACK、页记录与分层限制，不伪造数据库列或 wire 字段。
+
+| syncId | 保留快照中的 completed-page | 服务端 ACK（UTC） | 可支持的结论 |
+| --- | --- | --- | --- |
+| e4392a2c-a261-4b35-856c-b6984365c9a3 | sequence=1，page_index=0 | 18:31:49.752，ok=true / partial | 保留快照中存在对应持久页，ACK 的 syncId/pageIndex 匹配 |
+| 0cff4ebc-61e1-448d-8467-ef1995503cae | sequence=1，page_index=0 | 18:31:53.651，ok=true / partial | 同上 |
+| d5e17c07-55a0-43bd-a81b-180cac076033 | 未在该快照找到 | 18:32:39.197，ok=true / partial | ACK 已观测；提交后持久页快照缺失，持久化未验证 |
+
+两条真实 page_hash 分别为 e0d4a504f25a3c09df30423d958c4036f9fe70d0376cc78da081f8241d6cea94、beee4d455b113bb8d1e7bda909c702d1520e935775338ae5b4f64ac1973e1e8f。sequence/pageHash 已核对“保留 DB ↔ 原 capture JSON”的真实字段；ACK 摘要本来就没有这两字段，不能据此声称 ACK/wire 的完整哈希或 sequence 一致性验证。
+
+reopened.json 的 observed_at=18:32:37.062Z 是 capture 开始时间，不是原子提交时间；live tar 不是静止事务备份。第三条缺页不证明提交失败，ACK 也不能填补事后快照。completed_at 使用设备时钟，服务端 ACK/采集 metadata 使用宿主时钟，不比较跨时钟先后关系。
+
+三个 ACK 和两条持久页依旧只是 IPC fallback / partial 的证据，不提升为产品 provider 或 canonical 完整发布，不改变 S3 older 分页结论。
+
+## 必要自检与保留性
+
+`node logs/e2e-validation-20261004/s4/repair-r1.cjs`：20/20 一次性证据自检通过（不是 20 项 E2E）：
+
+- 正向要求 225 原始页、三条实际 ACK、两条非空唯一页关联及实际 page_hash；第三条必须保留 ACK-only。
+- 负向拒绝错误 conversationKey、失败 ACK、无关 sync、错误 pageIndex、空 ACK、hash/sequence 与 capture 不符、重复候选页。负向内存变体只用于检查器，不写数据库或伪造产品 DTO/ACK。
+- 数据库只读 memory/PRAGMA query_only；原执行 10 附件、原审查 4 附件与 CAS 保持一致。既有 S4 文件和当前所有旧 CAS 计 627 个被检查文件前后 SHA 不变；原始凭据/缓存/截图仅在 ignored 本地目录，未附加其内容。
+- 序列化后的更正摘要和上述原文件 SHA 已重新只读核对；node --check 通过；Git HEAD/已有 tracked diff/index diff 不变。
+
+新脚本按 simplify 技能做了范围内可读性检查，保留明确函数与独立 ACK/页匹配步骤，无进一步代码改动。没有新永久测试或完整回归，没有调用 adb、模型、服务、Rust 或构建工具。
+
+## 不变的业务缺口和状态
+
+S4-R1 的证据更正已实施并自检，等待新的 change review；不改写原 changes_requested，也不以自检宣称 clean/独立审查。S4 尚未结束。
+
+S4-G1 旧错误条候选、S4-G2 的 8 次 batch_scope_conflict、B 的 4 次 decoded-byte-budget、Q 的 3 次 fingerprint-budget、A canonical 未发布、真正迟到 history/detail 与 replay/ACK-loss/checkpoint/timeout 竞态均继续保留。未增加模型预算，delegated turn 不升级为普通 UserMessage；S5 前提缺口和 S6 服务/USB reverse 恢复仍待处理。三条旧管理关联问题不变。产品源码修复仍需单独确认范围。
+
+本轮未结束步骤、未暂存/提交/推送、未扩大权限。建议 next_route: review-change，审查本次追加更正及保留限制。

@@ -1,0 +1,883 @@
+{
+  "at": "2026-10-03T18:38:57.475Z",
+  "checks": [
+    {
+      "name": "no A test marker in B or other phone partition",
+      "ok": true
+    },
+    {
+      "name": "installed/local APK and analyzer equal prior S3 source artifact hashes",
+      "ok": true
+    },
+    {
+      "name": "source, tracked and index unchanged",
+      "ok": true
+    },
+    {
+      "name": "all existing tracked CAS blob digests match preserved names",
+      "ok": true
+    }
+  ],
+  "old_item_changes": [
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "01a0ee7a-03aa-79c1-8b80-cfbe425302ef",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "01a0ee88-eaf7-7072-9532-bfcefe734da5",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-37e29f92-d4be-429b-82a5-47b427e40bf6",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-4f27a116-5faf-44b7-b2ed-fafb9d3109c9",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-530236c5-a4e5-4737-adc3-0a4c334897a3",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-5c912900-39c4-4555-8995-edb015cb5e1e",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-7478366a-55f6-4a56-a2b9-75779ff199c0",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-74c93bfa-d921-4fc1-9d47-2d7edde08bfc",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-888bdcf1-ae8c-4e6e-931d-1bc1b45f4810",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-987bfc93-b3c9-4677-ac8a-1ed8f1aa9a9d",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-a817af45-b815-46dc-8b49-2eda4967fe61",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-b4620ace-73a5-48b9-82f7-7c06bc22a739",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-b9f42352-6fe4-42d8-8a57-33b4ec2d3908",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-e14b1821-d1f9-4700-9c24-cd695c7ff007",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-e16bc66d-a410-47c8-afc4-20b0e7ec9dce",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-e34fd172-b4f1-4077-88e6-0ffa89a45abd",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-e645c946-9e5d-4169-86cb-17006d6b9493",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-e6a1c10d-473f-44d5-a359-612cee889bbe",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-f471e467-99af-4cd5-b658-e2899d10e961",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-fba81e53-0b22-4165-af86-41e5a1021fd9",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc06ab5fe487d0820d5c338c08c46e",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc06d5083487d0aa1ae62859e633c2",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0775ba2c87d085880c571d12b0dd",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc07adaed487d0a1ce973d08f57238",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc084cce4c87d0b2c43a7929011eff",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0a7ae84487d0872cedbd6463a9c5",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "01a0ee8a-ee47-7d11-af1d-59e7ddedbc6e",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "01a0ee8c-7077-7143-a8ea-b1d009f4298e",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-0526fa82-bb07-4e0a-b13f-87bccdfe34d2",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-182c1859-5e72-42c2-b350-2180ccad0cd0",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-35525d69-445f-4376-b5a1-76240bdf6bc3",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-4aa7e9be-bb19-491c-8550-7efaac02c3be",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-5cca435b-85c3-4ebe-8e63-b133216a90c3",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-6741044c-09f6-4192-b992-dc199e500648",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-67ca5fd8-1044-4e36-b2f5-e1116aaeb0f2",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-82e172ae-1a88-4682-9ac9-9fe20f37f19f",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-82f71d42-c545-448d-9841-f429eb244c5a",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-832c34db-94dc-4108-b0a7-a70e6c45dea8",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-83fc85a7-0874-42e1-b8de-bb2e9134e07f",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-8e7980c3-e254-47e1-ab23-1d2b75c8e78c",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-94ad0744-53ec-4260-aa1f-e26b083f25aa",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-977c974c-7397-40be-926e-bc832927adec",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-99125dfe-3f73-4279-8249-930735d2f821",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-9a38f1aa-9f89-438a-ae30-98bdb88b1800",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-a35bdefa-5991-43b3-9194-fc11b3a76be9",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-b571be2f-3f0e-4ed5-9854-1903365ceeae",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-b7b49465-02ab-4c13-b362-6c8964784537",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-ba245f97-c39f-4f4d-b671-7a45a952b002",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-baf82242-80ba-4590-af37-ba9eabafbf4c",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-c6269b90-b971-421c-ab10-1b503f42aac4",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-cbce4008-1b8e-4434-acfc-c11e7b0f4e6b",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-e6b803d0-0745-4f5a-b229-e4408dbb15e1",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-e7ddc26c-e07a-40d6-aa55-8af4eeeb2484",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-ede499fa-bd99-4a53-af4b-7b3950059822",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-eefeef9b-2384-479a-8e0a-bb5755886e65",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-f59fd9a4-b987-4eef-b0e9-affaca1e8220",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-fbb4b551-0dd1-4bb9-8c68-4f784eede22d",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0ab07c1887d0846334641dd36b19",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0adefc2887d0b38ed56895e28dad",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0afed1b087d08ab1741e81eaeec7",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0b2bcb0887d0818d02dd13749d82",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0b61d12487d0aa792f6fb4592d19",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0b8ca2cc87d0accb80036133bab6",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0c695cf087d0bd46c6d98f7f54db",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0c9b9a6487d0a5e93a5077f3bc15",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "01a0ee94-433a-74c1-9149-115cbcc58d12",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-59247072-66df-4632-a5de-85c23856a0ce",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-7a0903b0-d7dc-4100-b572-867949fa0ca1",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-95db1599-fad2-41f3-9cad-bac384516604",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-b3240fe6-4e56-4591-bad2-bceff293a151",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-bc880308-21dc-40a6-86bc-9f8dce82ae34",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "exec-db2c40a3-8f2a-4fc6-b999-ed36f83667b5",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0d3678ac87d0b6761aad64ac44a8",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0d63cda087d0858c7345daf05f61",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0d93cb0c87d0a898bd68f868ef40",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "item_key": "msg_0cd407ff45e74008016abc0dbd206087d0b11e7ef091bbae2b",
+      "changed_fields": [
+        "turn_id",
+        "payload_json",
+        "content_hash",
+        "payload_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "item_key": "msg_06cd8032aa316888016ac0099e898c87d08933628d1ae7126c",
+      "changed_fields": [
+        "turn_id",
+        "updated_at"
+      ]
+    }
+  ],
+  "A_markers_outside_A": [],
+  "binary_hashes": {
+    "local_apk": "a3d60ef2e4506950ca44f7b5ec1eaf777f32dbccda13532416e1c5eb9da9505f",
+    "installed_apk": "a3d60ef2e4506950ca44f7b5ec1eaf777f32dbccda13532416e1c5eb9da9505f",
+    "analyzer": "81a4448219a17cbe54ed827af3214205d49820033275a32d1f8ff46a11599564"
+  },
+  "git": {
+    "head": "19bf3121203ba17ad21147ffe02877d50a22d4a0",
+    "tracked_diff": "",
+    "index_diff": "",
+    "source_diff_since_S3": ""
+  },
+  "old_blobs": {
+    "checked": 397,
+    "mismatches": []
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-03T18:56:33.667Z",
+  "payload_sha256": "040553ecf3ad069844eefcbbdab6f6db6eae0751bd411e3e65ee4a0075739090",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:review-change-task25654-S4-20261004-retained-evidence-R1",
+    "request": {
+      "action": "review",
+      "idempotency_key": "review-change-task25654-S4-20261004-retained-evidence-R1",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S4",
+      "execution_ref": ".workflow-system/records/events/key-80adab6cdb9d564d9c2d729f2e0415a0b66e64d0871efb83c8bc599215602030.json",
+      "source_revision": "19bf3121203ba17ad21147ffe02877d50a22d4a0",
+      "stage": "change",
+      "verdict": "changes_requested",
+      "provenance": {
+        "kind": "self-review",
+        "independent": false,
+        "reviewer": "same Codex implementation agent",
+        "request": "Current human explicit review-change invocation"
+      },
+      "findings": [
+        {
+          "id": "S4-R1",
+          "priority": "P2",
+          "title": "Filter completed pages by actual sync identity, not absent conversation_id",
+          "file": "logs/e2e-validation-20261004/s4/summarize.cjs",
+          "line": 24,
+          "body": "sync_completed_pages has only sync_id, sequence, page_index, page_hash, completed_at. The conversation_id filter empties observations.phone_pages despite 225 retained rows. report.md:54 points to this empty summary for durable-page/ACK evidence. Two cited sync IDs have retained completed rows; third reopen sync has saved partial ACK but no row in the earlier retained snapshot. This is an evidence/reporting defect, not proof of product commit failure, and original self-checks missed it.",
+          "recommendation": "Append a correction with existing server conversationKey/syncId and actual sequence/pageIndex/pageHash mapping; include two actual rows, qualify the third ACK without post-commit snapshot, add non-vacuous evidence self-check. Preserve original event/blobs and no business rerun/source repair.",
+          "category": "evidence-reporting",
+          "repair_authorized": false
+        }
+      ],
+      "coverage": {
+        "scope": "Exact S4 execution, ten immutable attachments, retained host events, phone UI/log/database snapshots and read-only static code/schema",
+        "valid": [
+          "CAS and execution integrity",
+          "physical A/B/A and same A3 cross-restart partial observation",
+          "canonical and phone preservation",
+          "typed publication and resource failures retained"
+        ],
+        "not_verified": [
+          "late history/detail in-flight generation race",
+          "IPC-pipe-only replay/ACK-loss/checkpoint/timeout races",
+          "A canonical product publication",
+          "third cited sync post-commit durable-page snapshot",
+          "independent review"
+        ],
+        "review_checks": "First retained-evidence checker: 16/17 passed, one reader-window false negative retained. After merging two existing logs: 17/17 passed. No new business tests or reruns; not E2E counts.",
+        "scope_effect": "Only append review material/management fact. Original product sources/configuration/evidence/index unchanged; no model/device/service actions, repair, step finish, stage/commit/push."
+      },
+      "remaining_work": [
+        "S4-R1 append-only evidence correction recommended; original summary/report not repaired by review.",
+        "S4-G1 stale error candidate, S4-G2 batch_scope_conflict and B/Q resource failures remain; source investigation/repair needs separately confirmed scope.",
+        "Partial/unverified scenarios and exhausted S4 model budget retained. S5 ordinary UserMessage eligibility absent; S6 environment restoration remains.",
+        "S4 remains executed without finish or review disposition. Three old management association issues unchanged."
+      ],
+      "files": [
+        "logs/e2e-validation-20261004/s4/review-20261004.md",
+        "logs/e2e-validation-20261004/s4/review-20261004-checks.cjs",
+        "logs/e2e-validation-20261004/s4/review-20261004-checks.json",
+        "logs/e2e-validation-20261004/s4/review-20261004-checks-recheck.json"
+      ]
+    },
+    "files": [
+      "logs/e2e-validation-20261004/s4/review-20261004.md",
+      "logs/e2e-validation-20261004/s4/review-20261004-checks.cjs",
+      "logs/e2e-validation-20261004/s4/review-20261004-checks.json",
+      "logs/e2e-validation-20261004/s4/review-20261004-checks-recheck.json"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-80adab6cdb9d564d9c2d729f2e0415a0b66e64d0871efb83c8bc599215602030.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S4",
+        "execution_ref": ".workflow-system/records/events/key-80adab6cdb9d564d9c2d729f2e0415a0b66e64d0871efb83c8bc599215602030.json",
+        "source_revision": "19bf3121203ba17ad21147ffe02877d50a22d4a0",
+        "stage": "change",
+        "verdict": "changes_requested",
+        "provenance": {
+          "kind": "self-review",
+          "independent": false,
+          "reviewer": "same Codex implementation agent",
+          "request": "Current human explicit review-change invocation"
+        },
+        "findings": [
+          {
+            "id": "S4-R1",
+            "priority": "P2",
+            "title": "Filter completed pages by actual sync identity, not absent conversation_id",
+            "file": "logs/e2e-validation-20261004/s4/summarize.cjs",
+            "line": 24,
+            "body": "sync_completed_pages has only sync_id, sequence, page_index, page_hash, completed_at. The conversation_id filter empties observations.phone_pages despite 225 retained rows. report.md:54 points to this empty summary for durable-page/ACK evidence. Two cited sync IDs have retained completed rows; third reopen sync has saved partial ACK but no row in the earlier retained snapshot. This is an evidence/reporting defect, not proof of product commit failure, and original self-checks missed it.",
+            "recommendation": "Append a correction with existing server conversationKey/syncId and actual sequence/pageIndex/pageHash mapping; include two actual rows, qualify the third ACK without post-commit snapshot, add non-vacuous evidence self-check. Preserve original event/blobs and no business rerun/source repair.",
+            "category": "evidence-reporting",
+            "repair_authorized": false
+          }
+        ],
+        "coverage": {
+          "scope": "Exact S4 execution, ten immutable attachments, retained host events, phone UI/log/database snapshots and read-only static code/schema",
+          "valid": [
+            "CAS and execution integrity",
+            "physical A/B/A and same A3 cross-restart partial observation",
+            "canonical and phone preservation",
+            "typed publication and resource failures retained"
+          ],
+          "not_verified": [
+            "late history/detail in-flight generation race",
+            "IPC-pipe-only replay/ACK-loss/checkpoint/timeout races",
+            "A canonical product publication",
+            "third cited sync post-commit durable-page snapshot",
+            "independent review"
+          ],
+          "review_checks": "First retained-evidence checker: 16/17 passed, one reader-window false negative retained. After merging two existing logs: 17/17 passed. No new business tests or reruns; not E2E counts.",
+          "scope_effect": "Only append review material/management fact. Original product sources/configuration/evidence/index unchanged; no model/device/service actions, repair, step finish, stage/commit/push."
+        },
+        "remaining_work": [
+          "S4-R1 append-only evidence correction recommended; original summary/report not repaired by review.",
+          "S4-G1 stale error candidate, S4-G2 batch_scope_conflict and B/Q resource failures remain; source investigation/repair needs separately confirmed scope.",
+          "Partial/unverified scenarios and exhausted S4 model budget retained. S5 ordinary UserMessage eligibility absent; S6 environment restoration remains.",
+          "S4 remains executed without finish or review disposition. Three old management association issues unchanged."
+        ],
+        "files": [
+          "logs/e2e-validation-20261004/s4/review-20261004.md",
+          "logs/e2e-validation-20261004/s4/review-20261004-checks.cjs",
+          "logs/e2e-validation-20261004/s4/review-20261004-checks.json",
+          "logs/e2e-validation-20261004/s4/review-20261004-checks-recheck.json"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

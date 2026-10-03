@@ -1,0 +1,233 @@
+{
+  "at": "2026-10-03T18:54:56.332Z",
+  "scope": "Read-only retained-evidence self-review; checks are not new E2E tests",
+  "execution_ref": ".workflow-system/records/events/key-80adab6cdb9d564d9c2d729f2e0415a0b66e64d0871efb83c8bc599215602030.json",
+  "execution_sha256": "56d1868c95135037110b4ac00ae0eeedc21de9f21e81ad1f4684a86164b1a398",
+  "checks": [
+    {
+      "name": "execution payload digest intact",
+      "ok": true
+    },
+    {
+      "name": "exact S4 and source revision",
+      "ok": true
+    },
+    {
+      "name": "all ten original attachments byte-identical to CAS",
+      "ok": true
+    },
+    {
+      "name": "original 13 plus 4 self-check predicates passed, not E2E certification",
+      "ok": true
+    },
+    {
+      "name": "two S4 delegated turns, commands completed exit zero",
+      "ok": true
+    },
+    {
+      "name": "second actual restart wholly inside same A3 turn",
+      "ok": true
+    },
+    {
+      "name": "retained log supports healthy A running, B completed, A running return",
+      "ok": true
+    },
+    {
+      "name": "A3 healthy running both sides and completed after outage",
+      "ok": true
+    },
+    {
+      "name": "stale error candidate preserved, reopen clears banner",
+      "ok": true
+    },
+    {
+      "name": "saved product snapshot digest matches original observation",
+      "ok": true
+    },
+    {
+      "name": "canonical history unchanged and A product tables still zero",
+      "ok": true
+    },
+    {
+      "name": "1689 to 2351 retained phone rows, no old deletion, F unchanged",
+      "ok": true
+    },
+    {
+      "name": "A partial fallback, no A marker in other partitions",
+      "ok": true
+    },
+    {
+      "name": "reproduce reporting defect: no conversation_id column but 225 pages and empty summary",
+      "ok": true
+    },
+    {
+      "name": "two cited syncs have actual durable rows, third only saved ACK in this snapshot",
+      "ok": true
+    },
+    {
+      "name": "retained run bytes match observations including recorded failures",
+      "ok": true
+    },
+    {
+      "name": "review leaves source/tracked/index untouched at target HEAD",
+      "ok": true
+    }
+  ],
+  "attachments": [
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/report.md",
+      "sha256": "2a3c7495ea5bdb565e92d139abba29780b0e21d08e8ded46e50b7be583a6149a",
+      "size": 10468,
+      "ok": true
+    },
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/observations.json",
+      "sha256": "a796ab753da19f5774df2f0e8389b44fd84ba4580dad81a3ee0fd925d2d03d56",
+      "size": 163844,
+      "ok": true
+    },
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/preservation.json",
+      "sha256": "af73e98f434e16bb698331d823305dc9dbca17cd6c5a93895fa59e674a103d59",
+      "size": 23336,
+      "ok": true
+    },
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/host-a3-running.json",
+      "sha256": "57591aa4ecf500b0891ad8fee2d4afeb773578774290c940da1c6befdb4f5890",
+      "size": 1609,
+      "ok": true
+    },
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/host-terminal.json",
+      "sha256": "a7d7f59b97f3e9ea2084ce56598c2ad29a34c802028f7bd3e2431311ad01af3f",
+      "size": 3867,
+      "ok": true
+    },
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/restart-window.json",
+      "sha256": "7b4728ba24dda3a6f70384e6a59bf1d30f669d8dcceaed7bc3827b31123f7737",
+      "size": 6731,
+      "ok": true
+    },
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/capture.cjs",
+      "sha256": "9060be2b82b39cff534d33e912364ab3654712db8fef745d764d6ace7211fcfd",
+      "size": 4104,
+      "ok": true
+    },
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/restart-window.cjs",
+      "sha256": "3ce40ec5772be795a17c6b04429ea2066ed264a9acf5a1967e5ae25c187b3e24",
+      "size": 2654,
+      "ok": true
+    },
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/summarize.cjs",
+      "sha256": "0197fd362418c25e9a2271fb807d6620c00cbc722847c1928bd7cba80aacd861",
+      "size": 11370,
+      "ok": true
+    },
+    {
+      "source_path": "logs/e2e-validation-20261004/s4/preservation.cjs",
+      "sha256": "9430beecd8a6d88371db34b14f9249cf305e5950c81afe062ff6b2ea4e69a1d2",
+      "size": 4121,
+      "ok": true
+    }
+  ],
+  "finding_counterevidence": {
+    "id": "S4-R1",
+    "columns": [
+      "sync_id",
+      "sequence",
+      "page_index",
+      "page_hash",
+      "completed_at"
+    ],
+    "retained_page_count": 225,
+    "original_summary_page_count": 0,
+    "reopened_capture_at": "2026-10-03T18:32:37.062Z",
+    "syncs": [
+      {
+        "sync_id": "e4392a2c-a261-4b35-856c-b6984365c9a3",
+        "retained_rows": [
+          {
+            "sync_id": "e4392a2c-a261-4b35-856c-b6984365c9a3",
+            "sequence": 1,
+            "page_index": 0,
+            "page_hash": "e0d4a504f25a3c09df30423d958c4036f9fe70d0376cc78da081f8241d6cea94",
+            "completed_at": 1791052310472
+          }
+        ],
+        "server_ack": [
+          {
+            "at": "2026-10-03T18:31:49.752Z",
+            "pid": 83948,
+            "event": "server.codex.history.ack_received",
+            "fields": {
+              "conversationKey": "d710f9d09d0248bf",
+              "syncId": "e4392a2c-a261-4b35-856c-b6984365c9a3",
+              "pageIndex": 0,
+              "ok": true,
+              "state": "partial",
+              "purpose": "history_sync"
+            }
+          }
+        ]
+      },
+      {
+        "sync_id": "0cff4ebc-61e1-448d-8467-ef1995503cae",
+        "retained_rows": [
+          {
+            "sync_id": "0cff4ebc-61e1-448d-8467-ef1995503cae",
+            "sequence": 1,
+            "page_index": 0,
+            "page_hash": "beee4d455b113bb8d1e7bda909c702d1520e935775338ae5b4f64ac1973e1e8f",
+            "completed_at": 1791052314383
+          }
+        ],
+        "server_ack": [
+          {
+            "at": "2026-10-03T18:31:53.651Z",
+            "pid": 83948,
+            "event": "server.codex.history.ack_received",
+            "fields": {
+              "conversationKey": "d710f9d09d0248bf",
+              "syncId": "0cff4ebc-61e1-448d-8467-ef1995503cae",
+              "pageIndex": 0,
+              "ok": true,
+              "state": "partial",
+              "purpose": "history_sync"
+            }
+          }
+        ]
+      },
+      {
+        "sync_id": "d5e17c07-55a0-43bd-a81b-180cac076033",
+        "retained_rows": [],
+        "server_ack": [
+          {
+            "at": "2026-10-03T18:32:39.197Z",
+            "pid": 83948,
+            "event": "server.codex.history.ack_received",
+            "fields": {
+              "conversationKey": "d710f9d09d0248bf",
+              "syncId": "d5e17c07-55a0-43bd-a81b-180cac076033",
+              "pageIndex": 0,
+              "ok": true,
+              "state": "partial",
+              "purpose": "history_sync"
+            }
+          }
+        ]
+      }
+    ],
+    "qualification": "Missing third page in this snapshot is not proof of commit failure. Server ACK and retained completed-page evidence remain distinct; no post-commit capture rerun."
+  },
+  "git": {
+    "head": "19bf3121203ba17ad21147ffe02877d50a22d4a0",
+    "tracked_diff": "",
+    "index_diff": ""
+  },
+  "failed_checks": []
+}

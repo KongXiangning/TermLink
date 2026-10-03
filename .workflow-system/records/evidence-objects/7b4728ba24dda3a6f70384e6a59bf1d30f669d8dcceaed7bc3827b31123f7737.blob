@@ -1,0 +1,123 @@
+[
+  {
+    "at": "2026-10-03T18:30:53.070Z",
+    "ended_at": "2026-10-03T18:30:53.188Z",
+    "exe": "adb",
+    "args": [
+      "-s",
+      "MQS7N19402011743",
+      "shell",
+      "pidof",
+      "com.termlink.app"
+    ],
+    "exit": 0,
+    "stdout": "28432\r\n",
+    "stderr": ""
+  },
+  {
+    "at": "2026-10-03T18:31:18.673Z",
+    "ended_at": "2026-10-03T18:31:19.108Z",
+    "exe": "adb",
+    "args": [
+      "-s",
+      "MQS7N19402011743",
+      "shell",
+      "input",
+      "keyevent",
+      "KEYCODE_WAKEUP"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "at": "2026-10-03T18:31:19.108Z",
+    "ended_at": "2026-10-03T18:31:22.723Z",
+    "exe": "D:\\ProgramCode\\nodejs\\node.exe",
+    "args": [
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\e2e-validation-20261004\\s4\\capture.cjs",
+      "a3-before-restart"
+    ],
+    "exit": 0,
+    "stdout": "{\"phase\":\"a3-before-restart\",\"device\":{\"exit\":0,\"stdout\":\"device\",\"stderr\":\"\"},\"pid\":{\"exit\":0,\"stdout\":\"28432\",\"stderr\":\"\"},\"reverse\":{\"exit\":0,\"stdout\":\"usb tcp:3010 tcp:3010\",\"stderr\":\"\"},\"edit_text_lengths\":[0],\"ui_labels\":{\"connected\":false,\"running\":true,\"A\":false,\"B\":false,\"retry\":true},\"phone_db\":\"f0e4c4dd5e00aea7510b724db14557c9fe96d0efd0c1752a85ea93f9694ce12e\",\"product_sha256\":\"868ef7493477732e1001c5baf0f7728d5a178eb01cc45cf33c3f4d39190b197a\",\"backup_sha256\":\"13e295dc3cae32e88b5caaf76d2e180256cefaef48b6b7e37d6b172609362119\"}\n",
+    "stderr": ""
+  },
+  {
+    "at": "2026-10-03T18:31:22.723Z",
+    "ended_at": "2026-10-03T18:31:29.939Z",
+    "exe": "powershell",
+    "args": [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ".agents/skills/local-dev-server-control/scripts/manage-local-dev-server.ps1",
+      "-ProjectRoot",
+      "E:\\coding\\TermLink-rust-source-resolution-codex",
+      "-Action",
+      "stop"
+    ],
+    "exit": 0,
+    "stdout": "Stopped PID 88012 (node.exe)\nStopped PID 84556 (node.exe)\nStopped PID 44552 (node.exe)\nStopped PID 33000 (cmd.exe)\nStopped PID 31748 (cmd.exe)\nAction: status\nProjectRoot: E:\\coding\\TermLink-rust-source-resolution-codex\nBaseUrl: http://127.0.0.1:3010\nPort: 3010\nTrackedProcessCount: 0\nListening: none\nHealth: unavailable (http://127.0.0.1:3010/api/health)\n",
+    "stderr": ""
+  },
+  {
+    "at": "2026-10-03T18:31:29.939Z",
+    "ended_at": "2026-10-03T18:31:41.814Z",
+    "exe": "D:\\ProgramCode\\nodejs\\node.exe",
+    "args": [
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\e2e-validation-20261004\\s4\\capture.cjs",
+      "a3-offline"
+    ],
+    "exit": 0,
+    "stdout": "{\"phase\":\"a3-offline\",\"device\":{\"exit\":0,\"stdout\":\"device\",\"stderr\":\"\"},\"pid\":{\"exit\":0,\"stdout\":\"28432\",\"stderr\":\"\"},\"reverse\":{\"exit\":0,\"stdout\":\"usb tcp:3010 tcp:3010\",\"stderr\":\"\"},\"edit_text_lengths\":[0],\"ui_labels\":{\"connected\":false,\"running\":true,\"A\":false,\"B\":false,\"retry\":true},\"phone_db\":\"f0e4c4dd5e00aea7510b724db14557c9fe96d0efd0c1752a85ea93f9694ce12e\",\"product_sha256\":\"868ef7493477732e1001c5baf0f7728d5a178eb01cc45cf33c3f4d39190b197a\",\"backup_sha256\":\"13e295dc3cae32e88b5caaf76d2e180256cefaef48b6b7e37d6b172609362119\"}\n",
+    "stderr": ""
+  },
+  {
+    "at": "2026-10-03T18:31:41.814Z",
+    "ended_at": "2026-10-03T18:31:50.619Z",
+    "exe": "powershell",
+    "args": [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ".agents/skills/local-dev-server-control/scripts/manage-local-dev-server.ps1",
+      "-ProjectRoot",
+      "E:\\coding\\TermLink-rust-source-resolution-codex",
+      "-Action",
+      "start"
+    ],
+    "exit": 0,
+    "stdout": "Started local dev server with PORT=3010\nHealth: OK (http://127.0.0.1:3010/api/health)\n{\"status\":\"ok\",\"uptimeSec\":0,\"version\":\"1.0.0\",\"now\":\"2026-10-03T18:31:48.038Z\",\"privilegeMode\":\"standard\",\"tls\":false,\"mtls\":false,\"listenerTls\":false,\"listenerMtls\":false,\"clientCertPolicy\":\"none\",\"requestSecurity\":{\"transport\":\"http\",\"tls\":false,\"clientCertPolicy\":\"none\",\"clientCertPresented\":false,\"clientCertAuthorized\":false,\"clientCertError\":null}}\r\nAction: status\nProjectRoot: E:\\coding\\TermLink-rust-source-resolution-codex\nBaseUrl: http://127.0.0.1:3010\nPort: 3010\nTrackedProcessCount: 5\nPID 87020 cmd.exe :: \"C:\\WINDOWS\\system32\\cmd.exe\" /c set PORT=3010&& cd /d E:\\coding\\TermLink-rust-source-resolution-codex && npm run dev >> logs\\dev-server.log 2>&1 \nPID 85996 cmd.exe :: C:\\WINDOWS\\system32\\cmd.exe /d /s /c nodemon src/server.js\nPID 83948 node.exe :: D:\\ProgramCode\\nodejs\\node.exe src/server.js\nPID 53552 node.exe :: \"D:\\ProgramCode\\nodejs\\\\node.exe\"  \"D:\\ProgramCode\\nodejs\\node_modules\\npm\\bin\\npm-cli.js\" run dev\nPID 30112 node.exe :: \"node\"   \"E:\\coding\\TermLink-rust-source-resolution-codex\\node_modules\\.bin\\\\..\\nodemon\\bin\\nodemon.js\" src/server.js\nListening: :::3010 pid=83948\nHealth: OK (http://127.0.0.1:3010/api/health)\n{\"status\":\"ok\",\"uptimeSec\":2,\"version\":\"1.0.0\",\"now\":\"2026-10-03T18:31:50.547Z\",\"privilegeMode\":\"standard\",\"tls\":false,\"mtls\":false,\"listenerTls\":false,\"listenerMtls\":false,\"clientCertPolicy\":\"none\",\"requestSecurity\":{\"transport\":\"http\",\"tls\":false,\"clientCertPolicy\":\"none\",\"clientCertPresented\":false,\"clientCertAuthorized\":false,\"clientCertError\":null}}\r\n",
+    "stderr": ""
+  },
+  {
+    "at": "2026-10-03T18:31:50.620Z",
+    "ended_at": "2026-10-03T18:31:51.013Z",
+    "exe": "adb",
+    "args": [
+      "-s",
+      "MQS7N19402011743",
+      "shell",
+      "input",
+      "keyevent",
+      "KEYCODE_WAKEUP"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "at": "2026-10-03T18:31:51.013Z",
+    "ended_at": "2026-10-03T18:31:55.745Z",
+    "exe": "D:\\ProgramCode\\nodejs\\node.exe",
+    "args": [
+      "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\e2e-validation-20261004\\s4\\capture.cjs",
+      "a3-restored"
+    ],
+    "exit": 0,
+    "stdout": "{\"phase\":\"a3-restored\",\"device\":{\"exit\":0,\"stdout\":\"device\",\"stderr\":\"\"},\"pid\":{\"exit\":0,\"stdout\":\"28432\",\"stderr\":\"\"},\"reverse\":{\"exit\":0,\"stdout\":\"usb tcp:3010 tcp:3010\",\"stderr\":\"\"},\"edit_text_lengths\":[0],\"ui_labels\":{\"connected\":true,\"running\":false,\"A\":false,\"B\":false,\"retry\":true},\"phone_db\":\"3c08af2d2d6cd87b5f1191c6bf4594370a63f2382791531056f4618e7dd5546b\",\"product_sha256\":\"78d40ea56d55f85542619796e1d11cf48995e3c42d1629b275af8b6390bc0628\",\"backup_sha256\":\"caaad3cfe8bbdf55677bd3a43cfd8fd21eaf4c149f14b2d4ff50fe8375b6a3a1\"}\n",
+    "stderr": ""
+  }
+]

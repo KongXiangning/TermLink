@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-03T19:07:11.090Z",
+  "payload_sha256": "9f9b74457898f97f9a49b7ae91eda16309df16fb6f7229c6c47a2c18ec3299b3",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:execute-step-repair-task25654-S4-R1-20261004-append-only",
+    "request": {
+      "action": "execution",
+      "idempotency_key": "execute-step-repair-task25654-S4-R1-20261004-append-only",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S4",
+      "source_revision": "19bf3121203ba17ad21147ffe02877d50a22d4a0",
+      "mode": "repair",
+      "prior_execution_ref": ".workflow-system/records/events/key-80adab6cdb9d564d9c2d729f2e0415a0b66e64d0871efb83c8bc599215602030.json",
+      "review_ref": ".workflow-system/records/events/key-9550ab96b8d1fbcc0ace3cb4de914a5f5931acc04d7639f47c31330f13e4fec3.json",
+      "decision_ref": ".workflow-system/records/events/key-a2320db8e134613e9f7f802d92538b58f2e345c9523863edef82ab44de9e8587.json",
+      "decision_source": "Current explicit human execute-step repair invocation after evidence-only S4-R1 repair recommendation",
+      "result": "S4-R1-evidence-corrected-self-check-passed-business-coverage-partial",
+      "summary": {
+        "scope": "S4-R1 only: append-only correction for original observations.phone_pages/report.md:54. No original script/report/event/blob edits, product source repair or business rerun.",
+        "finding_outcome": "Implemented, self-check passed, pending new change review; not an edited clean verdict or automatic finding resolution.",
+        "pages": "225 real completed-page rows retained; two actual partial ACKs map to durable pages by conversationKey/syncId/pageIndex. Sequence1/pageIndex0/pageHash verified DB-to-original capture. Third cited sync has ACK but no row in retained snapshot; post-commit persistence unverified, not a failure inferred from absence.",
+        "qualifications": "ACK summary lacks sequence/pageHash, so no ACK/wire hash/sequence equality claim. Capture metadata is phase start, live backup not atomic/quiesced; device and host clocks not ordered. IPC fallback stays partial, not product provider completion.",
+        "validation": "One-time 20/20 evidence self-checks, positive/non-vacuous and eight negative mapping cases, not new E2E tests. Saved outputs reread, conversationKey matches existing Gateway SHA rule. node --check passed. 627 old S4/CAS/event/manifest files byte-preserved; Git tracked/index diff empty and HEAD unchanged.",
+        "unchanged_business_result": "Prior S4 physical A/B/A and A3 cross-restart partial observations remain valid. A canonical still unpublished; S4-G1 stale-error candidate, S4-G2 eight batch_scope_conflict failures, B4 and Q3 resource-budget failures and unverified races remain. No model/device/service/collector/build/Git actions.",
+        "management": "Repair decision recorded separately. New execution does not review or finish S4; three old association issues retained."
+      },
+      "addressed_findings": [
+        {
+          "id": "S4-R1",
+          "status": "implemented-pending-review",
+          "scope": "evidence-summary-and-reference-only"
+        }
+      ],
+      "observed_failures": [
+        {
+          "id": "S4-G1",
+          "status": "retained",
+          "observation": "Previously observed stale unexpected-end-of-stream banner; product root cause/repair not addressed or authorized."
+        },
+        {
+          "id": "S4-G2",
+          "status": "retained",
+          "observation": "Eight A batch_scope_conflict failures and absent canonical publication; root cause remains unconfirmed."
+        },
+        {
+          "id": "S4-L1",
+          "status": "retained",
+          "observation": "B decoded-byte budget and Q fingerprint-byte budget failures; no budget change or failed intent deletion."
+        }
+      ],
+      "commands": [
+        "Fresh execute-step/WORKFLOW_PROTOCOL/task-status/management API, adopted S4 scope and exact review inspected; protected IPC contracts and AD004/018/019/022 retained; previously fully read architecture digest unchanged.",
+        "node logs/e2e-validation-20261004/s4/repair-r1.cjs — saved-evidence correction and necessary local self-check only; exit0 20/20.",
+        "node --check logs/e2e-validation-20261004/s4/repair-r1.cjs — exit0.",
+        "Read-only serialized correction, all 627 original SHA checks and Gateway conversationKey rule comparison — passed. Read-only git diff --check and existing tracked/index verification.",
+        "No original capture/restart/preservation script executed; no live wire/database/phone/service operations."
+      ],
+      "remaining_work": [
+        "New change review of S4-R1 correction required; old changes_requested remains historical, not rewritten clean. S4 not finished.",
+        "Third cited sync post-commit snapshot and ACK wire sequence/hash remain unverified; no fresh capture requested or manufactured.",
+        "A product canonical publication failure, S4-G1/G2, B/Q budget failures, S2/S3 gaps and true in-flight/replay/retry races remain. Product code repair or broadened validation needs separate confirmed scope.",
+        "S4 two-turn model budget used; delegated carrier not ordinary UserMessage/S5 eligible sample. S5 prerequisites and S6 service/USB reverse restoration pending.",
+        "Three old management associations/CR limitation retained; no stage/commit/push/deployment/step finish."
+      ],
+      "files": [
+        "logs/e2e-validation-20261004/s4/repair-r1-report.md",
+        "logs/e2e-validation-20261004/s4/repair-r1-observations.json",
+        "logs/e2e-validation-20261004/s4/repair-r1-validation.json",
+        "logs/e2e-validation-20261004/s4/repair-r1.cjs"
+      ]
+    },
+    "files": [
+      "logs/e2e-validation-20261004/s4/repair-r1-report.md",
+      "logs/e2e-validation-20261004/s4/repair-r1-observations.json",
+      "logs/e2e-validation-20261004/s4/repair-r1-validation.json",
+      "logs/e2e-validation-20261004/s4/repair-r1.cjs"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-a2320db8e134613e9f7f802d92538b58f2e345c9523863edef82ab44de9e8587.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S4",
+        "source_revision": "19bf3121203ba17ad21147ffe02877d50a22d4a0",
+        "mode": "repair",
+        "prior_execution_ref": ".workflow-system/records/events/key-80adab6cdb9d564d9c2d729f2e0415a0b66e64d0871efb83c8bc599215602030.json",
+        "review_ref": ".workflow-system/records/events/key-9550ab96b8d1fbcc0ace3cb4de914a5f5931acc04d7639f47c31330f13e4fec3.json",
+        "decision_ref": ".workflow-system/records/events/key-a2320db8e134613e9f7f802d92538b58f2e345c9523863edef82ab44de9e8587.json",
+        "decision_source": "Current explicit human execute-step repair invocation after evidence-only S4-R1 repair recommendation",
+        "result": "S4-R1-evidence-corrected-self-check-passed-business-coverage-partial",
+        "summary": {
+          "scope": "S4-R1 only: append-only correction for original observations.phone_pages/report.md:54. No original script/report/event/blob edits, product source repair or business rerun.",
+          "finding_outcome": "Implemented, self-check passed, pending new change review; not an edited clean verdict or automatic finding resolution.",
+          "pages": "225 real completed-page rows retained; two actual partial ACKs map to durable pages by conversationKey/syncId/pageIndex. Sequence1/pageIndex0/pageHash verified DB-to-original capture. Third cited sync has ACK but no row in retained snapshot; post-commit persistence unverified, not a failure inferred from absence.",
+          "qualifications": "ACK summary lacks sequence/pageHash, so no ACK/wire hash/sequence equality claim. Capture metadata is phase start, live backup not atomic/quiesced; device and host clocks not ordered. IPC fallback stays partial, not product provider completion.",
+          "validation": "One-time 20/20 evidence self-checks, positive/non-vacuous and eight negative mapping cases, not new E2E tests. Saved outputs reread, conversationKey matches existing Gateway SHA rule. node --check passed. 627 old S4/CAS/event/manifest files byte-preserved; Git tracked/index diff empty and HEAD unchanged.",
+          "unchanged_business_result": "Prior S4 physical A/B/A and A3 cross-restart partial observations remain valid. A canonical still unpublished; S4-G1 stale-error candidate, S4-G2 eight batch_scope_conflict failures, B4 and Q3 resource-budget failures and unverified races remain. No model/device/service/collector/build/Git actions.",
+          "management": "Repair decision recorded separately. New execution does not review or finish S4; three old association issues retained."
+        },
+        "addressed_findings": [
+          {
+            "id": "S4-R1",
+            "status": "implemented-pending-review",
+            "scope": "evidence-summary-and-reference-only"
+          }
+        ],
+        "observed_failures": [
+          {
+            "id": "S4-G1",
+            "status": "retained",
+            "observation": "Previously observed stale unexpected-end-of-stream banner; product root cause/repair not addressed or authorized."
+          },
+          {
+            "id": "S4-G2",
+            "status": "retained",
+            "observation": "Eight A batch_scope_conflict failures and absent canonical publication; root cause remains unconfirmed."
+          },
+          {
+            "id": "S4-L1",
+            "status": "retained",
+            "observation": "B decoded-byte budget and Q fingerprint-byte budget failures; no budget change or failed intent deletion."
+          }
+        ],
+        "commands": [
+          "Fresh execute-step/WORKFLOW_PROTOCOL/task-status/management API, adopted S4 scope and exact review inspected; protected IPC contracts and AD004/018/019/022 retained; previously fully read architecture digest unchanged.",
+          "node logs/e2e-validation-20261004/s4/repair-r1.cjs — saved-evidence correction and necessary local self-check only; exit0 20/20.",
+          "node --check logs/e2e-validation-20261004/s4/repair-r1.cjs — exit0.",
+          "Read-only serialized correction, all 627 original SHA checks and Gateway conversationKey rule comparison — passed. Read-only git diff --check and existing tracked/index verification.",
+          "No original capture/restart/preservation script executed; no live wire/database/phone/service operations."
+        ],
+        "remaining_work": [
+          "New change review of S4-R1 correction required; old changes_requested remains historical, not rewritten clean. S4 not finished.",
+          "Third cited sync post-commit snapshot and ACK wire sequence/hash remain unverified; no fresh capture requested or manufactured.",
+          "A product canonical publication failure, S4-G1/G2, B/Q budget failures, S2/S3 gaps and true in-flight/replay/retry races remain. Product code repair or broadened validation needs separate confirmed scope.",
+          "S4 two-turn model budget used; delegated carrier not ordinary UserMessage/S5 eligible sample. S5 prerequisites and S6 service/USB reverse restoration pending.",
+          "Three old management associations/CR limitation retained; no stage/commit/push/deployment/step finish."
+        ],
+        "files": [
+          "logs/e2e-validation-20261004/s4/repair-r1-report.md",
+          "logs/e2e-validation-20261004/s4/repair-r1-observations.json",
+          "logs/e2e-validation-20261004/s4/repair-r1-validation.json",
+          "logs/e2e-validation-20261004/s4/repair-r1.cjs"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

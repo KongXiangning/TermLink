@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-e568f43ae818eca18a5f2a268e930ae195c3a2f5d8e4f6add95e3d5d60b60d8b.json",
+  "captured_at": "2026-10-03T19:11:40.518Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/da9f77a2ddfa60e36f451365b2dca38c939ad0b08846330a1e109defea509d40.blob",
+      "sha256": "da9f77a2ddfa60e36f451365b2dca38c939ad0b08846330a1e109defea509d40",
+      "size": 3694,
+      "source_path": "logs/e2e-validation-20261004/s4/repair-r1-review.md",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "observed_at": "2026-10-03T18:31:20.636Z",
+  "response": {
+    "schemaVersion": 1,
+    "thread": {
+      "id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "kind": "codex",
+      "hostId": "local",
+      "title": "TermLink E2E A 20261003",
+      "preview": "",
+      "status": {
+        "type": "active",
+        "activeFlags": []
+      },
+      "cwd": "E:\\coding\\TermLink-rust-source-resolution-codex",
+      "createdAt": 1790970257,
+      "updatedAt": 1791052256
+    },
+    "page": {
+      "order": "newest_first",
+      "limit": 1,
+      "nextCursor": "{\"requestedThreadId\":\"01a0fe25-56a2-7910-ba22-61e8016e8ad9\",\"rolloutOrdinal\":61,\"includeAnchor\":false,\"scope\":{\"kind\":\"turns\"}}",
+      "hasMore": true
+    },
+    "turns": [
+      {
+        "id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+        "status": "inProgress",
+        "error": null,
+        "startedAt": 1791052252,
+        "completedAt": null,
+        "durationMs": null,
+        "items": [
+          {
+            "type": "functionCallOutput",
+            "id": "fco_01a10308-85bd-7d71-9527-5ad2c75d0d47",
+            "name": "send_message_to_thread",
+            "namespace": "codex_app"
+          },
+          {
+            "type": "reasoning",
+            "id": "rs_06cd8032aa316888016ac149ddc2e887d0ba4ae40f559b7fd8",
+            "summary": []
+          },
+          {
+            "type": "agentMessage",
+            "id": "msg_06cd8032aa316888016ac149ddeec087d097678c818d39ea85",
+            "text": "E2E-S4-A3-BEGIN|20261004|汉字🙂é",
+            "phase": "commentary"
+          }
+        ]
+      }
+    ]
+  }
+}
