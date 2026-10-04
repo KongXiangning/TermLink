@@ -1,0 +1,52 @@
+'use strict';
+// Necessary offline checks only. Does not replay the original E2E or collectors.
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const { parseSource, extract } = require('./extract.cjs');
+const retained = path.resolve(__dirname, '../s5');
+const A = '01a0fe25-56a2-7910-ba22-61e8016e8ad9';
+const C = '01a10643-ae9b-7cb1-b99b-f19f59acba6c';
+const expectedBase = { thread_id: A, end_ordinal_exclusive: 83, end_byte_offset: 491301 };
+const summary = JSON.parse(fs.readFileSync(path.join(__dirname, 'corrected-summary.json')));
+const originalSelf = JSON.parse(fs.readFileSync(path.join(retained, 'self-check.json')));
+const originalCleanup = JSON.parse(fs.readFileSync(path.join(retained, 'final-cleanup.json')));
+const checks = [];
+function check(name, verify) {
+  try { verify(); checks.push({ name, passed: true }); }
+  catch (error) { checks.push({ name, passed: false, diagnostic: error.message }); }
+}
+const sources = summary.captures.flatMap(capture => capture.sources);
+const cSources = sources.filter(source => source.conversation_id === C);
+const aSources = sources.filter(source => source.conversation_id === A);
+check('Offline extraction reproduces exact saved JSON correction', () => assert.deepEqual(JSON.parse(JSON.stringify(extract())), summary));
+check('All 13 phases and 25 source bindings retained', () => { assert.equal(summary.captures.length, 13); assert.equal(sources.length, 25); });
+check('All 12 C snapshots expose SessionMeta history_base', () => { assert.equal(cSources.length, 12); for (const source of cSources) assert.deepEqual(source.history_base, expectedBase); });
+check('C exact canonical id distinct from parent A', () => { assert.notEqual(A, C); for (const source of cSources) { assert.equal(source.session_meta_id, C); assert.equal(source.forked_from_id, A); } });
+check('Correct field named; zero top-level events no longer implies absent', () => { for (const source of cSources) { assert.equal(source.history_base_field, 'session_meta.payload.history_base'); assert.equal(source.legacy_top_level_history_base_events, 0); assert.notEqual(source.history_base, null); } });
+check('Historical omitted arrays preserved as original, not normalized truth', () => { for (const source of cSources) assert.deepEqual(source.original_recorded_history_bases, []); });
+check('All C bounded parent/cut observations match A header and prefix', () => { for (const source of cSources) { const cut = source.cut_observation; assert.equal(cut.parent_header_id_matches, true); assert.equal(cut.parent_bytes, 491301); assert.equal(cut.parent_physical_records, 83); assert.equal(cut.byte_cut_in_parent, true); assert.equal(cut.byte_cut_at_newline, true); assert.equal(cut.prefix_physical_lines, 83); assert.equal(cut.ordinal_matches_bounded_prefix, true); } });
+check('All retained A headers preserve root absence and source hash', () => { assert.equal(aSources.length, 13); for (const source of aSources) { assert.equal(source.history_base, null); assert.equal(source.session_meta_id, A); assert.equal(source.sha256, '360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3'); } });
+check('Branch metadata not relabeled as resend/replacement/Rust PASS', () => { assert.match(summary.qualifications.resend, /^not-run/); assert.match(summary.qualifications.replacement, /^unverified/); assert.match(summary.qualifications.rust_transition_lineage_coverage, /^unverified/); assert.match(summary.qualifications.projection_and_product_publication, /^failed\/not published/); });
+check('Historical 20/21 and disputed false-positive both retained', () => { assert.equal(originalSelf.passed, 20); assert.equal(originalSelf.total, 21); assert.equal(summary.retained_original_results.evidence_self_check.passed, 20); assert.match(summary.retained_original_results.evidence_self_check.history_base_assertion, /disputed false-positive/); });
+check('Original c-return copy failure and cleanup 5/5 retained', () => { assert.deepEqual(summary.retained_original_results.c_return_live_copy_quick_check, originalCleanup.failed_live_copy.actual); assert.equal(originalCleanup.passed, 5); assert.equal(originalCleanup.total, 5); });
+check('All three C failed reports retained without a new success', () => { assert.deepEqual(summary.retained_original_results.C_failed_runs, originalSelf.c_runs); assert.equal(originalSelf.c_runs.length, 3); for (const run of originalSelf.c_runs) { assert.equal(run.status, 'failed'); assert.equal(run.error.code, 'analysis_failed'); } });
+check('Old canonical digest retained from original cleanup observation', () => assert.equal(summary.retained_original_results.preserved_canonical_digest, originalCleanup.final_product.canonical_digest));
+
+// In-memory negative fixtures derived from the retained header; never product input.
+const sourceBytes = fs.readFileSync(path.join(retained, 'private', 'restored-final-' + C + '.jsonl'));
+const meta = parseSource(sourceBytes, C).meta;
+function fixture(value) { return Buffer.from(JSON.stringify({ type: 'session_meta', payload: value }) + '\n'); }
+check('Real retained nested header parsed independently', () => assert.deepEqual(parseSource(sourceBytes, C).historyBase, expectedBase));
+check('Wrong target canonical id rejected', () => assert.throws(() => parseSource(sourceBytes, A), /binding/));
+check('Duplicate SessionMeta rejected', () => assert.throws(() => parseSource(Buffer.concat([fixture(meta), fixture(meta)]), C), /binding/));
+check('Malformed history_base array rejected', () => assert.throws(() => parseSource(fixture({ ...meta, history_base: [] }), C), /Malformed/));
+check('Unsafe byte offset rejected', () => assert.throws(() => parseSource(fixture({ ...meta, history_base: { ...expectedBase, end_byte_offset: Number.MAX_SAFE_INTEGER + 1 } }), C), /Malformed/));
+check('Negative ordinal rejected', () => assert.throws(() => parseSource(fixture({ ...meta, history_base: { ...expectedBase, end_ordinal_exclusive: -1 } }), C), /Malformed/));
+check('Invalid parent identity rejected', () => assert.throws(() => parseSource(fixture({ ...meta, history_base: { ...expectedBase, thread_id: 'not-a-conversation' } }), C), /Malformed/));
+check('Absent optional field distinguished from malformed field', () => assert.equal(parseSource(fixture({ id: A }), A).historyBase, null));
+
+const output = { kind: 'S5-R1-offline-correction-self-check', passed: checks.filter(item => item.passed).length, total: checks.length, checks, repaired_finding: 'S5-R1 addressed by new extraction; pending formal change review', product_e2e_result: 'unchanged partial; resend not-run; C publication failed', qualification: 'These checks concern offline evidence correction, not Node/Android regressions, independent review, Rust completeness or new E2E execution.' };
+fs.writeFileSync(path.join(__dirname, 'self-check-final.json'), JSON.stringify(output, null, 2) + '\n', { flag: 'wx' });
+console.log(JSON.stringify({ passed: output.passed, total: output.total, failures: checks.filter(item => !item.passed) }));
+if (output.passed !== output.total) process.exitCode = 1;

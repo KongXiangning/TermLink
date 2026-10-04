@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-04T09:48:55.768Z",
+  "payload_sha256": "4c2ee8977e0cff25aa52a34653f76c24daee340224b12f3af5c7b7e13edd4feb",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260831-s5-native-branch-20261004-01a10643",
+    "request": {
+      "action": "execution",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S5",
+      "source_revision": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+      "idempotency_key": "task20260831-s5-native-branch-20261004-01a10643",
+      "result": "partial-native-branch-observed; resend-not-run; C-product-publication-failed; evidence-self-check-20-of-21; cleanup-5-of-5",
+      "decision_source": ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json",
+      "report_ref": "logs/e2e-validation-20261004/s5/report.md",
+      "parents": [
+        ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json",
+        ".workflow-system/records/events/key-3ee5a6c90e907ee8b144636a2600d057410c2e272a91f656a303e9b212a508c1.json"
+      ],
+      "commands": [
+        "Native read_thread A terminal turns and readonly SessionMeta/user-context inspection; no resend or added A turn",
+        "Native fork_thread A environment same-directory -> C 01a10643-ae9b-7cb1-b99b-f19f59acba6c; set title TermLink E2E C 20261004",
+        "Native send_message_to_thread C once, short readonly marker instruction; wait_threads timeoutMs=0 and read_thread C; exact C turn completed",
+        "manage-local-dev-server.ps1 -Action status -ProjectRoot E:\\coding\\TermLink-rust-source-resolution-codex; existing service PID 83948 reused",
+        "adb -s MQS7N19402011743 reverse tcp:3010 tcp:3010; wake/unlock; am start CodexActivity; initial non-codex extra fields excluded",
+        "Correct codex_profile_id/codex_session_id/codex_session_mode/codex_thread_id launch; old expired session auto-created normal transport; valid session C then A then C switch",
+        "node logs/e2e-validation-20261004/s5/observe.cjs <unique-phase> 01a10643-ae9b-7cb1-b99b-f19f59acba6c; readonly private source, DB/prefs backup, PID logcat/UI/screenshot; no fake wire ACK or direct Rust request",
+        "node --check observe.cjs / check.cjs / finalize.cjs; node check.cjs -> 20/21 evidence checks (c-return live DB copy index error retained); node finalize.cjs -> 5/5 cleanup checks",
+        "adb reverse --remove tcp:3010; restore A selection with current valid session; force-stop app; KEYCODE_SLEEP; restored-final readonly capture",
+        "git rev-parse HEAD; git status --short; git diff --name-only; git diff --cached --name-only; git diff --exit-code HEAD -- src native android .workflow-system/runtime .agents/skills package.json package-lock.json; no product or staged changes"
+      ],
+      "body": {
+        "mode": "default",
+        "provenance": "same-agent execution and evidence self-check; not formal or independent review",
+        "subitems": {
+          "E11-a": "not-run: all existing A terminal turns delegation carriers, not ordinary resend UserMessage; role=user contexts excluded",
+          "E11-b": "unverified: no natural resend child/history_base/cut; existing canonical retained but not replacement positive sample",
+          "E11-c": "unverified: replacement/cut/new resend turn not manufactured",
+          "E11-d": "partial: native branch distinct C plus one short turn, C marker visible, exact healthy IPC and separate cache; A still desynced, C product publication failed",
+          "E07": "unverified: no fresh tool detail mutation/drilldown/copy sample"
+        },
+        "new_failures": [
+          "Three real C analysis_failed run reports: parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9; C product canonical/details/checkpoint/receipts remain absent",
+          "c-return non-quiesced phone backup quick_check: wrong # of entries in index sqlite_autoindex_sync_completed_pages_1; original failure retained, stopped final DB quick_check ok; not certified as on-device corruption",
+          "Visible WebSocket failure and transient IPC_DESYNCED retained; final C IPC_AUTHORITATIVE does not establish healthy A/B/C full history/details isolation"
+        ],
+        "preserved": [
+          "A source exact hash and terminal turn unchanged; C completed source stable; no source writes or manufactured history_base",
+          "All existing phone item semantic partitions retained; unique C final marker in C only; A 8 cached rows/C 10; complete remains 0",
+          "Existing F canonical 98 rows/digest unchanged, full product DB hash allowed normal failed-analysis metadata writes",
+          "Credential/server config exact hashes unchanged, composer empty observed, clipboard/Send untouched",
+          "Service PID 83948 remains running; original app stopped/asleep/no reverse restored; A selection persisted; expired original transport not fabricated; new normal session and branch/cache retained",
+          "No source/runtime/skills/permanent tests/resource bounds/dependency/contract edit; no stage/commit/push/restart/install; raw private evidence not attached"
+        ],
+        "remaining_work": [
+          "Formal S5 exact-execution review and subsequent explicit step disposition remain",
+          "Ordinary A terminal resend fixture plus natural child/cut/replacement remains unavailable under current turn allocations; expanding sample requires explicit scope",
+          "C collector/history publication failure needs review and separately explicit repair scope before implementation",
+          "Healthy A/B/C complete history/details isolation, E07 changes, and independent review not certified",
+          "S6 final coverage/whole-task cleanup/closure not performed",
+          "Three pre-existing unrelated management association issues remain unchanged"
+        ],
+        "probe_errors_retained": "Initial wrong launch extra names; expired old transport; asleep blank UI excluded; two shell/path diagnostic failures retained in conversation, no product-work replay to obtain receipt",
+        "next_route": "review-change"
+      },
+      "files": [
+        "logs/e2e-validation-20261004/s5/report.md",
+        "logs/e2e-validation-20261004/s5/self-check.json",
+        "logs/e2e-validation-20261004/s5/final-cleanup.json",
+        "logs/e2e-validation-20261004/s5/fork.json",
+        "logs/e2e-validation-20261004/s5/host-c-terminal.json",
+        "logs/e2e-validation-20261004/s5/observe.cjs",
+        "logs/e2e-validation-20261004/s5/check.cjs",
+        "logs/e2e-validation-20261004/s5/finalize.cjs"
+      ]
+    },
+    "files": [
+      "logs/e2e-validation-20261004/s5/report.md",
+      "logs/e2e-validation-20261004/s5/self-check.json",
+      "logs/e2e-validation-20261004/s5/final-cleanup.json",
+      "logs/e2e-validation-20261004/s5/fork.json",
+      "logs/e2e-validation-20261004/s5/host-c-terminal.json",
+      "logs/e2e-validation-20261004/s5/observe.cjs",
+      "logs/e2e-validation-20261004/s5/check.cjs",
+      "logs/e2e-validation-20261004/s5/finalize.cjs"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json",
+        ".workflow-system/records/events/key-3ee5a6c90e907ee8b144636a2600d057410c2e272a91f656a303e9b212a508c1.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S5",
+        "source_revision": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+        "result": "partial-native-branch-observed; resend-not-run; C-product-publication-failed; evidence-self-check-20-of-21; cleanup-5-of-5",
+        "decision_source": ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json",
+        "report_ref": "logs/e2e-validation-20261004/s5/report.md",
+        "commands": [
+          "Native read_thread A terminal turns and readonly SessionMeta/user-context inspection; no resend or added A turn",
+          "Native fork_thread A environment same-directory -> C 01a10643-ae9b-7cb1-b99b-f19f59acba6c; set title TermLink E2E C 20261004",
+          "Native send_message_to_thread C once, short readonly marker instruction; wait_threads timeoutMs=0 and read_thread C; exact C turn completed",
+          "manage-local-dev-server.ps1 -Action status -ProjectRoot E:\\coding\\TermLink-rust-source-resolution-codex; existing service PID 83948 reused",
+          "adb -s MQS7N19402011743 reverse tcp:3010 tcp:3010; wake/unlock; am start CodexActivity; initial non-codex extra fields excluded",
+          "Correct codex_profile_id/codex_session_id/codex_session_mode/codex_thread_id launch; old expired session auto-created normal transport; valid session C then A then C switch",
+          "node logs/e2e-validation-20261004/s5/observe.cjs <unique-phase> 01a10643-ae9b-7cb1-b99b-f19f59acba6c; readonly private source, DB/prefs backup, PID logcat/UI/screenshot; no fake wire ACK or direct Rust request",
+          "node --check observe.cjs / check.cjs / finalize.cjs; node check.cjs -> 20/21 evidence checks (c-return live DB copy index error retained); node finalize.cjs -> 5/5 cleanup checks",
+          "adb reverse --remove tcp:3010; restore A selection with current valid session; force-stop app; KEYCODE_SLEEP; restored-final readonly capture",
+          "git rev-parse HEAD; git status --short; git diff --name-only; git diff --cached --name-only; git diff --exit-code HEAD -- src native android .workflow-system/runtime .agents/skills package.json package-lock.json; no product or staged changes"
+        ],
+        "body": {
+          "mode": "default",
+          "provenance": "same-agent execution and evidence self-check; not formal or independent review",
+          "subitems": {
+            "E11-a": "not-run: all existing A terminal turns delegation carriers, not ordinary resend UserMessage; role=user contexts excluded",
+            "E11-b": "unverified: no natural resend child/history_base/cut; existing canonical retained but not replacement positive sample",
+            "E11-c": "unverified: replacement/cut/new resend turn not manufactured",
+            "E11-d": "partial: native branch distinct C plus one short turn, C marker visible, exact healthy IPC and separate cache; A still desynced, C product publication failed",
+            "E07": "unverified: no fresh tool detail mutation/drilldown/copy sample"
+          },
+          "new_failures": [
+            "Three real C analysis_failed run reports: parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9; C product canonical/details/checkpoint/receipts remain absent",
+            "c-return non-quiesced phone backup quick_check: wrong # of entries in index sqlite_autoindex_sync_completed_pages_1; original failure retained, stopped final DB quick_check ok; not certified as on-device corruption",
+            "Visible WebSocket failure and transient IPC_DESYNCED retained; final C IPC_AUTHORITATIVE does not establish healthy A/B/C full history/details isolation"
+          ],
+          "preserved": [
+            "A source exact hash and terminal turn unchanged; C completed source stable; no source writes or manufactured history_base",
+            "All existing phone item semantic partitions retained; unique C final marker in C only; A 8 cached rows/C 10; complete remains 0",
+            "Existing F canonical 98 rows/digest unchanged, full product DB hash allowed normal failed-analysis metadata writes",
+            "Credential/server config exact hashes unchanged, composer empty observed, clipboard/Send untouched",
+            "Service PID 83948 remains running; original app stopped/asleep/no reverse restored; A selection persisted; expired original transport not fabricated; new normal session and branch/cache retained",
+            "No source/runtime/skills/permanent tests/resource bounds/dependency/contract edit; no stage/commit/push/restart/install; raw private evidence not attached"
+          ],
+          "remaining_work": [
+            "Formal S5 exact-execution review and subsequent explicit step disposition remain",
+            "Ordinary A terminal resend fixture plus natural child/cut/replacement remains unavailable under current turn allocations; expanding sample requires explicit scope",
+            "C collector/history publication failure needs review and separately explicit repair scope before implementation",
+            "Healthy A/B/C complete history/details isolation, E07 changes, and independent review not certified",
+            "S6 final coverage/whole-task cleanup/closure not performed",
+            "Three pre-existing unrelated management association issues remain unchanged"
+          ],
+          "probe_errors_retained": "Initial wrong launch extra names; expired old transport; asleep blank UI excluded; two shell/path diagnostic failures retained in conversation, no product-work replay to obtain receipt",
+          "next_route": "review-change"
+        },
+        "files": [
+          "logs/e2e-validation-20261004/s5/report.md",
+          "logs/e2e-validation-20261004/s5/self-check.json",
+          "logs/e2e-validation-20261004/s5/final-cleanup.json",
+          "logs/e2e-validation-20261004/s5/fork.json",
+          "logs/e2e-validation-20261004/s5/host-c-terminal.json",
+          "logs/e2e-validation-20261004/s5/observe.cjs",
+          "logs/e2e-validation-20261004/s5/check.cjs",
+          "logs/e2e-validation-20261004/s5/finalize.cjs"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

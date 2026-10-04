@@ -1,0 +1,52 @@
+# S5 自然 resend / Branch 执行记录
+
+日期：2026-10-04。任务 TASK-20260831，步骤 S5。
+源码版本：`60c507f6a4ac5573e96028429d24684d1f3e0b5e`。
+结论：partial；不是全链路 E2E PASS。本轮仅执行和证据自检，未正式审查、结束步骤或推进 S6。
+
+## 分项结果
+
+| 项目 | 结果 | 实际证据及限制 |
+| --- | --- | --- |
+| E11-a 末轮 resend / cut | not-run | A 的三个 terminal 测试 turn 都由 delegation functionCallOutput 承载，无普通末轮 UserMessage。源中两个 role=user 只是 AGENTS/environment 上下文，不能冒充可 resend 业务输入。未追加 A turn，未触发 resend。 |
+| E11-b 未就绪保护 | unverified（replacement 场景） | 没有自然 resend child 或 history_base/cut。观察到既有产品 canonical 保持，但不是 replacement 保护的正向样本。 |
+| E11-c 替换与重开 | unverified | 无 cut、被替换旧末轮或新 resend 末轮，未伪造 lineage、cursor 或发布完成。 |
+| E11-d Branch 身份 | 部分验证 | Codex 原生 same-directory fork 成功生成 C，一次短只读回合 completed；SessionMeta.id=C、forked_from_id=A。C 手机结果、独立缓存及 healthy IPC snapshot 可见；产品历史发布失败，完整 A/B/C history/details/healthy IPC 隔离未通过。 |
+| E07 详情自然变化 | unverified | 未新增工具详情变化样本或进行详情钻取/复制；继承 A 工具内容不代表新详情发布。 |
+
+## 真实宿主与源
+
+- A：`01a0fe25-56a2-7910-ba22-61e8016e8ad9`，“TermLink E2E A 20261003”。最后 turn：`01a10308-856d-7072-85db-f5e5b5c4f81a`。本轮没有 A 新回合或 parent 写回。
+- C：`01a10643-ae9b-7cb1-b99b-f19f59acba6c`，“TermLink E2E C 20261004”。原生 fork 同步完成；唯一新回合 `01a10644-5f26-7ad0-96bb-46d05b0eb6f6`，耗时 6809ms。
+- C 最终输出：`E2E-S5-C-DONE|20261004|汉字🙂é`。宿主读回包含继承的 A 三回合，不能算作 C 新执行了三次工具。
+- A 源 SHA-256 全窗口保持 `360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3`。
+- C 终态源 SHA-256：`3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58`；SessionMeta 验证绑定，未发现 history_base。
+- forked_from_id 是本次原生分叉 provenance，不冒充 resend 的 history_base/ordinal/byte-cut。源文件只读私有备份，没有复制成产品输入或修改 Codex rollout。
+
+## 真机与正常产品链路
+
+设备 `MQS7N19402011743`，已有 APK/profile `task005-s2-local`。复用既有正常服务 PID 83948 / 3010，不重启、不构建、不安装、不新增采集器或直接请求 Rust。
+
+首次 am start 使用非 CodexLaunchParams 字段，排除为无效 C 样本。随后使用正确 codex_* 字段但旧 transport session 已过期，正常 App 自动创建 session `e7fa3165-7355-4556-b8bc-37c0e4a2804d`，并回选 A；该过程保留，不提前归为代码缺陷。
+
+使用当前有效 session 后，C 被精确绑定。休眠空白 UI 样本不用于正向显示判断。唤醒样本 `c-final-visible` 实际显示 C 输出与继承的 A 内容，仍有 WebSocket failure 提示；日志先有 desynced，随后 `conv=C / activeConv=C / applied=true / status=completed / items=10 / authority=IPC_AUTHORITATIVE`。
+
+C→A→C 热切换分别保留 `a-return`、`c-return`：A 的 snapshot 仍为 IPC_DESYNCED，C 最后恢复 IPC_AUTHORITATIVE。不能宣称 healthy A/B/C 全隔离通过。B 没有新测试回合或选择操作。
+
+停 App 后的可靠副本：C 独立缓存 10 项；唯一 C marker 对应 C turn/message key，其他 partition 没有 C marker。A 仍 8 项。全部既有手机 item partition 的正文、顺序、关联与 detail_refs 语义摘要保持；不等同于所有元数据或全数据库原字节不变。A/C complete 均为 0，coverage 保持 legacy_unknown，未升级为 complete。
+
+产品库 A/C 的 conversations/history_items/tool_details/checkpoints/receipts 均为 0；旧 F 的 98 项 canonical digest 保持 `ee92b2dcc3a58ae94278d01c5d0ee32d151670c133f24ef3ae118ebb97b81ebd`。数据库文件整体 hash 随正常失败分析记录变化，不声称全 DB 原字节保持。
+
+C 正常采集产生三份 failed run：`analysis_failed`，`parent rollout is missing from catalog: A`（完整 ID 与报告 hash 见 self-check.json）。保留为真实采集/发布失败；仅本次观察，不推断根因，也不据缺失关系制造正向 lineage 或直接实施修复。既有 A batch_scope_conflict、B/Q3 resource limits 未修复。
+
+## 自检、清理和边界
+
+- 两份取证脚本 node --check 通过；自检 20/21，唯一失败为 c-return 活动中数据库副本 `wrong # of entries in index sqlite_autoindex_sync_completed_pages_1`。所有副本及失败结果不覆盖。备份非原子、未回放 journal，不能据此认定 on-device DB 损坏。
+- 停 App 的 restored/restored-final 副本 quick_check 正常。独立追加清理补证，不重写原 20/21 结果。
+- 本轮新增 USB reverse tcp:3010 已移除；App 恢复停止、手机休眠；原 A 选择最终持久化。原 transport session 已过期，未伪造恢复；新 session、C 聊天及正常缓存保留供审查，未手工删除。
+- server/basic/mTLS 配置原文件 hash 不变，未操作输入框内容、Send 或剪贴板。正常 restore/session-list/client-registration 等偏好元数据变化单独保留。
+- 只新增 ignored 临时脚本/报告及后续管理事实与安全附件；无产品源码、vNext Runtime、skills、永久测试、契约、依赖或资源上限修改，无 stage/commit/push。
+- 使用 simplify 仅检查本轮临时脚本，未引发产品代码改动。没有把证据检查数字计为 Node/Android 回归测试或 E2E PASS。
+- 原始 rollout/DB/prefs/UI/logcat 保持私有 ignored，仅安全派生摘要、原生 fork/宿主只读输出和临时脚本作为附件。
+
+下一建议：review-change，审查 S5 exact execution 与新增采集失败/取证限制；若要补普通 A 末轮、增加模型回合或修源码，需要明确新范围。S5 不自动 finish，S6 不自动执行。

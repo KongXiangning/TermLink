@@ -1,0 +1,46 @@
+'use strict';
+// Freeze/check prior files without editing them. All outputs are new wx files.
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const project = path.resolve(__dirname, '../../..');
+const manifestPath = path.join(__dirname, 'original-files.json');
+const roots = [
+  'logs/e2e-validation-20261004/s5',
+  'logs/e2e-validation-20261004/s5-review',
+  '.workflow-system/records/events',
+  '.workflow-system/records/attachments',
+  '.workflow-system/records/evidence-objects'
+];
+function sha(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
+function collect(relative) {
+  const absolute = path.join(project, relative);
+  const stat = fs.lstatSync(absolute);
+  if (stat.isSymbolicLink()) throw Error('Symlink not allowed in evidence inventory');
+  if (stat.isDirectory()) return fs.readdirSync(absolute).sort().flatMap(name => collect(relative + '/' + name));
+  if (!stat.isFile()) throw Error('Expected regular evidence file');
+  const bytes = fs.readFileSync(absolute);
+  return [{ path: relative, sha256: sha(bytes), bytes: bytes.length }];
+}
+function write(name, value) {
+  fs.writeFileSync(path.join(__dirname, name), JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
+}
+const mode = process.argv[2];
+if (mode === 'before') {
+  const files = roots.flatMap(collect);
+  write('original-files.json', { kind: 'S5-R1-prior-byte-inventory', roots, files });
+  console.log(JSON.stringify({ preserved_file_targets: files.length, inventory_sha256: sha(fs.readFileSync(manifestPath)) }));
+} else if (mode === 'after') {
+  const manifestBytes = fs.readFileSync(manifestPath);
+  const manifest = JSON.parse(manifestBytes);
+  const mismatches = manifest.files.filter(file => {
+    const bytes = fs.readFileSync(path.join(project, file.path));
+    return bytes.length !== file.bytes || sha(bytes) !== file.sha256;
+  }).map(file => file.path);
+  const report = { kind: 'S5-R1-prior-byte-preservation-check', files_checked: manifest.files.length, mismatches, inventory_sha256: sha(manifestBytes), qualification: 'Existing facts/snapshots checked only; new records and rebuildable views may be added normally.' };
+  write('preservation-check.json', report);
+  console.log(JSON.stringify(report));
+  if (mismatches.length) process.exitCode = 1;
+} else {
+  throw Error('Use before or after once; no overwriting outputs');
+}

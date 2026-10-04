@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-04T11:10:04.212Z",
+  "payload_sha256": "9601ed197e7e3cf93ad7bb610acc9400a21d26b7387a0fa1db7a5a397fd852ef",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:execute-step-finish-task-25654b249109f357a559899562804c15-S5-20261004",
+    "request": {
+      "action": "step",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S5",
+      "state": "finished",
+      "idempotency_key": "execute-step-finish-task-25654b249109f357a559899562804c15-S5-20261004",
+      "decision_source": "当前对话用户显式指令：execute-step finish",
+      "decision_text": "结束 S5 步骤处置并保留审查中明确的产品失败与未验证覆盖；不将 S5-R1 离线证据修正 self-review clean 解释为 resend、replacement 或产品 E2E 通过。",
+      "review_ref": ".workflow-system/records/events/key-369256b243c23c45f4bd50ec089db2a2eeeb3516ddd2c366564e33f6d1a12fd4.json",
+      "execution_ref": ".workflow-system/records/events/key-e6906d8b7bdeaf575fab4a136ea2f140c1c238f18a6f24c4c6b46f48fea716ac.json",
+      "source_revision": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+      "remaining_work": [
+        "S5 resend 未运行；replacement、Rust transition/lineage/projection completeness、E07 及完整健康 A/B/C 隔离仍未验证。",
+        "C parent catalog publication failed/not published（三次 analysis_failed parent catalog errors），A desynced；产品修复需要单独明确范围。",
+        "S2 委派载体解析与 canonical publication、S3 真机分页/ACK/大详情复制/E07、S4 在途/重放竞态等缺口继续保留。",
+        "S6 尚未执行；三条既有管理关联问题及 CR 限制继续保留。"
+      ]
+    },
+    "task_event": {
+      "version": 1,
+      "action": "step",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-369256b243c23c45f4bd50ec089db2a2eeeb3516ddd2c366564e33f6d1a12fd4.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S5",
+        "state": "finished",
+        "decision_source": "当前对话用户显式指令：execute-step finish",
+        "decision_text": "结束 S5 步骤处置并保留审查中明确的产品失败与未验证覆盖；不将 S5-R1 离线证据修正 self-review clean 解释为 resend、replacement 或产品 E2E 通过。",
+        "review_ref": ".workflow-system/records/events/key-369256b243c23c45f4bd50ec089db2a2eeeb3516ddd2c366564e33f6d1a12fd4.json",
+        "execution_ref": ".workflow-system/records/events/key-e6906d8b7bdeaf575fab4a136ea2f140c1c238f18a6f24c4c6b46f48fea716ac.json",
+        "source_revision": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+        "remaining_work": [
+          "S5 resend 未运行；replacement、Rust transition/lineage/projection completeness、E07 及完整健康 A/B/C 隔离仍未验证。",
+          "C parent catalog publication failed/not published（三次 analysis_failed parent catalog errors），A desynced；产品修复需要单独明确范围。",
+          "S2 委派载体解析与 canonical publication、S3 真机分页/ACK/大详情复制/E07、S4 在途/重放竞态等缺口继续保留。",
+          "S6 尚未执行；三条既有管理关联问题及 CR 限制继续保留。"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,76 @@
+{
+  "kind": "S5-retained-evidence-review-audit",
+  "provenance": "same-agent self-review; read-only offline inspection of retained evidence, not an independent review or new E2E execution",
+  "source_revision": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+  "execution_ref": ".workflow-system/records/events/key-26ddca1b4078a7ec73313b6c7dc8a8cc45d37592dbadb757bf18a01a0e7b3332.json",
+  "integrity": {
+    "attachments": 8,
+    "retained_file_hash_size_checks": 232,
+    "byte_failures": [],
+    "phases": 13,
+    "additional_C_run_reports_verified": 3,
+    "original_IPC_excerpt_phases_verified": 3,
+    "qualification": "Byte integrity is not evidence of semantic correctness. R1 is a semantic extraction error in byte-intact evidence."
+  },
+  "R1": {
+    "source_field": "session_meta.payload.history_base",
+    "C_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+    "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+    "actual_history_base": {
+      "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "end_ordinal_exclusive": 83,
+      "end_byte_offset": 491301
+    },
+    "affected_C_captures": ["c-first", "c-terminal", "c-settled", "c-cold", "c-visible", "c-valid-session", "c-final-visible", "a-return", "c-return", "restored", "restore-active-a", "restored-final"],
+    "each_recorded_history_bases": [],
+    "history_base_stable_in_all_C_captures": true,
+    "parent_snapshot": {
+      "header_id_matches": true,
+      "physical_lines": 83,
+      "bytes": 491301,
+      "cut_within_source": true,
+      "cut_is_newline_boundary": true,
+      "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3"
+    },
+    "C_terminal_source_sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+    "qualification": "Existing structured native Branch history_base/cut metadata is observed, not fabricated. This does not make C an A resend child, validate Rust transition completeness, repair the missing catalog parent or prove product publication."
+  },
+  "retained_valid_observations": {
+    "existing_phone_item_semantic_rows": 2351,
+    "before_restored_restored_final_digest": "ea1e7ad8b00ef534d7375583466ab2ef550aad97acfd15a22d1a3ff6393d82e9",
+    "semantic_columns": "All original item columns except updated_at; not full DB byte equality",
+    "C_marker": {
+      "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "item_key": "msg_06cd8032aa316888016ac21dd049c887d080b3b1fce1d7e350",
+      "turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+      "text": "E2E-S5-C-DONE|20261004|汉字🙂é",
+      "unique_in_C_only": true
+    },
+    "C_source_new_turns": 1,
+    "C_new_tool_executions": 0,
+    "A_context_only_role_user_messages": 2,
+    "A_cached_items": 8,
+    "C_cached_items": 10,
+    "A_C_complete": 0,
+    "A_C_provider_mode": null,
+    "A_C_coverage_state": "legacy_unknown",
+    "C_final_IPC": "IPC_AUTHORITATIVE",
+    "A_return_IPC": "IPC_DESYNCED",
+    "C_failed_runs": 3,
+    "C_error": "analysis_failed: parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+    "A_C_product_canonical_details_checkpoints_receipts": "absent",
+    "old_F_canonical_rows": 98,
+    "old_canonical_digest": "ee92b2dcc3a58ae94278d01c5d0ee32d151670c133f24ef3ae118ebb97b81ebd",
+    "c_return_live_copy_quick_check": "wrong # of entries in index sqlite_autoindex_sync_completed_pages_1",
+    "restored_restored_final_quick_check": "ok",
+    "original_self_check": "20/21 saved historically; history_base assertion additionally disputed by R1, not retroactively rewritten",
+    "cleanup_self_check": "5/5 saved historically"
+  },
+  "review_exclusions": [
+    "No new model turn, device action, service/collector request or E2E run",
+    "No original script/report/event/blob/source/DB/prefs modification",
+    "No product/runtime/skills/contract/dependency/resource-limit edit, stage, commit or push",
+    "No root-cause or product-fix conclusion from the parent catalog failure",
+    "No automatic review disposition, step finish, S6 execution or task close"
+  ]
+}

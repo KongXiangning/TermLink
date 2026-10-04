@@ -1,0 +1,662 @@
+{
+  "kind": "S5-R1-append-only-SessionMeta-correction",
+  "source_revision": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+  "original_execution_ref": ".workflow-system/records/events/key-26ddca1b4078a7ec73313b6c7dc8a8cc45d37592dbadb757bf18a01a0e7b3332.json",
+  "review_ref": ".workflow-system/records/events/key-55de26d96e1b7e00a1e0fa408c6919d3ad841c8f42485934d40d1bd39d63b0d0.json",
+  "correction": "Original history_bases=[] omitted SessionMeta.history_base; the old absence assertion is superseded by this supplemental extraction, not rewritten.",
+  "captures": [
+    {
+      "phase": "before",
+      "original_capture_at": "2026-10-04T09:33:59.633Z",
+      "original_capture_sha256": "6721eb534a4c163db5b12105f1d4fdf74218e87f6dc251c3de14580d2b5fdfeb",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        }
+      ]
+    },
+    {
+      "phase": "c-first",
+      "original_capture_at": "2026-10-04T09:35:07.757Z",
+      "original_capture_sha256": "47ae4ebf254d656fc14ae99992e4d475c221abf5865c42eebeea17c3c7e76a4c",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "7a654cc2f07d79263677c133d38b2e848f7637dc5eb3abe4bde1a40efa9eb4e4",
+          "bytes": 22665,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "c-terminal",
+      "original_capture_at": "2026-10-04T09:35:59.744Z",
+      "original_capture_sha256": "bce4d6c77bca82a881a5ebceb02aff7c8e47997041495b7c6aeeca4ecb028a5e",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "c-settled",
+      "original_capture_at": "2026-10-04T09:36:19.371Z",
+      "original_capture_sha256": "aedd3a8e953b9d2e0d1f4f0a82ed4b627c11f1d5b5161818bc6da74bcc19d357",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "c-cold",
+      "original_capture_at": "2026-10-04T09:37:04.707Z",
+      "original_capture_sha256": "90669c939c7f5a29c52ed30a3b9e374fa7844afc77c000561d8e610bcb776726",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "c-visible",
+      "original_capture_at": "2026-10-04T09:37:28.153Z",
+      "original_capture_sha256": "17c95ab1219b97481cdda73294716ff8aa80cb82c432839e1ff878f7edcc3fd4",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "c-valid-session",
+      "original_capture_at": "2026-10-04T09:38:27.803Z",
+      "original_capture_sha256": "f4f465e3c10c9f620422d4265cf55e40679c80a13f93f3a6b2755d44491319df",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "c-final-visible",
+      "original_capture_at": "2026-10-04T09:42:02.744Z",
+      "original_capture_sha256": "76887113f73dba76a53dcb5e2699f64b467540c8c62a68cba3f93808e3850c1a",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "a-return",
+      "original_capture_at": "2026-10-04T09:42:40.923Z",
+      "original_capture_sha256": "eda5d5b83e1518a8d825c1e00b7b165e685d03d2942589c71caad3f3e72f458d",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "c-return",
+      "original_capture_at": "2026-10-04T09:42:44.596Z",
+      "original_capture_sha256": "ef44c28eeb8129009aa80a9d3e5a3a344d4f6451e7a0555921f4e6d7c766ea23",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "restored",
+      "original_capture_at": "2026-10-04T09:43:21.848Z",
+      "original_capture_sha256": "bc636949a81b387874bbc9628841d03f5828277c59ca6f601fa3915e961db8d3",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "restore-active-a",
+      "original_capture_at": "2026-10-04T09:45:52.901Z",
+      "original_capture_sha256": "98e1c415e58df2bf0259f1bf046bb1758b7a661682bbccf1fa941c7252b28046",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    },
+    {
+      "phase": "restored-final",
+      "original_capture_at": "2026-10-04T09:45:56.990Z",
+      "original_capture_sha256": "069a86b816f8e3f9aa85d7645960a3e1db7b0af78c72c51bc8f7d82ebec73642",
+      "sources": [
+        {
+          "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+          "bytes": 491301,
+          "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "forked_from_id": null,
+          "history_base": null,
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10308-856d-7072-85db-f5e5b5c4f81a",
+          "cut_observation": null
+        },
+        {
+          "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+          "bytes": 35305,
+          "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+          "forked_from_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "history_base": {
+            "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "end_ordinal_exclusive": 83,
+            "end_byte_offset": 491301
+          },
+          "history_base_field": "session_meta.payload.history_base",
+          "original_recorded_history_bases": [],
+          "legacy_top_level_history_base_events": 0,
+          "last_turn_id": "01a10644-5f26-7ad0-96bb-46d05b0eb6f6",
+          "cut_observation": {
+            "parent_header_id_matches": true,
+            "parent_sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+            "parent_bytes": 491301,
+            "parent_physical_records": 83,
+            "byte_cut_in_parent": true,
+            "byte_cut_at_newline": true,
+            "prefix_physical_lines": 83,
+            "ordinal_matches_bounded_prefix": true,
+            "qualification": "Read-only observed metadata/bounds for this retained parent, not Rust validation or resend execution."
+          }
+        }
+      ]
+    }
+  ],
+  "qualifications": {
+    "native_branch": "C has its own canonical conversation ID and native fork provenance; structured history_base points to A.",
+    "source_binding_and_cut": "Exact retained header/hash and bounded parent prefix metadata observed.",
+    "resend": "not-run; no new ordinary A terminal user fixture or resend child was executed",
+    "replacement": "unverified; Branch cut metadata is not a resend replacement sample",
+    "rust_transition_lineage_coverage": "unverified; local cut observation is not protocol validation or catalog completeness",
+    "projection_and_product_publication": "failed/not published; original three C analysis_failed reports and absent A/C canonical retained",
+    "e07_and_healthy_ABC": "unverified; no new detail sample, A remains desynced"
+  },
+  "retained_original_results": {
+    "evidence_self_check": {
+      "passed": 20,
+      "total": 21,
+      "history_base_assertion": "disputed false-positive; do not count as supported PASS"
+    },
+    "cleanup_self_check": {
+      "passed": 5,
+      "total": 5
+    },
+    "c_return_live_copy_quick_check": [
+      {
+        "quick_check": "wrong # of entries in index sqlite_autoindex_sync_completed_pages_1"
+      }
+    ],
+    "C_failed_runs": [
+      {
+        "file": "94eca519fb0141f1e1590a6630bca0a6d6cd558f93d2c8c2ade57b8d16286847.json",
+        "sha256": "adb677547443d65a6120b1c39b612f2c7e5a9b80e84afac4bfdf2aa82189fbae",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "status": "failed",
+        "error": {
+          "code": "analysis_failed",
+          "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "retryable": false,
+          "fatal": false
+        }
+      },
+      {
+        "file": "985a8e9510f1dfa84882b32afee832a3e00f9289caebc6e8e9a4edbe0eaedddd.json",
+        "sha256": "ebef0b2211bf1ae3c9fe638cbf77b8a3967220a07329510c9d48a1177d247cb6",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "status": "failed",
+        "error": {
+          "code": "analysis_failed",
+          "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "retryable": false,
+          "fatal": false
+        }
+      },
+      {
+        "file": "9a0c8587e5beb5d32a1e908e6b3bfe8765f637c3c1560e70a5968a4b188e18c0.json",
+        "sha256": "4d7ac17e260c559dfde2d456a8523c96ae90cf64224a6c1d15a643d9ad6caec1",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "status": "failed",
+        "error": {
+          "code": "analysis_failed",
+          "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "retryable": false,
+          "fatal": false
+        }
+      }
+    ],
+    "preserved_canonical_digest": "ee92b2dcc3a58ae94278d01c5d0ee32d151670c133f24ef3ae118ebb97b81ebd"
+  },
+  "limitations": [
+    "No live source/service/device/model reads or writes.",
+    "No parent catalog/root cause/product fix inferred.",
+    "No source/old script/report/blob edit.",
+    "Only safe metadata/derived facts saved; raw backups remain private ignored."
+  ]
+}

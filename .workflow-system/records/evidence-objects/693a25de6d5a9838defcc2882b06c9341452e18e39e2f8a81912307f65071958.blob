@@ -1,0 +1,7 @@
+{
+  "kind": "S5-R1-prior-byte-preservation-check",
+  "files_checked": 920,
+  "mismatches": [],
+  "inventory_sha256": "a41313ff02635530a62fb7d1e4075bb90970b6ea2578585bde9a2f53d6d6b5a1",
+  "qualification": "Existing facts/snapshots checked only; new records and rebuildable views may be added normally."
+}

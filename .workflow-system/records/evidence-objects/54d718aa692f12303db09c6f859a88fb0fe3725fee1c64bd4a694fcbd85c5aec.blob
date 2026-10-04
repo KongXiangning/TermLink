@@ -1,0 +1,9 @@
+{
+  "status": "created",
+  "synchronization": {"status": "complete"},
+  "environment": {"type": "same-directory"},
+  "sourceThreadId": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+  "threadId": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+  "entry": "mcp__codex_app__fork_thread",
+  "qualification": "Actual native fork response, no file/source cloning by test runner. Does not establish Rust history_base lineage or product publication."
+}

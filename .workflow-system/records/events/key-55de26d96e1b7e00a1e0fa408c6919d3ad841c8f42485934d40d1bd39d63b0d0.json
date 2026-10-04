@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-04T09:58:23.775Z",
+  "payload_sha256": "1a88c27ab28aadaee19402aea5e8718e04c83b74ab21f79e5894bbb64f839c7b",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260831-s5-review-native-history-base-r1-20261004",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S5",
+      "execution_ref": ".workflow-system/records/events/key-26ddca1b4078a7ec73313b6c7dc8a8cc45d37592dbadb757bf18a01a0e7b3332.json",
+      "source_revision": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+      "idempotency_key": "task20260831-s5-review-native-history-base-r1-20261004",
+      "verdict": "changes_requested",
+      "provenance": "same-agent self-review of exact S5 execution and retained evidence; not independent review; no device/model/service or business-test rerun",
+      "parents": [
+        ".workflow-system/records/events/key-26ddca1b4078a7ec73313b6c7dc8a8cc45d37592dbadb757bf18a01a0e7b3332.json",
+        ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json"
+      ],
+      "findings": [
+        {
+          "id": "S5-R1",
+          "priority": 2,
+          "status": "open",
+          "title": "history_base extractor ignores SessionMeta field, causing false absence and false-positive evidence check",
+          "file": "logs/e2e-validation-20261004/s5/observe.cjs",
+          "line": 42,
+          "description": "All 12 C source snapshots contain session_meta.payload.history_base {thread_id:A,end_ordinal_exclusive:83,end_byte_offset:491301}, while sourceEvidence only selects top-level type=history_base. Summaries incorrectly emit [], check.cjs:33 passes that omission, and report.md:23 incorrectly states history_base absent. Actual source headers/hashes and cut metadata contradict the byte-intact summaries. This changes the Branch/source evidence interpretation without making C a resend or proving product publication.",
+          "related_locations": [
+            "logs/e2e-validation-20261004/s5/check.cjs:33",
+            "logs/e2e-validation-20261004/s5/report.md:23"
+          ],
+          "evidence_ref": "logs/e2e-validation-20261004/s5-review/audit.json",
+          "recommended_repair": "Append-only offline extraction, corrected summary/report and necessary self-check from retained private snapshots; preserve all original files/events/blob hashes and failures; no product source, new model turn, device/service rerun or resource changes."
+        }
+      ],
+      "coverage": {
+        "layer": "read-only evidence correctness/scope review, not new E2E execution",
+        "attachment_count": 8,
+        "retained_file_checks": 232,
+        "byte_mismatches": 0,
+        "phase_count": 13,
+        "C_source_snapshots_with_missed_history_base": 12,
+        "C_run_report_hashes_verified": 3,
+        "IPC_excerpt_phases_verified": 3,
+        "existing_phone_item_semantic_rows_preserved": 2351,
+        "original_self_check": "20/21 historical, one claimed-pass additionally contradicted by R1; old output not modified",
+        "cleanup": "5/5 historical retained",
+        "product_outcome": "partial, C publication failed; resend not-run; no product PASS",
+        "limitations": [
+          "No root-cause/product-fix determination",
+          "E11 resend/cut replacement, E07, healthy A/B/C full isolation and main-chain product publication unverified",
+          "Non-atomic c-return DB backup failure retained; final stopped snapshots ok",
+          "No fresh binary attestation, real E2E rerun or independent review"
+        ]
+      },
+      "remaining_work": [
+        "S5-R1 requires evidence-only append correction before clean S5 evidence review",
+        "C parent catalog analysis failure and A desynced state remain unresolved; no source repair authority inferred",
+        "Resend/replace and E07 fixture coverage remains unavailable under current scope",
+        "No review disposition, S5 finish, S6 execution or task close performed",
+        "Three historical unrelated management association issues remain unchanged"
+      ],
+      "next_route": "execute-step",
+      "next_mode": "repair",
+      "files": [
+        "logs/e2e-validation-20261004/s5-review/report.md",
+        "logs/e2e-validation-20261004/s5-review/audit.json"
+      ]
+    },
+    "files": [
+      "logs/e2e-validation-20261004/s5-review/report.md",
+      "logs/e2e-validation-20261004/s5-review/audit.json"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-26ddca1b4078a7ec73313b6c7dc8a8cc45d37592dbadb757bf18a01a0e7b3332.json",
+        ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S5",
+        "execution_ref": ".workflow-system/records/events/key-26ddca1b4078a7ec73313b6c7dc8a8cc45d37592dbadb757bf18a01a0e7b3332.json",
+        "source_revision": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+        "verdict": "changes_requested",
+        "provenance": "same-agent self-review of exact S5 execution and retained evidence; not independent review; no device/model/service or business-test rerun",
+        "findings": [
+          {
+            "id": "S5-R1",
+            "priority": 2,
+            "status": "open",
+            "title": "history_base extractor ignores SessionMeta field, causing false absence and false-positive evidence check",
+            "file": "logs/e2e-validation-20261004/s5/observe.cjs",
+            "line": 42,
+            "description": "All 12 C source snapshots contain session_meta.payload.history_base {thread_id:A,end_ordinal_exclusive:83,end_byte_offset:491301}, while sourceEvidence only selects top-level type=history_base. Summaries incorrectly emit [], check.cjs:33 passes that omission, and report.md:23 incorrectly states history_base absent. Actual source headers/hashes and cut metadata contradict the byte-intact summaries. This changes the Branch/source evidence interpretation without making C a resend or proving product publication.",
+            "related_locations": [
+              "logs/e2e-validation-20261004/s5/check.cjs:33",
+              "logs/e2e-validation-20261004/s5/report.md:23"
+            ],
+            "evidence_ref": "logs/e2e-validation-20261004/s5-review/audit.json",
+            "recommended_repair": "Append-only offline extraction, corrected summary/report and necessary self-check from retained private snapshots; preserve all original files/events/blob hashes and failures; no product source, new model turn, device/service rerun or resource changes."
+          }
+        ],
+        "coverage": {
+          "layer": "read-only evidence correctness/scope review, not new E2E execution",
+          "attachment_count": 8,
+          "retained_file_checks": 232,
+          "byte_mismatches": 0,
+          "phase_count": 13,
+          "C_source_snapshots_with_missed_history_base": 12,
+          "C_run_report_hashes_verified": 3,
+          "IPC_excerpt_phases_verified": 3,
+          "existing_phone_item_semantic_rows_preserved": 2351,
+          "original_self_check": "20/21 historical, one claimed-pass additionally contradicted by R1; old output not modified",
+          "cleanup": "5/5 historical retained",
+          "product_outcome": "partial, C publication failed; resend not-run; no product PASS",
+          "limitations": [
+            "No root-cause/product-fix determination",
+            "E11 resend/cut replacement, E07, healthy A/B/C full isolation and main-chain product publication unverified",
+            "Non-atomic c-return DB backup failure retained; final stopped snapshots ok",
+            "No fresh binary attestation, real E2E rerun or independent review"
+          ]
+        },
+        "remaining_work": [
+          "S5-R1 requires evidence-only append correction before clean S5 evidence review",
+          "C parent catalog analysis failure and A desynced state remain unresolved; no source repair authority inferred",
+          "Resend/replace and E07 fixture coverage remains unavailable under current scope",
+          "No review disposition, S5 finish, S6 execution or task close performed",
+          "Three historical unrelated management association issues remain unchanged"
+        ],
+        "next_route": "execute-step",
+        "next_mode": "repair",
+        "files": [
+          "logs/e2e-validation-20261004/s5-review/report.md",
+          "logs/e2e-validation-20261004/s5-review/audit.json"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

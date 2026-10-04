@@ -1,0 +1,86 @@
+'use strict';
+// S5 bounded evidence captures only. Never sends a turn, ACK or analyzer request.
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { spawnSync } = require('node:child_process');
+const out = __dirname;
+const priv = path.join(out, 'private');
+const A = '01a0fe25-56a2-7910-ba22-61e8016e8ad9';
+const phase = process.argv[2];
+const C = process.argv[3];
+if (!/^[a-z0-9-]+$/.test(phase || '') || (C && !/^[a-f0-9-]{36}$/.test(C))) throw Error('Unique phase and exact C required');
+fs.mkdirSync(priv, { recursive: true });
+const sha = b => crypto.createHash('sha256').update(b).digest('hex');
+const save = (name, value) => fs.writeFileSync(path.join(out, name), JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
+function run(exe, args) {
+  const r = spawnSync(exe, args, { encoding: 'utf8', windowsHide: true, timeout: 30000 });
+  return { exit: r.status, stdout: r.stdout?.trim(), stderr: r.stderr?.trim() };
+}
+const adb = args => run('adb', ['-s', 'MQS7N19402011743', ...args]);
+function capture(args, name) {
+  const p = path.join(priv, name), fd = fs.openSync(p, 'wx');
+  let r;
+  try { r = spawnSync('adb', ['-s', 'MQS7N19402011743', ...args], { stdio: ['ignore', fd, 'pipe'], windowsHide: true, timeout: 30000 }); }
+  finally { fs.closeSync(fd); }
+  if (r.status !== 0) throw Error('ADB capture failed: ' + r.status);
+  return { path: p, sha256: sha(fs.readFileSync(p)), bytes: fs.statSync(p).size };
+}
+function sourceEvidence(id, date) {
+  const dir = path.join('C:/Users/kongx/.codex/sessions/2026/10', date);
+  const candidates = fs.readdirSync(dir).filter(n => n.endsWith(id + '.jsonl'));
+  if (candidates.length !== 1) return { conversation_id: id, candidates: candidates.length, qualification: 'not uniquely located' };
+  const file = path.join(dir, candidates[0]), bytes = fs.readFileSync(file);
+  if (bytes.length > 8 * 1024 * 1024) throw Error('S5 source inspection exceeds 8MiB');
+  const records = bytes.toString('utf8').trim().split('\n').map(line => JSON.parse(line));
+  const meta = records.find(r => r.type === 'session_meta')?.payload;
+  if (meta?.id !== id) throw Error('Source header binding mismatch');
+  fs.copyFileSync(file, path.join(priv, phase + '-' + id + '.jsonl'), fs.constants.COPYFILE_EXCL);
+  const lastContext = records.filter(r => r.type === 'turn_context').at(-1)?.payload;
+  return { conversation_id: id, sha256: sha(bytes), bytes: bytes.length, session_meta: { id: meta.id, forked_from_id: meta.forked_from_id ?? null },
+    last_turn_id: lastContext?.turn_id, user_messages: records.filter(r => r.type === 'response_item' && r.payload?.type === 'message' && r.payload.role === 'user').length,
+    history_bases: records.filter(r => r.type === 'history_base').map(r => r.payload),
+    event_counts: records.reduce((a, r) => { a[r.type] = (a[r.type] || 0) + 1; return a; }, {}) };
+}
+async function main() {
+  const result = { phase, at: new Date().toISOString(), head: run('git', ['rev-parse', 'HEAD']).stdout,
+    phone: { state: adb(['get-state']), pid: adb(['shell', 'pidof', 'com.termlink.app']), reverse: adb(['reverse', '--list']), power: adb(['shell', 'dumpsys', 'power']).stdout?.match(/mWakefulness=\S+/)?.[0] } };
+  if (result.phone.state.stdout !== 'device') throw Error('Selected phone unavailable');
+  result.sources = [sourceEvidence(A, '03'), ...(C ? [sourceEvidence(C, '04')] : [])];
+  result.backup = capture(['exec-out', 'run-as', 'com.termlink.app', 'tar', '-cf', '-', 'databases', 'shared_prefs'], phase + '.tar');
+  const extracted = path.join(priv, phase); fs.mkdirSync(extracted);
+  if (run('tar', ['-xf', result.backup.path, '-C', extracted]).exit !== 0) throw Error('tar extract failed');
+  const SQL = await require('sql.js')();
+  const rows = (db, query) => { const r = db.exec(query)[0]; return r ? r.values.map(v => Object.fromEntries(r.columns.map((c, i) => [c, v[i]]))) : []; };
+  const phoneBytes = fs.readFileSync(path.join(extracted, 'databases/codex_conversations.db'));
+  const phone = new SQL.Database(phoneBytes); phone.run('PRAGMA query_only=ON');
+  result.phone.database = { sha256: sha(phoneBytes), quick_check: rows(phone, 'PRAGMA quick_check'), counts: rows(phone, 'SELECT conversation_id,count(*) n FROM items GROUP BY conversation_id'),
+    conversations: rows(phone, 'SELECT conversation_id,item_count,complete,provider_mode,coverage_state FROM conversations'),
+    pages: rows(phone, 'SELECT sync_id,sequence,page_index,page_hash,completed_at FROM sync_completed_pages') };
+  phone.close();
+  result.preference_hashes = Object.fromEntries(fs.readdirSync(path.join(extracted, 'shared_prefs')).filter(n => n.endsWith('.xml')).map(n => [n, sha(fs.readFileSync(path.join(extracted, 'shared_prefs', n)))]));
+  const productFile = 'logs/task005-s2-repair-runtime-2/data/codex-history.sqlite';
+  const bytes = fs.readFileSync(productFile); fs.writeFileSync(path.join(priv, phase + '-product.sqlite'), bytes, { flag: 'wx' });
+  const product = new SQL.Database(bytes); product.run('PRAGMA query_only=ON');
+  result.product = { sha256: sha(bytes), quick_check: rows(product, 'PRAGMA quick_check'), canonical_digest: sha(JSON.stringify(rows(product, 'SELECT * FROM history_items ORDER BY conversation_id,item_key'))),
+    counts: rows(product, 'SELECT conversation_id,count(*) n FROM history_items GROUP BY conversation_id'),
+    target_tables: Object.fromEntries([A, ...(C ? [C] : [])].map(id => [id, Object.fromEntries(['conversations', 'history_items', 'tool_details', 'analysis_checkpoints', 'publication_receipts'].map(t => [t, rows(product, `SELECT count(*) n FROM ${t} WHERE conversation_id='${id}'`)[0].n]))])) };
+  product.close();
+  const runDir = 'logs/task005-s2-repair-runtime-2/data/codex-rollout-runs';
+  result.runs = fs.readdirSync(runDir).filter(n => n.endsWith('.json')).map(n => { const b = fs.readFileSync(path.join(runDir, n)), r = JSON.parse(b); return { file: n, sha256: sha(b), conversation_id: r.conversation_id, status: r.status, error: r.error }; });
+  if (/^\d+$/.test(result.phone.pid.stdout || '')) {
+    result.logcat = capture(['logcat', '--pid=' + result.phone.pid.stdout, '-d', '-v', 'threadtime'], phase + '-logcat.txt');
+    const dump = adb(['shell', 'uiautomator', 'dump', '/data/local/tmp/termlink-e2e-s5-' + phase + '.xml']);
+    if (dump.exit === 0) {
+      result.ui = capture(['exec-out', 'cat', '/data/local/tmp/termlink-e2e-s5-' + phase + '.xml'], phase + '.xml');
+      result.screenshot = capture(['exec-out', 'screencap', '-p'], phase + '.png');
+      const xml = fs.readFileSync(result.ui.path, 'utf8');
+      result.edit_text_lengths = [...xml.matchAll(/<node\b[^>]*>/g)].filter(m => m[0].includes('class="android.widget.EditText"')).map(m => (m[0].match(/\btext="([^"]*)"/)?.[1] || '').length);
+      result.ui_labels = { connected: xml.includes('已连接'), C_marker: xml.includes('E2E-S5-C-DONE'), A_marker: xml.includes('E2E-S4-A3-DONE') };
+    }
+  }
+  result.limitations = ['Live backup is not a quiesced atomic transaction snapshot.', 'Only header binding establishes source identity; file name is a candidate index.', 'No ordinary UserMessage or parent relationship inferred from copied content.', 'Raw DB/prefs/rollout/UI/logcat remain private ignored; clipboard not operated.'];
+  save(phase + '.json', result);
+  console.log(JSON.stringify({ phase, sources: result.sources, product: result.product, phone_pid: result.phone.pid.stdout, power: result.phone.power, ui: result.ui_labels, drafts: result.edit_text_lengths }));
+}
+main().catch(e => { console.error(e.stack); process.exitCode = 1; });

@@ -1,0 +1,465 @@
+{
+  "kind": "S5-R1-repair-review-read-only-audit",
+  "provenance": "same-agent self-review; no independent review or new E2E run",
+  "source_revision": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+  "prior_preservation": {
+    "files_checked": 920,
+    "mismatches": [],
+    "inventory_sha256": "a41313ff02635530a62fb7d1e4075bb90970b6ea2578585bde9a2f53d6d6b5a1"
+  },
+  "repair_attachments": {
+    "count": 9,
+    "byte_checks": 18,
+    "mismatches": [],
+    "checks": [
+      {
+        "path": "logs/e2e-validation-20261004/s5-repair-r1/report.md",
+        "sha256": "c0c400fa1c4d18642d89ec67cc8e4fcb7b9d2f454f9328d7a395af59244839ab",
+        "bytes": 5353,
+        "matched": true
+      },
+      {
+        "path": ".workflow-system/records/evidence-objects/c0c400fa1c4d18642d89ec67cc8e4fcb7b9d2f454f9328d7a395af59244839ab.blob",
+        "sha256": "c0c400fa1c4d18642d89ec67cc8e4fcb7b9d2f454f9328d7a395af59244839ab",
+        "bytes": 5353,
+        "matched": true
+      },
+      {
+        "path": "logs/e2e-validation-20261004/s5-repair-r1/corrected-summary.json",
+        "sha256": "a00915f17aa706ad747dfee99f0d389f856aa8b5e3572405a0b91926c021b031",
+        "bytes": 30561,
+        "matched": true
+      },
+      {
+        "path": ".workflow-system/records/evidence-objects/a00915f17aa706ad747dfee99f0d389f856aa8b5e3572405a0b91926c021b031.blob",
+        "sha256": "a00915f17aa706ad747dfee99f0d389f856aa8b5e3572405a0b91926c021b031",
+        "bytes": 30561,
+        "matched": true
+      },
+      {
+        "path": "logs/e2e-validation-20261004/s5-repair-r1/self-check.json",
+        "sha256": "49dc94a10d95757a1ca66848ece094d157f28c3187dc869e67248837414f2955",
+        "bytes": 3249,
+        "matched": true
+      },
+      {
+        "path": ".workflow-system/records/evidence-objects/49dc94a10d95757a1ca66848ece094d157f28c3187dc869e67248837414f2955.blob",
+        "sha256": "49dc94a10d95757a1ca66848ece094d157f28c3187dc869e67248837414f2955",
+        "bytes": 3249,
+        "matched": true
+      },
+      {
+        "path": "logs/e2e-validation-20261004/s5-repair-r1/self-check-final.json",
+        "sha256": "e7693f301ace7a9ca57f5ff4dd4ddf1016daa98b01d4b01cddffbfea115df1d2",
+        "bytes": 2564,
+        "matched": true
+      },
+      {
+        "path": ".workflow-system/records/evidence-objects/e7693f301ace7a9ca57f5ff4dd4ddf1016daa98b01d4b01cddffbfea115df1d2.blob",
+        "sha256": "e7693f301ace7a9ca57f5ff4dd4ddf1016daa98b01d4b01cddffbfea115df1d2",
+        "bytes": 2564,
+        "matched": true
+      },
+      {
+        "path": "logs/e2e-validation-20261004/s5-repair-r1/preservation-check.json",
+        "sha256": "693a25de6d5a9838defcc2882b06c9341452e18e39e2f8a81912307f65071958",
+        "bytes": 304,
+        "matched": true
+      },
+      {
+        "path": ".workflow-system/records/evidence-objects/693a25de6d5a9838defcc2882b06c9341452e18e39e2f8a81912307f65071958.blob",
+        "sha256": "693a25de6d5a9838defcc2882b06c9341452e18e39e2f8a81912307f65071958",
+        "bytes": 304,
+        "matched": true
+      },
+      {
+        "path": "logs/e2e-validation-20261004/s5-repair-r1/original-files.json",
+        "sha256": "a41313ff02635530a62fb7d1e4075bb90970b6ea2578585bde9a2f53d6d6b5a1",
+        "bytes": 217692,
+        "matched": true
+      },
+      {
+        "path": ".workflow-system/records/evidence-objects/a41313ff02635530a62fb7d1e4075bb90970b6ea2578585bde9a2f53d6d6b5a1.blob",
+        "sha256": "a41313ff02635530a62fb7d1e4075bb90970b6ea2578585bde9a2f53d6d6b5a1",
+        "bytes": 217692,
+        "matched": true
+      },
+      {
+        "path": "logs/e2e-validation-20261004/s5-repair-r1/extract.cjs",
+        "sha256": "36829d122615be5010814136bd1755117e3ee927734e34865fa0ac236a2bedef",
+        "bytes": 7015,
+        "matched": true
+      },
+      {
+        "path": ".workflow-system/records/evidence-objects/36829d122615be5010814136bd1755117e3ee927734e34865fa0ac236a2bedef.blob",
+        "sha256": "36829d122615be5010814136bd1755117e3ee927734e34865fa0ac236a2bedef",
+        "bytes": 7015,
+        "matched": true
+      },
+      {
+        "path": "logs/e2e-validation-20261004/s5-repair-r1/check.cjs",
+        "sha256": "8aefd60d11dce8614f85b99440039773221e0e0b9282e7cab21e646b377e2261",
+        "bytes": 7116,
+        "matched": true
+      },
+      {
+        "path": ".workflow-system/records/evidence-objects/8aefd60d11dce8614f85b99440039773221e0e0b9282e7cab21e646b377e2261.blob",
+        "sha256": "8aefd60d11dce8614f85b99440039773221e0e0b9282e7cab21e646b377e2261",
+        "bytes": 7116,
+        "matched": true
+      },
+      {
+        "path": "logs/e2e-validation-20261004/s5-repair-r1/preserve.cjs",
+        "sha256": "506a73151867bce30491d4f5dd7916d9d6003d7d842b7684445bad25e0cd7c11",
+        "bytes": 2404,
+        "matched": true
+      },
+      {
+        "path": ".workflow-system/records/evidence-objects/506a73151867bce30491d4f5dd7916d9d6003d7d842b7684445bad25e0cd7c11.blob",
+        "sha256": "506a73151867bce30491d4f5dd7916d9d6003d7d842b7684445bad25e0cd7c11",
+        "bytes": 2404,
+        "matched": true
+      }
+    ]
+  },
+  "raw_header_check": {
+    "phases": 13,
+    "sources": 25,
+    "C_nested_history_bases": 12,
+    "observations": [
+      {
+        "phase": "before",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "c-first",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "c-first",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "7a654cc2f07d79263677c133d38b2e848f7637dc5eb3abe4bde1a40efa9eb4e4",
+        "bytes": 22665,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "c-terminal",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "c-terminal",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "c-settled",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "c-settled",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "c-cold",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "c-cold",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "c-visible",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "c-visible",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "c-valid-session",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "c-valid-session",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "c-final-visible",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "c-final-visible",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "a-return",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "a-return",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "c-return",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "c-return",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "restored",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "restored",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "restore-active-a",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "restore-active-a",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      },
+      {
+        "phase": "restored-final",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sha256": "360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3",
+        "bytes": 491301,
+        "session_meta_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "history_base": null
+      },
+      {
+        "phase": "restored-final",
+        "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "sha256": "3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58",
+        "bytes": 35305,
+        "session_meta_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+        "history_base": {
+          "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+          "end_ordinal_exclusive": 83,
+          "end_byte_offset": 491301
+        }
+      }
+    ]
+  },
+  "extract_reproduces_saved_JSON": true,
+  "checker_read_only_verification": {
+    "passed": 21,
+    "total": 21,
+    "exact_saved_output": true,
+    "intercepted_write_attempts": 1,
+    "actual_file_writes": 0,
+    "method": "Execute unchanged checker via same-realm compileFunction; final report write intercepted; retained files only"
+  },
+  "review_harness_diagnostic": {
+    "initial_command_exit_code": 1,
+    "initial_cross_realm_checker_passed": 20,
+    "total": 21,
+    "reproduced_cross_realm_failure": [
+      {
+        "name": "Real retained nested header parsed independently",
+        "passed": false,
+        "diagnostic": "Values have same structure but are not reference-equal:\n\n{\n  end_byte_offset: 491301,\n  end_ordinal_exclusive: 83,\n  thread_id: '01a0fe25-56a2-7910-ba22-61e8016e8ad9'\n}\n"
+      }
+    ],
+    "cause": "Review harness runInNewContext used a different Object prototype from imported parseSource; deepStrictEqual rejected otherwise identical objects. Same-realm unchanged checker reproduces saved 21/21.",
+    "product_or_evidence_edit": false
+  },
+  "initial_repair_checker_failure_retained": {
+    "passed": 20,
+    "total": 21,
+    "failed_checks": [
+      "Offline extraction reproduces exact saved correction"
+    ]
+  },
+  "original_S5_self_check": {
+    "passed": 20,
+    "total": 21,
+    "history_base_claim": "historical false-positive retained, explicitly superseded"
+  },
+  "qualifications": {
+    "native_branch": "C has its own canonical conversation ID and native fork provenance; structured history_base points to A.",
+    "source_binding_and_cut": "Exact retained header/hash and bounded parent prefix metadata observed.",
+    "resend": "not-run; no new ordinary A terminal user fixture or resend child was executed",
+    "replacement": "unverified; Branch cut metadata is not a resend replacement sample",
+    "rust_transition_lineage_coverage": "unverified; local cut observation is not protocol validation or catalog completeness",
+    "projection_and_product_publication": "failed/not published; original three C analysis_failed reports and absent A/C canonical retained",
+    "e07_and_healthy_ABC": "unverified; no new detail sample, A remains desynced"
+  },
+  "retained_product_failures": [
+    {
+      "status": "failed",
+      "error": {
+        "code": "analysis_failed",
+        "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "retryable": false,
+        "fatal": false
+      }
+    },
+    {
+      "status": "failed",
+      "error": {
+        "code": "analysis_failed",
+        "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "retryable": false,
+        "fatal": false
+      }
+    },
+    {
+      "status": "failed",
+      "error": {
+        "code": "analysis_failed",
+        "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "retryable": false,
+        "fatal": false
+      }
+    }
+  ],
+  "architecture_sha256": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+  "excluded_actions": [
+    "No product code or old evidence writes",
+    "No device/model/service/Rust/live DB/source commands",
+    "No stage/commit/push; no S5 finish/S6/task close"
+  ],
+  "git_read_only_observation": {
+    "head": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+    "tracked_worktree_diff_paths": [],
+    "staged_diff_paths": [],
+    "git_writes": false
+  }
+}

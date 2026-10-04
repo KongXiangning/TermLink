@@ -1,0 +1,28 @@
+{
+  "event_ref": ".workflow-system/records/events/key-55de26d96e1b7e00a1e0fa408c6919d3ad841c8f42485934d40d1bd39d63b0d0.json",
+  "captured_at": "2026-10-04T09:58:23.786Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fc4d0bd34660e26a5e56ce39ddc3c6e0e067a295d6822e2c66933a2dc01d963a.blob",
+      "sha256": "fc4d0bd34660e26a5e56ce39ddc3c6e0e067a295d6822e2c66933a2dc01d963a",
+      "size": 4250,
+      "source_path": "logs/e2e-validation-20261004/s5-review/report.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2a76e29f186f3163f8a314ba9b173fd23f77f195ab6ca251848c3c2b669e578a.blob",
+      "sha256": "2a76e29f186f3163f8a314ba9b173fd23f77f195ab6ca251848c3c2b669e578a",
+      "size": 4056,
+      "source_path": "logs/e2e-validation-20261004/s5-review/audit.json",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "kind": "S5-R1-offline-correction-self-check",
+  "passed": 21,
+  "total": 21,
+  "checks": [
+    {
+      "name": "Offline extraction reproduces exact saved JSON correction",
+      "passed": true
+    },
+    {
+      "name": "All 13 phases and 25 source bindings retained",
+      "passed": true
+    },
+    {
+      "name": "All 12 C snapshots expose SessionMeta history_base",
+      "passed": true
+    },
+    {
+      "name": "C exact canonical id distinct from parent A",
+      "passed": true
+    },
+    {
+      "name": "Correct field named; zero top-level events no longer implies absent",
+      "passed": true
+    },
+    {
+      "name": "Historical omitted arrays preserved as original, not normalized truth",
+      "passed": true
+    },
+    {
+      "name": "All C bounded parent/cut observations match A header and prefix",
+      "passed": true
+    },
+    {
+      "name": "All retained A headers preserve root absence and source hash",
+      "passed": true
+    },
+    {
+      "name": "Branch metadata not relabeled as resend/replacement/Rust PASS",
+      "passed": true
+    },
+    {
+      "name": "Historical 20/21 and disputed false-positive both retained",
+      "passed": true
+    },
+    {
+      "name": "Original c-return copy failure and cleanup 5/5 retained",
+      "passed": true
+    },
+    {
+      "name": "All three C failed reports retained without a new success",
+      "passed": true
+    },
+    {
+      "name": "Old canonical digest retained from original cleanup observation",
+      "passed": true
+    },
+    {
+      "name": "Real retained nested header parsed independently",
+      "passed": true
+    },
+    {
+      "name": "Wrong target canonical id rejected",
+      "passed": true
+    },
+    {
+      "name": "Duplicate SessionMeta rejected",
+      "passed": true
+    },
+    {
+      "name": "Malformed history_base array rejected",
+      "passed": true
+    },
+    {
+      "name": "Unsafe byte offset rejected",
+      "passed": true
+    },
+    {
+      "name": "Negative ordinal rejected",
+      "passed": true
+    },
+    {
+      "name": "Invalid parent identity rejected",
+      "passed": true
+    },
+    {
+      "name": "Absent optional field distinguished from malformed field",
+      "passed": true
+    }
+  ],
+  "repaired_finding": "S5-R1 addressed by new extraction; pending formal change review",
+  "product_e2e_result": "unchanged partial; resend not-run; C publication failed",
+  "qualification": "These checks concern offline evidence correction, not Node/Android regressions, independent review, Rust completeness or new E2E execution."
+}
