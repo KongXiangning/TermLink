@@ -1,0 +1,25 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const {spawnSync}=require('node:child_process');
+const out=__dirname,sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+const probe=JSON.parse(fs.readFileSync(path.join(out,'probe-results.json'))),wire=JSON.parse(fs.readFileSync(path.join(out,'private/wire.json')));
+const page=wire.find(m=>m.type==='conversation_history_delta' && m.syncId===probe.product_page.syncId);
+const computed=require('../../../src/services/codexHistorySyncService').computeHistoryPageHash(page);
+const apk=spawnSync('adb',['-s','MQS7N19402011743','shell','pm','path','com.termlink.app'],{encoding:'utf8',windowsHide:true,timeout:10000});
+const installedPath=apk.stdout.trim().replace(/^package:/,'');
+if(!installedPath.startsWith('/data/app/') || installedPath.includes('\n'))throw Error('Unexpected APK path');
+const deviceHash=spawnSync('adb',['-s','MQS7N19402011743','shell','sha256sum',installedPath],{encoding:'utf8',windowsHide:true,timeout:10000}).stdout.trim().split(/\s+/)[0];
+const binaries=['native/codex-rollout-collector/target/debug/codex-rollout-collector.exe','android/app/build/outputs/apk/debug/app-debug.apk'].map(file=>({file,sha256:sha(fs.readFileSync(file)),bytes:fs.statSync(file).size}));
+const checks=[{name:'actual wire pageHash matches current shared algorithm',passed:computed===page.pageHash},
+ {name:'installed APK hash matches local/S4/S5',passed:deviceHash===binaries[1].sha256 && deviceHash==='a3d60ef2e4506950ca44f7b5ec1eaf777f32dbccda13532416e1c5eb9da9505f'},
+ {name:'debug analyzer matches original S4/S5 binary',passed:binaries[0].sha256==='81a4448219a17cbe54ed827af3214205d49820033275a32d1f8ff46a11599564'}];
+const evidence=JSON.parse(fs.readFileSync(path.join(out,'evidence-index.json')));
+const mismatches=evidence.files.filter(f=>!fs.existsSync(f.path) || sha(fs.readFileSync(f.path))!==f.sha256);
+checks.push({name:'all summary-index evidence hashes still match',passed:mismatches.length===0});
+const result={at:new Date().toISOString(),checks,passed:checks.filter(c=>c.passed).length,total:checks.length,binaries,installed_apk_sha256:deviceHash,
+ page:{syncId:page.syncId,pageIndex:page.pageIndex,sequence:page.sequence,declared_hash:page.pageHash,computed_hash:computed},evidence_mismatches:mismatches,
+ qualification:'Environment supplement: analyzer is the actual debug artifact; initial environment.json listed only APK because release path does not exist. These are evidence self-checks, not new E2E tests or formal review.'};
+fs.writeFileSync(path.join(out,'final-checks.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+const files=['report.md','matrix.json','environment.json','probe-results.json','assessment.json','assessment-failed.json','probe-initial-error.json','probe-failed.json','preservation-check.json','node-focused.txt','service-stop.txt','service-final.txt','evidence-index.json','final-checks.json','probe.cjs','assess.cjs','summarize.cjs','preserve.cjs','final-check.cjs'];
+fs.writeFileSync(path.join(out,'final-index.json'),JSON.stringify({files:files.map(f=>{const file=path.join(out,f),b=fs.readFileSync(file);return{path:file.replaceAll('\\','/'),sha256:sha(b),bytes:b.length};}),raw_private_excluded:true},null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({passed:result.passed,total:result.total}));if(result.passed!==result.total)process.exitCode=1;

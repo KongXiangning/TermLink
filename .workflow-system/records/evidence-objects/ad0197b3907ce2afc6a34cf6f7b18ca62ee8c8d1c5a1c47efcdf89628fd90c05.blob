@@ -1,0 +1,69 @@
+{
+  "at": "2026-10-04T15:43:10.346Z",
+  "layer": "offline assessment of retained actual wire and read-only DB snapshots",
+  "checks": [
+    {
+      "name": "wire original digest",
+      "passed": true
+    },
+    {
+      "name": "correct DB miss cache-only/no-body",
+      "passed": true
+    },
+    {
+      "name": "same original product bytes/canonical since S5",
+      "passed": true
+    },
+    {
+      "name": "read-only snapshot quick check",
+      "passed": true
+    },
+    {
+      "name": "unique persisted item rate-limit:ordinal-187:1",
+      "passed": true
+    }
+  ],
+  "correction": {
+    "original_report": "probe-results.json",
+    "original_passed": 11,
+    "original_total": 12,
+    "incorrect_expected_state": "failed",
+    "actual_state": "cache_only",
+    "detailCode": "history_product_not_found",
+    "reason": "Existing product-only miss deliberately preserves cache. Original failed assertion remains; no HTTP/WS rerun."
+  },
+  "product": {
+    "sha256": "18dbacc5f9ae95f9087712053b0d1afb2a0c6b4295eab986ce3f50b94ee5d7e5",
+    "stable_copy": true,
+    "quick_check": [
+      {
+        "quick_check": "ok"
+      }
+    ],
+    "canonical_digest": "ee92b2dcc3a58ae94278d01c5d0ee32d151670c133f24ef3ae118ebb97b81ebd",
+    "counts": [
+      {
+        "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+        "n": 98
+      }
+    ],
+    "targets": {
+      "01a0fe25-56a2-7910-ba22-61e8016e8ad9": {
+        "conversations": 0,
+        "history_items": 0,
+        "tool_details": 0,
+        "analysis_checkpoints": 0,
+        "publication_receipts": 0
+      },
+      "01a10643-ae9b-7cb1-b99b-f19f59acba6c": {
+        "conversations": 0,
+        "history_items": 0,
+        "tool_details": 0,
+        "analysis_checkpoints": 0,
+        "publication_receipts": 0
+      }
+    }
+  },
+  "dto": [],
+  "failure": "require(...).canonicalize is not a function"
+}

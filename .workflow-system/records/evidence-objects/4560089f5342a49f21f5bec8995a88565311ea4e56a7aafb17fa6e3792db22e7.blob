@@ -1,0 +1,71 @@
+'use strict';
+// Read-only retained-wire/SQLite evidence check. Does not repeat network or product actions.
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { spawnSync } = require('node:child_process');
+const out=__dirname, priv=path.join(out,'private');
+const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+const save=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
+const result={at:new Date().toISOString(),layer:'offline assessment of retained actual wire and read-only DB snapshots',checks:[]};
+const check=(name,passed)=>result.checks.push({name,passed:!!passed});
+const run=(exe,args)=>{const r=spawnSync(exe,args,{encoding:'utf8',windowsHide:true,timeout:30000});return {exit:r.status,stdout:r.stdout?.trim(),stderr:r.stderr?.trim()};};
+async function main() {
+  const probe=JSON.parse(fs.readFileSync(path.join(out,'probe-results.json'))),wireBytes=fs.readFileSync(path.join(priv,'wire.json')),wire=JSON.parse(wireBytes);
+  check('wire original digest',sha(wireBytes)===probe.private_wire.sha256);
+  const miss=wire.find(m=>m.syncId===probe.product_miss.syncId && m.type==='conversation_history_sync_state');
+  check('correct DB miss cache-only/no-body',miss?.state==='cache_only' && miss.detailCode==='history_product_not_found' && probe.product_miss.body_frames===0);
+  result.correction={original_report:'probe-results.json',original_passed:probe.passed,original_total:probe.total,incorrect_expected_state:'failed',actual_state:miss?.state,detailCode:miss?.detailCode,reason:'Existing product-only miss deliberately preserves cache. Original failed assertion remains; no HTTP/WS rerun.'};
+  const SQL=await require('sql.js')();
+  const current='logs/task005-s2-repair-runtime-2/data/codex-history.sqlite',bytes=fs.readFileSync(current);
+  if (!fs.existsSync(path.join(priv,'product.sqlite'))) fs.writeFileSync(path.join(priv,'product.sqlite'),bytes,{flag:'wx'});
+  check('preserved first snapshot still matches current product',sha(fs.readFileSync(path.join(priv,'product.sqlite')))===sha(bytes));
+  const db=new SQL.Database(bytes);db.run('PRAGMA query_only=ON');
+  const rows=(sql,args=[])=>{const s=db.prepare(sql);s.bind(args);const list=[];while(s.step())list.push(s.getAsObject());s.free();return list;};
+  result.product={sha256:sha(bytes),stable_copy:sha(fs.readFileSync(current))===sha(bytes),quick_check:rows('PRAGMA quick_check'),
+    canonical_digest:sha(JSON.stringify(rows('SELECT * FROM history_items ORDER BY conversation_id,item_key'))),
+    counts:rows('SELECT conversation_id,count(*) n FROM history_items GROUP BY conversation_id'),
+    targets:Object.fromEntries(['01a0fe25-56a2-7910-ba22-61e8016e8ad9','01a10643-ae9b-7cb1-b99b-f19f59acba6c'].map(id=>[id,Object.fromEntries(['conversations','history_items','tool_details','analysis_checkpoints','publication_receipts'].map(t=>[t,rows('SELECT count(*) n FROM '+t+' WHERE conversation_id=?',[id])[0].n]))]))};
+  const prior=JSON.parse(fs.readFileSync('logs/e2e-validation-20261004/s5/final-cleanup.json'));
+  check('same original product bytes/canonical since S5',sha(bytes)===prior.final_product.sha256 && result.product.canonical_digest===prior.final_product.canonical_digest);
+  check('read-only snapshot quick check',result.product.stable_copy && result.product.quick_check[0].quick_check==='ok');
+  const page=wire.find(m=>m.type==='conversation_history_delta' && m.syncId===probe.product_page.syncId);
+  const forbidden=['source_id','source_epoch','source_ref','job_id','batch_id','segment_id','checkpoint','next_cursor','staging','deliveryIdentity'];
+  result.dto=[];
+  for(const item of page.upserts) {
+    const physical=rows('SELECT payload_json FROM history_items WHERE conversation_id=? AND item_key=?',[page.conversationId,item.itemKey]);
+    check('unique persisted item '+item.itemKey,physical.length===1);
+    if(item.payloadChunkCount)throw Error('Unexpected chunked item; use original hash-checked reconstruction rather than omit it');
+    const payload=JSON.parse(item.payloadJson), stored=JSON.parse(physical[0].payload_json);
+    const payloadSame=require('node:util').isDeepStrictEqual(payload,stored);
+    check('same business payload DB→wire '+item.itemKey,payloadSame);
+    const outerKeys=forbidden.filter(k=>Object.hasOwn(item,k));
+    const keys=forbidden.filter(k=>Object.hasOwn(payload,k));
+    result.dto.push({itemKey:item.itemKey,outer_internal_keys:outerKeys,top_payload_collection_keys:keys,payload_equal:payloadSame,
+      business_field_paths:collectBusiness(payload),payload_bytes:Buffer.byteLength(item.payloadJson),payload_sha256:sha(Buffer.from(item.payloadJson))});
+    check('collector envelope absent '+item.itemKey,outerKeys.length===0);
+  }
+  const runsDir='logs/task005-s2-repair-runtime-2/data/codex-rollout-runs';
+  result.runs=fs.readdirSync(runsDir).filter(f=>f.endsWith('.json')).map(f=>{const b=fs.readFileSync(path.join(runsDir,f)),r=JSON.parse(b);return {file:f,sha256:sha(b),status:r.status,conversation_id:r.conversation_id,error_code:r.error?.code};});
+  result.nonterminal_runs=result.runs.filter(r=>!['completed','failed','cancelled'].includes(r.status));
+  const before=JSON.parse(fs.readFileSync(path.join(out,'original-files.json'))).files.filter(f=>f.path.startsWith(runsDir+'/'));
+  check('no collector request added by read probes',before.length===result.runs.length && before.every(f=>result.runs.some(r=>r.file===path.basename(f.path) && r.sha256===f.sha256)));
+  db.close();
+  result.phone={state:run('adb',['-s','MQS7N19402011743','get-state']),pid:run('adb',['-s','MQS7N19402011743','shell','pidof','com.termlink.app']),reverse:run('adb',['-s','MQS7N19402011743','reverse','--list'])};
+  const backup=path.join(priv,'phone.tar'),fd=fs.openSync(backup,'wx');let p;
+  try{p=spawnSync('adb',['-s','MQS7N19402011743','exec-out','run-as','com.termlink.app','tar','-cf','-','databases','shared_prefs'],{stdio:['ignore',fd,'pipe'],windowsHide:true,timeout:30000});}finally{fs.closeSync(fd);}
+  if(p.status!==0)throw Error('phone read backup failed');
+  const extracted=path.join(priv,'phone');fs.mkdirSync(extracted);if(run('tar',['-xf',backup,'-C',extracted]).exit!==0)throw Error('extract failed');
+  const phoneBytes=fs.readFileSync(path.join(extracted,'databases/codex_conversations.db')),phone=new SQL.Database(phoneBytes);phone.run('PRAGMA query_only=ON');
+  result.phone.db_sha256=sha(phoneBytes);result.phone.quick_check=phone.exec('PRAGMA quick_check')[0].values[0][0];phone.close();
+  const priorPhone=fs.readFileSync('logs/e2e-validation-20261004/s5/private/restored-final/databases/codex_conversations.db');
+  check('stopped phone DB byte-preserved since S5',sha(phoneBytes)===sha(priorPhone) && result.phone.quick_check==='ok');
+  result.phone.preference_hashes=fs.readdirSync(path.join(extracted,'shared_prefs')).filter(f=>f.endsWith('.xml')).map(f=>{const now=fs.readFileSync(path.join(extracted,'shared_prefs',f)),old=fs.readFileSync(path.join('logs/e2e-validation-20261004/s5/private/restored-final/shared_prefs',f));return {file:f,sha256:sha(now),unchanged:sha(now)===sha(old)};});
+  check('all preserved phone preferences unchanged since S5',result.phone.preference_hashes.every(f=>f.unchanged));
+  check('phone stopped and no temporary reverse',result.phone.pid.stdout==='' && result.phone.reverse.stdout==='');
+  result.passed=result.checks.filter(c=>c.passed).length;result.total=result.checks.length;
+  save('assessment.json',result);console.log(JSON.stringify({passed:result.passed,total:result.total,failed:result.checks.filter(c=>!c.passed),items:result.dto.length,businessFields:[...new Set(result.dto.flatMap(i=>i.business_field_paths))],nonterminal_runs:result.nonterminal_runs,phone_preserved:result.phone.db_sha256===sha(priorPhone)}));
+  if(result.passed!==result.total)process.exitCode=2;
+}
+function collectBusiness(value,prefix='') { if(!value || typeof value!=='object')return []; return Object.entries(value).flatMap(([k,v])=>{const p=prefix?prefix+'.'+k:k;return [...(['command','cwd','input','output','toolOutput'].includes(k)?[p]:[]),...collectBusiness(v,p)];}); }
+main().catch(e=>{result.failure=e.message;save('assessment-failed.json',result);console.error(e.stack);process.exitCode=1;});

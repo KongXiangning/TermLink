@@ -1,0 +1,104 @@
+'use strict';
+// Bounded actual HTTP/WS observations. No active selection, host input, Rust call or App ACK.
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const WebSocket = require('ws');
+const out = __dirname;
+const priv = path.join(out, 'private'); fs.mkdirSync(priv, { recursive: true });
+const sha = b => crypto.createHash('sha256').update(b).digest('hex');
+const save = (file, value) => fs.writeFileSync(path.join(out, file), JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
+const env = Object.fromEntries((fs.existsSync('.env') ? fs.readFileSync('.env', 'utf8') : '').split(/\r?\n/).filter(l => /^[A-Z_]+=/.test(l)).map(l => { const p = l.indexOf('='); return [l.slice(0,p), l.slice(p+1).replace(/^['"]|['"]$/g, '')]; }));
+const valid = 'Basic ' + Buffer.from(`${env.AUTH_USER || 'admin'}:${env.AUTH_PASS || 'admin'}`).toString('base64');
+const invalid = 'Basic ' + Buffer.from('s6-invalid:' + crypto.randomUUID()).toString('base64');
+const F = '01a0ee04-a775-72b3-bd07-04aac804a3b4', A = '01a0fe25-56a2-7910-ba22-61e8016e8ad9';
+const result = process.argv.includes('--resume-http') ? JSON.parse(fs.readFileSync(path.join(out,'probe-failed.json'))) : { at: new Date().toISOString(), layer: 'actual local-service HTTP/WS; diagnostic client, no physical App commit/ACK', requests: [], ws_negative: [], checks: [] };
+if (process.argv.includes('--resume-http')) { result.prior_extractor_error=result.failure; delete result.failure; }
+function check(name, passed) { result.checks.push({ name, passed: Boolean(passed) }); }
+async function get(route, authorization, extra = {}) {
+  const r = await fetch('http://127.0.0.1:3010' + route, { headers: { ...(authorization ? { Authorization: authorization } : {}), ...extra }, signal: AbortSignal.timeout(5000) });
+  const body = Buffer.from(await r.arrayBuffer());
+  result.requests.push({ route, credential_case: authorization === valid ? 'valid' : authorization ? 'invalid' : 'absent', status: r.status, body_bytes: body.length, body_sha256: sha(body) });
+  return { status: r.status, body, json: () => JSON.parse(body) };
+}
+async function negativeWs(sessionId, registrationId, authorization, label) {
+  return new Promise(resolve => {
+    const url = new URL('ws://127.0.0.1:3010/ws'); url.searchParams.set('sessionId', sessionId);
+    if (registrationId) url.searchParams.set('registrationId', registrationId);
+    const ws = new WebSocket(url, { headers: authorization ? { Authorization: authorization } : {}, handshakeTimeout: 5000 });
+    const frames = [];
+    let error = null;
+    const timer = setTimeout(() => { error = 'bounded-close-timeout'; ws.terminate(); }, 6000);
+    ws.on('message', b => frames.push(Buffer.from(b)));
+    ws.on('error', e => { error = e.code || 'transport-error'; });
+    ws.on('close', (code, reason) => { clearTimeout(timer); resolve({ label, code, reason: reason.toString(), frames: frames.length, bytes: frames.reduce((n,b) => n+b.length,0), error }); });
+  });
+}
+async function productRead(session) {
+  const url = new URL('ws://127.0.0.1:3010/ws'); url.searchParams.set('sessionId',session.id); url.searchParams.set('registrationId',session.registrationId);
+  const ws = new WebSocket(url, { headers: { Authorization: valid }, handshakeTimeout: 5000 });
+  const messages = []; let closed = false, error = null;
+  ws.on('message', b => messages.push(JSON.parse(b))); ws.on('close', () => { closed=true; }); ws.on('error', e => { error=e.code || 'transport-error'; });
+  async function wait(predicate) { const end=Date.now()+12000; while(Date.now()<end) { const m=messages.find(predicate); if(m)return m; if(closed || error)throw Error(error || 'closed'); await new Promise(r=>setTimeout(r,25)); } throw Error('bounded-wait-timeout'); }
+  const send = m => ws.send(JSON.stringify(m));
+  try {
+    const status=await wait(m=>m.type==='codex_ipc_status');
+    result.capability=status.status.capabilities.historySync;
+    const id=crypto.randomUUID();
+    send({ type:'conversation_history_sync_request', syncId:id, conversationId:F, selectionGeneration:61, cacheSchemaVersion:3,
+      productHistory:{ version:1,detailRefs:true,onlyIfPresent:true }, rangeSegments:{enabled:true,version:1,cacheSchemaVersion:3}, checkpoint:{rootHash:null,itemCount:0,complete:false} });
+    const initial=await wait(m=>m.syncId===id && ['conversation_history_manifest_required','conversation_history_delta','conversation_history_sync_state'].includes(m.type));
+    if(initial.type==='conversation_history_manifest_required')send({ type:'conversation_history_manifest_page',syncId:id,conversationId:F,clientSelectionGeneration:61,pageIndex:0,lastPage:true,items:[] });
+    const page=await wait(m=>m.syncId===id && m.type==='conversation_history_delta');
+    const payloads=[];
+    for(const item of page.upserts || []) {
+      let text=item.payloadJson;
+      if(item.payloadChunkCount) {
+        const chunks=[];
+        for(let i=0;i<item.payloadChunkCount;i++) { const c=await wait(m=>m.type==='conversation_history_payload_chunk' && m.syncId===id && m.pageIndex===page.pageIndex && m.itemKey===item.itemKey && m.chunkIndex===i); check('chunk descriptor ' + item.itemKey + '/' + i,c.payloadHash===item.payloadHash && c.chunkCount===item.payloadChunkCount); chunks.push(Buffer.from(c.data,'utf8')); }
+        const b=Buffer.concat(chunks); check('chunk hash/bytes '+item.itemKey,b.length===item.payloadBytes && sha(b)===item.payloadHash); text=b.toString('utf8');
+      }
+      payloads.push({ item, payload:JSON.parse(text) });
+    }
+    const internal=['source_epoch','source_id','source_ref','job_id','batch_id','segment_id','checkpoint','next_cursor','staging'];
+    const outerLeaks=page.upserts.flatMap(i=>internal.filter(k=>Object.hasOwn(i,k)).map(k=>({itemKey:i.itemKey,key:k})));
+    const payloadKeys=payloads.map(({item,payload})=>({itemKey:item.itemKey,keys:Object.keys(payload),business_fields:['command','cwd','input','output','toolOutput'].filter(k=>Object.hasOwn(payload,k)),payload_sha256:sha(Buffer.from(item.payloadJson || JSON.stringify(payload)))}));
+    result.product_page={ conversationId:page.conversationId,syncId:id,clientSelectionGeneration:page.clientSelectionGeneration,selectionGeneration:page.selectionGeneration,pageIndex:page.pageIndex,sequence:page.sequence,pageHash:page.pageHash,targetRoot:page.targetRoot,range:page.range,items:payloadKeys,outer_leaks:outerLeaks,ack_sent:false };
+    check('actual product page identity/provider',page.conversationId===F && page.clientSelectionGeneration===61 && page.range?.providerMode==='product_db' && payloads.length>0);
+    check('no collector fields in wire item envelope',outerLeaks.length===0);
+    // Read-only miss for A: no source read or fabricated fallback to make A appear published.
+    const missId=crypto.randomUUID();
+    send({type:'conversation_history_sync_request',syncId:missId,conversationId:A,selectionGeneration:62,cacheSchemaVersion:3,productHistory:{version:1,detailRefs:true,onlyIfPresent:true},rangeSegments:{enabled:true,version:1,cacheSchemaVersion:3},checkpoint:{rootHash:null,itemCount:0,complete:false}});
+    const miss=await wait(m=>m.syncId===missId && m.type==='conversation_history_sync_state');
+    result.product_miss={syncId:missId,conversationId:miss.conversationId,state:miss.state,detailCode:miss.detailCode,body_frames:messages.filter(m=>m.syncId===missId && ['conversation_history_delta','conversation_history_payload_chunk'].includes(m.type)).length};
+    check('DB-only miss preserves absence without body',result.product_miss.body_frames===0 && miss.state==='failed');
+    const bytes=Buffer.from(JSON.stringify(messages)+'\n'); fs.writeFileSync(path.join(priv,'wire.json'),bytes,{flag:'wx'}); result.private_wire={bytes:bytes.length,sha256:sha(bytes)};
+  } finally { ws.close(1000,'S6 read-only end; no ACK'); await new Promise(r=>setTimeout(r,200)); if(ws.readyState!==WebSocket.CLOSED)ws.terminate(); }
+}
+async function main() {
+  if (!process.argv.includes('--resume-http')) {
+    for(const route of ['/api/health','/api/sessions']) for(const auth of [null,invalid]) { const r=await get(route,auth); check(route+' '+(auth?'invalid':'absent')+' rejected no body',r.status===401 && r.body.length===0); }
+    const health=await get('/api/health',valid); check('normal HTTP authentication',health.status===200); result.health=health.json();
+  }
+  const sessions=await get('/api/sessions',valid); const list=sessions.json();
+  result.connections_before=list.map(s=>({session_key:sha(s.id).slice(0,16),mode:s.sessionMode,activeConnections:s.activeConnections,status:s.status}));
+  const expected='e7fa3165-7355-4556-b8bc-37c0e4a2804d';
+  const session=JSON.parse(fs.readFileSync('data/sessions.json','utf8')).sessions.find(s=>s.id===expected && s.sessionMode==='codex' && list.some(l=>l.id===s.id));
+  if(!session?.registrationId)throw Error('Original S5 session unavailable; no replacement session created');
+  const backup=fs.readFileSync('logs/e2e-validation-20261004/s5/private/restored-final/shared_prefs/client_registrations.xml','utf8');
+  if(!backup.includes(session.registrationId))throw Error('Session registration does not match original selected-phone backup');
+  for(const [auth,label] of [[null,'missing credentials'],[invalid,'invalid credentials']]) result.ws_negative.push(await negativeWs(session.id,session.registrationId,auth,label));
+  const unknown=crypto.randomUUID();
+  result.ws_negative.push(await negativeWs(session.id,unknown,valid,'unknown registration / bound-session mismatch'));
+  result.ws_negative.push(await negativeWs(crypto.randomUUID(),session.registrationId,valid,'unknown session / valid original registration'));
+  for(const n of result.ws_negative)check('WS '+n.label+' denies all frames',n.frames===0 && n.code===(n.label.includes('credentials')?4401:4403));
+  const badRegistration=await get('/api/sessions',valid,{'X-TermLink-Registration-Id':unknown});
+  result.unknown_registration_http={status:badRegistration.status,empty_list:badRegistration.status===200 && badRegistration.json().length===0,qualification:'Observed 200 empty list, not REGISTRATION_INVALID. isActive missing-map optional-chain result compares == null. No cross-user model or body leakage proven.'};
+  await productRead(session);
+  const after=(await get('/api/sessions',valid)).json(); result.connections_after=after.map(s=>({session_key:sha(s.id).slice(0,16),mode:s.sessionMode,activeConnections:s.activeConnections,status:s.status}));
+  result.finished_at=new Date().toISOString(); result.passed=result.checks.filter(c=>c.passed).length; result.total=result.checks.length;
+  result.limitations=['Local HTTP/WS Basic auth tested; no new ticket/cookie/mTLS/network-path matrix.','Registration is optional in existing privileged/legacy paths; absent registration is not asserted to fail.','No real foreign-user authorization model assumed.','Only F first product page read; no Android durable commit/ACK, new source publication, older/detail UI or model turn.'];
+  save('probe-results.json',result); console.log(JSON.stringify({passed:result.passed,total:result.total,ws:result.ws_negative,provider:result.product_page?.range?.providerMode,miss:result.product_miss,unknown_registration_http:result.unknown_registration_http,connections_before:result.connections_before,connections_after:result.connections_after}));
+  if(result.passed!==result.total)process.exitCode=2;
+}
+main().catch(e=>{result.failure=e.message;save(process.argv.includes('--resume-http')?'probe-resume-failed.json':'probe-failed.json',result);console.error(e.message);process.exitCode=1;});

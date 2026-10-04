@@ -1,0 +1,1 @@
+{"result":"pre-network-script-error","error":"ENOENT .env","reason":"optional absent configuration read was unconditional","network_requests":0,"correction":"same source defaults and optional .env read as prior S1 reader"}

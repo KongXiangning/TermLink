@@ -1,0 +1,9 @@
+{
+  "head_unchanged": true,
+  "index_tree_unchanged": true,
+  "checked_files": 2406,
+  "mismatches": [],
+  "source_diff": "",
+  "index_diff": "",
+  "qualification": "Hash preservation is scoped to enumerated original bytes. Newly appended management records and derived views are separate."
+}

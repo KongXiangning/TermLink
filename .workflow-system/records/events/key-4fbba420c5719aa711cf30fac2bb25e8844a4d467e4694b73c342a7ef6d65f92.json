@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-04T16:04:03.072Z",
+  "payload_sha256": "47a554a39d6777ade3995660e012d0c2400e6cfc908cc9504c9bc7d0fd78e819",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260831-S6-change-self-review-20261005-v1",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "step_id": "S6",
+      "execution_ref": ".workflow-system/records/events/key-239872f59e75b6579bac30729f9c7afe739a9ead35939b93fd367d560e03a234.json",
+      "source_revision": "026892bb02a44c6664dc96e62acb41428422a310",
+      "idempotency_key": "task20260831-S6-change-self-review-20261005-v1",
+      "verdict": "clean",
+      "findings": [],
+      "provenance": "same-agent self-review of exact S6 evidence-only execution; not independent review, no new business E2E/model/device/service/test replay",
+      "coverage": {
+        "layer": "S6 evidence accuracy, retained data integrity and authorized scope only; clean is not full business E2E PASS",
+        "offline_checks": "30/30",
+        "execution_attachment_count": 21,
+        "test_attachment_count": 1,
+        "attachment_object_and_source_mismatches": 0,
+        "original_files_checked": 2406,
+        "original_file_mismatches": 0,
+        "final_index_files": 19,
+        "evidence_index_files": 22,
+        "matrix_scenarios": 12,
+        "matrix_subcases": 10,
+        "actual_F_page_items_deep_equal_to_retained_DB": 22,
+        "actual_F_pageHash": "verified using current shared algorithm",
+        "actual_A_miss": "cache_only/history_product_not_found without delta/payload body; original failed expectation retained",
+        "original_probe": "11/12; expectation error retained; no network replay",
+        "implementation_self_checks": "75/75 and 4/4 are evidence assertions, not E2E counts",
+        "existing_targeted_tests": "original 5/5 output retained; not rerun in review",
+        "S6_G1": "Exact source method pure-memory reproduction confirms unknown registration active; observed HTTP200 empty list retained. Existing bound-session mismatch denied; no leakage demonstrated. Not introduced or repaired by evidence-only execution.",
+        "source_diff": "HEAD exact; tracked/index diff empty; architecture hash unchanged from full prior read",
+        "limitations": [
+          "Self-review, not independent review",
+          "Negative WS frame counts are saved caller observations, without an independent packet capture",
+          "Natural source publication and full host-to-product-to-Android durable ACK/reopen chain remain incomplete",
+          "Ordinary append/resend, physical older/large copy, natural E07 and true in-flight races remain unverified",
+          "Existing parse, scope, UI, parent catalog and budget failures remain; root causes not all established",
+          "No runtime/device/model/service/test rerun; restoration reviewed from retained artifacts"
+        ]
+      },
+      "report_ref": "logs/e2e-validation-20261004/s6-review/report.md",
+      "commands": [
+        "Fresh local review-change/WORKFLOW_PROTOCOL/native task-status; read exact adopted S6/execution/test/attachments and prior corrected reports",
+        "Read current registration/session/HTTP/Gateway/DTO importer/provider paths and applicable architecture/contracts/AD boundaries",
+        "node logs/e2e-validation-20261004/s6-review/checks.cjs: offline SHA/size manifests, retained wire/read-only SQLite, pure in-memory registration method reproduction, Git read-only scope checks",
+        "Native task review write, separate recorded/association/projection readback; no finish/close/Git writes"
+      ],
+      "remaining_work": [
+        "S6 remains executed and needs a separate finish disposition; task active",
+        "Business partial and all failures/unverified E01-E12/subcases retained, no full E2E PASS",
+        "S6-G1 and prior product candidates need separately scoped investigation/repair",
+        "Three pre-existing unassociated management records remain; link/correct/resolve/defer by actual meaning, without business replay",
+        "No commit/push/deploy, product/source changes or closure performed"
+      ],
+      "next_route": "execute-step",
+      "next_mode": "finish",
+      "files": [
+        "logs/e2e-validation-20261004/s6-review/report.md",
+        "logs/e2e-validation-20261004/s6-review/checks.json",
+        "logs/e2e-validation-20261004/s6-review/checks.cjs"
+      ]
+    },
+    "files": [
+      "logs/e2e-validation-20261004/s6-review/report.md",
+      "logs/e2e-validation-20261004/s6-review/checks.json",
+      "logs/e2e-validation-20261004/s6-review/checks.cjs"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "parents": [
+        ".workflow-system/records/events/key-239872f59e75b6579bac30729f9c7afe739a9ead35939b93fd367d560e03a234.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "step_id": "S6",
+        "execution_ref": ".workflow-system/records/events/key-239872f59e75b6579bac30729f9c7afe739a9ead35939b93fd367d560e03a234.json",
+        "source_revision": "026892bb02a44c6664dc96e62acb41428422a310",
+        "verdict": "clean",
+        "findings": [],
+        "provenance": "same-agent self-review of exact S6 evidence-only execution; not independent review, no new business E2E/model/device/service/test replay",
+        "coverage": {
+          "layer": "S6 evidence accuracy, retained data integrity and authorized scope only; clean is not full business E2E PASS",
+          "offline_checks": "30/30",
+          "execution_attachment_count": 21,
+          "test_attachment_count": 1,
+          "attachment_object_and_source_mismatches": 0,
+          "original_files_checked": 2406,
+          "original_file_mismatches": 0,
+          "final_index_files": 19,
+          "evidence_index_files": 22,
+          "matrix_scenarios": 12,
+          "matrix_subcases": 10,
+          "actual_F_page_items_deep_equal_to_retained_DB": 22,
+          "actual_F_pageHash": "verified using current shared algorithm",
+          "actual_A_miss": "cache_only/history_product_not_found without delta/payload body; original failed expectation retained",
+          "original_probe": "11/12; expectation error retained; no network replay",
+          "implementation_self_checks": "75/75 and 4/4 are evidence assertions, not E2E counts",
+          "existing_targeted_tests": "original 5/5 output retained; not rerun in review",
+          "S6_G1": "Exact source method pure-memory reproduction confirms unknown registration active; observed HTTP200 empty list retained. Existing bound-session mismatch denied; no leakage demonstrated. Not introduced or repaired by evidence-only execution.",
+          "source_diff": "HEAD exact; tracked/index diff empty; architecture hash unchanged from full prior read",
+          "limitations": [
+            "Self-review, not independent review",
+            "Negative WS frame counts are saved caller observations, without an independent packet capture",
+            "Natural source publication and full host-to-product-to-Android durable ACK/reopen chain remain incomplete",
+            "Ordinary append/resend, physical older/large copy, natural E07 and true in-flight races remain unverified",
+            "Existing parse, scope, UI, parent catalog and budget failures remain; root causes not all established",
+            "No runtime/device/model/service/test rerun; restoration reviewed from retained artifacts"
+          ]
+        },
+        "report_ref": "logs/e2e-validation-20261004/s6-review/report.md",
+        "commands": [
+          "Fresh local review-change/WORKFLOW_PROTOCOL/native task-status; read exact adopted S6/execution/test/attachments and prior corrected reports",
+          "Read current registration/session/HTTP/Gateway/DTO importer/provider paths and applicable architecture/contracts/AD boundaries",
+          "node logs/e2e-validation-20261004/s6-review/checks.cjs: offline SHA/size manifests, retained wire/read-only SQLite, pure in-memory registration method reproduction, Git read-only scope checks",
+          "Native task review write, separate recorded/association/projection readback; no finish/close/Git writes"
+        ],
+        "remaining_work": [
+          "S6 remains executed and needs a separate finish disposition; task active",
+          "Business partial and all failures/unverified E01-E12/subcases retained, no full E2E PASS",
+          "S6-G1 and prior product candidates need separately scoped investigation/repair",
+          "Three pre-existing unassociated management records remain; link/correct/resolve/defer by actual meaning, without business replay",
+          "No commit/push/deploy, product/source changes or closure performed"
+        ],
+        "next_route": "execute-step",
+        "next_mode": "finish",
+        "files": [
+          "logs/e2e-validation-20261004/s6-review/report.md",
+          "logs/e2e-validation-20261004/s6-review/checks.json",
+          "logs/e2e-validation-20261004/s6-review/checks.cjs"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,710 @@
+{
+  "at": "2026-10-04T15:40:42.850Z",
+  "layer": "actual local-service HTTP/WS; diagnostic client, no physical App commit/ACK",
+  "requests": [
+    {
+      "route": "/api/health",
+      "credential_case": "absent",
+      "status": 401,
+      "body_bytes": 0,
+      "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "route": "/api/health",
+      "credential_case": "invalid",
+      "status": 401,
+      "body_bytes": 0,
+      "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "route": "/api/sessions",
+      "credential_case": "absent",
+      "status": 401,
+      "body_bytes": 0,
+      "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "route": "/api/sessions",
+      "credential_case": "invalid",
+      "status": 401,
+      "body_bytes": 0,
+      "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "route": "/api/health",
+      "credential_case": "valid",
+      "status": 200,
+      "body_bytes": 360,
+      "body_sha256": "a9f2e7d2d493b445d4222eed73b9e012f2eb216941bc9e8dbd326736526b8411"
+    },
+    {
+      "route": "/api/sessions",
+      "credential_case": "valid",
+      "status": 200,
+      "body_bytes": 454,
+      "body_sha256": "6d19cbf97f345cedbad155bfd74e9312b8885e5ca73af36a6c7876899ed4ba26"
+    },
+    {
+      "route": "/api/sessions",
+      "credential_case": "valid",
+      "status": 200,
+      "body_bytes": 454,
+      "body_sha256": "6d19cbf97f345cedbad155bfd74e9312b8885e5ca73af36a6c7876899ed4ba26"
+    },
+    {
+      "route": "/api/sessions",
+      "credential_case": "valid",
+      "status": 200,
+      "body_bytes": 2,
+      "body_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "route": "/api/sessions",
+      "credential_case": "valid",
+      "status": 200,
+      "body_bytes": 454,
+      "body_sha256": "41106ba27326e18e4030613614b4bb45b9c6c01863d2f46fbb89f5db9fd3f27f"
+    }
+  ],
+  "ws_negative": [
+    {
+      "label": "missing credentials",
+      "code": 4401,
+      "reason": "Unauthorized",
+      "frames": 0,
+      "bytes": 0,
+      "error": null
+    },
+    {
+      "label": "invalid credentials",
+      "code": 4401,
+      "reason": "Unauthorized",
+      "frames": 0,
+      "bytes": 0,
+      "error": null
+    },
+    {
+      "label": "unknown registration / bound-session mismatch",
+      "code": 4403,
+      "reason": "Session is not owned by this client registration",
+      "frames": 0,
+      "bytes": 0,
+      "error": null
+    },
+    {
+      "label": "unknown session / valid original registration",
+      "code": 4403,
+      "reason": "Session is not owned by this client registration",
+      "frames": 0,
+      "bytes": 0,
+      "error": null
+    }
+  ],
+  "checks": [
+    {
+      "name": "/api/health absent rejected no body",
+      "passed": true
+    },
+    {
+      "name": "/api/health invalid rejected no body",
+      "passed": true
+    },
+    {
+      "name": "/api/sessions absent rejected no body",
+      "passed": true
+    },
+    {
+      "name": "/api/sessions invalid rejected no body",
+      "passed": true
+    },
+    {
+      "name": "normal HTTP authentication",
+      "passed": true
+    },
+    {
+      "name": "WS missing credentials denies all frames",
+      "passed": true
+    },
+    {
+      "name": "WS invalid credentials denies all frames",
+      "passed": true
+    },
+    {
+      "name": "WS unknown registration / bound-session mismatch denies all frames",
+      "passed": true
+    },
+    {
+      "name": "WS unknown session / valid original registration denies all frames",
+      "passed": true
+    },
+    {
+      "name": "actual product page identity/provider",
+      "passed": true
+    },
+    {
+      "name": "no collector fields in wire item envelope",
+      "passed": true
+    },
+    {
+      "name": "DB-only miss preserves absence without body",
+      "passed": false
+    }
+  ],
+  "health": {
+    "status": "ok",
+    "uptimeSec": 76133,
+    "version": "1.0.0",
+    "now": "2026-10-04T15:40:42.877Z",
+    "privilegeMode": "standard",
+    "tls": false,
+    "mtls": false,
+    "listenerTls": false,
+    "listenerMtls": false,
+    "clientCertPolicy": "none",
+    "requestSecurity": {
+      "transport": "http",
+      "tls": false,
+      "clientCertPolicy": "none",
+      "clientCertPresented": false,
+      "clientCertAuthorized": false,
+      "clientCertError": null
+    }
+  },
+  "connections_before": [
+    {
+      "session_key": "83e98d723cb76db5",
+      "mode": "codex",
+      "activeConnections": 0,
+      "status": "IDLE"
+    }
+  ],
+  "prior_extractor_error": "Original S5 session unavailable; no replacement session created",
+  "unknown_registration_http": {
+    "status": 200,
+    "empty_list": true,
+    "qualification": "Observed 200 empty list, not REGISTRATION_INVALID. isActive missing-map optional-chain result compares == null. No cross-user model or body leakage proven."
+  },
+  "capability": {
+    "version": 1,
+    "manifestPageSize": 200,
+    "deltaMaxItems": 100,
+    "deltaMaxBytes": 262144,
+    "syncInactivityTimeoutMs": 30000,
+    "recovery": true,
+    "selectionGeneration": true,
+    "perPageAck": true,
+    "payloadChunks": true,
+    "payloadChunkMaxBytes": 131072,
+    "maxEnvelopeBytes": 262144,
+    "rangeSegments": {
+      "enabled": true,
+      "version": 1,
+      "cacheSchemaVersion": 3
+    },
+    "serverSnapshotSegments": {
+      "enabled": false,
+      "version": 1,
+      "cacheSchemaVersion": 3,
+      "segmentTargetBytes": 98304,
+      "fragmentMaxBytes": 16384
+    },
+    "productHistory": {
+      "enabled": true,
+      "version": 1,
+      "detailRefs": true,
+      "onlyIfPresent": true
+    },
+    "tailValidation": {
+      "enabled": true,
+      "version": 1
+    },
+    "terminalReconcile": {
+      "enabled": true,
+      "version": 1
+    },
+    "liveReplay": {
+      "enabled": true,
+      "version": 1,
+      "maxItems": 100,
+      "maxBytes": 131072
+    }
+  },
+  "product_page": {
+    "conversationId": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+    "syncId": "9b73a2e2-dfcb-4dff-815d-859f86cf950d",
+    "clientSelectionGeneration": 61,
+    "selectionGeneration": 1,
+    "pageIndex": 0,
+    "sequence": 1,
+    "pageHash": "5a52cc0023c0e87cfa06e1df10dae0f25eb1504ceacdf627b11d80177b0f1edd",
+    "targetRoot": "1d2bbe726d86866746aed032742f1d4c5ce0dfbc2182e687fa59e25bf15b13fb",
+    "range": {
+      "version": 1,
+      "segmentId": "55b0b23b05161d77ca4a6ffbfc13ca8b9dc68b90cbdf5ba0f8f6f5d1ad66c617",
+      "rangeId": "55b0b23b05161d77ca4a6ffbfc13ca8b9dc68b90cbdf5ba0f8f6f5d1ad66c617",
+      "rangeKind": "tail",
+      "providerMode": "product_db",
+      "providerIdentityHash": "0684ef35b8d2846c3d8b1c30b3f25f02d8475849b7c1697b2715ca52410ca7cb",
+      "newestAnchor": {
+        "key": "usage:ordinal-224:0",
+        "hash": "518c58963ef5f5976cbd04ae48ffccc6a9a7eb5759ac4e4e8686b5c8daf88c52"
+      },
+      "oldestAnchor": {
+        "key": "rate-limit:ordinal-187:1",
+        "hash": "3d3d35a1719632b6b430c0e2fe5ace9098270941cf7b72837188038923e078ab"
+      },
+      "nextOlderCursor": "eyJ2IjoxLCJraW5kIjoib2xkZXIiLCJyYW5nZUlkIjoiNTViMGIyM2IwNTE2MWQ3N2NhNGE2ZmZiZmMxM2NhOGI5ZGM2OGI5MGNiZGY1YmEwZjhmNmY1ZDFhZDY2YzYxNyIsInNuYXBzaG90SGFzaCI6IjRlZmU4YzBmZTQ1YjFjYzI0NGMwZjA4YTY0ZjNkM2IzM2EzN2Q4NjRiZjIxOGFhMThmNTYxN2UyZTI4ODA5YTkiLCJhbmNob3IiOnsiaXRlbUtleSI6InJhdGUtbGltaXQ6b3JkaW5hbC0xODc6MSIsImNvbnRlbnRIYXNoIjoiM2QzZDM1YTE3MTk2MzJiNmI0MzBjMGUyZmU1YWNlOTA5ODI3MDk0MWNmN2I3MjgzNzE4ODAzODkyM2UwNzhhYiIsInBvc2l0aW9uIjo3Nn0sImNvbnZlcnNhdGlvbkhhc2giOiJlMjQ2MzkxODFmNWYyNjg0MGVmN2ZiMDAwODQ5MmY3YjIxMzI2ZWQ1MGNjNmUzMDZiOTliYzkxMzU1MWNlYjVkIn0",
+      "hasMoreBefore": true,
+      "coverageRoot": "1d2bbe726d86866746aed032742f1d4c5ce0dfbc2182e687fa59e25bf15b13fb",
+      "coverageComplete": false
+    },
+    "items": [
+      {
+        "itemKey": "rate-limit:ordinal-187:1",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "3d3d35a1719632b6b430c0e2fe5ace9098270941cf7b72837188038923e078ab"
+      },
+      {
+        "itemKey": "usage:ordinal-187:0",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "7b9e4f959bdb98ccdf0c2a80626ba1ec19022b56deb779650f7ee96c52d0fa33"
+      },
+      {
+        "itemKey": "tool:call_zyiEM0bPhMdEQZNPE5uANtzE",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "5c730b806b7524181cf8f0c694e7a367fe7d92b5fd89563e66f18a558ee2823e"
+      },
+      {
+        "itemKey": "tool:exec-edda3d5d-648a-472f-9ab8-202e869442c1",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "1ec6ea07934081db435416e1ee5e08c6782a2002dd668570dd3499b294dbf173"
+      },
+      {
+        "itemKey": "rate-limit:ordinal-196:1",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "052a33dbf993a9be8e606a58ed51c53a1d7ec0cce88288c6625c70424b17d1fe"
+      },
+      {
+        "itemKey": "usage:ordinal-196:0",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "f0cff27f71d5eca75ebba721b72371479c5a08820d2f9c5e8f0183a332ebfe7c"
+      },
+      {
+        "itemKey": "tool:call_rgKnKftzTuAYv6ptMJxVKydF",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "6deb2fe421a7f78343c3f2af686707be7beec405a9f79d73e23cd1ce3ca44bf6"
+      },
+      {
+        "itemKey": "tool:exec-f83f7ee3-1b14-46b9-a740-4aa38e0d8895",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "9d92de8571670b44c557fb7c05c9f56c901995ae5eda89a19078fd81b8c20d89"
+      },
+      {
+        "itemKey": "rate-limit:ordinal-203:1",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "45d4a6ebf437af72fe2783ae326a4eef2ed330a30b7da16a708cda3b4b8f4838"
+      },
+      {
+        "itemKey": "usage:ordinal-203:0",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "22a43537ffa4dbe7e6b1908a53e7f3cf7f9f5ccadaa83b46a9003c24302fce3f"
+      },
+      {
+        "itemKey": "tool:call_xSQfiBdpfjX7VHewLNXaUUNc",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "5080f626713b0f11ce053860309f4ab52aefc73087029f34eafef3ee279c80af"
+      },
+      {
+        "itemKey": "tool:exec-48139254-47d3-405c-8767-5cc665285112",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "8d703b013dc7ab8764626bee53a8973d92dda4b82e34dca710757cd44fdd2a30"
+      },
+      {
+        "itemKey": "rate-limit:ordinal-210:1",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "9504e5c95d5bbd6b81c4abfa4588b3e0436002a81d7934aa6b91a4f302894174"
+      },
+      {
+        "itemKey": "usage:ordinal-210:0",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "8b9a86429ac299ef13b80e7331f4d60e13e4491543af4080a9bfc16fe6ac03c4"
+      },
+      {
+        "itemKey": "tool:call_LE8G3S6LoXkRVAsV677Z9F0v",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "bbb96fc5f3545a6377aed0e7b2be742e61c2772967413b62ec071317f8dc33c6"
+      },
+      {
+        "itemKey": "tool:exec-05292237-6358-4f2e-b60a-b80fdbcde06b",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "e2064b1b66b50733b11aae8907774e3ea1b4b22a830074f6e5104acfd92fb779"
+      },
+      {
+        "itemKey": "tool:exec-18043250-c5fb-4b1b-91f0-838d91a6e45f",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "a74c1deb0d26b8012392b865b49e98caf2275c29faacd7d1c28d4d2c5a7e344d"
+      },
+      {
+        "itemKey": "rate-limit:ordinal-218:1",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "04b44f22a0424c93c0323a36e113ad8c01979c1b002218e84dff6d3f0d60b13b"
+      },
+      {
+        "itemKey": "usage:ordinal-218:0",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "226a6eef3c75ef8d7df31e422ab775028d03b5456e4b92bf5be7302d32f4f5c0"
+      },
+      {
+        "itemKey": "message:msg_08578c257fee2aec016abbf6e1af0c87d086680e33eda96334",
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "business_fields": [],
+        "payload_sha256": "286bbcf81c9b0d000a09ceec483f15774aaf5967fa0902accd38404fd4306576"
+      },
+      {
+        "itemKey": "rate-limit:ordinal-224:1",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "534b3fbc20e514a62ca470089f277ac43c590dd8baa17bc10b7dafbcc94a271c"
+      },
+      {
+        "itemKey": "usage:ordinal-224:0",
+        "keys": [
+          "eventFacts"
+        ],
+        "business_fields": [],
+        "payload_sha256": "518c58963ef5f5976cbd04ae48ffccc6a9a7eb5759ac4e4e8686b5c8daf88c52"
+      }
+    ],
+    "outer_leaks": [],
+    "ack_sent": false
+  },
+  "product_miss": {
+    "syncId": "8ac8b9ae-bc52-483c-951e-0c1fbec39e65",
+    "conversationId": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+    "state": "cache_only",
+    "detailCode": "history_product_not_found",
+    "body_frames": 0
+  },
+  "private_wire": {
+    "bytes": 150010,
+    "sha256": "e0afa847d2f204c3e736e3072b68539561bb0d42a118b0cf80996997bf055652"
+  },
+  "connections_after": [
+    {
+      "session_key": "83e98d723cb76db5",
+      "mode": "codex",
+      "activeConnections": 0,
+      "status": "IDLE"
+    }
+  ],
+  "finished_at": "2026-10-04T15:41:31.175Z",
+  "passed": 11,
+  "total": 12,
+  "limitations": [
+    "Local HTTP/WS Basic auth tested; no new ticket/cookie/mTLS/network-path matrix.",
+    "Registration is optional in existing privileged/legacy paths; absent registration is not asserted to fail.",
+    "No real foreign-user authorization model assumed.",
+    "Only F first product page read; no Android durable commit/ACK, new source publication, older/detail UI or model turn."
+  ]
+}

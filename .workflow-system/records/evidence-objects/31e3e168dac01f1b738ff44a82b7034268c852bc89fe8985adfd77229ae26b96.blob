@@ -1,0 +1,16 @@
+✔ product-history-store durably stages, publishes, reopens, and ignores an exact duplicate delivery (67.4333ms)
+✔ product-history-store rolls back a failed replacement and preserves the previous canonical data after reopen (26.9164ms)
+✔ product-history-read preserves top-level and nested tool facts with collection-like field names (0.7693ms)
+✔ product-history-read preserves every business JSON key in items and details (0.4178ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"missing-product-row","previousActiveConversationId":"conversation-product-read","sessionId":"session-product-read","sessionMode":"codex","previousThreadId":"conversation-product-read"}
+✔ product-history-read keeps old clients on v2 and a DB-only miss keeps the cache (156.1212ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 490.2627
