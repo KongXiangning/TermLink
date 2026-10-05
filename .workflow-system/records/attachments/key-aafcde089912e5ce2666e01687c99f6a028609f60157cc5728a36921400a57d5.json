@@ -1,0 +1,28 @@
+{
+  "event_ref": ".workflow-system/records/events/key-aafcde089912e5ce2666e01687c99f6a028609f60157cc5728a36921400a57d5.json",
+  "captured_at": "2026-10-04T18:44:52.347Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c0545ca9e74f592b47a6d293558ce7fd77571229b9c91ce201d88f62d5c0d641.blob",
+      "sha256": "c0545ca9e74f592b47a6d293558ce7fd77571229b9c91ce201d88f62d5c0d641",
+      "size": 6074,
+      "source_path": "logs/task-preparation-20261005-history-save-repair-review/report.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/52d48872834c1716eb02bfb83f5036f301b9ac45c3a7810e3d25c829d54e5933.blob",
+      "sha256": "52d48872834c1716eb02bfb83f5036f301b9ac45c3a7810e3d25c829d54e5933",
+      "size": 4071,
+      "source_path": "logs/task-preparation-20261005-history-save-repair-review/audit.json",
+      "issues": []
+    }
+  ]
+}

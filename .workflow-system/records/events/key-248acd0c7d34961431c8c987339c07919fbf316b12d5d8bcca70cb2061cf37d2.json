@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-05T04:57:26.893Z",
+  "payload_sha256": "2cd861bd95691bd2cc4c88663bd02ac88d150f3b8fa8182febed708a51cf915c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260832-S1-R1-sanitized-repair-20261005-v1",
+    "request": {
+      "action": "execution",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S1",
+      "source_revision": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+      "idempotency_key": "task20260832-S1-R1-sanitized-repair-20261005-v1",
+      "result": "S1-R1-sanitized-diagnostic-inputs-and-formal-reproduction-delivered-pending-review-no-product-repair",
+      "decision_ref": ".workflow-system/records/events/key-4a29b3e72e96854a8e45a2b16597b49302e861f1a2c3996677a564a76712fffb.json",
+      "review_ref": ".workflow-system/records/events/key-34228aaf160940b8653e5db8841d67721660a1dd7743fa5ecfa328361fb6f5bd.json",
+      "base_execution_ref": ".workflow-system/records/events/key-857c88fe513282c2114ba4795cbdbc79b11b873e410d8821b987100ae6fe0bba.json",
+      "decision_source": "Human execute-step repair request; limited to current S1-R1 sanitized diagnostic-delivery repair.",
+      "summary": {
+        "mode": "repair",
+        "addressed_finding": {
+          "id": "S1-R1",
+          "implementation": "completed-pending-new-review",
+          "review_ref": ".workflow-system/records/events/key-34228aaf160940b8653e5db8841d67721660a1dd7743fa5ecfa328361fb6f5bd.json"
+        },
+        "deliverables": "Public sanitized13A+1C record test fixtures, six-record prefix, manifest/14record shape+hash mapping, runtime independent of private originals/staging; finite enum/value leaf audit.",
+        "H1": "Actual binary analyzed sanitized prefix; normal durable FileAnalysisStore import/ACK. Test-only append yielded same partial turn mutation start-to-complete collision and stable negativeACK batch_rejected. Prior durable staging unchanged. Empty offline control accepted onlypartial.",
+        "H3": "All3paired carriers retain missingcall_id, sameID/output/turn relationship; actual6parsegaps, distinct3response_item/3item_completed. Not remapped ordinaryuser or fakecall.",
+        "H2": "Corrected finite multi_agent_version enum then1child-only process request yielded expectedparentmissing/zero batches; aliasC/A validreadable cut13records/5542bytes. A inputs byte-identical v1/v2, reused H1/H3 evidence.",
+        "actual_runs": "Five serial backfill requests total: initial4 thencorrectedC1; sequentialisolatedprocesses15s timeout, no livecollector/productDB/service/device.",
+        "retained_failures": "Initialgenerator2enum allowlist failures beforefixturewrites/analyzer. Initialrunnerexit1 after13passedchecks thenCfixtureheaderparsefailed fromsanitized multi_agent_version. Saved originals andfailure, correctedCfocused5/5; not relabeledinitialrunPASS.",
+        "self_check": "13/13 privacy/correspondence/preservation checks;143allowlistedstringleaves;64originals/12oldattachments unchanged; tracked/indexdiffempty.",
+        "source_boundaries": "Only generatedtestfile appended. ExternalCodexsource readonly; no product code/REQ/CR/sharedcontracts/build/Git/deployment changes.",
+        "qualification": "No formal review or self-resolved old verdict; allthreebusinessbugs unrepaired. Reproduction checks are not product PASS or phone acceptance."
+      },
+      "commands": [
+        {
+          "command": "node logs/history-save-repair-20261005/s1/repair-r1/build-fixtures.cjs",
+          "result": "Two initialexit1 enum allowlist failures preserved, subsequentv1generationexit0; correctedmulti_agent_version v2generationexit0"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s1/repair-r1/run-sanitized.cjs",
+          "exit_code": 1,
+          "result": "run-1/failure.json: first13H1/H3/preservationchecks pass;14thH2check fails duefixtureenum, originalscript savedasrun-sanitized-initial.cjs"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s1/repair-r1/run-sanitized.cjs logs/history-save-repair-20261005/s1/repair-r1/run-2 child-only",
+          "exit_code": 0,
+          "result": "5/5 targetedC assertions; expectedanalysis_failedparentmissingbeforebatch"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s1/repair-r1/verify-fixtures.cjs",
+          "exit_code": 0,
+          "result": "13/13 staticfixturecorrespondence/privacy/originalpreservation"
+        }
+      ],
+      "remaining_work": [
+        "Newchange-review needed for thisrepair execution; S1 not finished andoldreview/finding remains historical fact.",
+        "H1safeproducer/importer evolutionowner, H2post-discoveryinheritance/Branchidentity, H3ownedsemanticsanddedup remainS2scope.",
+        "Threeproductfailures andtruepublication/Gateway/AppdurableACK/phoneswitchreopen acceptance remainS3-S6 work.",
+        "Reducedfixtures do not cover83originalArecords/all8originalruns, anddo notreplaceS3permanentconformance.",
+        "Currentv2defaultfullrunner hasnotbeenrerun: H1/H3executionfromidenticalAfixturesplusfocusedcorrectedC evidence explicit.",
+        "Threepre-existingunassociatedmanagementrecords retained."
+      ],
+      "files": [
+        "logs/history-save-repair-20261005/s1/repair-r1/report.md",
+        "logs/history-save-repair-20261005/s1/repair-r1/README.md",
+        "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures.cjs",
+        "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures-initial.cjs",
+        "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures-second.cjs",
+        "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures-v1.cjs",
+        "logs/history-save-repair-20261005/s1/repair-r1/generation-initial-failure.json",
+        "logs/history-save-repair-20261005/s1/repair-r1/generation-second-failure.json",
+        "logs/history-save-repair-20261005/s1/repair-r1/run-sanitized.cjs",
+        "logs/history-save-repair-20261005/s1/repair-r1/run-sanitized-initial.cjs",
+        "logs/history-save-repair-20261005/s1/repair-r1/verify-fixtures.cjs",
+        "logs/history-save-repair-20261005/s1/repair-r1/shape-mapping.json",
+        "logs/history-save-repair-20261005/s1/repair-r1/self-check.json",
+        "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/manifest.json",
+        "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/a-prefix.jsonl",
+        "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/a-full.jsonl",
+        "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/c-header.jsonl",
+        "logs/history-save-repair-20261005/s1/repair-r1/fixtures/manifest.json",
+        "logs/history-save-repair-20261005/s1/repair-r1/fixtures/a-prefix.jsonl",
+        "logs/history-save-repair-20261005/s1/repair-r1/fixtures/a-full.jsonl",
+        "logs/history-save-repair-20261005/s1/repair-r1/fixtures/c-header.jsonl",
+        "logs/history-save-repair-20261005/s1/repair-r1/run-1/failure.json",
+        "logs/history-save-repair-20261005/s1/repair-r1/run-2/result.json"
+      ]
+    },
+    "files": [
+      "logs/history-save-repair-20261005/s1/repair-r1/report.md",
+      "logs/history-save-repair-20261005/s1/repair-r1/README.md",
+      "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures.cjs",
+      "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures-initial.cjs",
+      "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures-second.cjs",
+      "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures-v1.cjs",
+      "logs/history-save-repair-20261005/s1/repair-r1/generation-initial-failure.json",
+      "logs/history-save-repair-20261005/s1/repair-r1/generation-second-failure.json",
+      "logs/history-save-repair-20261005/s1/repair-r1/run-sanitized.cjs",
+      "logs/history-save-repair-20261005/s1/repair-r1/run-sanitized-initial.cjs",
+      "logs/history-save-repair-20261005/s1/repair-r1/verify-fixtures.cjs",
+      "logs/history-save-repair-20261005/s1/repair-r1/shape-mapping.json",
+      "logs/history-save-repair-20261005/s1/repair-r1/self-check.json",
+      "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/manifest.json",
+      "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/a-prefix.jsonl",
+      "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/a-full.jsonl",
+      "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/c-header.jsonl",
+      "logs/history-save-repair-20261005/s1/repair-r1/fixtures/manifest.json",
+      "logs/history-save-repair-20261005/s1/repair-r1/fixtures/a-prefix.jsonl",
+      "logs/history-save-repair-20261005/s1/repair-r1/fixtures/a-full.jsonl",
+      "logs/history-save-repair-20261005/s1/repair-r1/fixtures/c-header.jsonl",
+      "logs/history-save-repair-20261005/s1/repair-r1/run-1/failure.json",
+      "logs/history-save-repair-20261005/s1/repair-r1/run-2/result.json"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-4a29b3e72e96854a8e45a2b16597b49302e861f1a2c3996677a564a76712fffb.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S1",
+        "source_revision": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+        "result": "S1-R1-sanitized-diagnostic-inputs-and-formal-reproduction-delivered-pending-review-no-product-repair",
+        "decision_ref": ".workflow-system/records/events/key-4a29b3e72e96854a8e45a2b16597b49302e861f1a2c3996677a564a76712fffb.json",
+        "review_ref": ".workflow-system/records/events/key-34228aaf160940b8653e5db8841d67721660a1dd7743fa5ecfa328361fb6f5bd.json",
+        "base_execution_ref": ".workflow-system/records/events/key-857c88fe513282c2114ba4795cbdbc79b11b873e410d8821b987100ae6fe0bba.json",
+        "decision_source": "Human execute-step repair request; limited to current S1-R1 sanitized diagnostic-delivery repair.",
+        "summary": {
+          "mode": "repair",
+          "addressed_finding": {
+            "id": "S1-R1",
+            "implementation": "completed-pending-new-review",
+            "review_ref": ".workflow-system/records/events/key-34228aaf160940b8653e5db8841d67721660a1dd7743fa5ecfa328361fb6f5bd.json"
+          },
+          "deliverables": "Public sanitized13A+1C record test fixtures, six-record prefix, manifest/14record shape+hash mapping, runtime independent of private originals/staging; finite enum/value leaf audit.",
+          "H1": "Actual binary analyzed sanitized prefix; normal durable FileAnalysisStore import/ACK. Test-only append yielded same partial turn mutation start-to-complete collision and stable negativeACK batch_rejected. Prior durable staging unchanged. Empty offline control accepted onlypartial.",
+          "H3": "All3paired carriers retain missingcall_id, sameID/output/turn relationship; actual6parsegaps, distinct3response_item/3item_completed. Not remapped ordinaryuser or fakecall.",
+          "H2": "Corrected finite multi_agent_version enum then1child-only process request yielded expectedparentmissing/zero batches; aliasC/A validreadable cut13records/5542bytes. A inputs byte-identical v1/v2, reused H1/H3 evidence.",
+          "actual_runs": "Five serial backfill requests total: initial4 thencorrectedC1; sequentialisolatedprocesses15s timeout, no livecollector/productDB/service/device.",
+          "retained_failures": "Initialgenerator2enum allowlist failures beforefixturewrites/analyzer. Initialrunnerexit1 after13passedchecks thenCfixtureheaderparsefailed fromsanitized multi_agent_version. Saved originals andfailure, correctedCfocused5/5; not relabeledinitialrunPASS.",
+          "self_check": "13/13 privacy/correspondence/preservation checks;143allowlistedstringleaves;64originals/12oldattachments unchanged; tracked/indexdiffempty.",
+          "source_boundaries": "Only generatedtestfile appended. ExternalCodexsource readonly; no product code/REQ/CR/sharedcontracts/build/Git/deployment changes.",
+          "qualification": "No formal review or self-resolved old verdict; allthreebusinessbugs unrepaired. Reproduction checks are not product PASS or phone acceptance."
+        },
+        "commands": [
+          {
+            "command": "node logs/history-save-repair-20261005/s1/repair-r1/build-fixtures.cjs",
+            "result": "Two initialexit1 enum allowlist failures preserved, subsequentv1generationexit0; correctedmulti_agent_version v2generationexit0"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s1/repair-r1/run-sanitized.cjs",
+            "exit_code": 1,
+            "result": "run-1/failure.json: first13H1/H3/preservationchecks pass;14thH2check fails duefixtureenum, originalscript savedasrun-sanitized-initial.cjs"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s1/repair-r1/run-sanitized.cjs logs/history-save-repair-20261005/s1/repair-r1/run-2 child-only",
+            "exit_code": 0,
+            "result": "5/5 targetedC assertions; expectedanalysis_failedparentmissingbeforebatch"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s1/repair-r1/verify-fixtures.cjs",
+            "exit_code": 0,
+            "result": "13/13 staticfixturecorrespondence/privacy/originalpreservation"
+          }
+        ],
+        "remaining_work": [
+          "Newchange-review needed for thisrepair execution; S1 not finished andoldreview/finding remains historical fact.",
+          "H1safeproducer/importer evolutionowner, H2post-discoveryinheritance/Branchidentity, H3ownedsemanticsanddedup remainS2scope.",
+          "Threeproductfailures andtruepublication/Gateway/AppdurableACK/phoneswitchreopen acceptance remainS3-S6 work.",
+          "Reducedfixtures do not cover83originalArecords/all8originalruns, anddo notreplaceS3permanentconformance.",
+          "Currentv2defaultfullrunner hasnotbeenrerun: H1/H3executionfromidenticalAfixturesplusfocusedcorrectedC evidence explicit.",
+          "Threepre-existingunassociatedmanagementrecords retained."
+        ],
+        "files": [
+          "logs/history-save-repair-20261005/s1/repair-r1/report.md",
+          "logs/history-save-repair-20261005/s1/repair-r1/README.md",
+          "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures.cjs",
+          "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures-initial.cjs",
+          "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures-second.cjs",
+          "logs/history-save-repair-20261005/s1/repair-r1/build-fixtures-v1.cjs",
+          "logs/history-save-repair-20261005/s1/repair-r1/generation-initial-failure.json",
+          "logs/history-save-repair-20261005/s1/repair-r1/generation-second-failure.json",
+          "logs/history-save-repair-20261005/s1/repair-r1/run-sanitized.cjs",
+          "logs/history-save-repair-20261005/s1/repair-r1/run-sanitized-initial.cjs",
+          "logs/history-save-repair-20261005/s1/repair-r1/verify-fixtures.cjs",
+          "logs/history-save-repair-20261005/s1/repair-r1/shape-mapping.json",
+          "logs/history-save-repair-20261005/s1/repair-r1/self-check.json",
+          "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/manifest.json",
+          "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/a-prefix.jsonl",
+          "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/a-full.jsonl",
+          "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/c-header.jsonl",
+          "logs/history-save-repair-20261005/s1/repair-r1/fixtures/manifest.json",
+          "logs/history-save-repair-20261005/s1/repair-r1/fixtures/a-prefix.jsonl",
+          "logs/history-save-repair-20261005/s1/repair-r1/fixtures/a-full.jsonl",
+          "logs/history-save-repair-20261005/s1/repair-r1/fixtures/c-header.jsonl",
+          "logs/history-save-repair-20261005/s1/repair-r1/run-1/failure.json",
+          "logs/history-save-repair-20261005/s1/repair-r1/run-2/result.json"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

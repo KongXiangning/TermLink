@@ -1,0 +1,101 @@
+# TASK-20260832 · S1 三种历史保存失败诊断
+
+日期：2026-10-05。当前步骤：S1「逐项定位三种历史保存失败的原因」。本文为实施自检及诊断，不是正式审查、修复结果或手机验收。
+
+三处失败都有可追溯机制。新对话在保存增长后的历史时，将同一轮从开始到完成的更新判为已有内容冲突；分支对话在寻找原对话时，将原对话排除在候选文件之外；委派消息的两种实际格式均无法被现有类型正确识别。三项仍未修复。下一步 S2 要确定兼容方式、最小修改文件及针对原失败的回归，不能用一个新普通聊天成功替代三项结论。
+
+## 证据、身份与版本
+
+| 对象 | 固定身份 / 证据 |
+|---|---|
+| A：委派创建的新对话及后续保存拒绝 | `01a0fe25-56a2-7910-ba22-61e8016e8ad9`；原 S2、S4，以及保留的分析 staging/run |
+| C：由 A 原生 Branch 创建的独立对话 | `01a10643-ae9b-7cb1-b99b-f19f59acba6c`；原 S5 与 S5-R1 更正；不是 resend |
+| F：既有 canonical 保护对象 | `01a0ee04-a775-72b3-bd07-04aac804a3b4`；本步只读既有数据，不进行发布 |
+| 当前源码 | HEAD `1d762bb3f8ed3f0f972a47b7edb78f0615220e7f`；`git diff 241becbc2e72f3a1c90970e47f7e95ccf0021dba HEAD -- src native android package.json package-lock.json` 为空 |
+| 本步实际运行的 analyzer | 已存在的 debug exe；SHA256 `81a4448219a17cbe54ed827af3214205d49820033275a32d1f8ff46a11599564`，与原 S4 报告一致；没有重新构建 |
+| APK 版本适用性 | 原 S2/S4 本地及已安装 APK 哈希均为 `a3d60ef2e4506950ca44f7b5ec1eaf777f32dbccda13532416e1c5eb9da9505f`；本步未连接设备，不能断言今天手机仍安装该版本 |
+| 冻结 A source | `logs/e2e-validation-20261004/s5/private/c-settled-<A>.jsonl`；491301 bytes；SHA256 `360f32fb05741d87a5531bf89d5db8c91aa7163aec2ac49f9012deaf8d54acb3` |
+| 冻结 C source | 同目录 `c-settled-<C>.jsonl`；35305 bytes；SHA256 `3d194b9571a8f8a1fe45d5a50c05607396d2b56a3a13a46a662012c17b220a58` |
+
+业务代码相同和旧 binary 哈希一致支持当前诊断适用；这不证明本步完成了新的构建、真实宿主或手机验证。架构完整读取，相关契约/决策为 CONTRACTS 的 rollout/IPC 边界及 AD-004/018/019/020/021/022。旧 TASK-20260831 保持 closed，旧 S6 保持 finished。
+
+## H1：新对话保存增长后的历史被拒绝
+
+**原事实。** 原 S4 有 8 次 `batch_rejected/batch_scope_conflict`。仅该错误码不足以说明 request/source 身份错绑。保留的 A 分析库有 5 个已持久 staging batch，末次读取终点 405797，处于 provisional/partial，没有 canonical publication。
+
+**本步复现。** 在完全隔离的文件存储中，通过既有 `AnalysisBatchImporter` 正常导入这 5 个保留 batch，再经 `AnalyzerProcessManager` 及实际 Rust exe，对冻结 A 发起新的离线 `backfill` 请求。Node importer 首个拒绝为：
+
+```text
+ANALYSIS_BATCH_SCOPE_CONFLICT
+mutation evidence conflicts with an existing staged mutation
+mutation = upsert_item
+item_key = turn:01a10305-be51-76f0-9063-70d58652032e
+```
+
+负 ACK 后 Rust 返回 `batch_rejected`。因此已定位到具体 mutation 合并规则，不能继续描述为“尚不知道哪层 scope 不一致”。旧 run 的每次 rejection 并未逐次重放，本步证明一个原样增长历史与保留 staging 的可复现拒绝机制。
+
+| 字段 | 旧 staging | 后续 Rust batch |
+|---|---|---|
+| conversation/source/epoch | A / A / `lineage:A:A` | 相同 |
+| mutation 与 item_key | `upsert_item` / 上述同一 turn key | 相同 |
+| completeness | partial | partial |
+| mutation item 的 content_hash | `fnv1a64:110170ff806221c7` | `fnv1a64:2a8b562ac532263a` |
+| source_ref 指向事件 | `task_started`，ordinal 34，bytes 405497–405797 | `task_complete`，ordinal 59，bytes 469574–469882 |
+
+Rust `src/protocol/target_mapping.rs:1631` 按逻辑 item_key 保留最后事件生成 mutation，`mutation_item:1679` 将事件内容哈希及 source_ref 放入该逻辑项。随着同一轮完成，mutation 会变化。Node `analysisBatchImporter.js:853` 用 mutation 类型/item_key/call_id/replacement/range 建立身份；`:864` 只允许 completeness 严格升级并满足其他字段比较；`:934` 对上述同身份但变化的 mutation 拒绝。这是当前 producer 与 importer 对逻辑项演进的不一致，不是本次证明的跨会话绑定错误。
+
+对照：使用空的**离线分析 staging** 时，同一 A batch 被正常持久接收，Rust complete 仍为 partial；有 95 个派生事件、9 条 tool detail、6 个 ParseGap。此对照仅隔离旧 staging 的影响，**不是清库修复，不是产品保存成功**。39 个可对应原 history event 内容均相同，原 A1 的 399136-byte source 前缀与后续 A 完全相同；这些比较不代表全部原 8 个失败都已逐条证明。
+
+**责任及最小候选。** 已有 Node importer / Rust target mutation 生产边界。候选 `analysisBatchImporter.js` 与 `target_mapping.rs`；S2 决定由哪侧正确表达正常演进，不预定两侧同时修改。既有契约还要求同完整性内容冲突被拒绝，不能简单接受所有变化、提高 completeness、换 epoch、删 receipt 或清 staging。单独修复 H3 也不能未经回归就假定 H1 消失：当前 promotion 比较仍涉及 source_ref。
+
+**必要回归。** 原 start→complete 交付、已有 partial staging、重试/overlap 幂等、真实内容或 scope 冲突仍拒绝、旧 attempt/旧 canonical 保护、正式产品事务发布。具体选择与实现留在 S2/S4。
+
+## H2：分支报“找不到原对话”
+
+**原事实更正保持。** C 的 `SessionMeta.payload.history_base` 实际存在：parent thread_id=A、end_ordinal_exclusive=83、end_byte_offset=491301。A 物理 source 存在，该 cut 在界内、落在完整行末，对应 83 条物理记录。不能再把这个失败归因为源没有 history_base。原 S5 三个 C failed-run 文件哈希与保留 self-check 完全匹配。
+
+**本步复现及代码因果。** 将真实冻结 A/C 原样复制到隔离 sessions_root，分别放置在两个日期目录，经正式进程协议请求 C；没有发送 Node path/catalog，也没有改源 header/cut。Rust 在返回任何 batch 前仍报 `parent rollout is missing from catalog: A`。
+
+`src/source/discovery.rs:775` 扫描候选时要求文件名中的 conversation_id 等于请求的 C；`:799` 又要求 header.conversation_id 等于 C。A 与 C 是独立 conversation，所以存在且可读的 A 被排除。后续 `build_chain` 的 parent 查找（`:727–741`）依赖这个 catalog，自然找不到 history_base 明确引用的 A。
+
+**责任及最小候选。** Rust `source/discovery.rs` 的有证据 parent closure 定位/目录构建；`source/lineage.rs`、`protocol/target_source.rs` 仅在具体绑定/cut 行为证据要求时扩大。请求目标 C 与物理 parent A 的身份需要分开处理。不能简单取消所有过滤再收录所有聊天，也不能让 Node 发送猜测路径或从名字/mtime 推断 parent。
+
+**仍未知。** 当前报错发生在 discovery，之后 C 的继承正文、cut、独立 target 身份、完整性及 Branch/replacement 行为均未通过本步验证；不能承诺只改过滤即可完整保存。C 读到 A 后还会遇到 A 的 H3 内容。最小回归应覆盖跨日期真实 parent/child、继承与新增内容、A/C 隔离，以及缺 parent、歧义、循环、cut 越界和预算保护。
+
+## H3：委派消息无法识别，导致历史不完整
+
+**原事实与扩展核对。** A 有三组委派载体：ordinal 7/8 的 `create_thread`，40/41、63/64 的 `send_message_to_thread`。每组是 `response_item/function_call_output` 和 `event_msg/item_completed.item=FunctionCallOutput` 双份记录；同组 id 与 output SHA256 一致。真实 source 均无 call_id；同一冻结对话中没有按该 carrier id 可对应的本地 function_call，不能凭空补关联，也不能据此推断源应该重发。
+
+第一类：仓库内 vendor `protocol/src/models.rs:1042–1047` 的 ResponseItem::FunctionCallOutput 要求 `call_id:String`；实际携带的是 id/name/namespace/output。第二类：vendor `protocol/src/items.rs:45` 起的 TurnItem 枚举没有 FunctionCallOutput variant。`codex_wire/decode.rs:121` 将此类已知外层 envelope 解码失败统一记为 MissingRequiredField；第二类的这个标签不证明它只是少一个字段。
+
+Adapter `src/codex_adapter/mod.rs:129` 将不可恢复解码诊断保留为 ParseGap。实际 A 输出共 6 个 ParseGap，complete 为 partial，未证明可 canonical 发布。且 `adapt_item_completed:821` 的现有 match 对未支持项会进入 `item_completed_non_user`（`:923`）；只添加 vendor variant 不足以完成正确语义适配。
+
+**责任及最小候选。** formal `codex_wire/decode.rs` / facade、`codex_adapter/mod.rs`；必要时 vendor models/items 与已登记 closure/patch manifest。若必须更新 vendor，S2 明确 Spike→formal 同步、来源/许可证/manifest 和 conformance，不能使用开发者本机外部 Codex checkout。
+
+**仍未知及修复约束。** 解码失败位置已证实，委派输入的 TermLink-owned 事件模型、turn 归属、双载体幂等和内容展示方式仍需 S2 明确。不能映射成普通 user turn、套普通本地 tool 的 call_id、忽略 gap 或放宽 canonical gate。需要两类真实形状脱敏 fixture、create_thread/send_message 分别断言正文/关联/不重复，以及未知载体继续 partial 的负向回归。
+
+## 本步验证层级、限制与保持结果
+
+- 实际命令：`node logs/history-save-repair-20261005/s1/diagnose.cjs`，exit 0；H1 seeded 与 H2 的错误是预期的缺陷重现，绝不是产品 PASS。
+- 补充只读核对：`node logs/history-save-repair-20261005/s1/supplement.cjs`，exit 0；以及源前缀、三个原 C run 哈希的只读核对。脚本随后纳入相同只读核对逻辑，未为生成记录重复执行 analyzer。
+- 使用现有正式进程/模块入口及隔离 durable FileAnalysisStore，3 个串行请求，15s 有界 timeout；没有内存 ACK 冒充持久接收，没有产品 DB/手机 ACK。
+- **输入限制明确保留：** 离线重现用了原私有 source 的字节相同副本，而不是计划所列的完整脱敏 conformance 输入。原件未改，副本/raw batch/隔离 store 保持 ignored private，不加入持久附件。安全输出只有字段结构、身份与哈希。本步没有完成可共享脱敏 fixture；S2/S3 必须落实，此重现不能代替那项验收。
+- baseline 中 64 个原 source/store/run/DB/二进制/代码/报告对象前后哈希全部不变；tracked diff 与 index diff 均空。没有改产品源码、启动/重启服务、生成模型回合、操作真机、Git 写入或部署。
+- 未做新普通聊天、真实分支保存、实际委派重新发布、产品 transaction/Gateway provider、手机持久提交/ACK/切换/重开验证；三项业务问题仍公开保留。
+- 保留三个既有未关联管理记录；它们不表示本次诊断失败，也没有被伪造关联或清除。
+
+## 安全证据索引
+
+相对仓库路径：
+
+| 文件 | 用途 |
+|---|---|
+| `logs/history-save-repair-20261005/s1/diagnose.cjs` | 一次性离线 harness；原文件由 hash 保护；已有输出时不重复运行 |
+| `logs/history-save-repair-20261005/s1/diagnosis.json` | 三次请求实际结果、父子 cut、载体形状、保持汇总 |
+| `logs/history-save-repair-20261005/s1/supplement.cjs` / `supplement.json` | mutation 两版本、39 个共同 event、三组载体、历史 run/version 核对 |
+| `logs/history-save-repair-20261005/s1/baseline.json` / `preservation.json` | 64 对原文件哈希；不含私有正文 |
+| `logs/e2e-validation-20261003/s2/report.md` | 初次委派解码失败 |
+| `logs/e2e-validation-20261004/s4/report.md` | 原 8 次 batch 拒绝及 binary/APK 版本 |
+| `logs/e2e-validation-20261004/s5-repair-review/report.md` | history_base 原事实更正 |
+
+next_route: review-change — 审查 S1 的三条原因链、范围候选和明确保留的未知/输入限制；尚未 finish S1，也未执行 S2。

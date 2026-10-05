@@ -1,0 +1,667 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-04T18:36:37.876Z",
+  "payload_sha256": "f02f978528ceb26a09fc1084fd197c44aec1b231ae952580eddb55b1b3e6e3ac",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:codex-history-three-save-failures-plan-20261005-v1",
+    "request": {
+      "action": "prepare",
+      "idempotency_key": "codex-history-three-save-failures-plan-20261005-v1",
+      "source_revision": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+      "decision_source": "当前人类用户显式调用项目 prepare-task，要求将三项历史保存问题准备为下一个任务；本轮仅创建候选，不推定已采纳或授权实施。",
+      "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\prepare-task\\SKILL.md)\n\n下面三项属于同一个业务目标：\n\n- 新对话历史保存被拒绝。\n- 分支对话报“找不到原对话”，保存失败。\n- 特定委派消息解析失败，影响历史保存。\n\n下一个任务应先定位这三个问题，明确修复范围，再验证：**新对话和分支对话都能保存完整历史，手机切换回来、重开后仍能查看正文和工具详情。** 不能只让一个普通聊天样本通过，就认为三个问题都解决了。",
+      "plan": {
+        "title": "修复新对话、分支对话与委派消息的历史保存失败，并验证手机重开可查看",
+        "prepared_date": "2026-10-05",
+        "status": "candidate-not-adopted",
+        "goal": "分别定位和处理新对话保存被拒绝、分支对话找不到原对话、特定委派消息无法解析这三个已观察问题。通过正常产品入口保存完整的选定对话正文和工具详情，确认手机切换回来及重开后仍可查看。三项分别验收，不能用一个普通聊天样本通过代替全部修复。",
+        "authorization": {
+          "current": "本轮只准备并登记新候选计划，不采纳、不激活、不执行诊断实验、源码修复或真机验证。",
+          "execution": "计划采纳后先执行 S1/S2，交付证据与具体修复范围。S2 尚未知的文件/行为若未在已有确认中覆盖，实施前一次性说明具体改动与回归并取得确认；已明确授权的同等最小实现细节不重复询问。",
+          "operational_limits": "以下真实会话、设备和服务副作用均为待确认计划内容，不沿用旧关闭任务的操作许可作为本任务授权。"
+        },
+        "baseline": {
+          "source_revision": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+          "tracked_diff": "empty at preparation",
+          "index_diff": "empty at preparation",
+          "previous_execution_revision": "026892bb02a44c6664dc96e62acb41428422a310",
+          "previous_business_source_change": "当前 HEAD 相对旧执行版本仅管理证据等记录变更；S1 仍重新核实实际源码与运行二进制，不从旧哈希推定运行版本。",
+          "predecessor_task_id": "task-25654b249109f357a559899562804c15",
+          "predecessor_display_id": "TASK-20260831",
+          "predecessor_closed_ref": ".workflow-system/records/events/key-8464c4002ea41b1b57974aaf26a47b116e56a5f8f029fc6e7fc0074df0158a68.json",
+          "predecessor_s6_finished_ref": ".workflow-system/records/events/key-c9643e0e10b1f12cd8cc7f39d88a102fa6118b56a3bf0c08c432c5ae07bdf237.json",
+          "predecessor_disposition": "保持旧任务 closed 和 S6 finished；旧执行/审查报告中的未 finish/active 是各自写入时的历史状态，不作为当前状态。",
+          "historical_targets": {
+            "A": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+            "C": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+            "F": "01a0ee04-a775-72b3-bd07-04aac804a3b4"
+          }
+        },
+        "issues": [
+          {
+            "id": "H1",
+            "prior_id": "S4-G2",
+            "business_problem": "新对话的历史保存请求多次被拒绝，新内容未进入正式历史库。",
+            "fact": "旧 A 有八次 batch_rejected/batch_scope_conflict、未导入新 batch/checkpoint；A canonical 缺失。",
+            "unknown": "具体冲突是生产 batch、当前 request/source 范围、恢复 checkpoint 还是 durable receipt；不能只根据错误码指定修复模块。",
+            "evidence": "logs/e2e-validation-20261004/s4/report.md"
+          },
+          {
+            "id": "H2",
+            "prior_id": "S5 publication",
+            "business_problem": "从原对话创建分支后，分支历史处理报找不到原对话，保存失败。",
+            "fact": "旧 C 三次 analysis_failed/parent rollout is missing from catalog；S5-R1 从真实 SessionMeta.payload.history_base 验证 A、83 records、491301 byte cut，C 是独立 conversation。",
+            "unknown": "Rust 内部候选发现、catalog key/绑定、搜索范围或关系处理的具体原因；不是已证实源文件缺 history_base。",
+            "evidence": "logs/e2e-validation-20261004/s5-repair-review/report.md"
+          },
+          {
+            "id": "H3",
+            "prior_id": "S2-G1",
+            "business_problem": "特定委派消息无法被正确识别，相关对话历史不能完整保存。",
+            "fact": "旧 A ordinal 7 的 response_item/function_call_output 缺 call_id；ordinal 8 的 event_msg/item_completed 内嵌 FunctionCallOutput 不在当前 vendor TurnItem 中；均为 ParseGap，availability/coverage 保持 partial。",
+            "unknown": "该载体的真实关联和业务/上下文语义及最佳兼容方式；普通用户输入是否受影响尚未证明。",
+            "evidence": "logs/e2e-validation-20261003/s2/report.md"
+          }
+        ],
+        "scope": [
+          "在既有外部 Codex source、单例 Rust 采集、Node 校验/持久化/发布与现有手机历史入口之间，处理上述 H1/H2/H3 的最小正确性问题。",
+          "优先复用原失败样本与 retained batch/run/receipt/checkpoint/source 快照，只读重建每个问题的因果链，原件保持字节不变。",
+          "Rust 候选边界：formal codex_wire、CodexEventAdapter、source discovery/lineage 与受影响的 target source/runtime/identity；是否修改 reducer 由具体关联证据决定，不预定全面重构。",
+          "Node 候选边界：现有 analyzerProcessManager、analysisBatchImporter、相关 checkpoint/run/recovery/store 的局部校验或传递；仅在 H1 证据证实 Node 责任后纳入。",
+          "Rust 和 Node 分属独立步骤。Rust 契约先行稳定，Node 在自己的步骤消费已确认协议；不在 Rust 修复中顺手修改 Node，不用一侧现状静默覆盖共享契约。",
+          "维持现有对外协议；若根因要求 Node 4.5 整体迁移、改变共享接口或外部 source 边界，列明缺口并单独准备/确认相应任务，不在本任务静默完成迁移。",
+          "手机、Gateway、产品 DB 以现有入口作为验收对象。若诊断证明必须修改这些层，先在 S2 明确具体文件和用户行为再确认，不预授权 UI/数据库结构或 IPC 改造。",
+          "只为真实缺陷扩展既有有检出力的 conformance/protocol/产品历史回归，不默认建立永久通用 E2E 框架。",
+          "实施时同步实际需求、PLAN、CR 与每批验证；CR 未提交时保持 draft/真实未提交状态，不编造 active commit_ref，不因记录限制重跑业务。"
+        ],
+        "exclusions": [
+          "不处理 S4-G1 旧错误提示清理或 S6-G1 registration 校验；它们继续作为独立未解决问题。",
+          "不默认提高 decoded/fingerprint/输出保留预算，不把预算保护失效作为成功标准。",
+          "不编辑、重命名、截断、回写或伪造外部 Codex rollout；不造 call_id、parent lineage、完整性、DTO 或 ACK；未知/缺失内容继续 fail-closed/partial。",
+          "不新增采集 worker、第二 Rust 调用者、产品 epoch/commitFence、新全量读取 mode、轮询或第二实时权威。",
+          "不修改 follower 生命周期、desired subscription/reconnect replay、owner fallback、canonical id、Android healthy IPC authority 或 A/B 隔离。",
+          "不直接回填产品 DB/手机 DB，不删失败 run/intent/receipt、旧历史或测试会话来制造通过，不换持久根掩盖旧失败。",
+          "不把 Branch 当作 resend；不将委派输入当普通 user turn，不将 fallback/cache 同文当产品历史发布证明。",
+          "不开展完整 resend/replacement、深分页/大详情复制、自然 E07 更新、断网/竞态或多设备完整矩阵；仅保留本次改动必要回归。",
+          "不自动 stage/commit/push、生产部署、发布、清 App 数据、删除旧证据，或把候选计划自动采纳。"
+        ],
+        "acceptance": [
+          "H1/H2/H3 各有独立诊断、修复或明确未解决判定、相关文件/版本与回归证据；三个状态不能合并为一个 clean/PASS。",
+          "H1：原 scope 冲突的具体字段/生命周期失配可定位；合法交付可正常通过且落库，重复交付幂等，真实 scope 冲突和旧 attempt 仍被拒绝，原失败和旧 canonical 不变。若旧失败无法复现或根因未定位，保留未解决，不能以新聊天成功宣告 H1 修复。",
+          "H2：真实 C→A 绑定/cut 与物理 parent 可读性分开核验；有证据的 parent 可正确定位与读取，C 作为独立对话保留应继承的历史和自身新内容，不误混到 A。缺 parent、歧义、循环/越界等已有拒绝行为保持。",
+          "H3：两类已知真实载体各有形状一致的脱敏 fixture 和必要的关联/完整性断言；保存应保留的委派内容，不伪造 call_id，不静默丢行或放宽 canonical gate。未知 carrier 继续诊断/partial；普通聊天回归与委派载体回归分开。",
+          "新普通对话 N 经正式聊天入口产生真实 user turn，并含一个有界可核对的工具调用。完整的选定正文及 command/cwd/input/output（确实存在且按既有 retention 应保留的内容）进入产品历史库；内容身份与 source 证据对应，不只对比行数。",
+          "真实 native Branch C 从已完成 N 建立，并完成自己的一个有界回合；分别证明继承历史和 C 新内容正确、N 正文不被 C 覆盖。不能把复制工具历史当 C 新执行的工具。",
+          "委派 D 优先用实际旧 A 经正常产品历史入口重新处理，证明原载体在当前正确绑定下可以保存；单独离线 fixture PASS 不代表真实委派历史保存通过。若无法安全重用，仅在已确认副作用内建立最多一个委派验证样本，并明确其非普通 user 输入。",
+          "对 N、C、D 分别关联：batch staging COMMIT/正 ACK、受验证的 complete/checkpoint、产品 DB transaction COMMIT/publication、实际 Gateway product_db provider、手机 durable item/detail 存储和对应 ACK。Rust ACK、产品发布、手机 ACK 必须分别取证。",
+          "手机对 N、C、D 正常切换离开再返回，并 force-stop/重开后仍可查看对应已保存正文及选定工具详情；缓存与 UI 内容身份吻合，产品 provider/持久提交来源证据成立。缺失任一层保持部分验证，不以 healthy IPC 或旧缓存替代。",
+          "工具输出用有限且低于既有详情保留上限的样本验证应保留内容；显式 truncated/摘要策略不伪装原始全文完整，也不借本任务要求无限输出或大详情复制。",
+          "本次局部改动必要的负向/幂等/旧 canonical 保护回归通过；不触发预算放宽、外部 source 写入或实时权威变化。旧失败、数据和证据原件不覆盖。",
+          "最终报告分别列修复了什么、还有什么产品问题、未验证什么、测试层级/版本/二进制哈希和当前生命周期。代码审查的 clean 不代替业务验证；已确认产品问题在 findings/known-issues 中显式呈现，不仅藏在 limitations。"
+        ],
+        "steps": [
+          {
+            "id": "S1",
+            "title": "逐项定位三种历史保存失败的原因",
+            "environment": [
+              "当前仓库与 committed 历史",
+              "原 S2/S4/S5-R1/S6 安全附件及 ignored 私有快照只读",
+              "不启动服务、不生成模型回合、不操作真机"
+            ],
+            "actions": [
+              "固定源码、实际曾用 analyzer/APK、原 evidence 哈希与三问题身份，核实版本适用性。",
+              "H3 对照两条 carrier 与 vendored decode/Adapter；H2 对照 SessionMeta.history_base、parent 候选/绑定/catalog/cut；H1 对照 Node request/recovery/receipt 范围与 Rust 原 batch。",
+              "优先使用现有证据；需要可运行诊断时先定义有界离线 harness 与安全脱敏样本，仅经正式模块入口/进程协议，不直接重发真实采集请求。",
+              "给出三份原因链，区分原始事实、可复现机制和仍未知信息；禁止根据错误码猜修复。"
+            ],
+            "validation": [
+              "每个结论能回到精确记录/字段/源码位置。",
+              "原件哈希不变；未确认原因保留 unknown，不改产品。"
+            ],
+            "outputs": [
+              "三问题诊断报告与证据索引",
+              "责任模块及候选最小文件清单"
+            ]
+          },
+          {
+            "id": "S2",
+            "title": "明确具体修复文件、行为和回归范围",
+            "environment": [
+              "S1 诊断",
+              "当前架构/接口/IPC 契约",
+              "只准备实施范围"
+            ],
+            "actions": [
+              "每项列具体原因、拟改文件、行为前后、兼容策略和能检出原错误的回归。",
+              "确定 Rust-only 与 Node-only 修改归属/先后；Node 若需 4.5 迁移或契约演进，拆成独立明确任务，不在 Rust 步骤实施。",
+              "若必须更新 vendor，列明上游闭包/patch/manifest/许可证和 Spike→formal 同步及 conformance 范围；不预定全面 vendor 升级。",
+              "落实真实 REQ/PLAN/CR 的文档关联与更新方式；不捏造需求或 commit_ref。",
+              "把仍未覆盖的实际修改和测试副作用形成一次可审阅范围确认；已有具体授权不重复询问。"
+            ],
+            "validation": [
+              "三个问题均有具体处置，不以一个修复遮盖另外两个。",
+              "范围遵守 CONTRACTS、AD-004/018/019/020/021/022；没有偷偷引入新架构。"
+            ],
+            "outputs": [
+              "具体修复与回归方案",
+              "实际范围决定与关联记录；必要时追加候选修订"
+            ]
+          },
+          {
+            "id": "S3",
+            "title": "修复委派消息识别与分支历史定位的 Rust 问题",
+            "environment": [
+              "S2 已明确授权的 Rust 文件/测试",
+              "formal Rust crate 与仓库内 Codex closure",
+              "不改 Node/Android/IPC"
+            ],
+            "actions": [
+              "分别实施经诊断成立的 H3 解码/语义兼容与 H2 discovery/catalog/绑定最小修复；若原因不属于该层，保留明确转交，不强行修改。",
+              "优先扩展既有 wire/Adapter、stage3 conformance 和 stage4 target protocol/source 测试，使用源形状一致且脱敏的两类 carrier 及真实 parent/child 关系样本。",
+              "必要 vendor 同步依当前规则实施并保留 manifest/closure 证据；未知、缺 parent、关系歧义仍 fail-closed。"
+            ],
+            "validation": [
+              "两类 carrier 分别通过正确关联/partial 负向回归。",
+              "有效 parent/child 可定位，缺 parent/歧义/边界拒绝保持，独立 conversation 身份不变。",
+              "按改动执行最小必要 Rust conformance/target 协议测试，默认构建不依赖外部 Codex。"
+            ],
+            "outputs": [
+              "Rust 修复与测试证据",
+              "稳定接口和 Node consumer 使用说明；无实现的项明确保留"
+            ]
+          },
+          {
+            "id": "S4",
+            "title": "修复经证实的保存范围冲突并验证产品落库",
+            "environment": [
+              "S2 已明确授权的责任模块",
+              "S3 稳定接口/修复版 Rust binary",
+              "独立进程协议与临时测试 DB"
+            ],
+            "actions": [
+              "只修改 H1 被证实的 scope 失配位置。若属于 Rust，在 Rust 所属修改中处理；若属于现有 Node consumer，在独立 Node 步骤按已确认契约局部修复，不改对侧接口。",
+              "复用 codexRolloutCollector 与 recovery/checkpoint/realRust、codexHistoryProductFlow 的相关既有用例；新增断言只覆盖原错误机制及有实质价值的保护。",
+              "验证合法交付→staging/ACK→complete→产品事务发布，并验证重复幂等、真实冲突拒绝与旧 canonical 保护。",
+              "如果需要 Node 4.5 整体迁移或共享契约变化，保存当前诊断与剩余缺口并另立范围，不能宣称本问题已修复。"
+            ],
+            "validation": [
+              "原错误可由回归检出，修复后合法消息成功；旧 request/冲突消息仍拒绝。",
+              "从进程协议完成产品库提交，mock/fixture 仅算对应层支持。",
+              "各模块仅改自身已确认文件，实际接口版本和 binary 与证据一致。"
+            ],
+            "outputs": [
+              "H1 修复/未解决判定与验证",
+              "产品保存链各提交点的协议/集成证据"
+            ]
+          },
+          {
+            "id": "S5",
+            "title": "通过真实宿主分别验证普通、分支和委派历史保存",
+            "environment": [
+              "已确认的修复版 Node/Rust 与原持久根",
+              "真实 Codex 宿主正式聊天/原生 Branch 入口",
+              "真实委派旧 A 或已确认的有界新样本"
+            ],
+            "actions": [
+              "先确认服务归属、单例、持久根、版本、无无关在途作业；记录 source 与旧 canonical 基线。",
+              "普通 N 通过正常聊天入口产生真正 user turn，核实原生 source 形状，不能用 create_thread/send_message 委派载体替代。当前工具不能安全发普通输入时，明确需要人完成一次输入，不伪造样本。",
+              "N 完成后原生 Branch C，完成 C 自身有界回合，核对继承与新增内容，原 N 不受污染。",
+              "委派 D 优先由正常历史入口重新处理仍存在的旧 A；旧运行记录保留。不能直接写 DB/调用 Rust/删 receipt 或手动制造 source。",
+              "逐项定位正文和有限工具详情的 source、staging、complete/checkpoint、产品 publication；保存安全摘要，未通过的项保持 failed/partial。"
+            ],
+            "validation": [
+              "H1/H2/H3 分别有真实成功或明确仍失败，三项互不代替。",
+              "N/C/D 产品库有内容且正确对应各自身份；合法消息与详情应保留字段匹配。",
+              "原 source 外部只读，原 F/其他 canonical 与失败证据不被破坏。"
+            ],
+            "outputs": [
+              "三场景真实保存证据与剩余问题",
+              "供手机验收的 conversation/item/detail 身份和产品来源索引"
+            ]
+          },
+          {
+            "id": "S6",
+            "title": "验证手机切换与重开后正文和工具详情仍可查看，并收束结果",
+            "environment": [
+              "原指定 Android 真机 MQS7N19402011743，实际状态执行前确认",
+              "现有正常 Gateway/App 历史入口",
+              "本仓库服务与真实 N/C/D"
+            ],
+            "actions": [
+              "使用项目 local-dev-server-control 和 adb-real-device-debug；有必要的 Android build/JVM 命令仅用 JDK21，没改 App 且二进制匹配时不默认重建/重装。",
+              "对每个目标正常选择，确认真实 product_db 来源、完整页/hash/身份、App durable DB 提交及对应 ACK，展示正文并展开选定工具详情。",
+              "逐个切换离开再返回；force-stop/重开后再次查看，核对同一内容及持久缓存。healthy IPC 正常保持实时权威，产品 history 只能按现有允许的静态路径进入。",
+              "保护并恢复原草稿、剪贴板、配置/选择及临时连接，按执行前状态恢复测试服务；保留正常产生的数据与失败证据，不清 App 或回灌过期 session。",
+              "报告分别列三问题状态、修复文件、业务验证/fixture/历史复用/未运行层级和原始失败；新审查显式保留已确认产品问题，当前生命周期由 native task-status 读取。"
+            ],
+            "validation": [
+              "N/C/D 各自正常查看、切换返回、重开后正文和选定工具详情一致；缓存/IPC 同文不能代替产品来源与 durable ACK。",
+              "若实际手机/入口不可用或某项发布仍失败，保留该项未验证/失败，不把 task finished/closed 或自审 clean 当业务 PASS。",
+              "最小回归由影响面决定；触及受保护 Gateway/selection 路径时执行其实际强制回归和同机 A→B→A，不顺手改变该架构。"
+            ],
+            "outputs": [
+              "三问题修复与手机验收矩阵",
+              "已确认产品问题/剩余缺口清单",
+              "环境恢复与原件保持证据；执行、审查、finish/close 分别记录"
+            ]
+          }
+        ],
+        "test_policy": {
+          "selection": "遵循 docs/workflow/test-admission-policy.md；先复用相关既有测试，原缺陷与关键不变量确有缺口才新增/扩展。测试列表不是全套自动运行命令，具体 selector 在 S2 固定。",
+          "rust_candidates": [
+            "native/codex-rollout-collector/tests/stage3_conformance.rs",
+            "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+            "native/codex-rollout-collector/tests/stage2_input.rs",
+            "formal wire/Adapter/source 已有 module tests"
+          ],
+          "node_candidates": [
+            "tests/codexRolloutCollector.test.js",
+            "tests/codexRolloutCollector.recovery.test.js",
+            "tests/codexRolloutCollector.checkpointJobs.test.js",
+            "tests/codexRolloutCollector.realRust.test.js",
+            "tests/codexHistoryProductFlow.test.js"
+          ],
+          "guardrails": "隔离 process/conformance、SQLite 集成和真机业务验收分开报告。已有完整性/unknown/冲突测试不删或放松。无需因管理记录/审查生成全面测试；出现影响新增才扩大。"
+        },
+        "proposed_test_effects": [
+          "优先复用旧真实 A/C 与其静态证据。新普通测试会话 N 最多一个有界回合；原生 Branch C 最多一个新回合；确需新委派 D 时最多一个有界回合，总新增不超过三回合。模型额度、真实聊天与外部 source 会产生正常数据；超出该范围再说明。",
+          "每个新回合仅产生可核对的非敏感正文和一个不编辑业务文件的有界工具输出，建议4–8KiB并低于实际 retention 上限；不对现有工作对话发送测试指令。",
+          "仅已核实归属本仓库的服务可正常启动/重启以加载修复，可能中断该服务现有连接；若存在无关作业，先另选窗口。保持同一正常持久根和一个 Node→Rust 采集链，不并行第二服务。",
+          "指定手机会切换测试对话、展开详情和 force-stop/重开；执行前保护状态，结束恢复，正常缓存和测试数据保留。真实设备缺失时不换成旧快照冒充真机。",
+          "仅按已确认影响面构建 Rust；必要 App 构建/安装由实际二进制差异决定，并用JDK21、备份与install-r流程。无生产部署、发布或Git写操作。"
+        ],
+        "constraints_read": {
+          "architecture": "docs/codex/codex-rollout-collector-architecture.md (完整读取)",
+          "contract_sections": [
+            "CONTRACTS: Codex Rollout Collector P0-RC.1 隔离边界",
+            "CONTRACTS: Codex 原生会话实时同步核心"
+          ],
+          "decision_ids": [
+            "AD-004",
+            "AD-018",
+            "AD-019",
+            "AD-020",
+            "AD-021",
+            "AD-022"
+          ],
+          "related_interfaces": [
+            "docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md",
+            "docs/codex/codex-rollout-collector-rust-analyzer-startup-contract-draft.md",
+            "docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md",
+            "docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md",
+            "docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md"
+          ],
+          "qualification": "索引中的旧 implementation-status 描述是历史/待迁移状态；S1 用当前实际源码、协议与二进制证据判断，不直接把目标4.5文档当已部署事实。"
+        },
+        "management": {
+          "previous_gaps": "三条旧 unassociated 管理问题保持，不制造关联、重新打开旧 TASK 或把它们当业务工作阻断。",
+          "result": "prepare action 保存新候选，并分别检查 recorded/association/projection；不登记未实际发生的 review、adopt、execution。"
+        },
+        "next_route": "review-draft"
+      },
+      "files": [
+        "logs/task-preparation-20261005-history-save-repair/plan.md",
+        "logs/task-preparation-20261005-history-save-repair/plan.json"
+      ],
+      "parents": [
+        ".workflow-system/records/events/key-8464c4002ea41b1b57974aaf26a47b116e56a5f8f029fc6e7fc0074df0158a68.json",
+        ".workflow-system/records/events/key-c9643e0e10b1f12cd8cc7f39d88a102fa6118b56a3bf0c08c432c5ae07bdf237.json"
+      ],
+      "summary": {
+        "prepared_only": true,
+        "source_unchanged": true,
+        "predecessor_closed": true,
+        "issues": [
+          "S4-G2",
+          "S5 publication",
+          "S2-G1"
+        ],
+        "step_ids": [
+          "S1",
+          "S2",
+          "S3",
+          "S4",
+          "S5",
+          "S6"
+        ],
+        "next_route": "review-draft"
+      }
+    },
+    "files": [
+      "logs/task-preparation-20261005-history-save-repair/plan.md",
+      "logs/task-preparation-20261005-history-save-repair/plan.json"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "prepare",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-8464c4002ea41b1b57974aaf26a47b116e56a5f8f029fc6e7fc0074df0158a68.json",
+        ".workflow-system/records/events/key-c9643e0e10b1f12cd8cc7f39d88a102fa6118b56a3bf0c08c432c5ae07bdf237.json"
+      ],
+      "data": {
+        "source_revision": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+        "decision_source": "当前人类用户显式调用项目 prepare-task，要求将三项历史保存问题准备为下一个任务；本轮仅创建候选，不推定已采纳或授权实施。",
+        "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\prepare-task\\SKILL.md)\n\n下面三项属于同一个业务目标：\n\n- 新对话历史保存被拒绝。\n- 分支对话报“找不到原对话”，保存失败。\n- 特定委派消息解析失败，影响历史保存。\n\n下一个任务应先定位这三个问题，明确修复范围，再验证：**新对话和分支对话都能保存完整历史，手机切换回来、重开后仍能查看正文和工具详情。** 不能只让一个普通聊天样本通过，就认为三个问题都解决了。",
+        "plan": {
+          "title": "修复新对话、分支对话与委派消息的历史保存失败，并验证手机重开可查看",
+          "prepared_date": "2026-10-05",
+          "status": "candidate-not-adopted",
+          "goal": "分别定位和处理新对话保存被拒绝、分支对话找不到原对话、特定委派消息无法解析这三个已观察问题。通过正常产品入口保存完整的选定对话正文和工具详情，确认手机切换回来及重开后仍可查看。三项分别验收，不能用一个普通聊天样本通过代替全部修复。",
+          "authorization": {
+            "current": "本轮只准备并登记新候选计划，不采纳、不激活、不执行诊断实验、源码修复或真机验证。",
+            "execution": "计划采纳后先执行 S1/S2，交付证据与具体修复范围。S2 尚未知的文件/行为若未在已有确认中覆盖，实施前一次性说明具体改动与回归并取得确认；已明确授权的同等最小实现细节不重复询问。",
+            "operational_limits": "以下真实会话、设备和服务副作用均为待确认计划内容，不沿用旧关闭任务的操作许可作为本任务授权。"
+          },
+          "baseline": {
+            "source_revision": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+            "tracked_diff": "empty at preparation",
+            "index_diff": "empty at preparation",
+            "previous_execution_revision": "026892bb02a44c6664dc96e62acb41428422a310",
+            "previous_business_source_change": "当前 HEAD 相对旧执行版本仅管理证据等记录变更；S1 仍重新核实实际源码与运行二进制，不从旧哈希推定运行版本。",
+            "predecessor_task_id": "task-25654b249109f357a559899562804c15",
+            "predecessor_display_id": "TASK-20260831",
+            "predecessor_closed_ref": ".workflow-system/records/events/key-8464c4002ea41b1b57974aaf26a47b116e56a5f8f029fc6e7fc0074df0158a68.json",
+            "predecessor_s6_finished_ref": ".workflow-system/records/events/key-c9643e0e10b1f12cd8cc7f39d88a102fa6118b56a3bf0c08c432c5ae07bdf237.json",
+            "predecessor_disposition": "保持旧任务 closed 和 S6 finished；旧执行/审查报告中的未 finish/active 是各自写入时的历史状态，不作为当前状态。",
+            "historical_targets": {
+              "A": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+              "C": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+              "F": "01a0ee04-a775-72b3-bd07-04aac804a3b4"
+            }
+          },
+          "issues": [
+            {
+              "id": "H1",
+              "prior_id": "S4-G2",
+              "business_problem": "新对话的历史保存请求多次被拒绝，新内容未进入正式历史库。",
+              "fact": "旧 A 有八次 batch_rejected/batch_scope_conflict、未导入新 batch/checkpoint；A canonical 缺失。",
+              "unknown": "具体冲突是生产 batch、当前 request/source 范围、恢复 checkpoint 还是 durable receipt；不能只根据错误码指定修复模块。",
+              "evidence": "logs/e2e-validation-20261004/s4/report.md"
+            },
+            {
+              "id": "H2",
+              "prior_id": "S5 publication",
+              "business_problem": "从原对话创建分支后，分支历史处理报找不到原对话，保存失败。",
+              "fact": "旧 C 三次 analysis_failed/parent rollout is missing from catalog；S5-R1 从真实 SessionMeta.payload.history_base 验证 A、83 records、491301 byte cut，C 是独立 conversation。",
+              "unknown": "Rust 内部候选发现、catalog key/绑定、搜索范围或关系处理的具体原因；不是已证实源文件缺 history_base。",
+              "evidence": "logs/e2e-validation-20261004/s5-repair-review/report.md"
+            },
+            {
+              "id": "H3",
+              "prior_id": "S2-G1",
+              "business_problem": "特定委派消息无法被正确识别，相关对话历史不能完整保存。",
+              "fact": "旧 A ordinal 7 的 response_item/function_call_output 缺 call_id；ordinal 8 的 event_msg/item_completed 内嵌 FunctionCallOutput 不在当前 vendor TurnItem 中；均为 ParseGap，availability/coverage 保持 partial。",
+              "unknown": "该载体的真实关联和业务/上下文语义及最佳兼容方式；普通用户输入是否受影响尚未证明。",
+              "evidence": "logs/e2e-validation-20261003/s2/report.md"
+            }
+          ],
+          "scope": [
+            "在既有外部 Codex source、单例 Rust 采集、Node 校验/持久化/发布与现有手机历史入口之间，处理上述 H1/H2/H3 的最小正确性问题。",
+            "优先复用原失败样本与 retained batch/run/receipt/checkpoint/source 快照，只读重建每个问题的因果链，原件保持字节不变。",
+            "Rust 候选边界：formal codex_wire、CodexEventAdapter、source discovery/lineage 与受影响的 target source/runtime/identity；是否修改 reducer 由具体关联证据决定，不预定全面重构。",
+            "Node 候选边界：现有 analyzerProcessManager、analysisBatchImporter、相关 checkpoint/run/recovery/store 的局部校验或传递；仅在 H1 证据证实 Node 责任后纳入。",
+            "Rust 和 Node 分属独立步骤。Rust 契约先行稳定，Node 在自己的步骤消费已确认协议；不在 Rust 修复中顺手修改 Node，不用一侧现状静默覆盖共享契约。",
+            "维持现有对外协议；若根因要求 Node 4.5 整体迁移、改变共享接口或外部 source 边界，列明缺口并单独准备/确认相应任务，不在本任务静默完成迁移。",
+            "手机、Gateway、产品 DB 以现有入口作为验收对象。若诊断证明必须修改这些层，先在 S2 明确具体文件和用户行为再确认，不预授权 UI/数据库结构或 IPC 改造。",
+            "只为真实缺陷扩展既有有检出力的 conformance/protocol/产品历史回归，不默认建立永久通用 E2E 框架。",
+            "实施时同步实际需求、PLAN、CR 与每批验证；CR 未提交时保持 draft/真实未提交状态，不编造 active commit_ref，不因记录限制重跑业务。"
+          ],
+          "exclusions": [
+            "不处理 S4-G1 旧错误提示清理或 S6-G1 registration 校验；它们继续作为独立未解决问题。",
+            "不默认提高 decoded/fingerprint/输出保留预算，不把预算保护失效作为成功标准。",
+            "不编辑、重命名、截断、回写或伪造外部 Codex rollout；不造 call_id、parent lineage、完整性、DTO 或 ACK；未知/缺失内容继续 fail-closed/partial。",
+            "不新增采集 worker、第二 Rust 调用者、产品 epoch/commitFence、新全量读取 mode、轮询或第二实时权威。",
+            "不修改 follower 生命周期、desired subscription/reconnect replay、owner fallback、canonical id、Android healthy IPC authority 或 A/B 隔离。",
+            "不直接回填产品 DB/手机 DB，不删失败 run/intent/receipt、旧历史或测试会话来制造通过，不换持久根掩盖旧失败。",
+            "不把 Branch 当作 resend；不将委派输入当普通 user turn，不将 fallback/cache 同文当产品历史发布证明。",
+            "不开展完整 resend/replacement、深分页/大详情复制、自然 E07 更新、断网/竞态或多设备完整矩阵；仅保留本次改动必要回归。",
+            "不自动 stage/commit/push、生产部署、发布、清 App 数据、删除旧证据，或把候选计划自动采纳。"
+          ],
+          "acceptance": [
+            "H1/H2/H3 各有独立诊断、修复或明确未解决判定、相关文件/版本与回归证据；三个状态不能合并为一个 clean/PASS。",
+            "H1：原 scope 冲突的具体字段/生命周期失配可定位；合法交付可正常通过且落库，重复交付幂等，真实 scope 冲突和旧 attempt 仍被拒绝，原失败和旧 canonical 不变。若旧失败无法复现或根因未定位，保留未解决，不能以新聊天成功宣告 H1 修复。",
+            "H2：真实 C→A 绑定/cut 与物理 parent 可读性分开核验；有证据的 parent 可正确定位与读取，C 作为独立对话保留应继承的历史和自身新内容，不误混到 A。缺 parent、歧义、循环/越界等已有拒绝行为保持。",
+            "H3：两类已知真实载体各有形状一致的脱敏 fixture 和必要的关联/完整性断言；保存应保留的委派内容，不伪造 call_id，不静默丢行或放宽 canonical gate。未知 carrier 继续诊断/partial；普通聊天回归与委派载体回归分开。",
+            "新普通对话 N 经正式聊天入口产生真实 user turn，并含一个有界可核对的工具调用。完整的选定正文及 command/cwd/input/output（确实存在且按既有 retention 应保留的内容）进入产品历史库；内容身份与 source 证据对应，不只对比行数。",
+            "真实 native Branch C 从已完成 N 建立，并完成自己的一个有界回合；分别证明继承历史和 C 新内容正确、N 正文不被 C 覆盖。不能把复制工具历史当 C 新执行的工具。",
+            "委派 D 优先用实际旧 A 经正常产品历史入口重新处理，证明原载体在当前正确绑定下可以保存；单独离线 fixture PASS 不代表真实委派历史保存通过。若无法安全重用，仅在已确认副作用内建立最多一个委派验证样本，并明确其非普通 user 输入。",
+            "对 N、C、D 分别关联：batch staging COMMIT/正 ACK、受验证的 complete/checkpoint、产品 DB transaction COMMIT/publication、实际 Gateway product_db provider、手机 durable item/detail 存储和对应 ACK。Rust ACK、产品发布、手机 ACK 必须分别取证。",
+            "手机对 N、C、D 正常切换离开再返回，并 force-stop/重开后仍可查看对应已保存正文及选定工具详情；缓存与 UI 内容身份吻合，产品 provider/持久提交来源证据成立。缺失任一层保持部分验证，不以 healthy IPC 或旧缓存替代。",
+            "工具输出用有限且低于既有详情保留上限的样本验证应保留内容；显式 truncated/摘要策略不伪装原始全文完整，也不借本任务要求无限输出或大详情复制。",
+            "本次局部改动必要的负向/幂等/旧 canonical 保护回归通过；不触发预算放宽、外部 source 写入或实时权威变化。旧失败、数据和证据原件不覆盖。",
+            "最终报告分别列修复了什么、还有什么产品问题、未验证什么、测试层级/版本/二进制哈希和当前生命周期。代码审查的 clean 不代替业务验证；已确认产品问题在 findings/known-issues 中显式呈现，不仅藏在 limitations。"
+          ],
+          "steps": [
+            {
+              "id": "S1",
+              "title": "逐项定位三种历史保存失败的原因",
+              "environment": [
+                "当前仓库与 committed 历史",
+                "原 S2/S4/S5-R1/S6 安全附件及 ignored 私有快照只读",
+                "不启动服务、不生成模型回合、不操作真机"
+              ],
+              "actions": [
+                "固定源码、实际曾用 analyzer/APK、原 evidence 哈希与三问题身份，核实版本适用性。",
+                "H3 对照两条 carrier 与 vendored decode/Adapter；H2 对照 SessionMeta.history_base、parent 候选/绑定/catalog/cut；H1 对照 Node request/recovery/receipt 范围与 Rust 原 batch。",
+                "优先使用现有证据；需要可运行诊断时先定义有界离线 harness 与安全脱敏样本，仅经正式模块入口/进程协议，不直接重发真实采集请求。",
+                "给出三份原因链，区分原始事实、可复现机制和仍未知信息；禁止根据错误码猜修复。"
+              ],
+              "validation": [
+                "每个结论能回到精确记录/字段/源码位置。",
+                "原件哈希不变；未确认原因保留 unknown，不改产品。"
+              ],
+              "outputs": [
+                "三问题诊断报告与证据索引",
+                "责任模块及候选最小文件清单"
+              ]
+            },
+            {
+              "id": "S2",
+              "title": "明确具体修复文件、行为和回归范围",
+              "environment": [
+                "S1 诊断",
+                "当前架构/接口/IPC 契约",
+                "只准备实施范围"
+              ],
+              "actions": [
+                "每项列具体原因、拟改文件、行为前后、兼容策略和能检出原错误的回归。",
+                "确定 Rust-only 与 Node-only 修改归属/先后；Node 若需 4.5 迁移或契约演进，拆成独立明确任务，不在 Rust 步骤实施。",
+                "若必须更新 vendor，列明上游闭包/patch/manifest/许可证和 Spike→formal 同步及 conformance 范围；不预定全面 vendor 升级。",
+                "落实真实 REQ/PLAN/CR 的文档关联与更新方式；不捏造需求或 commit_ref。",
+                "把仍未覆盖的实际修改和测试副作用形成一次可审阅范围确认；已有具体授权不重复询问。"
+              ],
+              "validation": [
+                "三个问题均有具体处置，不以一个修复遮盖另外两个。",
+                "范围遵守 CONTRACTS、AD-004/018/019/020/021/022；没有偷偷引入新架构。"
+              ],
+              "outputs": [
+                "具体修复与回归方案",
+                "实际范围决定与关联记录；必要时追加候选修订"
+              ]
+            },
+            {
+              "id": "S3",
+              "title": "修复委派消息识别与分支历史定位的 Rust 问题",
+              "environment": [
+                "S2 已明确授权的 Rust 文件/测试",
+                "formal Rust crate 与仓库内 Codex closure",
+                "不改 Node/Android/IPC"
+              ],
+              "actions": [
+                "分别实施经诊断成立的 H3 解码/语义兼容与 H2 discovery/catalog/绑定最小修复；若原因不属于该层，保留明确转交，不强行修改。",
+                "优先扩展既有 wire/Adapter、stage3 conformance 和 stage4 target protocol/source 测试，使用源形状一致且脱敏的两类 carrier 及真实 parent/child 关系样本。",
+                "必要 vendor 同步依当前规则实施并保留 manifest/closure 证据；未知、缺 parent、关系歧义仍 fail-closed。"
+              ],
+              "validation": [
+                "两类 carrier 分别通过正确关联/partial 负向回归。",
+                "有效 parent/child 可定位，缺 parent/歧义/边界拒绝保持，独立 conversation 身份不变。",
+                "按改动执行最小必要 Rust conformance/target 协议测试，默认构建不依赖外部 Codex。"
+              ],
+              "outputs": [
+                "Rust 修复与测试证据",
+                "稳定接口和 Node consumer 使用说明；无实现的项明确保留"
+              ]
+            },
+            {
+              "id": "S4",
+              "title": "修复经证实的保存范围冲突并验证产品落库",
+              "environment": [
+                "S2 已明确授权的责任模块",
+                "S3 稳定接口/修复版 Rust binary",
+                "独立进程协议与临时测试 DB"
+              ],
+              "actions": [
+                "只修改 H1 被证实的 scope 失配位置。若属于 Rust，在 Rust 所属修改中处理；若属于现有 Node consumer，在独立 Node 步骤按已确认契约局部修复，不改对侧接口。",
+                "复用 codexRolloutCollector 与 recovery/checkpoint/realRust、codexHistoryProductFlow 的相关既有用例；新增断言只覆盖原错误机制及有实质价值的保护。",
+                "验证合法交付→staging/ACK→complete→产品事务发布，并验证重复幂等、真实冲突拒绝与旧 canonical 保护。",
+                "如果需要 Node 4.5 整体迁移或共享契约变化，保存当前诊断与剩余缺口并另立范围，不能宣称本问题已修复。"
+              ],
+              "validation": [
+                "原错误可由回归检出，修复后合法消息成功；旧 request/冲突消息仍拒绝。",
+                "从进程协议完成产品库提交，mock/fixture 仅算对应层支持。",
+                "各模块仅改自身已确认文件，实际接口版本和 binary 与证据一致。"
+              ],
+              "outputs": [
+                "H1 修复/未解决判定与验证",
+                "产品保存链各提交点的协议/集成证据"
+              ]
+            },
+            {
+              "id": "S5",
+              "title": "通过真实宿主分别验证普通、分支和委派历史保存",
+              "environment": [
+                "已确认的修复版 Node/Rust 与原持久根",
+                "真实 Codex 宿主正式聊天/原生 Branch 入口",
+                "真实委派旧 A 或已确认的有界新样本"
+              ],
+              "actions": [
+                "先确认服务归属、单例、持久根、版本、无无关在途作业；记录 source 与旧 canonical 基线。",
+                "普通 N 通过正常聊天入口产生真正 user turn，核实原生 source 形状，不能用 create_thread/send_message 委派载体替代。当前工具不能安全发普通输入时，明确需要人完成一次输入，不伪造样本。",
+                "N 完成后原生 Branch C，完成 C 自身有界回合，核对继承与新增内容，原 N 不受污染。",
+                "委派 D 优先由正常历史入口重新处理仍存在的旧 A；旧运行记录保留。不能直接写 DB/调用 Rust/删 receipt 或手动制造 source。",
+                "逐项定位正文和有限工具详情的 source、staging、complete/checkpoint、产品 publication；保存安全摘要，未通过的项保持 failed/partial。"
+              ],
+              "validation": [
+                "H1/H2/H3 分别有真实成功或明确仍失败，三项互不代替。",
+                "N/C/D 产品库有内容且正确对应各自身份；合法消息与详情应保留字段匹配。",
+                "原 source 外部只读，原 F/其他 canonical 与失败证据不被破坏。"
+              ],
+              "outputs": [
+                "三场景真实保存证据与剩余问题",
+                "供手机验收的 conversation/item/detail 身份和产品来源索引"
+              ]
+            },
+            {
+              "id": "S6",
+              "title": "验证手机切换与重开后正文和工具详情仍可查看，并收束结果",
+              "environment": [
+                "原指定 Android 真机 MQS7N19402011743，实际状态执行前确认",
+                "现有正常 Gateway/App 历史入口",
+                "本仓库服务与真实 N/C/D"
+              ],
+              "actions": [
+                "使用项目 local-dev-server-control 和 adb-real-device-debug；有必要的 Android build/JVM 命令仅用 JDK21，没改 App 且二进制匹配时不默认重建/重装。",
+                "对每个目标正常选择，确认真实 product_db 来源、完整页/hash/身份、App durable DB 提交及对应 ACK，展示正文并展开选定工具详情。",
+                "逐个切换离开再返回；force-stop/重开后再次查看，核对同一内容及持久缓存。healthy IPC 正常保持实时权威，产品 history 只能按现有允许的静态路径进入。",
+                "保护并恢复原草稿、剪贴板、配置/选择及临时连接，按执行前状态恢复测试服务；保留正常产生的数据与失败证据，不清 App 或回灌过期 session。",
+                "报告分别列三问题状态、修复文件、业务验证/fixture/历史复用/未运行层级和原始失败；新审查显式保留已确认产品问题，当前生命周期由 native task-status 读取。"
+              ],
+              "validation": [
+                "N/C/D 各自正常查看、切换返回、重开后正文和选定工具详情一致；缓存/IPC 同文不能代替产品来源与 durable ACK。",
+                "若实际手机/入口不可用或某项发布仍失败，保留该项未验证/失败，不把 task finished/closed 或自审 clean 当业务 PASS。",
+                "最小回归由影响面决定；触及受保护 Gateway/selection 路径时执行其实际强制回归和同机 A→B→A，不顺手改变该架构。"
+              ],
+              "outputs": [
+                "三问题修复与手机验收矩阵",
+                "已确认产品问题/剩余缺口清单",
+                "环境恢复与原件保持证据；执行、审查、finish/close 分别记录"
+              ]
+            }
+          ],
+          "test_policy": {
+            "selection": "遵循 docs/workflow/test-admission-policy.md；先复用相关既有测试，原缺陷与关键不变量确有缺口才新增/扩展。测试列表不是全套自动运行命令，具体 selector 在 S2 固定。",
+            "rust_candidates": [
+              "native/codex-rollout-collector/tests/stage3_conformance.rs",
+              "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+              "native/codex-rollout-collector/tests/stage2_input.rs",
+              "formal wire/Adapter/source 已有 module tests"
+            ],
+            "node_candidates": [
+              "tests/codexRolloutCollector.test.js",
+              "tests/codexRolloutCollector.recovery.test.js",
+              "tests/codexRolloutCollector.checkpointJobs.test.js",
+              "tests/codexRolloutCollector.realRust.test.js",
+              "tests/codexHistoryProductFlow.test.js"
+            ],
+            "guardrails": "隔离 process/conformance、SQLite 集成和真机业务验收分开报告。已有完整性/unknown/冲突测试不删或放松。无需因管理记录/审查生成全面测试；出现影响新增才扩大。"
+          },
+          "proposed_test_effects": [
+            "优先复用旧真实 A/C 与其静态证据。新普通测试会话 N 最多一个有界回合；原生 Branch C 最多一个新回合；确需新委派 D 时最多一个有界回合，总新增不超过三回合。模型额度、真实聊天与外部 source 会产生正常数据；超出该范围再说明。",
+            "每个新回合仅产生可核对的非敏感正文和一个不编辑业务文件的有界工具输出，建议4–8KiB并低于实际 retention 上限；不对现有工作对话发送测试指令。",
+            "仅已核实归属本仓库的服务可正常启动/重启以加载修复，可能中断该服务现有连接；若存在无关作业，先另选窗口。保持同一正常持久根和一个 Node→Rust 采集链，不并行第二服务。",
+            "指定手机会切换测试对话、展开详情和 force-stop/重开；执行前保护状态，结束恢复，正常缓存和测试数据保留。真实设备缺失时不换成旧快照冒充真机。",
+            "仅按已确认影响面构建 Rust；必要 App 构建/安装由实际二进制差异决定，并用JDK21、备份与install-r流程。无生产部署、发布或Git写操作。"
+          ],
+          "constraints_read": {
+            "architecture": "docs/codex/codex-rollout-collector-architecture.md (完整读取)",
+            "contract_sections": [
+              "CONTRACTS: Codex Rollout Collector P0-RC.1 隔离边界",
+              "CONTRACTS: Codex 原生会话实时同步核心"
+            ],
+            "decision_ids": [
+              "AD-004",
+              "AD-018",
+              "AD-019",
+              "AD-020",
+              "AD-021",
+              "AD-022"
+            ],
+            "related_interfaces": [
+              "docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md",
+              "docs/codex/codex-rollout-collector-rust-analyzer-startup-contract-draft.md",
+              "docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md",
+              "docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md",
+              "docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md"
+            ],
+            "qualification": "索引中的旧 implementation-status 描述是历史/待迁移状态；S1 用当前实际源码、协议与二进制证据判断，不直接把目标4.5文档当已部署事实。"
+          },
+          "management": {
+            "previous_gaps": "三条旧 unassociated 管理问题保持，不制造关联、重新打开旧 TASK 或把它们当业务工作阻断。",
+            "result": "prepare action 保存新候选，并分别检查 recorded/association/projection；不登记未实际发生的 review、adopt、execution。"
+          },
+          "next_route": "review-draft"
+        },
+        "files": [
+          "logs/task-preparation-20261005-history-save-repair/plan.md",
+          "logs/task-preparation-20261005-history-save-repair/plan.json"
+        ],
+        "summary": {
+          "prepared_only": true,
+          "source_unchanged": true,
+          "predecessor_closed": true,
+          "issues": [
+            "S4-G2",
+            "S5 publication",
+            "S2-G1"
+          ],
+          "step_ids": [
+            "S1",
+            "S2",
+            "S3",
+            "S4",
+            "S5",
+            "S6"
+          ],
+          "next_route": "review-draft"
+        },
+        "create": true,
+        "display_id": "TASK-20260832"
+      }
+    }
+  },
+  "issues": []
+}

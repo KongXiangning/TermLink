@@ -1,0 +1,28 @@
+{
+  "event_ref": ".workflow-system/records/events/key-b55a4c46ea54d79ba5969cefc36f5e0c9782d023534c736a40273b43a5a4e092.json",
+  "captured_at": "2026-10-04T18:48:39.434Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/de32385a5c26cb47d23b6bfe85162421ffe0a475ed79dcfe57c59fb6b350bee3.blob",
+      "sha256": "de32385a5c26cb47d23b6bfe85162421ffe0a475ed79dcfe57c59fb6b350bee3",
+      "size": 2620,
+      "source_path": "logs/task-preparation-20261005-history-save-repair-confirm/confirmation.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1ac42958e0bd5796bd54fd8022d1eefb1b087ad5d71bc3f79510279ef62dc824.blob",
+      "sha256": "1ac42958e0bd5796bd54fd8022d1eefb1b087ad5d71bc3f79510279ef62dc824",
+      "size": 2456,
+      "source_path": "logs/task-preparation-20261005-history-save-repair-confirm/evidence-check.json",
+      "issues": []
+    }
+  ]
+}

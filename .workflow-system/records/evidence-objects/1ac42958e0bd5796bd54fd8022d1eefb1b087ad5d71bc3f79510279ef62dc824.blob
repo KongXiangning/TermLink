@@ -1,0 +1,58 @@
+{
+  "source_revision": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+  "attachment_check": [
+    {
+      "event_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "source_path": "logs/task-preparation-20261005-history-save-repair/plan.md",
+      "sha256": "a17e818f9b9033103f19eaae43ff7fce70fce763ddfd285f0e671d6a04e1e14d",
+      "source_matches": true,
+      "object_matches": true
+    },
+    {
+      "event_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "source_path": "logs/task-preparation-20261005-history-save-repair/plan.json",
+      "sha256": "c9a62d86c0cd22e70cba2c4d935b748c8837b73c5ff3577a62a2ea80d477a0f2",
+      "source_matches": true,
+      "object_matches": true
+    },
+    {
+      "event_ref": ".workflow-system/records/events/key-aafcde089912e5ce2666e01687c99f6a028609f60157cc5728a36921400a57d5.json",
+      "source_path": "logs/task-preparation-20261005-history-save-repair-review/report.md",
+      "sha256": "c0545ca9e74f592b47a6d293558ce7fd77571229b9c91ce201d88f62d5c0d641",
+      "source_matches": true,
+      "object_matches": true
+    },
+    {
+      "event_ref": ".workflow-system/records/events/key-aafcde089912e5ce2666e01687c99f6a028609f60157cc5728a36921400a57d5.json",
+      "source_path": "logs/task-preparation-20261005-history-save-repair-review/audit.json",
+      "sha256": "52d48872834c1716eb02bfb83f5036f301b9ac45c3a7810e3d25c829d54e5933",
+      "source_matches": true,
+      "object_matches": true
+    }
+  ],
+  "known_product_issues": [
+    {
+      "id": "H1",
+      "status": "unresolved",
+      "business": "新对话历史保存请求被拒绝；具体范围失配仍待定位",
+      "evidence": "logs/e2e-validation-20261004/s4/report.md:41"
+    },
+    {
+      "id": "H2",
+      "status": "unresolved",
+      "business": "分支历史报找不到原对话；真实父对话字段存在，catalog 根因仍待定位",
+      "evidence": "logs/e2e-validation-20261004/s5-repair-review/report.md:15"
+    },
+    {
+      "id": "H3",
+      "status": "unresolved",
+      "business": "两种特定委派消息解析失败，相关历史不能完整保存；普通输入受影响情况未知",
+      "evidence": "logs/e2e-validation-20261003/s2/report.md:53"
+    }
+  ],
+  "review_provenance": {
+    "kind": "self-review",
+    "same_author_as_plan": true,
+    "independent": false
+  }
+}

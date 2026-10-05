@@ -1,0 +1,42 @@
+# TASK-20260832 · S1 repair · S1-R1
+
+2026-10-05。针对 review `key-34228aaf160940b8653e5db8841d67721660a1dd7743fa5ecfa328361fb6f5bd.json` 的 S1-R1，已补齐安全脱敏输入、结构/原证据对应与最小正式模块/进程复现。状态：**实施补齐，待新的 change review**；没有改写原审查为clean或将finding自行判为已复审解决。
+
+## 改动及验证结果
+
+- 新增独立诊断包 `repair-r1/fixtures-v2`：三份JSONL及manifest；其正文、路径、ID、telemetry已替换，协议形状、缺字段、双载体和已证实父子/同turn关系保留。映射说明见README及shape-mapping.json。
+- runnable `run-sanitized.cjs` 只依赖交付脱敏输入、仓库正式Node模块和已识别Rust exe，不导入原私有staging。H1 prior batch直接由actual binary读取脱敏prefix生成，经正常FileAnalysisStore持久提交/正ACK，之后仅对测试副本追加；增长batch被拒绝后旧durable store字节保持。
+- H1：同一partial turn从started变为complete的mutation产生内容/source_ref变化，同scope下出现具体mutation冲突并负ACK/Rust batch_rejected；空离线staging对照仅partial成功。
+- H3：三组双载体继续各缺call_id；partial batch有6条相应ParseGap，3条response_item和3条item_completed。没有造call_id、改普通user输入或忽略gap。
+- H2：修正脱敏C header枚举后，真实文件可读且测试cut有效，C仍在零batch时返回parent missing，复现原catalog过滤机制。未宣称读取parent后继承/Branch行为正确。
+- 输入对应与隐私核对13/13通过，143个字符串叶子均属于有限结构枚举/测试ID/固定占位值；14条原/脱敏记录的key/type树与record哈希可追溯。64个原件和12份旧执行/审查附件均保持不变，tracked/index diff为空。
+
+## 实际命令与失败保留
+
+`build-fixtures.cjs` 初始两次失败是抽取器缺C thread_source枚举白名单；失败摘要/脚本保留，没有写fixture或运行analyzer。修正生成v1后：
+
+```text
+node logs/history-save-repair-20261005/s1/repair-r1/run-sanitized.cjs
+exit1：前13项H1/H3及输入/持久保护断言通过；第14项H2失败，原因是fixture将multi_agent_version错误替换为占位值。
+```
+
+原run-1失败保留，原脚本另存 `run-sanitized-initial.cjs`。补充multi_agent_version有限枚举保留、生成fixtures-v2，A两份文件hash相同，因此不重跑H1/H3：
+
+```text
+node logs/history-save-repair-20261005/s1/repair-r1/run-sanitized.cjs logs/history-save-repair-20261005/s1/repair-r1/run-2 child-only
+exit0：5/5，预期parent missing，零batch。
+node logs/history-save-repair-20261005/s1/repair-r1/verify-fixtures.cjs
+exit0：13/13对应、隐私和保持核对。
+```
+
+共5个串行离线读取请求：初始4个，加修正后1个C请求；进程依次退出，无实时服务或产品Rust调用者。断言计数是分层诊断核对，不是产品E2E用例数量。当前v2完整默认流程没有为补记录重复执行；共享脚本可用新输出目录复现，实际证据按相同A复用/修正C单项复验区分。
+
+## 仍保留的业务问题与边界
+
+H1/H2/H3均未修复。H1原8次失败未逐次重放，安全演进规则/模块owner由S2确定；H2post-discovery继承/新内容/C隔离与Branch/replacement未验证；H3owned语义、turn归属和双载体归约未定。本诊断包不替代S3正式长期conformance回归，也没有产品事务/Gateway product_db/手机durableACK/切换重开验证。
+
+没有产品源码、REQ/CR或共享契约修改；未启动服务、构建、生成模型回合、操作真机、Git提交/推送/部署。源文件只是只读原件；发生append的是隔离生成的测试文件。旧任务仍closed，旧S6仍finished，三个既有未关联管理问题不修造关联。
+
+执行记录关联同一task/plan/S1、原execution和review及用户repair决定；它是新的repair execution，不覆盖任何旧记录，不自动formal review/finish/close或进入S2。
+
+next_route: review-change — 审查S1-R1补齐的有效脱敏输入、真实复现与映射及保留的初始失败。

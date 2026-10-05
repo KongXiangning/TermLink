@@ -1,0 +1,186 @@
+{
+  "kind": "S1-review-evidence-audit",
+  "provenance": "Same-agent self-review; static/raw-byte corroboration only, no analyzer/service/device/test rerun",
+  "execution_ref": ".workflow-system/records/events/key-857c88fe513282c2114ba4795cbdbc79b11b873e410d8821b987100ae6fe0bba.json",
+  "source_revision": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+  "checks": [
+    {
+      "id": "original64_objects_unchanged",
+      "ok": true,
+      "details": {
+        "count": 64,
+        "changed": []
+      }
+    },
+    {
+      "id": "seven_saved_attachments_match",
+      "ok": true,
+      "details": {
+        "count": 7
+      }
+    },
+    {
+      "id": "attachments_exclude_private_inputs",
+      "ok": true
+    },
+    {
+      "id": "execution_exact_subject",
+      "ok": true,
+      "details": {
+        "step": "S1"
+      }
+    },
+    {
+      "id": "H2_distinct_real_bound_ids",
+      "ok": true,
+      "details": {
+        "parent": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "child": "01a10643-ae9b-7cb1-b99b-f19f59acba6c"
+      }
+    },
+    {
+      "id": "H2_cut_valid_83_records",
+      "ok": true,
+      "details": {
+        "thread_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "end_ordinal_exclusive": 83,
+        "end_byte_offset": 491301
+      }
+    },
+    {
+      "id": "two_offline_sources_byte_identical",
+      "ok": true
+    },
+    {
+      "id": "H2_saved_failure_precedes_batch",
+      "ok": true,
+      "details": {
+        "batch_count": 0,
+        "code": "analysis_failed"
+      }
+    },
+    {
+      "id": "three_historical_C_runs_match",
+      "ok": true,
+      "details": {
+        "count": 3
+      }
+    },
+    {
+      "id": "H1_same_scope",
+      "ok": true,
+      "details": {
+        "conversationId": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sourceId": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "sourceEpoch": "lineage:01a0fe25-56a2-7910-ba22-61e8016e8ad9:01a0fe25-56a2-7910-ba22-61e8016e8ad9"
+      }
+    },
+    {
+      "id": "H1_same_partial_logical_item_changes",
+      "ok": true,
+      "details": {
+        "item_key": "turn:01a10305-be51-76f0-9063-70d58652032e",
+        "prior_hash": "fnv1a64:110170ff806221c7",
+        "incoming_hash": "fnv1a64:2a8b562ac532263a"
+      }
+    },
+    {
+      "id": "H1_refs_actual_started_then_complete",
+      "ok": true
+    },
+    {
+      "id": "H1_specific_importer_rejection",
+      "ok": true
+    },
+    {
+      "id": "H1_fresh_control_only_partial",
+      "ok": true,
+      "details": {
+        "status": "partial",
+        "completeness": "partial",
+        "checkpoint_end": 491301
+      }
+    },
+    {
+      "id": "H1_seed_staging_is_durable",
+      "ok": true,
+      "details": {
+        "staging": 5,
+        "receipts": 5
+      }
+    },
+    {
+      "id": "H1_control_staging_is_durable_noncanonical",
+      "ok": true,
+      "details": {
+        "staging": 1,
+        "canonical": false
+      }
+    },
+    {
+      "id": "H1_39_common_events_unchanged",
+      "ok": true,
+      "details": {
+        "common": 39
+      }
+    },
+    {
+      "id": "H1_original399136_prefix_unchanged",
+      "ok": true
+    },
+    {
+      "id": "H3_six_raw_carriers_no_call_id",
+      "ok": true,
+      "details": {
+        "ordinals": [
+          7,
+          8,
+          40,
+          41,
+          63,
+          64
+        ]
+      }
+    },
+    {
+      "id": "H3_three_paired_id_and_output",
+      "ok": true
+    },
+    {
+      "id": "H3_six_saved_gaps_and_partial",
+      "ok": true
+    },
+    {
+      "id": "actual_binary_matches_original",
+      "ok": true
+    },
+    {
+      "id": "review_source_same_HEAD",
+      "ok": true,
+      "details": {
+        "head": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f"
+      }
+    },
+    {
+      "id": "no_tracked_or_staged_changes",
+      "ok": true
+    },
+    {
+      "id": "business_version_still_matches",
+      "ok": true
+    },
+    {
+      "id": "report_keeps_unrepaired_and_input_gap",
+      "ok": true
+    }
+  ],
+  "passed": 26,
+  "total": 26,
+  "failed": [],
+  "product_status": {
+    "H1": "unrepaired",
+    "H2": "unrepaired",
+    "H3": "unrepaired"
+  },
+  "plan_gap": "S1 promised safe sanitized runnable diagnosis inputs; actual harness depends on original private source/staging. Declaration retains facts but does not fulfill that commitment."
+}

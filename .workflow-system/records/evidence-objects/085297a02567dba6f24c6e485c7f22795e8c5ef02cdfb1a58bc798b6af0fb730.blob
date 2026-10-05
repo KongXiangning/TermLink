@@ -1,0 +1,76 @@
+'use strict';
+// Runnable diagnosis: only sanitized inputs + existing formal Node modules/Rust binary.
+// No private input, retained batch, service, product DB or phone access.
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const root=process.cwd(),fixtureRoot=path.join(__dirname,'fixtures');
+const manifest=JSON.parse(fs.readFileSync(path.join(fixtureRoot,'manifest.json'),'utf8'));
+const output=path.resolve(process.argv[2]||path.join(__dirname,'run-1'));
+fs.mkdirSync(output); // New destination only: repeated runs never overwrite evidence.
+const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+const exe=path.join(root,'native/codex-rollout-collector/target/debug/codex-rollout-collector.exe');
+const binaryHash=hash(fs.readFileSync(exe));
+assert.equal(binaryHash,'81a4448219a17cbe54ed827af3214205d49820033275a32d1f8ff46a11599564');
+for(const f of manifest.files)assert.equal(hash(fs.readFileSync(path.join(fixtureRoot,f.name))),f.sha256);
+const prefix=fs.readFileSync(path.join(fixtureRoot,'a-prefix.jsonl')),full=fs.readFileSync(path.join(fixtureRoot,'a-full.jsonl')),child=fs.readFileSync(path.join(fixtureRoot,'c-header.jsonl'));
+const A=manifest.fixture.A,C=manifest.fixture.C,key='turn:'+manifest.fixture.turn_under_conflict;
+assert.ok(full.subarray(0,prefix.length).equals(prefix));
+const cm=JSON.parse(child.toString('utf8').trim()).payload;
+assert.equal(cm.history_base.thread_id,A);assert.equal(cm.history_base.end_byte_offset,full.length);assert.equal(cm.history_base.end_ordinal_exclusive,13);assert.equal(full.at(-1),10);
+const {AnalyzerProcessManager}=require(path.join(root,'src/services/codexRolloutCollector/analyzerProcessManager'));
+const {AnalysisBatchImporter,FileAnalysisStore,normalizeTargetBatch}=require(path.join(root,'src/services/codexRolloutCollector/analysisBatchImporter'));
+const {createAnalyzeRequest}=require(path.join(root,'src/services/codexRolloutCollector/analyzerProtocol'));
+const home=path.join(output,'offline-home'),aDir=path.join(home,'sessions/2026/10/03'),cDir=path.join(home,'sessions/2026/10/04');
+fs.mkdirSync(aDir,{recursive:true});fs.mkdirSync(cDir,{recursive:true});
+const aFile=path.join(aDir,`rollout-2026-10-03T00-00-00-${A}.jsonl`),cFile=path.join(cDir,`rollout-2026-10-04T00-00-00-${C}.jsonl`);
+fs.writeFileSync(aFile,prefix,{flag:'wx'});
+const storeRoot=path.join(output,'seeded-analysis'),freshRoot=path.join(output,'fresh-analysis');
+const seeded=new AnalysisBatchImporter({store:new FileAnalysisStore({rootDir:storeRoot})});
+const fresh=new AnalysisBatchImporter({store:new FileAnalysisStore({rootDir:freshRoot})});
+const checks=[],requests=[];let firstBatch,grownBatch;
+function check(name,value){checks.push({name,passed:!!value});assert.ok(value,name);}
+const manager=()=>new AnalyzerProcessManager({analyzerPath:exe,cwd:root,env:{CODEX_HOME:home},requestTimeoutMs:15000});
+function errorOf(e){return {code:e.code,message:e.message,rejection_code:e.rejection_code,details:e.details};}
+async function request(m,label,conversationId,importer){
+ const r={label,conversation_id:conversationId,batch_count:0,importer_errors:[]};
+ try{
+  const complete=await m.request(createAnalyzeRequest({requestId:'s1-sanitized-'+label,jobId:'s1-sanitized-job-'+label,conversationId,mode:'backfill'}),{timeoutMs:15000,onBatch:async b=>{
+   r.batch_count++;if(label==='prefix')firstBatch=b;if(label==='grown-seeded')grownBatch=b;
+   r.batch={scope:normalizeTargetBatch(b).scope,completeness:b.payload.completeness,source_range:b.payload.source_range,gaps:b.payload.diagnostics.filter(x=>x.code==='parse_gap').map(x=>({code:x.code,message:x.message}))};
+   try{return await importer.importBatch(b);}catch(e){r.importer_errors.push(errorOf(e));throw e;}
+  }});
+  r.complete={status:complete.status,completeness:complete.completeness,checkpoint_end:complete.checkpoint?.source?.source_range?.end};
+ }catch(e){r.error=errorOf(e);}
+ requests.push(r);return r;
+}
+function durableState(p){const names=fs.readdirSync(p).filter(x=>x.endsWith('.json'));assert.equal(names.length,1);return JSON.parse(fs.readFileSync(path.join(p,names[0]),'utf8'));}
+async function main(){
+ await seeded.init();await fresh.init();
+ let m=manager();let prior;
+ try{await m.start();prior=await request(m,'prefix',A,seeded);}finally{await m.stop();}
+ check('prefix normal process delivery accepted as partial',!prior.error&&prior.complete.completeness==='partial');
+ check('prefix two known carrier gaps',prior.batch.gaps.length===2);
+ const seed=durableState(storeRoot);check('prefix durable receipt/staging real',seed.receipts.length===1&&seed.staging.length===1&&seed.staging[0].persisted===true);
+ const storeBefore=fs.readdirSync(storeRoot).filter(x=>x.endsWith('.json')).map(x=>[x,hash(fs.readFileSync(path.join(storeRoot,x)))]);
+ // Append only to our generated test fixture. No external rollout file is edited.
+ fs.appendFileSync(aFile,full.subarray(prefix.length));fs.writeFileSync(cFile,child,{flag:'wx'});
+ check('test source grows with identical prefix',fs.readFileSync(aFile).equals(full));
+ m=manager();let grown,control,branch;
+ try{await m.start();grown=await request(m,'grown-seeded',A,seeded);control=await request(m,'grown-fresh',A,fresh);branch=await request(m,'child',C,fresh);}finally{await m.stop();}
+ const before=firstBatch.payload.mutations.find(x=>x.mutation==='upsert_item'&&x.item.item_key===key);
+ const after=grownBatch.payload.mutations.find(x=>x.mutation==='upsert_item'&&x.item.item_key===key);
+ check('same scope before and after',JSON.stringify(prior.batch.scope)===JSON.stringify(grown.batch.scope));
+ check('same partial turn mutation changed',before.item.completeness==='partial'&&after.item.completeness==='partial'&&before.item.content_hash!==after.item.content_hash);
+ check('mutation points started then complete',before.item.source_ref.item_type==='event_msg/task_started'&&after.item.source_ref.item_type==='event_msg/task_complete');
+ check('H1 exact mutation rejection then negative ACK terminal',grown.importer_errors[0]?.message==='mutation evidence conflicts with an existing staged mutation'&&grown.importer_errors[0]?.details.identity.includes(key)&&grown.error?.code==='batch_rejected'&&grown.error?.details.rejection_code==='batch_scope_conflict');
+ check('rejected delivery does not change durable prior staging',storeBefore.every(([n,h])=>hash(fs.readFileSync(path.join(storeRoot,n)))===h));
+ check('fresh control accepted only partial',!control.error&&control.complete.completeness==='partial');
+ check('H3 both carrier types all six gaps',control.batch.gaps.length===6&&control.batch.gaps.filter(x=>x.message.endsWith('response_item/function_call_output')).length===3&&control.batch.gaps.filter(x=>x.message.endsWith('event_msg/item_completed')).length===3);
+ const freshState=durableState(freshRoot);check('control persisted staging not product canonical',freshState.receipts.length===1&&freshState.staging[0].persisted===true&&freshState.canonical===false);
+ check('H2 readable parent and valid fixture cut',fs.existsSync(aFile)&&hash(fs.readFileSync(aFile))===manifest.files.find(x=>x.name==='a-full.jsonl').sha256&&cm.history_base.end_byte_offset===full.length);
+ check('H2 missing catalog parent before batch',branch.batch_count===0&&branch.error?.code==='analysis_failed'&&branch.error.message==='parent rollout is missing from catalog: '+A);
+ for(const f of manifest.files)check('fixture unchanged '+f.name,hash(fs.readFileSync(path.join(fixtureRoot,f.name)))===f.sha256);
+ const result={kind:'sanitized-S1-diagnosis/v1',binary_sha256:binaryHash,input_dependency:'Only public sanitized fixtures/manifest + repository formal modules + identified Rust exe',requests,mutation_comparison:{prior:before,incoming:after},checks,passed:checks.length,total:checks.length,qualification:'Expected defect reproduction, not product repair/PASS; no product DB/Gateway/App ACK',limitations:['Reduced shape-derived test sources, not all original8runs or full83recordsource','H3 owned semantics and H2 post-discovery behavior still unresolved','Current binary-specific diagnostic evidence, not a permanent conformance test']};
+ fs.writeFileSync(path.join(output,'result.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+ console.log(JSON.stringify({requests:requests.map(x=>({label:x.label,batch_count:x.batch_count,complete:x.complete,error:x.error?.code,gaps:x.batch?.gaps.length})),passed:result.passed,total:result.total}));
+}
+main().catch(e=>{fs.writeFileSync(path.join(output,'failure.json'),JSON.stringify({error:errorOf(e),checks,requests},null,2)+'\n',{flag:'wx'});console.error(e.message);process.exitCode=1;});

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-05T04:56:21.607Z",
+  "payload_sha256": "c73d7e12a5c3ff521b5f8226815938f129cd59cadbce0fd10e116c8ebb315374",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260832-S1-R1-user-repair-20261005",
+    "request": {
+      "action": "review-decision",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S1",
+      "review_ref": ".workflow-system/records/events/key-34228aaf160940b8653e5db8841d67721660a1dd7743fa5ecfa328361fb6f5bd.json",
+      "choice": "repair",
+      "decision_source": "Current human invocation of project execute-step skill with repair argument after S1 change review.",
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) repair",
+      "idempotency_key": "task20260832-S1-R1-user-repair-20261005",
+      "summary": "User selected repair of disclosed S1-R1 input-delivery gap; no acceptance/defer/finish/closure or product repair inferred."
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review-decision",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-34228aaf160940b8653e5db8841d67721660a1dd7743fa5ecfa328361fb6f5bd.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S1",
+        "review_ref": ".workflow-system/records/events/key-34228aaf160940b8653e5db8841d67721660a1dd7743fa5ecfa328361fb6f5bd.json",
+        "choice": "repair",
+        "decision_source": "Current human invocation of project execute-step skill with repair argument after S1 change review.",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) repair",
+        "summary": "User selected repair of disclosed S1-R1 input-delivery gap; no acceptance/defer/finish/closure or product repair inferred."
+      }
+    }
+  },
+  "issues": []
+}

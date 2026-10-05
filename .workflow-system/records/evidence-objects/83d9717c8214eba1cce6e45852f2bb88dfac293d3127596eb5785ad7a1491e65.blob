@@ -1,0 +1,55 @@
+'use strict';
+// One-time read-only extraction from retained originals. The runner does not use this file
+// or any private data. Only selected shapes, aliases and hashes leave this extractor.
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const dir=__dirname,out=path.join(dir,'fixtures');fs.mkdirSync(out,{recursive:true});
+const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+const A='01a0fe25-56a2-7910-ba22-61e8016e8ad9',C='01a10643-ae9b-7cb1-b99b-f19f59acba6c';
+const aPath=`logs/e2e-validation-20261004/s5/private/c-settled-${A}.jsonl`,cPath=`logs/e2e-validation-20261004/s5/private/c-settled-${C}.jsonl`;
+const ab=fs.readFileSync(aPath),cb=fs.readFileSync(cPath),a=ab.toString('utf8').trim().split('\n').map(JSON.parse),c=cb.toString('utf8').trim().split('\n').map(JSON.parse);
+const selected=[0,1,7,8,30,34,40,41,59,61,63,64,82],prefixCount=6;
+const alias=new Map([[A,'00000000-0000-4000-8000-000000000001'],[C,'00000000-0000-4000-8000-000000000002']]);
+function id(s){if(!alias.has(s))alias.set(s,`00000000-0000-4000-8000-${String(alias.size+1).padStart(12,'0')}`);return alias.get(s);}
+const outputs=new Map();
+const enums=new Set(['session_meta','event_msg','task_started','task_complete','item_completed','response_item','function_call_output','FunctionCallOutput','model','create_thread','send_message_to_thread','codex_app','vscode','agent_created_thread','user','disabled','paginated','default']);
+const enumKeys=new Set(['type','name','namespace','source','thread_source','memory_mode','history_mode','collaboration_mode_kind']);
+const counts={identities:0,strings:0,numbers:0,enums:0};
+function clean(v,k=''){
+ if(v===null||typeof v==='boolean')return v;
+ if(Array.isArray(v))return v.map(x=>clean(x,k));
+ if(typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clean(x,k)]));
+ if(typeof v==='number'){counts.numbers++;return 0;}
+ assert.equal(typeof v,'string');
+ if(enumKeys.has(k)){assert.ok(enums.has(v),'unapproved enum value');counts.enums++;return v;}
+ if(k==='id'||k.endsWith('_id')){counts.identities++;return id(v);}
+ counts.strings++;
+ if(k==='output'){if(!outputs.has(v))outputs.set(v,`[sanitized delegation ${outputs.size+1}]`);return outputs.get(v);}
+ if(k==='cwd'||k==='runtime_workspace_roots')return 'C:/sanitized-fixture';
+ if(k==='timestamp')return '2026-10-03T00:00:00.000Z';
+ if(k==='cli_version')return '0.0.0';
+ if(k==='commit_hash')return '0000000000000000000000000000000000000000';
+ if(k==='repository_url')return 'https://example.invalid/sanitized';
+ return '[sanitized text]';
+}
+const fixture=selected.map((n,i)=>{const r=clean(a[n]);r.ordinal=i;r.timestamp=`2026-10-03T00:00:${String(i).padStart(2,'0')}.000Z`;return r;});
+const encode=rs=>Buffer.from(rs.map(x=>JSON.stringify(x)+'\n').join(''));
+const full=encode(fixture),prefix=encode(fixture.slice(0,prefixCount));
+const child=clean(c[0]);child.ordinal=0;child.timestamp=child.payload.timestamp='2026-10-04T00:00:00.000Z';
+assert.equal(c[0].payload.history_base.thread_id,A);assert.equal(c[0].payload.history_base.end_ordinal_exclusive,a.length);assert.equal(c[0].payload.history_base.end_byte_offset,ab.length);
+child.payload.history_base.end_ordinal_exclusive=fixture.length;child.payload.history_base.end_byte_offset=full.length;
+if(Object.hasOwn(child.payload,'forked_from_ordinal_exclusive'))child.payload.forked_from_ordinal_exclusive=fixture.length;
+const children=encode([child]);
+function shape(v){if(v===null)return 'null';if(Array.isArray(v))return v.map(shape);if(typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,shape(x)]));return typeof v;}
+for(let i=0;i<selected.length;i++)assert.deepEqual(shape(a[selected[i]]),shape(fixture[i]));assert.deepEqual(shape(c[0]),shape(child));
+const carriers=fixture.flatMap((r,i)=>{const p=r.payload.item||r.payload;return ['function_call_output','FunctionCallOutput'].includes(p.type)?[{ordinal:i,item:p,envelope:r.type}]:[];});
+assert.equal(carriers.length,6);assert.ok(carriers.every(x=>!Object.hasOwn(x.item,'call_id')));
+for(const x of carriers.filter(x=>x.envelope==='response_item'))assert.ok(carriers.some(y=>y.envelope==='event_msg'&&y.item.id===x.item.id&&y.item.output===x.item.output));
+assert.equal(fixture[5].payload.turn_id,fixture[8].payload.turn_id);assert.equal(fixture[5].payload.type,'task_started');assert.equal(fixture[8].payload.type,'task_complete');
+assert.equal(child.payload.id,id(C));assert.equal(child.payload.history_base.thread_id,fixture[0].payload.id);assert.ok(full.subarray(0,prefix.length).equals(prefix));
+const files=[['a-prefix.jsonl',prefix],['a-full.jsonl',full],['c-header.jsonl',children]];
+for(const [name,bytes] of files)fs.writeFileSync(path.join(out,name),bytes,{flag:'wx'});
+const mappings=selected.map((n,i)=>({original_ordinal:n,fixture_ordinal:i,envelope:a[n].type,payload_type:a[n].payload.type||null,original_record_sha256:sha(JSON.stringify(a[n])),fixture_record_sha256:sha(JSON.stringify(fixture[i])),same_keys_and_value_types:true}));
+const manifest={kind:'sanitized-diagnostic-input/v1',scope:'Isolated S1 diagnosis only; derived test fixtures, never real rollout/canonical data.',original:{A:{conversation_id:A,sha256:sha(ab),records:a.length,bytes:ab.length},C:{conversation_id:C,sha256:sha(cb),records:c.length,bytes:cb.length}},fixture:{A:id(A),C:id(C),turn_under_conflict:fixture[5].payload.turn_id,prefix_records:prefixCount,full_records:fixture.length,parent_cut:child.payload.history_base},records:mappings,child_record:{original_ordinal:0,fixture_ordinal:0,original_record_sha256:sha(JSON.stringify(c[0])),fixture_record_sha256:sha(JSON.stringify(child)),same_keys_and_value_types:true},transformations:['Select13originalArecords and1Cheader; omittedtool/world/context records are not asserted as covered.','Keepkeys,arraysize,primitive types and allowlisted structural enums; remapIDs consistently; never add call_id.','Replaceallotherstrings with fixed placeholders; replace numeric telemetry values with0.','Rebaseexplicitordinals to contiguous fixture positions andtimestamps to test-only ISO times.','RecalculateCcut andforkedordinal forselectedsanitizedparentbytes; not a correction to original relation.','H1prior durable batch generated by actual binary fromsanitizedprefix; no private staging import.'],replacement_counts:counts,files:files.map(([name,b])=>({name,bytes:b.length,sha256:sha(b)})),generation_checks:{same_selected_shapes:true,no_call_id_added:true,three_pairs_same_id_output:true,start_complete_same_turn:true,prefix_unchanged:true,child_cut_is_full_sanitized_parent:true}};
+fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify(manifest,null,2)+'\n',{flag:'wx'});
+assert.equal(sha(fs.readFileSync(aPath)),sha(ab));assert.equal(sha(fs.readFileSync(cPath)),sha(cb));
+console.log(JSON.stringify({files:manifest.files,records:mappings.length+1,checks:manifest.generation_checks}));

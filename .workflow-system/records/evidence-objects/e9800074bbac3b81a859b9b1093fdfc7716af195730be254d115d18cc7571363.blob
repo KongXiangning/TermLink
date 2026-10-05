@@ -1,0 +1,41 @@
+'use strict';
+// Read-only supplement. Emits shape, identity and hashes; never message bodies.
+const fs=require('node:fs'),crypto=require('node:crypto'),cp=require('node:child_process'),path=require('node:path');
+const out=__dirname, read=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+const A='01a0fe25-56a2-7910-ba22-61e8016e8ad9',C='01a10643-ae9b-7cb1-b99b-f19f59acba6c';
+const old=read('logs/task005-s2-repair-runtime-2/data/codex-rollout-analysis/7ebafbd2d3b406ee0596cf79203a66a04e36581d7a6ff20ef2ff14a6b4a88406.json');
+const batch=read(path.join(out,'private/captured-a-batch.json'));
+const ar=fs.readFileSync(`logs/e2e-validation-20261004/s5/private/c-settled-${A}.jsonl`);
+const records=ar.toString('utf8').trim().split('\n').map(JSON.parse);
+const compared=batch.payload.history_items.flatMap(event=>{
+ const prior=old.items.find(x=>x.event_id===event.payload?.metadata?.event_id);
+ return prior?[{event_id:prior.event_id,event_type:event.event_type,equal:JSON.stringify(prior.event)===JSON.stringify(event)}]:[];
+});
+const turnKey='turn:01a10305-be51-76f0-9063-70d58652032e';
+const carriers=records.flatMap((r,ordinal)=>{
+ const item=r.payload?.item||r.payload;
+ if(!item||!['function_call_output','FunctionCallOutput'].includes(item.type))return [];
+ return [{ordinal,envelope:r.type,payload_type:r.payload.type,item_type:item.type,id:item.id,keys:Object.keys(item),call_id_present:Object.hasOwn(item,'call_id'),name:item.name,namespace:item.namespace,turn_id:r.payload.turn_id||null,output_type:typeof item.output,output_bytes:typeof item.output==='string'?Buffer.byteLength(item.output):null,output_sha256:typeof item.output==='string'?sha(item.output):null}];
+});
+const localCalls=records.filter(r=>r.type==='response_item'&&['function_call','custom_tool_call'].includes(r.payload?.type)).map(r=>r.payload);
+const paired=carriers.filter(x=>x.envelope==='response_item').map(x=>{
+ const match=carriers.find(y=>y.envelope==='event_msg'&&y.id===x.id);
+ return {id:x.id,name:x.name,ordinals:match?[x.ordinal,match.ordinal]:[x.ordinal],same_output:!!match&&x.output_sha256===match.output_sha256,matching_local_call_by_id:localCalls.some(c=>c.id===x.id||c.call_id===x.id)};
+});
+const s5=read('logs/e2e-validation-20261004/s5/self-check.json');
+const baseline=read(path.join(out,'baseline.json'));
+const result={
+ qualification:'Read-only corroboration, not a product test or formal review',
+ version:{head:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),business_diff_since_241bec:cp.execFileSync('git',['diff','--name-only','241becbc2e72f3a1c90970e47f7e95ccf0021dba','HEAD','--','src','native','android','package.json','package-lock.json'],{encoding:'utf8'}).trim(),historical_apk_sha256:'a3d60ef2e4506950ca44f7b5ec1eaf777f32dbccda13532416e1c5eb9da9505f',current_device_checked:false},
+ h1:{matching_history_events:compared.length,changed_history_events:compared.filter(x=>!x.equal),prior_mutation:old.mutations.filter(x=>x.mutation?.item?.item_key===turnKey).map(x=>x.mutation),incoming_mutation:batch.payload.mutations.filter(x=>x.item?.item_key===turnKey),old_scope:old.scope,old_progress:old.last_progress,old_provisional:old.provisional,old_canonical:old.canonical,prior_prefix_bytes:405797,prior_prefix_sha256:sha(ar.subarray(0,405797)),prior_prefix_records:ar.subarray(0,405797).toString('utf8').trim().split('\n').length},
+ h3:{carriers,paired,semantic_limit:'No matching local function call by carrier ID in this frozen conversation. This does not establish an absent call_id mapping or authorize inventing one; delegation semantics/owned representation must be decided in S2.'},
+ h2:{historical_c_runs:s5.c_runs,post_discovery_unverified:['C inherited-history identity and byte/ordinal cut application','Branch vs resend/replacement semantics','parent content H3 compatibility and product canonical publication']},
+ preserved:baseline.files.map(x=>({path:x.path,unchanged:sha(fs.readFileSync(x.path))===x.sha256})),
+ tracked_diff:cp.execFileSync('git',['diff','--name-only'],{encoding:'utf8'}).trim(),index_diff:cp.execFileSync('git',['diff','--cached','--name-only'],{encoding:'utf8'}).trim()
+};
+const a1=fs.readFileSync('logs/e2e-validation-20261003/s2/private/source-a1.jsonl');
+result.h1.original_a1_prefix={bytes:a1.length,equal:a1.equals(ar.subarray(0,a1.length))};
+result.h2.historical_run_hash_check=s5.c_runs.map(x=>({file:x.file,equal:sha(fs.readFileSync('logs/task005-s2-repair-runtime-2/data/codex-rollout-runs/'+x.file))===x.sha256}));
+fs.writeFileSync(path.join(out,'supplement.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({version:result.version,h1:result.h1,h3:result.h3,h2_c_runs:result.h2.historical_c_runs,preserved:result.preserved.length,changed:result.preserved.filter(x=>!x.unchanged)}));
