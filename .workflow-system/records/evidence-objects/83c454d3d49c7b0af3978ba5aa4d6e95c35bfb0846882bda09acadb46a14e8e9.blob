@@ -1,0 +1,33 @@
+{
+  "kind": "S1-static-design-corroboration",
+  "fixture_records": 13,
+  "carrierChecks": [
+    {
+      "group": 1,
+      "count": 2,
+      "supported_origins": true,
+      "pair_text_turn_match": true,
+      "no_call_id": true
+    },
+    {
+      "group": 2,
+      "count": 2,
+      "supported_origins": true,
+      "pair_text_turn_match": true,
+      "no_call_id": true
+    },
+    {
+      "group": 3,
+      "count": 2,
+      "supported_origins": true,
+      "pair_text_turn_match": true,
+      "no_call_id": true
+    }
+  ],
+  "original_paths": 32,
+  "changed_original_paths": [],
+  "changed_governance_sources": [],
+  "product_tests_build_or_process_run": false,
+  "governance_publication": "pending",
+  "qualification": "Static fixture/source/document evidence only, not analyzer, product or phone PASS"
+}

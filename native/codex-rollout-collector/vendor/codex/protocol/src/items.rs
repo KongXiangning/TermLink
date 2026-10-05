@@ -43,6 +43,8 @@ use ts_rs::TS;
 #[ts(tag = "type")]
 pub enum TurnItem {
     UserMessage(UserMessageItem),
+    /// Native app-server delegated output; not an ordinary tool completion.
+    FunctionCallOutput(FunctionCallOutputItem),
     HookPrompt(HookPromptItem),
     AgentMessage(AgentMessageItem),
     Plan(PlanItem),
@@ -81,6 +83,17 @@ pub struct UserMessageItem {
     #[ts(optional)]
     pub client_id: Option<String>,
     pub content: Vec<UserInput>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, TS, JsonSchema)]
+pub struct FunctionCallOutputItem {
+    pub id: String,
+    pub name: String,
+    pub namespace: String,
+    pub output: String,
+    #[serde(default, deserialize_with = "crate::models::deserialize_history_call_id", skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub call_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, TS, JsonSchema, PartialEq, Eq)]
@@ -658,8 +671,19 @@ fn serialize_hook_prompt_fragment(text: &str, hook_run_id: &str) -> Option<Strin
 }
 
 impl TurnItem {
+    pub fn validate_history_function_output(&self) -> Result<(), &'static str> {
+        if let Self::FunctionCallOutput(item) = self {
+            if item.call_id.is_some() {
+                return Err("delegated TurnItem carries an incompatible tool call_id");
+            }
+            crate::models::validate_delegated_input_shape(Some(&item.id), Some(&item.name), Some(&item.namespace), Some(&item.output))?;
+        }
+        Ok(())
+    }
+
     pub fn id(&self) -> String {
         match self {
+            TurnItem::FunctionCallOutput(item) => item.id.clone(),
             TurnItem::UserMessage(item) => item.id.clone(),
             TurnItem::HookPrompt(item) => item.id.clone(),
             TurnItem::AgentMessage(item) => item.id.clone(),

@@ -1,0 +1,4 @@
+{
+  "exit_code": 101,
+  "command": "cargo check --manifest-path native/codex-rollout-compat-spike/vendor/codex/protocol/Cargo.toml --tests --offline --target-dir native/codex-rollout-compat-spike/target"
+}

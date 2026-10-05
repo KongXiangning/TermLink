@@ -1,0 +1,49 @@
+# TASK-20260833 / S2 实际交付
+
+2026-10-05。**S2 已执行，待 change review，未 finish。** 本批完成 S1-D 正式规范发布待办，以及 Spike→formal 的最小原生 wire 兼容。新委派业务归约、能力/profile、Node 合并与产品保存仍待 S3–S5；不能把本批解码成功当作三项产品问题已修复。
+
+## 任务与实际决定
+
+task_id=`task-7ff69ba8242c90c52f0b93fa1144a655`，plan_ref=`key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json`，step=S2，HEAD=`fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71`。
+
+S1 finish 的欠项处置、旧 needs-repair 与修正 clean 自审均保留。S2 前提出 publication-proposal.md，披露 governance_sources 空和默认 typed Runtime 方法不能在途中发布的限制，并提供本次直接同步同一已审查内容、journal 留前后证据的方法。用户回复“继续”，按提案第一项完成，不要求再次调用 Skill。实际决定 ref=`key-e870e977a57361772ba5c894b4336ab2b374ae62cd00bb313de6570ae34d2fc3.json`；本次未修改 Runtime、制造 archive 或提前关闭任务。
+
+CONTRACTS/DECISIONS、architecture、data、wire、coordinator、compatibility、接口索引和共享规范已定点登记。正式规范内容严格沿用 S1 已审查的 DelegatedInput/G1/G2、能力交集及旧状态规则；新能力明确尚待实现。publication-before 保存原件，publication-baseline/final 保存 SHA256。S1-D 的 pending 是旧时点真实记录，本批补齐它，不重写旧 step fact。
+
+## Wire 实施与模块边界
+
+- Spike vendor 的 ResponseItem::FunctionCallOutput additive 保留 id/name/namespace/passthrough，call_id 以 Option 表达真正缺失。普通非空 call_id 仍是普通工具；显式 null/空 call_id 拒绝，没有生成虚假 call_id。两种旧 output 形态保留。
+- 原生 TurnItem additive FunctionCallOutputItem，真实 id/name/namespace/string output；其 call_id 只用于拒绝不相容混合身份。必要 id()/legacy match 调整不产生工具或普通 user 事件。
+- 原生 history 反序列化入口统一验证两类形状：没有普通 call_id 时必须是支持的工具名/codex_app namespace/非空 id 和非空 string output。畸形/未知/缺身份继续解码错误，formal 保留 Unknown/partial。没有在 facade 新建重复 wire struct。
+- fixtures/delegated-input.jsonl 是原任务修复版脱敏 fixture 的 6 条原载体记录，覆盖 create_thread 与 send_message_to_thread 三组；无真实源读取/修改、无改造缺失字段。fixture-provenance.json 保存来源和哈希。
+- Spike 通过 10 项后，按相同 upstream revision `5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2` 推广 7-file patch。两份 manifest 登记新增 protocol/models/items/legacy/direct test caller patch，历史 history patch 保留；promotion.json/parity 保存实际字节。
+- 最终自检增加非实际 item_started 委派载体拒绝，避免新增 TurnItem 让未知载体被静默接受；两侧负向断言同步。该更严格 guard 曾在最终 Spike 重跑前临时写入 formal，随后恢复到原已验证 SHA256，再在 Spike10 PASS 后正式同步；没有先执行未验证的 formal guard，实际更正顺序保存在 guard-promotion.json。最终 Spike10/formal36/stage3对照5和parity均重新通过，实际 binary 哈希见 oracle-binaries-final.json。
+- formal Adapter 只做 Option call_id 的必要编译适配与严格 pending 保护：普通 Some 路径原样；委派两载体都 ParseGap(`delegated_input_semantics_pending`)，不伪造可发布工具/user/assistant，也不静默升为 canonical。DelegatedInput 自有模型、关联、去重/reducer、hello/profile 仍由 S3 实施；Node 未改。
+
+## 实际验证与失败保留
+
+| 命令 / 检查 | 实际结果与边界 |
+| --- | --- |
+| `cargo test --manifest-path native/codex-rollout-compat-spike/Cargo.toml --lib --offline` | 10/10 PASS，含 6 条真实脱敏双载体身份/正文/turn、普通工具文本/structured output、缺身份/未知/畸形/空/null call_id 拒绝。初始编译时7项原测试也通过，原日志保留。 |
+| `cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --offline` | 36/36 PASS，含新增 formal decode/负向/pending 保护及既有普通工具、未知/partial、alias、正文/详情兼容。 |
+| Spike/Demo `cargo build --bin … --locked --offline` | 两个实际 debug oracle 构建 exit0；实际绝对路径和 SHA256 在 oracle-binaries.json，未使用默认旧 EXE 回退。 |
+| `cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test stage3_conformance --locked --offline -- --nocapture` | 显式 TERMLINK_STAGE3_DEMO_BIN / SPIKE_BIN，5/5 PASS；actual Demo/Spike 与 formal 对照、生命周期/重启/overlap/partial/promotion guard。该对照保留旧已支持语义，不宣称 Demo 已支持新委派。 |
+| `pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1` | exit0，7 个 patch SHA256/闭包/revision parity PASS。 |
+| 两 root `cargo metadata --format-version 1 --offline --locked` | exit0；每侧14个 Codex dependencies 全在其本地 vendor，无外部 Codex path/Git/registry。首次检查误把 TermLink 主包计入，false 结果保留；corrected audit 明确排除实际 workspace 主包，不忽略任何 Codex dependency。 |
+| LICENSE/NOTICE | 发现 Spike 声明的两文件实际缺失；从同 upstream 的现有 formal 原件原样补齐，formal 原件保持。license-restoration.json 保留缺失事实、方向与 SHA256。 |
+| 额外 vendor 独立 `cargo check --manifest-path …/vendor/codex/protocol/Cargo.toml --tests --offline --target-dir …` | **exit101，未执行到编译**：缓存缺 diff v0.1.13。原日志保留，不称 vendor 原生 unit tests 通过，也不改依赖/下载 Codex/忽略 MSRV 去掩盖。该独立 workspace 解析还提示部分新 rama 版本需Rust1.96，当前rustc1.95；本批两产品 root 使用实际 locked graph，不等同该额外解析。 |
+| pwsh strict REQ/CR | 均 exit0。PLAN/REQ/CR 同步 S1-D 发布与 S2，REQ in_progress、CR draft/TBD，无虚构 commit。 |
+| `git diff --check` | 首次exit2只因 architecture 新添加行的CR被视为trailing whitespace；仅新addendum改为LF，旧prefix/body字节不改，复核exit0。脚本 stdout 关于“-text”的解释不是属性事实（check-attr实际unspecified），保留结果但以实际检查与局部字节验证为准。 |
+| 原固定历史及未触及边界 | 45 份旧CAS SHA256匹配；核对的 Node importer/protocol、Rust analysis/target/target_mapping 原件哈希不变。self-check/unaffected-boundaries 保存实证。 |
+
+没有进行真实聊天/Branch/委派回合、Node/Rust产品保存回归、真实DB/服务/IPC/Android/手机、全套Rust测试、Git提交或部署。独立 vendor dev check 的失败没有被其他 PASS 改写。
+
+## 产物与当前状态
+
+本批覆盖 PLAN S1-D（本次方法发布）、S2（wire/正负证据/同源推广与 conformance），不覆盖 S3–S5；新 CR 为 CR-20261005-1901-shared-history-wire-compat。后续 review 必须评估本次正式来源同步、原生类型/形状校验、普通 call_id 兼容、pending 保护和实际失败/未运行限度。
+
+execution-input/result.json 保留 native task execution；status-after/management-check/attachment-check 保存实际录入、关联和读回。执行记录不等于正式 review、finish 或产品 PASS；833 保持 active/S2，832 active/S2 与原计划/执行保持，三条旧管理关联缺口仍保留。
+
+最终对应验证原件为 spike-final-conformance/formal-final-conformance/stage3-final-conformance/vendor-parity-final 的输出与 result JSON；原较早运行及额外失败也保留，不重写它们。完整验收是下一次对当前文件与这些确切证据的 change review。
+
+`next_route: review-change`，目标 TASK-20260833/S2。

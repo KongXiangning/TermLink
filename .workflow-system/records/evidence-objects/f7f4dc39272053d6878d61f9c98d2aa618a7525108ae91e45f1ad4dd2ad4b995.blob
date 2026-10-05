@@ -1,0 +1,5 @@
+{
+  "command": "cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test stage3_conformance --locked --offline -- --nocapture after carrier guard",
+  "exit_code": 0,
+  "explicit_oracles": true
+}

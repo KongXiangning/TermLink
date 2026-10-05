@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-05T05:52:07.395Z",
+  "payload_sha256": "3756005207387180488cfbc3582fd3cab4e7f99ad9f479b7a5fac76b3a94d606",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "decision",
+    "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+    "idempotency_key": "task20260832-S2-shared-compat-prepare-choice-20261005",
+    "body": {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S2",
+      "target": "Separate candidate task for minimal shared delegation event/lifecycle merge compatibility",
+      "choice": "prepare-separate-shared-contract-compatibility-task",
+      "decision_source": "Direct human asynchronous answer to scoped S2 question in this conversation",
+      "decision_text": "先准备共享契约兼容任务（推荐）：保留三项业务目标，按 Rust→Node 分步处理，不做整个 4.5 迁移",
+      "disclosed_consequences": [
+        "Current adopted plan/AD022 require shared contract change separately prepared/reviewed/confirmed",
+        "Delegation needs correct ownedbusiness carrier, notfakecall_id/ordinaryuser/Diagnostic",
+        "Normalgrowthmerge rules coordinateProducer/Consumerwithoutblanketconflictweakening",
+        "Allthreeoriginalbusinessacceptance remains, no fullNode4.5migration"
+      ],
+      "authorized_now": "Prepare candidate and associate prerequisite; no adoption/implementation/contract mutation/current task closure or focus switch"
+    },
+    "links": [
+      ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json"
+    ],
+    "files": [
+      "logs/history-save-repair-20261005/s2/scope.md",
+      "logs/history-save-repair-20261005/s2/scope.json"
+    ]
+  },
+  "issues": []
+}

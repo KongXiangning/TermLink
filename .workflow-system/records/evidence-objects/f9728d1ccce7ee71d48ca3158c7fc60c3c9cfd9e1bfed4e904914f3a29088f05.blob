@@ -1,0 +1,17 @@
+# TASK-20260833 计划确认
+
+2026-10-05。用户本次原文：`[$prepare-task](E:\coding\TermLink-rust-source-resolution-codex\\.agents\skills\prepare-task\SKILL.md) confirm`。
+
+依据紧邻的候选审查和用户 confirm，采纳 TASK-20260833 的精确候选计划：`.workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json`。适用 draft review：`.workflow-system/records/events/key-bbe91039c711443f08dc185dfade7a066c7e16dd283c644fdad1e039aa2f478a.json`，clean，同代理自审，无实质 finding。
+
+## 已采纳范围
+
+正确承载真实委派正文、身份和两载体去重，纠正有充分来源证据的正常 turn 历史增长拒绝；保留未知、真实冲突、旧 canonical 和资源保护。顺序为共享契约、Spike→formal wire、Rust Adapter/归约/target、局部 Node consumer、隔离产品保存与重开读取。具体字段、版本与兼容策略在 S1 中固定，不把候选命名当现行接口。
+
+采纳审查所列的落实条件：先明确新事件、合法生命周期更新与旧 consumer/checkpoint/partial 重读；Rust 稳定契约及真实版本证据先于 Node；H1/H3 各自满足正向验收，未解决如实保留，不能算产品成功。整个 Node 4.5 迁移、IPC/Android/Gateway/DB schema、外部 rollout 修改、清除旧状态、真机/真实模型回合、Git/部署均不在本次确认动作范围。
+
+TASK-20260832 仍承担分支对话定位修复与三类真实历史保存、手机切换和重开验收。本次仅采纳新计划，不关闭、暂停、finish 或改写原任务的计划与结果；按候选的排除范围保留原焦点。TASK-20260833 初始化为 S1「固定最小共享事件、更新证明与兼容契约」，尚未执行。
+
+计划采纳、执行和验证分开记录。三项产品问题仍未修复；本次没有新增测试 PASS，没有产品或治理契约修改。
+
+`next_route: execute-step`，目标明确为 **TASK-20260833 / S1**；原当前焦点仍是 TASK-20260832 / S2，不能把裸调用默认目标混为本建议目标。

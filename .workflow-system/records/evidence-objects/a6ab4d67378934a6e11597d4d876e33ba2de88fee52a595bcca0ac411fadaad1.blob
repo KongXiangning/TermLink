@@ -1,0 +1,135 @@
+{
+  "runtime_role": "assistance",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "kind": "task-query/v1",
+  "detail": "step",
+  "status": "available",
+  "source_revision": "db895f92535c22649db26162f8a02c6842b5c348466bac464090c21008954f42",
+  "view_revision": "62e4df761837b6b19e69423e5c6c1205340d27ce5c56d9e182a1bca2ab4ecd6f",
+  "workflow_home": "docs/workflow",
+  "current_task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+  "selection": {
+    "requested_task_ref": "task-7ff69ba8242c90c52f0b93fa1144a655",
+    "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+    "status": "resolved",
+    "detail_request": {
+      "detail": "task",
+      "task_ref": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "workflow_home": "docs/workflow"
+    },
+    "requested_step_id": "S2",
+    "step_status": "resolved"
+  },
+  "health": "needs-attention",
+  "state_completeness": "partial-associations",
+  "records_scanned": 247,
+  "projection": {
+    "cache": "current",
+    "display": "current",
+    "read_only_rebuilt": true
+  },
+  "recovery_options": [
+    "rebuild",
+    "link",
+    "correct",
+    "resolve",
+    "defer",
+    "pause",
+    "close"
+  ],
+  "issues": [
+    {
+      "id": "issue-acce7d78ceebab4ab85bca99",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-bb8b7308bc64f7d580f3cfae",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-ec19a134aefeb23287cb519b",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "message": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "unassociated_records": [
+    {
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "reason": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "task_count": 6,
+  "lifecycle_counts": {
+    "closed": 4,
+    "active": 2
+  },
+  "coverage": {
+    "computation": "full-journal-rebuild",
+    "diagnostics": "all",
+    "history": "selected-step-projection-only"
+  },
+  "note": "Presentation of the complete live rebuild. Omitted detail is not absent history, clean review or permission. Read record refs with read; use detail=full for the compatibility view.",
+  "task": {
+    "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+    "display_id": "TASK-20260833",
+    "lifecycle": "active",
+    "adopted_plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+    "legacy_plan_ref": null
+  },
+  "step": {
+    "id": "S2",
+    "title": "Spike验证并同步最小wire兼容闭包",
+    "environment": [
+      "仓库内Spikevendor",
+      "原形状脱敏两carrier及普通call_id样本",
+      "隔离编译/fixture，非真实服务"
+    ],
+    "actions": [
+      "仅已确认typedvendorpatch支持实际两carrier；不在facade自定义重复wire模型。",
+      "普通带call_id输出保持原语义，未知namespace/name/output形状明确拒绝/partial。",
+      "先Spike解码/conformance再同源promotion至formal，两manifest登记实际patch/closure/hash，保留LICENSE/NOTICE和真实upstreamrevision。"
+    ],
+    "validation": [
+      "两carrier分别解码正确，正常旧工具/missingidentity/unknown负向保护成立。",
+      "实际cargo依赖图仅仓库内Codexclosure；不能用默认构建下载或外部checkout。"
+    ],
+    "outputs": [
+      "wire兼容fixture与最小patch/来源证据",
+      "Spike→formalpromotion记录，Rust未修改Node"
+    ],
+    "state": "not-started",
+    "legacy_step_status": null,
+    "execution_ref": null,
+    "execution": null,
+    "review_ref": null,
+    "review_status": "not-reviewed",
+    "findings": [],
+    "review_choice": null,
+    "review_decision_ref": null,
+    "review_decisions": [],
+    "tests": [],
+    "disposition_ref": null,
+    "historical_execution_refs": []
+  },
+  "review": null,
+  "detail_request": {
+    "detail": "task",
+    "task_ref": "task-7ff69ba8242c90c52f0b93fa1144a655",
+    "workflow_home": "docs/workflow"
+  }
+}
+

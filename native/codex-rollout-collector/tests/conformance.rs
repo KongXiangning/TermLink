@@ -70,6 +70,51 @@ fn legacy_profile_decode_and_adapter_projection() {
 }
 
 #[test]
+fn delegated_wire_carriers_decode_without_inventing_tool_call_identity() {
+    let raw = std::fs::read_to_string(fixture("current/delegated-input.jsonl")).unwrap();
+    for line in raw.lines() {
+        let value: Value = serde_json::from_str(line).unwrap();
+        let DecodedRecord::Known(decoded) = decode_value(value.clone(), CompatibilityProfile::Current) else {
+            panic!("real sanitized carrier must decode");
+        };
+        let encoded = serde_json::to_value(&decoded.line).unwrap();
+        let payload = if value["type"] == "response_item" {
+            &encoded["payload"]
+        } else { &encoded["payload"]["item"] };
+        let original = if value["type"] == "response_item" { &value["payload"] } else { &value["payload"]["item"] };
+        for field in ["id", "name", "namespace", "output"] {
+            assert_eq!(payload[field], original[field]);
+        }
+        assert!(payload.get("call_id").is_none());
+    }
+}
+
+#[test]
+fn delegated_wire_negative_shapes_remain_unknown_partial() {
+    let raw = std::fs::read_to_string(fixture("current/delegated-input.jsonl")).unwrap();
+    let rows: Vec<Value> = raw.lines().take(2).map(|line| serde_json::from_str(line).unwrap()).collect();
+    for (index, row) in rows.iter().enumerate() {
+        for (field, value) in [("id", Value::Null), ("name", json!("unknown")), ("namespace", json!("other")), ("output", json!({})), ("call_id", Value::Null), ("call_id", json!(""))] {
+            let mut bad = row.clone();
+            let payload = if index == 0 { &mut bad["payload"] } else { &mut bad["payload"]["item"] };
+            payload[field] = value;
+            assert!(matches!(decode_value(bad, CompatibilityProfile::Current), DecodedRecord::Unknown(_)));
+        }
+    }
+    let mut unsupported_carrier = rows[1].clone();
+    unsupported_carrier["payload"]["type"] = json!("item_started");
+    assert!(matches!(decode_value(unsupported_carrier, CompatibilityProfile::Current), DecodedRecord::Unknown(_)));
+}
+
+#[test]
+fn delegated_wire_semantics_remain_partial_until_adapter_delivery() {
+    let batch = analyze("current/delegated-input.jsonl", CompatibilityProfile::Current);
+    assert!(!batch.complete);
+    assert_eq!(batch.items.iter().filter(|event| matches!(event, AnalysisEvent::ParseGap { reason, .. } if reason == "delegated_input_semantics_pending")).count(), 6);
+    assert!(!batch.items.iter().any(|event| matches!(event, AnalysisEvent::ToolCompleted { .. } | AnalysisEvent::UserMessage { .. } | AnalysisEvent::AssistantMessage { .. })));
+}
+
+#[test]
 fn current_profile_decode_and_adapter_projection() {
     let batch = analyze("current/minimal.jsonl", CompatibilityProfile::Current);
     assert!(batch.complete);

@@ -10,6 +10,14 @@ related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout
 
 # Codex Rollout 正式解析采集器架构
 
+## TASK-20260833 最小共享补充（规范已发布，实现待交付）
+
+2026-10-05：依据 CONTRACTS/DECISIONS 本次用户确认的在途发布方法，[精确共享历史兼容契约](codex-history-shared-compat-contract.md) 为本文 §4.3/§4.5/§5.4.8 的 additive 补充。同项冲突以补充为准，其余冻结边界保持。
+
+DelegatedInput 是有真实身份/turn/正文的自有事件；物理事件不可改写。G1 仅对证据充分的同轮真实开始→完成允许逻辑观察更新，包括 canonical→canonical，snapshot 完整性不要求 turn 已终态；G2 仅等价双载体来源规范化。full 重见旧开始和 durable prefix+连续 delta 的证据分开，未知/篡改/降级/倒退仍拒绝。
+
+新能力 `history_semantics_v2`、profile `target-v2` 尚待实现；hello 交集、旧 consumer、原交付与旧 checkpoint 恢复规则见精确规范 §§4–5。保持 schema1/三 mode/单例/外部只读/IPC authority，不引入产品版本管理。833 S2–S5 分步交付，832 保留分支与真实手机验收。
+
 ## 1. 文档定位
 
 本文是 TermLink 正式实施 rollout 解析采集器的目标架构和边界基线。

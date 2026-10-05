@@ -10,6 +10,12 @@ related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/co
 
 # Codex Rollout 采集器 Codex 兼容层与引用边界
 
+## TASK-20260833 wire 兼容补充（规范已发布，实现待交付）
+
+[共享历史兼容契约](codex-history-shared-compat-contract.md) §2 固定实际两载体：ResponseItem function_call_output 可缺普通 call_id，但必须保留真实 id/name/namespace/output/passthrough；TurnItem additive FunctionCallOutput。普通有 call_id 工具保持旧语义，缺身份/未知 name/namespace/畸形输出仍 fail-closed/partial。不在 facade 另造 wire struct。
+
+先 Spike 解码/conformance，再将同一最小 patch 闭包推广 formal；原 upstream revision 不变，manifest/parity 登记实际新增 patch。此补充覆盖本文相关 wire 支持范围，旧批次 patch 记录仍是历史证据；具体新产物/哈希由 TASK-20260833/S2 实际执行记录补齐，不假装已实施。
+
 ## 1. 文档定位
 
 本文是 [Codex Rollout 正式解析采集器架构](codex-rollout-collector-architecture.md) 的配套

@@ -1,0 +1,188 @@
+[
+  {
+    "excluded_termlink_owned_packages": [
+      "codex-rollout-compat-spike"
+    ],
+    "codex_packages": [
+      {
+        "inside_vendor": true,
+        "name": "codex-async-utils",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\async-utils\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-execpolicy",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\execpolicy\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-extension-items",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\ext\\items\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-history",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\history\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-http-client",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\http-client\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-network-proxy",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\network-proxy\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-protocol",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\protocol\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-absolute-path",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\utils\\absolute-path\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-cache",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\utils\\cache\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-home-dir",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\utils\\home-dir\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-image",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\utils\\image\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-path-uri",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\utils\\path-uri\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-rustls-provider",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\utils\\rustls-provider\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-string",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\vendor\\codex\\utils\\string\\Cargo.toml",
+        "registry_or_git_source": null
+      }
+    ],
+    "kind": "spike",
+    "no_external_codex": true
+  },
+  {
+    "excluded_termlink_owned_packages": [
+      "codex-rollout-collector"
+    ],
+    "codex_packages": [
+      {
+        "inside_vendor": true,
+        "name": "codex-async-utils",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\async-utils\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-execpolicy",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\execpolicy\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-extension-items",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\ext\\items\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-history",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\history\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-http-client",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\http-client\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-network-proxy",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\network-proxy\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-protocol",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\protocol\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-absolute-path",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\utils\\absolute-path\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-cache",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\utils\\cache\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-home-dir",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\utils\\home-dir\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-image",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\utils\\image\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-path-uri",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\utils\\path-uri\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-rustls-provider",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\utils\\rustls-provider\\Cargo.toml",
+        "registry_or_git_source": null
+      },
+      {
+        "inside_vendor": true,
+        "name": "codex-utils-string",
+        "manifest_path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-collector\\vendor\\codex\\utils\\string\\Cargo.toml",
+        "registry_or_git_source": null
+      }
+    ],
+    "kind": "formal",
+    "no_external_codex": true
+  }
+]

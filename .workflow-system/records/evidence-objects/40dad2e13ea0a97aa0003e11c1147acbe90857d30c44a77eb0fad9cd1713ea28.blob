@@ -1,0 +1,27 @@
+# S1 精确治理发布差异（尚未写入治理正文）
+
+当前授权为已采纳 TASK-20260833 / S1 的最小共享兼容设计，原确认和 scope 见 journal；不是新 IPC 架构或完整 4.5 迁移。本文是可审阅的差异，不是 CONTRACTS/DECISIONS 已发布事实，不占用新的 AD 编号。
+
+## CONTRACTS.md 拟追加记录
+
+TASK-20260833 最小共享兼容范围：当 Node/Rust hello 交集支持 history_semantics_v2，采用 target-v2 reducer profile；AnalysisEvent additive 支持 DelegatedInput，真实 native item_id 对应 logical key，两个载体保持独立物理来源，只归约一次正文，不伪造 call_id 或映射为普通 user/assistant/tool。
+
+共享设计 `docs/codex/codex-history-shared-compat-contract.md` 的 G1/G2 是对 §5.4.8 逻辑观察合并的窄范围补充：G1 仅具有完整旧开始/新完成及连续来源覆盖证据的同 turn upsert_item；G2 仅相同委派身份、turn、正文的双载体来源规范化。不放宽物理 history event 内容不可变、当前 request/scope、旧 canonical、完整性及其他 mutation 冲突。完整 backfill 与 delta 的证明分开；证据不足仍拒绝。
+
+profile、旧 anchor 普通重读与旧批次重试不同：未结算 delivery 保留原 job/segment/batch 与原解释，同一批次不同 payload 必须拒绝。新 profile 普通 backfill 保留旧诊断/receipt/intent，不恢复不兼容旧 reducer，只有实际完整重新分析才能发布。该变更不引入全量分析 mode、产品 epoch/revision/fence、并发或 DB schema。
+
+## DECISIONS.md 拟追加记录
+
+任务来源：原 TASK-20260832 三问题诊断，用户先选择独立共享兼容准备、随后明确 confirm TASK-20260833。具体设计由 S1 对照 Rust producer 与现有 Node consumer，按 AD-022 先契约、再 Spike/formal/Rust、后 Node；这是共同边界分析，由同一代理执行，不冒称有两位独立 owner 审批。
+
+选择自有 DelegatedInput 和证据驱动 G1/G2，拒绝伪造 call_id、全部 upsert 可覆盖、Diagnostic 替代正文、清库或全部 4.5 迁移。保留 partial/未知和旧 canonical。隔离保存仅验证对应层；分支定位和三类真实宿主/手机验收归 832。833 关闭后需明确 focus 回 832/S2，不自动推进原任务。
+
+决策记录须区分用户采纳任务、S1 技术设计、正式审查和实现状态；不得把候选 capability/enum 当现行支持，不在 S1 创建 PASS/独立审查或提前 archive。
+
+## 受控发布限制及后续
+
+选定 execute-step 的 governance_sources 为空；两个治理文件声明不得由 Skill 直接修改。现有 Runtime `createKnowledgeProposal` 固定 caller=close-task，preconditions=archive-committed，并依赖 canonical 旧任务 tuple。assistance 的 native task/record 只保存事实和任务视图，没有治理正文发布 action。当前任务尚未 archive，该接口不能忠实表示 S1 中途治理发布。没有为此调用旧 gate、恢复旧 tuple、制造 archive 或提前 close。
+
+已完成允许的部分：精确共享设计与差异、真实 REQ/PLAN/CR、原件哈希、native task execution 关联。尚未完成：CONTRACTS/DECISIONS 和旧 shared source 正文中的正式受控发布。正式实现新规则前须解决此具体发布边界；可通过明确支持在途已授权范围的受控发布方法处理，但本 task 不顺手修改 Runtime 以添加它。本事实不是新的业务范围批准问题，不要求用户重复 confirm 同一目标。
+
+规则与实现依据：`.agents/skills/execute-step/SKILL.md` mutation_boundary；`docs/workflow/CONTRACTS.md` 和 `DECISIONS.md` vNext Record 说明；`.workflow-system/runtime/src/kernel.ts` 的 createKnowledgeProposal；`.workflow-system/runtime/support/TASK_MANAGEMENT_API.md` 支持 actions。本文保留 pending，不声称发布失败的实际事务，因为没有发起不能忠实表达当前 action 的旧事务。

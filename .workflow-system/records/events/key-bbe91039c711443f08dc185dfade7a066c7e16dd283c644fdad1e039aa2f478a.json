@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-05T06:13:08.746Z",
+  "payload_sha256": "53e45a4fcec0963ad5a072c5cbe866dc281c69bdc352b3cda9e5a10ae8159c54",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260833-draft-review-20261005-v1",
+    "request": {
+      "action": "review",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "stage": "draft",
+      "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+      "idempotency_key": "task20260833-draft-review-20261005-v1",
+      "verdict": "clean",
+      "findings": [],
+      "coverage": [
+        "Actual original three business goals, exact independent candidate and user prepare-only decision",
+        "Rust then minimal existing Node order, AD022 and excluded full migration",
+        "H1 actual staged-growth failure, H3 two carriers and correct owned identity; H2 retained original task",
+        "Old consumer/checkpoint/partial reread, strict conflict and canonical protection",
+        "Generic product payload and existing Android text/role decoding feasibility, unverified E2E retained",
+        "Minimum-sufficient existing realRust/productflow regression selection and negative cases",
+        "REQ/PLAN/CR truthfulness, IPC/DB/source/vendor/module freeze and side-effect exclusions"
+      ],
+      "provenance": {
+        "kind": "same-agent-draft-self-review",
+        "implementation_verified": false,
+        "reviewer": "Codex",
+        "independent": false,
+        "new_tests_run": false
+      },
+      "conditions": [
+        "Implement S1 exact shared schema, lifecycle proof, compatibility and recovery rules before using them in Rust/Node",
+        "Rust S3 stable contract and actual version evidence precede Node S4; no blanket overwrite or fake call_id",
+        "H1/H3 isolated publication must meet positive acceptance or be reported unresolved; original task retains H2 and three real-host/phone acceptance"
+      ],
+      "summary": "No material plan correction identified. Candidate ready for user plan confirmation, not adopted or implemented. Three product failures remain unrepaired. Original focus/S2 review and finish unchanged.",
+      "files": [
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/review-draft.md",
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.md"
+      ]
+    },
+    "files": [
+      "logs/history-save-repair-20261005/s2/shared-compat-candidate/review-draft.md",
+      "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+      "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "parents": [
+        ".workflow-system/records/events/key-56e67631043abd0af05fa6ce1c8852e2df1e9564c7e919d6233879194db06cd0.json"
+      ],
+      "data": {
+        "stage": "draft",
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "verdict": "clean",
+        "findings": [],
+        "coverage": [
+          "Actual original three business goals, exact independent candidate and user prepare-only decision",
+          "Rust then minimal existing Node order, AD022 and excluded full migration",
+          "H1 actual staged-growth failure, H3 two carriers and correct owned identity; H2 retained original task",
+          "Old consumer/checkpoint/partial reread, strict conflict and canonical protection",
+          "Generic product payload and existing Android text/role decoding feasibility, unverified E2E retained",
+          "Minimum-sufficient existing realRust/productflow regression selection and negative cases",
+          "REQ/PLAN/CR truthfulness, IPC/DB/source/vendor/module freeze and side-effect exclusions"
+        ],
+        "provenance": {
+          "kind": "same-agent-draft-self-review",
+          "implementation_verified": false,
+          "reviewer": "Codex",
+          "independent": false,
+          "new_tests_run": false
+        },
+        "conditions": [
+          "Implement S1 exact shared schema, lifecycle proof, compatibility and recovery rules before using them in Rust/Node",
+          "Rust S3 stable contract and actual version evidence precede Node S4; no blanket overwrite or fake call_id",
+          "H1/H3 isolated publication must meet positive acceptance or be reported unresolved; original task retains H2 and three real-host/phone acceptance"
+        ],
+        "summary": "No material plan correction identified. Candidate ready for user plan confirmation, not adopted or implemented. Three product failures remain unrepaired. Original focus/S2 review and finish unchanged.",
+        "files": [
+          "logs/history-save-repair-20261005/s2/shared-compat-candidate/review-draft.md",
+          "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+          "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

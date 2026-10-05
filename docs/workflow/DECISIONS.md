@@ -14,6 +14,14 @@ Project: termlink (termlink)
 - runtime-languages: JavaScript, Kotlin, HTML, CSS (source: .workflow-system/legacy/one-time-codex-20260913/.workflow-system/PROJECT_PROFILE.yaml)
 - current-task-disposition: 20260828-001 archived; clean handoff; product integration remains separate (source: TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md)
 
+## TASK-20260833 在途发布方法决定（2026-10-05）
+
+用户在 S1 finish 选择保留发布待办；833/S2 提案披露现有 typed 接口仅支持 close-task/archive、此次直接同步已审查正式文档并用 journal 留决定/前后证据的方法差异。用户回复“继续”，按提案第一项执行。实际决定 ref=`key-e870e977a57361772ba5c894b4336ab2b374ae62cd00bb313de6570ae34d2fc3.json`。
+
+精确规范为 [共享历史兼容契约](../codex/codex-history-shared-compat-contract.md)，包括已修正 G1 canonical 同级演进和新意图空恢复参数。此次仅发布同一已审查业务规则并同步必要来源链接；不改历史 AD、无虚构新编号或独立 owner 审批，不改 Runtime、不制造 archive、不提前关闭，不授权无关契约/Git/部署。其他动作的默认 typed 发布方式保持。
+
+规范已发布，实现和产品资格仍待交付；先 Spike/formal/Rust，后既有 Node 局部适配。832 继续分支定位、三类真实保存和手机正文/工具详情验收，不自动回到原任务。
+
 ## Inferred or unknown facts
 
 - none

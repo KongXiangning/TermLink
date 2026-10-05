@@ -137,7 +137,16 @@ impl<'de> Deserialize<'de> for RolloutItem {
     where
         D: Deserializer<'de>,
     {
-        rollout_payload::RolloutItemWire::deserialize(deserializer).map(Into::into)
+        let item: Self = rollout_payload::RolloutItemWire::deserialize(deserializer)?.into();
+        match &item {
+            Self::ResponseItem(response) => response.item.validate_history_function_output(),
+            Self::EventMsg(EventMsg::ItemCompleted(event)) => event.item.validate_history_function_output(),
+            Self::EventMsg(EventMsg::ItemStarted(event))
+                if matches!(event.item, codex_protocol::items::TurnItem::FunctionCallOutput(_)) => Err("unsupported delegated function output carrier item_started"),
+            Self::EventMsg(EventMsg::ItemStarted(event)) => event.item.validate_history_function_output(),
+            _ => Ok(()),
+        }.map_err(D::Error::custom)?;
+        Ok(item)
     }
 }
 

@@ -1,0 +1,50 @@
+{
+  "event_ref": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json",
+  "captured_at": "2026-10-05T09:16:37.709Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f2307fff18b2e3d556f3cfde029fb39fdd69f06348f930f2c26c2ceb7baba116.blob",
+      "sha256": "f2307fff18b2e3d556f3cfde029fb39fdd69f06348f930f2c26c2ceb7baba116",
+      "size": 5312,
+      "source_path": "logs/shared-history-compat-20261005/s1/review-change.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/8b365f676688700b57187e7afa8bc13d8b2e7509fba5afb78f91884cc5f42076.blob",
+      "sha256": "8b365f676688700b57187e7afa8bc13d8b2e7509fba5afb78f91884cc5f42076",
+      "size": 2402,
+      "source_path": "logs/shared-history-compat-20261005/s1/review-subject-hashes.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/05fb78216e2ce9b5ad5929f4a2dd6ed2e15f46985c92ac0f4b347e349449e2e9.blob",
+      "sha256": "05fb78216e2ce9b5ad5929f4a2dd6ed2e15f46985c92ac0f4b347e349449e2e9",
+      "size": 16915,
+      "source_path": "docs/codex/codex-history-shared-compat-contract.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/abbfc7dd037191ef5db09c99999d782472dfca429afc6906834f0a1b74e6f2d4.blob",
+      "sha256": "abbfc7dd037191ef5db09c99999d782472dfca429afc6906834f0a1b74e6f2d4",
+      "size": 3342,
+      "source_path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "issues": []
+    }
+  ]
+}

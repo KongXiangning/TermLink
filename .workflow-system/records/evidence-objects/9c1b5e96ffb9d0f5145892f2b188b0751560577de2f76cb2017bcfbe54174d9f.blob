@@ -1,0 +1,142 @@
+[
+  {
+    "path": "docs/codex/codex-history-shared-compat-contract.md",
+    "saved_matches": true,
+    "sha256": "05fb78216e2ce9b5ad5929f4a2dd6ed2e15f46985c92ac0f4b347e349449e2e9",
+    "live_matches": false,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+    "saved_matches": true,
+    "sha256": "f587715956b338ebeabd133ceaf3a4b463f83b7a1a70d4e02a46e6cbc4c274be",
+    "live_matches": false,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+    "saved_matches": true,
+    "sha256": "abbfc7dd037191ef5db09c99999d782472dfca429afc6906834f0a1b74e6f2d4",
+    "live_matches": false,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "docs/changes/records/CR-20261005-1521-shared-history-compat-design.md",
+    "saved_matches": true,
+    "sha256": "8215f6bcfe83e1727247b34221abc76d2623569979617249a3c1a7ee2e4cab60",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/report.md",
+    "saved_matches": true,
+    "sha256": "1f9226ffc54706d726725e5b226ed16ed4a598cbe0b0d5a1dc6259afbf865bb0",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/governance-publication.md",
+    "saved_matches": true,
+    "sha256": "40dad2e13ea0a97aa0003e11c1147acbe90857d30c44a77eb0fad9cd1713ea28",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/source-hashes.json",
+    "saved_matches": true,
+    "sha256": "73c99e604c74dc48db89b3c7de53734103c3df1fa01e77d71625dae1487e2eca",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/self-check.json",
+    "saved_matches": true,
+    "sha256": "83c454d3d49c7b0af3978ba5aa4d6e95c35bfb0846882bda09acadb46a14e8e9",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/validation-result.json",
+    "saved_matches": true,
+    "sha256": "e8f4237d0bb7a62301a4b174deaa8edecd2def47ba8e460675edfc16d029ee96",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/validation-process-result.json",
+    "saved_matches": true,
+    "sha256": "2987613410e20bc69849ac965d6bf96e106cae92a392eceeb927ae6a0a011406",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/validate-req-process.txt",
+    "saved_matches": true,
+    "sha256": "cfa870f2369546d83cf69f72973bb0bafc7efce743890ef92cfb9e00fef614bd",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/validate-cr-process.txt",
+    "saved_matches": true,
+    "sha256": "fe1df5df4f4978177c56720493323105d5499db626d370ff43f9dbb76f4001a9",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/validation-pwsh-result.json",
+    "saved_matches": true,
+    "sha256": "4f3379e5491fa224361ae81e3df6be6b104ceb621005b3708f9470a66ecef472",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/validate-req-pwsh.txt",
+    "saved_matches": true,
+    "sha256": "0aa45e8426847879ca0a3853d909740b85d6b16bbddc70f54cd44754c152e077",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/validate-cr-pwsh.txt",
+    "saved_matches": true,
+    "sha256": "d7950f90cafa5124e9fea7de7f9b659866139db51d7d3c552528938cc93b3975",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/diff-check-final.txt",
+    "saved_matches": true,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/review-change.md",
+    "saved_matches": true,
+    "sha256": "f2307fff18b2e3d556f3cfde029fb39fdd69f06348f930f2c26c2ceb7baba116",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json"
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s1/review-subject-hashes.json",
+    "saved_matches": true,
+    "sha256": "8b365f676688700b57187e7afa8bc13d8b2e7509fba5afb78f91884cc5f42076",
+    "live_matches": true,
+    "event": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json"
+  },
+  {
+    "path": "docs/codex/codex-history-shared-compat-contract.md",
+    "saved_matches": true,
+    "sha256": "05fb78216e2ce9b5ad5929f4a2dd6ed2e15f46985c92ac0f4b347e349449e2e9",
+    "live_matches": false,
+    "event": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json"
+  },
+  {
+    "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+    "saved_matches": true,
+    "sha256": "abbfc7dd037191ef5db09c99999d782472dfca429afc6906834f0a1b74e6f2d4",
+    "live_matches": false,
+    "event": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json"
+  }
+]

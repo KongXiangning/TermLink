@@ -316,7 +316,12 @@ impl CodexEventAdapter {
             }],
             models::ResponseItem::FunctionCallOutput {
                 call_id, output, ..
-            } => self.adapt_tool_output(record, call_id, output, "function_call"),
+            } => match call_id.as_deref() {
+                Some(call_id) => self.adapt_tool_output(record, call_id, output, "function_call"),
+                // S2 only supplies native wire compatibility. S3 owns the
+                // DelegatedInput model/identity/reducer/capability semantics.
+                None => vec![self.parse_gap(record, "delegated_input_semantics_pending", 0)],
+            },
             models::ResponseItem::CustomToolCall {
                 call_id,
                 name,
@@ -824,6 +829,9 @@ impl CodexEventAdapter {
         payload: &protocol::ItemCompletedEvent,
     ) -> Vec<AnalysisEvent> {
         match &payload.item {
+            TurnItem::FunctionCallOutput(_) => vec![self.parse_gap(
+                record, "delegated_input_semantics_pending", 0,
+            )],
             TurnItem::UserMessage(item) => self.adapt_user_message(
                 record,
                 item.client_id.clone().or_else(|| Some(item.id.clone())),

@@ -1,0 +1,23 @@
+{
+  "final_diff_check": {
+    "command": "git diff --check after adjusting only new architecture addition line endings",
+    "exit_code": 0
+  },
+  "stage3_conformance": 5,
+  "spike_tests": 10,
+  "protected_boundaries_unchanged": true,
+  "optional_vendor_dev_compile": "exit101 missing cached diff;not run, retained",
+  "not_run": [
+    "Node or product persistence tests",
+    "real host/model/services/devices",
+    "formal change review",
+    "finish/close/Git/deploy"
+  ],
+  "formal_conformance": 36,
+  "historical_cas_intact": true,
+  "historical_attachments": 45,
+  "doc_validation": {
+    "req_exit": 0,
+    "cr_exit": 0
+  }
+}

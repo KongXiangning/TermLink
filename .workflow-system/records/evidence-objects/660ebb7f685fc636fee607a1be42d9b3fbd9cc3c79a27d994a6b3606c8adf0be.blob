@@ -1,0 +1,4 @@
+{
+  "command": "git diff --check after adjusting only new architecture addition line endings",
+  "exit_code": 0
+}

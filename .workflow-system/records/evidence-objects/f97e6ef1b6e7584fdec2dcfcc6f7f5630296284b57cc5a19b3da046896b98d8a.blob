@@ -1,0 +1,32 @@
+[
+  {
+    "command": "cargo test --manifest-path native/codex-rollout-compat-spike/Cargo.toml --lib --offline after strict supported-carrier guard",
+    "exit_code": 0,
+    "name": "spike-final-conformance"
+  },
+  {
+    "command": "cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --offline after supported-carrier guard",
+    "exit_code": 0,
+    "name": "formal-final-conformance"
+  },
+  {
+    "command": "cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test stage3_conformance --locked --offline -- --nocapture after carrier guard",
+    "exit_code": 0,
+    "name": "stage3-final-conformance"
+  },
+  {
+    "command": "pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1 after final guard promotion",
+    "exit_code": 0,
+    "name": "vendor-parity-final"
+  },
+  {
+    "command": "cargo build --manifest-path native/codex-rollout-compat-spike/Cargo.toml --bin codex-rollout-compat-spike --locked --offline after carrier guard",
+    "exit_code": 0,
+    "name": "spike-final-bin-build"
+  },
+  {
+    "command": "git diff --check final",
+    "exit_code": 0,
+    "name": "diff-check-final"
+  }
+]

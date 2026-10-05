@@ -1,0 +1,104 @@
+[
+  {
+    "source_path": "docs/codex/codex-history-shared-compat-contract.md",
+    "sha256": "354c8ea963e40af313d76c3bf6cfd59e6309a197a06ccc826be8112d1f4fafec",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+    "sha256": "d758005817f509644520503253d6f1064b241356364b1ca654a0bccbfb1caa32",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+    "sha256": "568921f69c52a947ae31941332ab0d01213da7d3eaf3bfa7fdf72ba5ae0e72b6",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md",
+    "sha256": "8efd62f09e13743c729ff7c3f02f3b58287b74ff41b78c9e2d5f961faf36a1e0",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/report.md",
+    "sha256": "df93aaab83500faa698df140036029697e1ddbd0e4dfb121d29f8e70e493758e",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md",
+    "sha256": "a22115da9fcce5aad35e13767351471928258b02fa4a9b6c29d67022978a9826",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/hashes-before.json",
+    "sha256": "41466c00d8b54762ac821df959a2948f23de0162732ac4fa008abf98db58facb",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/hashes-after.json",
+    "sha256": "173c283e9339c02e50aa4bd32e32c0b9ffdd48d2831b293eeb5d1e89b86088d0",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/historical-evidence-check.json",
+    "sha256": "9c1b5e96ffb9d0f5145892f2b188b0751560577de2f76cb2017bcfbe54174d9f",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/self-check.json",
+    "sha256": "b6435a0d9974143762b202fb288068e65d55466c75fbabfa560d19e867846436",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/validation.json",
+    "sha256": "1130095ffc6555fa7c8b56316f5a72fa73f79c517e032e1b688b7b3c2ae7b9ae",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/validate-req.txt",
+    "sha256": "0aa45e8426847879ca0a3853d909740b85d6b16bbddc70f54cd44754c152e077",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/validate-cr.txt",
+    "sha256": "cece7f7c4c98b92d55305672a436b1d25462a56d8ec4154ec565ebbae12850fb",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/request-shape-probe.cjs",
+    "sha256": "596c0cb812a9d8766b8211f29f3142227b4bd9940340365e683c4079b2900e69",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/request-shape-result.json",
+    "sha256": "2020fcc2c11ef14e2a40691547cc2a9c3557735f43bff600823b059b098988a7",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/request-shape-exit.json",
+    "sha256": "bef77250b4b48cec5a00cf9d365ca96642bf11230539db2068ddc501c56991ee",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/repair-1/diff-check.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "live_matches": true,
+    "saved_matches": true
+  }
+]

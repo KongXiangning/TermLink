@@ -1,0 +1,18 @@
+   Compiling codex-rollout-compat-spike v0.2.0 (E:\coding\TermLink-rust-source-resolution-codex\native\codex-rollout-compat-spike)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.60s
+     Running unittests src\lib.rs (native\codex-rollout-compat-spike\target\debug\deps\codex_rollout_compat_spike-f33a8a6d0d47e49d.exe)
+
+running 10 tests
+test tests::parser_rejects_malformed_token_usage_records ... ok
+test tests::parser_returns_codex_rollout_line_without_a_termlink_wire_model ... ok
+test codex_decode::tests::ordinary_function_output_keeps_required_call_identity_and_both_output_forms ... ok
+test codex_decode::tests::delegated_carriers_reject_missing_unknown_or_incompatible_identity ... ok
+test tests::parser_accepts_token_usage_record_and_preserves_legacy_usage_carrier ... ok
+test codex_decode::tests::delegated_carriers_preserve_native_identity_body_and_turn ... ok
+test reader::tests::streaming_reader_matches_full_reader_without_collecting_source_lines ... ok
+test reader::tests::tail_segment_is_complete_and_prefix_backfill_restores_source_order ... ok
+test reader::tests::streaming_reader_decodes_zstd_without_codex_rollout_reader ... ok
+test reader::tests::append_reader_retries_an_unterminated_tail_after_the_file_grows ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

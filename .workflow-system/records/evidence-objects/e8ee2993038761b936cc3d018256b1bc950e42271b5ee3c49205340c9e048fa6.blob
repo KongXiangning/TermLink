@@ -1,0 +1,130 @@
+[
+  {
+    "kind": "spike",
+    "excluded": [
+      "codex-rollout-compat-spike"
+    ],
+    "dependencies": [
+      {
+        "name": "codex-async-utils",
+        "local": true
+      },
+      {
+        "name": "codex-execpolicy",
+        "local": true
+      },
+      {
+        "name": "codex-extension-items",
+        "local": true
+      },
+      {
+        "name": "codex-history",
+        "local": true
+      },
+      {
+        "name": "codex-http-client",
+        "local": true
+      },
+      {
+        "name": "codex-network-proxy",
+        "local": true
+      },
+      {
+        "name": "codex-protocol",
+        "local": true
+      },
+      {
+        "name": "codex-utils-absolute-path",
+        "local": true
+      },
+      {
+        "name": "codex-utils-cache",
+        "local": true
+      },
+      {
+        "name": "codex-utils-home-dir",
+        "local": true
+      },
+      {
+        "name": "codex-utils-image",
+        "local": true
+      },
+      {
+        "name": "codex-utils-path-uri",
+        "local": true
+      },
+      {
+        "name": "codex-utils-rustls-provider",
+        "local": true
+      },
+      {
+        "name": "codex-utils-string",
+        "local": true
+      }
+    ]
+  },
+  {
+    "kind": "formal",
+    "excluded": [
+      "codex-rollout-collector"
+    ],
+    "dependencies": [
+      {
+        "name": "codex-async-utils",
+        "local": true
+      },
+      {
+        "name": "codex-execpolicy",
+        "local": true
+      },
+      {
+        "name": "codex-extension-items",
+        "local": true
+      },
+      {
+        "name": "codex-history",
+        "local": true
+      },
+      {
+        "name": "codex-http-client",
+        "local": true
+      },
+      {
+        "name": "codex-network-proxy",
+        "local": true
+      },
+      {
+        "name": "codex-protocol",
+        "local": true
+      },
+      {
+        "name": "codex-utils-absolute-path",
+        "local": true
+      },
+      {
+        "name": "codex-utils-cache",
+        "local": true
+      },
+      {
+        "name": "codex-utils-home-dir",
+        "local": true
+      },
+      {
+        "name": "codex-utils-image",
+        "local": true
+      },
+      {
+        "name": "codex-utils-path-uri",
+        "local": true
+      },
+      {
+        "name": "codex-utils-rustls-provider",
+        "local": true
+      },
+      {
+        "name": "codex-utils-string",
+        "local": true
+      }
+    ]
+  }
+]

@@ -1,0 +1,94 @@
+{
+  "event_ref": ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+  "captured_at": "2026-10-05T10:22:07.978Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/09a98df5cb4cb7a28d820a9e9cf4d3d45d42d50d37f5c266e3f529c3dedbb65d.blob",
+      "sha256": "09a98df5cb4cb7a28d820a9e9cf4d3d45d42d50d37f5c266e3f529c3dedbb65d",
+      "size": 5089,
+      "source_path": "logs/shared-history-compat-20261005/s1/repair-1/review-1/review-change.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/50a70226bfda0f875546db0d8368eef7ed0ab55c69948a1e166a6dba85ebdae1.blob",
+      "sha256": "50a70226bfda0f875546db0d8368eef7ed0ab55c69948a1e166a6dba85ebdae1",
+      "size": 4056,
+      "source_path": "logs/shared-history-compat-20261005/s1/repair-1/review-1/subject-hashes.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a30b553a2331bb5b7cf8589143f20f94fe77ae2cb376ac7d97d926245f56e291.blob",
+      "sha256": "a30b553a2331bb5b7cf8589143f20f94fe77ae2cb376ac7d97d926245f56e291",
+      "size": 1347,
+      "source_path": "logs/shared-history-compat-20261005/s1/repair-1/review-1/protected-hashes.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/354c8ea963e40af313d76c3bf6cfd59e6309a197a06ccc826be8112d1f4fafec.blob",
+      "sha256": "354c8ea963e40af313d76c3bf6cfd59e6309a197a06ccc826be8112d1f4fafec",
+      "size": 20222,
+      "source_path": "docs/codex/codex-history-shared-compat-contract.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d758005817f509644520503253d6f1064b241356364b1ca654a0bccbfb1caa32.blob",
+      "sha256": "d758005817f509644520503253d6f1064b241356364b1ca654a0bccbfb1caa32",
+      "size": 6032,
+      "source_path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/568921f69c52a947ae31941332ab0d01213da7d3eaf3bfa7fdf72ba5ae0e72b6.blob",
+      "sha256": "568921f69c52a947ae31941332ab0d01213da7d3eaf3bfa7fdf72ba5ae0e72b6",
+      "size": 4330,
+      "source_path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/8efd62f09e13743c729ff7c3f02f3b58287b74ff41b78c9e2d5f961faf36a1e0.blob",
+      "sha256": "8efd62f09e13743c729ff7c3f02f3b58287b74ff41b78c9e2d5f961faf36a1e0",
+      "size": 3263,
+      "source_path": "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a22115da9fcce5aad35e13767351471928258b02fa4a9b6c29d67022978a9826.blob",
+      "sha256": "a22115da9fcce5aad35e13767351471928258b02fa4a9b6c29d67022978a9826",
+      "size": 4215,
+      "source_path": "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md",
+      "issues": []
+    }
+  ]
+}

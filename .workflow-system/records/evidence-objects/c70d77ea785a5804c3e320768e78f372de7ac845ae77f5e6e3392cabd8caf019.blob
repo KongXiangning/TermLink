@@ -1,0 +1,44 @@
+[
+  {
+    "path": "history/src/lib.rs",
+    "before_formal_sha256": "850e9349d3d680a1cd82872811b1632f627e309f3de6606d190674d4423f044e",
+    "formal_sha256": "3a454fa6960cdbba32ed31d65a5dd4430d4f4ff277652d2ec03fc9d04586decd",
+    "spike_sha256": "3a454fa6960cdbba32ed31d65a5dd4430d4f4ff277652d2ec03fc9d04586decd"
+  },
+  {
+    "path": "history/src/rollout_payload.rs",
+    "before_formal_sha256": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+    "formal_sha256": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625",
+    "spike_sha256": "d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625"
+  },
+  {
+    "path": "history/src/tests.rs",
+    "before_formal_sha256": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+    "formal_sha256": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00",
+    "spike_sha256": "f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00"
+  },
+  {
+    "path": "protocol/src/models.rs",
+    "before_formal_sha256": "1891f83f27221cfb0984647e8d8409356dedf7e6d8900b47329e67aaeb948898",
+    "formal_sha256": "ac9c579ead64649e7f9897c6a5de6192edd36e0dd787ddedaf5c1941f5740d48",
+    "spike_sha256": "ac9c579ead64649e7f9897c6a5de6192edd36e0dd787ddedaf5c1941f5740d48"
+  },
+  {
+    "path": "protocol/src/items.rs",
+    "before_formal_sha256": "3a4b770b18c7e661c14c8d1e4cbe4561d75f6a29695b0fdcf5c6648c2bb05ef3",
+    "formal_sha256": "1239edb905cc1ab95bb485437ff737991880fb77f310fbdcd4e7e9f554a6f6b7",
+    "spike_sha256": "1239edb905cc1ab95bb485437ff737991880fb77f310fbdcd4e7e9f554a6f6b7"
+  },
+  {
+    "path": "protocol/src/legacy_events.rs",
+    "before_formal_sha256": "df8a4b92f4bc6eb7df424cdf3538ebe74a538d1a981933a4dcae8edcabdb3ce3",
+    "formal_sha256": "3e346546f1ef3c47ed5f8693a4aa788a42d5d6815e1adfa25e87b4fc3fcffeb4",
+    "spike_sha256": "3e346546f1ef3c47ed5f8693a4aa788a42d5d6815e1adfa25e87b4fc3fcffeb4"
+  },
+  {
+    "path": "protocol/src/models/executed_tool_calls_tests.rs",
+    "before_formal_sha256": "a0be7e4785f39f4425df6ae577eef86a71b8ddd9231525a8a264a40bd8173e2b",
+    "formal_sha256": "8c3c48fdbd8d299aaf8837c8915921c9a74c1d7edc7ec54af7565ec94f9c5ae3",
+    "spike_sha256": "8c3c48fdbd8d299aaf8837c8915921c9a74c1d7edc7ec54af7565ec94f9c5ae3"
+  }
+]

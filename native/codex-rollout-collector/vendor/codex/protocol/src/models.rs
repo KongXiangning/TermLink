@@ -1043,7 +1043,15 @@ pub enum ResponseItem {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[ts(optional)]
         id: Option<ResponseItemId>,
-        call_id: String,
+        #[serde(default, deserialize_with = "deserialize_history_call_id", skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        call_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        namespace: Option<String>,
         #[ts(as = "FunctionCallOutputBody")]
         #[schemars(with = "FunctionCallOutputBody")]
         output: FunctionCallOutputPayload,
@@ -1171,7 +1179,40 @@ pub enum ResponseItem {
     Other,
 }
 
+/// Missing call_id is supported for delegation; an explicitly supplied value must be a string.
+pub(crate) fn deserialize_history_call_id<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+    String::deserialize(deserializer).map(Some)
+}
+
+pub(crate) fn validate_delegated_input_shape(id: Option<&str>, name: Option<&str>, namespace: Option<&str>, text: Option<&str>) -> Result<(), &'static str> {
+    if !id.is_some_and(|id| !id.trim().is_empty()) {
+        return Err("delegated function output is missing native id");
+    }
+    if !matches!(name, Some("create_thread" | "send_message_to_thread")) || namespace != Some("codex_app") {
+        return Err("unsupported delegated function output name or namespace");
+    }
+    if !text.is_some_and(|text| !text.trim().is_empty()) {
+        return Err("delegated function output requires nonempty string output");
+    }
+    Ok(())
+}
+
 impl ResponseItem {
+    /// Validate the persisted function-output shapes without inventing a tool call.
+    pub fn validate_history_function_output(&self) -> Result<(), &'static str> {
+        if let Self::FunctionCallOutput { id, call_id, name, namespace, output, .. } = self {
+            if let Some(call_id) = call_id {
+                return if call_id.trim().is_empty() { Err("function output call_id is empty") } else { Ok(()) };
+            }
+            let text = match &output.body {
+                FunctionCallOutputBody::Text(text) => Some(text.as_str()),
+                _ => None,
+            };
+            validate_delegated_input_shape(id.as_ref().map(|id| id.as_str()), name.as_deref(), namespace.as_deref(), text)?;
+        }
+        Ok(())
+    }
+
     /// Returns whether this item is an ordinary user-role message.
     pub fn is_user_message(&self) -> bool {
         matches!(self, Self::Message { role, .. } if role == "user")
@@ -1776,7 +1817,9 @@ impl From<ResponseInputItem> for ResponseItem {
             },
             ResponseInputItem::FunctionCallOutput { call_id, output } => Self::FunctionCallOutput {
                 id: None,
-                call_id,
+                call_id: Some(call_id),
+                name: None,
+                namespace: None,
                 output,
                 internal_chat_message_metadata_passthrough: None,
             },
@@ -1784,7 +1827,9 @@ impl From<ResponseInputItem> for ResponseItem {
                 let output = output.into_function_call_output_payload();
                 Self::FunctionCallOutput {
                     id: None,
-                    call_id,
+                    call_id: Some(call_id),
+                    name: None,
+                    namespace: None,
                     output,
                     internal_chat_message_metadata_passthrough: None,
                 }

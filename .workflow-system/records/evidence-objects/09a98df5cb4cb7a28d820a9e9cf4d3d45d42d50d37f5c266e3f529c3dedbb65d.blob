@@ -1,0 +1,34 @@
+# TASK-20260833 / S1 修正产物 change review
+
+2026-10-05。结论：**clean（本次已执行设计修正范围），没有新增可行动的设计发现**。原 S1-R1/R2 的设计缺口已通过本次复核；这不是产品行为修复通过，也不代表 S1 全部计划完成。审查由同一实施代理完成，属于 self-review，不是独立审查。
+
+## 精确对象
+
+task_id=`task-7ff69ba8242c90c52f0b93fa1144a655`，plan_ref=`key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json`，execution_ref=`key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json`，HEAD=`fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71`。
+
+原执行 `key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json` 和原 needs-repair review `key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json` 保留。本次新审查只评估修正执行，不覆盖旧 verdict，不另作用户接受/finish 决定。
+
+最新执行的 17 份固定附件与 live 产物逐字节一致；13 个源码/治理/原证据保护对象仍与修正后的记录一致。架构哈希仍与本会话此前完整读取相同。subject-hashes.json、protected-hashes.json 保存实际复核结果。
+
+## 原发现复核
+
+| 原发现 | 当前证据及判断 | 资格边界 |
+| --- | --- | --- |
+| S1-R1 / P1 | 契约 :68–78 已明确具有全部 G1 证据的 canonical→canonical TurnStarted→TurnCompleted，并区分 snapshot completeness 和 turn lifecycle。旧开始不可变、真实后来完成、当前 scope/attempt、full 重见或 durable prefix+连续 delta、倒退/降级拒绝均保留。§6、REQ 验收 2/测试场景和 PLAN 对原 partial 与无 gap canonical 两类回归同步。与 target_mapping.rs:217–240、:1422–1431 的 canonical gate 和 analysis.rs:785–796 的 InProgress 处理一致。 | **设计缺口已修正**；没有执行 importer 正向保存、append 或真实 Rust 回归，不能说 H1 已修复。 |
+| S1-R2 / P1 | 契约 :104–118 固定独立新 job 的普通 backfill，cursor/persisted_anchor/known_complete_range/recovery 为空；旧非空 target-v1 checkpoint 本地原样保留，不对原 checkpoint 置空。target.rs:540–555 的 optional 字段与 :628–641 的原 equality/绑定校验可兼容，无 backfill 例外。旧 job 重交付与新 profile append 分开。 | **设计缺口已修正**；现有 Node 参数 probe 只证明 wire 请求结构，不证明 profile 协商、Rust source read、存储保持或最终保存。 |
+
+已读原探针脚本及固定结果：合法非空 anchor+相等 cursor 接受；原 null cursor+非空 anchor 拒绝；修正新 job 的四个空字段请求接受；append mismatch 与错 anchor conversation 拒绝；合成旧 checkpoint JSON 不变。Node analyzerProtocol.js:1339–1371、:1747–1777 与这些断言一致。fixture 取自既有 pure helpers，并不是实际用户 checkpoint，也不验证 Rust reducer payload，因此不扩大此证据的含义。
+
+## 其他设计与证据核对
+
+核对完整共享草案、REQ/PLAN/新 CR、精确发布差异、采纳 S1 的实际 actions/outputs，以及原 review。独立 DelegatedInput/真实身份/system role、物理事件不可变、G2 双载体等价条件、hello 能力交集、旧批次 payload 不重解释、Rust→Node 顺序、单例/三 mode/外部源只读、原任务业务目标与明确返回责任均保留。没有发现本修正新增的任意覆盖、跨 profile append 放宽、清旧记录、DB/IPC 扩展或产品完成声明。
+
+复用当前精确字节对应的既有 pwsh REQ/CR 严格校验：均 exit 0；CR 的 rollback-command warning 保留。没有重跑验证器、探针、产品测试、Rust 构建/analyzer、服务、模型回合或手机；静态 code review 不要求把 S3–S5 的实际实现回归提前执行。产品源码、草案和旧记录未被本次审查修改。
+
+## 仍未完成的工作
+
+S1-D 受控治理发布依旧 pending，属于已披露的实际计划待办，不包装成新的设计缺陷，也不因本次 clean 消失。CONTRACTS/DECISIONS 正文未更新，仍以现行来源为准。execute-step 的 `governance_sources: []` 和正文 typed Runtime 写入说明，以及当前中途发布接口缺口已经保存；本审查不授权直接绕过、改 Runtime、制造 archive 或提前 close。正式启用新规则前仍须解决具体发布范围。
+
+clean 仅覆盖本次执行的设计产物；S1 尚未 finish，833 尚未 close，S2–S5 未实现，三项产品问题尚未验证修复。832 仍 active/S2 executed，保留原 plan/execution 和分支定位/三类真实宿主/手机验收责任；本次不改其焦点或处置。三条既有管理关联缺口保留，没有新增同类缺口。
+
+下一条建议遵循 review-change 的已审查未 finish 路径：`next_route: execute-step`，`next_mode: finish`，目标 TASK-20260833/S1。该入口须核对并处理或明确处置 S1-D 待办；本 review 不构成缺项 finish 的知情确认，也不自动进入 S2。步骤处置与产品资格分开。

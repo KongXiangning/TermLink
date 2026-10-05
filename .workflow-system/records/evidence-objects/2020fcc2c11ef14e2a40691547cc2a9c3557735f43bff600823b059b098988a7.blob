@@ -1,0 +1,173 @@
+{
+  "scope": "Existing Node wire request validation only; synthetic fixture from existing pure helpers. No source read, checkpoint persistence, profile negotiation, Rust process, G1 merge or business PASS.",
+  "fixture_source": "tests/codexRolloutCollector.test.js:targetCursor/targetCheckpoint",
+  "observations": [
+    {
+      "name": "old non-null checkpoint is structurally valid with matching cursor",
+      "result": "accepted-by-existing-node-request-validator",
+      "request": {
+        "protocol_version": 1,
+        "message_type": "analyze",
+        "request_id": "s1-probe-original-request",
+        "job_id": "job-1",
+        "conversation_id": "conversation-1",
+        "mode": "backfill",
+        "cursor": {
+          "schema_version": 1,
+          "reader_backend": "test-reader",
+          "reader_version": "1",
+          "cursor_kind": "forward_append",
+          "conversation_id": "conversation-1",
+          "source_id": "rollout.jsonl",
+          "source_epoch": "epoch-1",
+          "source_kind": "rollout",
+          "compression": "plain_jsonl",
+          "snapshot_boundary": {
+            "unit": "physical_bytes",
+            "byte_length": 10
+          },
+          "complete_range": {
+            "start": 0,
+            "end": 10
+          },
+          "last_complete_line": {
+            "physical_line_ordinal": 1,
+            "byte_start": 0,
+            "byte_end": 10
+          },
+          "last_rollout_ordinal": null,
+          "capabilities": {
+            "forward_stream": true,
+            "tail_preview": true,
+            "backward_segments": true,
+            "append": true,
+            "random_seek": false
+          }
+        },
+        "persisted_anchor": {
+          "schema_version": 1,
+          "job_id": "job-1",
+          "request_id": "request-1",
+          "conversation_id": "conversation-1",
+          "source": {
+            "source_id": "rollout.jsonl",
+            "source_epoch": "epoch-1",
+            "source_range": {
+              "start": 0,
+              "end": 10
+            },
+            "snapshot_boundary": {
+              "unit": "physical_bytes",
+              "byte_length": 10
+            }
+          },
+          "reader": {
+            "backend": "test-reader",
+            "version": "1",
+            "source_kind": "rollout",
+            "compression": "plain_jsonl"
+          },
+          "wire_profile": {
+            "parser_backend": "test-parser",
+            "wire_source_revision": "test-wire",
+            "compatibility_profile": "current"
+          },
+          "cursor_kind": "forward_append",
+          "cursor": {
+            "schema_version": 1,
+            "reader_backend": "test-reader",
+            "reader_version": "1",
+            "cursor_kind": "forward_append",
+            "conversation_id": "conversation-1",
+            "source_id": "rollout.jsonl",
+            "source_epoch": "epoch-1",
+            "source_kind": "rollout",
+            "compression": "plain_jsonl",
+            "snapshot_boundary": {
+              "unit": "physical_bytes",
+              "byte_length": 10
+            },
+            "complete_range": {
+              "start": 0,
+              "end": 10
+            },
+            "last_complete_line": {
+              "physical_line_ordinal": 1,
+              "byte_start": 0,
+              "byte_end": 10
+            },
+            "last_rollout_ordinal": null,
+            "capabilities": {
+              "forward_stream": true,
+              "tail_preview": true,
+              "backward_segments": true,
+              "append": true,
+              "random_seek": false
+            }
+          },
+          "segment": {
+            "source_range": {
+              "start": 0,
+              "end": 10
+            },
+            "physical_line_start": 1,
+            "physical_line_end": 1,
+            "rollout_ordinal": null
+          },
+          "reducer_state": {
+            "schema_version": 1,
+            "reducer_id": "termlink.analysis_reducer",
+            "reducer_version": "target-v1",
+            "payload": {}
+          },
+          "projection_watermark": {
+            "schema_version": 1,
+            "segment_id": "segment-1",
+            "batch_id": "batch-1",
+            "source_id": "rollout.jsonl",
+            "source_epoch": "epoch-1",
+            "complete_source_end": 10,
+            "logical_item_count": 0
+          },
+          "completeness": "canonical",
+          "lineage_checkpoint": null
+        }
+      }
+    },
+    {
+      "name": "original design null cursor plus unchanged old anchor",
+      "result": "expected-rejection",
+      "expected": "/cursor must match persisted_anchor.cursor/"
+    },
+    {
+      "name": "repaired independent ordinary backfill has no inherited recovery fields",
+      "result": "accepted-by-existing-node-request-validator",
+      "request": {
+        "protocol_version": 1,
+        "message_type": "analyze",
+        "request_id": "s1-probe-new-request",
+        "job_id": "s1-probe-new-job",
+        "conversation_id": "conversation-1",
+        "mode": "backfill",
+        "cursor": null,
+        "persisted_anchor": null,
+        "recovery": null,
+        "known_complete_range": null
+      }
+    },
+    {
+      "name": "append still rejects unequal cursor and anchor",
+      "result": "expected-rejection",
+      "expected": "/cursor must match persisted_anchor.cursor/"
+    },
+    {
+      "name": "backfill still rejects wrong checkpoint conversation",
+      "result": "expected-rejection",
+      "expected": "/conversation_id must match analyze conversation_id/"
+    },
+    {
+      "name": "old checkpoint unchanged",
+      "result": "byte-equivalent JSON"
+    }
+  ]
+}

@@ -41,6 +41,12 @@ Rust 模块不需要读取本文的产品 DB、App、IPC 或队列规则。架�
 
 > [!NOTE] 现行产品持久化边界：Node 每个 conversation 只持久化一份 canonical 记录；当前阶段不做任何持久化版本管理，不定义版本水位、提交 fence 或同一会话的多版本 projection。
 
+## TASK-20260833 coordinator 补充（规范已发布，实现待交付）
+
+[共享历史兼容契约](codex-history-shared-compat-contract.md) §§3–5 仅要求协商新能力后的 G1/G2 严格 preflight、正确 delegated_input 映射和必要 profile/request 选择。保留 durable staging→ACK→validated complete→产品事务提交、旧 canonical 和单例调度。
+
+原 job 未结算交付不因升级重解释；新 profile 普通 backfill 创建独立 job，避免继承旧 cursor/anchor/known range/recovery，旧 checkpoint/receipt/intent 原样保留。不允许整体 coordinator 重设计或第二采集链；Rust target 先稳定、Node 后适配，当前这些新行为尚待交付。
+
 ## 1. 进程级 single-flight 边界
 
 4.5 的部署范围是一个 Node Server 实例及其固定的 `sessionsRoot`。该实例只管理一个 Rust

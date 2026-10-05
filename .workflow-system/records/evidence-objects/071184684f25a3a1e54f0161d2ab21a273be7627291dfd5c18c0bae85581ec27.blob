@@ -1,0 +1,35 @@
+upstream_repository = "openai/codex"
+upstream_revision = "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2"
+source_root = "vendor/codex"
+license = "Apache-2.0"
+license_files = ["LICENSE"]
+notice_files = ["NOTICE"]
+source_copy_policy = "spike-staging-source-validated-before-formal-promotion"
+local_patches = [
+  "history/src/lib.rs",
+  "history/src/rollout_payload.rs",
+  "history/src/tests.rs",
+  "protocol/src/models.rs",
+  "protocol/src/items.rs",
+  "protocol/src/legacy_events.rs",
+  "protocol/src/models/executed_tool_calls_tests.rs",
+]
+direct_crates = ["codex-history", "codex-protocol"]
+path_dependency_closure = [
+  "async-utils",
+  "execpolicy",
+  "ext/items",
+  "history",
+  "http-client",
+  "network-proxy",
+  "protocol",
+  "utils/absolute-path",
+  "utils/cache",
+  "utils/cargo-bin",
+  "utils/home-dir",
+  "utils/image",
+  "utils/path-uri",
+  "utils/rustls-provider",
+  "utils/string",
+]
+source_provenance = "native/codex-rollout-compat-spike/vendor/codex"

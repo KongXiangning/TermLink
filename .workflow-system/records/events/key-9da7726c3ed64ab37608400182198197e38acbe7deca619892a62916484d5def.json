@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-05T10:22:07.955Z",
+  "payload_sha256": "22e0c92e3f408da495d88849133a375230829cf407e62c9f8115a928a5dc661d",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260833-S1-repair1-review-change-20261005-v1",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "files": [
+        "logs/shared-history-compat-20261005/s1/repair-1/review-1/review-change.md",
+        "logs/shared-history-compat-20261005/s1/repair-1/review-1/subject-hashes.json",
+        "logs/shared-history-compat-20261005/s1/repair-1/review-1/protected-hashes.json",
+        "docs/codex/codex-history-shared-compat-contract.md",
+        "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+        "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+        "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md",
+        "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md"
+      ],
+      "idempotency_key": "task20260833-S1-repair1-review-change-20261005-v1",
+      "prior_findings_assessment": [
+        {
+          "qualification": "not implemented or product-tested",
+          "id": "S1-R1",
+          "status": "design-repair-verified",
+          "evidence": "contract:68-78,130; actual canonical gate and InProgress reducer; REQ/PLAN regression cases"
+        },
+        {
+          "qualification": "request structure only;no Rust process/source read or stored old state verification",
+          "id": "S1-R2",
+          "status": "design-repair-verified",
+          "evidence": "contract:104-118;target.rs:540-555,628-641;Node validator and saved shape probe"
+        }
+      ],
+      "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+      "previous_review_ref": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json",
+      "execution_ref": ".workflow-system/records/events/key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+      "provenance": {
+        "reviewer": "Codex",
+        "independent": false,
+        "assessment": "Static source/design and saved evidence review; no product code edits or business test rerun",
+        "new_product_tests_run": false,
+        "kind": "same-agent-change-self-review"
+      },
+      "verdict": "clean",
+      "remaining_work": [
+        "S1-D controlled publication still pending;clean is not full S1 completion or authority to bypass governance",
+        "S1 still executed/un-finished;finish entry must inspect remaining work, no missing-work acceptance recorded",
+        "S2-S5 implementation and actual Rust/Node/storage regressions not run",
+        "TASK20260832 active/S2 retained; explicit return and branch/real-host/phone validation remains",
+        "Three pre-existing management association issues retained"
+      ],
+      "coverage": [
+        "Exact latest S1 repair execution and17unchanged fixed/live attachments;13protected source/governance objects unchanged",
+        "Complete shared design,REQ/PLAN/repair CR and precise pending-publication proposal",
+        "S1-R1 evidenced canonical-to-canonical G1, lifecycle distinct from snapshot coverage, full/delta proof and original partial/negative planning",
+        "S1-R2 actual Rust optional fields/equality and Node request construction/validator plus fixed synthetic probe evidence",
+        "DelegatedInput/G2/version/profile/old delivery and scope boundaries retained",
+        "S1-D pending and original832 state/three business goals, no product success or step finish"
+      ],
+      "findings": [],
+      "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "step_id": "S1",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655"
+    },
+    "files": [
+      "logs/shared-history-compat-20261005/s1/repair-1/review-1/review-change.md",
+      "logs/shared-history-compat-20261005/s1/repair-1/review-1/subject-hashes.json",
+      "logs/shared-history-compat-20261005/s1/repair-1/review-1/protected-hashes.json",
+      "docs/codex/codex-history-shared-compat-contract.md",
+      "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md",
+      "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "parents": [
+        ".workflow-system/records/events/key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json"
+      ],
+      "data": {
+        "stage": "change",
+        "files": [
+          "logs/shared-history-compat-20261005/s1/repair-1/review-1/review-change.md",
+          "logs/shared-history-compat-20261005/s1/repair-1/review-1/subject-hashes.json",
+          "logs/shared-history-compat-20261005/s1/repair-1/review-1/protected-hashes.json",
+          "docs/codex/codex-history-shared-compat-contract.md",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md",
+          "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md"
+        ],
+        "prior_findings_assessment": [
+          {
+            "qualification": "not implemented or product-tested",
+            "id": "S1-R1",
+            "status": "design-repair-verified",
+            "evidence": "contract:68-78,130; actual canonical gate and InProgress reducer; REQ/PLAN regression cases"
+          },
+          {
+            "qualification": "request structure only;no Rust process/source read or stored old state verification",
+            "id": "S1-R2",
+            "status": "design-repair-verified",
+            "evidence": "contract:104-118;target.rs:540-555,628-641;Node validator and saved shape probe"
+          }
+        ],
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "previous_review_ref": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json",
+        "execution_ref": ".workflow-system/records/events/key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+        "provenance": {
+          "reviewer": "Codex",
+          "independent": false,
+          "assessment": "Static source/design and saved evidence review; no product code edits or business test rerun",
+          "new_product_tests_run": false,
+          "kind": "same-agent-change-self-review"
+        },
+        "verdict": "clean",
+        "remaining_work": [
+          "S1-D controlled publication still pending;clean is not full S1 completion or authority to bypass governance",
+          "S1 still executed/un-finished;finish entry must inspect remaining work, no missing-work acceptance recorded",
+          "S2-S5 implementation and actual Rust/Node/storage regressions not run",
+          "TASK20260832 active/S2 retained; explicit return and branch/real-host/phone validation remains",
+          "Three pre-existing management association issues retained"
+        ],
+        "coverage": [
+          "Exact latest S1 repair execution and17unchanged fixed/live attachments;13protected source/governance objects unchanged",
+          "Complete shared design,REQ/PLAN/repair CR and precise pending-publication proposal",
+          "S1-R1 evidenced canonical-to-canonical G1, lifecycle distinct from snapshot coverage, full/delta proof and original partial/negative planning",
+          "S1-R2 actual Rust optional fields/equality and Node request construction/validator plus fixed synthetic probe evidence",
+          "DelegatedInput/G2/version/profile/old delivery and scope boundaries retained",
+          "S1-D pending and original832 state/three business goals, no product success or step finish"
+        ],
+        "findings": [],
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S1"
+      }
+    }
+  },
+  "issues": []
+}

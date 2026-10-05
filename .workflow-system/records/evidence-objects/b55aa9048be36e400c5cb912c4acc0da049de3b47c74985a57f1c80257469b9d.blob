@@ -1,0 +1,4 @@
+{
+  "command": "cargo metadata --manifest-path native/codex-rollout-collector/Cargo.toml --format-version 1 --offline --locked",
+  "exit_code": 0
+}

@@ -35,6 +35,12 @@ related_docs:
 本文只定义两个独立进程之间的 JSONL 协议。它不定义 Node 如何排队、写产品 DB，也不定义
 Rust 内部如何发现 rollout、解析 Codex wire 或归约 projection。
 
+## TASK-20260833 wire 补充（规范已发布，实现待交付）
+
+新增待实现可选 `history_semantics_v2`（无别名），仅双方 hello 交集启用 [共享历史兼容契约](codex-history-shared-compat-contract.md) DelegatedInput/G1/G2 与 reducer profile target-v2；旧 profile target-v1。消息/mode/protocol/data/cursor/checkpoint schema1 不变。旧 consumer 不接收新事件；需要委派承载且未协商时在 batch 前返回 unsupported_capability，不伪 canonical。
+
+新 profile 普通 backfill 使用独立 job，cursor/persisted_anchor/known_complete_range/recovery 空或省略，当前 source/覆盖重新验证；原 conversation/equality 校验不设 backfill 例外。原 job 未结算交付保留 profile/scope/segment/batch/payload，跨 profile append 明确 incompatible。四种能力组合及恢复规则见精确补充 §§4–5，实际支持须后续验证。
+
 ## 1. Framing 和公共 envelope
 
 Node Server 启动 Rust Collector Analyzer 的参数属于[启动契约](codex-rollout-collector-rust-analyzer-startup-contract-draft.md)，

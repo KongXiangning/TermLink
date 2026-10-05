@@ -1,0 +1,16 @@
+{
+  "kind": "S2-scope-self-check",
+  "candidate_paths": 32,
+  "missing_paths": [],
+  "current_architecture_hash": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+  "matches_prior_full_read": true,
+  "original_objects_checked": 64,
+  "changed_originals": [],
+  "business_diff_since_S1": "",
+  "tracked_diff": "",
+  "index_diff": "",
+  "tests_build_process_service_device_run": false,
+  "product_bugs_all_unrepaired": true,
+  "scope_decision": "pending human answer",
+  "qualification": "Read-only plan and path/hash corroboration only, not test PASS or shared-contract approval"
+}

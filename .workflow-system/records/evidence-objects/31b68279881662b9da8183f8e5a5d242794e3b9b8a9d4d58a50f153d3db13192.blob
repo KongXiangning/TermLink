@@ -1,0 +1,10 @@
+This directory contains the vendored Codex history/protocol source closure
+used by TermLink's Codex Rollout Collector.
+
+Upstream project: OpenAI Codex
+Upstream revision: 5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2
+License: Apache-2.0
+
+The closure is promoted from the repository-local compatibility Spike. It is
+kept as a checked-in source boundary so the formal collector does not depend
+on a developer's Codex checkout or on a Codex workspace download.

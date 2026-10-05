@@ -50,6 +50,12 @@ Coordinator 返回结果；parser/wire 的 `wire_source_revision` 仍只表示�
 - Rust 可以只阅读启动契约、wire 契约和 analysis data 契约，不依赖 Node 产品 DB/App/队列实现；
 - 跨模块变更只能通过显式契约字段、消息和状态语义完成。
 
+## TASK-20260833 跨文档最小补充（规范已发布，实现待交付）
+
+[共享历史兼容契约](codex-history-shared-compat-contract.md) 为 architecture、wire、data、compatibility 和 coordinator 中同项的精确 additive 补充，来源登记于 CONTRACTS/DECISIONS。仅 DelegatedInput/G1/G2、可选 history_semantics_v2/target-v2 与旧状态恢复；不改 startup、七消息、三 mode、schema1、单例或 Node/Rust 职责。
+
+规范发布不证明产品/进程已支持；833 S2→S3→S4→S5 分步实施，原任务 832 的分支与真实宿主/手机验收保持。
+
 ## 1. 四份接口文档
 
 | 文档 | 归属 | 定义内容 | 不定义 |

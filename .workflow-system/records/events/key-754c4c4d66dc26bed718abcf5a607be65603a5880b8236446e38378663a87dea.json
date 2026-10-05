@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-05T10:29:46.709Z",
+  "payload_sha256": "1744fbc4dc425823799ea3f9f2586d4054d836fa5d3cf3eecd69e1ed14c504b1",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260833-S1-finish-with-publication-pending-choice-20261005-v1",
+    "request": {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "action": "review-decision",
+      "choice": "finish",
+      "decision_text": "结束 S1，保留发布待办（推荐）",
+      "decision_source": "Human answer to request_user_input_async call_yTTYsyTSj5YMZ8oacj5K8vTA about finishing S1 with controlled-publication pending",
+      "idempotency_key": "task20260833-S1-finish-with-publication-pending-choice-20261005-v1",
+      "review_ref": ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+      "files": [
+        "logs/shared-history-compat-20261005/s1/finish-1/assessment.md",
+        "logs/shared-history-compat-20261005/s1/finish-1/proposed-disposition.json",
+        "logs/shared-history-compat-20261005/s1/finish-1/review-applicability.json"
+      ],
+      "disclosed_gaps": [
+        "S1-D formal CONTRACTS/DECISIONS publication not complete;current typed interface supports close-task archive only",
+        "Finish disposition keeps publication pending;must be completed before implementing new shared rules",
+        "833 remains active,832 state unchanged,no automatic S2 implementation"
+      ],
+      "scope": "TASK20260833/S1 work disposition only;not product PASS,no permission for direct governance writes,Runtime edits,Git,close or next-step execution"
+    },
+    "files": [
+      "logs/shared-history-compat-20261005/s1/finish-1/assessment.md",
+      "logs/shared-history-compat-20261005/s1/finish-1/proposed-disposition.json",
+      "logs/shared-history-compat-20261005/s1/finish-1/review-applicability.json"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review-decision",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "parents": [
+        ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json"
+      ],
+      "data": {
+        "choice": "finish",
+        "decision_text": "结束 S1，保留发布待办（推荐）",
+        "decision_source": "Human answer to request_user_input_async call_yTTYsyTSj5YMZ8oacj5K8vTA about finishing S1 with controlled-publication pending",
+        "review_ref": ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+        "files": [
+          "logs/shared-history-compat-20261005/s1/finish-1/assessment.md",
+          "logs/shared-history-compat-20261005/s1/finish-1/proposed-disposition.json",
+          "logs/shared-history-compat-20261005/s1/finish-1/review-applicability.json"
+        ],
+        "disclosed_gaps": [
+          "S1-D formal CONTRACTS/DECISIONS publication not complete;current typed interface supports close-task archive only",
+          "Finish disposition keeps publication pending;must be completed before implementing new shared rules",
+          "833 remains active,832 state unchanged,no automatic S2 implementation"
+        ],
+        "scope": "TASK20260833/S1 work disposition only;not product PASS,no permission for direct governance writes,Runtime edits,Git,close or next-step execution"
+      }
+    }
+  },
+  "issues": []
+}

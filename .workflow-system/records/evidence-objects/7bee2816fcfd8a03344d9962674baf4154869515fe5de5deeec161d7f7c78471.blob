@@ -1,0 +1,57 @@
+[
+  {
+    "before": "027a18602515e667899ee244527617590859db1022148d3d0429b38a69a472be",
+    "after": "9b04f7e15bb96abd650ccebce32b47893358fa985d3dabc0155ff971702016b9",
+    "path": "native/codex-rollout-compat-spike/src/codex_decode.rs"
+  },
+  {
+    "before": "1891f83f27221cfb0984647e8d8409356dedf7e6d8900b47329e67aaeb948898",
+    "after": "ac9c579ead64649e7f9897c6a5de6192edd36e0dd787ddedaf5c1941f5740d48",
+    "path": "native/codex-rollout-compat-spike/vendor/codex/protocol/src/models.rs"
+  },
+  {
+    "before": "3a4b770b18c7e661c14c8d1e4cbe4561d75f6a29695b0fdcf5c6648c2bb05ef3",
+    "after": "1239edb905cc1ab95bb485437ff737991880fb77f310fbdcd4e7e9f554a6f6b7",
+    "path": "native/codex-rollout-compat-spike/vendor/codex/protocol/src/items.rs"
+  },
+  {
+    "before": "df8a4b92f4bc6eb7df424cdf3538ebe74a538d1a981933a4dcae8edcabdb3ce3",
+    "after": "3e346546f1ef3c47ed5f8693a4aa788a42d5d6815e1adfa25e87b4fc3fcffeb4",
+    "path": "native/codex-rollout-compat-spike/vendor/codex/protocol/src/legacy_events.rs"
+  },
+  {
+    "before": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+    "after": "071184684f25a3a1e54f0161d2ab21a273be7627291dfd5c18c0bae85581ec27",
+    "path": "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml"
+  },
+  {
+    "before": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+    "after": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+    "path": "native/codex-rollout-collector/src/codex_wire/decode.rs"
+  },
+  {
+    "before": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+    "after": "57710d5eb6bc9f38e12441a9144ec7a0aaf6550be3993598be470ee22a1e18a3",
+    "path": "native/codex-rollout-collector/src/codex_adapter/mod.rs"
+  },
+  {
+    "before": "1891f83f27221cfb0984647e8d8409356dedf7e6d8900b47329e67aaeb948898",
+    "after": "ac9c579ead64649e7f9897c6a5de6192edd36e0dd787ddedaf5c1941f5740d48",
+    "path": "native/codex-rollout-collector/vendor/codex/protocol/src/models.rs"
+  },
+  {
+    "before": "3a4b770b18c7e661c14c8d1e4cbe4561d75f6a29695b0fdcf5c6648c2bb05ef3",
+    "after": "1239edb905cc1ab95bb485437ff737991880fb77f310fbdcd4e7e9f554a6f6b7",
+    "path": "native/codex-rollout-collector/vendor/codex/protocol/src/items.rs"
+  },
+  {
+    "before": "df8a4b92f4bc6eb7df424cdf3538ebe74a538d1a981933a4dcae8edcabdb3ce3",
+    "after": "3e346546f1ef3c47ed5f8693a4aa788a42d5d6815e1adfa25e87b4fc3fcffeb4",
+    "path": "native/codex-rollout-collector/vendor/codex/protocol/src/legacy_events.rs"
+  },
+  {
+    "before": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+    "after": "86463cc83b39181f178bd9f34cf8f5b9d72a7b29e5be2ec565c692842157cde3",
+    "path": "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml"
+  }
+]

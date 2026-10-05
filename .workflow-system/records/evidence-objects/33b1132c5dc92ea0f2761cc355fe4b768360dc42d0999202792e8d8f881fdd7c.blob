@@ -1,0 +1,4 @@
+{
+  "command": "cargo build --manifest-path native/codex-rollout-compat-spike/Cargo.toml --bin codex-rollout-compat-spike --locked --offline after carrier guard",
+  "exit_code": 0
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-05T07:12:14.106Z",
+  "payload_sha256": "f5be643d87e6eb3b4649eeeabb802ee55cdfa375afadaf60b8152da3de92acd4",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260833-focus-for-S1-20261005-v1",
+    "request": {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "idempotency_key": "task20260833-focus-for-S1-20261005-v1",
+      "return_context": {
+        "instruction": "Original task remains active/S2; future return must use explicit focus, not inferred automatic close handoff.",
+        "step_id": "S2",
+        "task_id": "task-58bc12d9a46b8d84fb6e42888785b402"
+      },
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) TASK-20260833 S1",
+      "action": "focus",
+      "decision_source": "Direct human execute-step TASK-20260833 S1 following explicit focus and return discussion"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "focus",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "parents": [
+        ".workflow-system/records/events/key-c9ee87ca72baea443b6cb1d53f14387af5407d633ad8cdf5988b80c0be34ff1d.json"
+      ],
+      "data": {
+        "return_context": {
+          "instruction": "Original task remains active/S2; future return must use explicit focus, not inferred automatic close handoff.",
+          "step_id": "S2",
+          "task_id": "task-58bc12d9a46b8d84fb6e42888785b402"
+        },
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) TASK-20260833 S1",
+        "decision_source": "Direct human execute-step TASK-20260833 S1 following explicit focus and return discussion"
+      }
+    }
+  },
+  "issues": []
+}

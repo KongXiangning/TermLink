@@ -1,0 +1,50 @@
+{
+  "event_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+  "captured_at": "2026-10-05T05:54:24.201Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/38af7e0134e263d9a5efea12398a5a210611b927b7ee155b58e98b5602903662.blob",
+      "sha256": "38af7e0134e263d9a5efea12398a5a210611b927b7ee155b58e98b5602903662",
+      "size": 10570,
+      "source_path": "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9dfb8ca0bb239219a4e5c5456611bbca629d5db6e2b4d745d9cfcbb2a95b0b9f.blob",
+      "sha256": "9dfb8ca0bb239219a4e5c5456611bbca629d5db6e2b4d745d9cfcbb2a95b0b9f",
+      "size": 12115,
+      "source_path": "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/3b0ee916df2dd77b221268512e2fb4569fb1c816c897af8427695145cdd5e30d.blob",
+      "sha256": "3b0ee916df2dd77b221268512e2fb4569fb1c816c897af8427695145cdd5e30d",
+      "size": 14984,
+      "source_path": "logs/history-save-repair-20261005/s2/scope.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/e040cae4e6a4b442423a4f868a683f3f5bf5f58ef7b6eb4f79592e007953954c.blob",
+      "sha256": "e040cae4e6a4b442423a4f868a683f3f5bf5f58ef7b6eb4f79592e007953954c",
+      "size": 5726,
+      "source_path": "logs/history-save-repair-20261005/s2/source-inventory.json",
+      "issues": []
+    }
+  ]
+}

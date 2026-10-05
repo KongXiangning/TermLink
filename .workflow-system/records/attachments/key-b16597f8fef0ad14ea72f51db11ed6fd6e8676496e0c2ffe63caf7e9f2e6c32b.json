@@ -1,0 +1,28 @@
+{
+  "event_ref": ".workflow-system/records/events/key-b16597f8fef0ad14ea72f51db11ed6fd6e8676496e0c2ffe63caf7e9f2e6c32b.json",
+  "captured_at": "2026-10-05T05:52:07.404Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/3b0ee916df2dd77b221268512e2fb4569fb1c816c897af8427695145cdd5e30d.blob",
+      "sha256": "3b0ee916df2dd77b221268512e2fb4569fb1c816c897af8427695145cdd5e30d",
+      "size": 14984,
+      "source_path": "logs/history-save-repair-20261005/s2/scope.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/e2a71a882f8d4d271ce821a677ab7b69ae57bd4fec8998804285ef36dec4d664.blob",
+      "sha256": "e2a71a882f8d4d271ce821a677ab7b69ae57bd4fec8998804285ef36dec4d664",
+      "size": 6214,
+      "source_path": "logs/history-save-repair-20261005/s2/scope.json",
+      "issues": []
+    }
+  ]
+}

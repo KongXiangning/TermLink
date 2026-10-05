@@ -1,0 +1,10 @@
+[
+  {
+    "sha256": "77c78d22c08a116b99320249c9a504c83fb82d058e3f8ec303f21512eb5baaf6",
+    "path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-demo\\target\\debug\\codex-rollout-demo.exe"
+  },
+  {
+    "sha256": "dfc674b73bdf42ee214c817cf41737c475fdb5ee63d079f70d79892087b382c6",
+    "path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\target\\debug\\codex-rollout-compat-spike.exe"
+  }
+]

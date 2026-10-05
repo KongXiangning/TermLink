@@ -1,0 +1,4 @@
+{
+  "command": "git diff --check final",
+  "exit_code": 0
+}

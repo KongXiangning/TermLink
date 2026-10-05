@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-05T05:57:41.271Z",
+  "payload_sha256": "aa6f8fde30f1b53ce62186da29f8769d6ae21780110fd33b22bf0df637eff36b",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260832-S2-choice-association-v1",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-b16597f8fef0ad14ea72f51db11ed6fd6e8676496e0c2ffe63caf7e9f2e6c32b.json",
+      "idempotency_key": "task20260832-S2-choice-association-v1",
+      "event": {
+        "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+        "action": "execution",
+        "data": {
+          "scope": "Association of actual S2 scope choice only; preparation outcome is separately recorded.",
+          "step_id": "S2",
+          "decision_source": "Direct human asynchronous answer in this conversation",
+          "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+          "result": "scope-choice-received-prepare-only-no-product-implementation",
+          "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+          "decision_text": "先准备共享契约兼容任务（推荐）：保留三项业务目标，按 Rust→Node 分步处理，不做整个 4.5 迁移"
+        },
+        "parents": [
+          ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json"
+        ]
+      }
+    },
+    "task_event": {
+      "version": 1,
+      "action": "link",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-b16597f8fef0ad14ea72f51db11ed6fd6e8676496e0c2ffe63caf7e9f2e6c32b.json",
+        "event": {
+          "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+          "action": "execution",
+          "data": {
+            "scope": "Association of actual S2 scope choice only; preparation outcome is separately recorded.",
+            "step_id": "S2",
+            "decision_source": "Direct human asynchronous answer in this conversation",
+            "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+            "result": "scope-choice-received-prepare-only-no-product-implementation",
+            "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+            "decision_text": "先准备共享契约兼容任务（推荐）：保留三项业务目标，按 Rust→Node 分步处理，不做整个 4.5 迁移"
+          },
+          "parents": [
+            ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json"
+          ]
+        }
+      }
+    }
+  },
+  "issues": []
+}

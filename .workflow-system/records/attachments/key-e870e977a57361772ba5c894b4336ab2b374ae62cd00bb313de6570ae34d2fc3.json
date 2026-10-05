@@ -1,0 +1,28 @@
+{
+  "event_ref": ".workflow-system/records/events/key-e870e977a57361772ba5c894b4336ab2b374ae62cd00bb313de6570ae34d2fc3.json",
+  "captured_at": "2026-10-05T10:59:23.140Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/8f5bb3f80497f17c63676edbfbdc960cfde88d3d2424addcba18ab920844544b.blob",
+      "sha256": "8f5bb3f80497f17c63676edbfbdc960cfde88d3d2424addcba18ab920844544b",
+      "size": 2478,
+      "source_path": "logs/shared-history-compat-20261005/s2/publication-proposal.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/eab7a30bf4c4760e9fa22cd906ddbca4d79aa59f93d869ddee9ae8f837f2c546.blob",
+      "sha256": "eab7a30bf4c4760e9fa22cd906ddbca4d79aa59f93d869ddee9ae8f837f2c546",
+      "size": 1307,
+      "source_path": "logs/shared-history-compat-20261005/s2/publication-targets-before.json",
+      "issues": []
+    }
+  ]
+}

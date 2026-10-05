@@ -1,0 +1,38 @@
+# TASK-20260833 / S2 change review
+
+审查日期：2026-10-06（Asia/Shanghai）。结论：**clean，未发现本次 S2 范围内需要返修的具体缺陷**。这是同一 Codex 的自审，不是独立审查；不是产品保存验收，也不自动 finish。
+
+## 精确目标与证据
+
+- task_id：`task-7ff69ba8242c90c52f0b93fa1144a655`，S2。
+- adopted plan：`.workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json`。
+- execution：`.workflow-system/records/events/key-debf41cd5061f6e5a4a33043db5815bca9513c7396550d5dcfde38bfc5437308.json`。
+- Git HEAD：`fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71`；目标是该 execution 固定的工作区交付，不能只用 HEAD 代表未提交改动。
+- 本次重新验证 126 份附件：固定 CAS 与当前 source_path 的 SHA256 全部匹配，详见 attachment-check.json。两 root 保存的 Cargo metadata 各有 14 个 Codex dependency，全在对应仓库 vendor 且无 registry/Git source；只排除其真实 TermLink workspace 主包。两实际 oracle 二进制哈希也匹配最终记录。
+- 阅读实际 adopted S2、源码 diff/调用链、shared contract、发布补充、REQ/PLAN/CR、原失败和最终测试原件。没有重跑业务测试，没有改业务/治理源码，没有执行 Git、服务、设备、finish 或 close。
+
+## Findings
+
+无新 actionable findings。以下是审查依据和明确的资格限制，不将后续步骤尚未实施当作本 S2 的已修复结果。
+
+1. **原生载体与严格分类。** ResponseItem 仍是单一 vendor 原生类型，call_id 的真正缺失与显式 null 分开；name/namespace 为 additive。history RolloutItem 入口校验已确认两种载体；缺 native id、未知工具/namespace、错误/空输出和 null/空身份均拒绝。TurnItem 的混合普通 call_id 和未经证实的 item_started 载体拒绝。facade 不另造重复 wire struct。
+2. **普通工具兼容。** 非空 Some(call_id) 仍调用原 adapt_tool_output；生产 ResponseInputItem 转换填 Some 与空 optional 新字段，旧文本和 structured output 序列化保持。直接受影响的三处 vendor test constructor 与 exhaustive match 仅作必要适配。新委派不会伪造 ToolStarted/ToolCompleted 或普通 user/assistant。
+3. **尚未完成的语义保持不完整。** formal 两种委派载体均产生 `delegated_input_semantics_pending` ParseGap。六条 fixture 当前分析不 complete，不能成为已保存正文的证明。自有事件、归属/去重/reducer、hello 能力/profile 由 S3 实施，Node 由 S4 实施。
+4. **推广、闭包与来源。** 两 manifest 的 upstream、closure 和 7-file patch 登记一致；最终 parity 通过。实际脱敏 fixture 原字段保留，无补造 call_id。Spike 缺失 LICENSE/NOTICE 从同 upstream formal 原件原样补齐，formal 原件没有改变。最终 carrier guard 曾提前暂存到 formal，执行中已恢复原已验证字节，再于 Spike 通过后推广；最终两侧测试与 oracle 重建、对照和 parity 均针对该 guard。保留这一真实更正，不把它写成从未发生。
+5. **S1-D 与业务边界。** 用户“继续”的本次发布方法决定及前后证据已保存；补充与 S1 已审查的规范一致，canonical→canonical 的窄 G1 和新 job 四空恢复参数修正均保留。旧 AD/IPC、外部源只读、单采集链、三 mode、schema1 和 Rust→Node 顺序不变。该决定不授权后续无关直接治理写入。832 仍 active/S2；分支定位和三类真实宿主/手机验收未转为已完成。
+
+## 测试证据与未验证项
+
+复核最终原日志：Spike lib 10/10、formal conformance 36/36、显式新构建 Demo/Spike stage3 对照 5/5、vendor parity exit0。没有为 review 重跑这些测试。stage3 对照证明原已支持语义兼容，不证明 Demo 已实现新委派业务语义。
+
+额外独立 vendor `cargo check --tests --offline` exit101，在下载缺失的 `diff v0.1.13` 前失败，未执行到编译；其 vendor 原生 unit tests **未验证**。独立 workspace 解析的 Rust1.96 警告也保留，不把两个产品 root 的 locked graph PASS 用来宣称该 workspace 通过。S2 adopted validation 的主入口已有编译和正负 conformance，未发现必须以放宽版本/拉取依赖处理的本次源码缺陷。
+
+早期依赖误计、局部换行检查失败、stdout 属性说明不准均保留并有明确纠正；最终附加 command label 如“after carrier guard”“git diff --check final”是运行标签，不是 literal CLI。审查以实际命令说明和原输出为准，不建议复制这些标签作为可执行命令。
+
+尚未验证：全套 Rust、独立 vendor unit tests、新模型/能力、Node 合并、真实 Rust→产品事务保存、真实新聊天/Branch/委派及手机切换重开正文/工具详情。这些限制不会因本次 clean 消失。
+
+## 状态与下一步
+
+新 review 仅关联上述 S2 execution，保持 S2 executed、未 finished，833 active。三条原有管理关联缺口保留，没有用 clean 消除。事实持久化、association 和 projection 的结果由 review-result.json 与最新 status-after.json 分别确认；不以单纯保存报告代替管理读回。
+
+建议 `next_route: execute-step`，`next_mode: finish`，目标 TASK-20260833/S2；finish 后按计划进行 S3。832 后续仍需明确返回 S2，处理剩余分支及完整产品/手机验收；833 close 不自动执行返回。

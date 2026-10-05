@@ -1,0 +1,7 @@
+{
+  "host": "pwsh",
+  "cr_path": "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md",
+  "cr_exit": 0,
+  "req_exit": 0,
+  "req_path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md"
+}

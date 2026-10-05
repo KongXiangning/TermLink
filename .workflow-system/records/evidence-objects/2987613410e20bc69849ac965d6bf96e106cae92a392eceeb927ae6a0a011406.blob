@@ -1,0 +1,5 @@
+{
+  "req_exit": 1,
+  "cr_exit": 1,
+  "note": "Child PowerShell processes provide actual exit codes; earlier direct script textual PASS retained with null LASTEXITCODE."
+}

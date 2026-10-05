@@ -1,0 +1,4 @@
+{
+  "exit_code": 0,
+  "command": "cargo build --manifest-path native/codex-rollout-demo/Cargo.toml --bin codex-rollout-demo --locked --offline"
+}

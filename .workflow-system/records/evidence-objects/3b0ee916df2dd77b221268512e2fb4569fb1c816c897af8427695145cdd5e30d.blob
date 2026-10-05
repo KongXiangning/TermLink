@@ -1,0 +1,98 @@
+# TASK-20260832 · S2 具体修复范围提案
+
+2026-10-05。S1 已在独立 disposition `key-86cd0e1e115d8b48ec03c2dd26bf8d5bf74a6bc73f72fb6dee74b255f520a043.json` finished。当前 S2/default 只准备范围，不修改产品或执行回归。
+
+当前 HEAD `fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71`；相对 S1 的 `1d762bb3f8ed3f0f972a47b7edb78f0615220e7f`，`src/native/android/docs/product/docs/codex/CONTRACTS/DECISIONS` 均无差异。完整架构沿用同会话先前读取，SHA256 仍为 `e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3`；本次再次核对 §4.3、§5.4.8、data/wire/coordinator/compatibility 及 CONTRACTS、AD-004/018/019/020/021/022。保留3个既有管理问题。
+
+## 业务目标和当前处置
+
+普通新对话、原生分支对话、实际委派内容均能经正常入口保存，并在手机切换及重开后保留对应正文和应保留的工具详情。三者分别判定；本步未解决三项业务问题。
+
+| 问题 | 已有原因 | 具体范围结论 |
+|---|---|---|
+| H1 新对话增长历史拒绝 | 同一turn的started→complete改变逻辑mutation内容/source_ref，双方仍partial，Node严格合并拒绝 | 不预定“直接放宽importer”。拟限定有完整物理事件证据的正常生命周期更新，真实内容冲突仍拒绝；这与现行“同完整性内容冲突拒绝”如何区分须先协调共享契约，当前未授权改规则 |
+| H2 分支找不到原对话 | 目标C的filename/header过滤排除history_base明确引用的A | 属Rust定位/绑定实现局部修复，可依据现有权威关系和target优先规则设计，不让Node发送path/catalog；C继承不是resend replacement |
+| H3 委派内容缺口 | ResponseItem必需call_id，TurnItem缺variant；现有模型无独立委派输入事件 | 必须协调wire兼容及正确业务承载。不能伪造call_id、变普通user/assistant消息或假装本地tool，也不能改成Diagnostic来宣称正文已保存 |
+
+## 新确认的共享边界
+
+`src/services/codexRolloutCollector/analyzerProtocol.js:38` 的 AnalysisEvent 白名单和 `:618` 起的按类型校验不认识委派输入。ToolCompleted 在 `:654` 要求call_id，普通UserMessage/AssistantMessage会改变语义。`analysisBatchImporter.js:52` 排除 Diagnostic/ParseGap/UnknownEvent，`:1580` 起只把业务事件放入产品历史，因此“识别后变诊断”仍丢失正文。
+
+Rust `src/model/analysis_event.rs:83` 起也没有委派输入事件。按照架构§4.3/AD-022，不允许绕过vendor自建同名wire struct，也不允许一侧静默决定共享事件和合并语义。已采纳计划明确：共享接口演进另立范围/任务；本任务不顺手做Node4.5整体迁移。
+
+**建议先独立准备“委派输入与正常历史增长的共享兼容契约”任务**，仅做下列最小演进，并逐模块实施；这是候选，不是已采纳的新任务或新协议。H2局部范围仍保留。若用户暂不扩展，H1/H3保持未解决，不把H2单项成功或本任务收束写成完整业务成功。
+
+## H2 · 当前边界内的 Rust 局部范围
+
+必需候选文件：
+
+- `native/codex-rollout-collector/src/source/discovery.rs`：以目标conversation验证目标候选/head；另外沿真实history_base引用定位并验证auxiliary parent。parent自己的SessionMeta.id和物理rollout id保留，不能要求它等于C；不能把它当C的新root/head候选。请求目标仍只有C，搜索遵守原目录/header/candidate/fingerprint预算。
+- `native/codex-rollout-collector/src/protocol/target_source.rs`：检查parent cut、连续完整行和读取；显式目标C用于继承事件的目标归属，source_ref保留实际A provenance，不凭文件名/mtime构造关系。
+- `native/codex-rollout-collector/src/protocol/target_mapping.rs`：区分同conversation的resend replacement与独立C的继承关系。C不产出删除/替换A终轮的产品mutation；同conversation旧replacement回归保持。
+- `source/lineage.rs`：只有上述验证证明现有链构造/parent验证需要调整才纳入，不能预定重构全部reader/cursor/runtime。
+
+行为前后：存在且可读的A不再被targetC过滤排除；C有自己完整目标历史，继承与新增内容分别可追溯。缺parent/身份或cut不一致/歧义/循环/压缩能力不足继续类型化失败。H3仍会让继承内容partial，定位成功不能单独宣告C已保存完整历史。
+
+回归：扩展 `tests/stage4_target_protocol.rs` 的 `target_source_read_resolves_cross_date_lineage_from_target_intent_only`、`target_source_read_rejects_missing_parent_cycle_and_multi_head`、`target_mapping_validates_active_head_replacement_and_preserves_source_order`、`target_source_enforces_decoded_budget_across_lineage_segments`；新增独立parentA/childC真实形状样本，证明跨日期继承/新内容/C目标与A原数据不被替换。仅在lineage/helper有新增边界时扩展 `tests/stage2_input.rs` 或对应module tests。
+
+## H3 · 待单独确认的共享兼容候选
+
+建议TermLink-owned事件名暂用 `DelegatedInput`：metadata沿用现有身份/source/turn结构，payload携带真实carrier的 `item_id`、`origin_tool`、可空namespace和应保留text；**没有call_id**，不创建本地ToolStarted/ToolCompleted。这个名字/结构尚是提案，须共享契约审查后固定。
+
+- 接受范围仅为已证实的两类carrier及当前 `codex_app/create_thread`、`codex_app/send_message_to_thread` 形状。缺id/name/output、错误thread/turn绑定、未知namespace/name或unsupported output不能因“call_id可空”整体放行。
+- 两个物理carrier仍有独立event_id/source_ref，但由同一真实native item_id形成相同逻辑item_key。turn优先完成事件或已证实metadata/current turn上下文；不能按文件/内容猜。如果两份正文或归属冲突，保持partial并诊断。
+- reducer/projection按同一逻辑key只显示一次委派正文；与真正user输入、assistant回答、本地工具结果分开。不得删掉仍需诊断的未知carrier。
+- Rust↔Node AnalysisEvent白名单/字段验证、projection/checkpoint兼容和旧consumer行为必须先定义；新增事件不能发送给不认识它的consumer并同时声称canonical。可基于现有hello能力协商设计一个精确可选能力，**尚不固定能力名或协议版本**；无法协商时明确unsupported/partial。没有新增analyze mode、第二collector、产品epoch或DB命名空间。
+- 产品沿既有generic业务eventFacts保存，在已有缓存显示路径表达“委派输入”，不是伪装assistant。当前Android `CodexViewModel.kt:2910` 起会读取eventFacts.text，但 `:2961` 起缺role时默认assistant；因此显示语义不能忽略。优先在已确认产品投影中设置既有正确role/presentation；若确需Android专门映射，先列具体历史解码位置/行为并单独确认，不预授权ViewModel/IPC重构。
+
+Rust候选文件：`src/model/analysis_event.rs`、`src/analysis.rs`（归约/投影）、`src/codex_adapter/mod.rs`、`src/codex_wire/{mod,decode,profile}.rs`、`src/protocol/{target_data,target_mapping,target_runtime}.rs` 中实际受影响者；不能为了凑候选而全部修改。
+
+Node独立步骤候选：`src/services/codexRolloutCollector/analyzerProtocol.js`（新事件schema/capability）、`analysisBatchImporter.js`（业务行及已确认presentation）；只有checkpoint或投影现有代码不兼容才扩大对应store。`codexHistoryCanonicalizer.js` 的role/type兼容先回归，不预定改动。产品SQLite schema、Gateway、Android均不是本提案默认修改对象。
+
+### Wire vendor 维护范围
+
+两个仓库内closure当前均基于 `5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2`；位置是 `native/codex-rollout-compat-spike/vendor/codex` 与 `native/codex-rollout-collector/vendor/codex`。不调用开发者本机Codex checkout，不默认下载/升级整个上游。
+
+最小候选patch位于两份 `protocol/src/models.rs` / `protocol/src/items.rs`：真实缺call_id载体必须有typed vendor表示，FunctionCallOutput completed variant也须登记。具体设计应保留现有带call_id输出的旧语义，不能只把String改Option便将全部坏输出认可为delegation。所有受类型变化影响的closure调用者先由cargo编译定位，再锁定确切文件，不能预先声称只有两文件。
+
+先Spike fixture/解码与conformance，后同源promotion至formal；必要调整 `native/codex-rollout-compat-spike/src/codex_decode.rs`。两个vendor-manifest列真实local_patches及校验，不编造新的upstream revision；保留Apache-2.0 LICENSE/NOTICE和当前path_dependency_closure。新增依赖或外部workspace需要另行说明，非本提案授权。Demo仅作只读golden/reference，不改Demo来让结果通过。
+
+## H1 · 待协调的最小合并方案
+
+拟由**既有Node importer**消费先固定的Rust事件/来源语义，不改变Rust/Node调度、receipt identity或产品DB。核心候选 `analysisBatchImporter.js:853–941`，Rust `target_mapping.rs:1631` 的现有最新逻辑项生产方式由共享评审确认，不先改Adapter item_key来掩盖冲突。
+
+提议区分“同一个物理事件被改写”与“同一逻辑turn有后来真实完成事件”。可接受的最小正向情形是原H1的TurnStarted→TurnCompleted：同conversation/source scope、同真实turn key，prior和incoming source_ref分别能匹配已验证history_items中的实际事件，旧事件内容仍相同，后续位置/覆盖证据成立，当前请求/attempt有效，且旧canonical不被降级。必须明确完整backfill与只含delta的append分别如何证明；没有足够证据的请求仍拒绝。不能只比较ordinal增长或信任caller给的hash。
+
+同完整性变化、old→new source_ref、canonical promotion与真实冲突的确切允许条件要形成共享契约审查。当前§5.4.8仍是“同一completeness内容冲突拒绝”，本步不自行改它，也不声称此提案已获双方owner联合批准。若最终可在原契约内纠正producer表示，应优先选该更小方案并记录证据；当前尚未证明可如此修复，禁止预写PASS。
+
+首批只解决已证实turn演进；普通工具start/end等类似情况需在必要产品回归中检出后按已确认规则明确处理，不能默认“所有upsert允许更新”。旧request/真正scope不一致/同event内容篡改/完成证据倒退/迟到partial覆盖canonical必须继续拒绝，旧failed run/intents/staging不删除。
+
+## 分层回归与实施顺序
+
+本S2不执行测试/编译/进程/服务/设备。以下是后续范围，不是已运行或已通过：
+
+1. 契约独立准备/审查/确认（若选择建议路线）：新委派事件、版本/能力/checkpoint旧consumer策略、正常生命周期的确切允许证据；保留单例和三种mode。没有“全部4.5迁移”。
+2. Rust步骤：先vendor Spike→formal，再Adapter/owned projection与H2 locating/Branch边界。扩展已有stage3 conformance及stage4 target tests；unknown/malformed/unsupported namespace/output/缺parent和cut错误保持fail-closed。
+3. Node独立步骤：按固定schema更新校验及必要投影；H1只修改被证实的preflight/merge。扩展 `tests/codexRolloutCollector.test.js` 的mutation conflict/overlap/promotion/negativeACK，以及 `tests/codexRolloutCollector.realRust.test.js` 的 `real Rust target durably imports tools, usage, outcomes and unknown diagnostics` 与 `real Rust accepts consecutive new jobs for the same conversation and persisted source`。新增断言必须通过真实prefix→增长检出原H1，并保留同event篡改拒绝。
+4. 产品集成：扩展 `tests/codexHistoryProductFlow.test.js` 的 `product-history-real-rust stages before ACK, publishes validated canonical output, and reaches the history Gateway`、`product-history-store durably stages, publishes, reopens, and ignores an exact duplicate delivery`、replacement rollback保护。对普通/Branch/委派分别证明content identity、details、staging ACK、Rust complete、product transaction，工具详情不得当作委派本地call。相关Node recovery/checkpoint只在实际影响时纳入，不全套运行。
+5. 原S5/S6真实宿主/手机验收保持原有预算：正常user N一回合、Branch C一回合、委派优先旧A/必要至多新D一回合；同持久根/一个collector、指定手机、有限工具输出，切换及force-stop/reopen、draft/clipboard/配置保护。没有增加回合/机器/预算上限。上述localhelper/adb仍按原skill，Android命令仅JDK21。
+
+聚焦selector由具体新增测试名在实施批次固定，现有已定位用例可按name-pattern选择；本步不编造未存在的新测试名为已检出证据。长期fixture由S1脱敏包移植到既有test fixture目录并补普通call_id/合法lineage负向样本，不新建通用E2E框架。
+
+## REQ / PLAN / CR 关联方式
+
+真实历史基础需求 `docs/product/requirements/REQ-20260309-codex-capability-mvp.md` 和其 `PLAN-20260329-codex-background-retention-and-resume.md` 已done，只作为来源/既有约束，不改成当前修复已完成。当前新增业务需求的真实来源是用户确认与已采纳TASK-20260832计划/三项验收；新增需求文档应直接写这三项，不冒用旧done状态。
+
+范围决定后，拟新建 `docs/product/requirements/REQ-20261005-codex-history-save-repair.md` 与对应PLAN（当前尚未创建，路径为候选）。若选择独立共享契约任务，其REQ/PLAN另列精确共享范围和本task依赖，不把协议草案当已发布。
+
+每个实际Rust/Node实施批次各新增真实CR，引用已存在的REQ和具体PLAN checklist；未提交时draft/commit_ref=TBD或真实未提交标记，只有实际commit后才active/填真实SHA。业务doc同步按项目docs-requirement-sync规则执行，不改用户排除项，不造req_id/active commit_ref。S2仅候选设计没有产品实施/commit，不制造实施CR或将REQ标done。
+
+## 需要用户选择的唯一范围问题
+
+推荐：先独立准备共享兼容契约任务，锁定委派输入的正确历史承载及有证据的正常进度更新，再按Rust→Node分步实施，继续保留本task全部业务验收。
+
+替代：暂不扩共享契约，保留H1/H3未解决，仅继续当前Rust分支定位局部范围；这不能完成“普通/分支/委派都完整保存”目标，不据此close为业务成功。
+
+本步不新建/采纳独立任务、不改变已采纳计划、不修产品或写CONTRACTS/DECISIONS，等待这个具体范围选择。规则来源是已采纳计划S2和AD-022“需要改写共享契约、扩大模块范围…必须重新review、lock并取得用户确认”，不是新管理门禁或配额问题。
+
+next_route: review-change — 当前S2范围提案可审查；范围选择仍未解决，未finish S2或执行S3。

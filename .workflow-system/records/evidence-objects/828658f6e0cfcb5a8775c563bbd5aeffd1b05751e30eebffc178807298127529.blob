@@ -1,0 +1,38 @@
+warning: in the working copy of 'docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/codex/codex-rollout-collector-codex-compatibility.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/workflow/CONTRACTS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/workflow/DECISIONS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/src/codex_adapter/mod.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/tests/conformance.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/vendor/codex/history/src/lib.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/vendor/codex/protocol/src/items.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/vendor/codex/protocol/src/legacy_events.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/vendor/codex/protocol/src/models.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/vendor/codex/protocol/src/models/executed_tool_calls_tests.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/vendor/codex/vendor-manifest.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-compat-spike/src/codex_decode.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/protocol/src/items.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/protocol/src/legacy_events.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/protocol/src/models.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/protocol/src/models/executed_tool_calls_tests.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml', LF will be replaced by CRLF the next time Git touches it
+docs/codex/codex-rollout-collector-architecture.md:13: trailing whitespace.
++## TASK-20260833 最小共享补充（规范已发布，实现待交付）
+docs/codex/codex-rollout-collector-architecture.md:14: trailing whitespace.
++
+docs/codex/codex-rollout-collector-architecture.md:15: trailing whitespace.
++2026-10-05：依据 CONTRACTS/DECISIONS 本次用户确认的在途发布方法，[精确共享历史兼容契约](codex-history-shared-compat-contract.md) 为本文 §4.3/§4.5/§5.4.8 的 additive 补充。同项冲突以补充为准，其余冻结边界保持。
+docs/codex/codex-rollout-collector-architecture.md:16: trailing whitespace.
++
+docs/codex/codex-rollout-collector-architecture.md:17: trailing whitespace.
++DelegatedInput 是有真实身份/turn/正文的自有事件；物理事件不可改写。G1 仅对证据充分的同轮真实开始→完成允许逻辑观察更新，包括 canonical→canonical，snapshot 完整性不要求 turn 已终态；G2 仅等价双载体来源规范化。full 重见旧开始和 durable prefix+连续 delta 的证据分开，未知/篡改/降级/倒退仍拒绝。
+docs/codex/codex-rollout-collector-architecture.md:18: trailing whitespace.
++
+docs/codex/codex-rollout-collector-architecture.md:19: trailing whitespace.
++新能力 `history_semantics_v2`、profile `target-v2` 尚待实现；hello 交集、旧 consumer、原交付与旧 checkpoint 恢复规则见精确规范 §§4–5。保持 schema1/三 mode/单例/外部只读/IPC authority，不引入产品版本管理。833 S2–S5 分步交付，832 保留分支与真实手机验收。
+docs/codex/codex-rollout-collector-architecture.md:20: trailing whitespace.
++

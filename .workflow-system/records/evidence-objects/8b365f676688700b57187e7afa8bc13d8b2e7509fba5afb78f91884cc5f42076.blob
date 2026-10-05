@@ -1,0 +1,82 @@
+[
+  {
+    "source_path": "docs/codex/codex-history-shared-compat-contract.md",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "docs/changes/records/CR-20261005-1521-shared-history-compat-design.md",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/report.md",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/governance-publication.md",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/source-hashes.json",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/self-check.json",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/validation-result.json",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/validation-process-result.json",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/validate-req-process.txt",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/validate-cr-process.txt",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/validation-pwsh-result.json",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/validate-req-pwsh.txt",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/validate-cr-pwsh.txt",
+    "live_matches": true,
+    "saved_matches": true
+  },
+  {
+    "source_path": "logs/shared-history-compat-20261005/s1/diff-check-final.txt",
+    "live_matches": true,
+    "saved_matches": true
+  }
+]

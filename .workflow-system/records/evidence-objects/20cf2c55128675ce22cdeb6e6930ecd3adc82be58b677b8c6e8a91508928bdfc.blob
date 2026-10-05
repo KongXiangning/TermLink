@@ -1,0 +1,17 @@
+     Locking 537 packages to latest compatible versions
+      Adding base64 v0.22.1 (available: v0.23.1)
+      Adding quinn v0.11.9 (available: v0.11.11)
+      Adding quinn-proto v0.11.14 (available: v0.11.17)
+      Adding rama-error v0.3.0 (requires Rust 1.96.0)
+      Adding rama-macros v0.3.0 (requires Rust 1.96.0)
+      Adding rama-utils v0.3.0 (requires Rust 1.96.0)
+      Adding rand v0.9.5 (available: v0.10.2)
+      Adding schemars v0.8.22 (available: v1.2.2)
+      Adding sha1 v0.10.7 (available: v0.11.0)
+      Adding sha2 v0.10.9 (available: v0.11.0)
+      Adding shlex v1.3.0 (available: v2.0.1)
+      Adding windows-sys v0.52.0 (available: v0.61.2)
+error: failed to download `diff v0.1.13`
+
+Caused by:
+  attempting to make an HTTP request, but --offline was specified

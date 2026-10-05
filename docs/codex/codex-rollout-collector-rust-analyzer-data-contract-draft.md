@@ -36,6 +36,12 @@ related_docs:
 负责校验、暂存、ACK，并在自己的产品事务中决定是否发布。Rust 不知道 Node 的数据库表、
 App DTO 或 IPC 状态。
 
+## TASK-20260833 数据补充（规范已发布，实现待交付）
+
+§3/§6/§9 的 additive 差异以 [精确共享历史兼容契约](codex-history-shared-compat-contract.md) §§2–5 为准：DelegatedInput 的 item_id/origin_tool/namespace/carrier/text 与既有 metadata；native id 为逻辑身份，双载体物理 event_id/source_ref 独立且不可变，归属/正文冲突保持 partial。
+
+仅 G1 的有证据同轮真实开始→完成（含 canonical→canonical）和 G2 等价双载体允许窄范围 upsert_item 观察更新；完整 snapshot 与 turn 生命周期分开，其他 mutation 与旧 canonical 降级规则不放宽。checkpoint envelope schema1、新 profile target-v2；不跨旧 profile append 恢复，新 profile 普通 backfill 不携带旧 anchor/cursor/known range/recovery，原交付不重解释。精确字段、覆盖证明与拒绝条件均在补充规范；此登记不是当前代码已支持的声明。
+
 ## 0. 四种身份和重启边界
 
 4.5 必须把四种身份分开，不能用 `request_id` 或 `batch_id` 代替另一个层次：

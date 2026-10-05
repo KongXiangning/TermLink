@@ -1,0 +1,13 @@
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const path = 'docs/codex/codex-rollout-collector-architecture.md';
+const before = fs.readFileSync(path);
+const start = before.indexOf(Buffer.from('## TASK-20260833 最小共享补充'));
+const end = before.indexOf(Buffer.from('## 1. 文档定位'), start);
+assert.ok(start >= 0 && end > start);
+const addition = Buffer.from(before.subarray(start, end).toString('utf8').replace(/\r\n/g, '\n'));
+const after = Buffer.concat([before.subarray(0, start), addition, before.subarray(end)]);
+assert.ok(after.subarray(0, start).equals(before.subarray(0, start)));
+assert.ok(after.subarray(start + addition.length).equals(before.subarray(end)));
+fs.writeFileSync(path, after);
+console.log(JSON.stringify({path, original_prefix_and_body_unchanged: true, new_addendum_line_endings: 'LF', reason: 'Git -text preserves CR as trailing whitespace; only the new addition is normalized'}));

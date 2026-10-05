@@ -9,6 +9,10 @@ local_patches = [
   "history/src/lib.rs",
   "history/src/rollout_payload.rs",
   "history/src/tests.rs",
+  "protocol/src/models.rs",
+  "protocol/src/items.rs",
+  "protocol/src/legacy_events.rs",
+  "protocol/src/models/executed_tool_calls_tests.rs",
 ]
 direct_crates = ["codex-history", "codex-protocol"]
 path_dependency_closure = [

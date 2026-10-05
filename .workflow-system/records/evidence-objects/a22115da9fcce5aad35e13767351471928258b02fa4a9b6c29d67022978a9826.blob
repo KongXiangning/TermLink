@@ -1,0 +1,27 @@
+# S1 修正后的精确发布差异（pending）
+
+本稿承接已采纳 TASK-20260833/S1 以及原 needs-repair 的 S1-R1/R2。本稿替代初稿作为下一次发布审阅对象；初稿 logs/shared-history-compat-20261005/s1/governance-publication.md 和其固定附件保持历史原件。CONTRACTS/DECISIONS 及既有 shared source 正文没有修改；不分配虚构 AD 编号、不声明能力已支持。
+
+## CONTRACTS.md 拟追加内容
+
+TASK-20260833 的最小共享兼容设计，仅当 hello 交集支持 history_semantics_v2 才采用 target-v2 reducer profile。DelegatedInput 是自有事件，使用真实 item_id/turn/正文，不伪造工具 call_id；等价双载体保留独立物理来源，只生成一个逻辑正文。
+
+architecture §5.4.8 的严格规则仅追加共享设计 §3 的 G1/G2 例外。G1 只支持同 turn 的真实 TurnStarted→TurnCompleted(status=completed) 逻辑观察：旧开始逐字段不变、当前完成存在、会话/源 scope 和当前 attempt 正确、full/backfill 重见旧开始或 append durable prefix+连续 delta 覆盖证明充分。snapshot completeness 与 turn lifecycle 独立：同 partial/同 provisional、既有完整性升级、**canonical→canonical** 均仅在这些证据成立时可更新。canonical 降级、完成倒退、物理事件篡改或没有完整覆盖仍拒绝，不能把运行中 turn 强制 partial。G2 只允许相同真实委派身份/turn/tool/namespace/text 的等价双载体逻辑来源规范化。其余 mutation/物理不可变/提交保护保持。
+
+新 profile 的普通重读为独立新 backfill job；请求 cursor、persisted_anchor、known_complete_range、recovery 均为空（可省略），旧非空 target-v1 checkpoint、receipt、intent、canonical 原样本地保留。当前源身份/覆盖重新验证，不继承旧范围，不修改原 checkpoint.cursor。Rust 原 request anchor.conversation/cursor equality 校验不设 backfill 例外。target-v2 append 使用合法相等 cursor/同 profile anchor；新 profile append 不恢复 target-v1 状态，明确 incompatible 后按普通新意图重读。
+
+同 job 未结算交付另按原 profile/scope/job/segment/batch/payload 重交付，新 request_id 仅新 attempt；不能把该交付重解释为新版来结算，不能删旧 receipt 绕过冲突。旧 ParseGap 原记录保留，当前投影只能依据实际完整新读取资格发布。wire/data/cursor/checkpoint schema_version 仍为 1，mode 仍为 preview/backfill/append；无产品 epoch/revision/fence、并发、多写者或 DB schema 扩展。
+
+## DECISIONS.md 拟追加内容
+
+用户在原 TASK-20260832 三问题定位后选择独立准备共享兼容任务，并确认 TASK-20260833；本 S1 原稿的自审发现两项 P1。随后用户调用 execute-step 833s1，本批在既有范围内修正设计，不记录用户接受缺陷或治理未完成的风险 waiver。
+
+选择 DelegatedInput、有证据的 canonical 同级正向生命周期更新，以及旧 checkpoint 本地保留/新意图空恢复参数的方案。拒绝伪造 call_id、全部 upsert 覆盖、清库、修改旧 cursor 和 Rust equality 例外。Rust target 契约先行，Node 后续只改必要的请求选择与消费，不做整个 4.5 迁移；joint 对照由同一代理完成，不冒称独立 owner 审批。
+
+本批是设计修正，尚未复审/实现/启用/finish；原 needs-repair 及旧失败证据保留。分支定位和三类真实宿主/手机验收仍归 832，833 交付/关闭后明确 focus 回 832/S2，没有自动回归。
+
+## 仍待完成的发布
+
+execute-step 的 `mutation_boundary.governance_sources: []`，治理正文要求 typed Runtime 写入。native assistance task/record 无治理正文发布 action；已有 createKnowledgeProposal 的 close-task/archive precondition 不代表在途 S1。当前未发起不相容旧事务、未伪造 archive/旧 tuple、未修改 Runtime。上述限制是已核对接口的真实未覆盖范围，不是虚构的事务失败，也不要求重复 confirm 既有目标。
+
+正式实现前仍需解决在途已授权共享范围的受控发布。现在已保存具体可审阅差异与新执行关联，S1-D 继续 pending。

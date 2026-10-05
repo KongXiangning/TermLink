@@ -1,0 +1,227 @@
+[
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "docs/codex/codex-history-shared-compat-contract.md"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "docs/changes/records/CR-20261005-1521-shared-history-compat-design.md"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/report.md"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/governance-publication.md"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/source-hashes.json"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/self-check.json"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/validation-result.json"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/validation-process-result.json"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/validate-req-process.txt"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/validate-cr-process.txt"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/validation-pwsh-result.json"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/validate-req-pwsh.txt"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/validate-cr-pwsh.txt"
+  },
+  {
+    "matches": true,
+    "event": "key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+    "path": "logs/shared-history-compat-20261005/s1/diff-check-final.txt"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "docs/codex/codex-history-shared-compat-contract.md"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/report.md"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/hashes-before.json"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/hashes-after.json"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/historical-evidence-check.json"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/self-check.json"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/validation.json"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/validate-req.txt"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/validate-cr.txt"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/request-shape-probe.cjs"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/request-shape-result.json"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/request-shape-exit.json"
+  },
+  {
+    "matches": true,
+    "event": "key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/diff-check.txt"
+  },
+  {
+    "matches": true,
+    "event": "key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/review-1/review-change.md"
+  },
+  {
+    "matches": true,
+    "event": "key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/review-1/subject-hashes.json"
+  },
+  {
+    "matches": true,
+    "event": "key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/review-1/protected-hashes.json"
+  },
+  {
+    "matches": true,
+    "event": "key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+    "path": "docs/codex/codex-history-shared-compat-contract.md"
+  },
+  {
+    "matches": true,
+    "event": "key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+    "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md"
+  },
+  {
+    "matches": true,
+    "event": "key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+    "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md"
+  },
+  {
+    "matches": true,
+    "event": "key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+    "path": "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md"
+  },
+  {
+    "matches": true,
+    "event": "key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md"
+  },
+  {
+    "matches": true,
+    "event": "key-cf5c109d54d84b23a5238ae6a1f158fcc180b6aa05d7ce5a226b547e94a87cd6.json",
+    "path": "logs/shared-history-compat-20261005/s1/finish-1/disposition.md"
+  },
+  {
+    "matches": true,
+    "event": "key-cf5c109d54d84b23a5238ae6a1f158fcc180b6aa05d7ce5a226b547e94a87cd6.json",
+    "path": "logs/shared-history-compat-20261005/s1/finish-1/review-applicability.json"
+  },
+  {
+    "matches": true,
+    "event": "key-cf5c109d54d84b23a5238ae6a1f158fcc180b6aa05d7ce5a226b547e94a87cd6.json",
+    "path": "logs/shared-history-compat-20261005/s1/finish-1/assessment.md"
+  },
+  {
+    "matches": true,
+    "event": "key-cf5c109d54d84b23a5238ae6a1f158fcc180b6aa05d7ce5a226b547e94a87cd6.json",
+    "path": "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md"
+  }
+]

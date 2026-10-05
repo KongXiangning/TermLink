@@ -1,0 +1,4 @@
+{
+  "command": "cargo test --manifest-path native/codex-rollout-compat-spike/Cargo.toml --lib --offline after strict supported-carrier guard",
+  "exit_code": 0
+}

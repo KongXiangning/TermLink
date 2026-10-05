@@ -1,0 +1,39 @@
+{
+  "event_ref": ".workflow-system/records/events/key-bbe91039c711443f08dc185dfade7a066c7e16dd283c644fdad1e039aa2f478a.json",
+  "captured_at": "2026-10-05T06:13:08.757Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/bd99983933de63845dd3b6a8051d98a118f3bd312584af92ca03fa84b420ac6a.blob",
+      "sha256": "bd99983933de63845dd3b6a8051d98a118f3bd312584af92ca03fa84b420ac6a",
+      "size": 5557,
+      "source_path": "logs/history-save-repair-20261005/s2/shared-compat-candidate/review-draft.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9dfb8ca0bb239219a4e5c5456611bbca629d5db6e2b4d745d9cfcbb2a95b0b9f.blob",
+      "sha256": "9dfb8ca0bb239219a4e5c5456611bbca629d5db6e2b4d745d9cfcbb2a95b0b9f",
+      "size": 12115,
+      "source_path": "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/38af7e0134e263d9a5efea12398a5a210611b927b7ee155b58e98b5602903662.blob",
+      "sha256": "38af7e0134e263d9a5efea12398a5a210611b927b7ee155b58e98b5602903662",
+      "size": 10570,
+      "source_path": "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.md",
+      "issues": []
+    }
+  ]
+}

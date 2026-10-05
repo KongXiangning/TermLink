@@ -23,6 +23,9 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20261005-1901-shared-history-wire-compat | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-05 |  | `docs/changes/records/CR-20261005-1901-shared-history-wire-compat.md` |
+| CR-20261005-1722-shared-history-compat-design-repair | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-05 |  | `docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md` |
+| CR-20261005-1521-shared-history-compat-design | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-05 |  | `docs/changes/records/CR-20261005-1521-shared-history-compat-design.md` |
 | CR-20261002-1745-task005-s3-readonly-details | none | draft | TBD | @maintainer | 2026-10-02 |  | `docs/changes/records/CR-20261002-1745-task005-s3-readonly-details.md` |
 | CR-20261002-1230-task005-s2-app-event-facts | none | draft | TBD | @maintainer | 2026-10-02 |  | `docs/changes/records/CR-20261002-1230-task005-s2-app-event-facts.md` |
 | CR-20260930-2035-codex-rollout-compat-s3-r3-repair | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-09-30 |  | `docs/changes/records/CR-20260930-2035-codex-rollout-compat-s3-r3-repair.md` |

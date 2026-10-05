@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-05T06:29:35.050Z",
+  "payload_sha256": "d325d1ba63aab71e50c488654423d3cae74673d2ba1f2f1c75e2a860acaedb89",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260833-adopt-reviewed-plan-20261005-v1",
+    "request": {
+      "action": "adopt",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "review_ref": ".workflow-system/records/events/key-bbe91039c711443f08dc185dfade7a066c7e16dd283c644fdad1e039aa2f478a.json",
+      "decision_source": "Direct human prepare-task confirm invocation immediately after TASK-20260833 draft review in this conversation",
+      "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+      "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+      "focus": false,
+      "idempotency_key": "task20260833-adopt-reviewed-plan-20261005-v1",
+      "conditions": [
+        "S1 fixes exact shared event, legal lifecycle proof, old consumer/checkpoint/partial reread before implementation consumes contract",
+        "Rust stable S3 contract and actual version evidence precede Node S4; no blanket upsert weakening or fake call_id",
+        "H1/H3 must each meet positive isolated acceptance; unresolved is not product success; original TASK-20260832 retains H2 and all three real-host/phone acceptance"
+      ],
+      "summary": "Adopts exact clean self-reviewed minimal shared compatibility plan; no execution, focus switch, pause/close of original task or full migration.",
+      "files": [
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/confirm.md",
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/review-draft.md"
+      ]
+    },
+    "files": [
+      "logs/history-save-repair-20261005/s2/shared-compat-candidate/confirm.md",
+      "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+      "logs/history-save-repair-20261005/s2/shared-compat-candidate/review-draft.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "adopt",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "parents": [
+        ".workflow-system/records/events/key-bbe91039c711443f08dc185dfade7a066c7e16dd283c644fdad1e039aa2f478a.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "review_ref": ".workflow-system/records/events/key-bbe91039c711443f08dc185dfade7a066c7e16dd283c644fdad1e039aa2f478a.json",
+        "decision_source": "Direct human prepare-task confirm invocation immediately after TASK-20260833 draft review in this conversation",
+        "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "focus": false,
+        "conditions": [
+          "S1 fixes exact shared event, legal lifecycle proof, old consumer/checkpoint/partial reread before implementation consumes contract",
+          "Rust stable S3 contract and actual version evidence precede Node S4; no blanket upsert weakening or fake call_id",
+          "H1/H3 must each meet positive isolated acceptance; unresolved is not product success; original TASK-20260832 retains H2 and all three real-host/phone acceptance"
+        ],
+        "summary": "Adopts exact clean self-reviewed minimal shared compatibility plan; no execution, focus switch, pause/close of original task or full migration.",
+        "files": [
+          "logs/history-save-repair-20261005/s2/shared-compat-candidate/confirm.md",
+          "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+          "logs/history-save-repair-20261005/s2/shared-compat-candidate/review-draft.md"
+        ],
+        "activate": true
+      }
+    }
+  },
+  "issues": []
+}

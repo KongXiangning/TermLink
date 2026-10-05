@@ -1,0 +1,7 @@
+{
+  "filtered_records": 6,
+  "origin": "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/a-full.jsonl",
+  "fixture": "native/codex-rollout-compat-spike/fixtures/delegated-input.jsonl",
+  "sha256": "8f23c18b484462add278634ea9f55f7a0d55fa8f46803b7032e5aca02b3e923e",
+  "note": "Exact sanitized payloads, no call_id invented, original source not read or modified"
+}

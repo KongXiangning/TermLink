@@ -1,0 +1,162 @@
+[
+  {
+    "path": "native/codex-rollout-collector/src/source/discovery.rs",
+    "exists": true,
+    "sha256": "da15f2bb7b745fc475a2382f75c1229547a9ab343c8252be7dbc4742b9c4e5d1"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/protocol/target_source.rs",
+    "exists": true,
+    "sha256": "16fcd1064c078967a029e753e83eaf8cfacc79a11d5f1b981f220409e4e29de3"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+    "exists": true,
+    "sha256": "11ae7ee3c619ad906bf7a3360fb7e5d927d434ebe86c6bd85b820ff1dbcc2554"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/source/lineage.rs",
+    "exists": true,
+    "sha256": "ce9ca0c28fbd7da1e1cddbe7319d6cbd9fbb76e00f4e602741b8b03230ec22ab"
+  },
+  {
+    "path": "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+    "exists": true,
+    "sha256": "0b8e101e83bcfccd4c12242ed3291247571c1526bc4e5abeaa0ae38eb51bcbbe"
+  },
+  {
+    "path": "native/codex-rollout-collector/tests/stage2_input.rs",
+    "exists": true,
+    "sha256": "83a76bba670df2fcdc24241dd8b56fa6bf1aaa18d2153c61a1f509905e1f12c6"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/model/analysis_event.rs",
+    "exists": true,
+    "sha256": "cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/analysis.rs",
+    "exists": true,
+    "sha256": "e2bb3675912bed64dd90d3860658e807370b4f38a9e69d4ffe3c1b5fa3cfcf31"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+    "exists": true,
+    "sha256": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/codex_wire/mod.rs",
+    "exists": true,
+    "sha256": "e034001b4804c7e496a96e8f7c0f3da9eafc1f76bcc6bf4c4902a62880faf17c"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/codex_wire/decode.rs",
+    "exists": true,
+    "sha256": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/codex_wire/profile.rs",
+    "exists": true,
+    "sha256": "4f3634353b4dd44e88be37b1ea56f245f6f785953f7563e8c17fd5f8d73798ed"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/protocol/target_data.rs",
+    "exists": true,
+    "sha256": "13aaa2d3c38f0855843a969d1933eb6676fb8f24d7cc051f95365b5473fc0ee6"
+  },
+  {
+    "path": "native/codex-rollout-collector/src/protocol/target_runtime.rs",
+    "exists": true,
+    "sha256": "a416fdd2f9508c9fa90318a072ed79d83fa87d5d0cc762a8505ce32e1580a2df"
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+    "exists": true,
+    "sha256": "068024352b46db9519bcb5e9bf814a9fa6830701c5b51a27684f44d9900dc379"
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+    "exists": true,
+    "sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8"
+  },
+  {
+    "path": "src/services/codexHistoryCanonicalizer.js",
+    "exists": true,
+    "sha256": "319b2f73538e635cad32e04051cb627b9e7b2d677ad5aa9463e53282331be14e"
+  },
+  {
+    "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+    "exists": true,
+    "sha256": "677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320"
+  },
+  {
+    "path": "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml",
+    "exists": true,
+    "sha256": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c"
+  },
+  {
+    "path": "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+    "exists": true,
+    "sha256": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02"
+  },
+  {
+    "path": "native/codex-rollout-compat-spike/src/codex_decode.rs",
+    "exists": true,
+    "sha256": "027a18602515e667899ee244527617590859db1022148d3d0429b38a69a472be"
+  },
+  {
+    "path": "native/codex-rollout-collector/tests/stage3_conformance.rs",
+    "exists": true,
+    "sha256": "da524727d8d0ea7c5cba2ebdb955b4069819f7672b2801ec578c13f96273dc89"
+  },
+  {
+    "path": "tests/codexHistoryProductFlow.test.js",
+    "exists": true,
+    "sha256": "adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27"
+  },
+  {
+    "path": "tests/codexRolloutCollector.test.js",
+    "exists": true,
+    "sha256": "bbfacb4765cf0d28867666a50afd7db6aa0caeb529448c65f1c47a7b47f914f7"
+  },
+  {
+    "path": "tests/codexRolloutCollector.realRust.test.js",
+    "exists": true,
+    "sha256": "2c7a9f3b67ed36eaf99ec17be1923f4815399ddc22d0959b29b93a4fa3b30490"
+  },
+  {
+    "path": "tests/codexRolloutCollector.recovery.test.js",
+    "exists": true,
+    "sha256": "98b1e84fa6fc65b2901534900ddccd462dd5a0e431ac10bc9b720e27c5874c12"
+  },
+  {
+    "path": "tests/codexRolloutCollector.checkpointJobs.test.js",
+    "exists": true,
+    "sha256": "e5dd451a03b1a119d8faf21998a8020953b875ccd9e2428c2833a1f049890f55"
+  },
+  {
+    "path": "docs/product/requirements/REQ-20260309-codex-capability-mvp.md",
+    "exists": true,
+    "sha256": "03f7e401c5b426c25f8b547c00826fd8864e2c9628abfacc8e27100a2815cab9"
+  },
+  {
+    "path": "docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md",
+    "exists": true,
+    "sha256": "98ce7e394301910d14f84166652b04452b3170fb78a83e1e1ffbe7a2ceaf634b"
+  },
+  {
+    "path": "docs/codex/codex-rollout-collector-architecture.md",
+    "exists": true,
+    "sha256": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3"
+  },
+  {
+    "path": "docs/workflow/CONTRACTS.md",
+    "exists": true,
+    "sha256": "5a102082b3a6d3c2548df68c2fc0f1496fc6ef45bbc581e140a9923880465d9a"
+  },
+  {
+    "path": "docs/workflow/DECISIONS.md",
+    "exists": true,
+    "sha256": "d8721637ddb924b5a5c9863fe56c33bbeac8dc80abe390765dacae713812dbcf"
+  }
+]

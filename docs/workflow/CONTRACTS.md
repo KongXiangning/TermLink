@@ -10,6 +10,16 @@ Project: termlink (termlink)
 - runtime-languages: JavaScript, Kotlin, HTML, CSS (source: .workflow-system/legacy/one-time-codex-20260913/.workflow-system/PROJECT_PROFILE.yaml)
 - current-task-disposition: 20260828-001 archived; clean handoff; product integration remains separate (source: TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md)
 
+## TASK-20260833 在途共享兼容规范（2026-10-05）
+
+本次已审查规则按用户明确同意的在途直接文档同步发布，决定 ref=`key-e870e977a57361772ba5c894b4336ab2b374ae62cd00bb313de6570ae34d2fc3.json`；精确规范见 [共享历史兼容契约](../codex/codex-history-shared-compat-contract.md)，设计自审 ref=`key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json`。规范登记不等于二进制/产品支持，实施仍按 833 S2–S5 取证。本方法例外仅限该已审查范围，其他动作的正常 typed Runtime 写入规则保持。
+
+DelegatedInput 使用真实身份和正文、正确 turn 与 system role；等价双载体只形成一个逻辑项，物理 event_id/source_ref 分开且不可变。G1 仅允许有完整开始/完成、当前 scope/attempt 与 full 或连续 delta 证据的同轮开始→完成，包括 canonical→canonical；snapshot coverage 与 turn lifecycle 独立。G2 仅允许同 id/turn/tool/namespace/text 的等价委派双载体逻辑来源规范化。降级、倒退、篡改、未知和缺覆盖仍拒绝，其他 mutation 不放宽。
+
+可选 `history_semantics_v2` 仅 hello 交集启用，reducer profile 新 `target-v2`、旧 `target-v1`，wire/data/cursor/checkpoint schema1。原 job 重交付不重解释；新 profile 普通 backfill 使用独立 job，cursor/persisted_anchor/known_complete_range/recovery 为空，旧状态保留、当前覆盖重新证明。入口 equality 无例外，跨 profile append 拒绝。全部精确字段/负向见上述规范。
+
+AD-004/018/019/020/021/022、外部只读、单例采集链/进程、三 mode、Rust→Node 顺序保持，无产品 epoch/revision/fence、DB/IPC/Android 或整体 4.5 迁移。分支定位与三类真实宿主/手机验收归 832。
+
 ## Candidate status
 
 - These entries are the confirmed bootstrap baseline; unconfirmed facts remain outside the locked Contract.
