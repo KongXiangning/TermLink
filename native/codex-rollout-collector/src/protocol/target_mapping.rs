@@ -50,7 +50,6 @@ use super::target_data::{
 use super::target_identity::{derive_batch_id, derive_segment_id};
 use super::target_source::{TargetSourceRead, TargetSourceReadError, TargetSourceSegmentEvidence};
 
-const TARGET_REDUCER_VERSION: &str = "target-v1";
 const EVENT_SEQUENCE_STRIDE: u64 = 1_000_000;
 const SOURCE_SEQUENCE_STRIDE: u64 = 1_000_000_000_000;
 
@@ -73,7 +72,7 @@ pub fn map_target_source_read(
     request: &TargetAnalyzeRequest,
     source: &TargetSourceRead,
 ) -> Result<TargetMappedAnalysis, TargetSourceReadError> {
-    map_target_source_read_inner(request, source, None, None)
+    map_target_source_read_inner(request, source, CompatibilityProfile::Current, None, None)
 }
 
 /// Map one source result while sharing the target request's cancellation and
@@ -85,12 +84,37 @@ pub fn map_target_source_read_with_control(
     cancelled: &AtomicBool,
     deadline: Instant,
 ) -> Result<TargetMappedAnalysis, TargetSourceReadError> {
-    map_target_source_read_inner(request, source, Some(cancelled), Some(deadline))
+    map_target_source_read_inner(
+        request,
+        source,
+        CompatibilityProfile::Current,
+        Some(cancelled),
+        Some(deadline),
+    )
+}
+
+pub fn map_target_source_read_with_profile(
+    request: &TargetAnalyzeRequest,
+    source: &TargetSourceRead,
+    profile: CompatibilityProfile,
+) -> Result<TargetMappedAnalysis, TargetSourceReadError> {
+    map_target_source_read_inner(request, source, profile, None, None)
+}
+
+pub fn map_target_source_read_with_profile_and_control(
+    request: &TargetAnalyzeRequest,
+    source: &TargetSourceRead,
+    profile: CompatibilityProfile,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> Result<TargetMappedAnalysis, TargetSourceReadError> {
+    map_target_source_read_inner(request, source, profile, Some(cancelled), Some(deadline))
 }
 
 fn map_target_source_read_inner(
     request: &TargetAnalyzeRequest,
     source: &TargetSourceRead,
+    profile: CompatibilityProfile,
     cancelled: Option<&AtomicBool>,
     deadline: Option<Instant>,
 ) -> Result<TargetMappedAnalysis, TargetSourceReadError> {
@@ -119,16 +143,14 @@ fn map_target_source_read_inner(
     target_test_delay("TERMLINK_TARGET_PROTOCOL_TEST_MAPPING_DELAY_MS");
     check_mapping_control(cancelled, deadline)?;
 
-    let mut adapter = CodexEventAdapter::new_with_conversation_id(
-        CompatibilityProfile::Current,
-        Some(request.conversation_id.clone()),
-    );
+    let mut adapter =
+        CodexEventAdapter::new_with_conversation_id(profile, Some(request.conversation_id.clone()));
     let mut reducer = AnalysisReducer::new(Some(request.conversation_id.clone()));
     restore_checkpoint_state(request, source, &mut adapter, &mut reducer)?;
     let restored_reducer = reducer.clone();
 
-    let source_read_complete = source.segments.iter().all(segment_is_complete)
-        && !source.segments.is_empty();
+    let source_read_complete =
+        source.segments.iter().all(segment_is_complete) && !source.segments.is_empty();
     let (mut legacy_batch, record_summary) = adapt_records(
         &adapter,
         source,
@@ -138,6 +160,9 @@ fn map_target_source_read_inner(
         deadline,
     )?;
     legacy_batch.source_id = Some(source.source_id.clone());
+    if legacy_batch.items.iter().any(|event| matches!(event, AnalysisEvent::ParseGap {reason,..} if reason == "delegated_input_semantics_pending")) {
+        return Err(mapping_error("unsupported_capability: delegated history requires history_semantics_v2"));
+    }
     if !source.lineage_transitions.is_empty() {
         legacy_batch.history_base = source.active_source.history_base.clone();
     }
@@ -192,7 +217,7 @@ fn map_target_source_read_inner(
         });
 
     let lineage_validation_batch =
-        build_lineage_validation_batch(request, source, cancelled, deadline)?;
+        build_lineage_validation_batch(request, source, profile, cancelled, deadline)?;
     let validation_batch = lineage_validation_batch.as_ref().unwrap_or(&legacy_batch);
     let lineage_validation = validate_lineage_transitions_with_control(
         request,
@@ -550,14 +575,10 @@ impl ActiveRecordSummary {
                 byte_start: record.byte_start,
                 byte_end: record.byte_end,
             };
-            if self
-                .last_complete_line
-                .as_ref()
-                .is_none_or(|current| {
-                    (candidate.byte_end, candidate.physical_line_ordinal)
-                        > (current.byte_end, current.physical_line_ordinal)
-                })
-            {
+            if self.last_complete_line.as_ref().is_none_or(|current| {
+                (candidate.byte_end, candidate.physical_line_ordinal)
+                    > (current.byte_end, current.physical_line_ordinal)
+            }) {
                 self.last_complete_line = Some(candidate);
             }
         }
@@ -706,7 +727,7 @@ fn adapt_records(
     cancelled: Option<&AtomicBool>,
     deadline: Option<Instant>,
 ) -> Result<(AnalysisBatch, RecordPassSummary), TargetSourceReadError> {
-    let mut batch = AnalysisBatch::empty(CompatibilityProfile::Current);
+    let mut batch = AnalysisBatch::empty(adapter.profile());
     batch.completeness = if source_read_complete {
         BatchCompleteness::Provisional
     } else {
@@ -746,7 +767,7 @@ fn adapt_records(
                 .map_err(|error| mapping_error(format!("summarize source record: {error}")))?;
         }
 
-        let decoded = decode_source_record(record, CompatibilityProfile::Current);
+        let decoded = decode_source_record(record, adapter.profile());
         let mut events = adapter.adapt(record, decoded);
         for (index, event) in events.iter_mut().enumerate() {
             event.metadata_mut().sequence = source_chain_rank(source, &record.source_identity)
@@ -898,6 +919,7 @@ fn validate_lineage_transitions_with_control(
 fn build_lineage_validation_batch(
     request: &TargetAnalyzeRequest,
     source: &TargetSourceRead,
+    profile: CompatibilityProfile,
     cancelled: Option<&AtomicBool>,
     deadline: Option<Instant>,
 ) -> Result<Option<AnalysisBatch>, TargetSourceReadError> {
@@ -928,10 +950,8 @@ fn build_lineage_validation_batch(
         lineage_coverage: source.lineage_coverage.clone(),
         lineage_checkpoint: source.lineage_checkpoint.clone(),
     };
-    let adapter = CodexEventAdapter::new_with_conversation_id(
-        CompatibilityProfile::Current,
-        Some(request.conversation_id.clone()),
-    );
+    let adapter =
+        CodexEventAdapter::new_with_conversation_id(profile, Some(request.conversation_id.clone()));
     let (mut batch, _) = adapt_records(
         &adapter,
         &validation_source,
@@ -1055,6 +1075,19 @@ fn restore_checkpoint_state(
     let Some(checkpoint) = request.persisted_anchor.as_ref() else {
         return Ok(());
     };
+    if checkpoint.reducer_state.reducer_version != adapter.profile().target_reducer_version() {
+        return Err(mapping_error(
+            "checkpoint_incompatible: reducer version does not match current read",
+        ));
+    }
+    if (adapter.profile() == CompatibilityProfile::HistorySemanticsV2
+        || checkpoint.wire_profile.compatibility_profile == json!("history-semantics-v2"))
+        && checkpoint.wire_profile.compatibility_profile != json!(adapter.profile().as_str())
+    {
+        return Err(mapping_error(
+            "checkpoint_incompatible: wire profile disagrees with reducer semantics",
+        ));
+    }
     let same_source = checkpoint.source.source_id == source.source_id
         && checkpoint.source.source_epoch == source.source_epoch;
     if !same_source {
@@ -1070,13 +1103,6 @@ fn restore_checkpoint_state(
             checkpoint.reducer_state.reducer_id, TARGET_REDUCER_ID
         )));
     }
-    if checkpoint.reducer_state.reducer_version != TARGET_REDUCER_VERSION {
-        return Err(mapping_error(format!(
-            "checkpoint reducer version {} is incompatible with target reducer version {}",
-            checkpoint.reducer_state.reducer_version, TARGET_REDUCER_VERSION
-        )));
-    }
-
     if request.mode == TargetAnalyzeMode::Backfill {
         // Backfill processes missing history in forward chronological order.
         // Restoring tail preview checkpoint state pollutes adapter turn/tool attribution
@@ -1631,6 +1657,11 @@ fn build_mutations(
     let mut latest_by_item = BTreeMap::<String, &AnalysisEvent>::new();
     for event in events {
         check_mapping_control(cancelled, deadline)?;
+        if matches!(event, AnalysisEvent::DelegatedInput { .. })
+            && latest_by_item.get(event.item_key()).is_some_and(|old|
+                matches!(old, AnalysisEvent::DelegatedInput {carrier,..} if carrier == "response_item")) {
+            continue;
+        }
         latest_by_item.insert(event.item_key().to_string(), event);
     }
     let mut mutations = latest_by_item
@@ -1721,7 +1752,7 @@ fn checkpoint_state(
             ))
         })?;
     }
-    TargetReducerCheckpointState::from_payload(payload, TARGET_REDUCER_VERSION)
+    TargetReducerCheckpointState::from_payload(payload, adapter.profile().target_reducer_version())
         .map_err(|error| mapping_error(error.to_string()))
 }
 
@@ -1733,32 +1764,33 @@ fn delivery_scope(
     source_range: Option<TargetSourceByteRange>,
     cursor: Option<&TargetAnalyzerCursor>,
 ) -> TargetSourceScope {
-    let cursor_kind = cursor.as_ref().map(|cursor| cursor.cursor_kind).or_else(|| {
-        Some(match request.mode {
-            TargetAnalyzeMode::Preview => TargetCursorKind::TailPreview,
-            TargetAnalyzeMode::Backfill => TargetCursorKind::Backfill,
-            TargetAnalyzeMode::Append => TargetCursorKind::ForwardAppend,
-        })
-    });
+    let cursor_kind = cursor
+        .as_ref()
+        .map(|cursor| cursor.cursor_kind)
+        .or_else(|| {
+            Some(match request.mode {
+                TargetAnalyzeMode::Preview => TargetCursorKind::TailPreview,
+                TargetAnalyzeMode::Backfill => TargetCursorKind::Backfill,
+                TargetAnalyzeMode::Append => TargetCursorKind::ForwardAppend,
+            })
+        });
     let safe_boundary = cursor_boundary_is_safe(source, active_segment);
     let last_complete_line = cursor
         .and_then(|cursor| cursor.last_complete_line.clone())
         .or_else(|| {
-            source_range
-                .filter(|_| safe_boundary)
-                .and_then(|range| {
-                    active_records
-                        .last_complete_line
-                        .clone()
-                        .filter(|line| line.byte_end == range.end)
-                })
+            source_range.filter(|_| safe_boundary).and_then(|range| {
+                active_records
+                    .last_complete_line
+                    .clone()
+                    .filter(|line| line.byte_end == range.end)
+            })
         });
     let last_rollout_ordinal = cursor
         .and_then(|cursor| cursor.last_rollout_ordinal)
         .or_else(|| {
-            source_range.filter(|_| safe_boundary).and_then(|_| {
-                active_records.last_rollout_ordinal
-            })
+            source_range
+                .filter(|_| safe_boundary)
+                .and_then(|_| active_records.last_rollout_ordinal)
         });
 
     TargetSourceScope {

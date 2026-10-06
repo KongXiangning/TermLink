@@ -2,7 +2,7 @@
 title: 委派输入与正常历史增长的最小共享兼容修复
 status: in_progress
 owner: "@maintainer"
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 source_of_truth: product
 related_code: [native/codex-rollout-collector/src/model/analysis_event.rs, native/codex-rollout-collector/src/codex_adapter/mod.rs, native/codex-rollout-collector/src/protocol/target_mapping.rs, src/services/codexRolloutCollector/analyzerProtocol.js, src/services/codexRolloutCollector/analysisBatchImporter.js]
 related_docs: [docs/product/plans/PLAN-20261005-codex-history-shared-compat.md, docs/codex/codex-history-shared-compat-contract.md, docs/changes/records/CR-20261005-1521-shared-history-compat-design.md, docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
@@ -24,7 +24,7 @@ related_docs: [docs/product/plans/PLAN-20261005-codex-history-shared-compat.md, 
 
 TASK-20260832 已分别定位新对话保存冲突、分支找不到原对话、委派解析失败。用户选择独立准备共享兼容任务，并在 TASK-20260833 草案自审后明确 confirm。本需求只承接委派输入与正常历史增长的前置修复，不将原任务三项业务目标缩为一个普通样本。
 
-真实委派正文要以正确身份保存；同轮真实开始→完成应能在已有暂存历史上处理；真正内容/来源冲突、旧 canonical 与未知输入的保护继续成立。当前 S1 设计已审查并结束，正式规范在 S2 按明确用户选择同步；S2 原生 wire 已交付待审，S3–S5 业务承载/归约/保存未实施，产品问题尚未修复。
+真实委派正文要以正确身份保存；同轮真实开始→完成应能在已有暂存历史上处理；真正内容/来源冲突、旧 canonical 与未知输入的保护继续成立。S1/S2 当前均已 finished；S3 Rust 委派事件/归约/能力与旧状态保护已执行待审。Node 接收/证明合并和产品保存仍由 S4/S5 实施，产品问题尚未验收通过。
 
 ## 2. In Scope
 
@@ -40,7 +40,7 @@ TASK-20260832 已分别定位新对话保存冲突、分支找不到原对话、
 
 ## 5. 接口/数据结构变更
 
-待实施 DelegatedInput：真实 item_id、origin_tool、namespace、carrier、text 和既有 metadata；无 call_id。待实施可选能力 history_semantics_v2 与 target-v2 reducer profile，保留 protocol/data/cursor/checkpoint schema_version=1、三种 mode。旧批次重交付与新 profile 普通重读严格分开。允许同轮生命周期与等价双载体的窄范围逻辑观察更新，物理事件保持不可变。
+Rust 已实现 DelegatedInput：真实 item_id、origin_tool、namespace、carrier、text 和既有 metadata；无 call_id。可选能力 history_semantics_v2 以 hello 交集启用；新 reducer profile target-v2、wire compatibility_profile=history-semantics-v2，旧 profile target-v1/current。protocol/data/cursor/checkpoint schema_version=1、三种 mode 保持。Node 实现仍待 S4；同轮生命周期与等价双载体的窄范围逻辑更新条件由共享规范约束，物理事件保持不可变。
 
 ## 6. 验收标准
 
@@ -57,8 +57,8 @@ TASK-20260832 已分别定位新对话保存冲突、分支找不到原对话、
 
 ## 8. 风险与回滚
 
-逻辑项更新不能变成任意覆盖；新版 decoder 不能把旧 receipt 当新解释；缺 role 会使正文误标 assistant。按契约和负向用例保护。当前仅新增文档，保留旧治理来源；未来发布/代码回滚按实际 CR/commit，旧 canonical、intent 与诊断不清除。没有自动部署/回滚授权。
+逻辑项更新不能变成任意覆盖；新版 decoder 不能把旧 receipt 当新解释；缺 role 会使正文误标 assistant。按契约和负向用例保护。本批只实现 Rust，Node system role/产品保存尚待验证；保留已发布治理来源与旧 canonical、intent、诊断。回滚依据实际 CR/commit，不自动部署/回滚。
 
 ## 9. 发布计划
 
-S1 原稿 needs-repair、修正自审 clean 和带欠项 finish 分别保留；正式规范在 S2 的本次授权方法中同步。S2 executed 待审：Spike10/formal36/stage3对照5通过，额外 vendor 独立测试编译因离线缺 dev dependency 未运行并保留失败。S3–S5 pending、REQ in_progress；真实手机验收由原任务负责。
+S1 原稿 needs-repair、修正自审 clean 和带欠项 finish 分别保留；S2 正式规范发布与 wire 交付已审查/finished，原独立 vendor 离线失败保留。S3 executed 待审：最终 conformance39/stage3对照5/target73 PASS，初次 target67/72 失败与修正保留，未 finish。PLAN 与 CR-20261006-0010-shared-history-rust-semantics 已同步；S4/S5 pending、REQ in_progress，真实手机验收由 832 负责。

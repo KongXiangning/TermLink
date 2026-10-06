@@ -1,0 +1,36 @@
+# TASK-20260833 / S3 change review
+
+2026-10-06（Asia/Shanghai）。结论：**clean，未发现本轮需修复的具体问题**。这是同一代理的变更自审，不是独立审查；仅覆盖 S3 Rust 交付，未 finish/close，不证明业务保存或手机验收完成。
+
+## 精确版本与证据
+
+execution_ref=`.workflow-system/records/events/key-133d6c3b6cac6f1b6a502ab2dc2c76c61e198c19ee1324bda700d90326895382.json`；已采纳 plan=`key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json`；HEAD=`644d9b1fad603719ee58d3514d32668735b1efdb` 加当前未提交 S3 文件。
+
+fresh audit 检查执行附件 64/64 固定副本及当前文件 SHA256 匹配；source-after 的全部源文件匹配；8 个保护边界匹配；正式 collector 与 Demo/Spike 二进制匹配执行记录。tracked diff 仍为 S3 的 Rust 与 REQ/PLAN 范围，fixture 与 draft CR 在执行附件中。审查没有改产品、规范、旧记录或 Git 状态。
+
+复用最终 final-adapter-guard-validation.txt/-result.json：同一次最后源码修改后的命令 exit0，conformance 39、stage3 5、stage4 target 73 均通过。本轮未重复运行业务测试、未构造外部源、未启动服务或设备。原 67/72 失败及定点更正、REQ 默认根错误、S2 vendor 离线失败仍保留，不将早期失败改为 PASS。
+
+## 审查覆盖与判断
+
+| 范围 | 核对结果 |
+| --- | --- |
+| 原生输入到自有模型 | 两种已证实载体、原生 shape guard、完整正文/native id、显式 target 优先、真实 turn 与物理 SessionMeta binding；缺失/畸形/冲突保持诊断。没有伪造 call_id 或普通工具详情。 |
+| 归约与恢复 | 物理事实不可变与逻辑 key 分开；等价载体归约一项，response_item 稳定代表；单载体、反序、重复、checkpoint 恢复和冲突 partial 的实现与现有断言一致。 |
+| 实际 target 入口 | hello 能力交集选择 profile，main worker 到 decoder/Adapter/mapper/lineage/checkpoint 参数贯通；旧 consumer 遇必要委派在 batch 前失败，新状态给旧 reader 与跨 profile anchor 拒绝。schema/mode 不变。 |
+| 存量与新读取 | 保留 cursor/conversation equality；新 job 四恢复字段空实际重读，旧 cursor 不改写；带 v1 anchor 的原 recovery 保持旧 profile。同 v2 未结算交付新 attempt 的 identity/payload 不变有实际进程断言。 |
+| 边界与交接 | source discovery、vendor、Node、IPC、Android、DB、治理及预算没有本批修改；REQ/PLAN 与 draft CR/TBD 资格准确。delta mutation 保留当前物理来源，旧稳定 projection 的 Node G2 合并明确留待后续。 |
+
+检查了序号/物理证据、归属冲突、canonical 保护与重启路径；没有据未证实的异步事件顺序或未建立的跨源关系提出缺陷。结论局限于已读调用链、当前共享规范和精确测试版本，不声称覆盖所有外部宿主形状。
+
+## 尚未证明与后续责任
+
+- 无 anchor 的旧未结算交付不能由 Rust 从 segment/batch ID 推断原 profile。S4 必须依据原持久意图选择原 hello/profile，不能升级后重解释同批次；当前仅有同新 profile 重交付的实测。本限制已在执行报告与 Node 交接披露，不当作旧状态全面兼容 PASS。
+- Node G1/G2 逐字段预检、durable staging、真实 ACK、complete 校验、SQLite 产品事务、provider 重开读取仍待 S4/S5。当前 ACK positive/durable 来自测试驱动，不是磁盘写入证据。
+- Branch locating/catalog 和三个真实宿主/手机切换与重开后正文、工具详情验收仍归 832。833 close 不自动返回 832，也不证明依赖或业务目标已满足。
+- 未做全套 Rust、独立 vendor unit tests、独立审查、产品/手机回归。三个既有管理关联缺口保留；832 active/S2 不变。
+
+## 管理结果与建议
+
+本报告以新的 task review 关联精确 S3 execution，实际持久化、关联和 projection 结果见 review-result.json；读回与 review 附件校验见 status-833-after.json/status-832-after.json 和 review-attachment-check.json。审查结果不替代 step disposition。
+
+S3 若读回为 executed/clean 且没有 finish disposition：`next_route: execute-step`，`next_mode: finish`，目标 TASK-20260833/S3。完成该处置后再依据计划执行 S4，不提前关闭任务或推进 832。

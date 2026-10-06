@@ -35,12 +35,13 @@ pub use startup::{
 pub use target::{
     TARGET_ACK_CAPABILITY, TARGET_ACK_REJECTION_CODES, TARGET_ANALYZE_CAPABILITY,
     TARGET_ANALYZE_CAPABILITY_ALIAS, TARGET_CANCEL_CAPABILITY, TARGET_CHECKPOINT_CAPABILITY,
-    TARGET_PROTOCOL_VERSION, TARGET_REPLACEMENT_CAPABILITY, TARGET_REQUIRED_CAPABILITIES,
-    TargetAckMessage, TargetAnalyzeMode, TargetAnalyzeRequest, TargetAnalyzerHello,
-    TargetBatchMessage, TargetCancelMessage, TargetCapabilitySet, TargetCompleteMessage,
-    TargetCompleteStatus, TargetCompleteness, TargetErrorMessage, TargetMessage, TargetMessageType,
-    TargetNodeHello, TargetProtocolError, TargetProtocolHeader, TargetRecovery,
-    TargetResourceLimits, TargetRole, canonicalize_capabilities, negotiate_capabilities,
+    TARGET_HISTORY_SEMANTICS_CAPABILITY, TARGET_PROTOCOL_VERSION, TARGET_REPLACEMENT_CAPABILITY,
+    TARGET_REQUIRED_CAPABILITIES, TargetAckMessage, TargetAnalyzeMode, TargetAnalyzeRequest,
+    TargetAnalyzerHello, TargetBatchMessage, TargetCancelMessage, TargetCapabilitySet,
+    TargetCompleteMessage, TargetCompleteStatus, TargetCompleteness, TargetErrorMessage,
+    TargetMessage, TargetMessageType, TargetNodeHello, TargetProtocolError, TargetProtocolHeader,
+    TargetRecovery, TargetResourceLimits, TargetRole, canonicalize_capabilities,
+    negotiate_capabilities,
 };
 pub use target_data::{
     TARGET_CURSOR_SCHEMA_VERSION, TARGET_DATA_SCHEMA_VERSION, TARGET_REDUCER_ID,
@@ -56,6 +57,7 @@ pub use target_data::{
 };
 pub use target_mapping::{
     TargetMappedAnalysis, map_target_source_read, map_target_source_read_with_control,
+    map_target_source_read_with_profile, map_target_source_read_with_profile_and_control,
 };
 pub use target_runtime::{TargetActiveRequest, TargetRuntime, TargetRuntimeAction};
 pub use target_source::{

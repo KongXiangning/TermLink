@@ -8,14 +8,15 @@
 
 use std::time::{Duration, Instant};
 
+use crate::codex_wire::CompatibilityProfile;
 use serde_json::json;
 
 use super::startup::TargetStartupConfig;
 use super::target::{
-    TARGET_ANALYZE_CAPABILITY, TARGET_REQUIRED_CAPABILITIES, TargetAckMessage, TargetAnalyzeMode,
-    TargetAnalyzeRequest, TargetAnalyzerHello, TargetBatchMessage, TargetCancelMessage,
-    TargetCapabilitySet, TargetCompleteMessage, TargetCompleteness, TargetErrorMessage,
-    TargetMessage, TargetNodeHello, TargetRecovery,
+    TARGET_ANALYZE_CAPABILITY, TARGET_HISTORY_SEMANTICS_CAPABILITY, TARGET_REQUIRED_CAPABILITIES,
+    TargetAckMessage, TargetAnalyzeMode, TargetAnalyzeRequest, TargetAnalyzerHello,
+    TargetBatchMessage, TargetCancelMessage, TargetCapabilitySet, TargetCompleteMessage,
+    TargetCompleteness, TargetErrorMessage, TargetMessage, TargetNodeHello, TargetRecovery,
 };
 use super::target_data::{TargetAnalyzerCursor, TargetDeliveryIdentity};
 use crate::protocol::ANALYZER_VERSION;
@@ -30,6 +31,7 @@ pub struct TargetActiveRequest {
     pub job_id: String,
     pub conversation_id: String,
     pub mode: TargetAnalyzeMode,
+    pub history_profile: CompatibilityProfile,
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +126,28 @@ impl TargetRuntime {
 
     pub fn negotiated_capabilities(&self) -> Option<&TargetCapabilitySet> {
         self.negotiated_capabilities.as_ref()
+    }
+
+    pub fn history_profile(&self, request: &TargetAnalyzeRequest) -> CompatibilityProfile {
+        // An unsettled v1 delivery remains v1; hello support is not permission
+        // to reinterpret its existing job/segment/batch as new semantics.
+        if request.recovery.is_some()
+            && request
+                .persisted_anchor
+                .as_ref()
+                .is_some_and(|anchor| anchor.reducer_state.reducer_version == "target-v1")
+        {
+            return CompatibilityProfile::Current;
+        }
+        if self
+            .negotiated_capabilities
+            .as_ref()
+            .is_some_and(|set| set.supports(TARGET_HISTORY_SEMANTICS_CAPABILITY))
+        {
+            CompatibilityProfile::HistorySemanticsV2
+        } else {
+            CompatibilityProfile::Current
+        }
     }
 
     pub fn active_request(&self) -> Option<&TargetActiveRequest> {
@@ -233,6 +257,37 @@ impl TargetRuntime {
             );
         };
         let request_id = active.request.request_id.clone();
+
+        if batch.payload.reducer_state.as_ref().is_some_and(|state| {
+            state.reducer_version != active.request.history_profile.target_reducer_version()
+        }) {
+            return self.terminal_request_error(
+                request_id,
+                "checkpoint_incompatible",
+                "batch reducer profile does not match the active request",
+                false,
+                false,
+            );
+        }
+
+        if batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(event, crate::model::AnalysisEvent::DelegatedInput { .. }))
+            && self
+                .negotiated_capabilities
+                .as_ref()
+                .is_none_or(|set| !set.supports(TARGET_HISTORY_SEMANTICS_CAPABILITY))
+        {
+            return self.terminal_request_error(
+                request_id,
+                "unsupported_capability",
+                "delegated history was not negotiated",
+                false,
+                false,
+            );
+        }
 
         let identity =
             match validate_batch_for_request(&active.request, active.recovery.as_ref(), &batch) {
@@ -409,10 +464,11 @@ impl TargetRuntime {
             );
         }
 
-        let analyzer_capabilities = TARGET_REQUIRED_CAPABILITIES
+        let mut analyzer_capabilities = TARGET_REQUIRED_CAPABILITIES
             .iter()
             .map(|capability| (*capability).to_string())
             .collect::<Vec<_>>();
+        analyzer_capabilities.push(TARGET_HISTORY_SEMANTICS_CAPABILITY.to_string());
         let negotiated = match super::target::negotiate_capabilities(
             &hello.capabilities,
             &analyzer_capabilities,
@@ -466,6 +522,23 @@ impl TargetRuntime {
             );
         }
 
+        if let Some(anchor) = &request.persisted_anchor
+            && (anchor.reducer_state.reducer_version
+                != self.history_profile(&request).target_reducer_version()
+                || ((self.history_profile(&request) == CompatibilityProfile::HistorySemanticsV2
+                    || anchor.wire_profile.compatibility_profile == json!("history-semantics-v2"))
+                    && anchor.wire_profile.compatibility_profile
+                        != json!(self.history_profile(&request).as_str())))
+        {
+            return self.protocol_error(
+                request.header.request_id,
+                "checkpoint_incompatible",
+                "persisted reducer profile is incompatible with negotiated read semantics",
+                false,
+                false,
+            );
+        }
+
         if self
             .generation_id
             .as_deref()
@@ -514,6 +587,7 @@ impl TargetRuntime {
             );
         }
 
+        let history_profile = self.history_profile(&request);
         let deadline = Instant::now() + Duration::from_millis(limits.timeout_ms);
         self.active_request = Some(ActiveRequestState {
             request: TargetActiveRequest {
@@ -521,6 +595,7 @@ impl TargetRuntime {
                 job_id: request.job_id,
                 conversation_id: request.conversation_id,
                 mode: request.mode,
+                history_profile,
             },
             recovery: request.recovery,
             deadline,
@@ -782,6 +857,11 @@ fn validate_complete_for_request(
     last_acknowledged: &AcknowledgedBatch,
     complete: &TargetCompleteMessage,
 ) -> Result<(), String> {
+    if complete.checkpoint.reducer_state.reducer_version
+        != request.history_profile.target_reducer_version()
+    {
+        return Err("complete reducer profile does not match the active request".to_string());
+    }
     if complete.checkpoint.conversation_id != request.conversation_id {
         return Err(
             "complete checkpoint conversation_id does not match the active request".to_string(),

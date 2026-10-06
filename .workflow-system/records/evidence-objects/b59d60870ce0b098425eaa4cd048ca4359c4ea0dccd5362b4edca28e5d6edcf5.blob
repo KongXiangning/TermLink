@@ -1,0 +1,18 @@
+{
+  "command": {
+    "bin": "pwsh",
+    "args": [
+      "-NoProfile",
+      "-File",
+      ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+      "-RecordPath",
+      "docs/changes/records/CR-20261006-0010-shared-history-rust-semantics.md",
+      "-ProjectRoot",
+      "E:/coding/TermLink-rust-source-resolution-codex",
+      "-Strict"
+    ]
+  },
+  "started": "2026-10-05T18:42:42.399Z",
+  "ended": "2026-10-05T18:42:42.967Z",
+  "exit_code": 0
+}

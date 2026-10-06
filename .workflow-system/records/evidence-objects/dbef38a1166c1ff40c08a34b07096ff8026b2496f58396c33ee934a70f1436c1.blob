@@ -1,0 +1,12 @@
+{
+  "command": {
+    "bin": "git",
+    "args": [
+      "diff",
+      "--check"
+    ]
+  },
+  "started": "2026-10-05T18:42:42.399Z",
+  "ended": "2026-10-05T18:42:42.494Z",
+  "exit_code": 0
+}

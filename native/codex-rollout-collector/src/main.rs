@@ -12,7 +12,7 @@ use codex_rollout_collector::protocol::{
     CompleteMessage, ErrorMessage, HelloMessage, MessageType, ProtocolMessage, StartupMode,
     TargetAnalyzeRequest, TargetAnalyzerCheckpoint, TargetBatchMessage, TargetCompleteMessage,
     TargetErrorMessage, TargetMappedAnalysis, TargetMessage, TargetRuntime, TargetRuntimeAction,
-    TargetSourceReadError, TargetStartupConfig, map_target_source_read_with_control,
+    TargetSourceReadError, TargetStartupConfig, map_target_source_read_with_profile_and_control,
     parse_startup_args, read_target_source_with_deadline,
 };
 
@@ -283,6 +283,7 @@ fn run_target(config: TargetStartupConfig) -> anyhow::Result<()> {
                         .next_deadline()
                         .expect("accepted target request has a deadline");
                     let worker_tx = input_tx.clone();
+                    let history_profile = runtime.history_profile(&request);
                     let worker_request = request.clone();
                     thread::spawn(move || {
                         target_test_worker_delay();
@@ -293,9 +294,10 @@ fn run_target(config: TargetStartupConfig) -> anyhow::Result<()> {
                             worker_deadline,
                         )
                         .and_then(|source| {
-                            map_target_source_read_with_control(
+                            map_target_source_read_with_profile_and_control(
                                 &request,
                                 &source,
+                                history_profile,
                                 &worker_cancelled,
                                 worker_deadline,
                             )
@@ -890,6 +892,14 @@ fn write_target_message(output: &mut impl Write, message: TargetMessage) -> anyh
 }
 
 fn target_source_error_code(error: &TargetSourceReadError) -> &'static str {
+    if let TargetSourceReadError::Mapping(message) = error {
+        if message.starts_with("unsupported_capability:") {
+            return "unsupported_capability";
+        }
+        if message.starts_with("checkpoint_incompatible:") {
+            return "checkpoint_incompatible";
+        }
+    }
     error.wire_error_code()
 }
 

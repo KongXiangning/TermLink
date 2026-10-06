@@ -1,0 +1,23 @@
+const fs=require('fs'),crypto=require('crypto'),cp=require('child_process');
+const d='logs/shared-history-compat-20261005/s3/review-1';
+const execution='.workflow-system/records/events/key-133d6c3b6cac6f1b6a502ab2dc2c76c61e198c19ee1324bda700d90326895382.json';
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const save=(n,v)=>fs.writeFileSync(`${d}/${n}.json`,JSON.stringify(v,null,2)+'\n');
+const manifest=JSON.parse(fs.readFileSync(execution.replace('/events/','/attachments/'),'utf8'));
+const attachments=(manifest.attachments||manifest.files).map(a=>({path:a.source_path,sha256:a.sha256,fixed_matches:hash(a.ref)===a.sha256,live_matches:hash(a.source_path)===a.sha256}));
+save('attachment-check',attachments);
+const baseline=JSON.parse(fs.readFileSync('logs/shared-history-compat-20261005/s3/baseline.json','utf8'));
+const boundaries=baseline.protected.map(p=>({...p,matches:hash(p.path)===p.sha256}));
+const binaries=JSON.parse(fs.readFileSync('logs/shared-history-compat-20261005/s3/self-check.json','utf8')).binaries.map(p=>({...p,current_matches:hash(p.path)===p.sha256}));
+const source=JSON.parse(fs.readFileSync('logs/shared-history-compat-20261005/s3/source-after.json','utf8')).map(p=>({...p,matches:hash(p.path)===p.sha256}));
+const head=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+const tracked=cp.execFileSync('git',['diff','--name-only'],{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean);
+save('scope-check',{head,boundaries,binaries,source,tracked});
+const validation=JSON.parse(fs.readFileSync('logs/shared-history-compat-20261005/s3/final-adapter-guard-validation-result.json','utf8'));
+save('validation-check',validation);
+for(const [label,id,step] of [['833','task-7ff69ba8242c90c52f0b93fa1144a655','S3'],['832','task-58bc12d9a46b8d84fb6e42888785b402','S2']]){
+ const r=cp.spawnSync('node',['.workflow-system/runtime/support/assistance.mjs','task-status','--root','.'],{input:JSON.stringify({detail:'step',task_ref:id,step_id:step}),encoding:'utf8'});
+ fs.writeFileSync(`${d}/status-${label}-before.json`,r.stdout);
+ if(r.status!==0)throw Error(r.stderr||r.stdout);
+}
+console.log(JSON.stringify({head,attachments:attachments.length,all_fixed_live_match:attachments.every(p=>p.fixed_matches&&p.live_matches),protected_match:boundaries.every(p=>p.matches),source_match:source.every(p=>p.matches),binary_match:binaries.every(p=>p.current_matches),exit:validation.exit_code}));

@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::model::{AnalysisEvent, LastTurnReplacement, SourceRef};
+use crate::model::{AnalysisEvent, Availability, LastTurnReplacement, SourceRef};
 use crate::protocol::batch::{AnalysisBatch, BatchCompleteness, BatchDiagnostic, ParserProvenance};
 use crate::source::{
     BackfillCursor, CompleteLineAnchor, CursorMetadata, ForwardAppendCursor, HistoryBaseRef,
@@ -1542,6 +1542,50 @@ impl TargetAnalysisBatch {
         self.progress.validate()?;
         for item in &self.history_items {
             let metadata = item.metadata();
+            if let AnalysisEvent::DelegatedInput {
+                item_id,
+                origin_tool,
+                namespace,
+                carrier,
+                text,
+                ..
+            } = item
+            {
+                if item_id.trim().is_empty()
+                    || text.trim().is_empty()
+                    || !matches!(
+                        origin_tool.as_str(),
+                        "create_thread" | "send_message_to_thread"
+                    )
+                    || namespace != "codex_app"
+                    || !matches!(carrier.as_str(), "response_item" | "item_completed")
+                    || metadata
+                        .turn_id
+                        .as_ref()
+                        .is_none_or(|turn| turn.trim().is_empty())
+                    || metadata.conversation_id.as_deref() != Some(self.conversation_id.as_str())
+                    || metadata.correlation_id.as_deref() != Some(item_id.as_str())
+                    || metadata.item_key != format!("delegated-input:{item_id}")
+                    || metadata.related_item_key.is_some()
+                    || metadata.availability != Availability::Present
+                    || metadata.identity_origin != crate::model::IdentityOrigin::NativeStableId
+                {
+                    return Err(TargetDataError::new(
+                        "payload.history_items.delegated_input",
+                        "invalid delegated identity, attribution or shape",
+                    ));
+                }
+                if self
+                    .reducer_state
+                    .as_ref()
+                    .is_none_or(|state| state.reducer_version != "target-v2")
+                {
+                    return Err(TargetDataError::new(
+                        "payload.reducer_state",
+                        "delegated history requires target-v2 reducer state",
+                    ));
+                }
+            }
             ensure_non_empty(&metadata.event_id, "payload.history_items.event_id")?;
             ensure_non_empty(&metadata.item_key, "payload.history_items.item_key")?;
             if let Some(conversation_id) = &metadata.conversation_id

@@ -103,6 +103,14 @@ pub enum AnalysisEvent {
         metadata: EventMetadata,
         text: String,
     },
+    DelegatedInput {
+        metadata: EventMetadata,
+        item_id: String,
+        origin_tool: String,
+        namespace: String,
+        carrier: String,
+        text: String,
+    },
     ToolStarted {
         metadata: EventMetadata,
         tool_kind: String,
@@ -219,6 +227,7 @@ impl AnalysisEvent {
             | Self::TurnStarted { metadata, .. }
             | Self::UserMessage { metadata, .. }
             | Self::AssistantMessage { metadata, .. }
+            | Self::DelegatedInput { metadata, .. }
             | Self::ToolStarted { metadata, .. }
             | Self::ToolCompleted { metadata, .. }
             | Self::PlanUpdated { metadata, .. }
@@ -245,6 +254,7 @@ impl AnalysisEvent {
             | Self::TurnStarted { metadata, .. }
             | Self::UserMessage { metadata, .. }
             | Self::AssistantMessage { metadata, .. }
+            | Self::DelegatedInput { metadata, .. }
             | Self::ToolStarted { metadata, .. }
             | Self::ToolCompleted { metadata, .. }
             | Self::PlanUpdated { metadata, .. }
@@ -287,6 +297,7 @@ impl AnalysisEvent {
             Self::TurnStarted { .. } => "turn_started",
             Self::UserMessage { .. } => "user_message",
             Self::AssistantMessage { .. } => "assistant_message",
+            Self::DelegatedInput { .. } => "delegated_input",
             Self::ToolStarted { .. } => "tool_started",
             Self::ToolCompleted { .. } => "tool_completed",
             Self::PlanUpdated { .. } => "plan_updated",

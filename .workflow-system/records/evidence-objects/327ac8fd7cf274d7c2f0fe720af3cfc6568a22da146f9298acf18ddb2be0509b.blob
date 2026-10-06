@@ -1,0 +1,15 @@
+const fs=require('fs'),cp=require('child_process'),crypto=require('crypto');
+const d='logs/shared-history-compat-20261005/s3';
+fs.mkdirSync(`${d}/before`,{recursive:true});
+const paths=['src/model/analysis_event.rs','src/analysis.rs','src/codex_adapter/mod.rs','src/codex_wire/profile.rs','src/codex_wire/decode.rs','src/protocol/target.rs','src/protocol/target_runtime.rs','src/protocol/target_mapping.rs','src/protocol/target_data.rs','src/protocol/mod.rs','src/main.rs','tests/conformance.rs','tests/stage4_target_protocol.rs'].map(p=>'native/codex-rollout-collector/'+p);
+paths.push('docs/product/plans/PLAN-20261005-codex-history-shared-compat.md','docs/product/requirements/REQ-20261005-codex-history-shared-compat.md');
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const before=paths.map(path=>{const snapshot=`${d}/before/${path.replaceAll('/','__')}`;fs.copyFileSync(path,snapshot);return {path,snapshot,sha256:hash(path)};});
+const protectedPaths=['docs/codex/codex-rollout-collector-architecture.md','docs/workflow/CONTRACTS.md','docs/workflow/DECISIONS.md','docs/codex/codex-history-shared-compat-contract.md','src/services/codexRolloutCollector/analyzerProtocol.js','src/services/codexRolloutCollector/analysisBatchImporter.js','src/services/codexRolloutCollector/analyzerProcessManager.js','native/codex-rollout-collector/src/protocol/target_source.rs'];
+fs.writeFileSync(`${d}/baseline.json`,JSON.stringify({head:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),before,protected:protectedPaths.map(path=>({path,sha256:hash(path)}))},null,2)+'\n');
+for(const step_id of ['S2','S3']){
+const r=cp.spawnSync('node',['.workflow-system/runtime/support/assistance.mjs','task-status','--root','.'],{input:JSON.stringify({detail:'step',task_ref:'task-7ff69ba8242c90c52f0b93fa1144a655',step_id}),encoding:'utf8'});
+fs.writeFileSync(`${d}/status-${step_id}-before.json`,r.stdout);
+const s=JSON.parse(r.stdout);console.log(JSON.stringify({step:step_id,state:s.step.state,review_status:s.step.review_status,disposition_ref:s.step.disposition_ref}));}
+fs.writeFileSync(`${d}/req-validation-initial-failure.txt`,'Actual initial command omitted -ProjectRoot; script default resolves to this repository .agents directory. Exit1: five existing related_code paths falsely reported missing. No code change or missing-file claim follows from this result. Original output remains in turn tools.\n');
+console.log('baseline saved');

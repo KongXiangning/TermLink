@@ -1,0 +1,9 @@
+Initial command: pwsh -NoProfile -File .agents/skills/docs-requirement-sync/scripts/validate-req.ps1 -ReqPath docs/product/requirements/REQ-20261005-codex-history-shared-compat.md -Strict
+Actual result: exit1, five existing related_code paths reported missing:
+native/codex-rollout-collector/src/model/analysis_event.rs
+native/codex-rollout-collector/src/codex_adapter/mod.rs
+native/codex-rollout-collector/src/protocol/target_mapping.rs
+src/services/codexRolloutCollector/analyzerProtocol.js
+src/services/codexRolloutCollector/analysisBatchImporter.js
+Cause: default script root (scripts/../../..) resolves to repository/.agents, not the project root. Explicit -ProjectRoot corrected the invocation. These are existing files, not business prerequisites missing.
+This is a retained summary of the actual tool output; the original output remains in the turn. The earlier summary's "above this repository" wording was inaccurate and corrected; baseline snapshots were not rerun/replaced.

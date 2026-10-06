@@ -619,6 +619,12 @@ pub struct AnalysisReducer {
     seen_event_ids: BTreeSet<String>,
     provisional_diagnostic_keys: BTreeSet<String>,
     canonical_committed: bool,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    delegated_inputs: BTreeMap<String, AnalysisEvent>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    delegated_event_facts: BTreeMap<String, AnalysisEvent>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    delegated_conflicts: BTreeSet<String>,
 }
 
 impl AnalysisReducer {
@@ -643,6 +649,9 @@ impl AnalysisReducer {
             seen_event_ids: BTreeSet::new(),
             provisional_diagnostic_keys: BTreeSet::new(),
             canonical_committed: false,
+            delegated_inputs: BTreeMap::new(),
+            delegated_event_facts: BTreeMap::new(),
+            delegated_conflicts: BTreeSet::new(),
         }
     }
 
@@ -760,6 +769,10 @@ impl AnalysisReducer {
     }
 
     pub fn apply(&mut self, event: &AnalysisEvent) {
+        if matches!(event, AnalysisEvent::DelegatedInput { .. }) {
+            self.apply_delegated_input(event);
+            return;
+        }
         let event_id = event.event_id();
         if !event_id.is_empty() && !self.seen_event_ids.insert(event_id.to_string()) {
             return;
@@ -777,6 +790,9 @@ impl AnalysisReducer {
         }
 
         match event {
+            AnalysisEvent::DelegatedInput { .. } => {
+                unreachable!("handled before event deduplication")
+            }
             AnalysisEvent::SessionContext { source, .. } => {
                 if source.is_some() {
                     self.projection.source = source.clone();
@@ -928,7 +944,12 @@ impl AnalysisReducer {
                 item.summary = Some(format!("plan action: {action}"));
                 self.upsert_item(turn_id, item);
             }
-            AnalysisEvent::FileChanged { path, summary, diff, .. } => {
+            AnalysisEvent::FileChanged {
+                path,
+                summary,
+                diff,
+                ..
+            } => {
                 let turn_id = self.turn_id_for_event(&metadata);
                 let mut item = base_item(&metadata, &turn_id, "file_change", true);
                 item.path = path.clone();
@@ -1074,6 +1095,12 @@ impl AnalysisReducer {
     }
 
     pub fn finish(mut self) -> AnalysisProjection {
+        if !self.delegated_conflicts.is_empty() {
+            self.projection.complete = false;
+            self.projection.coverage = ProjectionCoverage::Partial;
+            self.projection.availability =
+                merge_availability(self.projection.availability, Availability::PartialRollout);
+        }
         self.projection.turns.sort_by(|left, right| {
             left.sequence
                 .cmp(&right.sequence)
@@ -1093,6 +1120,105 @@ impl AnalysisReducer {
                 .then_with(|| left.item_key.cmp(&right.item_key))
         });
         self.projection
+    }
+
+    fn apply_delegated_input(&mut self, event: &AnalysisEvent) {
+        let AnalysisEvent::DelegatedInput {
+            metadata,
+            item_id,
+            origin_tool,
+            namespace,
+            carrier,
+            text,
+        } = event
+        else {
+            return;
+        };
+        let valid = metadata.conversation_id == self.projection.conversation_id
+            && metadata
+                .turn_id
+                .as_ref()
+                .is_some_and(|id| !id.trim().is_empty())
+            && !item_id.trim().is_empty()
+            && !text.trim().is_empty()
+            && namespace == "codex_app"
+            && matches!(
+                origin_tool.as_str(),
+                "create_thread" | "send_message_to_thread"
+            )
+            && matches!(carrier.as_str(), "response_item" | "item_completed")
+            && metadata.item_key == format!("delegated-input:{item_id}")
+            && metadata.correlation_id.as_deref() == Some(item_id.as_str())
+            && metadata.related_item_key.is_none()
+            && metadata.availability == Availability::Present;
+        let equivalent = self
+            .delegated_inputs
+            .get(&metadata.item_key)
+            .is_none_or(|old| {
+                let AnalysisEvent::DelegatedInput {
+                    metadata: a,
+                    item_id: ai,
+                    origin_tool: at,
+                    namespace: an,
+                    text: ax,
+                    ..
+                } = old
+                else {
+                    return false;
+                };
+                ai == item_id
+                    && at == origin_tool
+                    && an == namespace
+                    && ax == text
+                    && a.conversation_id == metadata.conversation_id
+                    && a.turn_id == metadata.turn_id
+                    && a.source_ref.source_identity == metadata.source_ref.source_identity
+            });
+        let immutable = self
+            .delegated_event_facts
+            .get(event.event_id())
+            .is_none_or(|old| old == event);
+        if !valid || !equivalent || !immutable {
+            self.delegated_conflicts.insert(metadata.item_key.clone());
+            self.projection.complete = false;
+            self.projection.coverage = ProjectionCoverage::Partial;
+            self.merge_availability(Availability::PartialRollout);
+            self.record_diagnostic(
+                metadata,
+                "delegated_input_conflict",
+                Some("delegated identity, attribution or content is inconsistent".to_string()),
+                Availability::PartialRollout,
+            );
+            return;
+        }
+        // Compare facts before duplicate suppression: a changed physical event
+        // must not be accepted merely because its event_id was already seen.
+        if !self.seen_event_ids.insert(event.event_id().to_string()) {
+            return;
+        }
+        self.delegated_event_facts
+            .insert(event.event_id().to_string(), event.clone());
+        let choose_incoming = self.delegated_inputs.get(&metadata.item_key).is_none_or(|old|
+            matches!(old, AnalysisEvent::DelegatedInput { carrier: old_carrier, .. } if old_carrier != "response_item" && carrier == "response_item"));
+        if !choose_incoming {
+            return;
+        }
+        self.delegated_inputs
+            .insert(metadata.item_key.clone(), event.clone());
+        let turn_id = metadata.turn_id.clone().expect("validated delegated turn");
+        let mut item = base_item(metadata, &turn_id, "delegated_input", true);
+        item.presentation_kind = Some("delegated_input".to_string());
+        item.content = Some(text.clone());
+        let turn = self.ensure_turn(&turn_id, metadata.sequence);
+        if let Some(old) = turn
+            .items
+            .iter_mut()
+            .find(|old| old.item_key == item.item_key)
+        {
+            *old = item;
+        } else {
+            turn.items.push(item);
+        }
     }
 
     fn turn_id_for_event(&self, metadata: &crate::model::EventMetadata) -> String {
@@ -1352,9 +1478,14 @@ fn plan_state(steps: &[PlanStep]) -> String {
 }
 
 fn tool_outcome(output: Option<&str>) -> String {
-    if output.is_some_and(|value| value.starts_with("status=failed;") || value == "status=failed"
-        || value.starts_with("status=declined;") || value == "status=declined"
-        || value.contains("success=false") || value.contains("error=")) {
+    if output.is_some_and(|value| {
+        value.starts_with("status=failed;")
+            || value == "status=failed"
+            || value.starts_with("status=declined;")
+            || value == "status=declined"
+            || value.contains("success=false")
+            || value.contains("error=")
+    }) {
         "failed".to_string()
     } else {
         "completed".to_string()
@@ -1499,7 +1630,11 @@ mod tests {
         )
         .expect("reducer checkpoint restores");
         reducer.apply_batch(&canonical);
-        assert_eq!(reducer.snapshot(), committed, "canonical replay is idempotent");
+        assert_eq!(
+            reducer.snapshot(),
+            committed,
+            "canonical replay is idempotent"
+        );
 
         let mut no_growth = AnalysisBatch::empty(CompatibilityProfile::Current);
         no_growth.completeness = crate::protocol::BatchCompleteness::Canonical;

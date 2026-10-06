@@ -26,6 +26,7 @@ pub const TARGET_CANCEL_CAPABILITY: &str = "cancel";
 pub const TARGET_CHECKPOINT_CAPABILITY: &str = "checkpoint";
 pub const TARGET_ACK_CAPABILITY: &str = "ack";
 pub const TARGET_REPLACEMENT_CAPABILITY: &str = "last_turn_replacement_v1";
+pub const TARGET_HISTORY_SEMANTICS_CAPABILITY: &str = "history_semantics_v2";
 
 pub const TARGET_REQUIRED_CAPABILITIES: [&str; 4] = [
     TARGET_ANALYZE_CAPABILITY,

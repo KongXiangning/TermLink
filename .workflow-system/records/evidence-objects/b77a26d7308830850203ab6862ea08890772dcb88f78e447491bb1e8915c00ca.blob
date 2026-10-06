@@ -1,0 +1,17 @@
+{
+  "command": {
+    "bin": "cargo",
+    "args": [
+      "test",
+      "--manifest-path",
+      "native/codex-rollout-collector/Cargo.toml",
+      "--test",
+      "stage4_target_protocol",
+      "--locked",
+      "--offline"
+    ]
+  },
+  "started": "2026-10-05T18:30:26.225Z",
+  "ended": "2026-10-05T18:30:42.585Z",
+  "exit_code": 101
+}

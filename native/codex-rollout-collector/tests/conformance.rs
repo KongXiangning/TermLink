@@ -74,14 +74,22 @@ fn delegated_wire_carriers_decode_without_inventing_tool_call_identity() {
     let raw = std::fs::read_to_string(fixture("current/delegated-input.jsonl")).unwrap();
     for line in raw.lines() {
         let value: Value = serde_json::from_str(line).unwrap();
-        let DecodedRecord::Known(decoded) = decode_value(value.clone(), CompatibilityProfile::Current) else {
+        let DecodedRecord::Known(decoded) =
+            decode_value(value.clone(), CompatibilityProfile::Current)
+        else {
             panic!("real sanitized carrier must decode");
         };
         let encoded = serde_json::to_value(&decoded.line).unwrap();
         let payload = if value["type"] == "response_item" {
             &encoded["payload"]
-        } else { &encoded["payload"]["item"] };
-        let original = if value["type"] == "response_item" { &value["payload"] } else { &value["payload"]["item"] };
+        } else {
+            &encoded["payload"]["item"]
+        };
+        let original = if value["type"] == "response_item" {
+            &value["payload"]
+        } else {
+            &value["payload"]["item"]
+        };
         for field in ["id", "name", "namespace", "output"] {
             assert_eq!(payload[field], original[field]);
         }
@@ -92,26 +100,322 @@ fn delegated_wire_carriers_decode_without_inventing_tool_call_identity() {
 #[test]
 fn delegated_wire_negative_shapes_remain_unknown_partial() {
     let raw = std::fs::read_to_string(fixture("current/delegated-input.jsonl")).unwrap();
-    let rows: Vec<Value> = raw.lines().take(2).map(|line| serde_json::from_str(line).unwrap()).collect();
+    let rows: Vec<Value> = raw
+        .lines()
+        .take(2)
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
     for (index, row) in rows.iter().enumerate() {
-        for (field, value) in [("id", Value::Null), ("name", json!("unknown")), ("namespace", json!("other")), ("output", json!({})), ("call_id", Value::Null), ("call_id", json!(""))] {
+        for (field, value) in [
+            ("id", Value::Null),
+            ("name", json!("unknown")),
+            ("namespace", json!("other")),
+            ("output", json!({})),
+            ("call_id", Value::Null),
+            ("call_id", json!("")),
+        ] {
             let mut bad = row.clone();
-            let payload = if index == 0 { &mut bad["payload"] } else { &mut bad["payload"]["item"] };
+            let payload = if index == 0 {
+                &mut bad["payload"]
+            } else {
+                &mut bad["payload"]["item"]
+            };
             payload[field] = value;
-            assert!(matches!(decode_value(bad, CompatibilityProfile::Current), DecodedRecord::Unknown(_)));
+            assert!(matches!(
+                decode_value(bad, CompatibilityProfile::Current),
+                DecodedRecord::Unknown(_)
+            ));
         }
     }
     let mut unsupported_carrier = rows[1].clone();
     unsupported_carrier["payload"]["type"] = json!("item_started");
-    assert!(matches!(decode_value(unsupported_carrier, CompatibilityProfile::Current), DecodedRecord::Unknown(_)));
+    assert!(matches!(
+        decode_value(unsupported_carrier, CompatibilityProfile::Current),
+        DecodedRecord::Unknown(_)
+    ));
 }
 
 #[test]
-fn delegated_wire_semantics_remain_partial_until_adapter_delivery() {
-    let batch = analyze("current/delegated-input.jsonl", CompatibilityProfile::Current);
+fn delegated_wire_legacy_profile_remains_partial() {
+    let batch = analyze(
+        "current/delegated-input.jsonl",
+        CompatibilityProfile::Current,
+    );
     assert!(!batch.complete);
     assert_eq!(batch.items.iter().filter(|event| matches!(event, AnalysisEvent::ParseGap { reason, .. } if reason == "delegated_input_semantics_pending")).count(), 6);
-    assert!(!batch.items.iter().any(|event| matches!(event, AnalysisEvent::ToolCompleted { .. } | AnalysisEvent::UserMessage { .. } | AnalysisEvent::AssistantMessage { .. })));
+    assert!(!batch.items.iter().any(|event| matches!(
+        event,
+        AnalysisEvent::ToolCompleted { .. }
+            | AnalysisEvent::UserMessage { .. }
+            | AnalysisEvent::AssistantMessage { .. }
+    )));
+}
+
+fn delegated_context_records() -> Vec<codex_rollout_collector::source::SourceRecord> {
+    let mut records = Vec::new();
+    JsonlSourceBackend
+        .read(
+            &SourceSpec::new(fixture("current/delegated-context.jsonl")),
+            &mut |record| {
+                records.push(record);
+                Ok(())
+            },
+        )
+        .unwrap();
+    records
+}
+
+fn delegated_adapter() -> CodexEventAdapter {
+    CodexEventAdapter::new_with_conversation_id(
+        CompatibilityProfile::HistorySemanticsV2,
+        Some("explicit-canonical-target".to_string()),
+    )
+}
+
+#[test]
+fn delegated_semantics_preserve_real_body_identity_turn_and_physical_evidence() {
+    let batch = analyze_records_with_adapter(
+        &delegated_adapter(),
+        delegated_context_records(),
+        CompatibilityProfile::HistorySemanticsV2,
+        BatchCompleteness::Canonical,
+    );
+    assert!(batch.complete, "{:#?}", batch.diagnostics);
+    let events: Vec<_> = batch
+        .items
+        .iter()
+        .filter(|event| matches!(event, AnalysisEvent::DelegatedInput { .. }))
+        .collect();
+    assert_eq!(events.len(), 6);
+    let old = analyze_records_with_adapter(
+        &CodexEventAdapter::new_with_conversation_id(
+            CompatibilityProfile::Current,
+            Some("explicit-canonical-target".to_string()),
+        ),
+        delegated_context_records(),
+        CompatibilityProfile::Current,
+        BatchCompleteness::Canonical,
+    );
+    assert!(!old.complete);
+    for event in &events {
+        let gap = old
+            .items
+            .iter()
+            .find(|old| old.metadata().source_ref == event.metadata().source_ref)
+            .unwrap();
+        assert!(matches!(gap, AnalysisEvent::ParseGap { .. }));
+        assert_ne!(gap.event_id(), event.event_id());
+    }
+    for pair in events.chunks_exact(2) {
+        let AnalysisEvent::DelegatedInput {
+            item_id,
+            origin_tool,
+            namespace,
+            text,
+            ..
+        } = pair[0]
+        else {
+            unreachable!()
+        };
+        assert!(matches!(
+            origin_tool.as_str(),
+            "create_thread" | "send_message_to_thread"
+        ));
+        assert_eq!(namespace, "codex_app");
+        assert!(text.starts_with("[sanitized delegation"));
+        assert_eq!(pair[0].item_key(), format!("delegated-input:{item_id}"));
+        assert_eq!(pair[0].item_key(), pair[1].item_key());
+        assert_ne!(pair[0].event_id(), pair[1].event_id());
+        assert_eq!(pair[0].metadata().turn_id, pair[1].metadata().turn_id);
+        assert_eq!(
+            pair[1].metadata().conversation_id.as_deref(),
+            Some("explicit-canonical-target")
+        );
+        assert_eq!(
+            pair[0].metadata().identity_origin,
+            IdentityOrigin::NativeStableId
+        );
+    }
+    let projection = AnalysisReducer::reduce_batch(&batch);
+    assert!(projection.complete, "{:#?}", projection.diagnostics);
+    let items: Vec<_> = projection
+        .turns
+        .iter()
+        .flat_map(|t| &t.items)
+        .filter(|i| i.kind == "delegated_input")
+        .collect();
+    assert_eq!(items.len(), 3);
+    assert!(items.iter().all(|i| i.visible
+        && i.tool.is_none()
+        && i.presentation_kind.as_deref() == Some("delegated_input")));
+}
+
+#[test]
+fn delegated_single_carrier_reverse_order_overlap_and_checkpoint_restart_are_idempotent() {
+    let records = delegated_context_records();
+    let header = records
+        .iter()
+        .find(|r| r.raw.as_ref().is_some_and(|v| v["type"] == "session_meta"))
+        .unwrap()
+        .clone();
+    let response = records
+        .iter()
+        .find(|r| {
+            r.raw
+                .as_ref()
+                .is_some_and(|v| v["payload"]["id"] == "00000000-0000-4000-8000-000000000007")
+        })
+        .unwrap()
+        .clone();
+    let completed = records
+        .iter()
+        .find(|r| {
+            r.raw.as_ref().is_some_and(|v| {
+                v["payload"]["item"]["id"] == "00000000-0000-4000-8000-000000000007"
+            })
+        })
+        .unwrap()
+        .clone();
+    let adapter = delegated_adapter();
+    let initial = analyze_records_with_adapter(
+        &adapter,
+        vec![header, completed],
+        CompatibilityProfile::HistorySemanticsV2,
+        BatchCompleteness::Canonical,
+    );
+    assert!(initial.complete);
+    let mut reducer = AnalysisReducer::reduce_batch(&initial);
+    assert!(reducer.complete);
+    assert_eq!(reducer.turns[0].items.len(), 1);
+    let restored = delegated_adapter();
+    restored
+        .restore_checkpoint_state(&adapter.checkpoint_state())
+        .unwrap();
+    let mut state = AnalysisReducer::new(Some("explicit-canonical-target".to_string()));
+    state.apply_batch(&initial);
+    state = serde_json::from_value(serde_json::to_value(&state).unwrap()).unwrap();
+    let later = analyze_records_with_adapter(
+        &restored,
+        vec![response],
+        CompatibilityProfile::HistorySemanticsV2,
+        BatchCompleteness::Canonical,
+    );
+    state.apply_batch(&later);
+    state.apply_batch(&initial);
+    state.apply_batch(&later);
+    reducer = state.snapshot();
+    assert!(reducer.complete);
+    assert_eq!(reducer.turns[0].items.len(), 1);
+    assert_eq!(
+        reducer.turns[0].items[0].source_ref,
+        later.items[0].metadata().source_ref
+    );
+}
+
+#[test]
+fn delegated_conflicts_and_unproven_attribution_never_become_complete() {
+    let batch = analyze_records_with_adapter(
+        &delegated_adapter(),
+        delegated_context_records(),
+        CompatibilityProfile::HistorySemanticsV2,
+        BatchCompleteness::Canonical,
+    );
+    let original = batch
+        .items
+        .iter()
+        .find(|e| matches!(e, AnalysisEvent::DelegatedInput { .. }))
+        .unwrap();
+    for field in ["text", "turn", "source", "tool", "timestamp"] {
+        let mut changed = original.clone();
+        if let AnalysisEvent::DelegatedInput {
+            metadata,
+            text,
+            origin_tool,
+            ..
+        } = &mut changed
+        {
+            match field {
+                "text" => *text = "changed immutable body".to_string(),
+                "turn" => metadata.turn_id = Some("other-turn".to_string()),
+                "source" => metadata.source_ref.source_identity = "other-source".to_string(),
+                "timestamp" => metadata.timestamp = Some("different physical fact".to_string()),
+                _ => *origin_tool = "send_message_to_thread".to_string(),
+            }
+        }
+        let mut reducer = AnalysisReducer::new(Some("explicit-canonical-target".to_string()));
+        reducer.apply(original);
+        reducer.apply(&changed); // same physical event_id must not hide a conflict
+        reducer.apply(original);
+        assert!(!reducer.snapshot().complete, "{field}");
+        assert!(
+            reducer
+                .snapshot()
+                .diagnostics
+                .iter()
+                .any(|d| d.code == "delegated_input_conflict")
+        );
+    }
+    let records = delegated_context_records();
+    let completed = records
+        .iter()
+        .find(|r| {
+            r.raw
+                .as_ref()
+                .is_some_and(|v| v["payload"]["type"] == "item_completed")
+        })
+        .unwrap();
+    let unbound = analyze_records_with_adapter(
+        &delegated_adapter(),
+        vec![completed.clone()],
+        CompatibilityProfile::HistorySemanticsV2,
+        BatchCompleteness::Canonical,
+    );
+    assert!(!unbound.complete);
+    assert!(unbound.items.iter().any(|e| matches!(e, AnalysisEvent::ParseGap {reason,..} if reason == "delegated_source_binding_unproven")));
+    for field in ["thread_id", "turn_id"] {
+        let mut bad_records = records.clone();
+        let bad = bad_records
+            .iter_mut()
+            .find(|r| {
+                r.raw
+                    .as_ref()
+                    .is_some_and(|v| v["payload"]["type"] == "item_completed")
+            })
+            .unwrap();
+        bad.raw.as_mut().unwrap()["payload"][field] = json!("00000000-0000-4000-8000-000000000099");
+        let batch = analyze_records_with_adapter(
+            &delegated_adapter(),
+            bad_records,
+            CompatibilityProfile::HistorySemanticsV2,
+            BatchCompleteness::Canonical,
+        );
+        assert!(!batch.complete, "{field}");
+        assert!(
+            batch
+                .items
+                .iter()
+                .any(|e| matches!(e, AnalysisEvent::ParseGap { .. }))
+        );
+    }
+    for field in ["name", "namespace", "output", "id"] {
+        let mut bad_records = records.clone();
+        let bad = bad_records
+            .iter_mut()
+            .find(|r| {
+                r.raw
+                    .as_ref()
+                    .is_some_and(|v| v["payload"]["type"] == "function_call_output")
+            })
+            .unwrap();
+        bad.raw.as_mut().unwrap()["payload"][field] = json!({"unsupported":true});
+        let batch = analyze_records_with_adapter(
+            &delegated_adapter(),
+            bad_records,
+            CompatibilityProfile::HistorySemanticsV2,
+            BatchCompleteness::Canonical,
+        );
+        assert!(!batch.complete, "{field}");
+    }
 }
 
 #[test]

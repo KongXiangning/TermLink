@@ -29,6 +29,9 @@ use codex_rollout_collector::protocol::{
     read_target_source_with_deadline,
 };
 use codex_rollout_collector::protocol::{BatchCompleteness, ParserProvenance};
+use codex_rollout_collector::protocol::{
+    TARGET_HISTORY_SEMANTICS_CAPABILITY, TargetRecovery, map_target_source_read_with_profile,
+};
 use codex_rollout_collector::source::{
     HistoryBaseRef, LineageError, SourceCompression, SourceCursorKind, SourceFingerprint,
     SourceKind, SourcePrefixAnchor, SourceReadMode, rollout_id_from_filename,
@@ -43,6 +46,379 @@ fn analyzer_output(args: &[OsString]) -> Output {
         .stderr(Stdio::piped())
         .output()
         .expect("analyzer process starts")
+}
+
+const DELEGATED_CONVERSATION: &str = "00000000-0000-4000-8000-000000000001";
+
+fn history_v2_hello(id: &str) -> TargetMessage {
+    let mut caps = target_base_capabilities().map(str::to_string).to_vec();
+    caps.push(TARGET_HISTORY_SEMANTICS_CAPABILITY.to_string());
+    TargetMessage::NodeHello(TargetNodeHello::new(id, caps))
+}
+
+#[test]
+fn history_v2_process_negotiates_and_saves_real_delegated_batch_only_after_ack() {
+    let root = unique_temp_path("history-v2-process");
+    write_target_fixture(
+        &root,
+        DELEGATED_CONVERSATION,
+        &current_fixture_contents("delegated-context.jsonl"),
+    );
+    let request = TargetAnalyzeRequest::new(
+        "delegated-request",
+        "delegated-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+    process.send(history_v2_hello("delegated-generation"));
+    let TargetMessage::AnalyzerHello(hello) = process.read() else {
+        panic!("hello");
+    };
+    assert!(
+        hello
+            .capabilities
+            .iter()
+            .any(|c| c == TARGET_HISTORY_SEMANTICS_CAPABILITY)
+    );
+    process.send(TargetMessage::Analyze(request.clone()));
+    let TargetMessage::Batch(batch) = process.read() else {
+        panic!("batch");
+    };
+    assert_eq!(batch.payload.completeness, TargetCompleteness::Canonical);
+    assert_eq!(
+        batch
+            .payload
+            .reducer_state
+            .as_ref()
+            .unwrap()
+            .reducer_version,
+        "target-v2"
+    );
+    assert_eq!(
+        batch
+            .payload
+            .history_items
+            .iter()
+            .filter(|e| matches!(e, AnalysisEvent::DelegatedInput { .. }))
+            .count(),
+        6
+    );
+    let items: Vec<_> = batch.payload.projection["turns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|turn| turn["items"].as_array().unwrap())
+        .filter(|item| item["kind"] == "delegated_input")
+        .collect();
+    assert_eq!(items.len(), 3);
+    assert!(items.iter().all(|i| {
+        i["tool"].is_null()
+            && i["content"]
+                .as_str()
+                .unwrap()
+                .starts_with("[sanitized delegation")
+    }));
+    for mutation in &batch.payload.mutations {
+        if let TargetMutation::UpsertItem { item } = mutation
+            && item.item_key.starts_with("delegated-input:")
+        {
+            assert!(batch.payload.history_items.iter().any(|e|
+                matches!(e, AnalysisEvent::DelegatedInput {carrier,..} if carrier == "response_item")
+                && e.item_key() == item.item_key && e.metadata().source_ref == item.source_ref));
+        }
+    }
+    process.send(TargetMessage::Ack(TargetAckMessage::new(
+        request.header.request_id.clone(),
+        batch.job_id.clone(),
+        batch.segment_id.clone(),
+        batch.batch_id.clone(),
+        true,
+        true,
+        None::<String>,
+    )));
+    let TargetMessage::Complete(complete) = process.read() else {
+        panic!("complete after durable ACK");
+    };
+    assert_eq!(
+        complete.checkpoint.reducer_state.reducer_version,
+        "target-v2"
+    );
+    process.finish();
+
+    // A fresh old consumer can decode ordinary history but must not receive
+    // this new event or a successful canonical batch for required delegation.
+    let mut old = InteractiveTargetProcess::spawn_with_root(&root, None);
+    old.send(target_node_hello("old-generation"));
+    assert!(matches!(old.read(), TargetMessage::AnalyzerHello(_)));
+    old.send(TargetMessage::Analyze(request));
+    target_error(old.read(), "unsupported_capability");
+    old.finish();
+
+    // Same new profile, same unsettled job/source identity, new attempt only.
+    let mut retry = TargetAnalyzeRequest::new(
+        "retry-attempt",
+        "delegated-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    retry.recovery = Some(TargetRecovery {
+        segment_id: batch.segment_id.clone(),
+        batch_id: batch.batch_id.clone(),
+    });
+    let mut restarted = InteractiveTargetProcess::spawn_with_root(&root, None);
+    restarted.send(history_v2_hello("retry-generation"));
+    assert!(matches!(restarted.read(), TargetMessage::AnalyzerHello(_)));
+    restarted.send(TargetMessage::Analyze(retry.clone()));
+    let TargetMessage::Batch(replayed) = restarted.read() else {
+        panic!("retry batch");
+    };
+    assert_eq!(replayed.payload, batch.payload);
+    assert_eq!(replayed.batch_id, batch.batch_id);
+    restarted.send(TargetMessage::Ack(TargetAckMessage::new(
+        retry.header.request_id,
+        replayed.job_id,
+        replayed.segment_id,
+        replayed.batch_id,
+        true,
+        true,
+        None::<String>,
+    )));
+    assert!(matches!(restarted.read(), TargetMessage::Complete(_)));
+    restarted.finish();
+}
+
+#[test]
+fn history_v2_fresh_job_rebuilds_without_old_anchor_and_rejects_cross_profile_append() {
+    let root = unique_temp_path("history-v2-old-state");
+    let contents = current_fixture_contents("delegated-context.jsonl");
+    let rows: Vec<_> = contents.lines().collect();
+    // A complete physical snapshot can contain a running, non-terminal turn.
+    let prefix = format!("{}\n{}\n", rows[0], rows[1]);
+    let path = write_target_fixture(&root, DELEGATED_CONVERSATION, &prefix);
+    let request = TargetAnalyzeRequest::new(
+        "old-request",
+        "old-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let old = map_target_source_read(&request, &source).unwrap();
+    assert_eq!(
+        old.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(
+        old.batch.payload.projection["turns"][0]["status"],
+        "in_progress"
+    );
+    let old_checkpoint = old.complete.checkpoint.clone();
+    assert!(old_checkpoint.cursor.is_some());
+    let saved_old = serde_json::to_value(&old_checkpoint).unwrap();
+    let fresh = TargetAnalyzeRequest::new(
+        "new-request",
+        "new-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    assert!(
+        fresh.cursor.is_none()
+            && fresh.persisted_anchor.is_none()
+            && fresh.known_complete_range.is_none()
+            && fresh.recovery.is_none()
+    );
+    fresh.validate().unwrap();
+    let reread = read_target_source(
+        &fresh,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let new = map_target_source_read_with_profile(
+        &fresh,
+        &reread,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        new.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(
+        new.complete.checkpoint.reducer_state.reducer_version,
+        "target-v2"
+    );
+    assert_eq!(serde_json::to_value(&old_checkpoint).unwrap(), saved_old);
+
+    let mut cross = TargetAnalyzeRequest::new(
+        "cross-request",
+        "cross-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Append,
+    );
+    cross.cursor = old_checkpoint.cursor.clone();
+    cross.persisted_anchor = Some(old_checkpoint);
+    cross.validate().unwrap(); // equality is retained, not bypassed
+    let cross_read = read_target_source(
+        &cross,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    assert!(
+        map_target_source_read_with_profile(
+            &cross,
+            &cross_read,
+            CompatibilityProfile::HistorySemanticsV2
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("checkpoint_incompatible")
+    );
+    let mut runtime = TargetRuntime::new(target_startup_config(&root));
+    runtime.handle(history_v2_hello("cross-generation"));
+    let denied = runtime.handle(TargetMessage::Analyze(cross));
+    target_error(
+        denied.outbound.into_iter().next().unwrap(),
+        "checkpoint_incompatible",
+    );
+    assert!(runtime.active_request().is_none());
+
+    let mut append = TargetAnalyzeRequest::new(
+        "append-request",
+        "new-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Append,
+    );
+    append.cursor = new.complete.checkpoint.cursor.clone();
+    append.persisted_anchor = Some(new.complete.checkpoint.clone());
+    let terminal = rows
+        .iter()
+        .find(|line| line.contains("\"type\":\"task_complete\""))
+        .unwrap();
+    fs::write(path, format!("{prefix}{terminal}\n")).unwrap();
+    let delta = read_target_source(
+        &append,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let completed = map_target_source_read_with_profile(
+        &append,
+        &delta,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        completed.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(
+        completed.batch.payload.projection["turns"][0]["status"],
+        "completed"
+    );
+    let mut old_reader = TargetRuntime::new(target_startup_config(&root));
+    old_reader.handle(target_node_hello("old-reader-generation"));
+    target_error(
+        old_reader
+            .handle(TargetMessage::Analyze(append))
+            .outbound
+            .into_iter()
+            .next()
+            .unwrap(),
+        "checkpoint_incompatible",
+    );
+
+    let negotiated = negotiate_capabilities(
+        &[
+            TARGET_HISTORY_SEMANTICS_CAPABILITY.to_string(),
+            "analyze_v1".to_string(),
+            "cancel".to_string(),
+            "checkpoint".to_string(),
+            "ack".to_string(),
+        ],
+        &target_base_capabilities().map(str::to_string),
+    )
+    .unwrap();
+    assert!(!negotiated.supports(TARGET_HISTORY_SEMANTICS_CAPABILITY));
+}
+
+#[test]
+fn history_v2_delegated_append_restores_binding_and_keeps_one_logical_body() {
+    let root = unique_temp_path("history-v2-delegated-append");
+    let contents = current_fixture_contents("delegated-context.jsonl");
+    let rows: Vec<_> = contents.lines().collect();
+    let prefix = format!("{}\n{}\n{}\n", rows[0], rows[1], rows[2]);
+    let path = write_target_fixture(&root, DELEGATED_CONVERSATION, &prefix);
+    let request = TargetAnalyzeRequest::new(
+        "delegate-prefix",
+        "delegate-append-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let initial = map_target_source_read_with_profile(
+        &request,
+        &source,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        initial.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    let old_item = initial.batch.payload.projection["turns"][0]["items"][0].clone();
+    assert_eq!(old_item["kind"], "delegated_input");
+    fs::write(path, format!("{prefix}{}\n{}\n", rows[3], rows[4])).unwrap();
+    let mut append = TargetAnalyzeRequest::new(
+        "delegate-append",
+        "delegate-append-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Append,
+    );
+    append.cursor = initial.complete.checkpoint.cursor.clone();
+    append.persisted_anchor = Some(initial.complete.checkpoint);
+    let delta = read_target_source(
+        &append,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let next = map_target_source_read_with_profile(
+        &append,
+        &delta,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        next.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(
+        next.batch.payload.projection["turns"][0]["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        next.batch.payload.projection["turns"][0]["items"][0],
+        old_item
+    );
+    assert!(next.batch.payload.tool_details.is_empty());
+    assert!(next.batch.payload.history_items.iter().any(
+        |e| matches!(e, AnalysisEvent::DelegatedInput {carrier,..} if carrier == "item_completed")
+    ));
 }
 
 fn startup_args(version: &str, sessions_root: &Path) -> Vec<OsString> {
@@ -1232,7 +1608,7 @@ fn target_canonical_batch() -> TargetAnalysisBatch {
     batch.projection = json!({"coverage": "complete"});
     batch.next_cursor = Some(cursor);
     batch.reducer_state = Some(
-        TargetReducerCheckpointState::from_payload(json!({"active_turn_id": null}), "reducer-v1")
+        TargetReducerCheckpointState::from_payload(json!({"active_turn_id": null}), "target-v1")
             .expect("canonical reducer state"),
     );
     batch.mutations = vec![TargetMutation::CompleteRange {
@@ -1537,7 +1913,7 @@ fn target_checkpoint(
         },
         reducer_state: TargetReducerCheckpointState::from_payload(
             json!({"active_turn_id": null}),
-            "reducer-v1",
+            "target-v1",
         )
         .expect("target reducer state"),
         projection_watermark: TargetProjectionWatermark {

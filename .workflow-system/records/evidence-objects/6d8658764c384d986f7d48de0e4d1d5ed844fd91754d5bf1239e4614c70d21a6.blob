@@ -1,0 +1,28 @@
+const fs=require('fs'),crypto=require('crypto'),cp=require('child_process');
+const d='logs/shared-history-compat-20261005/s3';
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const baseline=JSON.parse(fs.readFileSync(`${d}/baseline.json`,'utf8'));
+const protectedChecks=baseline.protected.map(p=>({...p,matches:hash(p.path)===p.sha256}));
+const beforeChecks=baseline.before.map(p=>({path:p.path,snapshot:p.snapshot,matches:hash(p.snapshot)===p.sha256}));
+const refs=['key-debf41cd5061f6e5a4a33043db5815bca9513c7396550d5dcfde38bfc5437308','key-7272b62c7444cf75799a47caa06045b85e27a6be16a1b84ae5570ce44655fb8f'];
+const historical=refs.map(key=>{
+ const manifest=JSON.parse(fs.readFileSync(`.workflow-system/records/attachments/${key}.json`,'utf8'));
+ const files=manifest.attachments||manifest.files;
+ return {key,count:files.length,all_fixed_match:files.every(f=>hash(f.ref)===f.sha256)};
+});
+const oldOracles=JSON.parse(fs.readFileSync('logs/shared-history-compat-20261005/s2/oracle-binaries-final.json','utf8'));
+const binaries=oldOracles.map(p=>({...p,matches:hash(p.path)===p.sha256}));
+const collector='native/codex-rollout-collector/target/debug/codex-rollout-collector.exe';
+binaries.push({path:collector,sha256:hash(collector),role:'actual CARGO_BIN_EXE target process tested in final run'});
+const fixture='native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl';
+const fixtureCheck={path:fixture,origin:'logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/a-full.jsonl',sha256:hash(fixture)};
+fixtureCheck.matches_origin=fixtureCheck.sha256===hash(fixtureCheck.origin);
+const changed=cp.execFileSync('git',['diff','--name-only'],{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean);
+const body=new Set(baseline.before.map(p=>p.path));
+const scope={changed,all_in_baseline:changed.every(p=>body.has(p)),no_excluded_changed:changed.every(p=>!p.startsWith('src/')&&!p.startsWith('android/')&&!p.includes('/vendor/')&&!p.startsWith('.workflow-system/runtime/')&&!p.startsWith('docs/workflow/'))};
+const result={kind:'implementation-self-check-not-formal-review',head:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),protectedChecks,beforeChecks,historical,binaries,fixtureCheck,scope};
+fs.writeFileSync(`${d}/self-check.json`,JSON.stringify(result,null,2)+'\n');
+const source=baseline.before.map(p=>({path:p.path,sha256:hash(p.path)}));
+source.push({path:fixture,sha256:hash(fixture)});
+fs.writeFileSync(`${d}/source-after.json`,JSON.stringify(source,null,2)+'\n');
+console.log(JSON.stringify({protected:protectedChecks.every(p=>p.matches),before:beforeChecks.every(p=>p.matches),historical:historical.every(p=>p.all_fixed_match),oracles:binaries.filter(p=>p.matches!==undefined).every(p=>p.matches),fixture:fixtureCheck.matches_origin,scope}));

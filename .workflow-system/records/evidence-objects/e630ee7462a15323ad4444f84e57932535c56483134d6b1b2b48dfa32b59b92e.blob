@@ -1,0 +1,124 @@
+
+running 72 tests
+test filesystem_root_escape_is_rejected_during_normalization ... ok
+test target_ack_accepts_only_positive_or_stable_negative_shapes ... ok
+test target_checkpoint_rejects_cursor_kind_and_source_scope_mismatch ... ok
+test target_checkpoint_scope_segment_and_profile_validation_are_strict ... ok
+test target_canonical_projection_and_transition_evidence_are_fail_closed ... ok
+test target_analyze_round_trip_ignores_unknown_legacy_fields_without_emitting_them ... ok
+test target_capability_mismatch_and_mode_errors_fail_closed ... ok
+test target_legacy_checkpoint_adapter_drops_legacy_source_evidence ... ok
+test target_lineage_transition_and_replacement_validation_state_are_fail_closed ... ok
+test target_hello_is_directional_and_capability_intersection_is_fail_closed ... ok
+test target_identity_and_checkpoint_round_trip_preserve_retry_scope ... ok
+test parser_keeps_target_and_legacy_modes_explicitly_separate ... ok
+test target_lineage_checkpoint_requires_bound_matching_validated_evidence ... ok
+test target_complete_and_error_envelopes_enforce_terminal_semantics ... ok
+test existing_directory_symlink_is_canonicalized_before_target_startup ... ok
+test target_analyze_cursor_required_nullable_keys_cannot_be_omitted ... ok
+test canonical_checkpoint_requires_complete_source_cursor_evidence_at_complete_boundaries ... ok
+test target_mapping_from_analysis_batch_keeps_identity_and_drops_legacy_revision ... ok
+test target_canonical_batch_rejects_mark_partial_at_all_outbound_boundaries ... ok
+test target_analyze_cursor_and_persisted_anchor_must_match ... ok
+test target_outer_identity_and_payload_boundary_are_validated ... ok
+test target_batch_lineage_checkpoint_required_nullable_keys_cannot_be_omitted ... ok
+test target_complete_accepts_legacy_ok_inbound_but_never_serializes_it ... ok
+test target_history_items_require_identity_binding_and_batch_source_scope ... ok
+test target_payload_and_checkpoint_drop_legacy_fields_without_using_them ... ok
+test target_mapping_honors_cancellation_and_deadline_controls ... ok
+test target_mapping_deduplicates_overlap_and_rejects_incompatible_checkpoint_state ... FAILED
+test target_mapping_projects_real_source_and_resumes_from_checkpoint ... ok
+test target_mapping_rejects_invalid_replacement_without_publishing_mutation ... ok
+test target_mapping_projects_rich_adapter_fields_and_unknown_diagnostics ... ok
+test target_mapping_validates_active_head_replacement_and_preserves_source_order ... ok
+test target_replacement_matches_cut_order_and_terminal_status_contract ... ok
+test history_v2_fresh_job_rebuilds_without_old_anchor_and_rejects_cross_profile_append ... ok
+test target_resource_limits_validate_numeric_shape_and_relationship ... ok
+test target_required_nullable_keys_cannot_be_omitted ... ok
+test target_runtime_allows_multiple_batches_when_outbound_json_exceeds_source_budget ... ok
+test target_runtime_negative_ack_clears_state_and_retry_keeps_delivery_identity ... FAILED
+test target_mapping_keeps_aliases_and_abort_compaction_parse_gaps_noncanonical ... ok
+test target_runtime_settles_ack_watermark_and_rejects_complete_before_ack ... FAILED
+test target_mapping_promotes_append_and_keeps_partial_snapshot_boundaries_noncanonical ... ok
+test target_source_read_honors_cancellation_and_deadline_before_discovery ... ok
+test target_mapping_covers_mode_specific_gap_shrink_and_unfinished_tail_boundaries ... ok
+test target_source_read_allows_zst_only_root_through_forward_stream ... ok
+test target_mapping_preserves_every_validated_lineage_replacement_in_root_order ... ok
+test target_source_read_prefers_plain_jsonl_sibling ... ok
+test target_source_read_resolves_cross_date_lineage_from_target_intent_only ... ok
+test target_mapping_same_source_append_revalidates_complete_lineage_and_keeps_delta_cursor ... ok
+test target_upsert_mutations_require_matching_source_evidence ... ok
+test target_source_read_rejects_zst_parent_before_publishing_evidence ... ok
+test target_source_read_rejects_missing_parent_cycle_and_multi_head ... ok
+test no_arguments_preserve_the_legacy_entrypoint ... ok
+test target_runtime_late_ack_and_complete_are_fenced_by_deadline ... ok
+test target_process_maps_source_segment_limit_and_clears_active_request ... ok
+test target_process_negative_ack_is_terminal_and_idempotent ... ok
+test target_process_late_matching_ack_never_emits_complete ... ok
+test target_process_rejects_legacy_handshake_and_malformed_lines ... ok
+test target_process_requires_handshake_and_enforces_single_flight ... ok
+test target_process_requires_matching_positive_ack_before_complete ... FAILED
+test target_process_resolves_cross_date_source_before_cancel ... ok
+test target_process_runs_source_locating_and_fails_closed_on_missing_parent ... ok
+test target_source_enforces_decoded_budget_across_lineage_segments ... ok
+test target_startup_accepts_a_normalized_existing_root_without_business_output ... ok
+test target_startup_allows_a_missing_root_without_creating_it ... ok
+test relative_and_non_directory_roots_fail_closed ... ok
+test target_process_fails_closed_on_capability_mismatch_and_duplicate_hello ... ok
+test target_process_generation_isolated_across_restart ... ok
+test target_process_timeout_and_small_source_limits_do_not_reject_batch_payload ... FAILED
+test history_v2_process_negotiates_and_saves_real_delegated_batch_only_after_ack ... ok
+test unsupported_or_malformed_startup_arguments_fail_before_legacy_dispatch ... ok
+test target_process_keeps_cancelled_source_worker_occupied_until_exit ... ok
+test target_process_delivers_mapped_batch_and_waits_for_positive_ack ... ok
+test target_process_mapping_and_formal_promotion_controls_never_publish_stale_results ... ok
+
+failures:
+
+---- target_mapping_deduplicates_overlap_and_rejects_incompatible_checkpoint_state stdout ----
+
+thread 'target_mapping_deduplicates_overlap_and_rejects_incompatible_checkpoint_state' (67720) panicked at tests\stage4_target_protocol.rs:3948:5:
+unexpected incompatible checkpoint error: target data mapping failed: checkpoint_incompatible: reducer profile does not match current read
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- target_runtime_negative_ack_clears_state_and_retry_keeps_delivery_identity stdout ----
+
+thread 'target_runtime_negative_ack_clears_state_and_retry_keeps_delivery_identity' (37116) panicked at tests\stage4_target_protocol.rs:1258:5:
+assertion `left == right` failed
+  left: [Error(TargetErrorMessage { header: TargetProtocolHeader { protocol_version: 1, message_type: Error, request_id: "request-2" }, code: "analysis_failed", message: "complete reducer profile does not match the active request", retryable: false, fatal: false, details: None })]
+ right: [Complete(TargetCompleteMessage { header: TargetProtocolHeader { protocol_version: 1, message_type: Complete, request_id: "request-2" }, job_id: "job-1", status: Partial, completeness: Partial, next_cursor: None, checkpoint: TargetAnalyzerCheckpoint { schema_version: 1, job_id: "job-1", request_id: "request-2", conversation_id: "conversation-1", source: TargetCheckpointSource { source_id: "source-1", source_epoch: "epoch-1", source_range: None, snapshot_boundary: TargetSnapshotBoundary { unit: PhysicalBytes, byte_length: 0 } }, reader: TargetCheckpointReader { backend: "target-reader", version: "target-reader-v1", source_kind: Rollout, compression: PlainJsonl }, wire_profile: TargetCheckpointWireProfile { parser_backend: "target-parser", wire_source_revision: "wire-v1", compatibility_profile: String("current") }, cursor_kind: None, cursor: None, segment: TargetCheckpointSegment { source_range: None, physical_line_start: None, physical_line_end: None, rollout_ordinal: None }, reducer_state: TargetReducerCheckpointState { schema_version: 1, reducer_id: "termlink.analysis_reducer", reducer_version: "reducer-v1", payload: Object {"active_turn_id": Null} }, projection_watermark: TargetProjectionWatermark { schema_version: 1, segment_id: "segment-1", batch_id: "batch-1", source_id: Some("source-1"), source_epoch: "epoch-1", complete_source_end: None, logical_item_count: 0 }, completeness: Partial, lineage_checkpoint: None } })]
+
+---- target_runtime_settles_ack_watermark_and_rejects_complete_before_ack stdout ----
+
+thread 'target_runtime_settles_ack_watermark_and_rejects_complete_before_ack' (71284) panicked at tests\stage4_target_protocol.rs:1033:5:
+assertion `left == right` failed
+  left: [Error(TargetErrorMessage { header: TargetProtocolHeader { protocol_version: 1, message_type: Error, request_id: "request-1" }, code: "checkpoint_incompatible", message: "batch reducer profile does not match the active request", retryable: false, fatal: false, details: None })]
+ right: [Batch(TargetBatchMessage { header: TargetProtocolHeader { protocol_version: 1, message_type: Batch, request_id: "request-1" }, job_id: "job-1", segment_id: "segment-1", batch_id: "batch-1", payload: TargetAnalysisBatch { conversation_id: "conversation-1", source_id: "source-1", source_epoch: "epoch-1", source_range: Some(TargetSourceByteRange { start: 0, end: 100 }), history_items: [], diagnostics: [], parser_provenance: ParserProvenance { parser_backend: "analyzer", wire_source_revision: "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2", compatibility_profile: Current }, complete: true, completeness: Canonical, projection: Object {"coverage": String("complete")}, tool_details: [], usage: None, task_outcomes: [], progress: TargetProgress { records_seen: 0, records_emitted: 0, bytes_scanned: 0, has_more: false }, next_cursor: Some(TargetAnalyzerCursor { schema_version: 1, reader_backend: "target-reader", reader_version: "target-reader-v1", cursor_kind: ForwardAppend, conversation_id: "conversation-1", source_id: "source-1", source_epoch: "epoch-1", source_kind: Rollout, compression: PlainJsonl, snapshot_boundary: TargetSnapshotBoundary { unit: PhysicalBytes, byte_length: 100 }, complete_range: TargetSourceByteRange { start: 0, end: 100 }, last_complete_line: None, last_rollout_ordinal: Some(1), capabilities: TargetCursorCapabilities { forward_stream: true, tail_preview: true, backward_segments: true, append: true, random_seek: false } }), mutations: [CompleteRange { source_range: TargetSourceByteRange { start: 0, end: 100 } }], history_base: None, replacements: [], reducer_state: Some(TargetReducerCheckpointState { schema_version: 1, reducer_id: "termlink.analysis_reducer", reducer_version: "reducer-v1", payload: Object {"active_turn_id": Null} }), lineage_transitions: [], lineage_coverage: None, lineage_checkpoint: None } })]
+
+---- target_process_requires_matching_positive_ack_before_complete stdout ----
+
+thread 'target_process_requires_matching_positive_ack_before_complete' (50416) panicked at tests\stage4_target_protocol.rs:773:5:
+assertion `left == right` failed
+  left: Error(TargetErrorMessage { header: TargetProtocolHeader { protocol_version: 1, message_type: Error, request_id: "request-1" }, code: "checkpoint_incompatible", message: "batch reducer profile does not match the active request", retryable: false, fatal: false, details: None })
+ right: Batch(TargetBatchMessage { header: TargetProtocolHeader { protocol_version: 1, message_type: Batch, request_id: "request-1" }, job_id: "job-1", segment_id: "segment-1", batch_id: "batch-1", payload: TargetAnalysisBatch { conversation_id: "conversation-1", source_id: "source-1", source_epoch: "epoch-1", source_range: Some(TargetSourceByteRange { start: 0, end: 100 }), history_items: [], diagnostics: [], parser_provenance: ParserProvenance { parser_backend: "analyzer", wire_source_revision: "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2", compatibility_profile: Current }, complete: true, completeness: Canonical, projection: Object {"coverage": String("complete")}, tool_details: [], usage: None, task_outcomes: [], progress: TargetProgress { records_seen: 0, records_emitted: 0, bytes_scanned: 0, has_more: false }, next_cursor: Some(TargetAnalyzerCursor { schema_version: 1, reader_backend: "target-reader", reader_version: "target-reader-v1", cursor_kind: ForwardAppend, conversation_id: "conversation-1", source_id: "source-1", source_epoch: "epoch-1", source_kind: Rollout, compression: PlainJsonl, snapshot_boundary: TargetSnapshotBoundary { unit: PhysicalBytes, byte_length: 100 }, complete_range: TargetSourceByteRange { start: 0, end: 100 }, last_complete_line: None, last_rollout_ordinal: Some(1), capabilities: TargetCursorCapabilities { forward_stream: true, tail_preview: true, backward_segments: true, append: true, random_seek: false } }), mutations: [CompleteRange { source_range: TargetSourceByteRange { start: 0, end: 100 } }], history_base: None, replacements: [], reducer_state: Some(TargetReducerCheckpointState { schema_version: 1, reducer_id: "termlink.analysis_reducer", reducer_version: "reducer-v1", payload: Object {"active_turn_id": Null} }), lineage_transitions: [], lineage_coverage: None, lineage_checkpoint: None } })
+
+---- target_process_timeout_and_small_source_limits_do_not_reject_batch_payload stdout ----
+
+thread 'target_process_timeout_and_small_source_limits_do_not_reject_batch_payload' (90840) panicked at tests\stage4_target_protocol.rs:914:5:
+assertion failed: matches!(limited_process.read(), TargetMessage::Complete(complete) if
+    complete.header.request_id == "request-limit")
+
+
+failures:
+    target_mapping_deduplicates_overlap_and_rejects_incompatible_checkpoint_state
+    target_process_requires_matching_positive_ack_before_complete
+    target_process_timeout_and_small_source_limits_do_not_reject_batch_payload
+    target_runtime_negative_ack_clears_state_and_retry_keeps_delivery_identity
+    target_runtime_settles_ack_watermark_and_rejects_complete_before_ack
+
+test result: FAILED. 67 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.86s
+
+   Compiling codex-rollout-collector v0.1.0 (E:\coding\TermLink-rust-source-resolution-codex\native\codex-rollout-collector)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.48s
+     Running tests\stage4_target_protocol.rs (native\codex-rollout-collector\target\debug\deps\stage4_target_protocol-169dfcc7ec4fc9a0.exe)
+error: test failed, to rerun pass `--test stage4_target_protocol`

@@ -1,0 +1,178 @@
+{
+  "kind": "implementation-self-check-not-formal-review",
+  "head": "644d9b1fad603719ee58d3514d32668735b1efdb",
+  "protectedChecks": [
+    {
+      "path": "docs/codex/codex-rollout-collector-architecture.md",
+      "sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d",
+      "matches": true
+    },
+    {
+      "path": "docs/workflow/CONTRACTS.md",
+      "sha256": "c9273b9813279785e1f4c0cc48ff49b0d6de6c22dde08bb88811a46187be874c",
+      "matches": true
+    },
+    {
+      "path": "docs/workflow/DECISIONS.md",
+      "sha256": "747236c53ae0ee5450b0cdfd8e2b69eb2de83758a1b61cccc5b4742000f985fd",
+      "matches": true
+    },
+    {
+      "path": "docs/codex/codex-history-shared-compat-contract.md",
+      "sha256": "d1f3ba55d88d41e3946933b9a2c6ecd10f6b3db7b3c40f76def254d8c05d3a05",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+      "sha256": "068024352b46db9519bcb5e9bf814a9fa6830701c5b51a27684f44d9900dc379",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "sha256": "cda575e3c5371633d23e7fca3feb7921ecc41b6040695ffffa3bd1cf5f63e865",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "sha256": "16fcd1064c078967a029e753e83eaf8cfacc79a11d5f1b981f220409e4e29de3",
+      "matches": true
+    }
+  ],
+  "beforeChecks": [
+    {
+      "path": "native/codex-rollout-collector/src/model/analysis_event.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__model__analysis_event.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/analysis.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__analysis.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__codex_adapter__mod.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/codex_wire/profile.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__codex_wire__profile.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/codex_wire/decode.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__codex_wire__decode.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_runtime.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_runtime.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_mapping.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_data.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_data.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/mod.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__mod.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/main.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__main.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/conformance.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__tests__conformance.rs",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__tests__stage4_target_protocol.rs",
+      "matches": true
+    },
+    {
+      "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+      "matches": true
+    },
+    {
+      "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "snapshot": "logs/shared-history-compat-20261005/s3/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+      "matches": true
+    }
+  ],
+  "historical": [
+    {
+      "key": "key-debf41cd5061f6e5a4a33043db5815bca9513c7396550d5dcfde38bfc5437308",
+      "count": 126,
+      "all_fixed_match": true
+    },
+    {
+      "key": "key-7272b62c7444cf75799a47caa06045b85e27a6be16a1b84ae5570ce44655fb8f",
+      "count": 41,
+      "all_fixed_match": true
+    }
+  ],
+  "binaries": [
+    {
+      "sha256": "77c78d22c08a116b99320249c9a504c83fb82d058e3f8ec303f21512eb5baaf6",
+      "path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-demo\\target\\debug\\codex-rollout-demo.exe",
+      "matches": true
+    },
+    {
+      "sha256": "dfc674b73bdf42ee214c817cf41737c475fdb5ee63d079f70d79892087b382c6",
+      "path": "E:\\coding\\TermLink-rust-source-resolution-codex\\native\\codex-rollout-compat-spike\\target\\debug\\codex-rollout-compat-spike.exe",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+      "sha256": "16d5a6857192710514fa3e6fdd4029ff3ea83a1ba29970b4e121d31d8b91b06f",
+      "role": "actual CARGO_BIN_EXE target process tested in final run"
+    }
+  ],
+  "fixtureCheck": {
+    "path": "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+    "origin": "logs/history-save-repair-20261005/s1/repair-r1/fixtures-v2/a-full.jsonl",
+    "sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c",
+    "matches_origin": true
+  },
+  "scope": {
+    "changed": [
+      "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "native/codex-rollout-collector/src/analysis.rs",
+      "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+      "native/codex-rollout-collector/src/codex_wire/profile.rs",
+      "native/codex-rollout-collector/src/main.rs",
+      "native/codex-rollout-collector/src/model/analysis_event.rs",
+      "native/codex-rollout-collector/src/protocol/mod.rs",
+      "native/codex-rollout-collector/src/protocol/target.rs",
+      "native/codex-rollout-collector/src/protocol/target_data.rs",
+      "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "native/codex-rollout-collector/src/protocol/target_runtime.rs",
+      "native/codex-rollout-collector/tests/conformance.rs",
+      "native/codex-rollout-collector/tests/stage4_target_protocol.rs"
+    ],
+    "all_in_baseline": true,
+    "no_excluded_changed": true
+  }
+}

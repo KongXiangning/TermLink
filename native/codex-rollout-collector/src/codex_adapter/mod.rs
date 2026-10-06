@@ -30,6 +30,8 @@ pub struct CodexEventAdapter {
 struct AdapterState {
     pending_plans: VecDeque<PendingPlan>,
     active_turn_id: Option<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    source_bindings: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,6 +202,17 @@ impl CodexEventAdapter {
         history_base: Option<&HistoryBaseRef>,
     ) -> Vec<AnalysisEvent> {
         let session_id = payload.meta.id.to_string();
+        if self.profile == CompatibilityProfile::HistorySemanticsV2 {
+            let mut state = self.state.borrow_mut();
+            if let Some(existing) = state.source_bindings.get(&record.source_identity)
+                && existing != &session_id
+            {
+                return vec![self.parse_gap(record, "delegated_source_binding_conflict", 0)];
+            }
+            state
+                .source_bindings
+                .insert(record.source_identity.clone(), session_id.clone());
+        }
         vec![AnalysisEvent::SessionContext {
             metadata: metadata(
                 record,
@@ -222,6 +235,9 @@ impl CodexEventAdapter {
         record: &SourceRecord,
         payload: &models::ResponseItem,
     ) -> Vec<AnalysisEvent> {
+        if payload.validate_history_function_output().is_err() {
+            return vec![self.parse_gap(record, "function_output_invalid_identity_or_shape", 0)];
+        }
         match payload {
             models::ResponseItem::Message {
                 id, role, content, ..
@@ -289,9 +305,7 @@ impl CodexEventAdapter {
                     tool_kind: "local_shell".to_string(),
                     tool_name,
                     call_id,
-                    input: input
-                        .map(bounded_text)
-                        .or_else(|| Some(debug_name(status))),
+                    input: input.map(bounded_text).or_else(|| Some(debug_name(status))),
                 }]
             }
             models::ResponseItem::FunctionCall {
@@ -315,12 +329,26 @@ impl CodexEventAdapter {
                 input: Some(compact_tool_input(arguments)),
             }],
             models::ResponseItem::FunctionCallOutput {
-                call_id, output, ..
+                id,
+                call_id,
+                name,
+                namespace,
+                output,
+                internal_chat_message_metadata_passthrough,
             } => match call_id.as_deref() {
                 Some(call_id) => self.adapt_tool_output(record, call_id, output, "function_call"),
-                // S2 only supplies native wire compatibility. S3 owns the
-                // DelegatedInput model/identity/reducer/capability semantics.
-                None => vec![self.parse_gap(record, "delegated_input_semantics_pending", 0)],
+                None => self.adapt_delegated_input(
+                    record,
+                    id.as_ref().map(|id| id.as_str()),
+                    name.as_deref(),
+                    namespace.as_deref(),
+                    output.body.to_text().as_deref(),
+                    "response_item",
+                    internal_chat_message_metadata_passthrough
+                        .as_ref()
+                        .and_then(|value| value.turn_id.as_deref()),
+                    None,
+                ),
             },
             models::ResponseItem::CustomToolCall {
                 call_id,
@@ -600,11 +628,7 @@ impl CodexEventAdapter {
                     &payload.invocation.tool,
                 )),
                 call_id: payload.call_id.clone(),
-                input: payload
-                    .invocation
-                    .arguments
-                    .as_ref()
-                    .map(compact_json),
+                input: payload.invocation.arguments.as_ref().map(compact_json),
             }],
             protocol::EventMsg::McpToolCallEnd(payload) => {
                 let output = match &payload.result {
@@ -828,10 +852,20 @@ impl CodexEventAdapter {
         record: &SourceRecord,
         payload: &protocol::ItemCompletedEvent,
     ) -> Vec<AnalysisEvent> {
+        if payload.item.validate_history_function_output().is_err() {
+            return vec![self.parse_gap(record, "delegated_input_invalid_shape", 0)];
+        }
         match &payload.item {
-            TurnItem::FunctionCallOutput(_) => vec![self.parse_gap(
-                record, "delegated_input_semantics_pending", 0,
-            )],
+            TurnItem::FunctionCallOutput(item) => self.adapt_delegated_input(
+                record,
+                Some(&item.id),
+                Some(&item.name),
+                Some(&item.namespace),
+                Some(&item.output),
+                "item_completed",
+                Some(&payload.turn_id),
+                Some(&payload.thread_id.to_string()),
+            ),
             TurnItem::UserMessage(item) => self.adapt_user_message(
                 record,
                 item.client_id.clone().or_else(|| Some(item.id.clone())),
@@ -875,10 +909,15 @@ impl CodexEventAdapter {
                     .aggregated_output
                     .as_deref()
                     .filter(|value| !value.is_empty())
-                    .or(item.formatted_output.as_deref().filter(|value| !value.is_empty()))
+                    .or(item
+                        .formatted_output
+                        .as_deref()
+                        .filter(|value| !value.is_empty()))
                     .map(ToOwned::to_owned)
                     .or_else(|| match (item.stdout.as_deref(), item.stderr.as_deref()) {
-                        (Some(stdout), Some(stderr)) if !stdout.is_empty() && !stderr.is_empty() && stdout != stderr => {
+                        (Some(stdout), Some(stderr))
+                            if !stdout.is_empty() && !stderr.is_empty() && stdout != stderr =>
+                        {
                             Some(format!("stdout:\n{stdout}\nstderr:\n{stderr}"))
                         }
                         (Some(stdout), _) if !stdout.is_empty() => Some(stdout.to_string()),
@@ -896,19 +935,23 @@ impl CodexEventAdapter {
                     output.push_str(&format!("; output={raw}"));
                 }
                 let mut events = vec![AnalysisEvent::ToolStarted {
-                        metadata: metadata(
-                            record,
-                            "tool_started",
-                            0,
-                            Some(item.id.clone()),
-                            turn.clone(),
-                            if status == "inprogress" { Availability::PartialRollout } else { Availability::Present },
-                        ),
-                        tool_kind: "local_shell".to_string(),
-                        tool_name: Some("shell_command".to_string()),
-                        call_id: item.id.clone(),
-                        input,
-                    }];
+                    metadata: metadata(
+                        record,
+                        "tool_started",
+                        0,
+                        Some(item.id.clone()),
+                        turn.clone(),
+                        if status == "inprogress" {
+                            Availability::PartialRollout
+                        } else {
+                            Availability::Present
+                        },
+                    ),
+                    tool_kind: "local_shell".to_string(),
+                    tool_name: Some("shell_command".to_string()),
+                    call_id: item.id.clone(),
+                    input,
+                }];
                 if status != "inprogress" {
                     events.push(AnalysisEvent::ToolCompleted {
                         metadata: metadata(
@@ -1325,12 +1368,79 @@ impl CodexEventAdapter {
                     metadata.item_key = format!("file:{}:{discriminator:016x}", call_id.trim());
                 }
                 AnalysisEvent::FileChanged {
-                metadata,
-                path: Some(path_display(path)),
-                summary: Some(format!("{phase}:{}", file_change_kind(change))),
-                diff: file_change_detail(change),
-            }})
+                    metadata,
+                    path: Some(path_display(path)),
+                    summary: Some(format!("{phase}:{}", file_change_kind(change))),
+                    diff: file_change_detail(change),
+                }
+            })
             .collect()
+    }
+
+    fn adapt_delegated_input(
+        &self,
+        record: &SourceRecord,
+        id: Option<&str>,
+        name: Option<&str>,
+        namespace: Option<&str>,
+        text: Option<&str>,
+        carrier: &str,
+        explicit_turn: Option<&str>,
+        thread_id: Option<&str>,
+    ) -> Vec<AnalysisEvent> {
+        if self.profile != CompatibilityProfile::HistorySemanticsV2 {
+            return vec![self.parse_gap(record, "delegated_input_semantics_pending", 0)];
+        }
+        let (Some(id), Some(name), Some(namespace), Some(text)) = (id, name, namespace, text)
+        else {
+            return vec![self.parse_gap(record, "delegated_input_missing_fields", 0)];
+        };
+        if id.trim().is_empty()
+            || text.trim().is_empty()
+            || namespace != "codex_app"
+            || !matches!(name, "create_thread" | "send_message_to_thread")
+        {
+            return vec![self.parse_gap(record, "delegated_input_invalid_shape", 0)];
+        }
+        let state = self.state.borrow();
+        let native_binding = state.source_bindings.get(&record.source_identity);
+        if thread_id.is_some_and(|thread| native_binding.is_none_or(|binding| binding != thread)) {
+            return vec![self.parse_gap(record, "delegated_source_binding_unproven", 0)];
+        }
+        if explicit_turn.is_some_and(|turn| turn.trim().is_empty())
+            || explicit_turn
+                .zip(state.active_turn_id.as_deref())
+                .is_some_and(|(a, b)| a != b)
+        {
+            return vec![self.parse_gap(record, "delegated_turn_conflict", 0)];
+        }
+        let Some(turn) = explicit_turn.or(state.active_turn_id.as_deref()) else {
+            return vec![self.parse_gap(record, "delegated_turn_missing", 0)];
+        };
+        let conversation = self
+            .configured_conversation_id
+            .clone()
+            .or_else(|| native_binding.cloned());
+        if conversation.is_none() {
+            return vec![self.parse_gap(record, "delegated_conversation_unproven", 0)];
+        }
+        let mut metadata = metadata(
+            record,
+            "delegated_input",
+            0,
+            Some(id.to_string()),
+            Some(turn.to_string()),
+            Availability::Present,
+        );
+        metadata.conversation_id = conversation;
+        vec![AnalysisEvent::DelegatedInput {
+            metadata,
+            item_id: id.to_string(),
+            origin_tool: name.to_string(),
+            namespace: namespace.to_string(),
+            carrier: carrier.to_string(),
+            text: text.to_string(),
+        }]
     }
 
     fn single_compaction(&self, record: &SourceRecord, summary: &str) -> Vec<AnalysisEvent> {
@@ -1483,6 +1593,10 @@ fn logical_identity(
     };
 
     match event {
+        AnalysisEvent::DelegatedInput { item_id, .. } => no_relation((
+            format!("delegated-input:{item_id}"),
+            IdentityOrigin::NativeStableId,
+        )),
         AnalysisEvent::SessionContext { session_id, .. } => {
             let key = session_id
                 .as_deref()

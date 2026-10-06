@@ -7,14 +7,23 @@ pub enum CompatibilityProfile {
     Legacy,
     Current,
     FutureCompatible,
+    HistorySemanticsV2,
 }
 
 impl CompatibilityProfile {
+    pub const fn target_reducer_version(self) -> &'static str {
+        match self {
+            Self::HistorySemanticsV2 => "target-v2",
+            _ => "target-v1",
+        }
+    }
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Legacy => "legacy",
             Self::Current => "current",
             Self::FutureCompatible => "future-compatible",
+            Self::HistorySemanticsV2 => "history-semantics-v2",
         }
     }
 }

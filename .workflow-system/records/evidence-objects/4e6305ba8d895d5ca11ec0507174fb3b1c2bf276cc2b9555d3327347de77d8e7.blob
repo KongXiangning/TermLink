@@ -1,0 +1,5422 @@
+use std::ffi::OsString;
+use std::fs;
+use std::io::{self, BufRead, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Output, Stdio};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use codex_rollout_collector::CompatibilityProfile;
+use codex_rollout_collector::model::{
+    AnalysisEvent, Availability, EventMetadata, LastTurnReplacement, SourceRef, TurnStatus,
+};
+use codex_rollout_collector::protocol::{
+    AnalyzerCheckpoint, CheckpointReader, CheckpointSegment, CheckpointSource, StartupConfigError,
+    StartupMode, TARGET_ACK_CAPABILITY, TARGET_ANALYZE_CAPABILITY, TARGET_CANCEL_CAPABILITY,
+    TARGET_CHECKPOINT_CAPABILITY, TargetAckMessage, TargetAnalysisBatch, TargetAnalyzeMode,
+    TargetAnalyzeRequest, TargetAnalyzerCheckpoint, TargetAnalyzerCursor, TargetAnalyzerHello,
+    TargetBatchMessage, TargetBatchSourceRef, TargetCancelMessage, TargetCheckpointReader,
+    TargetCheckpointSegment, TargetCheckpointSource, TargetCheckpointWireProfile,
+    TargetCompleteLineBoundary, TargetCompleteMessage, TargetCompleteStatus, TargetCompleteness,
+    TargetCursorCapabilities, TargetCursorKind, TargetDeliveryIdentity, TargetErrorMessage,
+    TargetLegacyCheckpointContext, TargetLineageCheckpoint, TargetLineageCoverage,
+    TargetLineageTransition, TargetLineageValidationState, TargetMessage, TargetMutation,
+    TargetNodeHello, TargetProgress, TargetProjectionWatermark, TargetProtocolError,
+    TargetReducerCheckpointState, TargetResourceLimits, TargetRole, TargetRuntime,
+    TargetSnapshotBoundary, TargetSourceByteRange, TargetSourceCompression, TargetSourceKind,
+    TargetSourceReadError, TargetSourceScope, TargetTaskOutcome, TargetToolDetail,
+    map_target_source_read, map_target_source_read_with_control, negotiate_capabilities,
+    normalize_sessions_root, parse_startup_args, read_target_source,
+    read_target_source_with_deadline,
+};
+use codex_rollout_collector::protocol::{BatchCompleteness, ParserProvenance};
+use codex_rollout_collector::protocol::{
+    TARGET_HISTORY_SEMANTICS_CAPABILITY, TargetRecovery, map_target_source_read_with_profile,
+};
+use codex_rollout_collector::source::{
+    HistoryBaseRef, LineageError, SourceCompression, SourceCursorKind, SourceFingerprint,
+    SourceKind, SourcePrefixAnchor, SourceReadMode, rollout_id_from_filename,
+};
+use serde_json::json;
+
+fn analyzer_output(args: &[OsString]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_codex-rollout-collector"))
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("analyzer process starts")
+}
+
+const DELEGATED_CONVERSATION: &str = "00000000-0000-4000-8000-000000000001";
+
+fn history_v2_hello(id: &str) -> TargetMessage {
+    let mut caps = target_base_capabilities().map(str::to_string).to_vec();
+    caps.push(TARGET_HISTORY_SEMANTICS_CAPABILITY.to_string());
+    TargetMessage::NodeHello(TargetNodeHello::new(id, caps))
+}
+
+#[test]
+fn history_v2_process_negotiates_and_saves_real_delegated_batch_only_after_ack() {
+    let root = unique_temp_path("history-v2-process");
+    write_target_fixture(
+        &root,
+        DELEGATED_CONVERSATION,
+        &current_fixture_contents("delegated-context.jsonl"),
+    );
+    let request = TargetAnalyzeRequest::new(
+        "delegated-request",
+        "delegated-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+    process.send(history_v2_hello("delegated-generation"));
+    let TargetMessage::AnalyzerHello(hello) = process.read() else {
+        panic!("hello");
+    };
+    assert!(
+        hello
+            .capabilities
+            .iter()
+            .any(|c| c == TARGET_HISTORY_SEMANTICS_CAPABILITY)
+    );
+    process.send(TargetMessage::Analyze(request.clone()));
+    let TargetMessage::Batch(batch) = process.read() else {
+        panic!("batch");
+    };
+    assert_eq!(batch.payload.completeness, TargetCompleteness::Canonical);
+    assert_eq!(
+        batch
+            .payload
+            .reducer_state
+            .as_ref()
+            .unwrap()
+            .reducer_version,
+        "target-v2"
+    );
+    assert_eq!(
+        batch
+            .payload
+            .history_items
+            .iter()
+            .filter(|e| matches!(e, AnalysisEvent::DelegatedInput { .. }))
+            .count(),
+        6
+    );
+    let items: Vec<_> = batch.payload.projection["turns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|turn| turn["items"].as_array().unwrap())
+        .filter(|item| item["kind"] == "delegated_input")
+        .collect();
+    assert_eq!(items.len(), 3);
+    assert!(items.iter().all(|i| {
+        i["tool"].is_null()
+            && i["content"]
+                .as_str()
+                .unwrap()
+                .starts_with("[sanitized delegation")
+    }));
+    for mutation in &batch.payload.mutations {
+        if let TargetMutation::UpsertItem { item } = mutation
+            && item.item_key.starts_with("delegated-input:")
+        {
+            assert!(batch.payload.history_items.iter().any(|e|
+                matches!(e, AnalysisEvent::DelegatedInput {carrier,..} if carrier == "response_item")
+                && e.item_key() == item.item_key && e.metadata().source_ref == item.source_ref));
+        }
+    }
+    process.send(TargetMessage::Ack(TargetAckMessage::new(
+        request.header.request_id.clone(),
+        batch.job_id.clone(),
+        batch.segment_id.clone(),
+        batch.batch_id.clone(),
+        true,
+        true,
+        None::<String>,
+    )));
+    let TargetMessage::Complete(complete) = process.read() else {
+        panic!("complete after durable ACK");
+    };
+    assert_eq!(
+        complete.checkpoint.reducer_state.reducer_version,
+        "target-v2"
+    );
+    process.finish();
+
+    // A fresh old consumer can decode ordinary history but must not receive
+    // this new event or a successful canonical batch for required delegation.
+    let mut old = InteractiveTargetProcess::spawn_with_root(&root, None);
+    old.send(target_node_hello("old-generation"));
+    assert!(matches!(old.read(), TargetMessage::AnalyzerHello(_)));
+    old.send(TargetMessage::Analyze(request));
+    target_error(old.read(), "unsupported_capability");
+    old.finish();
+
+    // Same new profile, same unsettled job/source identity, new attempt only.
+    let mut retry = TargetAnalyzeRequest::new(
+        "retry-attempt",
+        "delegated-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    retry.recovery = Some(TargetRecovery {
+        segment_id: batch.segment_id.clone(),
+        batch_id: batch.batch_id.clone(),
+    });
+    let mut restarted = InteractiveTargetProcess::spawn_with_root(&root, None);
+    restarted.send(history_v2_hello("retry-generation"));
+    assert!(matches!(restarted.read(), TargetMessage::AnalyzerHello(_)));
+    restarted.send(TargetMessage::Analyze(retry.clone()));
+    let TargetMessage::Batch(replayed) = restarted.read() else {
+        panic!("retry batch");
+    };
+    assert_eq!(replayed.payload, batch.payload);
+    assert_eq!(replayed.batch_id, batch.batch_id);
+    restarted.send(TargetMessage::Ack(TargetAckMessage::new(
+        retry.header.request_id,
+        replayed.job_id,
+        replayed.segment_id,
+        replayed.batch_id,
+        true,
+        true,
+        None::<String>,
+    )));
+    assert!(matches!(restarted.read(), TargetMessage::Complete(_)));
+    restarted.finish();
+}
+
+#[test]
+fn history_v2_fresh_job_rebuilds_without_old_anchor_and_rejects_cross_profile_append() {
+    let root = unique_temp_path("history-v2-old-state");
+    let contents = current_fixture_contents("delegated-context.jsonl");
+    let rows: Vec<_> = contents.lines().collect();
+    // A complete physical snapshot can contain a running, non-terminal turn.
+    let prefix = format!("{}\n{}\n", rows[0], rows[1]);
+    let path = write_target_fixture(&root, DELEGATED_CONVERSATION, &prefix);
+    let request = TargetAnalyzeRequest::new(
+        "old-request",
+        "old-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let old = map_target_source_read(&request, &source).unwrap();
+    assert_eq!(
+        old.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(
+        old.batch.payload.projection["turns"][0]["status"],
+        "in_progress"
+    );
+    let old_checkpoint = old.complete.checkpoint.clone();
+    assert!(old_checkpoint.cursor.is_some());
+    let saved_old = serde_json::to_value(&old_checkpoint).unwrap();
+    let fresh = TargetAnalyzeRequest::new(
+        "new-request",
+        "new-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    assert!(
+        fresh.cursor.is_none()
+            && fresh.persisted_anchor.is_none()
+            && fresh.known_complete_range.is_none()
+            && fresh.recovery.is_none()
+    );
+    fresh.validate().unwrap();
+    let reread = read_target_source(
+        &fresh,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let new = map_target_source_read_with_profile(
+        &fresh,
+        &reread,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        new.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(
+        new.complete.checkpoint.reducer_state.reducer_version,
+        "target-v2"
+    );
+    assert_eq!(serde_json::to_value(&old_checkpoint).unwrap(), saved_old);
+
+    let mut cross = TargetAnalyzeRequest::new(
+        "cross-request",
+        "cross-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Append,
+    );
+    cross.cursor = old_checkpoint.cursor.clone();
+    cross.persisted_anchor = Some(old_checkpoint);
+    cross.validate().unwrap(); // equality is retained, not bypassed
+    let cross_read = read_target_source(
+        &cross,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    assert!(
+        map_target_source_read_with_profile(
+            &cross,
+            &cross_read,
+            CompatibilityProfile::HistorySemanticsV2
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("checkpoint_incompatible")
+    );
+    let mut runtime = TargetRuntime::new(target_startup_config(&root));
+    runtime.handle(history_v2_hello("cross-generation"));
+    let denied = runtime.handle(TargetMessage::Analyze(cross));
+    target_error(
+        denied.outbound.into_iter().next().unwrap(),
+        "checkpoint_incompatible",
+    );
+    assert!(runtime.active_request().is_none());
+
+    let mut append = TargetAnalyzeRequest::new(
+        "append-request",
+        "new-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Append,
+    );
+    append.cursor = new.complete.checkpoint.cursor.clone();
+    append.persisted_anchor = Some(new.complete.checkpoint.clone());
+    let terminal = rows
+        .iter()
+        .find(|line| line.contains("\"type\":\"task_complete\""))
+        .unwrap();
+    fs::write(path, format!("{prefix}{terminal}\n")).unwrap();
+    let delta = read_target_source(
+        &append,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let completed = map_target_source_read_with_profile(
+        &append,
+        &delta,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        completed.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(
+        completed.batch.payload.projection["turns"][0]["status"],
+        "completed"
+    );
+    let mut old_reader = TargetRuntime::new(target_startup_config(&root));
+    old_reader.handle(target_node_hello("old-reader-generation"));
+    target_error(
+        old_reader
+            .handle(TargetMessage::Analyze(append))
+            .outbound
+            .into_iter()
+            .next()
+            .unwrap(),
+        "checkpoint_incompatible",
+    );
+
+    let negotiated = negotiate_capabilities(
+        &[
+            TARGET_HISTORY_SEMANTICS_CAPABILITY.to_string(),
+            "analyze_v1".to_string(),
+            "cancel".to_string(),
+            "checkpoint".to_string(),
+            "ack".to_string(),
+        ],
+        &target_base_capabilities().map(str::to_string),
+    )
+    .unwrap();
+    assert!(!negotiated.supports(TARGET_HISTORY_SEMANTICS_CAPABILITY));
+}
+
+#[test]
+fn history_v2_delegated_append_restores_binding_and_keeps_one_logical_body() {
+    let root = unique_temp_path("history-v2-delegated-append");
+    let contents = current_fixture_contents("delegated-context.jsonl");
+    let rows: Vec<_> = contents.lines().collect();
+    let prefix = format!("{}\n{}\n{}\n", rows[0], rows[1], rows[2]);
+    let path = write_target_fixture(&root, DELEGATED_CONVERSATION, &prefix);
+    let request = TargetAnalyzeRequest::new(
+        "delegate-prefix",
+        "delegate-append-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let initial = map_target_source_read_with_profile(
+        &request,
+        &source,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        initial.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    let old_item = initial.batch.payload.projection["turns"][0]["items"][0].clone();
+    assert_eq!(old_item["kind"], "delegated_input");
+    fs::write(path, format!("{prefix}{}\n{}\n", rows[3], rows[4])).unwrap();
+    let mut append = TargetAnalyzeRequest::new(
+        "delegate-append",
+        "delegate-append-job",
+        DELEGATED_CONVERSATION,
+        TargetAnalyzeMode::Append,
+    );
+    append.cursor = initial.complete.checkpoint.cursor.clone();
+    append.persisted_anchor = Some(initial.complete.checkpoint);
+    let delta = read_target_source(
+        &append,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    let next = map_target_source_read_with_profile(
+        &append,
+        &delta,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        next.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(
+        next.batch.payload.projection["turns"][0]["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        next.batch.payload.projection["turns"][0]["items"][0],
+        old_item
+    );
+    assert!(next.batch.payload.tool_details.is_empty());
+    assert!(next.batch.payload.history_items.iter().any(
+        |e| matches!(e, AnalysisEvent::DelegatedInput {carrier,..} if carrier == "item_completed")
+    ));
+}
+
+fn startup_args(version: &str, sessions_root: &Path) -> Vec<OsString> {
+    vec![
+        OsString::from("--startup-config-version"),
+        OsString::from(version),
+        OsString::from("--sessions-root"),
+        sessions_root.as_os_str().to_os_string(),
+    ]
+}
+
+struct InteractiveTargetProcess {
+    child: Child,
+    stdin: Option<ChildStdin>,
+    stdout: BufReader<ChildStdout>,
+}
+
+impl InteractiveTargetProcess {
+    fn spawn() -> Self {
+        Self::spawn_with_fixture(None)
+    }
+
+    fn spawn_with_delivery(batch: &TargetBatchMessage, complete: &TargetCompleteMessage) -> Self {
+        let fixture = serde_json::json!({
+            "batch": batch,
+            "complete": complete,
+        });
+        Self::spawn_with_fixture(Some(
+            serde_json::to_string(&fixture).expect("target test delivery serializes"),
+        ))
+    }
+
+    fn spawn_with_fixture(fixture: Option<String>) -> Self {
+        Self::spawn_with_root(&target_protocol_fixture_root(), fixture)
+    }
+
+    fn spawn_with_root(root: &Path, fixture: Option<String>) -> Self {
+        Self::spawn_with_root_and_worker_delay(root, fixture, None)
+    }
+
+    fn spawn_with_root_and_worker_delay(
+        root: &Path,
+        fixture: Option<String>,
+        worker_delay_ms: Option<u64>,
+    ) -> Self {
+        Self::spawn_with_root_and_test_delays(root, fixture, worker_delay_ms, None, None)
+    }
+
+    fn spawn_with_root_and_mapping_delays(
+        root: &Path,
+        fixture: Option<String>,
+        mapping_delay_ms: Option<u64>,
+        formal_promotion_delay_ms: Option<u64>,
+    ) -> Self {
+        Self::spawn_with_root_and_test_delays(
+            root,
+            fixture,
+            None,
+            mapping_delay_ms,
+            formal_promotion_delay_ms,
+        )
+    }
+
+    fn spawn_with_root_and_test_delays(
+        root: &Path,
+        fixture: Option<String>,
+        worker_delay_ms: Option<u64>,
+        mapping_delay_ms: Option<u64>,
+        formal_promotion_delay_ms: Option<u64>,
+    ) -> Self {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_codex-rollout-collector"));
+        command.args(startup_args("1", root));
+        if let Some(fixture) = fixture {
+            command.env("TERMLINK_TARGET_PROTOCOL_TEST_DELIVERY", fixture);
+        }
+        if let Some(delay_ms) = worker_delay_ms {
+            command.env(
+                "TERMLINK_TARGET_PROTOCOL_TEST_WORKER_DELAY_MS",
+                delay_ms.to_string(),
+            );
+        }
+        if let Some(delay_ms) = mapping_delay_ms {
+            command.env(
+                "TERMLINK_TARGET_PROTOCOL_TEST_MAPPING_DELAY_MS",
+                delay_ms.to_string(),
+            );
+        }
+        if let Some(delay_ms) = formal_promotion_delay_ms {
+            command.env(
+                "TERMLINK_TARGET_PROTOCOL_TEST_FORMAL_PROMOTION_DELAY_MS",
+                delay_ms.to_string(),
+            );
+        }
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("target analyzer process starts");
+        let stdin = child.stdin.take().expect("target stdin is piped");
+        let stdout = child.stdout.take().expect("target stdout is piped");
+        Self {
+            child,
+            stdin: Some(stdin),
+            stdout: BufReader::new(stdout),
+        }
+    }
+
+    fn send(&mut self, message: TargetMessage) {
+        let line = message.to_json_line().expect("target input serializes");
+        self.send_raw(&line);
+    }
+
+    fn send_raw(&mut self, line: &str) {
+        let stdin = self.stdin.as_mut().expect("target stdin remains open");
+        writeln!(stdin, "{line}").expect("target input writes");
+        stdin.flush().expect("target input flushes");
+    }
+
+    fn read(&mut self) -> TargetMessage {
+        let mut line = String::new();
+        let bytes = self
+            .stdout
+            .read_line(&mut line)
+            .expect("target stdout reads");
+        assert!(bytes > 0, "target process closed stdout before a response");
+        TargetMessage::parse_line(line.trim()).expect("target response parses")
+    }
+
+    fn finish(mut self) {
+        self.stdin.take();
+        drop(self.stdout);
+        let status = self.child.wait().expect("target process waits");
+        let mut stderr = String::new();
+        if let Some(mut pipe) = self.child.stderr.take() {
+            pipe.read_to_string(&mut stderr)
+                .expect("target stderr reads");
+        }
+        assert!(
+            status.success(),
+            "target process failed: {status}; stderr={stderr}"
+        );
+    }
+}
+
+fn target_error(message: TargetMessage, expected_code: &str) -> TargetErrorMessage {
+    match message {
+        TargetMessage::Error(error) => {
+            assert_eq!(error.code, expected_code, "target error: {}", error.message);
+            error
+        }
+        other => panic!("expected target error {expected_code}, got {other:?}"),
+    }
+}
+
+fn exercise_delayed_target_control(
+    root: &Path,
+    label: &str,
+    mapping_delay_ms: Option<u64>,
+    formal_promotion_delay_ms: Option<u64>,
+    timeout_ms: Option<u64>,
+    cancel_after_ms: Option<u64>,
+) {
+    assert!(
+        timeout_ms.is_some() ^ cancel_after_ms.is_some(),
+        "a delayed control case must use exactly one terminal control"
+    );
+    let mut process = InteractiveTargetProcess::spawn_with_root_and_mapping_delays(
+        root,
+        None,
+        mapping_delay_ms,
+        formal_promotion_delay_ms,
+    );
+    process.send(target_node_hello(format!("{label}-generation").as_str()));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+
+    let request_id = format!("{label}-request");
+    let mut request = TargetAnalyzeRequest::new(
+        request_id.clone(),
+        format!("{label}-job"),
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Append,
+    );
+    if let Some(timeout_ms) = timeout_ms {
+        request.resource_limits = Some(TargetResourceLimits {
+            max_decoded_bytes: None,
+            max_line_bytes: None,
+            max_segment_bytes: None,
+            tail_bytes: None,
+            timeout_ms: Some(timeout_ms),
+        });
+    }
+    process.send(TargetMessage::Analyze(request));
+
+    if let Some(cancel_after_ms) = cancel_after_ms {
+        std::thread::sleep(Duration::from_millis(cancel_after_ms));
+        process.send(TargetMessage::Cancel(TargetCancelMessage::new(
+            request_id.clone(),
+            format!("cancel delayed {label} control"),
+        )));
+        let cancelled = target_error(process.read(), "cancelled");
+        assert!(!cancelled.fatal);
+    } else {
+        let timeout = target_error(process.read(), "resource_timeout");
+        assert!(!timeout.fatal);
+        assert!(timeout.retryable);
+    }
+
+    let blocked_request = TargetAnalyzeRequest::new(
+        format!("{label}-blocked-request"),
+        format!("{label}-blocked-job"),
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    process.send(TargetMessage::Analyze(blocked_request));
+    let busy = target_error(process.read(), "busy");
+    assert!(!busy.retryable);
+
+    // The source worker must finish before the next request is admitted. The
+    // next successful request also proves the cancelled/timed-out result did
+    // not publish a stale batch or complete message.
+    std::thread::sleep(Duration::from_millis(420));
+    let admitted_request = TargetAnalyzeRequest::new(
+        format!("{label}-admitted-request"),
+        format!("{label}-admitted-job"),
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    process.send(TargetMessage::Analyze(admitted_request));
+    let batch = match process.read() {
+        TargetMessage::Batch(batch) => batch,
+        other => panic!("expected admitted mapped batch after {label} control, got {other:?}"),
+    };
+    process.send(TargetMessage::Ack(TargetAckMessage::new(
+        format!("{label}-admitted-request"),
+        batch.job_id.clone(),
+        batch.segment_id.clone(),
+        batch.batch_id.clone(),
+        true,
+        true,
+        None::<String>,
+    )));
+    assert!(matches!(process.read(), TargetMessage::Complete(_)));
+    process.finish();
+}
+
+fn target_node_hello(request_id: &str) -> TargetMessage {
+    TargetMessage::NodeHello(TargetNodeHello::new(request_id, target_base_capabilities()))
+}
+
+fn target_analyze(request_id: &str, job_id: &str) -> TargetMessage {
+    TargetMessage::Analyze(TargetAnalyzeRequest::new(
+        request_id,
+        job_id,
+        "conversation-1",
+        TargetAnalyzeMode::Preview,
+    ))
+}
+
+fn unique_temp_path(label: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock after epoch")
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "termlink-rust-startup-{label}-{}-{nanos}",
+        std::process::id()
+    ))
+}
+
+fn target_protocol_fixture_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("target-session")
+}
+
+const TARGET_MAPPING_CONVERSATION_ID: &str = "019b2b40-beb6-7b23-bed0-37d570e76816";
+
+const SANITIZED_SESSION_CONVERSATION_ID: &str = "7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101";
+
+const SANITIZED_SESSION_FIXTURE_FILES: [&str; 5] = [
+    "2026/08/22/rollout-2026-08-22T00-01-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101.jsonl",
+    "2026/08/22/rollout-2026-08-22T00-02-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_6a1b2c30-4d5e-4f6a-8b7c-9d0e1f2a3b40.jsonl",
+    "2026/08/22/rollout-2026-08-22T00-03-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_1a2b3c40-5d6e-4f7a-8b9c-0d1e2f3a4b50.jsonl",
+    "2026/08/22/rollout-2026-08-22T00-04-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_2b3c4d50-6e7f-4a8b-9c0d-1e2f3a4b5c60.jsonl",
+    "2026/08/23/rollout-2026-08-23T00-05-00-7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101_3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70.jsonl",
+];
+
+fn sanitized_fixture_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("sanitized-session-5")
+}
+
+fn sanitized_fixture_path(index: usize) -> PathBuf {
+    sanitized_fixture_root().join(SANITIZED_SESSION_FIXTURE_FILES[index])
+}
+
+fn target_startup_config(root: &Path) -> codex_rollout_collector::protocol::TargetStartupConfig {
+    match parse_startup_args(startup_args("1", root)).expect("target startup parses") {
+        StartupMode::Target(config) => config,
+        StartupMode::Legacy => panic!("target startup arguments must select target mode"),
+    }
+}
+
+fn target_source_request(
+    request_id: &str,
+    conversation_id: &str,
+    mode: TargetAnalyzeMode,
+) -> TargetAnalyzeRequest {
+    TargetAnalyzeRequest::new(request_id, "target-source-job", conversation_id, mode)
+}
+
+fn copy_sanitized_fixture(index: usize, root: &Path) -> PathBuf {
+    let relative = SANITIZED_SESSION_FIXTURE_FILES[index];
+    let destination = root.join(relative);
+    fs::create_dir_all(destination.parent().expect("fixture destination parent"))
+        .expect("fixture destination directory creates");
+    fs::copy(sanitized_fixture_path(index), &destination).expect("fixture copies");
+    destination
+}
+
+fn sanitized_fixture_files_path(root: &Path, index: usize) -> PathBuf {
+    root.join(SANITIZED_SESSION_FIXTURE_FILES[index])
+}
+
+fn target_fixture_path(root: &Path, conversation_id: &str) -> PathBuf {
+    root.join("2026").join("08").join("26").join(format!(
+        "rollout-2026-08-26T00-00-00-{conversation_id}.jsonl"
+    ))
+}
+
+fn write_target_fixture(root: &Path, conversation_id: &str, contents: &str) -> PathBuf {
+    let destination = target_fixture_path(root, conversation_id);
+    fs::create_dir_all(destination.parent().expect("target fixture parent"))
+        .expect("target fixture directory creates");
+    fs::write(&destination, contents).expect("target fixture writes");
+    destination
+}
+
+fn current_fixture_contents(name: &str) -> String {
+    let fixtures_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures");
+    let path = if name.contains('/') || name.contains('\\') {
+        fixtures_root.join(name)
+    } else {
+        fixtures_root.join("current").join(name)
+    };
+    fs::read_to_string(path).expect("current fixture reads")
+}
+
+fn rewrite_history_base(path: &Path, parent_rollout_id: &str, end_byte_offset: u64) {
+    let mut lines = fs::read_to_string(path)
+        .expect("rollout fixture reads")
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("rollout line parses"))
+        .collect::<Vec<_>>();
+    let header = lines.first_mut().expect("rollout has a session header");
+    header["payload"]["history_mode"] = serde_json::Value::String("paginated".to_string());
+    header["payload"]["history_base"] = json!({
+        "thread_id": parent_rollout_id,
+        "end_ordinal_exclusive": 1,
+        "end_byte_offset": end_byte_offset
+    });
+    let encoded = lines
+        .iter()
+        .map(|line| {
+            let mut bytes = serde_json::to_vec(line).expect("rollout line serializes");
+            bytes.push(b'\n');
+            bytes
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+    fs::write(path, encoded).expect("rollout fixture rewrites");
+}
+
+fn rollout_id(path: &Path) -> String {
+    rollout_id_from_filename(path).expect("rollout fixture has a rollout ID")
+}
+
+#[test]
+fn no_arguments_preserve_the_legacy_entrypoint() {
+    let output = analyzer_output(&[]);
+    assert!(
+        output.status.success(),
+        "legacy runtime failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stdout.is_empty(),
+        "legacy EOF must not emit a target message"
+    );
+}
+
+#[test]
+fn target_startup_accepts_a_normalized_existing_root_without_business_output() {
+    let root = fs::canonicalize(env!("CARGO_MANIFEST_DIR")).expect("crate root canonicalizes");
+    let root_with_dot = root.join(".");
+    let output = analyzer_output(&startup_args("1", &root_with_dot));
+
+    assert!(
+        output.status.success(),
+        "target startup failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stdout.is_empty(),
+        "startup step must not emit business messages"
+    );
+}
+
+#[test]
+fn target_startup_allows_a_missing_root_without_creating_it() {
+    let root = unique_temp_path("missing-root");
+    assert!(!root.exists());
+
+    let output = analyzer_output(&startup_args("1", &root));
+
+    assert!(
+        output.status.success(),
+        "missing root must not block startup: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!root.exists(), "startup must not create sessions root");
+}
+
+#[test]
+fn unsupported_or_malformed_startup_arguments_fail_before_legacy_dispatch() {
+    let unsupported = analyzer_output(&startup_args("2", Path::new(env!("CARGO_MANIFEST_DIR"))));
+    assert!(!unsupported.status.success());
+    assert!(
+        String::from_utf8_lossy(&unsupported.stderr).contains("unsupported startup config version")
+    );
+
+    let unknown = analyzer_output(&[OsString::from("--legacy")]);
+    assert!(!unknown.status.success());
+    assert!(String::from_utf8_lossy(&unknown.stderr).contains("unexpected startup argument"));
+
+    let missing_root = analyzer_output(&[
+        OsString::from("--startup-config-version"),
+        OsString::from("1"),
+    ]);
+    assert!(!missing_root.status.success());
+    assert!(String::from_utf8_lossy(&missing_root.stderr).contains("--sessions-root"));
+}
+
+#[test]
+fn relative_and_non_directory_roots_fail_closed() {
+    let relative = analyzer_output(&startup_args("1", Path::new("relative/sessions")));
+    assert!(!relative.status.success());
+    assert!(String::from_utf8_lossy(&relative.stderr).contains("must be absolute"));
+
+    let file = unique_temp_path("not-a-directory");
+    fs::write(&file, b"not a directory").expect("temporary file writes");
+    let non_directory = analyzer_output(&startup_args("1", &file));
+    let _ = fs::remove_file(&file);
+
+    assert!(!non_directory.status.success());
+    assert!(String::from_utf8_lossy(&non_directory.stderr).contains("not a directory"));
+}
+
+#[test]
+fn filesystem_root_escape_is_rejected_during_normalization() {
+    let path = if cfg!(windows) {
+        PathBuf::from(r"C:\..\sessions")
+    } else {
+        PathBuf::from("/../sessions")
+    };
+    let error = normalize_sessions_root(&path).expect_err("root escape must fail closed");
+    assert!(matches!(
+        error,
+        StartupConfigError::SessionsRootEscapesRoot(_)
+    ));
+}
+
+#[test]
+fn parser_keeps_target_and_legacy_modes_explicitly_separate() {
+    assert_eq!(
+        parse_startup_args(Vec::<OsString>::new()).unwrap(),
+        StartupMode::Legacy
+    );
+
+    let root = fs::canonicalize(env!("CARGO_MANIFEST_DIR")).expect("crate root canonicalizes");
+    let mode = parse_startup_args(startup_args("1", &root)).expect("target startup parses");
+    match mode {
+        StartupMode::Target(config) => {
+            assert_eq!(config.startup_config_version(), 1);
+            assert_eq!(config.sessions_root(), root);
+        }
+        StartupMode::Legacy => panic!("target arguments must not select legacy mode"),
+    }
+}
+
+#[test]
+fn target_process_requires_handshake_and_enforces_single_flight() {
+    let mut process = InteractiveTargetProcess::spawn();
+
+    process.send(target_analyze("request-before-hello", "job-before-hello"));
+    let handshake_error = target_error(process.read(), "handshake_required");
+    assert!(!handshake_error.fatal);
+
+    process.send(target_node_hello("generation-1"));
+    match process.read() {
+        TargetMessage::AnalyzerHello(hello) => {
+            assert_eq!(hello.header.request_id, "generation-1");
+            assert_eq!(hello.role, TargetRole::Analyzer);
+            assert!(
+                hello
+                    .capabilities
+                    .contains(&TARGET_ANALYZE_CAPABILITY.to_string())
+            );
+        }
+        other => panic!("expected analyzer hello, got {other:?}"),
+    }
+
+    process.send(target_analyze("request-1", "job-1"));
+    process.send(target_analyze("request-2", "job-2"));
+    let busy = target_error(process.read(), "busy");
+    assert!(!busy.fatal);
+    assert!(!busy.retryable);
+
+    process.send(TargetMessage::Cancel(TargetCancelMessage::new(
+        "request-2",
+        "wrong request",
+    )));
+    let not_found = target_error(process.read(), "cancel_request_not_found");
+    assert!(!not_found.fatal);
+
+    process.send(TargetMessage::Cancel(TargetCancelMessage::new(
+        "request-1",
+        "user cancelled",
+    )));
+    let cancelled = target_error(process.read(), "cancelled");
+    assert!(!cancelled.fatal);
+
+    process.finish();
+}
+
+#[test]
+fn target_process_rejects_legacy_handshake_and_malformed_lines() {
+    let mut process = InteractiveTargetProcess::spawn();
+
+    process.send_raw(
+        r#"{"protocol_version":1,"message_type":"hello","request_id":"legacy-generation","role":"analyzer","analyzer_version":"legacy","capabilities":["replay"],"parser_backend":"legacy","compatibility_layer_version":"legacy"}"#,
+    );
+    assert!(!target_error(process.read(), "handshake_required").fatal);
+
+    process.send_raw("not-json");
+    assert!(!target_error(process.read(), "malformed_protocol").fatal);
+
+    process.send(target_node_hello("generation-1"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+    process.finish();
+}
+
+#[test]
+fn target_process_fails_closed_on_capability_mismatch_and_duplicate_hello() {
+    let mut unsupported = InteractiveTargetProcess::spawn();
+    unsupported.send(TargetMessage::NodeHello(TargetNodeHello::new(
+        "generation-1",
+        [TARGET_ANALYZE_CAPABILITY, TARGET_CANCEL_CAPABILITY],
+    )));
+    let unsupported_error = target_error(unsupported.read(), "unsupported_capability");
+    assert!(unsupported_error.fatal);
+    unsupported.finish();
+
+    let mut duplicate = InteractiveTargetProcess::spawn();
+    duplicate.send(target_node_hello("generation-1"));
+    assert!(matches!(duplicate.read(), TargetMessage::AnalyzerHello(_)));
+    duplicate.send(target_node_hello("generation-2"));
+    let duplicate_error = target_error(duplicate.read(), "duplicate_hello");
+    assert!(duplicate_error.fatal);
+    duplicate.finish();
+}
+
+#[test]
+fn target_process_generation_isolated_across_restart() {
+    let mut first = InteractiveTargetProcess::spawn();
+    first.send(target_node_hello("generation-1"));
+    match first.read() {
+        TargetMessage::AnalyzerHello(hello) => {
+            assert_eq!(hello.header.request_id, "generation-1");
+        }
+        other => panic!("expected first analyzer hello, got {other:?}"),
+    }
+    first.finish();
+
+    let mut second = InteractiveTargetProcess::spawn();
+    second.send(target_node_hello("generation-2"));
+    match second.read() {
+        TargetMessage::AnalyzerHello(hello) => {
+            assert_eq!(hello.header.request_id, "generation-2");
+        }
+        other => panic!("expected second analyzer hello, got {other:?}"),
+    }
+    second.finish();
+}
+
+#[test]
+fn target_process_requires_matching_positive_ack_before_complete() {
+    let batch = target_batch_message("request-1", "job-1", TargetCompleteness::Canonical);
+    let complete = target_complete_message("request-1", "job-1", TargetCompleteness::Canonical);
+    let mut process = InteractiveTargetProcess::spawn_with_delivery(&batch, &complete);
+
+    process.send(target_node_hello("generation-1"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+    process.send(target_analyze("request-1", "job-1"));
+    assert_eq!(process.read(), TargetMessage::Batch(batch.clone()));
+
+    process.send(TargetMessage::Ack(TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "wrong-segment",
+        "batch-1",
+        true,
+        true,
+        None::<String>,
+    )));
+    assert!(!target_error(process.read(), "ack_rejected").fatal);
+
+    process.send(TargetMessage::Ack(TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        true,
+        true,
+        None::<String>,
+    )));
+    assert_eq!(process.read(), TargetMessage::Complete(complete));
+    process.finish();
+}
+
+#[test]
+fn target_process_negative_ack_is_terminal_and_idempotent() {
+    let batch = target_batch_message("request-1", "job-1", TargetCompleteness::Partial);
+    let complete = target_complete_message("request-1", "job-1", TargetCompleteness::Partial);
+    let mut process = InteractiveTargetProcess::spawn_with_delivery(&batch, &complete);
+
+    process.send(target_node_hello("generation-1"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+    process.send(target_analyze("request-1", "job-1"));
+    assert_eq!(process.read(), TargetMessage::Batch(batch));
+
+    let rejection = TargetMessage::Ack(TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        false,
+        false,
+        Some("staging_unavailable"),
+    ));
+    process.send(rejection.clone());
+    let first = target_error(process.read(), "batch_rejected");
+    assert!(first.retryable);
+    assert_eq!(
+        first
+            .details
+            .as_ref()
+            .and_then(|details| details.get("rejection_code")),
+        Some(&serde_json::Value::String(
+            "staging_unavailable".to_string()
+        ))
+    );
+
+    process.send(rejection);
+    assert!(target_error(process.read(), "batch_rejected").retryable);
+    process.finish();
+}
+
+#[test]
+fn target_process_timeout_and_small_source_limits_do_not_reject_batch_payload() {
+    let timeout_batch = target_batch_message(
+        "request-timeout",
+        "job-timeout",
+        TargetCompleteness::Partial,
+    );
+    let timeout_complete = target_complete_message(
+        "request-timeout",
+        "job-timeout",
+        TargetCompleteness::Partial,
+    );
+    let mut timeout_process =
+        InteractiveTargetProcess::spawn_with_delivery(&timeout_batch, &timeout_complete);
+    timeout_process.send(target_node_hello("generation-timeout"));
+    assert!(matches!(
+        timeout_process.read(),
+        TargetMessage::AnalyzerHello(_)
+    ));
+    let mut timeout_request = TargetAnalyzeRequest::new(
+        "request-timeout",
+        "job-timeout",
+        "conversation-1",
+        TargetAnalyzeMode::Preview,
+    );
+    timeout_request.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: None,
+        max_line_bytes: None,
+        max_segment_bytes: None,
+        tail_bytes: None,
+        timeout_ms: Some(10),
+    });
+    timeout_process.send(TargetMessage::Analyze(timeout_request));
+    assert!(matches!(timeout_process.read(), TargetMessage::Batch(_)));
+    assert!(!target_error(timeout_process.read(), "resource_timeout").fatal);
+    timeout_process.finish();
+
+    let limited_batch =
+        target_batch_message("request-limit", "job-limit", TargetCompleteness::Partial);
+    let limited_complete =
+        target_complete_message("request-limit", "job-limit", TargetCompleteness::Partial);
+    let mut limited_process =
+        InteractiveTargetProcess::spawn_with_delivery(&limited_batch, &limited_complete);
+    limited_process.send(target_node_hello("generation-limit"));
+    assert!(matches!(
+        limited_process.read(),
+        TargetMessage::AnalyzerHello(_)
+    ));
+    let mut limited_request = TargetAnalyzeRequest::new(
+        "request-limit",
+        "job-limit",
+        "conversation-1",
+        TargetAnalyzeMode::Preview,
+    );
+    limited_request.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: Some(1),
+        max_line_bytes: Some(1),
+        max_segment_bytes: Some(1),
+        tail_bytes: None,
+        timeout_ms: None,
+    });
+    limited_process.send(TargetMessage::Analyze(limited_request));
+    assert!(matches!(
+        limited_process.read(),
+        TargetMessage::Batch(batch) if serde_json::to_vec(&batch.payload)
+            .expect("target batch payload serializes")
+            .len() > 1
+    ));
+    limited_process.send(TargetMessage::Ack(TargetAckMessage::new(
+        "request-limit",
+        "job-limit",
+        "segment-1",
+        "batch-1",
+        true,
+        true,
+        None::<String>,
+    )));
+    assert!(matches!(
+        limited_process.read(),
+        TargetMessage::Complete(complete) if complete.header.request_id == "request-limit"
+    ));
+    limited_process.finish();
+}
+
+#[test]
+fn target_runtime_late_ack_and_complete_are_fenced_by_deadline() {
+    let mut late_ack_runtime =
+        target_runtime_ready_with_timeout("request-late-ack", "job-late-ack", 10);
+    let late_ack_batch = target_batch_message(
+        "request-late-ack",
+        "job-late-ack",
+        TargetCompleteness::Partial,
+    );
+    late_ack_runtime.publish_batch(late_ack_batch);
+    std::thread::sleep(Duration::from_millis(25));
+
+    let late_ack = late_ack_runtime.handle(TargetMessage::Ack(TargetAckMessage::new(
+        "request-late-ack",
+        "job-late-ack",
+        "segment-1",
+        "batch-1",
+        true,
+        true,
+        None::<String>,
+    )));
+    assert_eq!(
+        target_action_error(late_ack, "resource_timeout").retryable,
+        true
+    );
+    assert!(late_ack_runtime.active_request().is_none());
+
+    let late_ack_complete = late_ack_runtime.complete_request(target_complete_message(
+        "request-late-ack",
+        "job-late-ack",
+        TargetCompleteness::Partial,
+    ));
+    assert_eq!(
+        target_action_error(late_ack_complete, "complete_request_not_found").fatal,
+        false
+    );
+
+    let mut late_complete_runtime =
+        target_runtime_ready_with_timeout("request-late-complete", "job-late-complete", 10);
+    let late_complete_batch = target_batch_message(
+        "request-late-complete",
+        "job-late-complete",
+        TargetCompleteness::Partial,
+    );
+    late_complete_runtime.publish_batch(late_complete_batch);
+    std::thread::sleep(Duration::from_millis(25));
+
+    let late_complete = late_complete_runtime.complete_request(target_complete_message(
+        "request-late-complete",
+        "job-late-complete",
+        TargetCompleteness::Partial,
+    ));
+    assert_eq!(
+        target_action_error(late_complete, "resource_timeout").retryable,
+        true
+    );
+    assert!(late_complete_runtime.active_request().is_none());
+}
+
+#[test]
+fn target_process_late_matching_ack_never_emits_complete() {
+    let batch = target_batch_message(
+        "request-process-late-ack",
+        "job-process-late-ack",
+        TargetCompleteness::Partial,
+    );
+    let complete = target_complete_message(
+        "request-process-late-ack",
+        "job-process-late-ack",
+        TargetCompleteness::Partial,
+    );
+    let mut process = InteractiveTargetProcess::spawn_with_delivery(&batch, &complete);
+    process.send(target_node_hello("generation-process-late-ack"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+
+    let mut request = TargetAnalyzeRequest::new(
+        "request-process-late-ack",
+        "job-process-late-ack",
+        "conversation-1",
+        TargetAnalyzeMode::Preview,
+    );
+    request.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: None,
+        max_line_bytes: None,
+        max_segment_bytes: None,
+        tail_bytes: None,
+        timeout_ms: Some(10),
+    });
+    process.send(TargetMessage::Analyze(request));
+    assert!(matches!(process.read(), TargetMessage::Batch(_)));
+
+    std::thread::sleep(Duration::from_millis(25));
+    process.send(TargetMessage::Ack(TargetAckMessage::new(
+        "request-process-late-ack",
+        "job-process-late-ack",
+        "segment-1",
+        "batch-1",
+        true,
+        true,
+        None::<String>,
+    )));
+    let timeout = target_error(process.read(), "resource_timeout");
+    assert!(timeout.retryable);
+    let late_ack_rejection = target_error(process.read(), "ack_rejected");
+    assert!(!late_ack_rejection.retryable);
+    process.finish();
+}
+
+#[test]
+fn target_runtime_settles_ack_watermark_and_rejects_complete_before_ack() {
+    let mut runtime = target_runtime_ready("request-1", "job-1");
+    let batch = target_batch_message("request-1", "job-1", TargetCompleteness::Canonical);
+    assert_eq!(
+        runtime.publish_batch(batch.clone()).outbound,
+        vec![TargetMessage::Batch(batch.clone())]
+    );
+    assert_eq!(
+        runtime.awaiting_ack().map(|id| id.batch_id.as_str()),
+        Some("batch-1")
+    );
+
+    let before_ack = runtime.complete_request(target_complete_message(
+        "request-1",
+        "job-1",
+        TargetCompleteness::Canonical,
+    ));
+    assert_eq!(
+        target_action_error(before_ack, "complete_before_ack").fatal,
+        false
+    );
+
+    let wrong_ack = runtime.handle(TargetMessage::Ack(TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "segment-wrong",
+        "batch-1",
+        true,
+        true,
+        None::<String>,
+    )));
+    assert_eq!(target_action_error(wrong_ack, "ack_rejected").fatal, false);
+    assert!(runtime.awaiting_ack().is_some());
+
+    assert_eq!(
+        runtime.publish_batch(batch.clone()).outbound,
+        vec![TargetMessage::Batch(batch)]
+    );
+    assert!(
+        runtime
+            .handle(TargetMessage::Ack(TargetAckMessage::new(
+                "request-1",
+                "job-1",
+                "segment-1",
+                "batch-1",
+                true,
+                true,
+                None::<String>,
+            )))
+            .outbound
+            .is_empty()
+    );
+    assert_eq!(
+        runtime
+            .last_acknowledged_identity()
+            .map(|id| id.batch_id.as_str()),
+        Some("batch-1")
+    );
+
+    let complete = target_complete_message("request-1", "job-1", TargetCompleteness::Canonical);
+    assert_eq!(
+        runtime.complete_request(complete.clone()).outbound,
+        vec![TargetMessage::Complete(complete)]
+    );
+    assert!(runtime.active_request().is_none());
+}
+
+#[test]
+fn target_runtime_allows_multiple_batches_when_outbound_json_exceeds_source_budget() {
+    let mut runtime = target_runtime_ready_with_limits(
+        "request-source-budget",
+        "job-source-budget",
+        TargetResourceLimits {
+            max_decoded_bytes: Some(1),
+            max_line_bytes: Some(1),
+            max_segment_bytes: Some(1),
+            tail_bytes: Some(1),
+            timeout_ms: Some(30_000),
+        },
+    );
+
+    let mut first_batch = target_batch_message(
+        "request-source-budget",
+        "job-source-budget",
+        TargetCompleteness::Partial,
+    );
+    first_batch.payload.projection = json!({
+        "coverage": "partial",
+        "diagnostic_context": "outbound projection is not source bytes"
+    });
+    let first_encoded_bytes = serde_json::to_vec(&first_batch.payload)
+        .expect("first target batch payload serializes")
+        .len();
+    assert!(first_encoded_bytes > 1);
+
+    assert_eq!(
+        runtime.publish_batch(first_batch.clone()).outbound,
+        vec![TargetMessage::Batch(first_batch)]
+    );
+    assert!(
+        runtime
+            .handle(TargetMessage::Ack(TargetAckMessage::new(
+                "request-source-budget",
+                "job-source-budget",
+                "segment-1",
+                "batch-1",
+                true,
+                true,
+                None::<String>,
+            )))
+            .outbound
+            .is_empty()
+    );
+
+    let mut second_batch = target_batch_message(
+        "request-source-budget",
+        "job-source-budget",
+        TargetCompleteness::Partial,
+    );
+    second_batch.segment_id = "segment-2".to_string();
+    second_batch.batch_id = "batch-2".to_string();
+    second_batch.payload.projection = json!({
+        "coverage": "partial",
+        "diagnostic_context": "second outbound projection is not source bytes"
+    });
+    let second_encoded_bytes = serde_json::to_vec(&second_batch.payload)
+        .expect("second target batch payload serializes")
+        .len();
+    assert!(second_encoded_bytes > 1);
+    assert!(first_encoded_bytes.saturating_add(second_encoded_bytes) > 1);
+
+    assert_eq!(
+        runtime.publish_batch(second_batch.clone()).outbound,
+        vec![TargetMessage::Batch(second_batch)]
+    );
+    assert!(
+        runtime
+            .handle(TargetMessage::Ack(TargetAckMessage::new(
+                "request-source-budget",
+                "job-source-budget",
+                "segment-2",
+                "batch-2",
+                true,
+                true,
+                None::<String>,
+            )))
+            .outbound
+            .is_empty()
+    );
+    assert_eq!(
+        runtime
+            .last_acknowledged_identity()
+            .map(|identity| (identity.segment_id.as_str(), identity.batch_id.as_str())),
+        Some(("segment-2", "batch-2"))
+    );
+}
+
+#[test]
+fn target_runtime_negative_ack_clears_state_and_retry_keeps_delivery_identity() {
+    let mut runtime = target_runtime_ready("request-1", "job-1");
+    let first_batch = target_batch_message("request-1", "job-1", TargetCompleteness::Partial);
+    runtime.publish_batch(first_batch);
+    let negative = TargetMessage::Ack(TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        false,
+        false,
+        Some("staging_unavailable"),
+    ));
+    let rejected = runtime.handle(negative.clone());
+    assert_eq!(
+        target_action_error(rejected, "batch_rejected").retryable,
+        true
+    );
+    assert!(runtime.active_request().is_none());
+    assert_eq!(
+        target_action_error(runtime.handle(negative), "batch_rejected").retryable,
+        true
+    );
+
+    let mut retry = TargetAnalyzeRequest::new(
+        "request-2",
+        "job-1",
+        "conversation-1",
+        TargetAnalyzeMode::Preview,
+    );
+    retry.recovery = Some(codex_rollout_collector::protocol::TargetRecovery {
+        segment_id: "segment-1".to_string(),
+        batch_id: "batch-1".to_string(),
+    });
+    assert!(
+        runtime
+            .handle(TargetMessage::Analyze(retry))
+            .outbound
+            .is_empty()
+    );
+
+    let retry_batch = target_batch_message("request-2", "job-1", TargetCompleteness::Partial);
+    assert!(runtime.publish_batch(retry_batch).outbound.len() == 1);
+    let old_ack = runtime.handle(TargetMessage::Ack(TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        true,
+        true,
+        None::<String>,
+    )));
+    assert_eq!(target_action_error(old_ack, "ack_rejected").fatal, false);
+    assert!(runtime.awaiting_ack().is_some());
+    assert!(
+        runtime
+            .handle(TargetMessage::Ack(TargetAckMessage::new(
+                "request-2",
+                "job-1",
+                "segment-1",
+                "batch-1",
+                true,
+                true,
+                None::<String>,
+            )))
+            .outbound
+            .is_empty()
+    );
+
+    let complete = target_complete_message("request-2", "job-1", TargetCompleteness::Partial);
+    assert_eq!(
+        runtime.complete_request(complete.clone()).outbound,
+        vec![TargetMessage::Complete(complete)]
+    );
+}
+
+#[cfg(any(unix, windows))]
+fn create_directory_symlink(target: &Path, link: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target, link)
+    }
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::symlink_dir(target, link)
+    }
+}
+
+fn symlink_creation_requires_unavailable_privilege(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::PermissionDenied
+        || (cfg!(windows) && error.raw_os_error() == Some(1314))
+}
+
+#[cfg(any(unix, windows))]
+#[test]
+fn existing_directory_symlink_is_canonicalized_before_target_startup() {
+    let target = unique_temp_path("symlink-target");
+    let link = unique_temp_path("symlink-root");
+    fs::create_dir_all(&target).expect("symlink target creates");
+    if let Err(error) = create_directory_symlink(&target, &link) {
+        let _ = fs::remove_dir_all(&target);
+        if symlink_creation_requires_unavailable_privilege(&error) {
+            return;
+        }
+        panic!("directory symlink creates: {error}");
+    }
+
+    let normalized = normalize_sessions_root(&link).expect("directory symlink resolves");
+    let expected = fs::canonicalize(&target).expect("symlink target canonicalizes");
+    let _ = fs::remove_file(&link);
+    let _ = fs::remove_dir_all(&target);
+
+    assert_eq!(normalized, expected);
+}
+
+fn target_base_capabilities() -> [&'static str; 4] {
+    [
+        TARGET_ANALYZE_CAPABILITY,
+        TARGET_CANCEL_CAPABILITY,
+        TARGET_CHECKPOINT_CAPABILITY,
+        TARGET_ACK_CAPABILITY,
+    ]
+}
+
+fn target_parser_provenance() -> ParserProvenance {
+    ParserProvenance::for_profile(CompatibilityProfile::Current)
+}
+
+fn target_partial_batch() -> TargetAnalysisBatch {
+    TargetAnalysisBatch {
+        conversation_id: "conversation-1".to_string(),
+        source_id: "source-1".to_string(),
+        source_epoch: "epoch-1".to_string(),
+        source_range: None,
+        history_items: Vec::new(),
+        diagnostics: Vec::new(),
+        parser_provenance: target_parser_provenance(),
+        complete: false,
+        completeness: TargetCompleteness::Partial,
+        projection: json!({"coverage": "partial"}),
+        tool_details: Vec::new(),
+        usage: None,
+        task_outcomes: Vec::new(),
+        progress: TargetProgress::default(),
+        next_cursor: None,
+        mutations: vec![TargetMutation::MarkPartial { source_range: None }],
+        history_base: None,
+        replacements: Vec::new(),
+        reducer_state: None,
+        lineage_transitions: Vec::new(),
+        lineage_coverage: None,
+        lineage_checkpoint: None,
+    }
+}
+
+fn target_canonical_batch() -> TargetAnalysisBatch {
+    let cursor = target_cursor(TargetCursorKind::ForwardAppend);
+    let mut batch = target_partial_batch();
+    batch.source_range = Some(cursor.complete_range);
+    batch.complete = true;
+    batch.completeness = TargetCompleteness::Canonical;
+    batch.projection = json!({"coverage": "complete"});
+    batch.next_cursor = Some(cursor);
+    batch.reducer_state = Some(
+        TargetReducerCheckpointState::from_payload(json!({"active_turn_id": null}), "target-v1")
+            .expect("canonical reducer state"),
+    );
+    batch.mutations = vec![TargetMutation::CompleteRange {
+        source_range: batch.source_range.expect("canonical source range"),
+    }];
+    batch
+}
+
+fn target_batch_message(
+    request_id: &str,
+    job_id: &str,
+    completeness: TargetCompleteness,
+) -> TargetBatchMessage {
+    let payload = match completeness {
+        TargetCompleteness::Canonical => target_canonical_batch(),
+        TargetCompleteness::Unknown
+        | TargetCompleteness::Partial
+        | TargetCompleteness::Provisional => {
+            let mut batch = target_partial_batch();
+            batch.completeness = completeness;
+            batch
+        }
+    };
+    TargetBatchMessage::new(request_id, job_id, "segment-1", "batch-1", payload)
+}
+
+fn target_complete_message(
+    request_id: &str,
+    job_id: &str,
+    completeness: TargetCompleteness,
+) -> TargetCompleteMessage {
+    let (status, cursor) = match completeness {
+        TargetCompleteness::Canonical => (
+            TargetCompleteStatus::Completed,
+            Some(target_cursor(TargetCursorKind::ForwardAppend)),
+        ),
+        TargetCompleteness::Partial | TargetCompleteness::Provisional => {
+            (TargetCompleteStatus::Partial, None)
+        }
+        TargetCompleteness::Unknown => panic!("unknown is not a request-level complete state"),
+    };
+    TargetCompleteMessage::new(
+        request_id,
+        job_id,
+        status,
+        completeness,
+        cursor,
+        target_checkpoint(request_id, job_id, completeness),
+    )
+}
+
+fn target_runtime_ready(request_id: &str, job_id: &str) -> TargetRuntime {
+    target_runtime_ready_with_timeout(request_id, job_id, 30_000)
+}
+
+fn target_runtime_ready_with_timeout(
+    request_id: &str,
+    job_id: &str,
+    timeout_ms: u64,
+) -> TargetRuntime {
+    target_runtime_ready_with_limits(
+        request_id,
+        job_id,
+        TargetResourceLimits {
+            max_decoded_bytes: None,
+            max_line_bytes: None,
+            max_segment_bytes: None,
+            tail_bytes: None,
+            timeout_ms: Some(timeout_ms),
+        },
+    )
+}
+
+fn target_runtime_ready_with_limits(
+    request_id: &str,
+    job_id: &str,
+    resource_limits: TargetResourceLimits,
+) -> TargetRuntime {
+    let root = fs::canonicalize(env!("CARGO_MANIFEST_DIR")).expect("crate root canonicalizes");
+    let StartupMode::Target(config) =
+        parse_startup_args(startup_args("1", &root)).expect("target startup parses")
+    else {
+        panic!("target startup must select target runtime");
+    };
+    let mut runtime = TargetRuntime::new(config);
+    let hello = runtime.handle(target_node_hello("generation-1"));
+    assert!(matches!(
+        hello.outbound.as_slice(),
+        [TargetMessage::AnalyzerHello(_)]
+    ));
+    let mut request = TargetAnalyzeRequest::new(
+        request_id,
+        job_id,
+        "conversation-1",
+        TargetAnalyzeMode::Preview,
+    );
+    request.resource_limits = Some(resource_limits);
+    let accepted = runtime.handle(TargetMessage::Analyze(request));
+    assert!(accepted.outbound.is_empty());
+    assert_eq!(
+        runtime
+            .active_request()
+            .map(|request| request.request_id.as_str()),
+        Some(request_id)
+    );
+    runtime
+}
+
+fn target_action_error(
+    action: codex_rollout_collector::protocol::TargetRuntimeAction,
+    expected_code: &str,
+) -> TargetErrorMessage {
+    assert_eq!(action.outbound.len(), 1);
+    target_error(
+        action.outbound.into_iter().next().expect("runtime error"),
+        expected_code,
+    )
+}
+
+fn target_history_item(
+    event_id: &str,
+    item_key: &str,
+    conversation_id: Option<&str>,
+    source_identity: &str,
+    byte_start: u64,
+    byte_end: u64,
+    line: u64,
+) -> AnalysisEvent {
+    AnalysisEvent::UserMessage {
+        metadata: EventMetadata {
+            event_id: event_id.to_string(),
+            item_key: item_key.to_string(),
+            correlation_id: None,
+            related_item_key: None,
+            conversation_id: conversation_id.map(|id| id.to_string()),
+            turn_id: Some("turn-1".to_string()),
+            timestamp: Some("2026-08-26T00:00:00Z".to_string()),
+            sequence: line,
+            availability: Availability::Present,
+            terminal_evidence: None,
+            identity_origin: Default::default(),
+            source_ref: target_source_ref(source_identity, byte_start, byte_end, line),
+        },
+        text: "history item".to_string(),
+    }
+}
+
+fn target_history_batch() -> TargetAnalysisBatch {
+    let mut batch = target_partial_batch();
+    batch.source_range = Some(TargetSourceByteRange::new(0, 100).expect("batch source range"));
+    batch.history_items = vec![target_history_item(
+        "event-1",
+        "item-1",
+        Some("conversation-1"),
+        "source-1",
+        10,
+        20,
+        1,
+    )];
+    batch
+}
+
+fn target_source_ref(identity: &str, byte_start: u64, byte_end: u64, line: u64) -> SourceRef {
+    SourceRef {
+        source_identity: identity.to_string(),
+        byte_start,
+        byte_end,
+        physical_line_ordinal: line,
+        rollout_ordinal: Some(line),
+        timestamp: Some("2026-08-26T00:00:00Z".to_string()),
+        item_type: Some("event_msg".to_string()),
+    }
+}
+
+fn target_replacement() -> LastTurnReplacement {
+    LastTurnReplacement::new(
+        "conversation-1",
+        "parent-rollout",
+        "child-rollout",
+        "old-turn",
+        "new-turn",
+        TurnStatus::Completed,
+        HistoryBaseRef::new("parent-rollout", 14, 128).expect("replacement cut"),
+        target_source_ref("parent-rollout", 128, 140, 14),
+        target_source_ref("parent-rollout", 512, 520, 20),
+        target_source_ref("child-rollout", 700, 710, 18),
+    )
+}
+
+fn target_lineage_evidence() -> (
+    HistoryBaseRef,
+    Vec<TargetLineageTransition>,
+    TargetLineageCoverage,
+) {
+    let history_base = HistoryBaseRef::new("parent-rollout", 14, 128).expect("lineage cut");
+    let transition = TargetLineageTransition {
+        parent_rollout_id: "parent-rollout".to_string(),
+        child_rollout_id: "child-rollout".to_string(),
+        history_base: history_base.clone(),
+        validation_state: TargetLineageValidationState::Validated,
+    };
+    let coverage = TargetLineageCoverage {
+        root_rollout_id: "parent-rollout".to_string(),
+        active_head_rollout_id: "child-rollout".to_string(),
+        chain_rollout_ids: vec!["parent-rollout".to_string(), "child-rollout".to_string()],
+        covered_source_count: 2,
+        complete: true,
+    };
+    (history_base, vec![transition], coverage)
+}
+
+fn target_lineage_checkpoint() -> TargetLineageCheckpoint {
+    let coverage = target_lineage_evidence().2;
+    TargetLineageCheckpoint {
+        schema_version: 1,
+        conversation_id: "conversation-1".to_string(),
+        root_rollout_id: coverage.root_rollout_id.clone(),
+        active_head_rollout_id: coverage.active_head_rollout_id.clone(),
+        chain_rollout_ids: coverage.chain_rollout_ids.clone(),
+        start_date: Some("2026-08-26".to_string()),
+        end_date: Some("2026-08-26".to_string()),
+        coverage,
+    }
+}
+
+fn target_canonical_lineage_batch() -> TargetAnalysisBatch {
+    let (history_base, transitions, coverage) = target_lineage_evidence();
+    let mut batch = target_canonical_batch();
+    batch.history_base = Some(history_base);
+    batch.lineage_transitions = transitions;
+    batch.lineage_coverage = Some(coverage);
+    batch.lineage_checkpoint = Some(target_lineage_checkpoint());
+    batch
+}
+
+fn target_upsert_batch() -> TargetAnalysisBatch {
+    let mut batch = target_partial_batch();
+    batch.source_range = Some(TargetSourceByteRange::new(0, 100).expect("batch source range"));
+    batch.usage = Some(json!({"total_tokens": 1}));
+    batch.tool_details = vec![TargetToolDetail {
+        item_key: "tool-1".to_string(),
+        call_id: "call-1".to_string(),
+        tool_kind: "shell".to_string(),
+        input: None,
+        output: None,
+        completeness: TargetCompleteness::Partial,
+        source_epoch: "epoch-1".to_string(),
+    }];
+    batch.task_outcomes = vec![TargetTaskOutcome {
+        item_key: "outcome-1".to_string(),
+        status: "completed".to_string(),
+        message: None,
+        completeness: TargetCompleteness::Partial,
+        source_epoch: "epoch-1".to_string(),
+    }];
+    batch.mutations.push(TargetMutation::UpsertItem {
+        item: TargetBatchSourceRef {
+            item_key: "item-1".to_string(),
+            content_hash: "hash-1".to_string(),
+            completeness: TargetCompleteness::Partial,
+            source_epoch: "epoch-1".to_string(),
+            source_ref: target_source_ref("source-1", 10, 20, 1),
+        },
+    });
+    batch
+}
+
+fn target_checkpoint(
+    request_id: &str,
+    job_id: &str,
+    completeness: TargetCompleteness,
+) -> TargetAnalyzerCheckpoint {
+    let mut checkpoint = TargetAnalyzerCheckpoint {
+        schema_version: 1,
+        job_id: job_id.to_string(),
+        request_id: request_id.to_string(),
+        conversation_id: "conversation-1".to_string(),
+        source: TargetCheckpointSource {
+            source_id: "source-1".to_string(),
+            source_epoch: "epoch-1".to_string(),
+            source_range: None,
+            snapshot_boundary: TargetSnapshotBoundary::physical_bytes(0),
+        },
+        reader: TargetCheckpointReader {
+            backend: "target-reader".to_string(),
+            version: "target-reader-v1".to_string(),
+            source_kind: TargetSourceKind::Rollout,
+            compression: TargetSourceCompression::PlainJsonl,
+        },
+        wire_profile: TargetCheckpointWireProfile {
+            parser_backend: "target-parser".to_string(),
+            wire_source_revision: "wire-v1".to_string(),
+            compatibility_profile: json!("current"),
+        },
+        cursor_kind: None,
+        cursor: None,
+        segment: TargetCheckpointSegment {
+            source_range: None,
+            physical_line_start: None,
+            physical_line_end: None,
+            rollout_ordinal: None,
+        },
+        reducer_state: TargetReducerCheckpointState::from_payload(
+            json!({"active_turn_id": null}),
+            "target-v1",
+        )
+        .expect("target reducer state"),
+        projection_watermark: TargetProjectionWatermark {
+            schema_version: 1,
+            segment_id: "segment-1".to_string(),
+            batch_id: "batch-1".to_string(),
+            source_id: Some("source-1".to_string()),
+            source_epoch: "epoch-1".to_string(),
+            complete_source_end: None,
+            logical_item_count: 0,
+        },
+        completeness,
+        lineage_checkpoint: None,
+    };
+    if completeness == TargetCompleteness::Canonical {
+        let cursor = target_cursor(TargetCursorKind::ForwardAppend);
+        checkpoint.source.source_range = Some(cursor.complete_range);
+        checkpoint.source.snapshot_boundary = cursor.snapshot_boundary;
+        checkpoint.cursor_kind = Some(cursor.cursor_kind);
+        checkpoint.cursor = Some(cursor.clone());
+        checkpoint.segment.source_range = Some(cursor.complete_range);
+        checkpoint.projection_watermark.complete_source_end = Some(cursor.complete_range.end);
+    }
+    checkpoint
+}
+
+fn target_checkpoint_value(
+    request_id: &str,
+    job_id: &str,
+    completeness: TargetCompleteness,
+) -> serde_json::Value {
+    serde_json::to_value(target_checkpoint(request_id, job_id, completeness))
+        .expect("target checkpoint value")
+}
+
+fn target_cursor(kind: TargetCursorKind) -> TargetAnalyzerCursor {
+    TargetAnalyzerCursor {
+        schema_version: 1,
+        reader_backend: "target-reader".to_string(),
+        reader_version: "target-reader-v1".to_string(),
+        cursor_kind: kind,
+        conversation_id: "conversation-1".to_string(),
+        source_id: "source-1".to_string(),
+        source_epoch: "epoch-1".to_string(),
+        source_kind: TargetSourceKind::Rollout,
+        compression: TargetSourceCompression::PlainJsonl,
+        snapshot_boundary: TargetSnapshotBoundary::physical_bytes(100),
+        complete_range: TargetSourceByteRange::new(0, 100).expect("cursor range"),
+        last_complete_line: None,
+        last_rollout_ordinal: Some(1),
+        capabilities: TargetCursorCapabilities {
+            forward_stream: true,
+            tail_preview: true,
+            backward_segments: true,
+            append: true,
+            random_seek: false,
+        },
+    }
+}
+
+fn target_checkpoint_with_cursor() -> (TargetAnalyzerCheckpoint, TargetAnalyzerCursor) {
+    let cursor = target_cursor(TargetCursorKind::ForwardAppend);
+    let mut checkpoint = target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    checkpoint.source.source_range = Some(cursor.complete_range);
+    checkpoint.source.snapshot_boundary = cursor.snapshot_boundary;
+    checkpoint.cursor_kind = Some(cursor.cursor_kind);
+    checkpoint.cursor = Some(cursor.clone());
+    checkpoint.segment.source_range = Some(cursor.complete_range);
+    checkpoint.projection_watermark.complete_source_end = Some(cursor.complete_range.end);
+    (checkpoint, cursor)
+}
+
+#[test]
+fn target_hello_is_directional_and_capability_intersection_is_fail_closed() {
+    let node = TargetNodeHello::new("hello-1", ["analyze", "cancel", "checkpoint", "ack"]);
+    let analyzer = TargetAnalyzerHello::respond_to(
+        &node,
+        "analyzer-4.5",
+        target_base_capabilities(),
+        "target-parser",
+        "target-compat",
+    );
+
+    assert_eq!(node.role, TargetRole::Node);
+    assert_eq!(analyzer.role, TargetRole::Analyzer);
+    assert_eq!(analyzer.header.request_id, "hello-1");
+    let intersection = negotiate_capabilities(&node.capabilities, &analyzer.capabilities)
+        .expect("the canonical base capabilities intersect");
+    assert!(intersection.supports(TARGET_ANALYZE_CAPABILITY));
+    assert!(!intersection.supports("preview"));
+
+    let encoded = TargetMessage::NodeHello(node.clone())
+        .to_json_line()
+        .expect("node hello serializes");
+    assert!(!encoded.contains("source_spec"));
+    assert!(!encoded.contains("replay"));
+    assert_eq!(
+        TargetMessage::parse_line(&encoded).expect("node hello parses"),
+        TargetMessage::NodeHello(node)
+    );
+
+    let analyzer_encoded = TargetMessage::AnalyzerHello(analyzer.clone())
+        .to_json_line()
+        .expect("analyzer hello serializes");
+    assert_eq!(
+        TargetMessage::parse_line(&analyzer_encoded).expect("analyzer hello parses"),
+        TargetMessage::AnalyzerHello(analyzer)
+    );
+}
+
+#[test]
+fn target_capability_mismatch_and_mode_errors_fail_closed() {
+    let missing = negotiate_capabilities(
+        &[
+            TARGET_ANALYZE_CAPABILITY.to_string(),
+            TARGET_CANCEL_CAPABILITY.to_string(),
+        ],
+        &target_base_capabilities()
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>(),
+    )
+    .expect_err("missing checkpoint and ack must fail the handshake");
+    assert!(matches!(
+        missing,
+        TargetProtocolError::CapabilityMismatch { .. }
+    ));
+
+    let invalid_mode = r#"{
+        "protocol_version": 1,
+        "message_type": "analyze",
+        "request_id": "request-1",
+        "job_id": "job-1",
+        "conversation_id": "conversation-1",
+        "mode": "replay"
+    }"#;
+    assert!(TargetMessage::parse_line(invalid_mode).is_err());
+
+    let missing_job = r#"{
+        "protocol_version": 1,
+        "message_type": "analyze",
+        "request_id": "request-1",
+        "conversation_id": "conversation-1",
+        "mode": "preview"
+    }"#;
+    assert!(TargetMessage::parse_line(missing_job).is_err());
+}
+
+#[test]
+fn target_analyze_round_trip_ignores_unknown_legacy_fields_without_emitting_them() {
+    let mut request = TargetAnalyzeRequest::new(
+        "request-1",
+        "job-1",
+        "conversation-1",
+        TargetAnalyzeMode::Append,
+    );
+    request.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: Some(4096),
+        max_line_bytes: Some(1024),
+        max_segment_bytes: Some(2048),
+        tail_bytes: Some(512),
+        timeout_ms: Some(1000),
+    });
+    request.recovery = Some(codex_rollout_collector::protocol::TargetRecovery {
+        segment_id: "segment-1".to_string(),
+        batch_id: "batch-1".to_string(),
+    });
+
+    let line = TargetMessage::Analyze(request.clone())
+        .to_json_line()
+        .expect("target analyze serializes");
+    let value: serde_json::Value = serde_json::from_str(&line).expect("serialized JSON");
+    assert_eq!(value["mode"], "append");
+    assert!(value.get("source_spec").is_none());
+    assert!(value.get("discovery").is_none());
+    assert!(value.get("retention_profile").is_none());
+    assert!(value.get("replay").is_none());
+    assert!(value.get("revision").is_none());
+    assert_eq!(
+        TargetMessage::parse_line(&line).expect("target analyze parses"),
+        TargetMessage::Analyze(request)
+    );
+
+    let mut legacy_annotated = value;
+    legacy_annotated["source_spec"] = json!({"path": "must-not-drive-target"});
+    legacy_annotated["replay"] = json!(true);
+    legacy_annotated["legacy_field"] = json!("additive");
+    let parsed = TargetMessage::parse_line(
+        &serde_json::to_string(&legacy_annotated).expect("legacy annotated JSON"),
+    )
+    .expect("unknown additive fields are ignored at the target boundary");
+    let reparsed = parsed.to_json_line().expect("parsed target reserializes");
+    assert!(!reparsed.contains("must-not-drive-target"));
+    assert!(!reparsed.contains("replay"));
+}
+
+#[test]
+fn target_analyze_cursor_and_persisted_anchor_must_match() {
+    let (checkpoint, cursor) = target_checkpoint_with_cursor();
+    let mut request = TargetAnalyzeRequest::new(
+        "request-1",
+        "job-1",
+        "conversation-1",
+        TargetAnalyzeMode::Append,
+    );
+    request.persisted_anchor = Some(checkpoint.clone());
+    assert!(
+        request.validate().is_err(),
+        "analyze cursor is required when persisted anchor carries a cursor"
+    );
+
+    request.cursor = Some(cursor.clone());
+    assert!(request.validate().is_ok());
+    let line = TargetMessage::Analyze(request.clone())
+        .to_json_line()
+        .expect("matching cursor and persisted anchor serialize");
+    let mut missing_request_cursor: serde_json::Value =
+        serde_json::from_str(&line).expect("analyze JSON");
+    missing_request_cursor
+        .as_object_mut()
+        .expect("analyze object")
+        .remove("cursor");
+    assert!(
+        serde_json::from_value::<TargetAnalyzeRequest>(missing_request_cursor.clone()).is_err(),
+        "direct analyze serde must reject a missing cursor when anchor has one"
+    );
+    assert!(
+        serde_json::from_value::<TargetMessage>(missing_request_cursor.clone()).is_err(),
+        "direct target message serde must reject the mismatched recovery pair"
+    );
+    assert!(
+        TargetMessage::parse_line(
+            &serde_json::to_string(&missing_request_cursor).expect("missing cursor JSON")
+        )
+        .is_err(),
+        "JSONL parse must reject the mismatched recovery pair"
+    );
+
+    let mut request_with_unexpected_cursor = TargetAnalyzeRequest::new(
+        "request-1",
+        "job-1",
+        "conversation-1",
+        TargetAnalyzeMode::Append,
+    );
+    request_with_unexpected_cursor.cursor = Some(cursor);
+    request_with_unexpected_cursor.persisted_anchor = Some(target_checkpoint(
+        "request-1",
+        "job-1",
+        TargetCompleteness::Partial,
+    ));
+    assert!(
+        request_with_unexpected_cursor.validate().is_err(),
+        "request cursor must also be rejected when persisted anchor cursor is null"
+    );
+}
+
+#[test]
+fn target_analyze_cursor_required_nullable_keys_cannot_be_omitted() {
+    let mut request = TargetAnalyzeRequest::new(
+        "request-1",
+        "job-1",
+        "conversation-1",
+        TargetAnalyzeMode::Append,
+    );
+    request.cursor = Some(target_cursor(TargetCursorKind::ForwardAppend));
+    let request_value = serde_json::to_value(&request).expect("target analyze request");
+
+    for key in ["last_complete_line", "last_rollout_ordinal"] {
+        let mut missing = request_value.clone();
+        missing["cursor"]
+            .as_object_mut()
+            .expect("cursor object")
+            .remove(key);
+        assert!(
+            serde_json::from_value::<TargetAnalyzerCursor>(missing["cursor"].clone()).is_err(),
+            "direct cursor serde must reject missing {key}"
+        );
+        assert!(
+            serde_json::from_value::<TargetAnalyzeRequest>(missing.clone()).is_err(),
+            "direct analyze serde must reject missing {key}"
+        );
+        assert!(
+            TargetMessage::parse_line(
+                &serde_json::to_string(&missing).expect("missing cursor JSON")
+            )
+            .is_err(),
+            "JSONL parse must reject missing {key}"
+        );
+    }
+
+    let mut explicit_null = request_value;
+    explicit_null["cursor"]["last_complete_line"] = json!(null);
+    explicit_null["cursor"]["last_rollout_ordinal"] = json!(null);
+    assert!(
+        serde_json::from_value::<TargetAnalyzerCursor>(explicit_null["cursor"].clone()).is_ok()
+    );
+    assert!(serde_json::from_value::<TargetAnalyzeRequest>(explicit_null.clone()).is_ok());
+    assert!(
+        TargetMessage::parse_line(
+            &serde_json::to_string(&explicit_null).expect("explicit null cursor JSON")
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn target_resource_limits_validate_numeric_shape_and_relationship() {
+    let mut request = TargetAnalyzeRequest::new(
+        "request-1",
+        "job-1",
+        "conversation-1",
+        TargetAnalyzeMode::Preview,
+    );
+    request.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: None,
+        max_line_bytes: Some(2048),
+        max_segment_bytes: Some(1024),
+        tail_bytes: None,
+        timeout_ms: None,
+    });
+    assert!(request.validate().is_err());
+
+    let invalid_type = r#"{
+        "protocol_version": 1,
+        "message_type": "analyze",
+        "request_id": "request-1",
+        "job_id": "job-1",
+        "conversation_id": "conversation-1",
+        "mode": "preview",
+        "resource_limits": {"timeout_ms": -1}
+    }"#;
+    assert!(TargetMessage::parse_line(invalid_type).is_err());
+}
+
+#[test]
+fn target_outer_identity_and_payload_boundary_are_validated() {
+    let valid = TargetBatchMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        target_partial_batch(),
+    );
+    let line = TargetMessage::Batch(valid.clone())
+        .to_json_line()
+        .expect("batch serializes");
+    assert_eq!(
+        TargetMessage::parse_line(&line).expect("batch parses"),
+        TargetMessage::Batch(valid)
+    );
+
+    let mut payload_with_outer_id =
+        serde_json::to_value(target_partial_batch()).expect("target payload serializes");
+    payload_with_outer_id["batch_id"] = json!("must-stay-outer");
+    let without_duplicate = TargetBatchMessage::from_payload_value(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        payload_with_outer_id,
+    )
+    .expect("payload ignores duplicate outer identity");
+    let without_duplicate_value: serde_json::Value = serde_json::from_str(
+        &TargetMessage::Batch(without_duplicate)
+            .to_json_line()
+            .unwrap(),
+    )
+    .expect("target batch JSON");
+    assert_eq!(without_duplicate_value["batch_id"], "batch-1");
+    assert!(without_duplicate_value["payload"].get("batch_id").is_none());
+
+    let missing_outer = r#"{
+        "protocol_version": 1,
+        "message_type": "batch",
+        "request_id": "request-1",
+        "job_id": "job-1",
+        "segment_id": "segment-1",
+        "payload": {}
+    }"#;
+    assert!(TargetMessage::parse_line(missing_outer).is_err());
+
+    let mut old_payload =
+        serde_json::to_value(target_partial_batch()).expect("target payload serializes");
+    old_payload["revision"] = json!(1);
+    let old_payload = TargetBatchMessage::from_payload_value(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        old_payload,
+    )
+    .expect("legacy revision is not target data");
+    let old_payload_value: serde_json::Value = serde_json::from_str(
+        &serde_json::to_string(&old_payload).expect("target batch serializes"),
+    )
+    .expect("target batch JSON");
+    assert!(old_payload_value["payload"].get("revision").is_none());
+}
+
+#[test]
+fn target_complete_accepts_legacy_ok_inbound_but_never_serializes_it() {
+    let cursor = target_cursor(TargetCursorKind::ForwardAppend);
+    let checkpoint = serde_json::to_value(target_checkpoint(
+        "request-1",
+        "job-1",
+        TargetCompleteness::Canonical,
+    ))
+    .expect("target checkpoint serializes");
+    let legacy_value = json!({
+        "protocol_version": 1,
+        "message_type": "complete",
+        "request_id": "request-1",
+        "job_id": "job-1",
+        "status": "ok",
+        "completeness": "canonical",
+        "next_cursor": cursor,
+        "checkpoint": checkpoint
+    });
+    let legacy_line = serde_json::to_string(&legacy_value).expect("legacy JSON serializes");
+    let parsed = TargetMessage::parse_line(&legacy_line).expect("legacy ok parses inbound");
+    let legacy_message = match parsed {
+        TargetMessage::Complete(message) => {
+            assert_eq!(message.status, TargetCompleteStatus::Ok);
+            message
+        }
+        other => panic!("expected complete message, got {other:?}"),
+    };
+
+    assert!(legacy_message.validate().is_ok());
+    assert!(legacy_message.validate_for_output().is_err());
+    assert!(serde_json::to_string(&legacy_message).is_err());
+    assert!(
+        TargetMessage::Complete(legacy_message)
+            .to_json_line()
+            .is_err()
+    );
+
+    for completeness in ["partial", "provisional", "unknown"] {
+        let invalid = json!({
+            "protocol_version": 1,
+            "message_type": "complete",
+            "request_id": "request-1",
+            "job_id": "job-1",
+            "status": "ok",
+            "completeness": completeness,
+            "next_cursor": null,
+            "checkpoint": target_checkpoint_value("request-1", "job-1", TargetCompleteness::Canonical)
+        });
+        assert!(
+            TargetMessage::parse_line(&serde_json::to_string(&invalid).expect("invalid JSON"))
+                .is_err(),
+            "ok + {completeness} must remain invalid"
+        );
+    }
+
+    let completed = TargetCompleteMessage::new(
+        "request-1",
+        "job-1",
+        TargetCompleteStatus::Completed,
+        TargetCompleteness::Canonical,
+        Some(target_cursor(TargetCursorKind::ForwardAppend)),
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical),
+    );
+    let encoded = TargetMessage::Complete(completed).to_json_line().unwrap();
+    assert!(encoded.contains(r#""status":"completed""#));
+    assert!(!encoded.contains(r#""status":"ok""#));
+}
+
+#[test]
+fn target_payload_and_checkpoint_drop_legacy_fields_without_using_them() {
+    let cursor = target_cursor(TargetCursorKind::ForwardAppend);
+    let mut payload = serde_json::to_value(target_partial_batch()).expect("target payload");
+    payload["revision"] = json!(1);
+    payload["replay"] = json!(true);
+    let batch = TargetBatchMessage::from_payload_value(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        payload,
+    )
+    .expect("legacy fields are ignored by typed target mapping");
+    let direct_batch_line = serde_json::to_string(&batch).expect("direct target batch serializes");
+    let direct_batch_value: serde_json::Value =
+        serde_json::from_str(&direct_batch_line).expect("target batch JSON");
+    assert!(direct_batch_value["payload"].get("revision").is_none());
+    assert!(direct_batch_value["payload"].get("replay").is_none());
+
+    let mut checkpoint =
+        target_checkpoint_value("request-1", "job-1", TargetCompleteness::Canonical);
+    checkpoint["fingerprint"] = json!("legacy");
+    checkpoint["prefix_anchor"] = json!("legacy");
+    checkpoint["replay"] = json!(true);
+    let complete_value = json!({
+        "protocol_version": 1,
+        "message_type": "complete",
+        "request_id": "request-1",
+        "job_id": "job-1",
+        "status": "completed",
+        "completeness": "canonical",
+        "next_cursor": cursor,
+        "checkpoint": checkpoint
+    });
+    let complete =
+        TargetMessage::parse_line(&serde_json::to_string(&complete_value).expect("complete JSON"))
+            .expect("legacy checkpoint fields are ignored by typed mapping");
+    let direct_complete_line =
+        serde_json::to_string(&complete).expect("direct complete serializes");
+    let direct_complete_value: serde_json::Value =
+        serde_json::from_str(&direct_complete_line).expect("complete JSON");
+    assert!(
+        direct_complete_value["checkpoint"]
+            .get("fingerprint")
+            .is_none()
+    );
+    assert!(
+        direct_complete_value["checkpoint"]
+            .get("prefix_anchor")
+            .is_none()
+    );
+    assert!(direct_complete_value["checkpoint"].get("replay").is_none());
+
+    let valid_batch = TargetBatchMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        target_partial_batch(),
+    );
+    let direct_batch_line =
+        serde_json::to_string(&valid_batch).expect("direct target batch serializes");
+    let batch_line = TargetMessage::Batch(valid_batch)
+        .to_json_line()
+        .expect("nested target payload serializes");
+
+    let valid_complete = TargetCompleteMessage::new(
+        "request-1",
+        "job-1",
+        TargetCompleteStatus::Completed,
+        TargetCompleteness::Canonical,
+        Some(target_cursor(TargetCursorKind::ForwardAppend)),
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical),
+    );
+    let direct_complete_line =
+        serde_json::to_string(&valid_complete).expect("direct target checkpoint serializes");
+    let complete_line = TargetMessage::Complete(valid_complete)
+        .to_json_line()
+        .expect("nested target checkpoint serializes");
+    assert!(!direct_batch_line.contains("source_spec"));
+    assert!(!direct_complete_line.contains("source_spec"));
+    assert!(!batch_line.contains("source_spec"));
+    assert!(!complete_line.contains("source_spec"));
+}
+
+#[test]
+fn target_required_nullable_keys_cannot_be_omitted() {
+    let mut missing_usage = serde_json::to_value(target_partial_batch()).expect("target payload");
+    missing_usage
+        .as_object_mut()
+        .expect("payload object")
+        .remove("usage");
+    assert!(
+        TargetBatchMessage::from_payload_value(
+            "request-1",
+            "job-1",
+            "segment-1",
+            "batch-1",
+            missing_usage,
+        )
+        .is_err(),
+        "missing usage must not be treated as explicit null"
+    );
+
+    let mut missing_next_cursor =
+        serde_json::to_value(target_partial_batch()).expect("target payload");
+    missing_next_cursor
+        .as_object_mut()
+        .expect("payload object")
+        .remove("next_cursor");
+    assert!(
+        TargetBatchMessage::from_payload_value(
+            "request-1",
+            "job-1",
+            "segment-1",
+            "batch-1",
+            missing_next_cursor,
+        )
+        .is_err(),
+        "missing next_cursor must not be treated as explicit null"
+    );
+
+    let mut missing_checkpoint_nullable =
+        target_checkpoint_value("request-1", "job-1", TargetCompleteness::Canonical);
+    missing_checkpoint_nullable["source"]
+        .as_object_mut()
+        .expect("checkpoint source object")
+        .remove("source_range");
+    let missing_checkpoint = json!({
+        "protocol_version": 1,
+        "message_type": "complete",
+        "request_id": "request-1",
+        "job_id": "job-1",
+        "status": "completed",
+        "completeness": "canonical",
+        "next_cursor": null,
+        "checkpoint": missing_checkpoint_nullable
+    });
+    assert!(
+        TargetMessage::parse_line(&serde_json::to_string(&missing_checkpoint).expect("JSON"))
+            .is_err(),
+        "missing checkpoint nullable key must fail closed"
+    );
+
+    let mut missing_complete_cursor = json!({
+        "protocol_version": 1,
+        "message_type": "complete",
+        "request_id": "request-1",
+        "job_id": "job-1",
+        "status": "partial",
+        "completeness": "partial",
+        "checkpoint": target_checkpoint_value(
+            "request-1",
+            "job-1",
+            TargetCompleteness::Partial
+        )
+    });
+    assert!(
+        serde_json::from_value::<TargetMessage>(missing_complete_cursor.clone()).is_err(),
+        "direct serde must reject missing complete next_cursor"
+    );
+    missing_complete_cursor["next_cursor"] = json!(null);
+    let complete = TargetMessage::parse_line(
+        &serde_json::to_string(&missing_complete_cursor).expect("explicit null JSON"),
+    )
+    .expect("explicit null next_cursor remains valid");
+    assert!(serde_json::to_string(&complete).is_ok());
+    assert!(complete.to_json_line().is_ok());
+}
+
+#[test]
+fn target_canonical_projection_and_transition_evidence_are_fail_closed() {
+    let mut partial_projection = target_canonical_batch();
+    partial_projection.projection = json!({"coverage": "partial"});
+    assert!(partial_projection.validate().is_err());
+
+    let mut unknown_projection = target_canonical_batch();
+    unknown_projection.projection = json!({"coverage": "unknown"});
+    assert!(unknown_projection.validate().is_err());
+
+    let (history_base, transitions, coverage) = target_lineage_evidence();
+    let replacement = target_replacement();
+    let mut missing_replacements = target_canonical_batch();
+    missing_replacements.history_base = Some(history_base.clone());
+    missing_replacements.lineage_transitions = transitions.clone();
+    missing_replacements.lineage_coverage = Some(coverage.clone());
+    missing_replacements.mutations.insert(
+        0,
+        TargetMutation::ReplaceLastTurn {
+            replacement: replacement.clone(),
+        },
+    );
+    assert!(missing_replacements.validate().is_err());
+
+    let mut mismatched_replacements = missing_replacements.clone();
+    let other_replacement = LastTurnReplacement::new(
+        "conversation-1",
+        "parent-rollout",
+        "child-rollout",
+        "old-turn-2",
+        "new-turn-2",
+        TurnStatus::Completed,
+        history_base.clone(),
+        target_source_ref("parent-rollout", 10, 20, 1),
+        target_source_ref("parent-rollout", 30, 40, 2),
+        target_source_ref("child-rollout", 50, 60, 1),
+    );
+    mismatched_replacements.replacements = vec![other_replacement];
+    assert!(mismatched_replacements.validate().is_err());
+
+    let mut valid = missing_replacements;
+    valid.replacements = vec![replacement];
+    assert!(valid.validate().is_ok());
+
+    let mut missing_history_base = target_canonical_batch();
+    missing_history_base.lineage_transitions = transitions.clone();
+    missing_history_base.lineage_coverage = Some(coverage.clone());
+    assert!(missing_history_base.validate().is_err());
+
+    let mut missing_lineage_coverage = target_canonical_batch();
+    missing_lineage_coverage.history_base = Some(history_base);
+    missing_lineage_coverage.lineage_transitions = transitions;
+    assert!(missing_lineage_coverage.validate().is_err());
+}
+
+#[test]
+fn target_canonical_batch_rejects_mark_partial_at_all_outbound_boundaries() {
+    let mut invalid = target_canonical_batch();
+    invalid
+        .mutations
+        .insert(0, TargetMutation::MarkPartial { source_range: None });
+    assert!(invalid.validate().is_err());
+
+    let direct_message = TargetBatchMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        invalid.clone(),
+    );
+    assert!(serde_json::to_string(&direct_message).is_err());
+    assert!(
+        TargetMessage::Batch(TargetBatchMessage::new(
+            "request-1",
+            "job-1",
+            "segment-1",
+            "batch-1",
+            invalid.clone(),
+        ))
+        .to_json_line()
+        .is_err()
+    );
+
+    let mut payload = serde_json::to_value(target_canonical_batch()).expect("canonical payload");
+    payload["mutations"]
+        .as_array_mut()
+        .expect("canonical mutations")
+        .insert(0, json!({"mutation": "mark_partial", "source_range": null}));
+    assert!(
+        TargetBatchMessage::from_payload_value(
+            "request-1",
+            "job-1",
+            "segment-1",
+            "batch-1",
+            payload.clone(),
+        )
+        .is_err()
+    );
+    let envelope = json!({
+        "protocol_version": 1,
+        "message_type": "batch",
+        "request_id": "request-1",
+        "job_id": "job-1",
+        "segment_id": "segment-1",
+        "batch_id": "batch-1",
+        "payload": payload,
+    });
+    assert!(
+        TargetMessage::parse_line(&serde_json::to_string(&envelope).expect("batch JSON")).is_err()
+    );
+}
+
+#[test]
+fn target_history_items_require_identity_binding_and_batch_source_scope() {
+    let valid = target_history_batch();
+    assert!(valid.validate().is_ok());
+    let valid_payload = serde_json::to_value(&valid).expect("valid history payload");
+    assert!(
+        TargetBatchMessage::from_payload_value(
+            "request-1",
+            "job-1",
+            "segment-1",
+            "batch-1",
+            valid_payload.clone(),
+        )
+        .is_ok()
+    );
+    assert!(
+        serde_json::to_string(&TargetBatchMessage::new(
+            "request-1",
+            "job-1",
+            "segment-1",
+            "batch-1",
+            valid.clone(),
+        ))
+        .is_ok()
+    );
+    assert!(
+        TargetMessage::Batch(TargetBatchMessage::new(
+            "request-1",
+            "job-1",
+            "segment-1",
+            "batch-1",
+            valid.clone(),
+        ))
+        .to_json_line()
+        .is_ok()
+    );
+    let valid_envelope = json!({
+        "protocol_version": 1,
+        "message_type": "batch",
+        "request_id": "request-1",
+        "job_id": "job-1",
+        "segment_id": "segment-1",
+        "batch_id": "batch-1",
+        "payload": valid_payload,
+    });
+    assert!(
+        TargetMessage::parse_line(
+            &serde_json::to_string(&valid_envelope).expect("valid batch JSON")
+        )
+        .is_ok()
+    );
+
+    let mut missing_event_id = valid.clone();
+    missing_event_id.history_items[0]
+        .metadata_mut()
+        .event_id
+        .clear();
+    let mut mismatched_conversation = valid.clone();
+    mismatched_conversation.history_items[0]
+        .metadata_mut()
+        .conversation_id = Some("conversation-other".to_string());
+    let mut out_of_scope = valid.clone();
+    out_of_scope.history_items[0]
+        .metadata_mut()
+        .source_ref
+        .byte_start = 101;
+    out_of_scope.history_items[0]
+        .metadata_mut()
+        .source_ref
+        .byte_end = 110;
+
+    for (label, invalid) in [
+        ("empty event_id", missing_event_id),
+        ("mismatched conversation_id", mismatched_conversation),
+        ("same-source out-of-scope source_ref", out_of_scope),
+    ] {
+        assert!(!invalid.validate().is_ok(), "{label} must fail validation");
+        let payload = serde_json::to_value(&invalid).expect("invalid payload remains encodable");
+        assert!(
+            TargetBatchMessage::from_payload_value(
+                "request-1",
+                "job-1",
+                "segment-1",
+                "batch-1",
+                payload.clone(),
+            )
+            .is_err(),
+            "{label} must fail payload validation"
+        );
+        assert!(
+            serde_json::to_string(&TargetBatchMessage::new(
+                "request-1",
+                "job-1",
+                "segment-1",
+                "batch-1",
+                invalid.clone(),
+            ))
+            .is_err(),
+            "{label} must fail direct serialization"
+        );
+        assert!(
+            TargetMessage::Batch(TargetBatchMessage::new(
+                "request-1",
+                "job-1",
+                "segment-1",
+                "batch-1",
+                invalid,
+            ))
+            .to_json_line()
+            .is_err(),
+            "{label} must fail JSONL serialization"
+        );
+        let envelope = json!({
+            "protocol_version": 1,
+            "message_type": "batch",
+            "request_id": "request-1",
+            "job_id": "job-1",
+            "segment_id": "segment-1",
+            "batch_id": "batch-1",
+            "payload": payload,
+        });
+        assert!(
+            TargetMessage::parse_line(
+                &serde_json::to_string(&envelope).expect("invalid batch JSON")
+            )
+            .is_err(),
+            "{label} must fail JSONL parsing"
+        );
+    }
+
+    let mut optional_conversation = valid.clone();
+    optional_conversation.history_items[0]
+        .metadata_mut()
+        .conversation_id = None;
+    assert!(optional_conversation.validate().is_ok());
+
+    let mut lineage_source = optional_conversation;
+    lineage_source.history_items[0]
+        .metadata_mut()
+        .source_ref
+        .source_identity = "lineage-source".to_string();
+    assert!(lineage_source.validate().is_ok());
+}
+
+#[test]
+fn target_lineage_checkpoint_requires_bound_matching_validated_evidence() {
+    let checkpoint = target_lineage_checkpoint();
+    let mut standalone = target_canonical_batch();
+    standalone.lineage_checkpoint = Some(checkpoint.clone());
+    assert!(standalone.validate().is_err());
+
+    let (history_base, transitions, coverage) = target_lineage_evidence();
+    let mut valid = target_canonical_batch();
+    valid.history_base = Some(history_base);
+    valid.lineage_transitions = transitions;
+    valid.lineage_coverage = Some(coverage);
+    valid.lineage_checkpoint = Some(checkpoint);
+    assert!(valid.validate().is_ok());
+
+    let mut analyzer_checkpoint =
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    analyzer_checkpoint.lineage_checkpoint = Some(target_lineage_checkpoint());
+    assert!(analyzer_checkpoint.validate().is_ok());
+
+    let mut mismatched = valid.clone();
+    mismatched
+        .lineage_checkpoint
+        .as_mut()
+        .expect("lineage checkpoint")
+        .coverage
+        .active_head_rollout_id = "other-head".to_string();
+    assert!(mismatched.validate().is_err());
+
+    let mut checkpoint_shape = target_lineage_checkpoint();
+    checkpoint_shape.active_head_rollout_id = "other-head".to_string();
+    assert!(checkpoint_shape.validate().is_err());
+
+    let mut mismatched_analyzer_checkpoint =
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    mismatched_analyzer_checkpoint.lineage_checkpoint = Some(checkpoint_shape);
+    assert!(mismatched_analyzer_checkpoint.validate().is_err());
+}
+
+#[test]
+fn target_batch_lineage_checkpoint_required_nullable_keys_cannot_be_omitted() {
+    let valid_batch = target_canonical_lineage_batch();
+    assert!(valid_batch.validate().is_ok());
+    let payload = serde_json::to_value(&valid_batch).expect("target lineage batch");
+
+    for key in ["start_date", "end_date"] {
+        let mut missing = payload.clone();
+        missing["lineage_checkpoint"]
+            .as_object_mut()
+            .expect("lineage checkpoint object")
+            .remove(key);
+        assert!(
+            serde_json::from_value::<TargetLineageCheckpoint>(
+                missing["lineage_checkpoint"].clone()
+            )
+            .is_err(),
+            "direct lineage checkpoint serde must reject missing {key}"
+        );
+        assert!(
+            serde_json::from_value::<TargetAnalysisBatch>(missing.clone()).is_err(),
+            "direct batch serde must reject missing {key}"
+        );
+        assert!(
+            TargetBatchMessage::from_payload_value(
+                "request-1",
+                "job-1",
+                "segment-1",
+                "batch-1",
+                missing.clone(),
+            )
+            .is_err(),
+            "payload adapter must reject missing {key}"
+        );
+        let envelope = json!({
+            "protocol_version": 1,
+            "message_type": "batch",
+            "request_id": "request-1",
+            "job_id": "job-1",
+            "segment_id": "segment-1",
+            "batch_id": "batch-1",
+            "payload": missing,
+        });
+        assert!(
+            TargetMessage::parse_line(
+                &serde_json::to_string(&envelope).expect("missing lineage checkpoint JSON")
+            )
+            .is_err(),
+            "JSONL parse must reject missing {key}"
+        );
+    }
+
+    let mut explicit_null = payload;
+    explicit_null["lineage_checkpoint"]["start_date"] = json!(null);
+    explicit_null["lineage_checkpoint"]["end_date"] = json!(null);
+    assert!(
+        serde_json::from_value::<TargetLineageCheckpoint>(
+            explicit_null["lineage_checkpoint"].clone()
+        )
+        .is_ok()
+    );
+    assert!(serde_json::from_value::<TargetAnalysisBatch>(explicit_null.clone()).is_ok());
+    assert!(
+        TargetBatchMessage::from_payload_value(
+            "request-1",
+            "job-1",
+            "segment-1",
+            "batch-1",
+            explicit_null.clone(),
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn target_lineage_transition_and_replacement_validation_state_are_fail_closed() {
+    let (_history_base, mut transitions, _coverage) = target_lineage_evidence();
+    transitions[0].history_base.parent_rollout_id = "wrong-parent".to_string();
+    assert!(transitions[0].validate().is_err());
+
+    let (history_base, mut unavailable, coverage) = target_lineage_evidence();
+    unavailable[0].validation_state = TargetLineageValidationState::ValidationUnavailable;
+    let mut canonical = target_canonical_batch();
+    canonical.history_base = Some(history_base.clone());
+    canonical.lineage_transitions = unavailable.clone();
+    canonical.lineage_coverage = Some(coverage.clone());
+    assert!(canonical.validate().is_err());
+
+    let mut partial = target_partial_batch();
+    partial.history_base = Some(history_base);
+    partial.lineage_transitions = unavailable;
+    partial.lineage_coverage = Some(TargetLineageCoverage {
+        complete: false,
+        ..coverage
+    });
+    assert!(partial.validate().is_ok());
+
+    let mut replacement = target_canonical_batch();
+    let valid_replacement = target_replacement();
+    replacement.history_base =
+        Some(HistoryBaseRef::new("parent-rollout", 14, 128).expect("replacement history base"));
+    replacement.lineage_transitions = vec![TargetLineageTransition {
+        parent_rollout_id: "parent-rollout".to_string(),
+        child_rollout_id: "child-rollout".to_string(),
+        history_base: replacement.history_base.clone().expect("history base"),
+        validation_state: TargetLineageValidationState::Validated,
+    }];
+    replacement.lineage_coverage = Some(TargetLineageCoverage {
+        root_rollout_id: "parent-rollout".to_string(),
+        active_head_rollout_id: "child-rollout".to_string(),
+        chain_rollout_ids: vec!["parent-rollout".to_string(), "child-rollout".to_string()],
+        covered_source_count: 2,
+        complete: true,
+    });
+    replacement.mutations.insert(
+        0,
+        TargetMutation::ReplaceLastTurn {
+            replacement: valid_replacement.clone(),
+        },
+    );
+    replacement.replacements = vec![valid_replacement];
+    replacement.lineage_transitions[0].validation_state =
+        TargetLineageValidationState::ValidationUnavailable;
+    assert!(replacement.validate().is_err());
+}
+
+#[test]
+fn target_replacement_matches_cut_order_and_terminal_status_contract() {
+    let (history_base, transitions, coverage) = target_lineage_evidence();
+    let replacement = target_replacement();
+    let mut valid = target_canonical_batch();
+    valid.history_base = Some(history_base);
+    valid.lineage_transitions = transitions;
+    valid.lineage_coverage = Some(coverage);
+    valid.mutations.insert(
+        0,
+        TargetMutation::ReplaceLastTurn {
+            replacement: replacement.clone(),
+        },
+    );
+    valid.replacements = vec![replacement.clone()];
+    assert!(valid.validate().is_ok());
+
+    let mut wrong_cut_start = valid.clone();
+    if let TargetMutation::ReplaceLastTurn { replacement } = &mut wrong_cut_start.mutations[0] {
+        replacement.parent_turn_start_source_ref.byte_start = 127;
+    }
+    assert!(wrong_cut_start.validate().is_err());
+
+    let mut terminal_before_start = valid.clone();
+    if let TargetMutation::ReplaceLastTurn { replacement } = &mut terminal_before_start.mutations[0]
+    {
+        replacement.parent_turn_terminal_source_ref.rollout_ordinal = Some(13);
+    }
+    terminal_before_start.replacements[0]
+        .parent_turn_terminal_source_ref
+        .rollout_ordinal = Some(13);
+    assert!(terminal_before_start.validate().is_err());
+
+    let mut partial_terminal = valid;
+    if let TargetMutation::ReplaceLastTurn { replacement } = &mut partial_terminal.mutations[0] {
+        replacement.replaced_turn_terminal_status = TurnStatus::Partial;
+    }
+    partial_terminal.replacements[0].replaced_turn_terminal_status = TurnStatus::Partial;
+    assert!(partial_terminal.validate().is_err());
+}
+
+#[test]
+fn target_upsert_mutations_require_matching_source_evidence() {
+    let valid = target_upsert_batch();
+    assert!(valid.validate().is_ok());
+
+    let mut reversed_range = valid.clone();
+    if let TargetMutation::UpsertItem { item } = &mut reversed_range.mutations[1] {
+        item.source_ref.byte_start = 20;
+        item.source_ref.byte_end = 10;
+    }
+    assert!(reversed_range.validate().is_err());
+
+    let mut zero_line = valid.clone();
+    if let TargetMutation::UpsertItem { item } = &mut zero_line.mutations[1] {
+        item.source_ref.physical_line_ordinal = 0;
+    }
+    assert!(zero_line.validate().is_err());
+
+    let mut mismatched_epoch = valid.clone();
+    if let TargetMutation::UpsertItem { item } = &mut mismatched_epoch.mutations[1] {
+        item.source_epoch = "epoch-other".to_string();
+    }
+    assert!(mismatched_epoch.validate().is_err());
+
+    let mut mismatched_completeness = valid.clone();
+    if let TargetMutation::UpsertItem { item } = &mut mismatched_completeness.mutations[1] {
+        item.completeness = TargetCompleteness::Canonical;
+    }
+    assert!(mismatched_completeness.validate().is_err());
+
+    let mut out_of_scope = valid;
+    if let TargetMutation::UpsertItem { item } = &mut out_of_scope.mutations[1] {
+        item.source_ref.byte_start = 101;
+        item.source_ref.byte_end = 110;
+    }
+    assert!(out_of_scope.validate().is_err());
+}
+
+#[test]
+fn target_checkpoint_scope_segment_and_profile_validation_are_strict() {
+    let cursor = target_cursor(TargetCursorKind::ForwardAppend);
+    let scope = TargetSourceScope::from_cursor(&cursor);
+    let mut ordinal_mismatch = cursor.clone();
+    ordinal_mismatch.last_rollout_ordinal = Some(2);
+    assert!(scope.matches_cursor(&ordinal_mismatch).is_err());
+
+    let mut line_mismatch = cursor.clone();
+    line_mismatch.last_complete_line = Some(TargetCompleteLineBoundary {
+        physical_line_ordinal: 1,
+        byte_start: 0,
+        byte_end: 100,
+    });
+    assert!(scope.matches_cursor(&line_mismatch).is_err());
+
+    let mut zero_line = target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    zero_line.segment.physical_line_start = Some(0);
+    zero_line.segment.physical_line_end = Some(0);
+    assert!(zero_line.validate().is_err());
+
+    let mut empty_profile = target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    empty_profile.wire_profile.compatibility_profile = json!("");
+    assert!(empty_profile.validate().is_err());
+
+    let mut invalid_profile =
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    invalid_profile.wire_profile.compatibility_profile = json!({});
+    assert!(invalid_profile.validate().is_err());
+
+    let mut reader_mismatch =
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    reader_mismatch.source.source_range = Some(cursor.complete_range);
+    reader_mismatch.source.snapshot_boundary = cursor.snapshot_boundary;
+    reader_mismatch.segment.source_range = Some(cursor.complete_range);
+    reader_mismatch.cursor_kind = Some(cursor.cursor_kind);
+    reader_mismatch.cursor = Some(cursor);
+    reader_mismatch.reader.backend = "different-reader".to_string();
+    assert!(reader_mismatch.validate().is_err());
+}
+
+#[test]
+fn target_identity_and_checkpoint_round_trip_preserve_retry_scope() {
+    let identity = TargetDeliveryIdentity::new("job-1", "segment-1", "batch-1");
+    let retry_identity = TargetDeliveryIdentity::new("job-1", "segment-1", "batch-1");
+    identity.validate().expect("delivery identity validates");
+    identity
+        .matches(&retry_identity)
+        .expect("retry keeps delivery identity");
+
+    let checkpoint = target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    checkpoint.validate().expect("checkpoint validates");
+    let encoded = serde_json::to_vec(&checkpoint).expect("checkpoint serializes");
+    let restored: TargetAnalyzerCheckpoint =
+        serde_json::from_slice(&encoded).expect("checkpoint round trips");
+    assert_eq!(restored, checkpoint);
+    assert_eq!(restored.job_id, identity.job_id);
+    assert_eq!(restored.projection_watermark.batch_id, identity.batch_id);
+}
+
+#[test]
+fn target_checkpoint_rejects_cursor_kind_and_source_scope_mismatch() {
+    let cursor = target_cursor(TargetCursorKind::ForwardAppend);
+    let mut checkpoint = target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    checkpoint.source.source_range = Some(cursor.complete_range);
+    checkpoint.source.snapshot_boundary = cursor.snapshot_boundary;
+    checkpoint.segment.source_range = Some(cursor.complete_range);
+    checkpoint.cursor_kind = Some(cursor.cursor_kind);
+    checkpoint.cursor = Some(cursor.clone());
+    checkpoint.validate().expect("matching cursor validates");
+
+    checkpoint.cursor_kind = Some(TargetCursorKind::Backfill);
+    assert!(
+        checkpoint.validate().is_err(),
+        "cursor kind mismatch must fail"
+    );
+
+    checkpoint.cursor_kind = Some(cursor.cursor_kind);
+    checkpoint.cursor = Some(TargetAnalyzerCursor {
+        source_epoch: "different-epoch".to_string(),
+        ..cursor
+    });
+    assert!(
+        checkpoint.validate().is_err(),
+        "source scope mismatch must fail"
+    );
+
+    let scope = TargetSourceScope::from_cursor(&target_cursor(TargetCursorKind::ForwardAppend));
+    let mut mismatched = target_cursor(TargetCursorKind::ForwardAppend);
+    mismatched.source_id = "other-source".to_string();
+    assert!(scope.matches_cursor(&mismatched).is_err());
+}
+
+#[test]
+fn target_mapping_from_analysis_batch_keeps_identity_and_drops_legacy_revision() {
+    let mut legacy =
+        codex_rollout_collector::protocol::AnalysisBatch::empty(CompatibilityProfile::Current);
+    legacy.source_id = Some("source-1".to_string());
+    legacy.complete = false;
+    legacy.completeness = BatchCompleteness::Partial;
+
+    let mapped = TargetAnalysisBatch::from_analysis_batch(
+        legacy,
+        codex_rollout_collector::protocol::TargetBatchMappingContext {
+            conversation_id: "conversation-1".to_string(),
+            source_id: "source-1".to_string(),
+            source_epoch: "epoch-1".to_string(),
+            source_range: None,
+            projection: json!({"coverage": "partial"}),
+            tool_details: Vec::new(),
+            usage: None,
+            task_outcomes: Vec::new(),
+            progress: TargetProgress::default(),
+            next_cursor: None,
+            mutations: vec![TargetMutation::MarkPartial { source_range: None }],
+            reducer_state: None,
+            lineage_transitions: Vec::new(),
+            lineage_coverage: None,
+            lineage_checkpoint: None,
+        },
+    )
+    .expect("legacy analysis batch maps to target payload");
+    assert_eq!(mapped.conversation_id, "conversation-1");
+    assert_eq!(mapped.source_id, "source-1");
+    assert_eq!(mapped.source_epoch, "epoch-1");
+    let encoded = serde_json::to_value(mapped).expect("mapped payload serializes");
+    assert!(encoded.get("revision").is_none());
+    assert!(encoded.get("source_fingerprint").is_none());
+    assert!(encoded.get("prefix_anchor").is_none());
+}
+
+#[test]
+fn target_legacy_checkpoint_adapter_drops_legacy_source_evidence() {
+    let legacy = AnalyzerCheckpoint {
+        schema_version: 1,
+        request_id: "request-1".to_string(),
+        conversation_id: "conversation-1".to_string(),
+        source: CheckpointSource {
+            source_id: "source-1".to_string(),
+            source_epoch: "epoch-1".to_string(),
+            fingerprint: Some(
+                SourceFingerprint::new("sha256-v1", "legacy-fingerprint", 0)
+                    .expect("legacy fingerprint"),
+            ),
+            prefix_anchor: Some(
+                SourcePrefixAnchor::new("sha256-v1", "legacy-anchor", 0)
+                    .expect("legacy prefix anchor"),
+            ),
+        },
+        reader: CheckpointReader {
+            backend: "legacy-reader".to_string(),
+            version: "stage4-v1".to_string(),
+            source_kind: SourceKind::Rollout,
+            compression: SourceCompression::PlainJsonl,
+        },
+        wire_profile: Some(target_parser_provenance()),
+        cursor_kind: Some(SourceCursorKind::ForwardAppend),
+        cursor: None,
+        segment: CheckpointSegment {
+            source_range: None,
+            physical_line_start: None,
+            physical_line_end: None,
+            rollout_ordinal: None,
+        },
+        reducer_state: Some(json!({"legacy": true})),
+        projection_watermark: Some("batch-1".to_string()),
+        completeness: BatchCompleteness::Canonical,
+        lineage_checkpoint: None,
+    };
+    let (template, cursor) = target_checkpoint_with_cursor();
+    let mapped = TargetAnalyzerCheckpoint::from_legacy(
+        &legacy,
+        TargetLegacyCheckpointContext {
+            job_id: "job-1".to_string(),
+            conversation_id: "conversation-1".to_string(),
+            source: template.source,
+            reader: template.reader,
+            wire_profile: template.wire_profile,
+            cursor: Some(cursor),
+            segment: template.segment,
+            reducer_state: template.reducer_state,
+            projection_watermark: template.projection_watermark,
+            lineage_checkpoint: None,
+        },
+    )
+    .expect("legacy checkpoint maps with explicit target context");
+    let encoded = serde_json::to_value(mapped).expect("mapped checkpoint serializes");
+    assert!(encoded["source"].get("fingerprint").is_none());
+    assert!(encoded["source"].get("prefix_anchor").is_none());
+    assert!(encoded.get("revision").is_none());
+}
+
+#[test]
+fn target_ack_accepts_only_positive_or_stable_negative_shapes() {
+    let positive = TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        true,
+        true,
+        None::<String>,
+    );
+    assert!(positive.validate().is_ok());
+
+    let negative = TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        false,
+        false,
+        Some("staging_unavailable"),
+    );
+    assert!(negative.validate().is_ok());
+
+    let mixed = TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        true,
+        false,
+        Some("staging_unavailable"),
+    );
+    assert!(mixed.validate().is_err());
+
+    let free_text = TargetAckMessage::new(
+        "request-1",
+        "job-1",
+        "segment-1",
+        "batch-1",
+        false,
+        false,
+        Some("temporary problem"),
+    );
+    assert!(free_text.validate().is_err());
+}
+
+#[test]
+fn target_complete_and_error_envelopes_enforce_terminal_semantics() {
+    let cursor = target_cursor(TargetCursorKind::ForwardAppend);
+    let complete = TargetCompleteMessage::new(
+        "request-1",
+        "job-1",
+        TargetCompleteStatus::Completed,
+        TargetCompleteness::Canonical,
+        Some(cursor),
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical),
+    );
+    let line = TargetMessage::Complete(complete.clone())
+        .to_json_line()
+        .expect("complete serializes");
+    assert_eq!(
+        TargetMessage::parse_line(&line).expect("complete parses"),
+        TargetMessage::Complete(complete)
+    );
+
+    let invalid_complete = TargetCompleteMessage::new(
+        "request-1",
+        "job-1",
+        TargetCompleteStatus::Completed,
+        TargetCompleteness::Partial,
+        None,
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Partial),
+    );
+    assert!(invalid_complete.validate().is_err());
+
+    let mut error = TargetErrorMessage::new(
+        "request-1",
+        "batch_rejected",
+        "batch was rejected",
+        false,
+        false,
+    );
+    error.details = Some(json!({"rejection_code": "batch_scope_conflict"}));
+    assert!(error.validate().is_ok());
+
+    error.details = Some(json!({"rejection_code": "free_text"}));
+    assert!(error.validate().is_err());
+}
+
+#[test]
+fn canonical_checkpoint_requires_complete_source_cursor_evidence_at_complete_boundaries() {
+    let mut missing_source_range =
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    missing_source_range.source.source_range = None;
+    missing_source_range.segment.source_range = None;
+    missing_source_range
+        .projection_watermark
+        .complete_source_end = None;
+    assert!(missing_source_range.validate().is_err());
+
+    let mut missing_cursor = target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    missing_cursor.cursor_kind = None;
+    missing_cursor.cursor = None;
+    assert!(missing_cursor.validate().is_err());
+
+    let mut missing_complete_source_end =
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical);
+    missing_complete_source_end
+        .projection_watermark
+        .complete_source_end = None;
+    assert!(missing_complete_source_end.validate().is_err());
+
+    let invalid_complete = TargetCompleteMessage::new(
+        "request-1",
+        "job-1",
+        TargetCompleteStatus::Completed,
+        TargetCompleteness::Canonical,
+        None,
+        missing_source_range.clone(),
+    );
+    assert!(invalid_complete.validate().is_err());
+    assert!(
+        TargetMessage::Complete(invalid_complete.clone())
+            .to_json_line()
+            .is_err()
+    );
+    assert!(serde_json::to_string(&invalid_complete).is_err());
+
+    let valid_complete = TargetCompleteMessage::new(
+        "request-1",
+        "job-1",
+        TargetCompleteStatus::Completed,
+        TargetCompleteness::Canonical,
+        Some(target_cursor(TargetCursorKind::ForwardAppend)),
+        target_checkpoint("request-1", "job-1", TargetCompleteness::Canonical),
+    );
+    let mut malformed = serde_json::to_value(TargetMessage::Complete(valid_complete))
+        .expect("valid complete serializes before mutation");
+    malformed["checkpoint"]["source"]["source_range"] = serde_json::Value::Null;
+    malformed["checkpoint"]["segment"]["source_range"] = serde_json::Value::Null;
+    malformed["checkpoint"]["cursor_kind"] = serde_json::Value::Null;
+    malformed["checkpoint"]["cursor"] = serde_json::Value::Null;
+    malformed["checkpoint"]["projection_watermark"]["complete_source_end"] =
+        serde_json::Value::Null;
+    let malformed_line = serde_json::to_string(&malformed).expect("malformed JSON serializes");
+    assert!(TargetMessage::parse_line(&malformed_line).is_err());
+
+    for completeness in [
+        TargetCompleteness::Unknown,
+        TargetCompleteness::Partial,
+        TargetCompleteness::Provisional,
+    ] {
+        assert!(
+            target_checkpoint("request-1", "job-1", completeness)
+                .validate()
+                .is_ok()
+        );
+    }
+}
+
+#[test]
+fn target_source_read_resolves_cross_date_lineage_from_target_intent_only() {
+    let root = sanitized_fixture_root();
+    let request = target_source_request(
+        "target-source-cross-date",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let result = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("target source read resolves the sanitized lineage");
+
+    assert_eq!(result.conversation_id, SANITIZED_SESSION_CONVERSATION_ID);
+    assert_eq!(result.discovered_sources.len(), 5);
+    assert_eq!(result.segments.len(), 4);
+    assert_eq!(result.lineage_transitions.len(), 3);
+    assert_eq!(result.lineage_coverage.chain_rollout_ids.len(), 4);
+    assert_eq!(
+        result.lineage_coverage.covered_source_count,
+        result.segments.len() as u64
+    );
+    assert!(result.lineage_coverage.complete);
+    assert!(result.segments.iter().all(|segment| segment.complete));
+    assert!(result.records.iter().any(|record| record.is_valid_json()));
+    assert_eq!(
+        result.active_source.rollout_id,
+        rollout_id(&sanitized_fixture_path(4))
+    );
+    let canonical_root = fs::canonicalize(&root).expect("fixture root canonicalizes");
+    assert!(result.discovered_sources.iter().all(|source| {
+        fs::canonicalize(&source.path)
+            .expect("discovered source canonicalizes")
+            .starts_with(&canonical_root)
+    }));
+    assert!(
+        result
+            .lineage_checkpoint
+            .coverage
+            .chain_rollout_ids
+            .ends_with(&[result.active_source.rollout_id.clone()])
+    );
+}
+
+#[test]
+fn target_source_read_prefers_plain_jsonl_sibling() {
+    let root = unique_temp_path("target-source-plain-sibling");
+    let plain = copy_sanitized_fixture(0, &root);
+    let compressed = plain.with_file_name(format!(
+        "{}.zst",
+        plain
+            .file_name()
+            .expect("plain fixture filename")
+            .to_string_lossy()
+    ));
+    let compressed_bytes =
+        zstd::stream::encode_all(fs::read(&plain).expect("plain fixture reads").as_slice(), 0)
+            .expect("plain fixture compresses");
+    fs::write(&compressed, compressed_bytes).expect("compressed sibling writes");
+
+    let request = target_source_request(
+        "target-source-plain-sibling",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Preview,
+    );
+    let result = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("plain sibling remains the selected source");
+
+    assert_eq!(result.discovered_sources.len(), 1);
+    assert_eq!(
+        result.active_source.compression,
+        TargetSourceCompression::PlainJsonl
+    );
+    assert_eq!(result.segments[0].mode, SourceReadMode::TailPreview);
+    assert!(!result.records.is_empty());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_source_read_allows_zst_only_root_through_forward_stream() {
+    let root = unique_temp_path("target-source-zst-root");
+    let plain = copy_sanitized_fixture(0, &root);
+    let compressed = plain.with_file_name(format!(
+        "{}.zst",
+        plain
+            .file_name()
+            .expect("plain fixture filename")
+            .to_string_lossy()
+    ));
+    let compressed_bytes =
+        zstd::stream::encode_all(fs::read(&plain).expect("plain fixture reads").as_slice(), 0)
+            .expect("root fixture compresses");
+    fs::remove_file(&plain).expect("plain root removes");
+    fs::write(&compressed, compressed_bytes).expect("zst-only root writes");
+
+    let request = target_source_request(
+        "target-source-zst-root",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Preview,
+    );
+    let result = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("zst-only active root uses forward read");
+
+    assert_eq!(result.discovered_sources.len(), 1);
+    assert_eq!(
+        result.active_source.compression,
+        TargetSourceCompression::Zstd
+    );
+    assert_eq!(result.segments[0].mode, SourceReadMode::ForwardStream);
+    assert!(result.segments[0].complete);
+    assert!(!result.records.is_empty());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_source_read_rejects_zst_parent_before_publishing_evidence() {
+    let root = unique_temp_path("target-source-zst-parent");
+    let parent = copy_sanitized_fixture(1, &root);
+    let child = copy_sanitized_fixture(2, &root);
+    let parent_id = rollout_id(&parent);
+    let compressed = parent.with_file_name(format!(
+        "{}.zst",
+        parent
+            .file_name()
+            .expect("parent fixture filename")
+            .to_string_lossy()
+    ));
+    let compressed_bytes = zstd::stream::encode_all(
+        fs::read(&parent).expect("parent fixture reads").as_slice(),
+        0,
+    )
+    .expect("parent fixture compresses");
+    fs::remove_file(&parent).expect("plain parent removes");
+    fs::write(&compressed, compressed_bytes).expect("zst parent writes");
+
+    let request = target_source_request(
+        "target-source-zst-parent",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let error = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect_err("ordinary zst parent must fail closed");
+    match error {
+        TargetSourceReadError::Discovery(LineageError::UnsupportedParentSourceCompression {
+            rollout_id,
+            compression,
+            ..
+        }) => {
+            assert_eq!(rollout_id, parent_id);
+            assert_eq!(compression, "zstd");
+        }
+        other => panic!("expected typed zst parent error, got {other:?}"),
+    }
+    assert!(child.exists());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_source_read_rejects_missing_parent_cycle_and_multi_head() {
+    let missing_root = unique_temp_path("target-source-missing-parent");
+    let missing_child = copy_sanitized_fixture(2, &missing_root);
+    let missing_request = target_source_request(
+        "target-source-missing-parent",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let missing_error = read_target_source(
+        &missing_request,
+        &target_startup_config(&missing_root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect_err("missing parent must fail closed");
+    assert!(matches!(
+        missing_error,
+        TargetSourceReadError::Discovery(LineageError::ParentRolloutMissing { .. })
+    ));
+    assert!(missing_child.exists());
+    let _ = fs::remove_dir_all(missing_root);
+
+    let cycle_root = unique_temp_path("target-source-cycle");
+    let cycle_a = copy_sanitized_fixture(0, &cycle_root);
+    let cycle_b = copy_sanitized_fixture(2, &cycle_root);
+    let cycle_a_id = rollout_id(&cycle_a);
+    let cycle_b_id = rollout_id(&cycle_b);
+    let cycle_cut = fs::read(&cycle_a).expect("cycle parent reads").len() as u64;
+    rewrite_history_base(&cycle_a, &cycle_b_id, cycle_cut);
+    rewrite_history_base(&cycle_b, &cycle_a_id, cycle_cut);
+    let cycle_request = target_source_request(
+        "target-source-cycle",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let cycle_error = read_target_source(
+        &cycle_request,
+        &target_startup_config(&cycle_root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect_err("lineage cycle must fail closed");
+    assert!(matches!(
+        cycle_error,
+        TargetSourceReadError::Discovery(LineageError::ParentChainCycle { .. })
+            | TargetSourceReadError::Discovery(LineageError::AmbiguousActiveHead { .. })
+    ));
+    let _ = fs::remove_dir_all(cycle_root);
+
+    let multi_head_root = unique_temp_path("target-source-multi-head");
+    let multi_root = copy_sanitized_fixture(0, &multi_head_root);
+    let multi_a = copy_sanitized_fixture(2, &multi_head_root);
+    let multi_b = copy_sanitized_fixture(3, &multi_head_root);
+    let multi_root_id = rollout_id(&multi_root);
+    let multi_cut = fs::read(&multi_root)
+        .expect("multi-head parent reads")
+        .len() as u64;
+    rewrite_history_base(&multi_a, &multi_root_id, multi_cut);
+    rewrite_history_base(&multi_b, &multi_root_id, multi_cut);
+    let multi_request = target_source_request(
+        "target-source-multi-head",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let multi_error = read_target_source(
+        &multi_request,
+        &target_startup_config(&multi_head_root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect_err("multiple active heads must fail closed");
+    assert!(matches!(
+        multi_error,
+        TargetSourceReadError::Discovery(LineageError::AmbiguousActiveHead { .. })
+    ));
+    let _ = fs::remove_dir_all(multi_head_root);
+}
+
+#[test]
+fn target_source_read_honors_cancellation_and_deadline_before_discovery() {
+    let root = sanitized_fixture_root();
+    let request = target_source_request(
+        "target-source-cancelled",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let cancelled = std::sync::atomic::AtomicBool::new(true);
+    assert_eq!(
+        read_target_source(&request, &target_startup_config(&root), &cancelled,)
+            .expect_err("cancelled source read must stop before discovery"),
+        TargetSourceReadError::Cancelled
+    );
+
+    let deadline_error = read_target_source_with_deadline(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+        Instant::now() - Duration::from_millis(1),
+    )
+    .expect_err("expired source read deadline must stop before discovery");
+    assert_eq!(deadline_error, TargetSourceReadError::Timeout);
+}
+
+#[test]
+fn target_process_maps_source_segment_limit_and_clears_active_request() {
+    let root = sanitized_fixture_root();
+    let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+    process.send(target_node_hello("target-source-segment-limit-generation"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+
+    let mut request = target_source_request(
+        "target-source-segment-limit-request",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Preview,
+    );
+    request.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: Some(4096),
+        max_line_bytes: Some(1),
+        max_segment_bytes: Some(1),
+        tail_bytes: Some(2),
+        timeout_ms: None,
+    });
+    process.send(TargetMessage::Analyze(request));
+    let error = target_error(process.read(), "resource_limit_exceeded");
+    assert!(!error.retryable);
+
+    // A source error must settle the runtime's active slot. If the first
+    // failure left it occupied, this second request would return `busy`.
+    let mut second_request = target_source_request(
+        "target-source-segment-limit-request-2",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Preview,
+    );
+    second_request.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: Some(4096),
+        max_line_bytes: Some(1),
+        max_segment_bytes: Some(1),
+        tail_bytes: Some(2),
+        timeout_ms: None,
+    });
+    process.send(TargetMessage::Analyze(second_request));
+    let second_error = target_error(process.read(), "resource_limit_exceeded");
+    assert!(!second_error.retryable);
+    process.finish();
+}
+
+#[test]
+fn target_source_enforces_decoded_budget_across_lineage_segments() {
+    let root = sanitized_fixture_root();
+    let mut request = target_source_request(
+        "target-source-aggregate-budget",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    request.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: Some(2500),
+        max_line_bytes: None,
+        max_segment_bytes: None,
+        tail_bytes: None,
+        timeout_ms: None,
+    });
+
+    let error = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect_err("aggregate decoded budget must stop a later lineage segment");
+    assert!(matches!(
+        &error,
+        TargetSourceReadError::ResourceLimit(message)
+            if message.contains("decoded source budget exceeded for")
+                && !message.contains("aggregate decoded bytes")
+    ));
+    assert_eq!(error.wire_error_code(), "resource_limit_exceeded");
+    assert!(!error.is_retryable());
+
+    let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+    process.send(target_node_hello("target-source-aggregate-generation"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+    process.send(TargetMessage::Analyze(request));
+    let wire_error = target_error(process.read(), "resource_limit_exceeded");
+    assert!(!wire_error.retryable);
+    process.finish();
+}
+
+#[test]
+fn target_process_runs_source_locating_and_fails_closed_on_missing_parent() {
+    let root = unique_temp_path("target-process-missing-parent");
+    let child = copy_sanitized_fixture(2, &root);
+    assert!(child.exists());
+
+    let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+    process.send(target_node_hello("target-source-generation"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+    process.send(TargetMessage::Analyze(TargetAnalyzeRequest::new(
+        "target-source-missing-parent-request",
+        "target-source-missing-parent-job",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    )));
+    let error = target_error(process.read(), "analysis_failed");
+    assert!(!error.retryable);
+    assert!(error.message.contains("parent rollout"));
+    process.finish();
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_process_resolves_cross_date_source_before_cancel() {
+    let root = sanitized_fixture_root();
+    let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+    process.send(target_node_hello("target-source-cross-date-generation"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+    process.send(TargetMessage::Analyze(TargetAnalyzeRequest::new(
+        "target-source-cross-date-request",
+        "target-source-cross-date-job",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    )));
+    // With the target mapper connected, this small fixture can finish before
+    // cancellation arrives. A delivered batch must still wait for ACK and
+    // must not implicitly complete.
+    let first = process.read();
+    assert!(matches!(first, TargetMessage::Batch(_)));
+    process.send(TargetMessage::Cancel(TargetCancelMessage::new(
+        "target-source-cross-date-request",
+        "stop after source read",
+    )));
+    assert_eq!(target_error(process.read(), "cancelled").fatal, false);
+    process.finish();
+}
+
+#[test]
+fn target_mapping_projects_real_source_and_resumes_from_checkpoint() {
+    let root = target_protocol_fixture_root();
+    let request = TargetAnalyzeRequest::new(
+        "target-mapping-request",
+        "target-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("target source read succeeds");
+    let mapped = map_target_source_read(&request, &source).expect("target mapping succeeds");
+
+    assert_eq!(
+        mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert!(mapped.batch.payload.complete);
+    assert!(
+        mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(event, AnalysisEvent::TurnStarted { .. }))
+    );
+    assert!(
+        mapped
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|mutation| matches!(mutation, TargetMutation::CompleteRange { .. }))
+    );
+    assert_eq!(
+        mapped.complete.checkpoint.projection_watermark.batch_id,
+        mapped.batch.batch_id
+    );
+    assert_eq!(
+        mapped.complete.checkpoint.cursor,
+        mapped.batch.payload.next_cursor
+    );
+
+    let retry = TargetAnalyzeRequest::new(
+        "target-mapping-retry",
+        "target-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let retry_source = read_target_source(
+        &retry,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("checkpoint retry source read succeeds");
+    let retry_mapped =
+        map_target_source_read(&retry, &retry_source).expect("checkpoint retry maps");
+
+    assert_eq!(
+        retry_mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(retry_mapped.batch.segment_id, mapped.batch.segment_id);
+    assert_eq!(retry_mapped.batch.batch_id, mapped.batch.batch_id);
+    assert_eq!(
+        retry_mapped.batch.payload.history_items,
+        mapped.batch.payload.history_items
+    );
+
+    let mut incompatible_backfill = TargetAnalyzeRequest::new(
+        "target-mapping-incompatible",
+        "target-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    incompatible_backfill.cursor = mapped.batch.payload.next_cursor.clone();
+    incompatible_backfill.persisted_anchor = Some(mapped.complete.checkpoint.clone());
+    let incompatible_error = read_target_source(
+        &incompatible_backfill,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect_err("backfill must reject incompatible forward_append cursor");
+    assert!(matches!(
+        incompatible_error,
+        TargetSourceReadError::InvalidRequest(_)
+    ));
+
+    let mut append = TargetAnalyzeRequest::new(
+        "target-mapping-append",
+        "target-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Append,
+    );
+    append.cursor = mapped.batch.payload.next_cursor.clone();
+    append.persisted_anchor = Some(mapped.complete.checkpoint.clone());
+    let append_source = read_target_source(
+        &append,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("append consuming promoted cursor succeeds");
+    let append_mapped =
+        map_target_source_read(&append, &append_source).expect("append mapping succeeds");
+    assert_eq!(
+        append_mapped
+            .batch
+            .payload
+            .next_cursor
+            .as_ref()
+            .map(|c| c.cursor_kind),
+        Some(TargetCursorKind::ForwardAppend)
+    );
+}
+
+#[test]
+fn target_mapping_validates_active_head_replacement_and_preserves_source_order() {
+    let root = unique_temp_path("target-lineage-mapping");
+    let parent_path = copy_sanitized_fixture(0, &root);
+    let child_path = copy_sanitized_fixture(1, &root);
+    let parent_id = rollout_id(&parent_path);
+    let parent_header_end = fs::read(&parent_path)
+        .expect("parent fixture reads")
+        .split_inclusive(|byte| *byte == b'\n')
+        .next()
+        .expect("parent fixture has a header")
+        .len() as u64;
+    rewrite_history_base(&child_path, &parent_id, parent_header_end);
+    let request = TargetAnalyzeRequest::new(
+        "target-lineage-mapping-request",
+        "target-lineage-mapping-job",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("sanitized lineage source read succeeds");
+    let mapped = map_target_source_read(&request, &source).expect("lineage mapping succeeds");
+
+    assert_eq!(
+        mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(mapped.batch.payload.lineage_transitions.len(), 1);
+    assert!(
+        mapped
+            .batch
+            .payload
+            .lineage_transitions
+            .iter()
+            .all(|transition| {
+                transition.validation_state == TargetLineageValidationState::Validated
+            })
+    );
+    assert_eq!(mapped.batch.payload.replacements.len(), 1);
+    assert!(
+        mapped
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|mutation| matches!(
+                mutation,
+                TargetMutation::ReplaceLastTurn { replacement }
+                    if replacement.child_rollout_id == source.source_id
+            ))
+    );
+
+    let rank = |source_id: &str| {
+        source
+            .segments
+            .iter()
+            .position(|segment| segment.source_id == source_id)
+            .expect("mapped event source belongs to a planned segment")
+    };
+    let mut previous_rank = 0;
+    for event in &mapped.batch.payload.history_items {
+        let current_rank = rank(&event.metadata().source_ref.source_identity);
+        assert!(
+            current_rank >= previous_rank,
+            "lineage events must be source ordered"
+        );
+        previous_rank = current_rank;
+    }
+    assert!(
+        mapped
+            .complete
+            .checkpoint
+            .projection_watermark
+            .logical_item_count
+            > 0
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_mapping_preserves_every_validated_lineage_replacement_in_root_order() {
+    let root = unique_temp_path("target-lineage-all-replacements");
+    for index in 0..5 {
+        copy_sanitized_fixture(index, &root);
+    }
+    let active_path = sanitized_fixture_files_path(&root, 4);
+    let active_contents = fs::read_to_string(&active_path).expect("active fixture reads");
+    let active_without_developer_event = active_contents
+        .lines()
+        .take(4)
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    fs::write(&active_path, active_without_developer_event).expect("active fixture rewrites");
+
+    let request = TargetAnalyzeRequest::new(
+        "target-lineage-all-replacements-request",
+        "target-lineage-all-replacements-job",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("three-edge lineage source read succeeds");
+    assert_eq!(source.lineage_transitions.len(), 3);
+    let mapped =
+        map_target_source_read(&request, &source).expect("three-edge lineage mapping succeeds");
+
+    assert_eq!(
+        mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(
+        mapped.batch.payload.lineage_transitions.len(),
+        source.lineage_transitions.len()
+    );
+    assert!(
+        mapped
+            .batch
+            .payload
+            .lineage_transitions
+            .iter()
+            .all(|transition| {
+                transition.validation_state == TargetLineageValidationState::Validated
+            })
+    );
+    let expected_children = source
+        .lineage_transitions
+        .iter()
+        .map(|transition| transition.child_rollout_id.clone())
+        .collect::<Vec<_>>();
+    let replacement_children = mapped
+        .batch
+        .payload
+        .replacements
+        .iter()
+        .map(|replacement| replacement.child_rollout_id.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(replacement_children, expected_children);
+    let mutation_children = mapped
+        .batch
+        .payload
+        .mutations
+        .iter()
+        .filter_map(|mutation| match mutation {
+            TargetMutation::ReplaceLastTurn { replacement } => {
+                Some(replacement.child_rollout_id.clone())
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(mutation_children, expected_children);
+
+    let mut invalid_middle_source = source.clone();
+    invalid_middle_source.lineage_transitions[1]
+        .history_base
+        .end_ordinal_exclusive = 99;
+    let invalid_middle = map_target_source_read(&request, &invalid_middle_source)
+        .expect("invalid middle lineage edge stays partial");
+    assert_eq!(
+        invalid_middle.batch.payload.completeness,
+        TargetCompleteness::Partial
+    );
+    assert!(invalid_middle.batch.payload.replacements.is_empty());
+    assert!(
+        !invalid_middle
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|mutation| matches!(mutation, TargetMutation::ReplaceLastTurn { .. }))
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_mapping_rejects_invalid_replacement_without_publishing_mutation() {
+    let root = sanitized_fixture_root();
+    let request = TargetAnalyzeRequest::new(
+        "target-invalid-replacement-request",
+        "target-invalid-replacement-job",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let mut source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("sanitized lineage source read succeeds");
+    source.lineage_transitions[0]
+        .history_base
+        .end_ordinal_exclusive = 99;
+    let mapped = map_target_source_read(&request, &source).expect("invalid lineage stays partial");
+
+    assert_eq!(
+        mapped.batch.payload.completeness,
+        TargetCompleteness::Partial
+    );
+    assert!(!mapped.batch.payload.complete);
+    assert!(
+        mapped
+            .batch
+            .payload
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "replacement_validation")
+    );
+    assert!(
+        !mapped
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|mutation| matches!(mutation, TargetMutation::ReplaceLastTurn { .. }))
+    );
+    assert!(
+        mapped
+            .batch
+            .payload
+            .lineage_transitions
+            .iter()
+            .any(|transition| transition.validation_state
+                == TargetLineageValidationState::ValidationUnavailable)
+    );
+}
+
+#[test]
+fn target_mapping_deduplicates_overlap_and_rejects_incompatible_checkpoint_state() {
+    let root = target_protocol_fixture_root();
+    let request = TargetAnalyzeRequest::new(
+        "target-overlap-mapping-request",
+        "target-overlap-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("target source read succeeds");
+    let mapped = map_target_source_read(&request, &source).expect("target mapping succeeds");
+
+    let mut overlapped_source = source.clone();
+    overlapped_source
+        .records
+        .push(overlapped_source.records[0].clone());
+    let overlapped =
+        map_target_source_read(&request, &overlapped_source).expect("overlap is idempotent");
+    assert_eq!(
+        overlapped.batch.payload.history_items,
+        mapped.batch.payload.history_items
+    );
+    assert_eq!(overlapped.batch.batch_id, mapped.batch.batch_id);
+
+    let mut incompatible = TargetAnalyzeRequest::new(
+        "target-incompatible-checkpoint-request",
+        "target-overlap-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    incompatible.cursor = mapped.batch.payload.next_cursor.clone();
+    let mut checkpoint = mapped.complete.checkpoint.clone();
+    checkpoint.reducer_state.reducer_version = "old-target-version".to_string();
+    incompatible.persisted_anchor = Some(checkpoint);
+    let error = map_target_source_read(&incompatible, &source)
+        .expect_err("incompatible reducer checkpoint must fail closed");
+    assert!(
+        error.to_string().contains("reducer version"),
+        "unexpected incompatible checkpoint error: {error}"
+    );
+}
+
+#[test]
+fn target_mapping_projects_rich_adapter_fields_and_unknown_diagnostics() {
+    let root = unique_temp_path("target-rich-mapping");
+    let contents = current_fixture_contents("minimal-rollout.jsonl");
+    write_target_fixture(&root, TARGET_MAPPING_CONVERSATION_ID, &contents);
+    let request = TargetAnalyzeRequest::new(
+        "target-rich-mapping-request",
+        "target-rich-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("rich target source read succeeds");
+    let mapped = map_target_source_read(&request, &source).expect("rich target mapping succeeds");
+
+    assert_eq!(
+        mapped.batch.payload.completeness,
+        TargetCompleteness::Partial
+    );
+    assert!(!mapped.batch.payload.complete);
+    assert!(!mapped.batch.payload.tool_details.is_empty());
+    assert!(mapped.batch.payload.usage.is_some());
+    assert!(!mapped.batch.payload.task_outcomes.is_empty());
+    assert!(
+        mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(
+                event,
+                AnalysisEvent::ToolStarted { .. } | AnalysisEvent::ToolCompleted { .. }
+            ))
+    );
+    assert!(
+        mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(
+                event,
+                AnalysisEvent::PlanQuestion { .. } | AnalysisEvent::PlanUpdated { .. }
+            ))
+    );
+    assert!(
+        mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(
+                event,
+                AnalysisEvent::TurnStarted { .. }
+                    | AnalysisEvent::TurnCompleted { .. }
+                    | AnalysisEvent::UsageUpdated { .. }
+            ))
+    );
+    assert!(
+        mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(event, AnalysisEvent::UnknownEvent { .. }))
+    );
+    assert!(
+        mapped
+            .batch
+            .payload
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "unknown_event")
+    );
+    assert!(
+        mapped
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|mutation| matches!(mutation, TargetMutation::MarkPartial { .. }))
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_mapping_keeps_aliases_and_abort_compaction_parse_gaps_noncanonical() {
+    let alias_root = unique_temp_path("target-alias-mapping");
+    let header = current_fixture_contents("minimal-rollout.jsonl")
+        .lines()
+        .next()
+        .expect("minimal fixture has a session header")
+        .to_string();
+    let alias_lines = current_fixture_contents("alias-fields.jsonl");
+    let alias_contents = format!("{header}\n{alias_lines}");
+    write_target_fixture(&alias_root, TARGET_MAPPING_CONVERSATION_ID, &alias_contents);
+    let alias_request = TargetAnalyzeRequest::new(
+        "target-alias-mapping-request",
+        "target-alias-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let alias_source = read_target_source(
+        &alias_request,
+        &target_startup_config(&alias_root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("alias source read succeeds");
+    let alias_mapped =
+        map_target_source_read(&alias_request, &alias_source).expect("alias mapping succeeds");
+    assert!(
+        alias_mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(event, AnalysisEvent::TurnStarted { .. }))
+    );
+    assert!(
+        alias_mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(event, AnalysisEvent::TurnCompleted { .. }))
+    );
+    assert!(
+        !alias_mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(event, AnalysisEvent::UnknownEvent { .. }))
+    );
+    let _ = fs::remove_dir_all(alias_root);
+
+    let partial_root = unique_temp_path("target-partial-mapping");
+    let partial_lines = current_fixture_contents("partial/abort-compaction.jsonl");
+    let partial_contents = format!("{header}\n{{\"timestamp\":\n{partial_lines}");
+    write_target_fixture(
+        &partial_root,
+        TARGET_MAPPING_CONVERSATION_ID,
+        &partial_contents,
+    );
+    let partial_request = TargetAnalyzeRequest::new(
+        "target-partial-mapping-request",
+        "target-partial-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let partial_source = read_target_source(
+        &partial_request,
+        &target_startup_config(&partial_root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("partial source read preserves diagnostics");
+    let partial_mapped = map_target_source_read(&partial_request, &partial_source)
+        .expect("partial mapping preserves diagnostics");
+    assert_eq!(
+        partial_mapped.batch.payload.completeness,
+        TargetCompleteness::Partial
+    );
+    assert!(
+        partial_mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(event, AnalysisEvent::ParseGap { .. }))
+    );
+    assert!(
+        partial_mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(event, AnalysisEvent::Compaction { .. }))
+    );
+    assert!(
+        partial_mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .any(|event| matches!(
+                event,
+                AnalysisEvent::TurnCompleted {
+                    status: TurnStatus::Interrupted,
+                    ..
+                }
+            ))
+    );
+    assert!(
+        partial_mapped
+            .batch
+            .payload
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "parse_gap")
+    );
+    let _ = fs::remove_dir_all(partial_root);
+}
+
+#[test]
+fn target_mapping_promotes_append_and_keeps_partial_snapshot_boundaries_noncanonical() {
+    let root = unique_temp_path("target-append-mapping");
+    let fixture_path = target_protocol_fixture_root()
+        .join("2026")
+        .join("08")
+        .join("26")
+        .join(format!(
+            "rollout-2026-08-26T00-00-00-{TARGET_MAPPING_CONVERSATION_ID}.jsonl"
+        ));
+    let contents = fs::read_to_string(fixture_path).expect("append fixture reads");
+    assert!(contents.contains("\"ordinal\":0"));
+    write_target_fixture(&root, TARGET_MAPPING_CONVERSATION_ID, &contents);
+    let append_request = TargetAnalyzeRequest::new(
+        "target-append-mapping-request",
+        "target-append-mapping-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Append,
+    );
+    let append_source = read_target_source(
+        &append_request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("append source read succeeds");
+    let append_mapped =
+        map_target_source_read(&append_request, &append_source).expect("append maps");
+    assert_eq!(
+        append_mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert!(matches!(
+        append_mapped
+            .batch
+            .payload
+            .next_cursor
+            .as_ref()
+            .map(|cursor| cursor.cursor_kind),
+        Some(TargetCursorKind::ForwardAppend)
+    ));
+    let first_cursor = append_mapped
+        .batch
+        .payload
+        .next_cursor
+        .clone()
+        .expect("initial append promotion produces a target cursor");
+    assert_eq!(first_cursor.last_rollout_ordinal, Some(1));
+    assert!(append_mapped.complete.checkpoint.reducer_state.payload["source_cursor"].is_object());
+
+    let path = target_fixture_path(&root, TARGET_MAPPING_CONVERSATION_ID);
+    let mut file = fs::OpenOptions::new()
+        .append(true)
+        .open(&path)
+        .expect("append fixture reopens");
+    file.write_all(
+        br#"{"timestamp":"2026-08-26T00:00:02","ordinal":2,"type":"event_msg","payload":{"type":"task_complete","turn_id":"target-turn-1","last_agent_message":"done","duration_ms":1}}
+"#,
+    )
+    .expect("append fixture grows");
+    file.sync_all().expect("append fixture syncs");
+
+    let mut continuation_request = TargetAnalyzeRequest::new(
+        "target-append-continuation-request",
+        "target-append-continuation-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Append,
+    );
+    continuation_request.cursor = Some(first_cursor.clone());
+    continuation_request.persisted_anchor = Some(append_mapped.complete.checkpoint.clone());
+    let continuation_source = read_target_source(
+        &continuation_request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("append continuation source read succeeds");
+    assert_eq!(continuation_source.segments.len(), 1);
+    assert_eq!(
+        continuation_source.segments[0].mode,
+        SourceReadMode::ForwardRange
+    );
+    assert!(continuation_source.append_cursor.is_some());
+    let continuation_mapped = map_target_source_read(&continuation_request, &continuation_source)
+        .expect("append continuation maps");
+    assert_eq!(
+        continuation_mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    let continuation_cursor = continuation_mapped
+        .batch
+        .payload
+        .next_cursor
+        .as_ref()
+        .expect("append continuation keeps a forward cursor");
+    assert_eq!(
+        continuation_cursor.cursor_kind,
+        TargetCursorKind::ForwardAppend
+    );
+    assert!(continuation_cursor.complete_range.end > first_cursor.complete_range.end);
+    assert_eq!(continuation_cursor.last_rollout_ordinal, Some(2));
+    assert_eq!(
+        continuation_mapped.complete.checkpoint.cursor,
+        continuation_mapped.batch.payload.next_cursor
+    );
+    assert!(
+        continuation_mapped
+            .complete
+            .checkpoint
+            .reducer_state
+            .payload["source_cursor"]
+            .is_object()
+    );
+
+    let mut no_growth_request = TargetAnalyzeRequest::new(
+        "target-append-no-growth-request",
+        "target-append-no-growth-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Append,
+    );
+    no_growth_request.cursor = Some(continuation_cursor.clone());
+    no_growth_request.persisted_anchor = Some(continuation_mapped.complete.checkpoint.clone());
+    let no_growth_source = read_target_source(
+        &no_growth_request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("no-growth append source read succeeds");
+    assert!(no_growth_source.records.is_empty());
+    assert!(no_growth_source.append_cursor.is_some());
+    let no_growth_mapped = map_target_source_read(&no_growth_request, &no_growth_source)
+        .expect("no-growth append mapping succeeds");
+    assert_eq!(
+        no_growth_mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    let no_growth_cursor = no_growth_mapped
+        .batch
+        .payload
+        .next_cursor
+        .as_ref()
+        .expect("no-growth append preserves the formal cursor");
+    assert_eq!(no_growth_cursor, continuation_cursor);
+    assert_eq!(
+        no_growth_mapped.complete.checkpoint.cursor,
+        no_growth_mapped.batch.payload.next_cursor
+    );
+
+    let mutated_contents = contents.replacen("\"ordinal\":0", "\"ordinal\":9", 1);
+    fs::write(&path, format!("{mutated_contents}\n")).expect("mutated append fixture writes");
+    let mutated_source = read_target_source(
+        &continuation_request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("source mutation is reported as a bounded append result");
+    assert!(mutated_source.append_cursor.is_none());
+    assert!(mutated_source.segments[0].parse_gap_count > 0);
+    let mutated_mapped = map_target_source_read(&continuation_request, &mutated_source)
+        .expect("source mutation maps as partial diagnostics");
+    assert_eq!(
+        mutated_mapped.batch.payload.completeness,
+        TargetCompleteness::Partial
+    );
+    assert!(mutated_mapped.batch.payload.next_cursor.is_none());
+    assert!(
+        mutated_mapped
+            .batch
+            .payload
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "parse_gap")
+    );
+
+    let mut partial_source = append_source.clone();
+    partial_source.segments[0].complete = false;
+    partial_source.segments[0].pending_tail_bytes = 3;
+    let partial_request = TargetAnalyzeRequest::new(
+        "target-partial-boundary-request",
+        "target-partial-boundary-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let partial_mapped = map_target_source_read(&partial_request, &partial_source)
+        .expect("partial snapshot maps without canonical promotion");
+    assert_eq!(
+        partial_mapped.batch.payload.completeness,
+        TargetCompleteness::Partial
+    );
+    assert!(
+        partial_mapped
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|mutation| matches!(mutation, TargetMutation::MarkPartial { .. }))
+    );
+    assert!(
+        !partial_mapped
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|mutation| matches!(mutation, TargetMutation::CompleteRange { .. }))
+    );
+    assert!(
+        partial_mapped.batch.payload.next_cursor.is_some(),
+        "an unfinished tail may expose the safe prefix cursor"
+    );
+
+    let mut gapped_source = append_source.clone();
+    gapped_source.segments[0].parse_gap_count = 1;
+    let gapped_mapped = map_target_source_read(&partial_request, &gapped_source)
+        .expect("parse gap stays a partial mapping");
+    assert_eq!(
+        gapped_mapped.batch.payload.completeness,
+        TargetCompleteness::Partial
+    );
+    assert!(gapped_mapped.batch.payload.next_cursor.is_none());
+    assert!(gapped_mapped.batch.payload.source_range.is_none());
+    assert!(
+        !gapped_mapped
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|mutation| matches!(mutation, TargetMutation::CompleteRange { .. }))
+    );
+
+    let mut shrunk_source = append_source.clone();
+    shrunk_source.segments[0].complete = false;
+    shrunk_source.segments[0].source_shrank_during_read = true;
+    let shrunk_mapped = map_target_source_read(&partial_request, &shrunk_source)
+        .expect("source shrink stays a partial mapping");
+    assert_eq!(
+        shrunk_mapped.batch.payload.completeness,
+        TargetCompleteness::Partial
+    );
+    assert!(shrunk_mapped.batch.payload.next_cursor.is_none());
+    assert!(shrunk_mapped.batch.payload.source_range.is_none());
+    assert!(
+        !shrunk_mapped
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|mutation| matches!(mutation, TargetMutation::CompleteRange { .. }))
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_mapping_covers_mode_specific_gap_shrink_and_unfinished_tail_boundaries() {
+    let root = unique_temp_path("target-mapping-boundary-matrix");
+    let fixture_path = target_protocol_fixture_root()
+        .join("2026")
+        .join("08")
+        .join("26")
+        .join(format!(
+            "rollout-2026-08-26T00-00-00-{TARGET_MAPPING_CONVERSATION_ID}.jsonl"
+        ));
+    let complete_contents = fs::read_to_string(fixture_path).expect("boundary fixture reads");
+    let path = write_target_fixture(&root, TARGET_MAPPING_CONVERSATION_ID, &complete_contents);
+    let complete_modes = [
+        (
+            "preview",
+            TargetAnalyzeMode::Preview,
+            TargetCursorKind::TailPreview,
+        ),
+        (
+            "backfill",
+            TargetAnalyzeMode::Backfill,
+            TargetCursorKind::ForwardAppend,
+        ),
+    ];
+
+    for (label, mode, expected_cursor_kind) in complete_modes {
+        let request = TargetAnalyzeRequest::new(
+            format!("target-boundary-complete-{label}"),
+            format!("target-boundary-complete-job-{label}"),
+            TARGET_MAPPING_CONVERSATION_ID,
+            mode,
+        );
+        let source = read_target_source(
+            &request,
+            &target_startup_config(&root),
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+        .expect("complete boundary source read succeeds");
+        let mapped =
+            map_target_source_read(&request, &source).expect("complete boundary mapping succeeds");
+        assert_eq!(
+            mapped
+                .batch
+                .payload
+                .next_cursor
+                .as_ref()
+                .map(|cursor| cursor.cursor_kind),
+            Some(expected_cursor_kind)
+        );
+        assert_eq!(
+            mapped.complete.checkpoint.cursor,
+            mapped.batch.payload.next_cursor
+        );
+        assert!(
+            matches!(mode, TargetAnalyzeMode::Preview)
+                && mapped.batch.payload.completeness == TargetCompleteness::Provisional
+                || matches!(mode, TargetAnalyzeMode::Backfill)
+                    && mapped.batch.payload.completeness == TargetCompleteness::Canonical
+        );
+    }
+
+    let separator = if complete_contents.ends_with('\n') {
+        ""
+    } else {
+        "\n"
+    };
+    let unfinished_contents = format!(
+        "{complete_contents}{separator}{{\"timestamp\":\"2026-08-26T00:00:02\",\"ordinal\":2,\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_complete\""
+    );
+    fs::write(&path, unfinished_contents).expect("unfinished tail fixture writes");
+    let unfinished_modes = [
+        (
+            "preview",
+            TargetAnalyzeMode::Preview,
+            TargetCursorKind::TailPreview,
+        ),
+        (
+            "backfill",
+            TargetAnalyzeMode::Backfill,
+            TargetCursorKind::Backfill,
+        ),
+    ];
+    for (label, mode, expected_cursor_kind) in unfinished_modes {
+        let request = TargetAnalyzeRequest::new(
+            format!("target-boundary-tail-{label}"),
+            format!("target-boundary-tail-job-{label}"),
+            TARGET_MAPPING_CONVERSATION_ID,
+            mode,
+        );
+        let source = read_target_source(
+            &request,
+            &target_startup_config(&root),
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+        .expect("unfinished tail source read succeeds");
+        let active_segment = source
+            .segments
+            .iter()
+            .rev()
+            .find(|segment| segment.source_id == source.source_id)
+            .expect("unfinished tail active segment exists");
+        assert!(active_segment.pending_tail_bytes > 0);
+        assert!(!active_segment.complete);
+        let mapped =
+            map_target_source_read(&request, &source).expect("unfinished tail mapping succeeds");
+        assert_eq!(
+            mapped.batch.payload.completeness,
+            TargetCompleteness::Partial
+        );
+        let cursor = mapped
+            .batch
+            .payload
+            .next_cursor
+            .as_ref()
+            .expect("unfinished tail keeps the safe prefix cursor");
+        assert_eq!(cursor.cursor_kind, expected_cursor_kind);
+        assert!(cursor.complete_range.end < active_segment.snapshot_boundary.byte_length);
+        assert!(
+            mapped
+                .batch
+                .payload
+                .mutations
+                .iter()
+                .any(|mutation| matches!(mutation, TargetMutation::MarkPartial { .. }))
+        );
+        assert!(
+            !mapped
+                .batch
+                .payload
+                .mutations
+                .iter()
+                .any(|mutation| matches!(mutation, TargetMutation::CompleteRange { .. }))
+        );
+        assert_eq!(
+            mapped.complete.status,
+            TargetCompleteStatus::Partial,
+            "unfinished {label} must not settle as completed"
+        );
+    }
+
+    let malformed_contents = format!(
+        "{complete_contents}{separator}{{not-json}}\n{{\"timestamp\":\"2026-08-26T00:00:03\",\"ordinal\":2,\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_complete\"}}}}\n"
+    );
+    fs::write(&path, malformed_contents).expect("malformed boundary fixture writes");
+    for (label, mode, _) in complete_modes {
+        let request = TargetAnalyzeRequest::new(
+            format!("target-boundary-gap-{label}"),
+            format!("target-boundary-gap-job-{label}"),
+            TARGET_MAPPING_CONVERSATION_ID,
+            mode,
+        );
+        let source = read_target_source(
+            &request,
+            &target_startup_config(&root),
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+        .expect("malformed boundary source read succeeds");
+        let active_segment = source
+            .segments
+            .iter()
+            .rev()
+            .find(|segment| segment.source_id == source.source_id)
+            .expect("malformed boundary active segment exists");
+        assert!(active_segment.parse_gap_count > 0);
+        let mapped =
+            map_target_source_read(&request, &source).expect("malformed boundary mapping succeeds");
+        assert_eq!(
+            mapped.batch.payload.completeness,
+            TargetCompleteness::Partial
+        );
+        assert!(mapped.batch.payload.next_cursor.is_none());
+        assert!(mapped.batch.payload.source_range.is_none());
+        assert!(
+            !mapped
+                .batch
+                .payload
+                .mutations
+                .iter()
+                .any(|mutation| matches!(mutation, TargetMutation::CompleteRange { .. }))
+        );
+        assert_eq!(mapped.complete.status, TargetCompleteStatus::Partial);
+    }
+
+    fs::write(&path, complete_contents).expect("complete boundary fixture restores");
+    for (label, mode, _) in complete_modes {
+        let request = TargetAnalyzeRequest::new(
+            format!("target-boundary-shrink-{label}"),
+            format!("target-boundary-shrink-job-{label}"),
+            TARGET_MAPPING_CONVERSATION_ID,
+            mode,
+        );
+        let source = read_target_source(
+            &request,
+            &target_startup_config(&root),
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+        .expect("shrink boundary source read succeeds");
+        let mut shrunk_source = source.clone();
+        let active_index = shrunk_source
+            .segments
+            .iter()
+            .rposition(|segment| segment.source_id == shrunk_source.source_id)
+            .expect("shrink boundary active segment index exists");
+        shrunk_source.segments[active_index].complete = false;
+        shrunk_source.segments[active_index].source_shrank_during_read = true;
+        let mapped = map_target_source_read(&request, &shrunk_source)
+            .expect("shrink boundary mapping succeeds");
+        assert_eq!(
+            mapped.batch.payload.completeness,
+            TargetCompleteness::Partial
+        );
+        assert!(mapped.batch.payload.next_cursor.is_none());
+        assert!(mapped.batch.payload.source_range.is_none());
+        assert!(
+            !mapped
+                .batch
+                .payload
+                .mutations
+                .iter()
+                .any(|mutation| matches!(mutation, TargetMutation::CompleteRange { .. }))
+        );
+        assert_eq!(
+            mapped.complete.status,
+            TargetCompleteStatus::Partial,
+            "shrunken {label} must remain non-canonical"
+        );
+    }
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_mapping_same_source_append_revalidates_complete_lineage_and_keeps_delta_cursor() {
+    let root = unique_temp_path("target-lineage-append-continuation");
+    for index in 0..4 {
+        copy_sanitized_fixture(index, &root);
+    }
+    let request = TargetAnalyzeRequest::new(
+        "target-lineage-append-initial-request",
+        "target-lineage-append-job",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Append,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("initial lineage append source read succeeds");
+    let mapped =
+        map_target_source_read(&request, &source).expect("initial lineage append mapping succeeds");
+    assert_eq!(
+        mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert_eq!(mapped.batch.payload.lineage_transitions.len(), 2);
+    assert_eq!(mapped.batch.payload.replacements.len(), 2);
+    let first_cursor = mapped
+        .batch
+        .payload
+        .next_cursor
+        .clone()
+        .expect("initial lineage append produces a cursor");
+
+    let active_path = sanitized_fixture_files_path(&root, 3);
+    let mut file = fs::OpenOptions::new()
+        .append(true)
+        .open(&active_path)
+        .expect("lineage append fixture reopens");
+    file.write_all(
+        br#"{"timestamp":"2026-08-22T00:04:01","ordinal":4,"type":"event_msg","payload":{"type":"task_complete","turn_id":"1b4c5d60-7e8f-4091-a2b3-4d5e6f7a8b92","last_agent_message":"synthetic continuation","duration_ms":1}}
+"#,
+    )
+    .expect("lineage append fixture grows");
+    file.sync_all().expect("lineage append fixture syncs");
+
+    let mut continuation_request = TargetAnalyzeRequest::new(
+        "target-lineage-append-continuation-request",
+        "target-lineage-append-job",
+        SANITIZED_SESSION_CONVERSATION_ID,
+        TargetAnalyzeMode::Append,
+    );
+    continuation_request.cursor = Some(first_cursor.clone());
+    continuation_request.persisted_anchor = Some(mapped.complete.checkpoint.clone());
+    let continuation_source = read_target_source(
+        &continuation_request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("same-source lineage append source read succeeds");
+    assert_eq!(continuation_source.segments.len(), 1);
+    assert!(continuation_source.lineage_segments.is_some());
+    assert!(continuation_source.lineage_records.is_some());
+    assert!(continuation_source.lineage_coverage.complete);
+    assert!(continuation_source.append_cursor.is_some());
+
+    let continuation = map_target_source_read(&continuation_request, &continuation_source)
+        .expect("same-source lineage append mapping succeeds");
+    assert_eq!(
+        continuation.batch.payload.completeness,
+        TargetCompleteness::Canonical,
+        "continuation diagnostics: {:?}",
+        continuation.batch.payload.diagnostics
+    );
+    assert_eq!(continuation.batch.payload.lineage_transitions.len(), 2);
+    assert!(
+        continuation
+            .batch
+            .payload
+            .lineage_transitions
+            .iter()
+            .all(|transition| {
+                transition.validation_state == TargetLineageValidationState::Validated
+            })
+    );
+    assert_eq!(continuation.batch.payload.replacements.len(), 2);
+    let continuation_cursor = continuation
+        .batch
+        .payload
+        .next_cursor
+        .as_ref()
+        .expect("same-source lineage append advances its cursor");
+    assert_eq!(
+        continuation_cursor.cursor_kind,
+        TargetCursorKind::ForwardAppend
+    );
+    assert!(continuation_cursor.complete_range.end > first_cursor.complete_range.end);
+    assert_eq!(
+        continuation.complete.checkpoint.lineage_checkpoint,
+        continuation.batch.payload.lineage_checkpoint
+    );
+
+    let mut gapped_lineage = continuation_source.clone();
+    gapped_lineage
+        .lineage_segments
+        .as_mut()
+        .expect("lineage recovery evidence exists")[0]
+        .parse_gap_count = 1;
+    let gapped = map_target_source_read(&continuation_request, &gapped_lineage)
+        .expect("lineage recovery gap stays partial");
+    assert_eq!(
+        gapped.batch.payload.completeness,
+        TargetCompleteness::Partial
+    );
+    assert!(gapped.batch.payload.next_cursor.is_none());
+    assert!(gapped.batch.payload.source_range.is_none());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn target_mapping_honors_cancellation_and_deadline_controls() {
+    let root = target_protocol_fixture_root();
+    let request = TargetAnalyzeRequest::new(
+        "target-mapping-control-request",
+        "target-mapping-control-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .expect("target source read succeeds");
+
+    let cancelled = std::sync::atomic::AtomicBool::new(true);
+    assert_eq!(
+        map_target_source_read_with_control(
+            &request,
+            &source,
+            &cancelled,
+            Instant::now() + Duration::from_secs(1),
+        )
+        .expect_err("cancelled mapping must stop before publication"),
+        TargetSourceReadError::Cancelled
+    );
+
+    let deadline = Instant::now() - Duration::from_millis(1);
+    assert_eq!(
+        map_target_source_read_with_control(
+            &request,
+            &source,
+            &std::sync::atomic::AtomicBool::new(false),
+            deadline,
+        )
+        .expect_err("expired mapping deadline must stop before publication"),
+        TargetSourceReadError::Timeout
+    );
+}
+
+#[test]
+fn target_process_mapping_and_formal_promotion_controls_never_publish_stale_results() {
+    let root = target_protocol_fixture_root();
+    exercise_delayed_target_control(
+        &root,
+        "target-mapping-timeout",
+        Some(300),
+        None,
+        Some(120),
+        None,
+    );
+    exercise_delayed_target_control(
+        &root,
+        "target-mapping-cancel",
+        Some(300),
+        None,
+        None,
+        Some(150),
+    );
+    exercise_delayed_target_control(
+        &root,
+        "target-promotion-timeout",
+        None,
+        Some(300),
+        Some(120),
+        None,
+    );
+    exercise_delayed_target_control(
+        &root,
+        "target-promotion-cancel",
+        None,
+        Some(300),
+        None,
+        Some(150),
+    );
+}
+
+#[test]
+fn target_process_keeps_cancelled_source_worker_occupied_until_exit() {
+    let root = target_protocol_fixture_root();
+    let mut process =
+        InteractiveTargetProcess::spawn_with_root_and_worker_delay(&root, None, Some(300));
+    process.send(target_node_hello("target-worker-occupancy-generation"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+
+    let cancelled_request = TargetAnalyzeRequest::new(
+        "target-worker-occupancy-cancelled-request",
+        "target-worker-occupancy-cancelled-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    process.send(TargetMessage::Analyze(cancelled_request.clone()));
+    process.send(TargetMessage::Cancel(TargetCancelMessage::new(
+        "target-worker-occupancy-cancelled-request",
+        "cancel while source worker is delayed",
+    )));
+    let cancelled = target_error(process.read(), "cancelled");
+    assert!(!cancelled.fatal);
+
+    let blocked_request = TargetAnalyzeRequest::new(
+        "target-worker-occupancy-blocked-request",
+        "target-worker-occupancy-blocked-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    process.send(TargetMessage::Analyze(blocked_request));
+    let busy = target_error(process.read(), "busy");
+    assert!(!busy.retryable);
+
+    std::thread::sleep(Duration::from_millis(450));
+    let admitted_request = TargetAnalyzeRequest::new(
+        "target-worker-occupancy-admitted-request",
+        "target-worker-occupancy-admitted-job",
+        TARGET_MAPPING_CONVERSATION_ID,
+        TargetAnalyzeMode::Backfill,
+    );
+    process.send(TargetMessage::Analyze(admitted_request));
+    let batch = match process.read() {
+        TargetMessage::Batch(batch) => batch,
+        other => panic!("expected a new batch after cancelled worker exit, got {other:?}"),
+    };
+    process.send(TargetMessage::Ack(TargetAckMessage::new(
+        "target-worker-occupancy-admitted-request",
+        batch.job_id.clone(),
+        batch.segment_id.clone(),
+        batch.batch_id.clone(),
+        true,
+        true,
+        None::<String>,
+    )));
+    assert!(matches!(process.read(), TargetMessage::Complete(_)));
+    process.finish();
+}
+
+#[test]
+fn target_process_delivers_mapped_batch_and_waits_for_positive_ack() {
+    let base = fs::read_to_string(target_fixture_path(
+        &target_protocol_fixture_root(),
+        TARGET_MAPPING_CONVERSATION_ID,
+    ))
+    .expect("target baseline reads");
+    let token = current_fixture_contents("token-usage-record.jsonl")
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("token fixture JSON"))
+        .find(|line| line["type"] == "token_usage_record")
+        .expect("known token carrier");
+    let developer = current_fixture_contents("message-roles.jsonl")
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("role fixture JSON"))
+        .find(|line| line["payload"]["role"] == "developer")
+        .expect("known developer carrier");
+    let mut unknown = developer.clone();
+    unknown["payload"]["role"] = json!("future_developer");
+    let mut malformed = token.clone();
+    malformed["payload"]["usage"] = json!("not-an-object");
+    let growth_token = token.clone();
+
+    for (label, carriers, canonical) in [
+        ("baseline", vec![], true),
+        ("token", vec![token.clone()], true),
+        ("developer", vec![developer.clone()], true),
+        ("both", vec![token.clone(), developer.clone()], true),
+        (
+            "unknown",
+            vec![token.clone(), developer.clone(), unknown],
+            false,
+        ),
+        ("malformed", vec![token, developer, malformed], false),
+    ] {
+        let root = unique_temp_path(&format!("present-diagnostics-{label}"));
+        let mut contents = base.clone();
+        for (index, mut carrier) in carriers.into_iter().enumerate() {
+            carrier["ordinal"] = json!(index + 2);
+            contents.push_str(&serde_json::to_string(&carrier).expect("carrier serializes"));
+            contents.push('\n');
+        }
+        let source_path = write_target_fixture(&root, TARGET_MAPPING_CONVERSATION_ID, &contents);
+        let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+        process.send(target_node_hello(&format!("{label}-generation")));
+        assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+
+        let request_id = format!("{label}-request");
+        process.send(TargetMessage::Analyze(TargetAnalyzeRequest::new(
+            request_id.clone(),
+            format!("{label}-job"),
+            TARGET_MAPPING_CONVERSATION_ID,
+            TargetAnalyzeMode::Backfill,
+        )));
+        let batch = match process.read() {
+            TargetMessage::Batch(batch) => batch,
+            other => panic!("expected mapped target batch for {label}, got {other:?}"),
+        };
+        let expected = if canonical {
+            TargetCompleteness::Canonical
+        } else {
+            TargetCompleteness::Partial
+        };
+        assert_eq!(batch.payload.completeness, expected, "{label}");
+        assert_eq!(batch.payload.complete, canonical, "{label}");
+        let encoded = serde_json::to_string(&batch).expect("batch serializes");
+        for sentinel in [
+            "history developer carrier",
+            "hidden-turn-sentinel",
+            "internal_chat_message_metadata_passthrough",
+            "thread_token_usage",
+            "turn_token_usage",
+            "response-sanitized-1",
+        ] {
+            assert!(!encoded.contains(sentinel), "{label} leaked {sentinel}");
+        }
+        if canonical {
+            assert!(batch.payload.diagnostics.is_empty(), "{label}");
+            assert_eq!(batch.payload.projection["coverage"], "complete", "{label}");
+            assert_eq!(
+                batch
+                    .payload
+                    .next_cursor
+                    .as_ref()
+                    .map(|cursor| cursor.cursor_kind),
+                Some(TargetCursorKind::ForwardAppend),
+                "{label}"
+            );
+            let diagnostics = batch.payload.projection["diagnostics"]
+                .as_array()
+                .expect("projection diagnostics");
+            assert_eq!(
+                diagnostics.len(),
+                if label == "both" {
+                    2
+                } else if label == "baseline" {
+                    0
+                } else {
+                    1
+                }
+            );
+            assert!(
+                diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic["availability"] == "present")
+            );
+        } else {
+            assert!(!batch.payload.diagnostics.is_empty(), "{label}");
+            assert!(
+                !batch
+                    .payload
+                    .mutations
+                    .iter()
+                    .any(|mutation| { matches!(mutation, TargetMutation::CompleteRange { .. }) }),
+                "{label} published canonical range evidence"
+            );
+        }
+
+        process.send(TargetMessage::Ack(TargetAckMessage::new(
+            request_id,
+            batch.job_id.clone(),
+            batch.segment_id.clone(),
+            batch.batch_id.clone(),
+            true,
+            true,
+            None::<String>,
+        )));
+        let complete = match process.read() {
+            TargetMessage::Complete(complete) => complete,
+            other => panic!("expected mapped target complete for {label}, got {other:?}"),
+        };
+        assert_eq!(complete.completeness, expected, "{label}");
+        assert_eq!(
+            complete.checkpoint.projection_watermark.batch_id,
+            batch.batch_id
+        );
+        if canonical {
+            assert_eq!(complete.status, TargetCompleteStatus::Completed, "{label}");
+            assert_eq!(
+                complete.checkpoint.projection_watermark.complete_source_end,
+                Some(contents.len() as u64),
+                "{label}"
+            );
+        } else {
+            assert_eq!(complete.status, TargetCompleteStatus::Partial, "{label}");
+            assert_ne!(
+                complete.checkpoint.cursor_kind,
+                Some(TargetCursorKind::ForwardAppend),
+                "{label}"
+            );
+        }
+        process.finish();
+
+        if canonical {
+            let original_diagnostics = batch.payload.projection["diagnostics"]
+                .as_array()
+                .expect("initial diagnostics")
+                .clone();
+            let mut checkpoint = complete.checkpoint.clone();
+            let mut cursor = batch.payload.next_cursor.clone().expect("canonical cursor");
+            let mut expected_projection = batch.payload.projection.clone();
+            let mut growth_anchor = None;
+
+            for phase in ["no-growth", "growth", "growth-replay", "no-growth-latest"] {
+                if phase == "growth" {
+                    growth_anchor = Some((checkpoint.clone(), cursor.clone()));
+                    let mut carrier = growth_token.clone();
+                    carrier["ordinal"] = json!(contents.lines().count());
+                    let line = serde_json::to_string(&carrier).expect("growth carrier serializes");
+                    let mut file = fs::OpenOptions::new()
+                        .append(true)
+                        .open(&source_path)
+                        .expect("synthetic source opens for append");
+                    writeln!(file, "{line}").expect("synthetic source grows");
+                    file.sync_all().expect("synthetic growth syncs");
+                    contents.push_str(&line);
+                    contents.push('\n');
+                }
+
+                let (anchor, append_cursor) = if phase == "growth-replay" {
+                    growth_anchor
+                        .clone()
+                        .expect("pre-growth checkpoint retained")
+                } else {
+                    (checkpoint.clone(), cursor.clone())
+                };
+                let mut resumed = InteractiveTargetProcess::spawn_with_root(&root, None);
+                resumed.send(target_node_hello(&format!("{label}-{phase}-generation")));
+                assert!(matches!(resumed.read(), TargetMessage::AnalyzerHello(_)));
+                let request_id = format!("{label}-{phase}-request");
+                let mut request = TargetAnalyzeRequest::new(
+                    request_id.clone(),
+                    format!("{label}-{phase}-job"),
+                    TARGET_MAPPING_CONVERSATION_ID,
+                    TargetAnalyzeMode::Append,
+                );
+                request.cursor = Some(append_cursor);
+                request.persisted_anchor = Some(anchor);
+                resumed.send(TargetMessage::Analyze(request));
+                let next = match resumed.read() {
+                    TargetMessage::Batch(batch) => batch,
+                    other => panic!("expected append batch for {label}/{phase}, got {other:?}"),
+                };
+                assert_eq!(next.payload.completeness, TargetCompleteness::Canonical);
+                assert!(next.payload.complete);
+                assert_eq!(
+                    next.payload.history_items.len(),
+                    usize::from(phase == "growth" || phase == "growth-replay"),
+                    "{label}/{phase} must deliver only the expected delta"
+                );
+                let diagnostics = next.payload.projection["diagnostics"]
+                    .as_array()
+                    .expect("resumed diagnostics");
+                for original in &original_diagnostics {
+                    assert!(
+                        diagnostics.contains(original),
+                        "{label}/{phase} lost diagnostic"
+                    );
+                }
+                assert_eq!(
+                    diagnostics.len(),
+                    original_diagnostics.len() + usize::from(phase != "no-growth"),
+                    "{label}/{phase} must retain and deduplicate old and new diagnostics"
+                );
+                if phase == "growth" {
+                    expected_projection = next.payload.projection.clone();
+                } else {
+                    assert_eq!(
+                        next.payload.projection, expected_projection,
+                        "{label}/{phase}"
+                    );
+                }
+
+                resumed.send(TargetMessage::Ack(TargetAckMessage::new(
+                    request_id,
+                    next.job_id.clone(),
+                    next.segment_id.clone(),
+                    next.batch_id.clone(),
+                    true,
+                    true,
+                    None::<String>,
+                )));
+                let done = match resumed.read() {
+                    TargetMessage::Complete(done) => done,
+                    other => panic!("expected append complete for {label}/{phase}, got {other:?}"),
+                };
+                assert_eq!(done.status, TargetCompleteStatus::Completed);
+                assert_eq!(done.completeness, TargetCompleteness::Canonical);
+                assert_eq!(
+                    done.checkpoint.cursor_kind,
+                    Some(TargetCursorKind::ForwardAppend)
+                );
+                assert_eq!(
+                    done.checkpoint.projection_watermark.complete_source_end,
+                    Some(contents.len() as u64)
+                );
+                assert_eq!(
+                    done.checkpoint.reducer_state.payload["reducer"]["projection"]["diagnostics"],
+                    next.payload.projection["diagnostics"],
+                    "{label}/{phase} checkpoint must preserve diagnostic evidence"
+                );
+                cursor = next.payload.next_cursor.expect("append keeps cursor");
+                checkpoint = done.checkpoint;
+                resumed.finish();
+            }
+        }
+        fs::remove_dir_all(root).expect("temporary target fixture removes");
+    }
+}

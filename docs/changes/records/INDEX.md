@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20261006-0010-shared-history-rust-semantics | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-0010-shared-history-rust-semantics.md` |
 | CR-20261005-1901-shared-history-wire-compat | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-05 |  | `docs/changes/records/CR-20261005-1901-shared-history-wire-compat.md` |
 | CR-20261005-1722-shared-history-compat-design-repair | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-05 |  | `docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md` |
 | CR-20261005-1521-shared-history-compat-design | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-05 |  | `docs/changes/records/CR-20261005-1521-shared-history-compat-design.md` |
