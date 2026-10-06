@@ -1,0 +1,269 @@
+diff --git a/tests/codexHistoryProductFlow.test.js b/tests/codexHistoryProductFlow.test.js
+index 456a0df5..238718fc 100644
+--- a/tests/codexHistoryProductFlow.test.js
++++ b/tests/codexHistoryProductFlow.test.js
+@@ -196,16 +196,16 @@ function appendedProductTurn(ordinalStart = 9) {
+     return events.map(([type, payload], index) => rolloutLine(ordinalStart + index, type, payload)).join('');
+ }
+ 
+-async function createRealProductCollector(root, productStore, analyzerPath, suffix = 'first') {
++async function createRealProductCollector(root, productStore, analyzerPath, suffix = 'first', targetId = RUST_CONVERSATION_ID) {
+     const codexHome = path.join(root, 'codex-home');
+     const sessionDirectory = path.join(codexHome, 'sessions', '2026', '08', '18');
+     await fs.promises.mkdir(sessionDirectory, { recursive: true });
+     const sourcePath = path.join(
+         sessionDirectory,
+-        `rollout-2026-08-18T10-00-00-${RUST_CONVERSATION_ID}.jsonl`
++        `rollout-2026-08-18T10-00-00-${targetId}.jsonl`
+     );
+     if (!await fs.promises.access(sourcePath).then(() => true, () => false)) {
+-        await fs.promises.writeFile(sourcePath, productRolloutFixture(), 'utf8');
++        await fs.promises.writeFile(sourcePath, productRolloutFixture(targetId), 'utf8');
+     }
+ 
+     const store = new FileAnalysisStore({ rootDir: path.join(root, 'analysis') });
+@@ -227,6 +227,244 @@ async function createRealProductCollector(root, productStore, analyzerPath, suff
+     return { collector, sourcePath, store, checkpointStore, runStore, importer };
+ }
+ 
++// Observe the actual SQLite transactions and ACK writes without replacing either.
++function traceHistoryDelivery(collector, productStore, conversationId) {
++    const trace = [];
++    const messages = [];
++    const stagedBeforeAck = new Set();
++    let phase = null;
++    const open = productStore.openDatabase.bind(productStore);
++    productStore.openDatabase = async () => {
++        const db = await open();
++        const run = db.run.bind(db);
++        db.run = (sql, ...args) => {
++            const result = run(sql, ...args);
++            if (/^(BEGIN IMMEDIATE|COMMIT|ROLLBACK)$/.test(sql)) trace.push({ phase, sql });
++            return result;
++        };
++        return db;
++    };
++    for (const method of ['stageBatch', 'publishCanonical']) {
++        const original = productStore[method].bind(productStore);
++        productStore[method] = async (value) => {
++            phase = method;
++            try {
++                const result = await original(value);
++                trace.push({ phase, returned: result.status, batch_id: value.batchId });
++                return result;
++            } finally { phase = null; }
++        };
++    }
++    const importer = collector.importer;
++    const importBatch = importer.importBatch.bind(importer);
++    importer.importBatch = async (batch, options) => {
++        const before = await makeStore(productStore.databasePath).readConversation(conversationId);
++        const result = await importBatch(batch, options);
++        const reopened = makeStore(productStore.databasePath);
++        const staged = await reopened.readStagedBatch(conversationId, batch.batch_id);
++        assert.ok(staged);
++        assert.equal(staged.publishedAt, null);
++        assert.equal(staged.deliveryIdentity.job_id, batch.job_id);
++        assert.equal(staged.deliveryIdentity.segment_id, batch.segment_id);
++        assert.deepEqual(await reopened.readConversation(conversationId), before);
++        stagedBeforeAck.add(batch.batch_id);
++        trace.push({ phase: 'durable-reopen-before-ack', batch_id: batch.batch_id });
++        return result;
++    };
++    const send = collector.processManager.send.bind(collector.processManager);
++    collector.processManager.send = (message) => {
++        if (message.message_type === 'ack') {
++            if (message.accepted) assert.ok(stagedBeforeAck.has(message.batch_id));
++            trace.push({ phase: 'actual-ack-write', accepted: message.accepted, persisted: message.persisted, batch_id: message.batch_id });
++        }
++        return send(message);
++    };
++    collector.processManager.on('message', (message) => {
++        messages.push(structuredClone(message));
++        if (message.message_type === 'complete') {
++            assert.ok(trace.some((entry) => entry.phase === 'actual-ack-write' && entry.accepted
++                && entry.batch_id === message.checkpoint.projection_watermark.batch_id));
++            trace.push({ phase: 'actual-rust-complete', batch_id: message.checkpoint.projection_watermark.batch_id });
++        }
++    });
++    return { trace, messages };
++}
++
++async function readHistoryAfterReopen(databasePath, conversationId, expectedText, expectedDelegations = []) {
++    const reopened = makeStore(databasePath);
++    const history = await reopened.readConversation(conversationId);
++    assert.equal(history.coverage.completeness, 'canonical');
++    const checkpoint = await reopened.readCheckpoint(conversationId);
++    assert.equal(checkpoint.completeness, 'canonical');
++    const provider = new CodexHistoryProductProvider({ store: reopened });
++    const body = await provider.readInitial(conversationId);
++    assert.equal(body.complete, true);
++    assert.equal(new Set(body.items.map((item) => item.itemKey)).size, body.items.length);
++    if (expectedText) assert.ok(JSON.stringify(body.items).includes(expectedText));
++    const delegated = history.items.filter((item) => item.itemType === 'delegated_input');
++    assert.deepEqual(delegated.map((item) => item.payload.content), expectedDelegations);
++    for (const item of delegated) {
++        assert.equal(item.payload.role, 'system');
++        assert.equal(item.payload.tool, null);
++        assert.equal(item.itemKey, 'delegated-input:' + item.payload.eventFacts[0].payload.item_id);
++        assert.equal(item.payload.eventFacts.length, 2);
++        assert.deepEqual(new Set(item.payload.eventFacts.map((fact) => fact.payload.carrier)), new Set(['response_item', 'item_completed']));
++        assert.ok(item.payload.eventFacts.every((fact) => !Object.hasOwn(fact.payload, 'call_id')));
++        const wireItem = body.items.find((value) => value.itemKey === item.itemKey);
++        assert.equal(JSON.parse(wireItem.payloadJson).content, item.payload.content);
++        assert.equal(JSON.parse(wireItem.payloadJson).role, 'system');
++        assert.equal(wireItem.detailRefs?.length ?? 0, 0);
++    }
++    const tool = body.items.find((item) => item.detailRefs?.length && item.payloadJson.includes('cargo'));
++    assert.ok(tool, 'ordinary tool must retain a real detail reference');
++    const detail = await provider.readDetailPage(conversationId, { refId: tool.detailRefs[0].refId });
++    assert.equal(detail.nextCursor, null);
++    assert.ok(detail.content.includes('cargo'), detail.content);
++    assert.ok(detail.content.includes('--locked'), detail.content);
++    assert.ok(detail.content.includes('1 passed'));
++    assert.ok(history.toolDetails.every((entry) => !entry.itemKey.startsWith('delegated-input:')));
++    assert.equal(JSON.stringify(body).includes('source_ref'), false);
++    return { history, checkpoint, body, detail };
++}
++
++function assertHistoryCommitOrder(audit) {
++    for (const [index, entry] of audit.trace.entries()) {
++        if (entry.phase !== 'publishCanonical' || entry.returned !== 'published') continue;
++        const phases = audit.trace.slice(0, index);
++        const ack = phases.findLastIndex((value) => value.phase === 'actual-ack-write' && value.accepted && value.batch_id === entry.batch_id);
++        const reopen = phases.findLastIndex((value) => value.phase === 'durable-reopen-before-ack' && value.batch_id === entry.batch_id);
++        const complete = phases.findLastIndex((value) => value.phase === 'actual-rust-complete' && value.batch_id === entry.batch_id);
++        const commit = phases.findLastIndex((value) => value.phase === 'publishCanonical' && value.sql === 'COMMIT');
++        const stageCommit = phases.slice(0, reopen).findLastIndex((value) => value.phase === 'stageBatch' && value.sql === 'COMMIT');
++        assert.ok(stageCommit >= 0 && stageCommit < reopen && reopen < ack && ack < complete && complete < commit && commit < index);
++    }
++}
++
++async function saveHistoryDeliveryEvidence(label, audit, readback) {
++    if (!process.env.TERMLINK_HISTORY_S5_EVIDENCE_DIR) return;
++    const directory = path.resolve(process.env.TERMLINK_HISTORY_S5_EVIDENCE_DIR);
++    await fs.promises.mkdir(directory, { recursive: true });
++    await fs.promises.writeFile(path.join(directory, label + '.json'), JSON.stringify({ label, ...audit, ...readback }, null, 2) + '\n');
++}
++
++test('history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen', async (t) => {
++    for (const mode of ['backfill', 'append']) await t.test(mode, async (t) => {
++        const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-h1-delivery-'));
++        const databasePath = path.join(root, 'history.sqlite');
++        const productStore = makeStore(databasePath);
++        const fixture = await createRealProductCollector(root, productStore, await resolveRustTargetBinary());
++        const { collector, sourcePath } = fixture;
++        t.after(async () => { await collector.stop(); await fs.promises.rm(root, { recursive: true, force: true }); });
++        const audit = traceHistoryDelivery(collector, productStore, RUST_CONVERSATION_ID);
++        const rows = productRolloutFixture().trimEnd().split('\n');
++        await fs.promises.writeFile(sourcePath, rows.slice(0, -1).join('\n') + '\n');
++        const request = (label, options = {}) => createAnalyzeRequest({ requestId: 'h1-' + label + '-' + mode,
++            jobId: 'h1-job-' + label + '-' + mode, conversationId: RUST_CONVERSATION_ID, mode: 'backfill', ...options });
++        const first = await collector.analyze(request('running'));
++        assert.equal(first.complete.completeness, 'canonical');
++        assert.equal(first.state.projection.turns[0].status, 'in_progress');
++        const initial = await readHistoryAfterReopen(databasePath, RUST_CONVERSATION_ID, 'product history initial message');
++        await fs.promises.appendFile(sourcePath, rows.at(-1) + '\n');
++        const next = await collector.analyze(request('completed', { mode,
++            ...(mode === 'append' ? { cursor: initial.checkpoint.cursor, persistedAnchor: initial.checkpoint } : {}) }));
++        assert.equal(next.state.projection.turns[0].status, 'completed');
++        const readback = await readHistoryAfterReopen(databasePath, RUST_CONVERSATION_ID, 'product history initial message');
++        assert.equal(readback.history.items.filter((item) => item.itemKey === 'turn:turn-1').length, 1);
++        assert.equal(readback.history.items.find((item) => item.itemKey === 'turn:turn-1').payload.eventFacts.length, 2);
++        const goodImport = collector.importer.importBatch.bind(collector.importer);
++        collector.importer.importBatch = (batch, options) => {
++            const forged = structuredClone(batch);
++            forged.payload.mutations.find((mutation) => mutation.item?.item_key === 'turn:turn-1').item.content_hash = 'fnv1a64:0000000000000000';
++            return goodImport(forged, options);
++        };
++        await assert.rejects(collector.analyze(request('conflict')));
++        assert.ok(audit.trace.some((entry) => entry.phase === 'actual-ack-write' && !entry.accepted));
++        assert.equal(audit.messages.some((message) => message.message_type === 'complete' && message.request_id === 'h1-conflict-' + mode), false);
++        await collector.stop();
++        const after = await readHistoryAfterReopen(databasePath, RUST_CONVERSATION_ID, 'product history initial message');
++        assert.deepEqual(after.history, readback.history);
++        assert.deepEqual(after.checkpoint, readback.checkpoint);
++        assert.equal(audit.trace.filter((entry) => entry.phase === 'publishCanonical' && entry.sql === 'COMMIT').length, 2);
++        assertHistoryCommitOrder(audit);
++        await saveHistoryDeliveryEvidence('H1-' + mode, audit, readback);
++    });
++});
++
++test('history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection', async (t) => {
++    const id = '00000000-0000-4000-8000-000000000001';
++    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-h3-delivery-'));
++    const databasePath = path.join(root, 'history.sqlite');
++    const productStore = makeStore(databasePath);
++    const analyzerPath = await resolveRustTargetBinary();
++    const fixture = await createRealProductCollector(root, productStore, analyzerPath, 'delegated', id);
++    let { collector } = fixture;
++    t.after(async () => { await collector.stop(); await fs.promises.rm(root, { recursive: true, force: true }); });
++    // Original sanitized delegation lines remain byte-preserved. A separate
++    // synthetic ordinary turn supplies actual tool events, never fake delegation calls.
++    const delegated = await fs.promises.readFile(path.join(nativeRoot, 'tests/fixtures/current/delegated-context.jsonl'), 'utf8');
++    const ordinary = productRolloutFixture(id).trimEnd().split('\n').slice(1).map((line, index) => {
++        const row = JSON.parse(line);
++        row.ordinal = 13 + index;
++        row.timestamp = `2026-10-03T00:00:${String(13 + index).padStart(2, '0')}.000Z`;
++        return JSON.stringify(row);
++    }).join('\n') + '\n';
++    await fs.promises.writeFile(fixture.sourcePath, delegated + ordinary);
++    const historicalPath = path.resolve(__dirname, '../logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json');
++    await fs.promises.mkdir(fixture.store.rootDir, { recursive: true });
++    await fs.promises.copyFile(historicalPath, path.join(fixture.store.rootDir, path.basename(historicalPath)));
++    const audit = traceHistoryDelivery(collector, productStore, id);
++    const request = (label) => createAnalyzeRequest({ requestId: 'h3-' + label, jobId: 'h3-job-' + label,
++        conversationId: id, mode: 'backfill' });
++    const first = await collector.analyze(request('first'));
++    assert.equal(first.complete.completeness, 'canonical');
++    assert.equal(first.state.items.filter((record) => record.event.event_type === 'ParseGap').length, 2);
++    for (const key of ['00000000-0000-4000-8000-000000000007', '00000000-0000-4000-8000-000000000009', '00000000-0000-4000-8000-000000000011']) {
++        const facts = first.state.items.filter((record) => record.event.event_type === 'DelegatedInput' && record.event.payload.item_id === key);
++        assert.equal(new Set(facts.map((record) => record.event_id)).size, 2);
++    }
++    await collector.stop();
++    const expected = ['[sanitized delegation 1]', '[sanitized delegation 2]', '[sanitized delegation 3]'];
++    const initial = await readHistoryAfterReopen(databasePath, id, 'product history initial message', expected);
++    const restarted = await createRealProductCollector(root, makeStore(databasePath), analyzerPath, 'reopened', id);
++    collector = restarted.collector;
++    const secondAudit = traceHistoryDelivery(collector, collector.importer.productStore, id);
++    await collector.analyze(request('overlap'));
++    const before = await readHistoryAfterReopen(databasePath, id, 'product history initial message', expected);
++    assert.deepEqual(before.history.items, initial.history.items);
++    assert.deepEqual(before.history.toolDetails, initial.history.toolDetails);
++    const goodImport = collector.importer.importBatch.bind(collector.importer);
++    collector.importer.importBatch = (batch, options) => {
++        const forged = structuredClone(batch);
++        forged.payload.history_items.find((event) => event.event_type === 'DelegatedInput').payload.text = '[conflicting delegated text]';
++        return goodImport(forged, options);
++    };
++    await assert.rejects(collector.analyze(request('conflict')));
++    assert.ok(secondAudit.trace.some((entry) => entry.phase === 'actual-ack-write' && !entry.accepted));
++    assert.equal(secondAudit.messages.some((message) => message.message_type === 'complete' && message.request_id === 'h3-conflict'), false);
++    collector.importer.importBatch = goodImport;
++    const product = collector.importer.productStore;
++    const open = product.openDatabase.bind(product);
++    product.openDatabase = async () => {
++        const db = await open();
++        const prepare = db.prepare.bind(db);
++        db.prepare = (sql, ...args) => {
++            if (/^\s*INSERT INTO tool_details\b/.test(sql)) throw new Error('injected product insert failure');
++            return prepare(sql, ...args);
++        };
++        return db;
++    };
++    await assert.rejects(collector.analyze(request('transaction-failure')), /SQLite Store transaction failed/);
++    assert.ok(secondAudit.trace.some((entry) => entry.phase === 'publishCanonical' && entry.sql === 'ROLLBACK'));
++    assert.ok(secondAudit.messages.some((message) => message.message_type === 'complete' && message.request_id === 'h3-transaction-failure'));
++    await collector.stop();
++    const after = await readHistoryAfterReopen(databasePath, id, 'product history initial message', expected);
++    assert.deepEqual(after.history, before.history);
++    assert.deepEqual(after.checkpoint, before.checkpoint);
++    assertHistoryCommitOrder(audit);
++    assertHistoryCommitOrder(secondAudit);
++    await saveHistoryDeliveryEvidence('H3-reopen-conflict', { first: audit, second: secondAudit }, after);
++});
++
+ function stagedBatch(batchId, payload = { history_items: [{ item_key: 'item-1' }] }) {
+     return {
+         conversationId: CONVERSATION_ID,

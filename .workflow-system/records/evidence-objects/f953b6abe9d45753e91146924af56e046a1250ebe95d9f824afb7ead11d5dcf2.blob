@@ -1,0 +1,26 @@
+const fs=require('fs'),cp=require('child_process'),crypto=require('crypto');
+const d='logs/shared-history-compat-20261005/s5';
+const b=JSON.parse(fs.readFileSync(`${d}/baseline.json`,'utf8'));
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const source=JSON.parse(fs.readFileSync(`${d}/source-after.json`,'utf8'));
+const head=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+if(head!==b.head||!source.every(p=>hash(p.path)===p.sha256)||!b.protected.every(p=>hash(p.path)===p.sha256))throw Error('Execution subject changed');
+const labels=['delivery-initial','delivery-shape-corrected','delivery-protection','delivery-complete','delivery-transaction','final-product-and-rust','req','cr','diff-check'];
+const commands=labels.map(label=>{const r=JSON.parse(fs.readFileSync(`${d}/${label}-result.json`,'utf8'));return{command:r.command,environment:r.environment,result:'exit'+r.exit_code,report_ref:`${d}/${label}.txt`};});
+if(JSON.parse(fs.readFileSync(`${d}/final-product-and-rust-result.json`,'utf8')).exit_code!==0)throw Error('Final validation failed');
+const collect=dir=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(p=>p.isDirectory()?collect(dir+'/'+p.name):[dir+'/'+p.name]);
+const input={action:'execution',task_id:'task-7ff69ba8242c90c52f0b93fa1144a655',
+ plan_ref:'.workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json',step_id:'S5',mode:'default',source_revision:head,
+ result:'S5 H1/H3 isolated Rust/Node/File/SQLite/provider delivery verified;final43/43 PASS;pending change review/finish;832 Branch/real-host/mobile acceptance unchanged',
+ decision_source:'Current human bare execute-step invocation;fresh journal selects833/S5 after actual S4 finished disposition',
+ decision_text:'[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md)',
+ summary:{implementation:'Existing productflow expanded for H1 full/append canonical growth and H3 exact sanitized delegation with separate synthetic ordinary tool;trace actual SQLiteCOMMIT/reopen/ACK/complete/productCOMMIT;provider body/detail reopen and original partial seed.',scope:'One existing test file,REQ/PLAN/new draftCR and evidence/handoff;no product/Rust/IPC/Android/governance/schema/budget/source/Git/real service/device changes.',protection:'Actual negative ACK for ordinary hash/delegated text conflicts;no success complete;real product prepare failure yieldsROLLBACK and unchanged old canonical/checkpoint after reopen;collector overlap/restart preserves rows/details.',qualification:'Implementation self-check,not formal/independent review or finish/close;isolated currentprocess/temporaryproductSQLite evidence,not natural external Codex host or phone acceptance;test Gateway/server harness only.',entry:'Fresh833/S4 clean finished ref=key-39c8c2b8ddcdd35ef2a8212200a0ed76981e96ef1c75e0077d60936d59102d47.json;S5not-started;HEADf2fc146;832/S2unchanged.'},
+ commands,remaining_work:['S5 new change review and separate finish;833 closure/dependency outcome/manual parent return not performed','832 H2 Rust discovery/catalog localization/repair and all3 natural host/mobile switch/reopen body and real tool-detail acceptance','832 S2 review/finish and reconcile duplicated shared implementation scope after explicit return','Prior failures,S2 vendor offline test limitation,three old management association gaps and no independent review retained'],
+ files:[...source.map(p=>p.path),...b.protected.filter(p=>!p.path.endsWith('.exe')).map(p=>p.path),...collect(d).filter(p=>!p.endsWith('/execution-input.json')&&!p.endsWith('/execution-result.json')),
+ 'logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json'],
+ idempotency_key:'task20260833-S5-product-delivery-execution-20261006-v1'};
+fs.writeFileSync(`${d}/execution-input.json`,JSON.stringify(input,null,2)+'\n');
+const r=cp.spawnSync('node',['.workflow-system/runtime/support/assistance.mjs','task','--root','.'],{input:JSON.stringify(input),encoding:'utf8'});
+fs.writeFileSync(`${d}/execution-result.json`,r.stdout);
+if(r.status!==0){fs.writeFileSync(`${d}/execution-error.txt`,r.stderr);throw Error(r.stderr||r.stdout);}
+const out=JSON.parse(r.stdout);console.log(JSON.stringify({recorded:out.recorded,ref:out.ref,association:out.association,projection:out.projection,files:input.files.length}));

@@ -1,0 +1,19 @@
+const fs=require('fs'),cp=require('child_process'),crypto=require('crypto');
+const d='logs/shared-history-compat-20261005/s5';
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const save=(name,v)=>fs.writeFileSync(`${d}/${name}.json`,JSON.stringify(v,null,2)+'\n');
+const b=JSON.parse(fs.readFileSync(`${d}/baseline.json`,'utf8'));
+const protectedChecks=b.protected.map(p=>({...p,matches:hash(p.path)===p.sha256}));
+const beforeChecks=b.before.map(p=>({...p,matches:hash(p.snapshot)===p.sha256}));
+const head=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+const source=['tests/codexHistoryProductFlow.test.js','docs/product/plans/PLAN-20261005-codex-history-shared-compat.md','docs/product/requirements/REQ-20261005-codex-history-shared-compat.md','docs/changes/records/CR-20261006-2016-history-product-delivery.md'].map(path=>({path,sha256:hash(path)}));
+const diff=cp.execFileSync('git',['diff','--name-only'],{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean);
+const readonly=['android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt','android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt','src/services/codexHistorySyncService.js'].map(path=>({path,sha256:hash(path),read_only:true}));
+save('source-after',source);save('self-check',{head,protectedChecks,beforeChecks,diff,readonly});
+if(head!==b.head||!protectedChecks.every(p=>p.matches)||!beforeChecks.every(p=>p.matches)||diff.some(p=>!source.some(s=>s.path===p)))throw Error('Unexpected execution scope change');
+for(const [label,bin,args] of [
+ ['req','pwsh',['-NoProfile','-File','.agents/skills/docs-requirement-sync/scripts/validate-req.ps1','-ReqPath','docs/product/requirements/REQ-20261005-codex-history-shared-compat.md','-ProjectRoot','.','-Strict']],
+ ['cr','pwsh',['-NoProfile','-File','.agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1','-RecordPath','docs/changes/records/CR-20261006-2016-history-product-delivery.md','-ProjectRoot','.','-Strict']],
+ ['diff-check','git',['diff','--check']]
+]){const r=cp.spawnSync(bin,args,{encoding:'utf8'});fs.writeFileSync(`${d}/${label}.txt`,(r.stdout||'')+(r.stderr||''));save(label+'-result',{command:{bin,args},exit_code:r.status});console.log(JSON.stringify({label,exit_code:r.status}));if(r.status!==0)throw Error(r.stderr||r.stdout);}
+console.log(JSON.stringify({head,protected:protectedChecks.length,all_protected_match:true,before:beforeChecks.length,source:source.length,diff}));

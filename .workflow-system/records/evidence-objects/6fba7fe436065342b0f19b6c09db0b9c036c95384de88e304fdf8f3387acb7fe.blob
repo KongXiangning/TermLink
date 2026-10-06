@@ -1,0 +1,65 @@
+▶ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen
+  ✖ backfill (878.5641ms)
+  ✖ append (109.4876ms)
+✖ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen (988.6763ms)
+✖ history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection (138.7519ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1315.9207
+
+✖ failing tests:
+
+test at tests\codexHistoryProductFlow.test.js:335:56
+✖ backfill (878.5641ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(detail.content.includes('cargo test --locked'))
+  
+      at readHistoryAfterReopen (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:321:12)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:350:25)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:335:48)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\codexHistoryProductFlow.test.js:335:56
+✖ append (109.4876ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(detail.content.includes('cargo test --locked'))
+  
+      at readHistoryAfterReopen (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:321:12)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:350:25)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:335:48)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\codexHistoryProductFlow.test.js:364:1
+✖ history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection (138.7519ms)
+  TypeError: Cannot read properties of undefined (reading 'event_id')
+      at E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:310:90
+      at Array.map (<anonymous>)
+      at readHistoryAfterReopen (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:310:54)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:394:21)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)

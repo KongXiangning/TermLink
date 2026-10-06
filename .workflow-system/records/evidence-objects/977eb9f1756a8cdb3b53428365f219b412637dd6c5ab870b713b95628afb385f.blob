@@ -1,0 +1,33 @@
+▶ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen
+  ✔ backfill (877.9721ms)
+  ✔ append (165.7577ms)
+✔ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen (1044.2883ms)
+✖ history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection (132.7184ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1371.9599
+
+✖ failing tests:
+
+test at tests\codexHistoryProductFlow.test.js:365:1
+✖ history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection (132.7184ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at readHistoryAfterReopen (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:310:16)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexHistoryProductFlow.test.js:395:21)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

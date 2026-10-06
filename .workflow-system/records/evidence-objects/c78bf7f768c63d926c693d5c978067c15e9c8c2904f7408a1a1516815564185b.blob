@@ -1,0 +1,30 @@
+# TASK-20260833 / S5 change review
+
+2026-10-06。结论：**clean，未发现新的可确认缺陷**。这是同一 Codex agent 的变更自审，不是独立审查。
+
+审查目标为 execution `key-9066ef26e085cf17840f5df83f588e75059cfb580f6f650d8dc9ef8c6c41fd18.json`，adopted plan `key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json`，HEAD `f2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8` 加该 execution 固定的工作树内容。当前 S5 为 executed，尚无 finish disposition。
+
+## 审查范围与依据
+
+- 检查既有 productflow 测试新增的 H1 backfill/append、H3 委派保存、重开、冲突拒绝和实际产品事务回滚路径，以及实际 Store/importer/provider 调用链。检查 REQ、PLAN、draft CR、执行报告和 handoff 的验收结论。
+- 62 个执行附件的固定副本和 live SHA 全部匹配；13 个受保护文件/二进制及 4 个 S5 改动文件匹配执行版本。详情见 attachment-check.json、scope-check.json。
+- 复核原执行最终 `node --test tests/codexHistoryProductFlow.test.js tests/codexRolloutCollector.realRust.test.js` 的 43/43 PASS、exit 0，以及 REQ/CR 校验和 diff-check。此次审查没有重跑产品测试、启动真实服务或操作手机。
+- evidence-check.json 逐项重新核对三个保存的实际产物；审查不把观察包装器当成模拟成功响应。重新核对保存证据不代表独立审查。
+
+## 结论支持
+
+H1 backfill 与 append 各有两次实际产品发布：staging SQL COMMIT、从磁盘重开确认 staging、实际正 ACK、实际 Rust complete、产品 SQL COMMIT 和 published 返回的顺序成立。正文及普通工具详情经新 Store/provider 读回，逻辑 item 去重且 checkpoint 为 canonical。普通内容冲突得到实际负 ACK，旧 canonical 与产品 checkpoint 保留。
+
+H3 保留原脱敏三份委派正文及两个原生 carrier 的不同物理事件身份，产品以 delegated-input 逻辑身份合并，不伪造 call_id、不将委派冒充工具。单独附加的普通工具样本提供真实产品详情读取证据。旧 partial seed 经真实链路发布，新 collector/Store 重新读取及 overlap 不重复产品条目。委派内容冲突得到实际负 ACK；真实 prepared statement 故障触发产品 SQL ROLLBACK，新 Store/provider 读回旧 canonical 和旧产品 checkpoint。H3 最终产物为 14 个条目、三份委派正文及 command-1 工具详情。
+
+新增实现范围符合 S5：一个既有测试文件、REQ/PLAN、draft CR 和隔离证据。受保护产品、Rust、IPC/Android、契约、schema、预算和外部 source 未改变。失败迭代输出完整保留，最终通过没有改写原失败。CR 仍为 draft/commit_ref TBD，审查未执行 Git。
+
+## 限定与剩余工作
+
+这些证据证明 H1/H3 的隔离 Rust→Node→产品库→provider 保存和重开链路。H3 新验收直接读取 provider；既有 Gateway 回归通过不代表新增 H3 Gateway 或手机验收。脱敏 fixture 和合成普通工具组合不代表自然外部 Codex 宿主已通过。
+
+H2 分支找不到原对话、三类自然宿主样本、手机切换回来及重开后正文/工具详情的业务验收仍属于 TASK-20260832。832/S2 的原执行和待审查状态保留；返回时还需协调其计划中与 833 重复的共享实施范围。S2 既有 vendor offline 验证限制、旧失败和三个管理关联缺口保留，不由 clean 消除。
+
+此次仅新增审查事实，不 finish S5、不 close 833、不记录 prerequisite satisfied、不切换回 832、不修改业务文件。审查保存后必须分别核对记录、关联和视图发布，再读取实际状态。
+
+next_route: execute-step；next_mode: finish；目标 TASK-20260833 / S5。原因是审查 clean，但该步骤尚待单独结束处置。

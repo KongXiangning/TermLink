@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-06T16:08:36.451Z",
+  "payload_sha256": "8ee49be60fbeafb5af03df4ecbd1e7d228dfbedfa54991d03998b50142b57ab7",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:execute-s5-finish-step-20261007",
+    "request": {
+      "action": "step",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "step_id": "S5",
+      "state": "finished",
+      "decision_ref": ".workflow-system/records/events/key-e33671211365730fff28ae4ca384102d032107f5be464e2d76c733d76e0db9c2.json",
+      "review_ref": ".workflow-system/records/events/key-c5d168dc50dfe3100a52921589fdf4d5a3a49472639d762f8e4b6c8ee33a75e3.json",
+      "source_revision": "f2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8",
+      "decision_source": "Current human execute-step finish request for TASK-20260833 S5",
+      "decision_text": "833/S5 审查 clean（自审），43 项执行证据有效；确认本步执行与审查处置结束，但不把自审 clean 解释为分支/真实宿主/手机验收完成，也不关闭 833。",
+      "remaining_work": [
+        "S5 finish disposition is recorded; 833 closure/dependency assessment and manual parent return remain not performed until close-task/parent workflow explicitly handles them.",
+        "832 H2 discovery/catalog localization and three-scenario natural-host/mobile body/tool-detail acceptance remain pending.",
+        "832 S2 review/finish and reconciliation of duplicated shared implementation scope after explicit return remain pending.",
+        "Retain old failures, S2 vendor offline limitation, three old management association gaps, and the fact that self-review is not independent review."
+      ],
+      "idempotency_key": "execute-s5-finish-step-20261007"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "step",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "parents": [
+        ".workflow-system/records/events/key-e33671211365730fff28ae4ca384102d032107f5be464e2d76c733d76e0db9c2.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S5",
+        "state": "finished",
+        "decision_ref": ".workflow-system/records/events/key-e33671211365730fff28ae4ca384102d032107f5be464e2d76c733d76e0db9c2.json",
+        "review_ref": ".workflow-system/records/events/key-c5d168dc50dfe3100a52921589fdf4d5a3a49472639d762f8e4b6c8ee33a75e3.json",
+        "source_revision": "f2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8",
+        "decision_source": "Current human execute-step finish request for TASK-20260833 S5",
+        "decision_text": "833/S5 审查 clean（自审），43 项执行证据有效；确认本步执行与审查处置结束，但不把自审 clean 解释为分支/真实宿主/手机验收完成，也不关闭 833。",
+        "remaining_work": [
+          "S5 finish disposition is recorded; 833 closure/dependency assessment and manual parent return remain not performed until close-task/parent workflow explicitly handles them.",
+          "832 H2 discovery/catalog localization and three-scenario natural-host/mobile body/tool-detail acceptance remain pending.",
+          "832 S2 review/finish and reconciliation of duplicated shared implementation scope after explicit return remain pending.",
+          "Retain old failures, S2 vendor offline limitation, three old management association gaps, and the fact that self-review is not independent review."
+        ]
+      }
+    }
+  },
+  "issues": []
+}

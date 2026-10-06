@@ -24,7 +24,7 @@ related_docs: [docs/product/plans/PLAN-20261005-codex-history-shared-compat.md, 
 
 TASK-20260832 已分别定位新对话保存冲突、分支找不到原对话、委派解析失败。用户选择独立准备共享兼容任务，并在 TASK-20260833 草案自审后明确 confirm。本需求只承接委派输入与正常历史增长的前置修复，不将原任务三项业务目标缩为一个普通样本。
 
-真实委派正文要以正确身份保存；同轮真实开始→完成应能在已有暂存历史上处理；真正内容/来源冲突、旧 canonical 与未知输入的保护继续成立。S1/S2/S3 当前均已 finished；S4 首次审查 needs-repair（S4-R1：完整性提升绕过开始→完成证明），本批修复执行后待新审查，未 finish。H1/H3 的产品事务和重开完整验收仍由 S5 实施，产品问题尚未验收通过。
+真实委派正文要以正确身份保存；同轮真实开始→完成应能在已有暂存历史上处理；真正内容/来源冲突、旧 canonical 与未知输入的保护继续成立。S1–S4 当前均已 finished；S4-R1 原 needs-repair 保留，修复后自审 clean/finish 由 fresh journal 核对。S5 本批分别完成 H1/H3 隔离产品事务/provider 重开验证（43/43），待 review/finish；真实宿主与手机业务仍未验收。
 
 ## 2. In Scope
 
@@ -57,8 +57,8 @@ Rust 已实现 DelegatedInput：真实 item_id、origin_tool、namespace、carri
 
 ## 8. 风险与回滚
 
-逻辑项更新不能变成任意覆盖；新版 decoder 不能把旧 receipt 当新解释；缺 role 会使正文误标 assistant。Node S4 的 File 暂存、恢复与 system role DTO 已验证；新场景产品 SQLite/provider 保存仍待 S5。保留已发布治理来源与旧 canonical、intent、诊断。回滚依据实际 CR/commit，不自动部署/回滚。
+逻辑项更新不能变成任意覆盖；新版 decoder 不能把旧 receipt 当新解释；缺 role 会使正文误标 assistant。S5 已在真实 SQLite/provider 保存三组完整委派正文/system role 与独立普通工具详情，重开与错误批次/事务回滚保护通过；这仅证明隔离输入和临时产品库，不证明真实宿主或手机。保留已发布治理来源与旧 canonical、intent、诊断。回滚依据实际 CR/commit，不自动部署/回滚。
 
 ## 9. 发布计划
 
-S1/S2/S3 历史失败、执行、审查和 finish 分别保留；S3 clean/finished 已由 journal 核对。S4 原执行/首次审查保留，本批 S4-R1 修复及回归见 logs/shared-history-compat-20261005/s4/repair-r1/report.md；PLAN 与独立 draft CR-20261006-1846-history-promotion-proof-repair 同步。修复自检不构成新 review；S5 pending、REQ in_progress，真实手机验收由 832 负责。
+S1–S4 历史失败、执行、审查和 finish 分别保留。S5 实际新场景交付见 logs/shared-history-compat-20261005/s5/report.md、handoff.md；PLAN 与独立 draft CR-20261006-2016-history-product-delivery 同步。S5 executed 待审，自检不构成正式 review/finish；REQ in_progress，832 保留分支、三类真实宿主与手机验收。

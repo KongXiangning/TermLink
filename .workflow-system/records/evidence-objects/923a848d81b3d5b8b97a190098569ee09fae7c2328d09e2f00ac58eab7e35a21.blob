@@ -1,0 +1,8 @@
+const fs=require('fs'),cp=require('child_process'),path=require('path');
+const d='logs/shared-history-compat-20261005/s5';
+const label=process.argv[2],args=process.argv.slice(3),started=new Date().toISOString();
+const env={...process.env,CARGO_NET_OFFLINE:'true',TERMLINK_HISTORY_S5_EVIDENCE_DIR:path.resolve(d,'evidence',label)};
+const r=cp.spawnSync('node',args,{encoding:'utf8',env,maxBuffer:32*1024*1024});
+fs.writeFileSync(`${d}/${label}.txt`,(r.stdout||'')+(r.stderr||''));
+fs.writeFileSync(`${d}/${label}-result.json`,JSON.stringify({command:{bin:'node',args},started,finished:new Date().toISOString(),exit_code:r.status,error:r.error?.message,environment:{CARGO_NET_OFFLINE:'true',TERMLINK_HISTORY_S5_EVIDENCE_DIR:env.TERMLINK_HISTORY_S5_EVIDENCE_DIR}},null,2)+'\n');
+console.log(JSON.stringify({label,exit_code:r.status,tail:((r.stdout||'')+(r.stderr||'')).slice(-6000)}));process.exitCode=r.status??1;

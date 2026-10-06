@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20261006-2016-history-product-delivery | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-2016-history-product-delivery.md` |
 | CR-20261006-1846-history-promotion-proof-repair | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md` |
 | CR-20261006-0200-shared-history-node-consumer | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md` |
 | CR-20261006-0010-shared-history-rust-semantics | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-0010-shared-history-rust-semantics.md` |

@@ -1,0 +1,66 @@
+▶ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen
+  ✔ backfill (1245.3212ms)
+  ✔ append (199.9108ms)
+✔ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen (1445.8265ms)
+✔ history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection (369.2771ms)
+✔ product-history-store durably stages, publishes, reopens, and ignores an exact duplicate delivery (21.3297ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"019b2b40-beb6-7b23-bed0-37d570e76816","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-real-rust stages before ACK, publishes validated canonical output, and reaches the history Gateway (345.4911ms)
+✔ product-history projection isolates SessionContext history_base while staging retains child lineage evidence (116.0255ms)
+✔ product-history-unattended wakes on cached terminal source-ready state and resumes from the product checkpoint after restart (234.3627ms)
+✔ product-history-read preserves __proto__ event fields through product-history-store reopen (10.2469ms)
+✔ product-history-store rolls back a failed replacement and preserves the previous canonical data after reopen (16.0035ms)
+✔ product-history-read pages canonical rows and preserves product event fields (1.2361ms)
+✔ product-history-read refreshes a complete root and range cursor when only a detail changes (1.7704ms)
+✔ product-history-read shares its actual detail DTO page hash with Android (0.6883ms)
+✔ product-history-read preserves top-level and nested tool facts with collection-like field names (0.3079ms)
+✔ product-history-read preserves every business JSON key in items and details (0.2199ms)
+✔ product-history-unattended keeps a newer terminal after failure and recovers durable intent (73.5696ms)
+✔ product-history-unattended retains incomplete intent for replay, restart and newer terminal (68.2376ms)
+✔ product-history-unattended actual server reopens a pending job and receipt before serving canonical history (4165.3341ms)
+✔ product-history-read omits parameterized and percent-encoded inline image data URLs (0.388ms)
+✔ product-history-read detail pages are authenticated-provider-ready, bounded, and path preserving (5.5784ms)
+✔ product-history-read uses bounded payload chunks and fails closed for clients without chunk support (0.8409ms)
+✔ product-history-read bounds detail references and range page estimates (0.8801ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-read Gateway serves product baseline, older pages, and details without a source read (128.0298ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"missing-product-row","previousActiveConversationId":"conversation-product-read","sessionId":"session-product-read","sessionMode":"codex","previousThreadId":"conversation-product-read"}
+✔ product-history-read keeps old clients on v2 and a DB-only miss keeps the cache (124.7487ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-read replaces a complete snapshot with the entire bounded product tail (77.4845ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-read refreshes a complete product range without v2 delete authority (77.1189ms)
+✔ product flow negative assertion rejects deliberate windows path leaks (0.7421ms)
+▶ history v2 saves canonical turn growth by full reread and by durable append, keeping immutable start
+  ✔ backfill (1295.3602ms)
+  ✔ append (124.6815ms)
+✔ history v2 saves canonical turn growth by full reread and by durable append, keeping immutable start (1422.7118ms)
+▶ history v2 saves both delegation carriers once across File staging restart and rejects forged bodies
+  ✔ response-first (210.5927ms)
+  ✔ completed-first (203.3924ms)
+✔ history v2 saves both delegation carriers once across File staging restart and rejects forged bodies (414.7998ms)
+✔ history v2 new backfill leaves nonempty v1 checkpoint intact and sends four empty recovery fields (171.2181ms)
+▶ history v2 rereads original partial delegation prefix without treating retained ParseGap as current coverage
+  ✔ same-position (15.1441ms)
+  ✔ reversed-line (12.9048ms)
+  ✔ coverage-gap (12.9007ms)
+✔ history v2 rereads original partial delegation prefix without treating retained ParseGap as current coverage (145.4837ms)
+✔ history v2 preserves unanchored unsettled v1 delivery profile, payload and identity across Node restart (158.3332ms)
+✔ history v2 accepts original partial turn growth while a separate unresolved input remains partial (95.6466ms)
+✔ real Rust target durably imports tools, usage, outcomes and unknown diagnostics (158.7442ms)
+✔ real Rust target enforces a zero resource timeout and remains usable for the next job (103.6154ms)
+✔ real Rust accepts consecutive new jobs for the same conversation and persisted source (143.3699ms)
+ℹ tests 43
+ℹ suites 0
+ℹ pass 43
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7481.5837

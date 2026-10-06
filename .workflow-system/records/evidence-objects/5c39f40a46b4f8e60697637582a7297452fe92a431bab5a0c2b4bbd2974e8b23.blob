@@ -1,0 +1,74 @@
+{
+  "head": "f2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8",
+  "before": [
+    {
+      "path": "tests/codexHistoryProductFlow.test.js",
+      "snapshot": "logs/shared-history-compat-20261005/s5/before/tests__codexHistoryProductFlow.test.js",
+      "sha256": "adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27"
+    },
+    {
+      "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "snapshot": "logs/shared-history-compat-20261005/s5/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+      "sha256": "521144af0345d55275168fbc606bfd60996d2dbee667274177bb210fd023facf"
+    },
+    {
+      "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "snapshot": "logs/shared-history-compat-20261005/s5/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+      "sha256": "e291b50e9ea6f4539ac7d390a344673e46c4cdf5fb453b74d8c9f26edc5c0119"
+    }
+  ],
+  "protected": [
+    {
+      "path": "docs/workflow/CONTRACTS.md",
+      "sha256": "c9273b9813279785e1f4c0cc48ff49b0d6de6c22dde08bb88811a46187be874c"
+    },
+    {
+      "path": "docs/workflow/DECISIONS.md",
+      "sha256": "747236c53ae0ee5450b0cdfd8e2b69eb2de83758a1b61cccc5b4742000f985fd"
+    },
+    {
+      "path": "docs/codex/codex-history-shared-compat-contract.md",
+      "sha256": "d1f3ba55d88d41e3946933b9a2c6ecd10f6b3db7b3c40f76def254d8c05d3a05"
+    },
+    {
+      "path": "docs/codex/codex-rollout-collector-architecture.md",
+      "sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d"
+    },
+    {
+      "path": "src/services/codexHistoryProductStore.js",
+      "sha256": "f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16"
+    },
+    {
+      "path": "src/services/codexHistoryProductProvider.js",
+      "sha256": "00b4da43488098bcb67bc35879cbfe9ddb3676dd0f83c23216023c71393201de"
+    },
+    {
+      "path": "src/services/codexHistoryCanonicalizer.js",
+      "sha256": "319b2f73538e635cad32e04051cb627b9e7b2d677ad5aa9463e53282331be14e"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "sha256": "c5cd7c8fbd89a3b3df2d15542ff34ab91be49e4ec3ac3bb205a83d8bb9e7f49c"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "sha256": "c54fe01079c0af2f65b0fbdce7769bcc6437608b3992fb570c63bb34c2c903e7"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/index.js",
+      "sha256": "f394444946bdd69e9a7effd5679fc46343f7052dc16c6db148b34fef98265c19"
+    },
+    {
+      "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+      "sha256": "16d5a6857192710514fa3e6fdd4029ff3ea83a1ba29970b4e121d31d8b91b06f"
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+      "sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c"
+    },
+    {
+      "path": "native/codex-rollout-compat-spike/vendor/codex/Cargo.lock",
+      "sha256": "6845a266d5ab6a62927267ce6852bca6f1e12f4787185382a20b072aa2a5e195"
+    }
+  ]
+}

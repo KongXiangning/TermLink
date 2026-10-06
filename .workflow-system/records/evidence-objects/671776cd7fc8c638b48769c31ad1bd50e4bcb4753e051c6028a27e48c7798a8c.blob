@@ -1,0 +1,13 @@
+▶ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen
+  ✔ backfill (950.0662ms)
+  ✔ append (200.7963ms)
+✔ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen (1151.4445ms)
+✔ history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection (356.2206ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1696.726
