@@ -1,0 +1,21 @@
+
+running 3 tests
+test branch_history_original_sanitized_header_reads_actual_cut ... ok
+test branch_history_prefix_uses_bounded_windows_and_keeps_cut_guards ... FAILED
+test branch_history_inherits_verified_parent_prefix_without_replacing_original_turn ... ok
+
+failures:
+
+failures:
+    branch_history_prefix_uses_bounded_windows_and_keeps_cut_guards
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.16s
+
+   Compiling codex-rollout-collector v0.1.0 (E:\coding\TermLink-rust-source-resolution-codex\native\codex-rollout-collector)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.32s
+     Running tests\stage4_target_protocol.rs (native\codex-rollout-collector\target\debug\deps\stage4_target_protocol-169dfcc7ec4fc9a0.exe)
+
+thread 'branch_history_prefix_uses_bounded_windows_and_keeps_cut_guards' (89436) panicked at tests\stage4_target_protocol.rs:3827:77:
+called `Result::unwrap()` on an `Err` value: InvalidRequest("persisted append evidence is missing source_cursor")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test stage4_target_protocol`

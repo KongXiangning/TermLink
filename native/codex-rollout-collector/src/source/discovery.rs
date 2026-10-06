@@ -385,6 +385,7 @@ fn discover_session_internal(
     let candidates = scan_candidates(
         &search_directories,
         &request.conversation_id,
+        None,
         request.max_candidates,
         control.as_deref_mut(),
     )?;
@@ -406,6 +407,42 @@ fn discover_session_internal(
         by_id.insert(candidate.source.rollout_id.clone(), candidate);
     }
 
+    // Only explicit history_base references admit auxiliary sources. They are
+    // catalog/ancestry evidence, never candidates for the target's active head.
+    let mut pending = by_id.keys().cloned().collect::<Vec<_>>();
+    let mut visited = BTreeSet::new();
+    while let Some(id) = pending.pop() {
+        if !visited.insert(id.clone()) {
+            continue;
+        }
+        let Some(base) = by_id[&id].header.history_base.clone() else {
+            continue;
+        };
+        if !by_id.contains_key(&base.parent_rollout_id) {
+            let parents = scan_candidates(
+                &search_directories,
+                &request.conversation_id,
+                Some(&base.parent_rollout_id),
+                request.max_candidates.saturating_sub(by_id.len()),
+                control.as_deref_mut(),
+            )?;
+            if parents.is_empty() {
+                return Err(LineageError::ParentRolloutMissing {
+                    rollout_id: base.parent_rollout_id,
+                });
+            }
+            for parent in parents {
+                if by_id.contains_key(&parent.source.rollout_id) {
+                    return Err(LineageError::AmbiguousRollout {
+                        rollout_id: parent.source.rollout_id,
+                    });
+                }
+                by_id.insert(parent.source.rollout_id.clone(), parent);
+            }
+        }
+        pending.push(base.parent_rollout_id);
+    }
+
     let mut children = BTreeMap::<String, Vec<String>>::new();
     for candidate in by_id.values() {
         let Some(history_base) = candidate.header.history_base.as_ref() else {
@@ -417,7 +454,11 @@ fn discover_session_internal(
                 message: "history_base points to the child itself".to_string(),
             });
         }
-        if by_id.contains_key(&history_base.parent_rollout_id) {
+        if candidate.header.conversation_id == request.conversation_id
+            && by_id
+                .get(&history_base.parent_rollout_id)
+                .is_some_and(|parent| parent.header.conversation_id == request.conversation_id)
+        {
             children
                 .entry(history_base.parent_rollout_id.clone())
                 .or_default()
@@ -526,7 +567,10 @@ fn choose_active_head(
         });
     }
     if let Some(hint) = hint {
-        if !by_id.contains_key(&hint) {
+        if !by_id
+            .get(&hint)
+            .is_some_and(|candidate| candidate.header.conversation_id == request.conversation_id)
+        {
             return Err(LineageError::ActiveRolloutNotDiscovered { rollout_id: hint });
         }
         let active_rollout_id = follow_unique_descendant(&hint, by_id, children)?;
@@ -534,7 +578,9 @@ fn choose_active_head(
         return Ok(active_rollout_id);
     }
     let mut leaves = by_id
-        .keys()
+        .values()
+        .filter(|candidate| candidate.header.conversation_id == request.conversation_id)
+        .map(|candidate| &candidate.source.rollout_id)
         .filter(|rollout_id| children.get(*rollout_id).is_none_or(Vec::is_empty))
         .cloned()
         .collect::<Vec<_>>();
@@ -589,7 +635,10 @@ fn ensure_root_like_candidates_are_safe(
     if active.header.history_base.is_none() {
         let mut root_like = by_id
             .values()
-            .filter(|candidate| candidate.header.history_base.is_none())
+            .filter(|candidate| {
+                candidate.header.conversation_id == active.header.conversation_id
+                    && candidate.header.history_base.is_none()
+            })
             .map(|candidate| candidate.source.rollout_id.clone())
             .collect::<Vec<_>>();
         root_like.sort();
@@ -611,7 +660,8 @@ fn ensure_root_like_candidates_are_safe(
     let mut unresolved = by_id
         .values()
         .filter(|candidate| {
-            candidate.header.history_base.is_none()
+            candidate.header.conversation_id == active.header.conversation_id
+                && candidate.header.history_base.is_none()
                 && candidate.source.rollout_id != connected_root_id
         })
         .filter(|candidate| !strictly_older_than_connected_root(candidate, connected_root))
@@ -747,6 +797,7 @@ fn build_chain(
 fn scan_candidates(
     directories: &[PathBuf],
     conversation_id: &str,
+    parent_rollout_id: Option<&str>,
     max_candidates: usize,
     mut control: Option<&mut DiscoveryControl<'_>>,
 ) -> Result<Vec<DiscoveredRollout>, LineageError> {
@@ -771,8 +822,10 @@ fn scan_candidates(
             if path.is_file()
                 && super::lineage::is_rollout_path(&path)
                 && !super::lineage::should_skip_compressed_sibling(&path)
-                && parse_rollout_filename(&path)
-                    .is_some_and(|candidate| candidate.conversation_id == conversation_id)
+                && parse_rollout_filename(&path).is_some_and(|candidate| match parent_rollout_id {
+                    Some(parent) => candidate.rollout_id == parent,
+                    None => candidate.conversation_id == conversation_id,
+                })
             {
                 paths.push(path);
                 if paths.len() > max_candidates {
@@ -796,7 +849,7 @@ fn scan_candidates(
                 message: "rollout filename does not match the supported convention".to_string(),
             })?;
         let header = read_rollout_header(&path, control.as_deref_mut())?;
-        if header.conversation_id != conversation_id
+        if (parent_rollout_id.is_none() && header.conversation_id != conversation_id)
             || filename.conversation_id != header.conversation_id
         {
             return Err(LineageError::FilenameHeaderMismatch {

@@ -1,0 +1,4 @@
+warning: in the working copy of 'native/codex-rollout-collector/src/protocol/target_mapping.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/src/protocol/target_source.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/src/source/discovery.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'native/codex-rollout-collector/tests/stage4_target_protocol.rs', LF will be replaced by CRLF the next time Git touches it

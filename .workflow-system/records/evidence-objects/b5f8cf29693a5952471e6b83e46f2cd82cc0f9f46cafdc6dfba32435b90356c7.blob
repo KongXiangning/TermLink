@@ -1,0 +1,24 @@
+{
+  "command": {
+    "bin": "cargo",
+    "args": [
+      "test",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "native/codex-rollout-collector/Cargo.toml",
+      "--test",
+      "stage4_target_protocol",
+      "branch_history_",
+      "--",
+      "--nocapture"
+    ]
+  },
+  "start": "2026-10-06T17:56:57.449Z",
+  "end": "2026-10-06T17:57:04.453Z",
+  "exit_code": 101,
+  "source_revision": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+  "environment": {
+    "CARGO_NET_OFFLINE": "true"
+  }
+}

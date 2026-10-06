@@ -1,0 +1,22 @@
+{
+  "results": [
+    {
+      "label": "parent-bounded",
+      "result_type": "complete",
+      "completeness": "canonical"
+    },
+    {
+      "label": "branch-default",
+      "result_type": "complete",
+      "completeness": "canonical"
+    },
+    {
+      "label": "branch-bounded",
+      "result_type": "error",
+      "error_code": "resource_limit_exceeded",
+      "error_message": "range length 5542 exceeds segment limit 4096"
+    }
+  ],
+  "sourceBytes": 5542,
+  "qualification": "Isolated sanitized source copies and current Rust process; test protocol ACK only, no Node/product/device/real source write"
+}

@@ -1,0 +1,95 @@
+{
+  "head": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+  "protect": [
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+      "sha256": "fa2792daab5591d4b2e83e1a5c085a27090f9a95907b7abec613e6302695c85d",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "sha256": "c5cd7c8fbd89a3b3df2d15542ff34ab91be49e4ec3ac3bb205a83d8bb9e7f49c",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "sha256": "c54fe01079c0af2f65b0fbdce7769bcc6437608b3992fb570c63bb34c2c903e7",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/index.js",
+      "sha256": "f394444946bdd69e9a7effd5679fc46343f7052dc16c6db148b34fef98265c19",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexHistoryProductStore.js",
+      "sha256": "f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexHistoryProductProvider.js",
+      "sha256": "00b4da43488098bcb67bc35879cbfe9ddb3676dd0f83c23216023c71393201de",
+      "matches": true
+    },
+    {
+      "path": "docs/codex/codex-rollout-collector-architecture.md",
+      "sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d",
+      "matches": true
+    },
+    {
+      "path": "docs/workflow/CONTRACTS.md",
+      "sha256": "c9273b9813279785e1f4c0cc48ff49b0d6de6c22dde08bb88811a46187be874c",
+      "matches": true
+    },
+    {
+      "path": "docs/workflow/DECISIONS.md",
+      "sha256": "747236c53ae0ee5450b0cdfd8e2b69eb2de83758a1b61cccc5b4742000f985fd",
+      "matches": true
+    },
+    {
+      "path": "docs/codex/codex-history-shared-compat-contract.md",
+      "sha256": "d1f3ba55d88d41e3946933b9a2c6ecd10f6b3db7b3c40f76def254d8c05d3a05",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-compat-spike/vendor/codex/Cargo.lock",
+      "sha256": "6845a266d5ab6a62927267ce6852bca6f1e12f4787185382a20b072aa2a5e195",
+      "matches": true
+    }
+  ],
+  "fixtures": [
+    {
+      "name": "a-full.jsonl",
+      "original_sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c",
+      "formal_sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c"
+    },
+    {
+      "name": "c-header.jsonl",
+      "original_sha256": "ed45c74ad5d959f437bb8416df7eccba72fcc9fd098f1a45cf86610edd2de677",
+      "formal_sha256": "ed45c74ad5d959f437bb8416df7eccba72fcc9fd098f1a45cf86610edd2de677"
+    }
+  ],
+  "evidence": [
+    {
+      "name": "branch-batch.json",
+      "target": "00000000-0000-4000-8000-000000000012",
+      "canonical": true,
+      "delegations": 3,
+      "replacements": 0,
+      "items": 5
+    },
+    {
+      "name": "original-sanitized-branch-batch.json",
+      "target": "00000000-0000-4000-8000-000000000002",
+      "canonical": true,
+      "delegations": 3,
+      "replacements": 0,
+      "items": 3
+    }
+  ],
+  "binary": {
+    "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+    "sha256": "aef0e539d542fc1af970f3612f17459b69b0afad4d6feb92e20209e817341d35"
+  },
+  "qualification": "Implementation self-check only,not change review,product durable ACK or phone acceptance"
+}

@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-06T18:25:45.728Z",
+  "payload_sha256": "1646595cd0d870e0bbdb5392e8b34cafc3a117111fa734e55e1a2cc0e59ee02a",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260832-S3-review-change-20261007-r2",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S3",
+      "execution_ref": ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json",
+      "previous_review_ref": ".workflow-system/records/events/key-aeb521d60861069c8ab289726c2d0160bcd86d0c05de1515c3bb119f1abe562f.json",
+      "source_revision": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+      "verdict": "clean",
+      "findings": [],
+      "resolved_findings": [
+        {
+          "id": "832-S3-R1",
+          "review_ref": ".workflow-system/records/events/key-aeb521d60861069c8ab289726c2d0160bcd86d0c05de1515c3bb119f1abe562f.json",
+          "status": "verified-on-current-execution",
+          "evidence_refs": [
+            "logs/history-save-repair-20261005/s3/repair-r1/branch-5.txt",
+            "logs/history-save-repair-20261005/s3/repair-r1/target-1.txt",
+            "logs/history-save-repair-20261005/s3/repair-r1/branch-bounded-trace.json"
+          ],
+          "qualification": "Current repair source/evidence assessed;oldfindingsverdict retained,not task/product/mobile completion"
+        }
+      ],
+      "coverage": [
+        "Exact832S3repair execution;70fixed/live attachments,11subjects/11protectedsubjects,currentbinary andbaselineHEAD match",
+        "Inheritedprefix/activebackfill shared complete-line windows,contiguous0..cut,persegmentandaggregate budgets,spool order,allwindow completeness andfinalordinal/bytecut",
+        "Bothinitialread andappendlineage recovery usewindows;mapper sourcecount/physicalprovenance/target binding/diagnostics andinheritance versusresend guards retained",
+        "Existingbranch3/3,target76/76 and3actualRustprotocoltraces reused withmatchingbytes;negativeaggregate/line/cut/earlyparsegap checks;priorfailuresnotdeleted",
+        "REQ/PLAN/newdraftCR scope consistent;fullRust/source/Node/product/Gateway/naturalhost/mobile not recertified"
+      ],
+      "provenance": {
+        "kind": "same-agent-change-self-review",
+        "reviewer": "Codex",
+        "independent": false,
+        "new_product_tests_run": false,
+        "assessment": "Read-only code/call-chain/fixed-and-live evidence audit;no new formal independent review or durable Node/device validation",
+        "binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e"
+      },
+      "remaining_work": [
+        "Separate832S3finish disposition,task832active;not automaticS4",
+        "S4consumer/product chain;S5S6all3naturalhost/mobile durableACK/body/tool/switch/reopen pending",
+        "Previous failures/vendoroffline limit and3oldmanagementassociationgaps retained"
+      ],
+      "files": [
+        "logs/history-save-repair-20261005/s3/review-r2/review-change.md",
+        "logs/history-save-repair-20261005/s3/review-r2/audit.cjs",
+        "logs/history-save-repair-20261005/s3/review-r2/audit.json",
+        "logs/history-save-repair-20261005/s3/review-r2/status-before.json",
+        "logs/history-save-repair-20261005/s3/review-r2/record-review.cjs",
+        "native/codex-rollout-collector/src/source/discovery.rs",
+        "native/codex-rollout-collector/src/protocol/target_source.rs",
+        "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+        "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+        "native/codex-rollout-collector/tests/fixtures/branch-history/a-full.jsonl",
+        "native/codex-rollout-collector/tests/fixtures/branch-history/c-header.jsonl",
+        "native/codex-rollout-collector/tests/fixtures/branch-history/README.md",
+        "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261007-0900-branch-history-parent.md",
+        "docs/changes/records/CR-20261007-0219-branch-history-window-repair.md"
+      ],
+      "idempotency_key": "task20260832-S3-review-change-20261007-r2"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/s3/review-r2/review-change.md",
+      "logs/history-save-repair-20261005/s3/review-r2/audit.cjs",
+      "logs/history-save-repair-20261005/s3/review-r2/audit.json",
+      "logs/history-save-repair-20261005/s3/review-r2/status-before.json",
+      "logs/history-save-repair-20261005/s3/review-r2/record-review.cjs",
+      "native/codex-rollout-collector/src/source/discovery.rs",
+      "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+      "native/codex-rollout-collector/tests/fixtures/branch-history/a-full.jsonl",
+      "native/codex-rollout-collector/tests/fixtures/branch-history/c-header.jsonl",
+      "native/codex-rollout-collector/tests/fixtures/branch-history/README.md",
+      "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "docs/changes/records/CR-20261007-0900-branch-history-parent.md",
+      "docs/changes/records/CR-20261007-0219-branch-history-window-repair.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S3",
+        "execution_ref": ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json",
+        "previous_review_ref": ".workflow-system/records/events/key-aeb521d60861069c8ab289726c2d0160bcd86d0c05de1515c3bb119f1abe562f.json",
+        "source_revision": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+        "verdict": "clean",
+        "findings": [],
+        "resolved_findings": [
+          {
+            "id": "832-S3-R1",
+            "review_ref": ".workflow-system/records/events/key-aeb521d60861069c8ab289726c2d0160bcd86d0c05de1515c3bb119f1abe562f.json",
+            "status": "verified-on-current-execution",
+            "evidence_refs": [
+              "logs/history-save-repair-20261005/s3/repair-r1/branch-5.txt",
+              "logs/history-save-repair-20261005/s3/repair-r1/target-1.txt",
+              "logs/history-save-repair-20261005/s3/repair-r1/branch-bounded-trace.json"
+            ],
+            "qualification": "Current repair source/evidence assessed;oldfindingsverdict retained,not task/product/mobile completion"
+          }
+        ],
+        "coverage": [
+          "Exact832S3repair execution;70fixed/live attachments,11subjects/11protectedsubjects,currentbinary andbaselineHEAD match",
+          "Inheritedprefix/activebackfill shared complete-line windows,contiguous0..cut,persegmentandaggregate budgets,spool order,allwindow completeness andfinalordinal/bytecut",
+          "Bothinitialread andappendlineage recovery usewindows;mapper sourcecount/physicalprovenance/target binding/diagnostics andinheritance versusresend guards retained",
+          "Existingbranch3/3,target76/76 and3actualRustprotocoltraces reused withmatchingbytes;negativeaggregate/line/cut/earlyparsegap checks;priorfailuresnotdeleted",
+          "REQ/PLAN/newdraftCR scope consistent;fullRust/source/Node/product/Gateway/naturalhost/mobile not recertified"
+        ],
+        "provenance": {
+          "kind": "same-agent-change-self-review",
+          "reviewer": "Codex",
+          "independent": false,
+          "new_product_tests_run": false,
+          "assessment": "Read-only code/call-chain/fixed-and-live evidence audit;no new formal independent review or durable Node/device validation",
+          "binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e"
+        },
+        "remaining_work": [
+          "Separate832S3finish disposition,task832active;not automaticS4",
+          "S4consumer/product chain;S5S6all3naturalhost/mobile durableACK/body/tool/switch/reopen pending",
+          "Previous failures/vendoroffline limit and3oldmanagementassociationgaps retained"
+        ],
+        "files": [
+          "logs/history-save-repair-20261005/s3/review-r2/review-change.md",
+          "logs/history-save-repair-20261005/s3/review-r2/audit.cjs",
+          "logs/history-save-repair-20261005/s3/review-r2/audit.json",
+          "logs/history-save-repair-20261005/s3/review-r2/status-before.json",
+          "logs/history-save-repair-20261005/s3/review-r2/record-review.cjs",
+          "native/codex-rollout-collector/src/source/discovery.rs",
+          "native/codex-rollout-collector/src/protocol/target_source.rs",
+          "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+          "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+          "native/codex-rollout-collector/tests/fixtures/branch-history/a-full.jsonl",
+          "native/codex-rollout-collector/tests/fixtures/branch-history/c-header.jsonl",
+          "native/codex-rollout-collector/tests/fixtures/branch-history/README.md",
+          "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+          "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+          "docs/changes/records/CR-20261007-0900-branch-history-parent.md",
+          "docs/changes/records/CR-20261007-0219-branch-history-window-repair.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

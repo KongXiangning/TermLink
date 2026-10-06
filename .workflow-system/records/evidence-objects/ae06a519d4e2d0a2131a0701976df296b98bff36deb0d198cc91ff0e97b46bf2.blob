@@ -1,0 +1,6 @@
+{
+  "binary": {
+    "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+    "sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e"
+  }
+}

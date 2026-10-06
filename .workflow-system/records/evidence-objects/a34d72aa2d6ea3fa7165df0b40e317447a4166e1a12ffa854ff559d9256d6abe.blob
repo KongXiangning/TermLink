@@ -1,0 +1,20 @@
+{
+  "command": {
+    "bin": "rustfmt",
+    "args": [
+      "--edition",
+      "2024",
+      "native/codex-rollout-collector/src/source/discovery.rs",
+      "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "native/codex-rollout-collector/tests/stage4_target_protocol.rs"
+    ]
+  },
+  "start": "2026-10-06T18:02:04.903Z",
+  "end": "2026-10-06T18:02:05.107Z",
+  "exit_code": 0,
+  "source_revision": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+  "environment": {
+    "CARGO_NET_OFFLINE": "true"
+  }
+}

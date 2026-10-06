@@ -1,0 +1,322 @@
+[
+  {
+    "path": "native/codex-rollout-collector/src/source/discovery.rs",
+    "recorded_sha256": "da15f2bb7b745fc475a2382f75c1229547a9ab343c8252be7dbc4742b9c4e5d1",
+    "git_blob_sha256": "da15f2bb7b745fc475a2382f75c1229547a9ab343c8252be7dbc4742b9c4e5d1",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "da15f2bb7b745fc475a2382f75c1229547a9ab343c8252be7dbc4742b9c4e5d1",
+    "current_matches": true
+  },
+  {
+    "path": "native/codex-rollout-collector/src/protocol/target_source.rs",
+    "recorded_sha256": "16fcd1064c078967a029e753e83eaf8cfacc79a11d5f1b981f220409e4e29de3",
+    "git_blob_sha256": "d13e863e3cbc506e0794faef7b1f6cc83b9f12c72fe3c21f5b742a51fdad120f",
+    "historical_raw_matches": false,
+    "historical_matches": true,
+    "historical_match_kind": "CRLF-normalization",
+    "current_sha256": "16fcd1064c078967a029e753e83eaf8cfacc79a11d5f1b981f220409e4e29de3",
+    "current_matches": true
+  },
+  {
+    "path": "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+    "recorded_sha256": "11ae7ee3c619ad906bf7a3360fb7e5d927d434ebe86c6bd85b820ff1dbcc2554",
+    "git_blob_sha256": "11ae7ee3c619ad906bf7a3360fb7e5d927d434ebe86c6bd85b820ff1dbcc2554",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "46621c4ea030f36c2d02746963c0e34e2da5223ad74773d6f5c2ebdaab151df3",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-collector/src/source/lineage.rs",
+    "recorded_sha256": "ce9ca0c28fbd7da1e1cddbe7319d6cbd9fbb76e00f4e602741b8b03230ec22ab",
+    "git_blob_sha256": "ce9ca0c28fbd7da1e1cddbe7319d6cbd9fbb76e00f4e602741b8b03230ec22ab",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "ce9ca0c28fbd7da1e1cddbe7319d6cbd9fbb76e00f4e602741b8b03230ec22ab",
+    "current_matches": true
+  },
+  {
+    "path": "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+    "recorded_sha256": "0b8e101e83bcfccd4c12242ed3291247571c1526bc4e5abeaa0ae38eb51bcbbe",
+    "git_blob_sha256": "0b8e101e83bcfccd4c12242ed3291247571c1526bc4e5abeaa0ae38eb51bcbbe",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "4e6305ba8d895d5ca11ec0507174fb3b1c2bf276cc2b9555d3327347de77d8e7",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-collector/tests/stage2_input.rs",
+    "recorded_sha256": "83a76bba670df2fcdc24241dd8b56fa6bf1aaa18d2153c61a1f509905e1f12c6",
+    "git_blob_sha256": "83a76bba670df2fcdc24241dd8b56fa6bf1aaa18d2153c61a1f509905e1f12c6",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "83a76bba670df2fcdc24241dd8b56fa6bf1aaa18d2153c61a1f509905e1f12c6",
+    "current_matches": true
+  },
+  {
+    "path": "native/codex-rollout-collector/src/model/analysis_event.rs",
+    "recorded_sha256": "cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55",
+    "git_blob_sha256": "cc0e0a01bd4f087307bb02b60aee34ac4ce62aebff8c932c7d0f0ae32805af55",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "3d3f7a8c5bff4029197e312fc2fb832d1a51a0d25d019358e5e0a39c75a9278e",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-collector/src/analysis.rs",
+    "recorded_sha256": "e2bb3675912bed64dd90d3860658e807370b4f38a9e69d4ffe3c1b5fa3cfcf31",
+    "git_blob_sha256": "e2bb3675912bed64dd90d3860658e807370b4f38a9e69d4ffe3c1b5fa3cfcf31",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "3f35ef604287e5167739a83ae1c50e840e3d2ccabcce45cbdc3009b2eddbaffa",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+    "recorded_sha256": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+    "git_blob_sha256": "237a5e66f1745d2e4cdf274e1d7881094642eb55f55eb15c3cbf0a0dd9b60d75",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "7d594abcc56bf632ac04b0dd0d904e24317c298e3ffddccd75d42338adda35bc",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-collector/src/codex_wire/mod.rs",
+    "recorded_sha256": "e034001b4804c7e496a96e8f7c0f3da9eafc1f76bcc6bf4c4902a62880faf17c",
+    "git_blob_sha256": "e034001b4804c7e496a96e8f7c0f3da9eafc1f76bcc6bf4c4902a62880faf17c",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "e034001b4804c7e496a96e8f7c0f3da9eafc1f76bcc6bf4c4902a62880faf17c",
+    "current_matches": true
+  },
+  {
+    "path": "native/codex-rollout-collector/src/codex_wire/decode.rs",
+    "recorded_sha256": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+    "git_blob_sha256": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "76a62de5fa93f5f1b60450ebd8309b53be99af10fa21eb9eb1492eb736bbdf21",
+    "current_matches": true
+  },
+  {
+    "path": "native/codex-rollout-collector/src/codex_wire/profile.rs",
+    "recorded_sha256": "4f3634353b4dd44e88be37b1ea56f245f6f785953f7563e8c17fd5f8d73798ed",
+    "git_blob_sha256": "4f3634353b4dd44e88be37b1ea56f245f6f785953f7563e8c17fd5f8d73798ed",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "5ca522be1afb6b8151df43e91f818a4fac02047a7541807fb9138ce713571bbc",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-collector/src/protocol/target_data.rs",
+    "recorded_sha256": "13aaa2d3c38f0855843a969d1933eb6676fb8f24d7cc051f95365b5473fc0ee6",
+    "git_blob_sha256": "13aaa2d3c38f0855843a969d1933eb6676fb8f24d7cc051f95365b5473fc0ee6",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "5c1e24d5058a18e65c6f630f0fea9989cc67753619dc6722393ef59841ab5198",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-collector/src/protocol/target_runtime.rs",
+    "recorded_sha256": "a416fdd2f9508c9fa90318a072ed79d83fa87d5d0cc762a8505ce32e1580a2df",
+    "git_blob_sha256": "a416fdd2f9508c9fa90318a072ed79d83fa87d5d0cc762a8505ce32e1580a2df",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "07df197d668c5c7f3731680f83ffe77daa271eafd73bc0f2c4ac4fa991ddf8f7",
+    "current_matches": false
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+    "recorded_sha256": "068024352b46db9519bcb5e9bf814a9fa6830701c5b51a27684f44d9900dc379",
+    "git_blob_sha256": "068024352b46db9519bcb5e9bf814a9fa6830701c5b51a27684f44d9900dc379",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "fa2792daab5591d4b2e83e1a5c085a27090f9a95907b7abec613e6302695c85d",
+    "current_matches": false
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+    "recorded_sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8",
+    "git_blob_sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "c5cd7c8fbd89a3b3df2d15542ff34ab91be49e4ec3ac3bb205a83d8bb9e7f49c",
+    "current_matches": false
+  },
+  {
+    "path": "src/services/codexHistoryCanonicalizer.js",
+    "recorded_sha256": "319b2f73538e635cad32e04051cb627b9e7b2d677ad5aa9463e53282331be14e",
+    "git_blob_sha256": "319b2f73538e635cad32e04051cb627b9e7b2d677ad5aa9463e53282331be14e",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "319b2f73538e635cad32e04051cb627b9e7b2d677ad5aa9463e53282331be14e",
+    "current_matches": true
+  },
+  {
+    "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+    "recorded_sha256": "677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320",
+    "git_blob_sha256": "677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "677dae8679a4a3d2805c42ec473111cd5aedfa5ed4204a9992740e1d48d67320",
+    "current_matches": true
+  },
+  {
+    "path": "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml",
+    "recorded_sha256": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+    "git_blob_sha256": "d01edaee28c06b8534f009b2f906f8eec0c0fe7c5bd0e9e0b0f3f267d5ec7a3c",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "071184684f25a3a1e54f0161d2ab21a273be7627291dfd5c18c0bae85581ec27",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+    "recorded_sha256": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+    "git_blob_sha256": "ae8a6a5b2acc7fd80ca364f67499dfd03b92650221f4b4525422e878e0c81b02",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "86463cc83b39181f178bd9f34cf8f5b9d72a7b29e5be2ec565c692842157cde3",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-compat-spike/src/codex_decode.rs",
+    "recorded_sha256": "027a18602515e667899ee244527617590859db1022148d3d0429b38a69a472be",
+    "git_blob_sha256": "027a18602515e667899ee244527617590859db1022148d3d0429b38a69a472be",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "9b04f7e15bb96abd650ccebce32b47893358fa985d3dabc0155ff971702016b9",
+    "current_matches": false
+  },
+  {
+    "path": "native/codex-rollout-collector/tests/stage3_conformance.rs",
+    "recorded_sha256": "da524727d8d0ea7c5cba2ebdb955b4069819f7672b2801ec578c13f96273dc89",
+    "git_blob_sha256": "da524727d8d0ea7c5cba2ebdb955b4069819f7672b2801ec578c13f96273dc89",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "da524727d8d0ea7c5cba2ebdb955b4069819f7672b2801ec578c13f96273dc89",
+    "current_matches": true
+  },
+  {
+    "path": "tests/codexHistoryProductFlow.test.js",
+    "recorded_sha256": "adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27",
+    "git_blob_sha256": "adb82be729ea7a8ce806976b734e38f05ac3d53eaaa49d13e247ae6682eb8e27",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "a50181636592b1929c3282fd96646b54cb48444497a5abb84edc6918bf452be6",
+    "current_matches": false
+  },
+  {
+    "path": "tests/codexRolloutCollector.test.js",
+    "recorded_sha256": "bbfacb4765cf0d28867666a50afd7db6aa0caeb529448c65f1c47a7b47f914f7",
+    "git_blob_sha256": "bbfacb4765cf0d28867666a50afd7db6aa0caeb529448c65f1c47a7b47f914f7",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "33f8ab5ed411bf7841bbbddf1ed7cc4cd76b9e01adb8cd5918e83578e4b99a43",
+    "current_matches": false
+  },
+  {
+    "path": "tests/codexRolloutCollector.realRust.test.js",
+    "recorded_sha256": "2c7a9f3b67ed36eaf99ec17be1923f4815399ddc22d0959b29b93a4fa3b30490",
+    "git_blob_sha256": "2c7a9f3b67ed36eaf99ec17be1923f4815399ddc22d0959b29b93a4fa3b30490",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "2c525c0605ae25017a8eeb037d5f795b5c6e3b2e54dd9687a2163d5a07e153b7",
+    "current_matches": false
+  },
+  {
+    "path": "tests/codexRolloutCollector.recovery.test.js",
+    "recorded_sha256": "98b1e84fa6fc65b2901534900ddccd462dd5a0e431ac10bc9b720e27c5874c12",
+    "git_blob_sha256": "98b1e84fa6fc65b2901534900ddccd462dd5a0e431ac10bc9b720e27c5874c12",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "98b1e84fa6fc65b2901534900ddccd462dd5a0e431ac10bc9b720e27c5874c12",
+    "current_matches": true
+  },
+  {
+    "path": "tests/codexRolloutCollector.checkpointJobs.test.js",
+    "recorded_sha256": "e5dd451a03b1a119d8faf21998a8020953b875ccd9e2428c2833a1f049890f55",
+    "git_blob_sha256": "e5dd451a03b1a119d8faf21998a8020953b875ccd9e2428c2833a1f049890f55",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "e5dd451a03b1a119d8faf21998a8020953b875ccd9e2428c2833a1f049890f55",
+    "current_matches": true
+  },
+  {
+    "path": "docs/product/requirements/REQ-20260309-codex-capability-mvp.md",
+    "recorded_sha256": "03f7e401c5b426c25f8b547c00826fd8864e2c9628abfacc8e27100a2815cab9",
+    "git_blob_sha256": "03f7e401c5b426c25f8b547c00826fd8864e2c9628abfacc8e27100a2815cab9",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "03f7e401c5b426c25f8b547c00826fd8864e2c9628abfacc8e27100a2815cab9",
+    "current_matches": true
+  },
+  {
+    "path": "docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md",
+    "recorded_sha256": "98ce7e394301910d14f84166652b04452b3170fb78a83e1e1ffbe7a2ceaf634b",
+    "git_blob_sha256": "98ce7e394301910d14f84166652b04452b3170fb78a83e1e1ffbe7a2ceaf634b",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "98ce7e394301910d14f84166652b04452b3170fb78a83e1e1ffbe7a2ceaf634b",
+    "current_matches": true
+  },
+  {
+    "path": "docs/codex/codex-rollout-collector-architecture.md",
+    "recorded_sha256": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+    "git_blob_sha256": "e3a36f217b0a4f389c5248615e670ccf3fdf83855ae46518849401ab678ceab3",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d",
+    "current_matches": false
+  },
+  {
+    "path": "docs/workflow/CONTRACTS.md",
+    "recorded_sha256": "5a102082b3a6d3c2548df68c2fc0f1496fc6ef45bbc581e140a9923880465d9a",
+    "git_blob_sha256": "5a102082b3a6d3c2548df68c2fc0f1496fc6ef45bbc581e140a9923880465d9a",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "c9273b9813279785e1f4c0cc48ff49b0d6de6c22dde08bb88811a46187be874c",
+    "current_matches": false
+  },
+  {
+    "path": "docs/workflow/DECISIONS.md",
+    "recorded_sha256": "d8721637ddb924b5a5c9863fe56c33bbeac8dc80abe390765dacae713812dbcf",
+    "git_blob_sha256": "d8721637ddb924b5a5c9863fe56c33bbeac8dc80abe390765dacae713812dbcf",
+    "historical_raw_matches": true,
+    "historical_matches": true,
+    "historical_match_kind": "exact",
+    "current_sha256": "747236c53ae0ee5450b0cdfd8e2b69eb2de83758a1b61cccc5b4742000f985fd",
+    "current_matches": false
+  }
+]

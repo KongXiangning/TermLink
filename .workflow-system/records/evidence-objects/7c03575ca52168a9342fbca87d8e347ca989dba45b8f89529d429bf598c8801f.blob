@@ -1,0 +1,86 @@
+{
+  "binary": {
+    "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+    "sha256": "aef0e539d542fc1af970f3612f17459b69b0afad4d6feb92e20209e817341d35"
+  },
+  "limits": {
+    "max_decoded_bytes": 65536,
+    "max_segment_bytes": 4096,
+    "max_line_bytes": 2048
+  },
+  "result": {
+    "protocol_version": 1,
+    "message_type": "error",
+    "request_id": "branch-bounded",
+    "code": "resource_limit_exceeded",
+    "message": "range length 5542 exceeds segment limit 4096",
+    "retryable": false,
+    "fatal": false
+  },
+  "trace": [
+    {
+      "direction": "input",
+      "message": {
+        "protocol_version": 1,
+        "message_type": "hello",
+        "request_id": "review-hello-branch-bounded",
+        "role": "node",
+        "capabilities": [
+          "analyze_v1",
+          "cancel",
+          "checkpoint",
+          "ack",
+          "history_semantics_v2"
+        ]
+      }
+    },
+    {
+      "direction": "output",
+      "message": {
+        "protocol_version": 1,
+        "message_type": "hello",
+        "request_id": "review-hello-branch-bounded",
+        "role": "analyzer",
+        "analyzer_version": "termlink-codex-rollout-collector/0.1",
+        "capabilities": [
+          "analyze_v1",
+          "cancel",
+          "checkpoint",
+          "ack",
+          "history_semantics_v2"
+        ],
+        "parser_backend": "analyzer",
+        "compatibility_layer_version": "0.1"
+      }
+    },
+    {
+      "direction": "input",
+      "message": {
+        "protocol_version": 1,
+        "message_type": "analyze",
+        "request_id": "branch-bounded",
+        "job_id": "review-job-branch-bounded",
+        "conversation_id": "00000000-0000-4000-8000-000000000002",
+        "mode": "backfill",
+        "resource_limits": {
+          "max_decoded_bytes": 65536,
+          "max_segment_bytes": 4096,
+          "max_line_bytes": 2048
+        }
+      }
+    },
+    {
+      "direction": "output",
+      "message": {
+        "protocol_version": 1,
+        "message_type": "error",
+        "request_id": "branch-bounded",
+        "code": "resource_limit_exceeded",
+        "message": "range length 5542 exceeds segment limit 4096",
+        "retryable": false,
+        "fatal": false
+      }
+    }
+  ],
+  "stderr": ""
+}

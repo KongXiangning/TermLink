@@ -1,0 +1,41 @@
+# TASK-20260832 / S3 change review
+
+2026-10-07，Asia/Shanghai。**结论：findings，1 项 P2，建议修复后复审。** 这是同一 agent 对自己实施的 change self-review，不是独立审查。S3 仍 executed，未 finish；832 active，833 closed，后续产品及手机验收未完成。
+
+## 精确对象与证据一致性
+
+审查 execution key-caa4ad2a4c543fcbac91cd3b4183dce7bc2022a20a522b3016dd59dce2b6ed35.json，采纳计划 key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json，基线 HEAD 589a62a78c6214fea13e7c5eecac5466d64d7a5d。实际对象为当前三个 Rust source diff、既有 target test 的新增回归、两份 formal fixture/README 和本次 REQ/PLAN/draft CR。
+
+audit.json 核实 69 份执行附件的固定 blob 和当前文件均与记录哈希一致，10 个变更 subject、11 个保护 subject 均匹配。当前 collector binary SHA256 aef0e539d542fc1af970f3612f17459b69b0afad4d6feb92e20209e817341d35 与执行自检一致。原 Spike vendor Cargo.lock 未动。读取 native task-status，当前确为 832/S3 executed/not-reviewed，focus 为 832，不以旧 next_route 决定对象。
+
+## R1 [P2] 按单段读取整个继承前缀，使可分段保存的历史失败
+
+位置：native/codex-rollout-collector/src/protocol/target_source.rs:990–995，plan_inherited_prefix；调用处 561、892 同时影响初次分支读取和 append lineage recovery。
+
+该函数返回一个 range(0, end_byte_offset) 的 SourceReadPlan，把**全部继承历史**作为一个 segment。只要前缀大于 max_segment_bytes，plan_range 就返回 resource_limit_exceeded，尚未耗尽 aggregate max_decoded_bytes 也会拒绝分支。已有 plan_active_source 的 backfill 在同样条件下沿完整行切分多个窗口，逐段限制大小、累计限制 decoded bytes，并 spool 旧窗口。单段限制并不是整段逻辑历史的总限额。默认 max_segment_bytes=4 MiB、max_decoded_bytes=32 MiB；因此在其他预算均满足时，超过 4 MiB 而未超过总读取预算的正常继承历史仍会遇到此问题（默认大小影响由源码推导，本轮实测使用等价小限额）。
+
+**实际进程复现**（repro.cjs / repro-result.json / 三份完整 protocol trace）：从 formal 原件 byte-copy 到本 review 的隔离 sources，无私有或真实 rollout 写入。
+
+| 对象 | 限额 | 实际结果 |
+| --- | --- | --- |
+| 原对话 A，5542 bytes | decoded=65536，segment=4096，line=2048 | batch canonical；测试协议 ACK 后 complete |
+| 分支 C，继承相同 A cut | 默认限额 | batch canonical；测试协议 ACK 后 complete |
+| 同一个 C / 同一继承 cut | decoded=65536，segment=4096，line=2048 | batch 前 error，code=resource_limit_exceeded，message=range length 5542 exceeds segment limit 4096 |
+
+源文件总量不足 7 KB，每行满足 2 KB 限制、总读取预算 64 KB 充足。不能把这一失败解释为真实总读取预算已用尽。原执行的低预算负例同时设置 decoded=4096、segment=4096，不能区分这两种原因；其 PASS 和失败原输出仍保留。执行报告、REQ/CR 将大前缀单段失败列为限制，已披露限制本身不证明实现满足本步骤的完整历史目标。
+
+业务影响：普通对话已有较长历史时可以保存，从该对话创建的分支却仍保存失败。这使本批小样本成功不能推广为分支历史保存修复完成。
+
+最小修复建议：保持现有资源预算和接口，把继承的 [0, cut) 前缀按完整行拆成受限窗口，逐段读取/累计预算/spool，最终核对同一 ordinal/byte cut 与整体无缺口覆盖；初次读和 append recovery 复用同一能力。不提高限额、不绕过 cut 或诊断保护。聚焦回归须验证 segment < prefix < decoded 时 canonical，错误 cut、真实 aggregate 超额、单行超额仍 fail-closed，原对话切点后内容仍不进入分支。
+
+## 已审范围与验证边界
+
+- 读取 discovery 的引用闭包、physical filename/header 校验、辅助 parent 排除目标 head、plain sibling/歧义/循环/预算控制；引用以 history_base 为准，不凭内容、mtime 或文件名猜 parent。
+- 读取 source 的 bind、父 prefix、完整行/ordinal cut 校验、普通 active 分段/append checkpoint/full-lineage recovery、coverage 与控制链。
+- 读取 mapper 的目标绑定、物理 source provenance、继承与 same-conversation replacement 分流、source/event diagnostics 和 canonical/projection 条件；旧同对话 replacement 验证未被删除。
+- 读取两个新增 target 用例及原 S1 byte-preserved fixture，核对继承委派正文、child 正文、原对话后续隔离、append、错误 cut/header、缺失/歧义 parent、压缩不支持和低预算保护。现有用例没有覆盖大于单段而小于总预算的继承前缀。
+- 复用执行 target-3 75/75 与 source-1 74/74 的实际 stdout、exit0 记录及当前哈希，未重复完整 suite；原失败/限制保留。本轮另实际运行只读 audit 和隔离进程反例，不改产品或 permanent tests。
+
+未运行当前 Node durable staging/product_db/真实 Gateway/Android/自然宿主或手机；测试 ACK 是隔离客户端的协议 ACK，不是 durable Node 或手机验收。H1/H3 复用 833 已交付证据，S4–S6 仍 pending；原三个管理关联缺口未被本 review 消除。没有修复代码、改文档进度为 clean、finish/close、Git 写入、部署或服务操作。
+
+next_route: execute-step；next_mode: repair；目标 TASK-20260832/S3，修复 R1 后记录新 execution 并复审。

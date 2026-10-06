@@ -1,0 +1,1400 @@
+{
+  "protocol_version": 1,
+  "message_type": "batch",
+  "request_id": "branch-history-original",
+  "job_id": "target-source-job",
+  "segment_id": "seg-982f7dbb069dbb4af957862b68ef9edf",
+  "batch_id": "batch-c87240df6192da84ca6f61066a8fc2a2",
+  "payload": {
+    "conversation_id": "00000000-0000-4000-8000-000000000002",
+    "source_id": "00000000-0000-4000-8000-000000000002",
+    "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+    "source_range": {
+      "start": 0,
+      "end": 1197
+    },
+    "history_items": [
+      {
+        "event_type": "SessionContext",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-0:session_context:0",
+            "item_key": "session:00000000-0000-4000-8000-000000000001",
+            "correlation_id": "00000000-0000-4000-8000-000000000001",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": null,
+            "timestamp": "2026-10-03T00:00:00.000Z",
+            "sequence": 1000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 0,
+              "byte_end": 939,
+              "physical_line_ordinal": 1,
+              "rollout_ordinal": 0,
+              "timestamp": "2026-10-03T00:00:00.000Z",
+              "item_type": "session_meta"
+            }
+          },
+          "session_id": "00000000-0000-4000-8000-000000000001",
+          "cwd": "C:/sanitized-fixture",
+          "source": "vscode",
+          "model_provider": "[sanitized text]"
+        }
+      },
+      {
+        "event_type": "TurnStarted",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-1:turn_started:0",
+            "item_key": "turn:00000000-0000-4000-8000-000000000006",
+            "correlation_id": "00000000-0000-4000-8000-000000000006",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000006",
+            "timestamp": "2026-10-03T00:00:01.000Z",
+            "sequence": 2000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 939,
+              "byte_end": 1224,
+              "physical_line_ordinal": 2,
+              "rollout_ordinal": 1,
+              "timestamp": "2026-10-03T00:00:01.000Z",
+              "item_type": "event_msg/task_started"
+            }
+          },
+          "model_context_window": 0,
+          "collaboration_mode_kind": "default"
+        }
+      },
+      {
+        "event_type": "DelegatedInput",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-2:delegated_input:0",
+            "item_key": "delegated-input:00000000-0000-4000-8000-000000000007",
+            "correlation_id": "00000000-0000-4000-8000-000000000007",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000006",
+            "timestamp": "2026-10-03T00:00:02.000Z",
+            "sequence": 3000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 1224,
+              "byte_end": 1652,
+              "physical_line_ordinal": 3,
+              "rollout_ordinal": 2,
+              "timestamp": "2026-10-03T00:00:02.000Z",
+              "item_type": "response_item/function_call_output"
+            }
+          },
+          "item_id": "00000000-0000-4000-8000-000000000007",
+          "origin_tool": "create_thread",
+          "namespace": "codex_app",
+          "carrier": "response_item",
+          "text": "[sanitized delegation 1]"
+        }
+      },
+      {
+        "event_type": "DelegatedInput",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-3:delegated_input:0",
+            "item_key": "delegated-input:00000000-0000-4000-8000-000000000007",
+            "correlation_id": "00000000-0000-4000-8000-000000000007",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000006",
+            "timestamp": "2026-10-03T00:00:03.000Z",
+            "sequence": 4000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 1652,
+              "byte_end": 2062,
+              "physical_line_ordinal": 4,
+              "rollout_ordinal": 3,
+              "timestamp": "2026-10-03T00:00:03.000Z",
+              "item_type": "event_msg/item_completed"
+            }
+          },
+          "item_id": "00000000-0000-4000-8000-000000000007",
+          "origin_tool": "create_thread",
+          "namespace": "codex_app",
+          "carrier": "item_completed",
+          "text": "[sanitized delegation 1]"
+        }
+      },
+      {
+        "event_type": "TurnCompleted",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-4:turn_completed:0",
+            "item_key": "turn:00000000-0000-4000-8000-000000000006",
+            "correlation_id": "00000000-0000-4000-8000-000000000006",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000006",
+            "timestamp": "2026-10-03T00:00:04.000Z",
+            "sequence": 5000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 2062,
+              "byte_end": 2333,
+              "physical_line_ordinal": 5,
+              "rollout_ordinal": 4,
+              "timestamp": "2026-10-03T00:00:04.000Z",
+              "item_type": "event_msg/task_complete"
+            }
+          },
+          "status": "completed",
+          "message": "[sanitized text]",
+          "duration_ms": 0
+        }
+      },
+      {
+        "event_type": "TurnStarted",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-5:turn_started:0",
+            "item_key": "turn:00000000-0000-4000-8000-000000000008",
+            "correlation_id": "00000000-0000-4000-8000-000000000008",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000008",
+            "timestamp": "2026-10-03T00:00:05.000Z",
+            "sequence": 6000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 2333,
+              "byte_end": 2618,
+              "physical_line_ordinal": 6,
+              "rollout_ordinal": 5,
+              "timestamp": "2026-10-03T00:00:05.000Z",
+              "item_type": "event_msg/task_started"
+            }
+          },
+          "model_context_window": 0,
+          "collaboration_mode_kind": "default"
+        }
+      },
+      {
+        "event_type": "DelegatedInput",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-6:delegated_input:0",
+            "item_key": "delegated-input:00000000-0000-4000-8000-000000000009",
+            "correlation_id": "00000000-0000-4000-8000-000000000009",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000008",
+            "timestamp": "2026-10-03T00:00:06.000Z",
+            "sequence": 7000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 2618,
+              "byte_end": 3246,
+              "physical_line_ordinal": 7,
+              "rollout_ordinal": 6,
+              "timestamp": "2026-10-03T00:00:06.000Z",
+              "item_type": "response_item/function_call_output"
+            }
+          },
+          "item_id": "00000000-0000-4000-8000-000000000009",
+          "origin_tool": "send_message_to_thread",
+          "namespace": "codex_app",
+          "carrier": "response_item",
+          "text": "[sanitized delegation 2]"
+        }
+      },
+      {
+        "event_type": "DelegatedInput",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-7:delegated_input:0",
+            "item_key": "delegated-input:00000000-0000-4000-8000-000000000009",
+            "correlation_id": "00000000-0000-4000-8000-000000000009",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000008",
+            "timestamp": "2026-10-03T00:00:07.000Z",
+            "sequence": 8000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 3246,
+              "byte_end": 3665,
+              "physical_line_ordinal": 8,
+              "rollout_ordinal": 7,
+              "timestamp": "2026-10-03T00:00:07.000Z",
+              "item_type": "event_msg/item_completed"
+            }
+          },
+          "item_id": "00000000-0000-4000-8000-000000000009",
+          "origin_tool": "send_message_to_thread",
+          "namespace": "codex_app",
+          "carrier": "item_completed",
+          "text": "[sanitized delegation 2]"
+        }
+      },
+      {
+        "event_type": "TurnCompleted",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-8:turn_completed:0",
+            "item_key": "turn:00000000-0000-4000-8000-000000000008",
+            "correlation_id": "00000000-0000-4000-8000-000000000008",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000008",
+            "timestamp": "2026-10-03T00:00:08.000Z",
+            "sequence": 9000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 3665,
+              "byte_end": 3936,
+              "physical_line_ordinal": 9,
+              "rollout_ordinal": 8,
+              "timestamp": "2026-10-03T00:00:08.000Z",
+              "item_type": "event_msg/task_complete"
+            }
+          },
+          "status": "completed",
+          "message": "[sanitized text]",
+          "duration_ms": 0
+        }
+      },
+      {
+        "event_type": "TurnStarted",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-9:turn_started:0",
+            "item_key": "turn:00000000-0000-4000-8000-000000000010",
+            "correlation_id": "00000000-0000-4000-8000-000000000010",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000010",
+            "timestamp": "2026-10-03T00:00:09.000Z",
+            "sequence": 10000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 3936,
+              "byte_end": 4221,
+              "physical_line_ordinal": 10,
+              "rollout_ordinal": 9,
+              "timestamp": "2026-10-03T00:00:09.000Z",
+              "item_type": "event_msg/task_started"
+            }
+          },
+          "model_context_window": 0,
+          "collaboration_mode_kind": "default"
+        }
+      },
+      {
+        "event_type": "DelegatedInput",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-10:delegated_input:0",
+            "item_key": "delegated-input:00000000-0000-4000-8000-000000000011",
+            "correlation_id": "00000000-0000-4000-8000-000000000011",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000010",
+            "timestamp": "2026-10-03T00:00:10.000Z",
+            "sequence": 11000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 4221,
+              "byte_end": 4850,
+              "physical_line_ordinal": 11,
+              "rollout_ordinal": 10,
+              "timestamp": "2026-10-03T00:00:10.000Z",
+              "item_type": "response_item/function_call_output"
+            }
+          },
+          "item_id": "00000000-0000-4000-8000-000000000011",
+          "origin_tool": "send_message_to_thread",
+          "namespace": "codex_app",
+          "carrier": "response_item",
+          "text": "[sanitized delegation 3]"
+        }
+      },
+      {
+        "event_type": "DelegatedInput",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-11:delegated_input:0",
+            "item_key": "delegated-input:00000000-0000-4000-8000-000000000011",
+            "correlation_id": "00000000-0000-4000-8000-000000000011",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000010",
+            "timestamp": "2026-10-03T00:00:11.000Z",
+            "sequence": 12000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 4850,
+              "byte_end": 5270,
+              "physical_line_ordinal": 12,
+              "rollout_ordinal": 11,
+              "timestamp": "2026-10-03T00:00:11.000Z",
+              "item_type": "event_msg/item_completed"
+            }
+          },
+          "item_id": "00000000-0000-4000-8000-000000000011",
+          "origin_tool": "send_message_to_thread",
+          "namespace": "codex_app",
+          "carrier": "item_completed",
+          "text": "[sanitized delegation 3]"
+        }
+      },
+      {
+        "event_type": "TurnCompleted",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000001:ordinal-12:turn_completed:0",
+            "item_key": "turn:00000000-0000-4000-8000-000000000010",
+            "correlation_id": "00000000-0000-4000-8000-000000000010",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": "00000000-0000-4000-8000-000000000010",
+            "timestamp": "2026-10-03T00:00:12.000Z",
+            "sequence": 13000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000001",
+              "byte_start": 5270,
+              "byte_end": 5542,
+              "physical_line_ordinal": 13,
+              "rollout_ordinal": 12,
+              "timestamp": "2026-10-03T00:00:12.000Z",
+              "item_type": "event_msg/task_complete"
+            }
+          },
+          "status": "completed",
+          "message": "[sanitized text]",
+          "duration_ms": 0
+        }
+      },
+      {
+        "event_type": "SessionContext",
+        "payload": {
+          "metadata": {
+            "event_id": "00000000-0000-4000-8000-000000000002:ordinal-0:session_context:0",
+            "item_key": "session:00000000-0000-4000-8000-000000000002",
+            "correlation_id": "00000000-0000-4000-8000-000000000002",
+            "related_item_key": null,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "turn_id": null,
+            "timestamp": "2026-10-04T00:00:00.000Z",
+            "sequence": 1000001000000,
+            "availability": "present",
+            "identity_origin": "native_stable_id",
+            "source_ref": {
+              "source_identity": "00000000-0000-4000-8000-000000000002",
+              "byte_start": 0,
+              "byte_end": 1197,
+              "physical_line_ordinal": 1,
+              "rollout_ordinal": 0,
+              "timestamp": "2026-10-04T00:00:00.000Z",
+              "item_type": "session_meta"
+            }
+          },
+          "session_id": "00000000-0000-4000-8000-000000000002",
+          "cwd": "C:/sanitized-fixture",
+          "source": "vscode",
+          "model_provider": "[sanitized text]",
+          "history_base": {
+            "parent_rollout_id": "00000000-0000-4000-8000-000000000001",
+            "end_ordinal_exclusive": 13,
+            "end_byte_offset": 5542
+          }
+        }
+      }
+    ],
+    "diagnostics": [],
+    "parser_provenance": {
+      "parser_backend": "analyzer",
+      "wire_source_revision": "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2",
+      "compatibility_profile": "history-semantics-v2"
+    },
+    "complete": true,
+    "completeness": "canonical",
+    "projection": {
+      "availability": "present",
+      "complete": true,
+      "conversation_id": "00000000-0000-4000-8000-000000000002",
+      "coverage": "complete",
+      "diagnostics": [],
+      "provisional": false,
+      "schema": "termlink-analysis-projection",
+      "schema_version": 1,
+      "source": "vscode",
+      "turns": [
+        {
+          "availability": "present",
+          "context_window": 0,
+          "items": [
+            {
+              "answer": null,
+              "artifact_id": null,
+              "artifact_name": null,
+              "attachment_name": null,
+              "availability": "present",
+              "content": "[sanitized delegation 1]",
+              "correlation_id": "00000000-0000-4000-8000-000000000007",
+              "item_key": "delegated-input:00000000-0000-4000-8000-000000000007",
+              "kind": "delegated_input",
+              "media_type": null,
+              "path": null,
+              "plan": null,
+              "plan_action": null,
+              "presentation_kind": "delegated_input",
+              "query": null,
+              "question": null,
+              "related_item_key": null,
+              "result": null,
+              "sequence": 3000000,
+              "source_ref": {
+                "byte_end": 1652,
+                "byte_start": 1224,
+                "item_type": "response_item/function_call_output",
+                "physical_line_ordinal": 3,
+                "rollout_ordinal": 2,
+                "source_identity": "00000000-0000-4000-8000-000000000001",
+                "timestamp": "2026-10-03T00:00:02.000Z"
+              },
+              "summary": null,
+              "timestamp": "2026-10-03T00:00:02.000Z",
+              "tool": null,
+              "turn_id": "00000000-0000-4000-8000-000000000006",
+              "visible": true
+            }
+          ],
+          "message": "[sanitized text]",
+          "rate_limit": null,
+          "sequence": 2000000,
+          "status": "completed",
+          "turn_id": "00000000-0000-4000-8000-000000000006",
+          "usage": null
+        },
+        {
+          "availability": "present",
+          "context_window": 0,
+          "items": [
+            {
+              "answer": null,
+              "artifact_id": null,
+              "artifact_name": null,
+              "attachment_name": null,
+              "availability": "present",
+              "content": "[sanitized delegation 2]",
+              "correlation_id": "00000000-0000-4000-8000-000000000009",
+              "item_key": "delegated-input:00000000-0000-4000-8000-000000000009",
+              "kind": "delegated_input",
+              "media_type": null,
+              "path": null,
+              "plan": null,
+              "plan_action": null,
+              "presentation_kind": "delegated_input",
+              "query": null,
+              "question": null,
+              "related_item_key": null,
+              "result": null,
+              "sequence": 7000000,
+              "source_ref": {
+                "byte_end": 3246,
+                "byte_start": 2618,
+                "item_type": "response_item/function_call_output",
+                "physical_line_ordinal": 7,
+                "rollout_ordinal": 6,
+                "source_identity": "00000000-0000-4000-8000-000000000001",
+                "timestamp": "2026-10-03T00:00:06.000Z"
+              },
+              "summary": null,
+              "timestamp": "2026-10-03T00:00:06.000Z",
+              "tool": null,
+              "turn_id": "00000000-0000-4000-8000-000000000008",
+              "visible": true
+            }
+          ],
+          "message": "[sanitized text]",
+          "rate_limit": null,
+          "sequence": 6000000,
+          "status": "completed",
+          "turn_id": "00000000-0000-4000-8000-000000000008",
+          "usage": null
+        },
+        {
+          "availability": "present",
+          "context_window": 0,
+          "items": [
+            {
+              "answer": null,
+              "artifact_id": null,
+              "artifact_name": null,
+              "attachment_name": null,
+              "availability": "present",
+              "content": "[sanitized delegation 3]",
+              "correlation_id": "00000000-0000-4000-8000-000000000011",
+              "item_key": "delegated-input:00000000-0000-4000-8000-000000000011",
+              "kind": "delegated_input",
+              "media_type": null,
+              "path": null,
+              "plan": null,
+              "plan_action": null,
+              "presentation_kind": "delegated_input",
+              "query": null,
+              "question": null,
+              "related_item_key": null,
+              "result": null,
+              "sequence": 11000000,
+              "source_ref": {
+                "byte_end": 4850,
+                "byte_start": 4221,
+                "item_type": "response_item/function_call_output",
+                "physical_line_ordinal": 11,
+                "rollout_ordinal": 10,
+                "source_identity": "00000000-0000-4000-8000-000000000001",
+                "timestamp": "2026-10-03T00:00:10.000Z"
+              },
+              "summary": null,
+              "timestamp": "2026-10-03T00:00:10.000Z",
+              "tool": null,
+              "turn_id": "00000000-0000-4000-8000-000000000010",
+              "visible": true
+            }
+          ],
+          "message": "[sanitized text]",
+          "rate_limit": null,
+          "sequence": 10000000,
+          "status": "completed",
+          "turn_id": "00000000-0000-4000-8000-000000000010",
+          "usage": null
+        }
+      ],
+      "usage_total": null
+    },
+    "tool_details": [],
+    "usage": null,
+    "task_outcomes": [
+      {
+        "item_key": "turn:00000000-0000-4000-8000-000000000006",
+        "status": "completed",
+        "message": "[sanitized text]",
+        "completeness": "canonical",
+        "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002"
+      },
+      {
+        "item_key": "turn:00000000-0000-4000-8000-000000000008",
+        "status": "completed",
+        "message": "[sanitized text]",
+        "completeness": "canonical",
+        "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002"
+      },
+      {
+        "item_key": "turn:00000000-0000-4000-8000-000000000010",
+        "status": "completed",
+        "message": "[sanitized text]",
+        "completeness": "canonical",
+        "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002"
+      }
+    ],
+    "progress": {
+      "records_seen": 14,
+      "records_emitted": 14,
+      "bytes_scanned": 6739,
+      "has_more": false
+    },
+    "next_cursor": {
+      "schema_version": 1,
+      "reader_backend": "jsonl_source_backend",
+      "reader_version": "read_plan_v1",
+      "cursor_kind": "backfill",
+      "conversation_id": "00000000-0000-4000-8000-000000000002",
+      "source_id": "00000000-0000-4000-8000-000000000002",
+      "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+      "source_kind": "rollout",
+      "compression": "plain_jsonl",
+      "snapshot_boundary": {
+        "unit": "physical_bytes",
+        "byte_length": 1197
+      },
+      "complete_range": {
+        "start": 0,
+        "end": 1197
+      },
+      "last_complete_line": {
+        "physical_line_ordinal": 1,
+        "byte_start": 0,
+        "byte_end": 1197
+      },
+      "last_rollout_ordinal": 0,
+      "capabilities": {
+        "forward_stream": true,
+        "tail_preview": true,
+        "backward_segments": true,
+        "append": true,
+        "random_seek": true
+      }
+    },
+    "mutations": [
+      {
+        "mutation": "upsert_item",
+        "item": {
+          "item_key": "delegated-input:00000000-0000-4000-8000-000000000007",
+          "content_hash": "fnv1a64:f890e3008cb97885",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 1224,
+            "byte_end": 1652,
+            "physical_line_ordinal": 3,
+            "rollout_ordinal": 2,
+            "timestamp": "2026-10-03T00:00:02.000Z",
+            "item_type": "response_item/function_call_output"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_item",
+        "item": {
+          "item_key": "delegated-input:00000000-0000-4000-8000-000000000009",
+          "content_hash": "fnv1a64:77bd6e849ebe7c8d",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 2618,
+            "byte_end": 3246,
+            "physical_line_ordinal": 7,
+            "rollout_ordinal": 6,
+            "timestamp": "2026-10-03T00:00:06.000Z",
+            "item_type": "response_item/function_call_output"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_item",
+        "item": {
+          "item_key": "delegated-input:00000000-0000-4000-8000-000000000011",
+          "content_hash": "fnv1a64:c226403ac4c59232",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 4221,
+            "byte_end": 4850,
+            "physical_line_ordinal": 11,
+            "rollout_ordinal": 10,
+            "timestamp": "2026-10-03T00:00:10.000Z",
+            "item_type": "response_item/function_call_output"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_item",
+        "item": {
+          "item_key": "session:00000000-0000-4000-8000-000000000001",
+          "content_hash": "fnv1a64:df58cab01fa94195",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 0,
+            "byte_end": 939,
+            "physical_line_ordinal": 1,
+            "rollout_ordinal": 0,
+            "timestamp": "2026-10-03T00:00:00.000Z",
+            "item_type": "session_meta"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_item",
+        "item": {
+          "item_key": "session:00000000-0000-4000-8000-000000000002",
+          "content_hash": "fnv1a64:0ee0c9dd3684835b",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000002",
+            "byte_start": 0,
+            "byte_end": 1197,
+            "physical_line_ordinal": 1,
+            "rollout_ordinal": 0,
+            "timestamp": "2026-10-04T00:00:00.000Z",
+            "item_type": "session_meta"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_item",
+        "item": {
+          "item_key": "turn:00000000-0000-4000-8000-000000000006",
+          "content_hash": "fnv1a64:243d0f0a00d5ef16",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 2062,
+            "byte_end": 2333,
+            "physical_line_ordinal": 5,
+            "rollout_ordinal": 4,
+            "timestamp": "2026-10-03T00:00:04.000Z",
+            "item_type": "event_msg/task_complete"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_item",
+        "item": {
+          "item_key": "turn:00000000-0000-4000-8000-000000000008",
+          "content_hash": "fnv1a64:f60a5b001226b0c6",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 3665,
+            "byte_end": 3936,
+            "physical_line_ordinal": 9,
+            "rollout_ordinal": 8,
+            "timestamp": "2026-10-03T00:00:08.000Z",
+            "item_type": "event_msg/task_complete"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_item",
+        "item": {
+          "item_key": "turn:00000000-0000-4000-8000-000000000010",
+          "content_hash": "fnv1a64:05608482e0a2f86a",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 5270,
+            "byte_end": 5542,
+            "physical_line_ordinal": 13,
+            "rollout_ordinal": 12,
+            "timestamp": "2026-10-03T00:00:12.000Z",
+            "item_type": "event_msg/task_complete"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_outcome",
+        "item": {
+          "item_key": "turn:00000000-0000-4000-8000-000000000006",
+          "content_hash": "fnv1a64:243d0f0a00d5ef16",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 2062,
+            "byte_end": 2333,
+            "physical_line_ordinal": 5,
+            "rollout_ordinal": 4,
+            "timestamp": "2026-10-03T00:00:04.000Z",
+            "item_type": "event_msg/task_complete"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_outcome",
+        "item": {
+          "item_key": "turn:00000000-0000-4000-8000-000000000008",
+          "content_hash": "fnv1a64:f60a5b001226b0c6",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 3665,
+            "byte_end": 3936,
+            "physical_line_ordinal": 9,
+            "rollout_ordinal": 8,
+            "timestamp": "2026-10-03T00:00:08.000Z",
+            "item_type": "event_msg/task_complete"
+          }
+        }
+      },
+      {
+        "mutation": "upsert_outcome",
+        "item": {
+          "item_key": "turn:00000000-0000-4000-8000-000000000010",
+          "content_hash": "fnv1a64:05608482e0a2f86a",
+          "completeness": "canonical",
+          "source_epoch": "lineage:00000000-0000-4000-8000-000000000002:00000000-0000-4000-8000-000000000002",
+          "source_ref": {
+            "source_identity": "00000000-0000-4000-8000-000000000001",
+            "byte_start": 5270,
+            "byte_end": 5542,
+            "physical_line_ordinal": 13,
+            "rollout_ordinal": 12,
+            "timestamp": "2026-10-03T00:00:12.000Z",
+            "item_type": "event_msg/task_complete"
+          }
+        }
+      },
+      {
+        "mutation": "complete_range",
+        "source_range": {
+          "start": 0,
+          "end": 1197
+        }
+      }
+    ],
+    "history_base": {
+      "parent_rollout_id": "00000000-0000-4000-8000-000000000001",
+      "end_ordinal_exclusive": 13,
+      "end_byte_offset": 5542
+    },
+    "replacements": [],
+    "reducer_state": {
+      "schema_version": 1,
+      "reducer_id": "termlink.analysis_reducer",
+      "reducer_version": "target-v2",
+      "payload": {
+        "adapter": {
+          "active_turn_id": null,
+          "pending_plans": [],
+          "source_bindings": {
+            "00000000-0000-4000-8000-000000000001": "00000000-0000-4000-8000-000000000001",
+            "00000000-0000-4000-8000-000000000002": "00000000-0000-4000-8000-000000000002"
+          }
+        },
+        "reducer": {
+          "active_turn_id": null,
+          "canonical_committed": true,
+          "current_plan_key": null,
+          "delegated_event_facts": {
+            "00000000-0000-4000-8000-000000000001:ordinal-10:delegated_input:0": {
+              "event_type": "DelegatedInput",
+              "payload": {
+                "carrier": "response_item",
+                "item_id": "00000000-0000-4000-8000-000000000011",
+                "metadata": {
+                  "availability": "present",
+                  "conversation_id": "00000000-0000-4000-8000-000000000002",
+                  "correlation_id": "00000000-0000-4000-8000-000000000011",
+                  "event_id": "00000000-0000-4000-8000-000000000001:ordinal-10:delegated_input:0",
+                  "identity_origin": "native_stable_id",
+                  "item_key": "delegated-input:00000000-0000-4000-8000-000000000011",
+                  "related_item_key": null,
+                  "sequence": 11000000,
+                  "source_ref": {
+                    "byte_end": 4850,
+                    "byte_start": 4221,
+                    "item_type": "response_item/function_call_output",
+                    "physical_line_ordinal": 11,
+                    "rollout_ordinal": 10,
+                    "source_identity": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-10-03T00:00:10.000Z"
+                  },
+                  "timestamp": "2026-10-03T00:00:10.000Z",
+                  "turn_id": "00000000-0000-4000-8000-000000000010"
+                },
+                "namespace": "codex_app",
+                "origin_tool": "send_message_to_thread",
+                "text": "[sanitized delegation 3]"
+              }
+            },
+            "00000000-0000-4000-8000-000000000001:ordinal-11:delegated_input:0": {
+              "event_type": "DelegatedInput",
+              "payload": {
+                "carrier": "item_completed",
+                "item_id": "00000000-0000-4000-8000-000000000011",
+                "metadata": {
+                  "availability": "present",
+                  "conversation_id": "00000000-0000-4000-8000-000000000002",
+                  "correlation_id": "00000000-0000-4000-8000-000000000011",
+                  "event_id": "00000000-0000-4000-8000-000000000001:ordinal-11:delegated_input:0",
+                  "identity_origin": "native_stable_id",
+                  "item_key": "delegated-input:00000000-0000-4000-8000-000000000011",
+                  "related_item_key": null,
+                  "sequence": 12000000,
+                  "source_ref": {
+                    "byte_end": 5270,
+                    "byte_start": 4850,
+                    "item_type": "event_msg/item_completed",
+                    "physical_line_ordinal": 12,
+                    "rollout_ordinal": 11,
+                    "source_identity": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-10-03T00:00:11.000Z"
+                  },
+                  "timestamp": "2026-10-03T00:00:11.000Z",
+                  "turn_id": "00000000-0000-4000-8000-000000000010"
+                },
+                "namespace": "codex_app",
+                "origin_tool": "send_message_to_thread",
+                "text": "[sanitized delegation 3]"
+              }
+            },
+            "00000000-0000-4000-8000-000000000001:ordinal-2:delegated_input:0": {
+              "event_type": "DelegatedInput",
+              "payload": {
+                "carrier": "response_item",
+                "item_id": "00000000-0000-4000-8000-000000000007",
+                "metadata": {
+                  "availability": "present",
+                  "conversation_id": "00000000-0000-4000-8000-000000000002",
+                  "correlation_id": "00000000-0000-4000-8000-000000000007",
+                  "event_id": "00000000-0000-4000-8000-000000000001:ordinal-2:delegated_input:0",
+                  "identity_origin": "native_stable_id",
+                  "item_key": "delegated-input:00000000-0000-4000-8000-000000000007",
+                  "related_item_key": null,
+                  "sequence": 3000000,
+                  "source_ref": {
+                    "byte_end": 1652,
+                    "byte_start": 1224,
+                    "item_type": "response_item/function_call_output",
+                    "physical_line_ordinal": 3,
+                    "rollout_ordinal": 2,
+                    "source_identity": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-10-03T00:00:02.000Z"
+                  },
+                  "timestamp": "2026-10-03T00:00:02.000Z",
+                  "turn_id": "00000000-0000-4000-8000-000000000006"
+                },
+                "namespace": "codex_app",
+                "origin_tool": "create_thread",
+                "text": "[sanitized delegation 1]"
+              }
+            },
+            "00000000-0000-4000-8000-000000000001:ordinal-3:delegated_input:0": {
+              "event_type": "DelegatedInput",
+              "payload": {
+                "carrier": "item_completed",
+                "item_id": "00000000-0000-4000-8000-000000000007",
+                "metadata": {
+                  "availability": "present",
+                  "conversation_id": "00000000-0000-4000-8000-000000000002",
+                  "correlation_id": "00000000-0000-4000-8000-000000000007",
+                  "event_id": "00000000-0000-4000-8000-000000000001:ordinal-3:delegated_input:0",
+                  "identity_origin": "native_stable_id",
+                  "item_key": "delegated-input:00000000-0000-4000-8000-000000000007",
+                  "related_item_key": null,
+                  "sequence": 4000000,
+                  "source_ref": {
+                    "byte_end": 2062,
+                    "byte_start": 1652,
+                    "item_type": "event_msg/item_completed",
+                    "physical_line_ordinal": 4,
+                    "rollout_ordinal": 3,
+                    "source_identity": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-10-03T00:00:03.000Z"
+                  },
+                  "timestamp": "2026-10-03T00:00:03.000Z",
+                  "turn_id": "00000000-0000-4000-8000-000000000006"
+                },
+                "namespace": "codex_app",
+                "origin_tool": "create_thread",
+                "text": "[sanitized delegation 1]"
+              }
+            },
+            "00000000-0000-4000-8000-000000000001:ordinal-6:delegated_input:0": {
+              "event_type": "DelegatedInput",
+              "payload": {
+                "carrier": "response_item",
+                "item_id": "00000000-0000-4000-8000-000000000009",
+                "metadata": {
+                  "availability": "present",
+                  "conversation_id": "00000000-0000-4000-8000-000000000002",
+                  "correlation_id": "00000000-0000-4000-8000-000000000009",
+                  "event_id": "00000000-0000-4000-8000-000000000001:ordinal-6:delegated_input:0",
+                  "identity_origin": "native_stable_id",
+                  "item_key": "delegated-input:00000000-0000-4000-8000-000000000009",
+                  "related_item_key": null,
+                  "sequence": 7000000,
+                  "source_ref": {
+                    "byte_end": 3246,
+                    "byte_start": 2618,
+                    "item_type": "response_item/function_call_output",
+                    "physical_line_ordinal": 7,
+                    "rollout_ordinal": 6,
+                    "source_identity": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-10-03T00:00:06.000Z"
+                  },
+                  "timestamp": "2026-10-03T00:00:06.000Z",
+                  "turn_id": "00000000-0000-4000-8000-000000000008"
+                },
+                "namespace": "codex_app",
+                "origin_tool": "send_message_to_thread",
+                "text": "[sanitized delegation 2]"
+              }
+            },
+            "00000000-0000-4000-8000-000000000001:ordinal-7:delegated_input:0": {
+              "event_type": "DelegatedInput",
+              "payload": {
+                "carrier": "item_completed",
+                "item_id": "00000000-0000-4000-8000-000000000009",
+                "metadata": {
+                  "availability": "present",
+                  "conversation_id": "00000000-0000-4000-8000-000000000002",
+                  "correlation_id": "00000000-0000-4000-8000-000000000009",
+                  "event_id": "00000000-0000-4000-8000-000000000001:ordinal-7:delegated_input:0",
+                  "identity_origin": "native_stable_id",
+                  "item_key": "delegated-input:00000000-0000-4000-8000-000000000009",
+                  "related_item_key": null,
+                  "sequence": 8000000,
+                  "source_ref": {
+                    "byte_end": 3665,
+                    "byte_start": 3246,
+                    "item_type": "event_msg/item_completed",
+                    "physical_line_ordinal": 8,
+                    "rollout_ordinal": 7,
+                    "source_identity": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-10-03T00:00:07.000Z"
+                  },
+                  "timestamp": "2026-10-03T00:00:07.000Z",
+                  "turn_id": "00000000-0000-4000-8000-000000000008"
+                },
+                "namespace": "codex_app",
+                "origin_tool": "send_message_to_thread",
+                "text": "[sanitized delegation 2]"
+              }
+            }
+          },
+          "delegated_inputs": {
+            "delegated-input:00000000-0000-4000-8000-000000000007": {
+              "event_type": "DelegatedInput",
+              "payload": {
+                "carrier": "response_item",
+                "item_id": "00000000-0000-4000-8000-000000000007",
+                "metadata": {
+                  "availability": "present",
+                  "conversation_id": "00000000-0000-4000-8000-000000000002",
+                  "correlation_id": "00000000-0000-4000-8000-000000000007",
+                  "event_id": "00000000-0000-4000-8000-000000000001:ordinal-2:delegated_input:0",
+                  "identity_origin": "native_stable_id",
+                  "item_key": "delegated-input:00000000-0000-4000-8000-000000000007",
+                  "related_item_key": null,
+                  "sequence": 3000000,
+                  "source_ref": {
+                    "byte_end": 1652,
+                    "byte_start": 1224,
+                    "item_type": "response_item/function_call_output",
+                    "physical_line_ordinal": 3,
+                    "rollout_ordinal": 2,
+                    "source_identity": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-10-03T00:00:02.000Z"
+                  },
+                  "timestamp": "2026-10-03T00:00:02.000Z",
+                  "turn_id": "00000000-0000-4000-8000-000000000006"
+                },
+                "namespace": "codex_app",
+                "origin_tool": "create_thread",
+                "text": "[sanitized delegation 1]"
+              }
+            },
+            "delegated-input:00000000-0000-4000-8000-000000000009": {
+              "event_type": "DelegatedInput",
+              "payload": {
+                "carrier": "response_item",
+                "item_id": "00000000-0000-4000-8000-000000000009",
+                "metadata": {
+                  "availability": "present",
+                  "conversation_id": "00000000-0000-4000-8000-000000000002",
+                  "correlation_id": "00000000-0000-4000-8000-000000000009",
+                  "event_id": "00000000-0000-4000-8000-000000000001:ordinal-6:delegated_input:0",
+                  "identity_origin": "native_stable_id",
+                  "item_key": "delegated-input:00000000-0000-4000-8000-000000000009",
+                  "related_item_key": null,
+                  "sequence": 7000000,
+                  "source_ref": {
+                    "byte_end": 3246,
+                    "byte_start": 2618,
+                    "item_type": "response_item/function_call_output",
+                    "physical_line_ordinal": 7,
+                    "rollout_ordinal": 6,
+                    "source_identity": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-10-03T00:00:06.000Z"
+                  },
+                  "timestamp": "2026-10-03T00:00:06.000Z",
+                  "turn_id": "00000000-0000-4000-8000-000000000008"
+                },
+                "namespace": "codex_app",
+                "origin_tool": "send_message_to_thread",
+                "text": "[sanitized delegation 2]"
+              }
+            },
+            "delegated-input:00000000-0000-4000-8000-000000000011": {
+              "event_type": "DelegatedInput",
+              "payload": {
+                "carrier": "response_item",
+                "item_id": "00000000-0000-4000-8000-000000000011",
+                "metadata": {
+                  "availability": "present",
+                  "conversation_id": "00000000-0000-4000-8000-000000000002",
+                  "correlation_id": "00000000-0000-4000-8000-000000000011",
+                  "event_id": "00000000-0000-4000-8000-000000000001:ordinal-10:delegated_input:0",
+                  "identity_origin": "native_stable_id",
+                  "item_key": "delegated-input:00000000-0000-4000-8000-000000000011",
+                  "related_item_key": null,
+                  "sequence": 11000000,
+                  "source_ref": {
+                    "byte_end": 4850,
+                    "byte_start": 4221,
+                    "item_type": "response_item/function_call_output",
+                    "physical_line_ordinal": 11,
+                    "rollout_ordinal": 10,
+                    "source_identity": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-10-03T00:00:10.000Z"
+                  },
+                  "timestamp": "2026-10-03T00:00:10.000Z",
+                  "turn_id": "00000000-0000-4000-8000-000000000010"
+                },
+                "namespace": "codex_app",
+                "origin_tool": "send_message_to_thread",
+                "text": "[sanitized delegation 3]"
+              }
+            }
+          },
+          "pending_questions": {},
+          "projection": {
+            "availability": "present",
+            "complete": true,
+            "conversation_id": "00000000-0000-4000-8000-000000000002",
+            "coverage": "complete",
+            "diagnostics": [],
+            "provisional": false,
+            "schema": "termlink-analysis-projection",
+            "schema_version": 1,
+            "source": "vscode",
+            "turns": [
+              {
+                "availability": "present",
+                "context_window": 0,
+                "items": [
+                  {
+                    "answer": null,
+                    "artifact_id": null,
+                    "artifact_name": null,
+                    "attachment_name": null,
+                    "availability": "present",
+                    "content": "[sanitized delegation 1]",
+                    "correlation_id": "00000000-0000-4000-8000-000000000007",
+                    "item_key": "delegated-input:00000000-0000-4000-8000-000000000007",
+                    "kind": "delegated_input",
+                    "media_type": null,
+                    "path": null,
+                    "plan": null,
+                    "plan_action": null,
+                    "presentation_kind": "delegated_input",
+                    "query": null,
+                    "question": null,
+                    "related_item_key": null,
+                    "result": null,
+                    "sequence": 3000000,
+                    "source_ref": {
+                      "byte_end": 1652,
+                      "byte_start": 1224,
+                      "item_type": "response_item/function_call_output",
+                      "physical_line_ordinal": 3,
+                      "rollout_ordinal": 2,
+                      "source_identity": "00000000-0000-4000-8000-000000000001",
+                      "timestamp": "2026-10-03T00:00:02.000Z"
+                    },
+                    "summary": null,
+                    "timestamp": "2026-10-03T00:00:02.000Z",
+                    "tool": null,
+                    "turn_id": "00000000-0000-4000-8000-000000000006",
+                    "visible": true
+                  }
+                ],
+                "message": "[sanitized text]",
+                "rate_limit": null,
+                "sequence": 2000000,
+                "status": "completed",
+                "turn_id": "00000000-0000-4000-8000-000000000006",
+                "usage": null
+              },
+              {
+                "availability": "present",
+                "context_window": 0,
+                "items": [
+                  {
+                    "answer": null,
+                    "artifact_id": null,
+                    "artifact_name": null,
+                    "attachment_name": null,
+                    "availability": "present",
+                    "content": "[sanitized delegation 2]",
+                    "correlation_id": "00000000-0000-4000-8000-000000000009",
+                    "item_key": "delegated-input:00000000-0000-4000-8000-000000000009",
+                    "kind": "delegated_input",
+                    "media_type": null,
+                    "path": null,
+                    "plan": null,
+                    "plan_action": null,
+                    "presentation_kind": "delegated_input",
+                    "query": null,
+                    "question": null,
+                    "related_item_key": null,
+                    "result": null,
+                    "sequence": 7000000,
+                    "source_ref": {
+                      "byte_end": 3246,
+                      "byte_start": 2618,
+                      "item_type": "response_item/function_call_output",
+                      "physical_line_ordinal": 7,
+                      "rollout_ordinal": 6,
+                      "source_identity": "00000000-0000-4000-8000-000000000001",
+                      "timestamp": "2026-10-03T00:00:06.000Z"
+                    },
+                    "summary": null,
+                    "timestamp": "2026-10-03T00:00:06.000Z",
+                    "tool": null,
+                    "turn_id": "00000000-0000-4000-8000-000000000008",
+                    "visible": true
+                  }
+                ],
+                "message": "[sanitized text]",
+                "rate_limit": null,
+                "sequence": 6000000,
+                "status": "completed",
+                "turn_id": "00000000-0000-4000-8000-000000000008",
+                "usage": null
+              },
+              {
+                "availability": "present",
+                "context_window": 0,
+                "items": [
+                  {
+                    "answer": null,
+                    "artifact_id": null,
+                    "artifact_name": null,
+                    "attachment_name": null,
+                    "availability": "present",
+                    "content": "[sanitized delegation 3]",
+                    "correlation_id": "00000000-0000-4000-8000-000000000011",
+                    "item_key": "delegated-input:00000000-0000-4000-8000-000000000011",
+                    "kind": "delegated_input",
+                    "media_type": null,
+                    "path": null,
+                    "plan": null,
+                    "plan_action": null,
+                    "presentation_kind": "delegated_input",
+                    "query": null,
+                    "question": null,
+                    "related_item_key": null,
+                    "result": null,
+                    "sequence": 11000000,
+                    "source_ref": {
+                      "byte_end": 4850,
+                      "byte_start": 4221,
+                      "item_type": "response_item/function_call_output",
+                      "physical_line_ordinal": 11,
+                      "rollout_ordinal": 10,
+                      "source_identity": "00000000-0000-4000-8000-000000000001",
+                      "timestamp": "2026-10-03T00:00:10.000Z"
+                    },
+                    "summary": null,
+                    "timestamp": "2026-10-03T00:00:10.000Z",
+                    "tool": null,
+                    "turn_id": "00000000-0000-4000-8000-000000000010",
+                    "visible": true
+                  }
+                ],
+                "message": "[sanitized text]",
+                "rate_limit": null,
+                "sequence": 10000000,
+                "status": "completed",
+                "turn_id": "00000000-0000-4000-8000-000000000010",
+                "usage": null
+              }
+            ],
+            "usage_total": null
+          },
+          "provisional_diagnostic_keys": [],
+          "seen_event_ids": [
+            "00000000-0000-4000-8000-000000000001:ordinal-0:session_context:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-10:delegated_input:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-11:delegated_input:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-12:turn_completed:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-1:turn_started:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-2:delegated_input:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-3:delegated_input:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-4:turn_completed:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-5:turn_started:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-6:delegated_input:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-7:delegated_input:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-8:turn_completed:0",
+            "00000000-0000-4000-8000-000000000001:ordinal-9:turn_started:0",
+            "00000000-0000-4000-8000-000000000002:ordinal-0:session_context:0"
+          ]
+        }
+      }
+    },
+    "lineage_transitions": [
+      {
+        "parent_rollout_id": "00000000-0000-4000-8000-000000000001",
+        "child_rollout_id": "00000000-0000-4000-8000-000000000002",
+        "history_base": {
+          "parent_rollout_id": "00000000-0000-4000-8000-000000000001",
+          "end_ordinal_exclusive": 13,
+          "end_byte_offset": 5542
+        },
+        "validation_state": "validated"
+      }
+    ],
+    "lineage_coverage": {
+      "root_rollout_id": "00000000-0000-4000-8000-000000000001",
+      "active_head_rollout_id": "00000000-0000-4000-8000-000000000002",
+      "chain_rollout_ids": [
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000002"
+      ],
+      "covered_source_count": 2,
+      "complete": true
+    },
+    "lineage_checkpoint": {
+      "schema_version": 1,
+      "conversation_id": "00000000-0000-4000-8000-000000000002",
+      "root_rollout_id": "00000000-0000-4000-8000-000000000001",
+      "active_head_rollout_id": "00000000-0000-4000-8000-000000000002",
+      "chain_rollout_ids": [
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000002"
+      ],
+      "start_date": null,
+      "end_date": null,
+      "coverage": {
+        "root_rollout_id": "00000000-0000-4000-8000-000000000001",
+        "active_head_rollout_id": "00000000-0000-4000-8000-000000000002",
+        "chain_rollout_ids": [
+          "00000000-0000-4000-8000-000000000001",
+          "00000000-0000-4000-8000-000000000002"
+        ],
+        "covered_source_count": 2,
+        "complete": true
+      }
+    }
+  }
+}

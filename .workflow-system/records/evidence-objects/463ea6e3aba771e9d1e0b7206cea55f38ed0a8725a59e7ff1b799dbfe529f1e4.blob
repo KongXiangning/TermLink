@@ -1,0 +1,47 @@
+# TASK-20260832 / S3 实际执行
+
+2026-10-07（Asia/Shanghai）。**H2 分支历史的 Rust 定位/继承修复已执行，自检通过，待 change review；S3 未 finish，832 未关闭。** 这不是产品库或手机业务验收。
+
+## 入口与范围收拢
+
+fresh journal 已显示 832/S2 clean/finished（step ref=key-1bf17b543f6a0cd77feda64b334a08e4202b0963e8580459b73c22ab08cb69bf.json），手动 focus 已回 832（ref=key-84c44d145690b43b1036448ac8c73927fb5d3b3d98f0519cf4441f42898a24bc.json），S3 not-started。因此本次裸 execute-step 为 default S3，不重复结束 S2，也不根据旧建议猜 finish。
+
+HEAD=589a62a78c6214fea13e7c5eecac5466d64d7a5d。复用 833 的 H1/H3 共享规范和实现，不重复 vendor/Node 修改；只实施原 S2 已列出的 H2 Rust 最小范围。当前 S3 target 回归同时重新验证已有委派能力。S4 仍未开始：需要核对分支实际 consumer/product 保存链，并回收已由 833 完成的 H1 实施重复范围，不能自动 skipped/PASS。S5/S6 三类真实宿主和手机预算/目标不变。
+
+原 S2 的 scope、S1 脱敏原件/原失败与全部旧记录保留。完整架构在同会话前一轮已读取；本轮保护哈希与当前版本一致，CONTRACTS/AD-004/018/019/020/021/022、外部只读、单例和模块顺序保持。新增 REQ/PLAN 是用户确认任务的真实文档关联，不冒用旧 done 需求。
+
+## 修复及其业务作用
+
+1. discovery 原本仅收集目标 C，A 的 header/file 都可读却不进入 catalog。现在只沿已确认 history_base 扩展辅助父来源闭包，逐个核对 filename/header，沿用目录/candidate/header/fingerprint/cancel/deadline 限制。辅助 parent 不成为目标 head，未引用的其他会话不读取/不参与选择。
+2. 独立 Branch 的父来源只读取明确 ordinal/byte cut 前的完整前缀，保留真实 A 的物理 provenance 和 C 的目标绑定。原对话切点后的正常新增内容不混入 C；分支 append 的 full-lineage recovery 同样保持该 cut。错误 byte/ordinal、缺 header、压缩能力或 segment/decoded 预算不足继续拒绝。
+3. mapper 使用已验证的物理会话身份区分跨会话继承和同会话 resend。跨会话继承在完整性/诊断检查成立时标注有效关系，**不生成 replacement/replace_last_turn**；同会话最后 turn replacement 原验证继续执行。未知/缺口/partial 不提升为 canonical。
+
+三个源码文件为 discovery.rs、target_source.rs、target_mapping.rs；内部 provenance 增加物理 conversation_id，内部计划携带继承 cut。公共消息、schema1、三 mode、已有 profile/checkpoint 形状不变。没有 Node/Android/IPC/DB、vendor、Demo、共享契约、预算或外部真实 source 写入。原 Spike vendor Cargo.lock 保留未跟踪且哈希未变。
+
+## 自检与证据
+
+| 命令/证据 | 最终结果及适用范围 |
+| --- | --- |
+| cargo test --locked --offline --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_target_protocol | target-3：75/75 PASS。包括新两项分支回归、旧 H3、resend/replacement、source/ACK/取消/预算等；不是完整 Rust suite。 |
+| cargo test --locked --offline --manifest-path native/codex-rollout-collector/Cargo.toml --lib source:: | source-1：74/74 PASS。随后源码仅 selected-file rustfmt，无语义改动；新增加的是 target 测试与文档。 |
+| 原 S1 安全 A/C fixtures | 两份 byte-preserved 晋升到 formal tests/fixtures/branch-history，13-record/5542-byte 原 cut 可读，三份委派正文继承，零 replacement。没有重造原 history_base，也没有读取私有 staging 来运行回归。 |
+| 跨日期独立 C / A 后续增长 | 只继承三份委派正文，C 自身 user/assistant 正文正确，A 的 parent-after-fork 不进入 C；所有事件 target=C、来源保留 A；实际独立 Rust process batch canonical、测试正 ACK 后 complete。 |
+| 分支 append / 拒绝保护 | 当前 checkpoint 下的 delta + full-lineage recovery 不带入 A 后续内容；错 ordinal、mid-line cut、缺 parent、错误 header、歧义同 id、多 head/循环既有回归、zst-only parent 与合法低预算请求继续 fail-closed。 |
+| 文档/格式 | REQ Strict、CR Strict、diff-check exit0；CR 保持 draft/TBD，校验仅提示 rollback 文案缺显式 Git 命令，不是验证失败。选定四个 Rust 文件 rustfmt 通过。 |
+| self-check | 11 个保护 subject 未变，两份 fixture 原件/正式副本哈希一致，两份实际 Rust mapper batch 的 canonical/目标/三正文/无替换/去重成立。 |
+
+证据为 evidence/branch-batch.json、original-sanitized-branch-batch.json、每轮 stdout/result 和 self-check.json。这些 JSON 是实际 Rust mapper 产物；实际进程另由同一用例断言。进程测试的 ACK 是测试客户端发送的协议 ACK，**没有 Node durable staging、产品 SQLite COMMIT/provider/Gateway、手机 durable commit/ACK 的本轮证据**。
+
+当前构建 collector SHA256=aef0e539d542fc1af970f3612f17459b69b0afad4d6feb92e20209e817341d35，与 833 旧 binary 不同；后续产品验证需加载这个实际修复版，不把旧 binary 的产品证据当当前分支通过。没有部署该 binary、启动真实服务或操作手机/模型回合。
+
+## 失败与限制保持
+
+branch-1/2：测试 assistant phase 误用 final，实际 decoder 正确 ParseGap/partial；改为真实 final_answer。branch-3：header fault 的字符串替换先改到了 session_id，未改权威 id；改为明确修改 payload.id。target-2：负向预算请求的 effective max_line_bytes 大于 max_segment_bytes，入口正确拒绝为 invalid request；改为合法组合后验证真实 segment/decoded 限制。所有原失败输出保留，不改产品 decoder 或放宽验证来迎合测试。
+
+初始 tracked 基线通过 Git HEAD 只读恢复到 before，baseline.json 明确它不是伪称预编辑 live 快照。完整库/Node 产品/Android/真实宿主/手机未运行；H2 大前缀超过现有限额仍可失败。本轮自检不是新正式/独立审查，不自动解决原三类自然业务验收、旧 vendor 离线限制或三个管理关联缺口。
+
+## 文档与下一步
+
+新增真实 REQ-20261005-codex-history-save-repair、对应 PLAN 和 draft CR-20261007-0900-branch-history-parent，同步 S1/S2 实际 finished、833 交付归属、当前 S3 executed_pending_review 与 S4–S6 pending。REQ 保持 in_progress；没有更新 native 采纳计划、自动跳过 S4、finish/close 或 Git 写入。
+
+next_route: review-change；目标 TASK-20260832/S3。先审查原分支 cut 与目标隔离、辅助 parent/head 区分、继承与 resend 分流及当前测试/版本证据，再单独处置 S3。

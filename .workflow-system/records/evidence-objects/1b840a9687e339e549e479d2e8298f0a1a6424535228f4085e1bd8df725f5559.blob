@@ -1,0 +1,16 @@
+{
+  "command": {
+    "bin": "git",
+    "args": [
+      "diff",
+      "--check"
+    ]
+  },
+  "start": "2026-10-06T18:06:12.024Z",
+  "end": "2026-10-06T18:06:12.086Z",
+  "exit_code": 0,
+  "source_revision": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+  "environment": {
+    "CARGO_NET_OFFLINE": "true"
+  }
+}

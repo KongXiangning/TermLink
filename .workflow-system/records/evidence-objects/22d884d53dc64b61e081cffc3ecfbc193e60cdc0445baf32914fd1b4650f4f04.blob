@@ -1,0 +1,57 @@
+---
+title: 新对话、分支与委派消息历史保存修复
+status: in_progress
+owner: "@maintainer"
+last_updated: 2026-10-07
+source_of_truth: product
+related_code: [native/codex-rollout-collector/src/source/discovery.rs, native/codex-rollout-collector/src/protocol/target_source.rs, native/codex-rollout-collector/src/protocol/target_mapping.rs]
+related_docs: [docs/product/plans/PLAN-20261005-codex-history-save-repair.md, docs/product/requirements/REQ-20261005-codex-history-shared-compat.md]
+---
+
+# REQ-20261005-codex-history-save-repair
+
+## Meta
+
+- id: REQ-20261005-codex-history-save-repair
+- title: 新对话、分支与委派消息历史保存修复
+- priority: P1
+- status: in_progress
+- owner: @maintainer
+- target_release: 未安排，按实际业务验收决定
+- links: TASK-20260832；PLAN-20261005-codex-history-save-repair；TASK-20260833
+
+## 1. 背景与目标
+
+来源是用户确认的 TASK-20260832 采纳计划及三项业务目标：新对话保存被拒绝、原生分支找不到原对话、特定委派消息解析失败。新对话与分支均须保存完整历史，手机切换回来及重开后能查看对应正文和应保留的工具详情；委派须单独验收，普通样本不能替代。
+
+## 2. In Scope
+
+H1 正常增长与 H3 委派共享兼容复用 TASK-20260833 的明确交付；H2 在 Rust 中依据 history_base 定位辅助 parent，验证物理身份及切点，保留独立 conversation 身份。随后按原任务预算完成产品入口、Gateway、手机持久提交/ACK 和切换重开验证。
+
+## 3. Out of Scope
+
+不做全量 4.5 迁移，不改 IPC authority、Node/Android/DB schema 或外部 rollout，不放宽资源预算、不伪造来源/ACK，不清旧历史和失败记录。UI 旧错误提示与 registration 问题仍是独立候选。
+
+## 4. 方案概要
+
+Rust 先选目标对话的有效 head；仅沿明确 history_base 补齐必要父来源。跨对话继承只读取原对话切点之前的完整前缀；同对话 resend 保留原 replacement 规则。三类历史经既有产品链路保存，并分别取得正文/详情及恢复证据。
+
+## 5. 接口/数据结构变更
+
+本批 S3 仅增加 Rust 内部来源 provenance 的物理 conversation_id 及继承切点读计划；既有 wire/data/checkpoint schema、三 mode、单进程和 Node↔Rust 公共形状不变。H1/H3 的已发布共享补充以其独立契约为准。
+
+## 6. 验收标准
+
+H1/H2/H3 各自诊断、修复和实测层级明确；父来源身份/切点正确，缺失/歧义/循环/压缩不支持等继续拒绝。分支保存继承与新增内容，不改写原对话。三类真实宿主样本分别通过产品提交和手机 durable ACK，切换及重开后正文和工具详情匹配。isolated PASS、clean、finished、closed 均不替代这些业务验收。
+
+## 7. 测试场景
+
+本批：原 S1 脱敏 C header/A prefix、跨日期独立分支、原对话切点后增长隔离、分支 append 恢复、不产生 replacement、错误 ordinal/byte cut、缺 parent/header 不一致。复用既有 source 和 target 协议回归，保留同对话 resend/未知/预算/取消保护。产品库与手机验收仍 pending。
+
+## 8. 风险与回滚
+
+前缀超过现有 segment/decoded/header/fingerprint 限额继续失败，不提高限额。仅恢复本批源码变更，不删真实 source、DB、receipt 或失败证据。未提交 CR 为 draft/TBD。
+
+## 9. 发布计划
+
+本批只完成 S3 隔离 Rust 修复与自检，待 change review；需求仍 in_progress，未部署或发布。真实宿主及手机验收按 PLAN 后续切片执行。

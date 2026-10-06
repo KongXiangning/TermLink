@@ -1,0 +1,21 @@
+
+running 1 test
+test branch_history_inherits_verified_parent_prefix_without_replacing_original_turn ... FAILED
+
+failures:
+
+failures:
+    branch_history_inherits_verified_parent_prefix_without_replacing_original_turn
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.02s
+
+   Compiling codex-rollout-collector v0.1.0 (E:\coding\TermLink-rust-source-resolution-codex\native\codex-rollout-collector)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.27s
+     Running tests\stage4_target_protocol.rs (native\codex-rollout-collector\target\debug\deps\stage4_target_protocol-169dfcc7ec4fc9a0.exe)
+
+thread 'branch_history_inherits_verified_parent_prefix_without_replacing_original_turn' (72480) panicked at tests\stage4_target_protocol.rs:3500:5:
+assertion `left == right` failed: [BatchDiagnostic { code: "parse_gap", message: Some("missing_required_field:event_msg/agent_message"), source_ref: Some(SourceRef { source_identity: "00000000-0000-4000-8000-000000000012", byte_start: 1390, byte_end: 1534, physical_line_ordinal: 4, rollout_ordinal: Some(3), timestamp: Some("2026-10-04T00:00:01Z"), item_type: Some("event_msg/agent_message") }), availability: NotRecoverableFromRollout }, BatchDiagnostic { code: "replacement_validation", message: Some("branch inheritance contains incomplete evidence"), source_ref: None, availability: PartialRollout }]
+  left: Partial
+ right: Canonical
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test stage4_target_protocol`

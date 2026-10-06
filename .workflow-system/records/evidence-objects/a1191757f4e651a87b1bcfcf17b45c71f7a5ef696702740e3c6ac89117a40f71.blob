@@ -1,0 +1,21 @@
+{
+  "results": [
+    {
+      "label": "parent-bounded",
+      "result_type": "complete",
+      "completeness": "canonical"
+    },
+    {
+      "label": "branch-default",
+      "result_type": "complete",
+      "completeness": "canonical"
+    },
+    {
+      "label": "branch-bounded",
+      "result_type": "complete",
+      "completeness": "canonical"
+    }
+  ],
+  "sourceBytes": 5542,
+  "qualification": "Isolated sanitized source copies and current Rust process; test protocol ACK only, no Node/product/device/real source write"
+}

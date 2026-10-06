@@ -890,6 +890,26 @@ fn validate_lineage_transitions_with_control(
             &transition.child_rollout_id,
             Some(&transition.history_base),
         );
+        let parent_source = source
+            .discovered_sources
+            .iter()
+            .find(|candidate| candidate.rollout_id == transition.parent_rollout_id);
+        let child_source = source
+            .discovered_sources
+            .iter()
+            .find(|candidate| candidate.rollout_id == transition.child_rollout_id);
+        if let (Some(parent_source), Some(child_source)) = (parent_source, child_source)
+            && parent_source.conversation_id != child_source.conversation_id
+        {
+            // Source reading verified the exact inherited prefix and header
+            // relationship. An independent chat inherits; it replaces no turn.
+            validation.validated[index] = parent.complete && child.complete;
+            if !validation.validated[index] && validation.error.is_none() {
+                validation.error =
+                    Some("branch inheritance contains incomplete evidence".to_string());
+            }
+            continue;
+        }
         match validate_last_turn_replacement(
             &request.conversation_id,
             &transition.parent_rollout_id,

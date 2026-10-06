@@ -1,0 +1,631 @@
+{
+  "runtime_role": "assistance",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "kind": "task-query/v1",
+  "detail": "step",
+  "status": "available",
+  "source_revision": "2d2dc52e222d703e39999ab9f149dcda003314c9eab253c9b21aa0d850bea3c3",
+  "view_revision": "f9aed7ddef354db399e390423b09d30348a119cfbc3898f50a932f8479f2a207",
+  "workflow_home": "docs/workflow",
+  "current_task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "focus": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "ref": ".workflow-system/records/events/key-84c44d145690b43b1036448ac8c73927fb5d3b3d98f0519cf4441f42898a24bc.json",
+    "conflict": null
+  },
+  "next_task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "next_step_id": "S3",
+  "next_route": "execute-step",
+  "next_mode": "repair",
+  "next_action": "repair-step",
+  "selection": {
+    "requested_task_ref": "TASK-20260832",
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "status": "resolved",
+    "detail_request": {
+      "detail": "task",
+      "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "workflow_home": "docs/workflow"
+    },
+    "requested_step_id": "S3",
+    "step_status": "resolved"
+  },
+  "health": "needs-attention",
+  "state_completeness": "partial-associations",
+  "records_scanned": 273,
+  "projection": {
+    "cache": "current",
+    "display": "current",
+    "read_only_rebuilt": true
+  },
+  "recovery_options": [
+    "rebuild",
+    "link",
+    "correct",
+    "resolve",
+    "defer",
+    "pause",
+    "close"
+  ],
+  "issues": [
+    {
+      "id": "issue-acce7d78ceebab4ab85bca99",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-bb8b7308bc64f7d580f3cfae",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-ec19a134aefeb23287cb519b",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "message": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "unassociated_records": [
+    {
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "reason": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "task_count": 6,
+  "lifecycle_counts": {
+    "closed": 5,
+    "active": 1
+  },
+  "coverage": {
+    "computation": "full-journal-rebuild",
+    "diagnostics": "all",
+    "history": "selected-step-projection-only"
+  },
+  "note": "Presentation of the complete live rebuild. Omitted detail is not absent history, clean review or permission. Read record refs with read; use detail=full for the compatibility view.",
+  "task": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "display_id": "TASK-20260832",
+    "lifecycle": "active",
+    "adopted_plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+    "legacy_plan_ref": null
+  },
+  "step": {
+    "id": "S3",
+    "title": "修复委派消息识别与分支历史定位的 Rust 问题",
+    "environment": [
+      "S2 已明确授权的 Rust 文件/测试",
+      "formal Rust crate 与仓库内 Codex closure",
+      "不改 Node/Android/IPC"
+    ],
+    "actions": [
+      "分别实施经诊断成立的 H3 解码/语义兼容与 H2 discovery/catalog/绑定最小修复；若原因不属于该层，保留明确转交，不强行修改。",
+      "优先扩展既有 wire/Adapter、stage3 conformance 和 stage4 target protocol/source 测试，使用源形状一致且脱敏的两类 carrier 及真实 parent/child 关系样本。",
+      "必要 vendor 同步依当前规则实施并保留 manifest/closure 证据；未知、缺 parent、关系歧义仍 fail-closed。"
+    ],
+    "validation": [
+      "两类 carrier 分别通过正确关联/partial 负向回归。",
+      "有效 parent/child 可定位，缺 parent/歧义/边界拒绝保持，独立 conversation 身份不变。",
+      "按改动执行最小必要 Rust conformance/target 协议测试，默认构建不依赖外部 Codex。"
+    ],
+    "outputs": [
+      "Rust 修复与测试证据",
+      "稳定接口和 Node consumer 使用说明；无实现的项明确保留"
+    ],
+    "state": "executed",
+    "legacy_step_status": null,
+    "execution_ref": ".workflow-system/records/events/key-caa4ad2a4c543fcbac91cd3b4183dce7bc2022a20a522b3016dd59dce2b6ed35.json",
+    "execution": {
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S3",
+      "mode": "default",
+      "source_revision": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+      "result": "H2 isolated Rust branch parent locating/prefix inheritance repaired;target75/75 source74/74 PASS;pending change review/finish;product/native-host/mobile unverified",
+      "decision_source": "Current human bare execute-step;fresh journal has832 focused,S2finished,S3not-started;existing confirmed scope and833 handoff preserveH2 and3 business goals",
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md)",
+      "summary": {
+        "implementation": "Referenced auxiliary parent closure separate from targethead;verified branchordinal/byteprefix andappendlineagerecovery;physical headeridentity distinguishes inheritance fromsameconversationreplacement;unknown/partial/budgets remainclosed",
+        "scope": "3Rust sourcefiles,existingtargettest,2originalsanitizedformalfixtures/README,newREQ/PLAN/draftCR andlogs;reuse833H1/H3,noNode/vendor/DB/Android/IPC/sharedcontract/external source/Git/deploy/service/device changes",
+        "qualification": "Implementation self-check,not change/independentreview orfinish. Process positiveACK comesfromtestclient,notNode durableACK/productcommit/phoneACK. SavedJSONs actualRustmapperoutput;75target and74source areselectedsuites,notfullRustsuite.",
+        "handoff": "832S4pending foractualbranchconsumer/productverification andH1scope reuse,withoutautomatic skip/PASS;S5S6all3realhost/mobile remainpending",
+        "binary_sha256": "aef0e539d542fc1af970f3612f17459b69b0afad4d6feb92e20209e817341d35"
+      },
+      "commands": [
+        {
+          "command": {
+            "bin": "cargo",
+            "args": [
+              "test",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "native/codex-rollout-collector/Cargo.toml",
+              "--test",
+              "stage4_target_protocol",
+              "branch_history_",
+              "--",
+              "--nocapture"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit101",
+          "report_ref": "logs/history-save-repair-20261005/s3/branch-1.txt"
+        },
+        {
+          "command": {
+            "bin": "cargo",
+            "args": [
+              "test",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "native/codex-rollout-collector/Cargo.toml",
+              "--test",
+              "stage4_target_protocol",
+              "branch_history_",
+              "--",
+              "--nocapture"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit101",
+          "report_ref": "logs/history-save-repair-20261005/s3/branch-2.txt"
+        },
+        {
+          "command": {
+            "bin": "cargo",
+            "args": [
+              "test",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "native/codex-rollout-collector/Cargo.toml",
+              "--test",
+              "stage4_target_protocol",
+              "branch_history_",
+              "--",
+              "--nocapture"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit101",
+          "report_ref": "logs/history-save-repair-20261005/s3/branch-3.txt"
+        },
+        {
+          "command": {
+            "bin": "cargo",
+            "args": [
+              "test",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "native/codex-rollout-collector/Cargo.toml",
+              "--test",
+              "stage4_target_protocol",
+              "branch_history_",
+              "--",
+              "--nocapture"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/branch-4.txt"
+        },
+        {
+          "command": {
+            "bin": "cargo",
+            "args": [
+              "test",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "native/codex-rollout-collector/Cargo.toml",
+              "--test",
+              "stage4_target_protocol",
+              "branch_history_",
+              "--",
+              "--nocapture"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/branch-5.txt"
+        },
+        {
+          "command": {
+            "bin": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-File",
+              ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+              "-RecordPath",
+              "docs/changes/records/CR-20261007-0900-branch-history-parent.md",
+              "-ProjectRoot",
+              ".",
+              "-Strict"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/cr-1.txt"
+        },
+        {
+          "command": {
+            "bin": "git",
+            "args": [
+              "diff",
+              "--check"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/diff-1.txt"
+        },
+        {
+          "command": {
+            "bin": "git",
+            "args": [
+              "diff",
+              "--check"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/diff-2.txt"
+        },
+        {
+          "command": {
+            "bin": "rustfmt",
+            "args": [
+              "--edition",
+              "2024",
+              "native/codex-rollout-collector/src/source/discovery.rs",
+              "native/codex-rollout-collector/src/protocol/target_source.rs",
+              "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+              "native/codex-rollout-collector/tests/stage4_target_protocol.rs"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/fmt-1.txt"
+        },
+        {
+          "command": {
+            "bin": "rustfmt",
+            "args": [
+              "--edition",
+              "2024",
+              "native/codex-rollout-collector/src/source/discovery.rs",
+              "native/codex-rollout-collector/src/protocol/target_source.rs",
+              "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+              "native/codex-rollout-collector/tests/stage4_target_protocol.rs"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/fmt-2.txt"
+        },
+        {
+          "command": {
+            "bin": "rustfmt",
+            "args": [
+              "--edition",
+              "2024",
+              "native/codex-rollout-collector/src/source/discovery.rs",
+              "native/codex-rollout-collector/src/protocol/target_source.rs",
+              "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+              "native/codex-rollout-collector/tests/stage4_target_protocol.rs"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/fmt-3.txt"
+        },
+        {
+          "command": {
+            "bin": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-File",
+              ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+              "-ReqPath",
+              "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+              "-ProjectRoot",
+              ".",
+              "-Strict"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/req-1.txt"
+        },
+        {
+          "command": {
+            "bin": "cargo",
+            "args": [
+              "test",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "native/codex-rollout-collector/Cargo.toml",
+              "--lib",
+              "source::"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/source-1.txt"
+        },
+        {
+          "command": {
+            "bin": "cargo",
+            "args": [
+              "test",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "native/codex-rollout-collector/Cargo.toml",
+              "--test",
+              "stage4_target_protocol"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/target-1.txt"
+        },
+        {
+          "command": {
+            "bin": "cargo",
+            "args": [
+              "test",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "native/codex-rollout-collector/Cargo.toml",
+              "--test",
+              "stage4_target_protocol"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit101",
+          "report_ref": "logs/history-save-repair-20261005/s3/target-2.txt"
+        },
+        {
+          "command": {
+            "bin": "cargo",
+            "args": [
+              "test",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "native/codex-rollout-collector/Cargo.toml",
+              "--test",
+              "stage4_target_protocol"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s3/target-3.txt"
+        }
+      ],
+      "remaining_work": [
+        "S3 change review and separate finish;832active,833closed unchanged",
+        "S4 consumer/product branch saving chain,overlap/conflict/reopen/oldcanonical protection;reuse833H1/H3 without repeatimplementation orautoskip",
+        "H1/H2/H3 separate natural-host/Gateway/mobile durable commitACK/body/tool-details/switch/reopen acceptance underoriginalbudgets",
+        "Priorfailures,vendoroffline validationlimit,3oldmanagementassociationgaps andself-review retained;largeinheritedprefix canstillhitexistinglimits"
+      ],
+      "files": [
+        "native/codex-rollout-collector/src/source/discovery.rs",
+        "native/codex-rollout-collector/src/protocol/target_source.rs",
+        "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+        "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+        "native/codex-rollout-collector/tests/fixtures/branch-history/a-full.jsonl",
+        "native/codex-rollout-collector/tests/fixtures/branch-history/c-header.jsonl",
+        "native/codex-rollout-collector/tests/fixtures/branch-history/README.md",
+        "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261007-0900-branch-history-parent.md",
+        "src/services/codexRolloutCollector/analyzerProtocol.js",
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "src/services/codexRolloutCollector/analyzerProcessManager.js",
+        "src/services/codexRolloutCollector/index.js",
+        "src/services/codexHistoryProductStore.js",
+        "src/services/codexHistoryProductProvider.js",
+        "docs/codex/codex-rollout-collector-architecture.md",
+        "docs/workflow/CONTRACTS.md",
+        "docs/workflow/DECISIONS.md",
+        "docs/codex/codex-history-shared-compat-contract.md",
+        "logs/history-save-repair-20261005/s3/baseline.cjs",
+        "logs/history-save-repair-20261005/s3/baseline.json",
+        "logs/history-save-repair-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_mapping.rs",
+        "logs/history-save-repair-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_source.rs",
+        "logs/history-save-repair-20261005/s3/before/native__codex-rollout-collector__src__source__discovery.rs",
+        "logs/history-save-repair-20261005/s3/before/native__codex-rollout-collector__tests__stage4_target_protocol.rs",
+        "logs/history-save-repair-20261005/s3/branch-1-result.json",
+        "logs/history-save-repair-20261005/s3/branch-1.txt",
+        "logs/history-save-repair-20261005/s3/branch-2-result.json",
+        "logs/history-save-repair-20261005/s3/branch-2.txt",
+        "logs/history-save-repair-20261005/s3/branch-3-result.json",
+        "logs/history-save-repair-20261005/s3/branch-3.txt",
+        "logs/history-save-repair-20261005/s3/branch-4-result.json",
+        "logs/history-save-repair-20261005/s3/branch-4.txt",
+        "logs/history-save-repair-20261005/s3/branch-5-result.json",
+        "logs/history-save-repair-20261005/s3/branch-5.txt",
+        "logs/history-save-repair-20261005/s3/checks.cjs",
+        "logs/history-save-repair-20261005/s3/cr-1-result.json",
+        "logs/history-save-repair-20261005/s3/cr-1.txt",
+        "logs/history-save-repair-20261005/s3/diff-1-result.json",
+        "logs/history-save-repair-20261005/s3/diff-1.txt",
+        "logs/history-save-repair-20261005/s3/diff-2-result.json",
+        "logs/history-save-repair-20261005/s3/diff-2.txt",
+        "logs/history-save-repair-20261005/s3/evidence/branch-batch.json",
+        "logs/history-save-repair-20261005/s3/evidence/original-sanitized-branch-batch.json",
+        "logs/history-save-repair-20261005/s3/fmt-1-result.json",
+        "logs/history-save-repair-20261005/s3/fmt-1.txt",
+        "logs/history-save-repair-20261005/s3/fmt-2-result.json",
+        "logs/history-save-repair-20261005/s3/fmt-2.txt",
+        "logs/history-save-repair-20261005/s3/fmt-3-result.json",
+        "logs/history-save-repair-20261005/s3/fmt-3.txt",
+        "logs/history-save-repair-20261005/s3/record-execution.cjs",
+        "logs/history-save-repair-20261005/s3/report.md",
+        "logs/history-save-repair-20261005/s3/req-1-result.json",
+        "logs/history-save-repair-20261005/s3/req-1.txt",
+        "logs/history-save-repair-20261005/s3/run.cjs",
+        "logs/history-save-repair-20261005/s3/self-check.json",
+        "logs/history-save-repair-20261005/s3/source-1-result.json",
+        "logs/history-save-repair-20261005/s3/source-1.txt",
+        "logs/history-save-repair-20261005/s3/source-after.json",
+        "logs/history-save-repair-20261005/s3/status-832-before.json",
+        "logs/history-save-repair-20261005/s3/status-833-before.json",
+        "logs/history-save-repair-20261005/s3/status-record-before.json",
+        "logs/history-save-repair-20261005/s3/target-1-result.json",
+        "logs/history-save-repair-20261005/s3/target-1.txt",
+        "logs/history-save-repair-20261005/s3/target-2-result.json",
+        "logs/history-save-repair-20261005/s3/target-2.txt",
+        "logs/history-save-repair-20261005/s3/target-3-result.json",
+        "logs/history-save-repair-20261005/s3/target-3.txt"
+      ],
+      "ref": ".workflow-system/records/events/key-caa4ad2a4c543fcbac91cd3b4183dce7bc2022a20a522b3016dd59dce2b6ed35.json",
+      "interpretation_ref": null
+    },
+    "review_ref": ".workflow-system/records/events/key-aeb521d60861069c8ab289726c2d0160bcd86d0c05de1515c3bb119f1abe562f.json",
+    "review_status": "findings",
+    "findings": [
+      {
+        "id": "832-S3-R1",
+        "priority": 2,
+        "title": "继承前缀被当作一个 segment，合法分段预算下分支仍保存失败",
+        "file": "native/codex-rollout-collector/src/protocol/target_source.rs",
+        "start": 990,
+        "end": 995,
+        "body": "plan_inherited_prefix 返回单个0..cut range，超过max_segment即拒绝，即使总decoded预算充足。相同5542-byte A在decoded65536/segment4096/line2048下canonical，分支默认canonical，相同分支在上述合法预算下resource_limit_exceeded:range length 5542 exceeds segment limit 4096。应沿完整行分窗口并累计预算/spool，保持cut及fail-closed，不提高限额。初次读取和append recovery均受影响。",
+        "evidence_refs": [
+          "logs/history-save-repair-20261005/s3/review-r1/repro-result.json",
+          "logs/history-save-repair-20261005/s3/review-r1/parent-bounded-trace.json",
+          "logs/history-save-repair-20261005/s3/review-r1/branch-bounded-trace.json",
+          "logs/history-save-repair-20261005/s3/review-r1/branch-default-trace.json"
+        ]
+      }
+    ],
+    "review_choice": null,
+    "review_decision_ref": null,
+    "review_decisions": [],
+    "tests": [],
+    "disposition_ref": null,
+    "historical_execution_refs": []
+  },
+  "review": {
+    "stage": "change",
+    "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+    "step_id": "S3",
+    "execution_ref": ".workflow-system/records/events/key-caa4ad2a4c543fcbac91cd3b4183dce7bc2022a20a522b3016dd59dce2b6ed35.json",
+    "source_revision": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+    "verdict": "findings",
+    "findings": [
+      {
+        "id": "832-S3-R1",
+        "priority": 2,
+        "title": "继承前缀被当作一个 segment，合法分段预算下分支仍保存失败",
+        "file": "native/codex-rollout-collector/src/protocol/target_source.rs",
+        "start": 990,
+        "end": 995,
+        "body": "plan_inherited_prefix 返回单个0..cut range，超过max_segment即拒绝，即使总decoded预算充足。相同5542-byte A在decoded65536/segment4096/line2048下canonical，分支默认canonical，相同分支在上述合法预算下resource_limit_exceeded:range length 5542 exceeds segment limit 4096。应沿完整行分窗口并累计预算/spool，保持cut及fail-closed，不提高限额。初次读取和append recovery均受影响。",
+        "evidence_refs": [
+          "logs/history-save-repair-20261005/s3/review-r1/repro-result.json",
+          "logs/history-save-repair-20261005/s3/review-r1/parent-bounded-trace.json",
+          "logs/history-save-repair-20261005/s3/review-r1/branch-bounded-trace.json",
+          "logs/history-save-repair-20261005/s3/review-r1/branch-default-trace.json"
+        ]
+      }
+    ],
+    "coverage": [
+      "Exact832S3 execution and69fixed/live attachments,10changed/11protected subjects/current binary hash",
+      "Discovery referenced parents/targethead/source identity/ambiguity/cycle/sibling/control;source cut/full read/backfill windows/append lineage recovery/coverage;mapper inheritance vsreplacement/diagnostics/canonical gates",
+      "2newtests/original sanitized fixtures and execution75target/74source results reused withcurrenthash;new isolated Rust process budgetcounterexample",
+      "REQ/PLAN/draftCR,H1H3 reuse andS4S6 unverified product/mobile work retained"
+    ],
+    "provenance": {
+      "kind": "same-agent-change-self-review",
+      "reviewer": "Codex",
+      "independent": false,
+      "assessment": "Source/call-chain/evidence review plus isolated sanitized real Rust process counterexample;no product edits/permanent tests/Node durable product commit/phone checks;test ACK only",
+      "binary_sha256": "aef0e539d542fc1af970f3612f17459b69b0afad4d6feb92e20209e817341d35"
+    },
+    "remaining_work": [
+      "S3 R1 repair with existing segment/decoded budget then new execution/change review;S3 notfinished",
+      "S4 actualconsumer/product branch chain verification,thenS5S6all3naturalhost/mobile durableACK/body/tool/switch/reopen;833 reuse doesnotcertifythese",
+      "Prior failures/vendor offline limit and3oldmanagementassociationgaps retained"
+    ],
+    "files": [
+      "logs/history-save-repair-20261005/s3/review-r1/audit.cjs",
+      "logs/history-save-repair-20261005/s3/review-r1/audit.json",
+      "logs/history-save-repair-20261005/s3/review-r1/branch-bounded-trace.json",
+      "logs/history-save-repair-20261005/s3/review-r1/branch-default-trace.json",
+      "logs/history-save-repair-20261005/s3/review-r1/parent-bounded-trace.json",
+      "logs/history-save-repair-20261005/s3/review-r1/record-review.cjs",
+      "logs/history-save-repair-20261005/s3/review-r1/repro.cjs",
+      "logs/history-save-repair-20261005/s3/review-r1/review-change.md",
+      "logs/history-save-repair-20261005/s3/review-r1/status-before.json",
+      "logs/history-save-repair-20261005/s3/review-r1/repro-result.json",
+      "native/codex-rollout-collector/src/source/discovery.rs",
+      "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+      "native/codex-rollout-collector/tests/fixtures/branch-history/a-full.jsonl",
+      "native/codex-rollout-collector/tests/fixtures/branch-history/c-header.jsonl",
+      "native/codex-rollout-collector/tests/fixtures/branch-history/README.md",
+      "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "docs/changes/records/CR-20261007-0900-branch-history-parent.md"
+    ],
+    "ref": ".workflow-system/records/events/key-aeb521d60861069c8ab289726c2d0160bcd86d0c05de1515c3bb119f1abe562f.json",
+    "interpretation_ref": null
+  },
+  "detail_request": {
+    "detail": "task",
+    "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "workflow_home": "docs/workflow"
+  }
+}

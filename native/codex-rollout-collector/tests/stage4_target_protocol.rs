@@ -3453,6 +3453,530 @@ fn target_source_read_resolves_cross_date_lineage_from_target_intent_only() {
 }
 
 #[test]
+fn branch_history_inherits_verified_parent_prefix_without_replacing_original_turn() {
+    let root = unique_temp_path("branch-history-prefix");
+    let parent_id = "00000000-0000-4000-8000-000000000011";
+    let child_id = "00000000-0000-4000-8000-000000000012";
+    let parent_contents = current_fixture_contents("delegated-context.jsonl")
+        .replace(DELEGATED_CONVERSATION, parent_id);
+    let parent_path = write_target_fixture(&root, parent_id, &parent_contents);
+    let parent = fs::read(&parent_path).unwrap();
+    let cut = parent.len() as u64;
+    let cut_ordinal = parent_contents.lines().count() as u64;
+    // The original chat subsequently grows. Those bytes are not inherited.
+    let mut grown = parent.clone();
+    grown.extend_from_slice(format!("{{\"timestamp\":\"2026-10-03T00:01:00Z\",\"ordinal\":{cut_ordinal},\"type\":\"event_msg\",\"payload\":{{\"type\":\"agent_message\",\"message\":\"parent-after-fork\",\"phase\":\"final\"}}}}\n").as_bytes());
+    fs::write(&parent_path, &grown).unwrap();
+    let mut child_lines = current_fixture_contents("delegated-context.jsonl")
+        .lines()
+        .take(1)
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+        .collect::<Vec<_>>();
+    child_lines[0]["payload"]["id"] = json!(child_id);
+    child_lines[0]["payload"]["session_id"] = json!(child_id);
+    child_lines[0]["payload"]["thread_source"] = json!("agent_forked_thread");
+    child_lines[0]["payload"]["forked_from_id"] = json!(parent_id);
+    child_lines[0]["payload"]["forked_from_ordinal_exclusive"] = json!(cut_ordinal);
+    child_lines[0]["payload"]["multi_agent_version"] = json!("v1");
+    child_lines[0]["payload"]["history_mode"] = json!("paginated");
+    child_lines[0]["payload"]["history_base"] = json!({
+        "thread_id":parent_id,"end_ordinal_exclusive":cut_ordinal,"end_byte_offset":cut
+    });
+    for (ordinal, payload) in [
+        json!({"type":"task_started","turn_id":"branch-turn","model_context_window":258400,"collaboration_mode_kind":"default"}),
+        json!({"type":"user_message","message":"child-question","images":[]}),
+        json!({"type":"agent_message","message":"child-answer","phase":"final_answer"}),
+        json!({"type":"task_complete","turn_id":"branch-turn","last_agent_message":"child-answer"}),
+    ].into_iter().enumerate() {
+        child_lines.push(json!({"timestamp":"2026-10-04T00:00:01Z","ordinal":ordinal+1,"type":"event_msg","payload":payload}));
+    }
+    let encode = |lines: &[serde_json::Value]| {
+        lines
+            .iter()
+            .map(|line| format!("{line}\n"))
+            .collect::<String>()
+    };
+    let child_path = root
+        .join("2026/08/27")
+        .join(format!("rollout-2026-08-27T00-00-00-{child_id}.jsonl"));
+    fs::create_dir_all(child_path.parent().unwrap()).unwrap();
+    fs::write(&child_path, encode(&child_lines)).unwrap();
+    // An unrelated parent-chat source must not become a head or be read.
+    let unrelated = parent_contents.replace(parent_id, "00000000-0000-4000-8000-000000000013");
+    write_target_fixture(&root, "00000000-0000-4000-8000-000000000013", &unrelated);
+    let request = target_source_request(
+        "branch-history-prefix",
+        child_id,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    assert_eq!(source.active_source.rollout_id, child_id);
+    assert_eq!(source.discovered_sources.len(), 2);
+    assert_eq!(source.segments[0].complete_range.unwrap().end, cut);
+    assert_eq!(
+        source.segments[0].snapshot_boundary.byte_length,
+        grown.len() as u64
+    );
+    let mapped = map_target_source_read_with_profile(
+        &request,
+        &source,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical,
+        "{:?}",
+        mapped.batch.payload.diagnostics
+    );
+    assert_eq!(mapped.batch.payload.conversation_id, child_id);
+    assert!(mapped.batch.payload.replacements.is_empty());
+    assert!(
+        !mapped
+            .batch
+            .payload
+            .mutations
+            .iter()
+            .any(|m| matches!(m, TargetMutation::ReplaceLastTurn { .. }))
+    );
+    let encoded = serde_json::to_string(&mapped.batch.payload).unwrap();
+    assert!(encoded.contains("child-question") && encoded.contains("child-answer"));
+    assert!(encoded.contains("[sanitized delegation 1]"));
+    assert!(!encoded.contains("parent-after-fork"));
+    assert!(
+        mapped.batch.payload.history_items.iter().all(|event| event
+            .metadata()
+            .conversation_id
+            .as_deref()
+            == Some(child_id))
+    );
+    assert!(
+        mapped.batch.payload.history_items.iter().any(|event| event
+            .metadata()
+            .source_ref
+            .source_identity
+            == parent_id)
+    );
+    // A real process emits the same canonical branch, then completes after ACK.
+    let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+    process.send(history_v2_hello("branch-generation"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+    process.send(TargetMessage::Analyze(request.clone()));
+    let TargetMessage::Batch(batch) = process.read() else {
+        panic!("branch batch");
+    };
+    assert_eq!(batch.payload.completeness, TargetCompleteness::Canonical);
+    assert!(batch.payload.replacements.is_empty());
+    process.send(TargetMessage::Ack(TargetAckMessage::new(
+        request.header.request_id.clone(),
+        batch.job_id,
+        batch.segment_id,
+        batch.batch_id,
+        true,
+        true,
+        None::<String>,
+    )));
+    assert!(matches!(process.read(), TargetMessage::Complete(_)));
+    process.finish();
+    assert_eq!(fs::read(&parent_path).unwrap(), grown);
+    if let Some(output) = std::env::var_os("TERMLINK_HISTORY_S3_EVIDENCE_DIR") {
+        fs::create_dir_all(&output).unwrap();
+        fs::write(
+            PathBuf::from(output).join("branch-batch.json"),
+            serde_json::to_vec_pretty(&mapped.batch).unwrap(),
+        )
+        .unwrap();
+    }
+    let mut next_lines = child_lines.clone();
+    next_lines.push(
+        json!({"timestamp":"2026-10-04T00:00:02Z","ordinal":5,"type":"event_msg",
+        "payload":{"type":"agent_message","message":"child-later-answer","phase":"final_answer"}}),
+    );
+    fs::write(&child_path, encode(&next_lines)).unwrap();
+    let mut append =
+        target_source_request("branch-history-append", child_id, TargetAnalyzeMode::Append);
+    append.cursor = mapped.complete.checkpoint.cursor.clone();
+    append.persisted_anchor = Some(mapped.complete.checkpoint);
+    let delta = read_target_source(
+        &append,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    assert!(delta.lineage_records.is_some());
+    let appended = map_target_source_read_with_profile(
+        &append,
+        &delta,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        appended.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert!(appended.batch.payload.replacements.is_empty());
+    let appended_json = serde_json::to_string(&appended.batch.payload).unwrap();
+    assert!(appended_json.contains("child-later-answer"));
+    assert!(!appended_json.contains("parent-after-fork"));
+    // Wrong ordinal, mid-line cut, missing parent and header mismatch stay closed.
+    for variant in ["ordinal", "mid-line", "missing", "header"] {
+        let mut broken = child_lines.clone();
+        match variant {
+            "ordinal" => {
+                broken[0]["payload"]["history_base"]["end_ordinal_exclusive"] =
+                    json!(cut_ordinal + 1)
+            }
+            "mid-line" => broken[0]["payload"]["history_base"]["end_byte_offset"] = json!(cut - 1),
+            "missing" => {
+                broken[0]["payload"]["history_base"]["thread_id"] =
+                    json!("00000000-0000-4000-8000-000000000099")
+            }
+            "header" => {
+                let mut changed = String::from_utf8(grown.clone())
+                    .unwrap()
+                    .lines()
+                    .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                    .collect::<Vec<_>>();
+                changed[0]["payload"]["id"] = json!(child_id);
+                fs::write(&parent_path, encode(&changed)).unwrap();
+            }
+            _ => unreachable!(),
+        }
+        fs::write(&child_path, encode(&broken)).unwrap();
+        assert!(
+            read_target_source(
+                &request,
+                &target_startup_config(&root),
+                &std::sync::atomic::AtomicBool::new(false)
+            )
+            .is_err(),
+            "{variant}"
+        );
+        fs::write(&parent_path, &grown).unwrap();
+    }
+    fs::write(&child_path, encode(&child_lines)).unwrap();
+    let duplicate = root
+        .join("2026/08/28")
+        .join(parent_path.file_name().unwrap());
+    fs::create_dir_all(duplicate.parent().unwrap()).unwrap();
+    fs::write(&duplicate, &grown).unwrap();
+    assert!(matches!(
+        read_target_source(
+            &request,
+            &target_startup_config(&root),
+            &std::sync::atomic::AtomicBool::new(false)
+        ),
+        Err(TargetSourceReadError::Discovery(
+            LineageError::AmbiguousRollout { .. }
+        ))
+    ));
+    fs::remove_file(&duplicate).unwrap();
+    let compressed = parent_path.with_extension("jsonl.zst");
+    fs::write(
+        &compressed,
+        zstd::stream::encode_all(grown.as_slice(), 0).unwrap(),
+    )
+    .unwrap();
+    fs::remove_file(&parent_path).unwrap();
+    assert!(matches!(
+        read_target_source(
+            &request,
+            &target_startup_config(&root),
+            &std::sync::atomic::AtomicBool::new(false)
+        ),
+        Err(TargetSourceReadError::Discovery(
+            LineageError::UnsupportedParentSourceCompression { .. }
+        ))
+    ));
+    fs::write(&parent_path, &grown).unwrap();
+    let mut limited = request.clone();
+    limited.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: Some(4096),
+        max_segment_bytes: Some(4096),
+        max_line_bytes: Some(2048),
+        tail_bytes: None,
+        timeout_ms: None,
+    });
+    assert_eq!(
+        read_target_source(
+            &limited,
+            &target_startup_config(&root),
+            &std::sync::atomic::AtomicBool::new(false)
+        )
+        .unwrap_err()
+        .wire_error_code(),
+        "resource_limit_exceeded"
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn branch_history_prefix_uses_bounded_windows_and_keeps_cut_guards() {
+    let root = unique_temp_path("branch-history-bounded-prefix");
+    let child_id = "00000000-0000-4000-8000-000000000002";
+    let parent = current_fixture_contents("branch-history/a-full.jsonl");
+    let child_header = current_fixture_contents("branch-history/c-header.jsonl");
+    let encode_turn = |turn: &str, question: &str, answer: &str, start: usize| {
+        [
+            json!({"type":"task_started","turn_id":turn,"model_context_window":258400,"collaboration_mode_kind":"default"}),
+            json!({"type":"user_message","message":question,"images":[]}),
+            json!({"type":"agent_message","message":answer,"phase":"final_answer"}),
+            json!({"type":"task_complete","turn_id":turn,"last_agent_message":answer}),
+        ].into_iter().enumerate().map(|(i,payload)| format!("{}\n", json!({"timestamp":"2026-10-04T00:02:00Z","ordinal":i+start,"type":"event_msg","payload":payload}))).collect::<String>()
+    };
+    // A real child turn supplies the formal append promotion evidence;
+    // the byte-preserved header-only fixture is tested separately.
+    let child = format!(
+        "{child_header}{}",
+        encode_turn(
+            "bounded-child-turn",
+            "bounded-child-question",
+            "bounded-child-answer",
+            1
+        )
+    );
+    let parent_path = write_target_fixture(&root, DELEGATED_CONVERSATION, &parent);
+    let child_path = write_target_fixture(&root, child_id, &child);
+    let after_cut = format!(
+        "{{\"timestamp\":\"2026-10-04T00:01:00Z\",\"ordinal\":13,\"type\":\"event_msg\",\"payload\":{{\"type\":\"agent_message\",\"message\":\"parent-after-fork\",\"phase\":\"final_answer\"}}}}\n"
+    );
+    fs::write(&parent_path, format!("{parent}{after_cut}")).unwrap();
+    let mut request =
+        target_source_request("branch-bounded", child_id, TargetAnalyzeMode::Backfill);
+    request.resource_limits = Some(TargetResourceLimits {
+        max_decoded_bytes: Some(65536),
+        max_segment_bytes: Some(4096),
+        max_line_bytes: Some(2048),
+        tail_bytes: None,
+        timeout_ms: None,
+    });
+    let startup = target_startup_config(&root);
+    let cancelled = std::sync::atomic::AtomicBool::new(false);
+    let assert_prefix =
+        |segments: &[codex_rollout_collector::protocol::TargetSourceSegmentEvidence]| {
+            let inherited = segments
+                .iter()
+                .filter(|s| s.source_id == DELEGATED_CONVERSATION)
+                .collect::<Vec<_>>();
+            assert!(inherited.len() > 1);
+            let mut end = 0;
+            for segment in inherited {
+                let range = segment.complete_range.unwrap();
+                assert_eq!(range.start, end);
+                assert!(range.end - range.start <= 4096);
+                assert!(segment.complete && segment.parse_gap_count == 0);
+                end = range.end;
+            }
+            assert_eq!(end, parent.len() as u64);
+        };
+    let source = read_target_source(&request, &startup, &cancelled).unwrap();
+    assert_prefix(&source.segments);
+    assert!(
+        source
+            .records
+            .iter()
+            .all(|record| record.source_identity == child_id)
+    );
+    assert!(source.lineage_coverage.complete);
+    assert_eq!(source.lineage_coverage.covered_source_count, 2);
+    let mapped = map_target_source_read_with_profile(
+        &request,
+        &source,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert!(mapped.batch.payload.replacements.is_empty());
+    assert_eq!(
+        mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .filter(|e| matches!(e, AnalysisEvent::DelegatedInput { .. }))
+            .count(),
+        6
+    );
+    assert!(
+        !serde_json::to_string(&mapped.batch)
+            .unwrap()
+            .contains("parent-after-fork")
+    );
+    // Exercise the actual process/ACK boundary under these same legal limits.
+    let mut process = InteractiveTargetProcess::spawn_with_root(&root, None);
+    process.send(history_v2_hello("branch-bounded-generation"));
+    assert!(matches!(process.read(), TargetMessage::AnalyzerHello(_)));
+    process.send(TargetMessage::Analyze(request.clone()));
+    let TargetMessage::Batch(batch) = process.read() else {
+        panic!("bounded branch batch");
+    };
+    assert_eq!(batch.payload.completeness, TargetCompleteness::Canonical);
+    process.send(TargetMessage::Ack(TargetAckMessage::new(
+        request.header.request_id.clone(),
+        batch.job_id,
+        batch.segment_id,
+        batch.batch_id,
+        true,
+        true,
+        None::<String>,
+    )));
+    assert!(matches!(process.read(), TargetMessage::Complete(_)));
+    process.finish();
+
+    let delta = encode_turn(
+        "bounded-child-later-turn",
+        "bounded-child-later-question",
+        "bounded-child-later-answer",
+        5,
+    );
+    fs::write(&child_path, format!("{child}{delta}")).unwrap();
+    let mut append =
+        target_source_request("branch-bounded-append", child_id, TargetAnalyzeMode::Append);
+    append.resource_limits = request.resource_limits.clone();
+    append.cursor = mapped.complete.checkpoint.cursor.clone();
+    append.persisted_anchor = Some(mapped.complete.checkpoint);
+    let appended_source = read_target_source(&append, &startup, &cancelled).unwrap();
+    assert_prefix(appended_source.lineage_segments.as_ref().unwrap());
+    assert!(
+        appended_source
+            .lineage_records
+            .as_ref()
+            .unwrap()
+            .iter()
+            .all(|record| record.source_identity == child_id)
+    );
+    let appended = map_target_source_read_with_profile(
+        &append,
+        &appended_source,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        appended.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert!(appended.batch.payload.replacements.is_empty());
+    let encoded = serde_json::to_string(&appended.batch).unwrap();
+    assert!(encoded.contains("bounded-child-later-answer"));
+    assert!(!encoded.contains("parent-after-fork"));
+    if let Some(output) = std::env::var_os("TERMLINK_HISTORY_S3_EVIDENCE_DIR") {
+        fs::create_dir_all(&output).unwrap();
+        fs::write(
+            PathBuf::from(&output).join("bounded-branch-batch.json"),
+            serde_json::to_vec_pretty(&mapped.batch).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            PathBuf::from(output).join("bounded-branch-append-batch.json"),
+            serde_json::to_vec_pretty(&appended.batch).unwrap(),
+        )
+        .unwrap();
+    }
+    // The parent prefix fits its own decoded budget, but the whole request does not.
+    let mut aggregate = request.clone();
+    aggregate
+        .resource_limits
+        .as_mut()
+        .unwrap()
+        .max_decoded_bytes = Some(parent.len() as u64 + 32);
+    assert_eq!(
+        read_target_source(&aggregate, &startup, &cancelled)
+            .unwrap_err()
+            .wire_error_code(),
+        "resource_limit_exceeded"
+    );
+    for variant in ["ordinal", "mid-line", "early-parse-gap", "oversize-line"] {
+        let mut header: serde_json::Value = serde_json::from_str(child_header.trim()).unwrap();
+        let mut changed_parent = parent.clone();
+        match variant {
+            "ordinal" => header["payload"]["history_base"]["end_ordinal_exclusive"] = json!(14),
+            "mid-line" => {
+                header["payload"]["history_base"]["end_byte_offset"] = json!(parent.len() - 1)
+            }
+            "early-parse-gap" => {
+                let mut lines = parent.lines().map(str::to_string).collect::<Vec<_>>();
+                lines[2] = "not-json".to_string();
+                changed_parent = lines.join("\n") + "\n";
+                header["payload"]["history_base"]["end_byte_offset"] = json!(changed_parent.len());
+            }
+            "oversize-line" => {
+                changed_parent.push_str(&format!("{}\n", json!({"timestamp":"2026-10-04T00:01:00Z","ordinal":13,"type":"event_msg","payload":{"type":"agent_message","message":"x".repeat(5000),"phase":"final_answer"}})));
+                header["payload"]["history_base"]["end_ordinal_exclusive"] = json!(14);
+                header["payload"]["history_base"]["end_byte_offset"] = json!(changed_parent.len());
+            }
+            _ => unreachable!(),
+        }
+        fs::write(&parent_path, changed_parent).unwrap();
+        fs::write(&child_path, format!("{header}\n")).unwrap();
+        assert!(
+            read_target_source(&request, &startup, &cancelled).is_err(),
+            "{variant}"
+        );
+    }
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn branch_history_original_sanitized_header_reads_actual_cut() {
+    let root = unique_temp_path("branch-history-original");
+    let child_id = "00000000-0000-4000-8000-000000000002";
+    let parent = current_fixture_contents("branch-history/a-full.jsonl");
+    let child = current_fixture_contents("branch-history/c-header.jsonl");
+    write_target_fixture(&root, DELEGATED_CONVERSATION, &parent);
+    write_target_fixture(&root, child_id, &child);
+    let request = target_source_request(
+        "branch-history-original",
+        child_id,
+        TargetAnalyzeMode::Backfill,
+    );
+    let source = read_target_source(
+        &request,
+        &target_startup_config(&root),
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .unwrap();
+    assert_eq!(source.segments[0].complete_range.unwrap().end, 5542);
+    let mapped = map_target_source_read_with_profile(
+        &request,
+        &source,
+        CompatibilityProfile::HistorySemanticsV2,
+    )
+    .unwrap();
+    assert_eq!(
+        mapped.batch.payload.completeness,
+        TargetCompleteness::Canonical
+    );
+    assert!(mapped.batch.payload.replacements.is_empty());
+    assert_eq!(
+        mapped
+            .batch
+            .payload
+            .history_items
+            .iter()
+            .filter(|event| matches!(event, AnalysisEvent::DelegatedInput { .. }))
+            .count(),
+        6
+    );
+    if let Some(output) = std::env::var_os("TERMLINK_HISTORY_S3_EVIDENCE_DIR") {
+        fs::create_dir_all(&output).unwrap();
+        fs::write(
+            PathBuf::from(output).join("original-sanitized-branch-batch.json"),
+            serde_json::to_vec_pretty(&mapped.batch).unwrap(),
+        )
+        .unwrap();
+    }
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn target_source_read_prefers_plain_jsonl_sibling() {
     let root = unique_temp_path("target-source-plain-sibling");
     let plain = copy_sanitized_fixture(0, &root);

@@ -1,0 +1,11 @@
+const fs=require('fs'),path=require('path'),cp=require('child_process');const d=__dirname,label=process.argv[2];
+const commands={
+ branch:['cargo',['test','--locked','--offline','--manifest-path','native/codex-rollout-collector/Cargo.toml','--test','stage4_target_protocol','branch_history_','--','--nocapture']],
+ target:['cargo',['test','--locked','--offline','--manifest-path','native/codex-rollout-collector/Cargo.toml','--test','stage4_target_protocol']],
+ fmt:['rustfmt',['--edition','2024','native/codex-rollout-collector/src/protocol/target_source.rs','native/codex-rollout-collector/tests/stage4_target_protocol.rs']],
+ req:['pwsh',['-NoProfile','-File','.agents/skills/docs-requirement-sync/scripts/validate-req.ps1','-ReqPath','docs/product/requirements/REQ-20261005-codex-history-save-repair.md','-ProjectRoot','.','-Strict']],
+ cr:['pwsh',['-NoProfile','-File','.agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1','-RecordPath','docs/changes/records/CR-20261007-0219-branch-history-window-repair.md','-ProjectRoot','.','-Strict']],
+ diff:['git',['diff','--check']],
+};
+const [bin,args]=commands[label]??[];if(!bin)throw Error('Unknown selector');const start=new Date().toISOString();const r=cp.spawnSync(bin,args,{encoding:'utf8',maxBuffer:16*1024*1024,env:{...process.env,CARGO_NET_OFFLINE:'true',TERMLINK_HISTORY_S3_EVIDENCE_DIR:path.join(d,'evidence')}});
+const n=fs.readdirSync(d).filter(p=>p.startsWith(label+'-')&&p.endsWith('-result.json')).length+1;fs.writeFileSync(path.join(d,`${label}-${n}.txt`),(r.stdout||'')+(r.stderr||''));const result={command:{bin,args},start,end:new Date().toISOString(),exit_code:r.status,error:r.error?.message,environment:{CARGO_NET_OFFLINE:'true'},source_revision:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()};fs.writeFileSync(path.join(d,`${label}-${n}-result.json`),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));console.log(((r.stdout||'')+(r.stderr||'')).slice(-2200));process.exitCode=r.status??1;

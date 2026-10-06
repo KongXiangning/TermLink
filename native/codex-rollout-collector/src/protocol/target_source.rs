@@ -139,6 +139,8 @@ impl std::error::Error for TargetSourceReadError {}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TargetSourceProvenance {
     pub rollout_id: String,
+    /// Physical header identity, distinct from the requested projection target.
+    pub conversation_id: String,
     pub path: PathBuf,
     pub timestamp: String,
     pub date_partition: String,
@@ -257,9 +259,7 @@ impl TargetSourceRecordSpoolWriter {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(|error| {
-                TargetSourceReadError::Read(format!(
-                    "record spool clock is unavailable: {error}"
-                ))
+                TargetSourceReadError::Read(format!("record spool clock is unavailable: {error}"))
             })?
             .as_nanos();
         let path = std::env::temp_dir().join(format!(
@@ -541,7 +541,33 @@ fn read_target_source_with_limits(
                     message: "lineage child has no history_base".to_string(),
                 })
             })?;
-            let (parent, plan) = if full_lineage_read {
+            let parent_candidate = session
+                .candidates
+                .iter()
+                .find(|candidate| candidate.source.rollout_id == history_base.parent_rollout_id)
+                .ok_or_else(|| {
+                    TargetSourceReadError::Discovery(LineageError::ParentRolloutMissing {
+                        rollout_id: history_base.parent_rollout_id.clone(),
+                    })
+                })?;
+            let inherited_cut = (parent_candidate.header.conversation_id
+                != child.header.conversation_id)
+                .then_some(history_base.clone());
+            let (parent, plans) = if inherited_cut.is_some() {
+                let parent = session
+                    .catalog
+                    .resolve(&history_base.parent_rollout_id)
+                    .map_err(TargetSourceReadError::Discovery)?;
+                let plans = plan_inherited_prefix(
+                    parent_candidate,
+                    history_base,
+                    request,
+                    limits,
+                    cancelled,
+                    deadline,
+                )?;
+                (parent, plans)
+            } else if full_lineage_read {
                 let parent = session
                     .catalog
                     .resolve(&history_base.parent_rollout_id)
@@ -566,9 +592,9 @@ fn read_target_source_with_limits(
                 let plan = JsonlSourceBackend
                     .plan_full(&parent_spec)
                     .map_err(TargetSourceReadError::ReadPlan)?;
-                (parent, plan)
+                (parent, vec![plan])
             } else {
-                session
+                let (parent, plan) = session
                     .catalog
                     .plan_parent_suffix(
                         history_base,
@@ -577,7 +603,8 @@ fn read_target_source_with_limits(
                         max_line_bytes,
                         limits.max_segment_bytes,
                     )
-                    .map_err(TargetSourceReadError::Discovery)?
+                    .map_err(TargetSourceReadError::Discovery)?;
+                (parent, vec![plan])
             };
             let candidate = session
                 .candidates
@@ -588,11 +615,15 @@ fn read_target_source_with_limits(
                         rollout_id: parent.rollout_id.clone(),
                     })
                 })?;
-            planned_segments.push(PlannedTargetSegment {
-                provenance: provenance_for_rollout(candidate, request, max_line_bytes)?,
-                plan,
-                append_cursor: None,
-            });
+            let provenance = provenance_for_rollout(candidate, request, max_line_bytes)?;
+            for plan in plans {
+                planned_segments.push(PlannedTargetSegment {
+                    provenance: provenance.clone(),
+                    plan,
+                    append_cursor: None,
+                    inherited_cut: inherited_cut.clone(),
+                });
+            }
         }
     }
 
@@ -600,7 +631,12 @@ fn read_target_source_with_limits(
         planned_segments.push(PlannedTargetSegment {
             provenance: active_source.clone(),
             plan,
-            append_cursor: if index == 0 { formal_append_cursor.clone() } else { None },
+            append_cursor: if index == 0 {
+                formal_append_cursor.clone()
+            } else {
+                None
+            },
+            inherited_cut: None,
         });
     }
 
@@ -857,51 +893,66 @@ fn read_full_lineage_for_append(
             }
             parent_spec
         };
-        let plan = backend
-            .plan_full(&spec)
-            .map_err(TargetSourceReadError::ReadPlan)?;
-        let planned = PlannedTargetSegment {
-            provenance,
-            plan,
-            append_cursor: None,
+        let inherited_cut = session.chain.windows(2).find_map(|pair| {
+            (pair[0].source.rollout_id == candidate.source.rollout_id
+                && pair[0].header.conversation_id != pair[1].header.conversation_id)
+                .then(|| pair[1].header.history_base.clone())
+                .flatten()
+        });
+        let plans = if let Some(cut) = &inherited_cut {
+            plan_inherited_prefix(candidate, cut, request, limits, cancelled, deadline)?
+        } else {
+            vec![
+                backend
+                    .plan_full(&spec)
+                    .map_err(TargetSourceReadError::ReadPlan)?,
+            ]
         };
-        let remaining_decoded_bytes = limits
-            .max_decoded_bytes
-            .saturating_sub(*total_decoded_bytes);
-        if remaining_decoded_bytes == 0 {
-            return Err(TargetSourceReadError::ResourceLimit(format!(
-                "aggregate decoded bytes reached request limit {} before lineage recovery source {}",
-                limits.max_decoded_bytes, candidate.source.rollout_id
-            )));
-        }
-        let (evidence, source_records) = read_segment(
-            backend,
-            &planned,
-            remaining_decoded_bytes,
-            cancelled,
-            deadline,
-        )?;
-        *total_decoded_bytes = (*total_decoded_bytes).saturating_add(evidence.decoded_bytes);
-        if *total_decoded_bytes > limits.max_decoded_bytes {
-            return Err(TargetSourceReadError::ResourceLimit(format!(
-                "aggregate decoded bytes {} exceed {} during lineage recovery",
-                *total_decoded_bytes, limits.max_decoded_bytes
-            )));
-        }
-        let previous_records = std::mem::replace(&mut records, source_records);
-        if !previous_records.is_empty() {
-            let writer = match record_spool_writer.as_mut() {
-                Some(writer) => writer,
-                None => {
-                    record_spool_writer = Some(TargetSourceRecordSpoolWriter::new()?);
-                    record_spool_writer
-                        .as_mut()
-                        .expect("lineage record spool writer was just created")
-                }
+        for plan in plans {
+            let planned = PlannedTargetSegment {
+                provenance: provenance.clone(),
+                plan,
+                append_cursor: None,
+                inherited_cut: inherited_cut.clone(),
             };
-            writer.append(&previous_records)?;
+            let remaining_decoded_bytes = limits
+                .max_decoded_bytes
+                .saturating_sub(*total_decoded_bytes);
+            if remaining_decoded_bytes == 0 {
+                return Err(TargetSourceReadError::ResourceLimit(format!(
+                    "aggregate decoded bytes reached request limit {} before lineage recovery source {}",
+                    limits.max_decoded_bytes, candidate.source.rollout_id
+                )));
+            }
+            let (evidence, source_records) = read_segment(
+                backend,
+                &planned,
+                remaining_decoded_bytes,
+                cancelled,
+                deadline,
+            )?;
+            *total_decoded_bytes = (*total_decoded_bytes).saturating_add(evidence.decoded_bytes);
+            if *total_decoded_bytes > limits.max_decoded_bytes {
+                return Err(TargetSourceReadError::ResourceLimit(format!(
+                    "aggregate decoded bytes {} exceed {} during lineage recovery",
+                    *total_decoded_bytes, limits.max_decoded_bytes
+                )));
+            }
+            let previous_records = std::mem::replace(&mut records, source_records);
+            if !previous_records.is_empty() {
+                let writer = match record_spool_writer.as_mut() {
+                    Some(writer) => writer,
+                    None => {
+                        record_spool_writer = Some(TargetSourceRecordSpoolWriter::new()?);
+                        record_spool_writer
+                            .as_mut()
+                            .expect("lineage record spool writer was just created")
+                    }
+                };
+                writer.append(&previous_records)?;
+            }
+            segments.push(evidence);
         }
-        segments.push(evidence);
     }
     let record_spool = record_spool_writer
         .map(TargetSourceRecordSpoolWriter::finish)
@@ -921,6 +972,49 @@ struct PlannedTargetSegment {
     provenance: TargetSourceProvenance,
     plan: SourceReadPlan,
     append_cursor: Option<ForwardAppendCursor>,
+    inherited_cut: Option<HistoryBaseRef>,
+}
+
+fn plan_inherited_prefix(
+    parent: &DiscoveredRollout,
+    cut: &HistoryBaseRef,
+    request: &TargetAnalyzeRequest,
+    limits: TargetResolvedResourceLimits,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> Result<Vec<SourceReadPlan>, TargetSourceReadError> {
+    let spec = bind_spec(
+        &request.conversation_id,
+        &parent.source.rollout_id,
+        &parent.source.path,
+        None,
+        None,
+        limits,
+    )?;
+    if spec.compression() != crate::source::SourceCompression::PlainJsonl {
+        return Err(TargetSourceReadError::Discovery(
+            LineageError::UnsupportedParentSourceCompression {
+                rollout_id: parent.source.rollout_id.clone(),
+                compression: "zstd".to_string(),
+                operation: "branch_parent_prefix".to_string(),
+            },
+        ));
+    }
+    if cut.end_byte_offset < parent.header.header_end_byte || cut.end_ordinal_exclusive == 0 {
+        return Err(TargetSourceReadError::Discovery(LineageError::InvalidCut(
+            "branch cut must include the verified parent header".to_string(),
+        )));
+    }
+    let range =
+        SourceByteRange::new(0, cut.end_byte_offset).map_err(TargetSourceReadError::ReadPlan)?;
+    plan_bounded_range(
+        &JsonlSourceBackend,
+        &spec,
+        range,
+        limits,
+        cancelled,
+        deadline,
+    )
 }
 
 fn load_persisted_append_cursor(
@@ -1177,6 +1271,7 @@ fn provenance_for_rollout(
     }
     Ok(TargetSourceProvenance {
         rollout_id: candidate.source.rollout_id.clone(),
+        conversation_id: candidate.header.conversation_id.clone(),
         path: candidate.source.path.clone(),
         timestamp: candidate.filename.timestamp.clone(),
         date_partition: candidate.filename.date_partition.clone(),
@@ -1228,9 +1323,7 @@ fn find_previous_line_start(
     cancelled: &AtomicBool,
     deadline: Instant,
 ) -> Result<u64, TargetSourceReadError> {
-    find_previous_line_start_with_check(path, candidate, || {
-        check_control(cancelled, deadline)
-    })
+    find_previous_line_start_with_check(path, candidate, || check_control(cancelled, deadline))
 }
 
 fn find_previous_line_start_with_check<F>(
@@ -1383,8 +1476,7 @@ fn plan_active_source(
                     (0, known.start)
                 } else {
                     return Err(TargetSourceReadError::InvalidRequest(
-                        "known_complete_range must describe a source prefix or suffix"
-                            .to_string(),
+                        "known_complete_range must describe a source prefix or suffix".to_string(),
                     ));
                 }
             } else if cursor_matches_active && let Some(cursor) = cursor {
@@ -1394,8 +1486,7 @@ fn plan_active_source(
                     (0, cursor.complete_range.start.min(snapshot_len))
                 } else {
                     return Err(TargetSourceReadError::InvalidRequest(
-                        "backfill cursor range must describe a source prefix or suffix"
-                            .to_string(),
+                        "backfill cursor range must describe a source prefix or suffix".to_string(),
                     ));
                 }
             } else {
@@ -1421,62 +1512,9 @@ fn plan_active_source(
                     (target_start, target_end)
                 };
 
-            let max_segment = limits.max_segment_bytes;
-            if target_end.saturating_sub(target_start) <= max_segment {
-                let range = SourceByteRange::new(target_start, target_end)
-                    .map_err(TargetSourceReadError::ReadPlan)?;
-                let plan = backend
-                    .plan_range(spec, SourceReadMode::BackwardRange, range)
-                    .map_err(TargetSourceReadError::ReadPlan)?;
-                return Ok(vec![plan]);
-            }
-
-            let mut plans = Vec::new();
-            let mut current_start = target_start;
-            let mut total_planned_bytes = 0_u64;
-
-            while current_start < target_end {
-                check_control(cancelled, deadline)?;
-                let remaining = target_end - current_start;
-                let segment_end = if remaining <= max_segment {
-                    target_end
-                } else {
-                    let candidate = current_start.saturating_add(max_segment);
-                    let line_start = find_previous_line_start(
-                        spec.path(),
-                        candidate,
-                        cancelled,
-                        deadline,
-                    )?;
-                    if line_start <= current_start {
-                        return Err(TargetSourceReadError::ResourceLimit(format!(
-                            "single line in {} exceeds max_segment_bytes {}",
-                            spec.source_id(),
-                            max_segment
-                        )));
-                    }
-                    line_start
-                };
-
-                let segment_bytes = segment_end - current_start;
-                total_planned_bytes = total_planned_bytes.saturating_add(segment_bytes);
-                if total_planned_bytes > limits.max_decoded_bytes {
-                    return Err(TargetSourceReadError::ResourceLimit(format!(
-                        "aggregate planned bytes {} exceed max_decoded_bytes {}",
-                        total_planned_bytes, limits.max_decoded_bytes
-                    )));
-                }
-
-                let byte_range = SourceByteRange::new(current_start, segment_end)
-                    .map_err(TargetSourceReadError::ReadPlan)?;
-                let plan = backend
-                    .plan_range(spec, SourceReadMode::BackwardRange, byte_range)
-                    .map_err(TargetSourceReadError::ReadPlan)?;
-                plans.push(plan);
-                current_start = segment_end;
-            }
-
-            Ok(plans)
+            let range = SourceByteRange::new(target_start, target_end)
+                .map_err(TargetSourceReadError::ReadPlan)?;
+            plan_bounded_range(&backend, spec, range, limits, cancelled, deadline)
         }
         TargetAnalyzeMode::Append => {
             if let Some(cursor) = cursor
@@ -1526,10 +1564,67 @@ fn plan_active_source(
     }
 }
 
+/// Share complete-line windows between active backfill and inherited prefixes.
+/// Per-window limits and the aggregate decoded budget remain distinct.
+fn plan_bounded_range(
+    backend: &JsonlSourceBackend,
+    spec: &SourceSpec,
+    range: SourceByteRange,
+    limits: TargetResolvedResourceLimits,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> Result<Vec<SourceReadPlan>, TargetSourceReadError> {
+    check_control(cancelled, deadline)?;
+    let max_segment = limits.max_segment_bytes;
+    if range.end().saturating_sub(range.start()) <= max_segment {
+        let plan = backend
+            .plan_range(spec, SourceReadMode::BackwardRange, range)
+            .map_err(TargetSourceReadError::ReadPlan)?;
+        return Ok(vec![plan]);
+    }
+
+    let mut plans = Vec::new();
+    let mut current_start = range.start();
+    let mut total_planned_bytes = 0_u64;
+    while current_start < range.end() {
+        check_control(cancelled, deadline)?;
+        let remaining = range.end() - current_start;
+        let segment_end = if remaining <= max_segment {
+            range.end()
+        } else {
+            let candidate = current_start.saturating_add(max_segment);
+            let line_start = find_previous_line_start(spec.path(), candidate, cancelled, deadline)?;
+            if line_start <= current_start {
+                return Err(TargetSourceReadError::ResourceLimit(format!(
+                    "single line in {} exceeds max_segment_bytes {}",
+                    spec.source_id(),
+                    max_segment
+                )));
+            }
+            line_start
+        };
+        total_planned_bytes = total_planned_bytes.saturating_add(segment_end - current_start);
+        if total_planned_bytes > limits.max_decoded_bytes {
+            return Err(TargetSourceReadError::ResourceLimit(format!(
+                "aggregate planned bytes {} exceed max_decoded_bytes {}",
+                total_planned_bytes, limits.max_decoded_bytes
+            )));
+        }
+        let byte_range = SourceByteRange::new(current_start, segment_end)
+            .map_err(TargetSourceReadError::ReadPlan)?;
+        plans.push(
+            backend
+                .plan_range(spec, SourceReadMode::BackwardRange, byte_range)
+                .map_err(TargetSourceReadError::ReadPlan)?,
+        );
+        current_start = segment_end;
+    }
+    Ok(plans)
+}
+
 fn source_range(range: TargetSourceByteRange) -> SourceByteRange {
     SourceByteRange::new(range.start, range.end).expect("validated target source range")
 }
-
 
 fn read_segment(
     backend: &JsonlSourceBackend,
@@ -1555,6 +1650,31 @@ fn read_segment(
             "decoded source budget exceeded for {}",
             planned.provenance.rollout_id
         )));
+    }
+    if let Some(cut) = &planned.inherited_cut {
+        // Every inherited window must be complete and diagnostic-free. Only
+        // the final window can prove the ordinal at the full prefix cut.
+        let range = planned.plan.byte_range();
+        let valid_end = range.end() < cut.end_byte_offset
+            || records.last().is_some_and(|record| {
+                record.byte_end == cut.end_byte_offset
+                    && record
+                        .rollout_ordinal
+                        .map_or(Some(record.physical_line_ordinal), |ordinal| {
+                            ordinal.checked_add(1)
+                        })
+                        == Some(cut.end_ordinal_exclusive)
+            });
+        if !valid_end
+            || report.source().parse_gap_count != 0
+            || report.complete_range() != Some(range)
+            || report.pending_tail_bytes() != 0
+            || report.source_shrank_during_read()
+        {
+            return Err(TargetSourceReadError::Discovery(LineageError::InvalidCut(
+                "branch parent ordinal/byte cut does not match a complete prefix".to_string(),
+            )));
+        }
     }
     let compression = planned.provenance.compression;
     let complete = !report.source_shrank_during_read()

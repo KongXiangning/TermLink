@@ -1,0 +1,84 @@
+
+running 74 tests
+test target_checkpoint_scope_segment_and_profile_validation_are_strict ... ok
+test target_ack_accepts_only_positive_or_stable_negative_shapes ... ok
+test target_canonical_projection_and_transition_evidence_are_fail_closed ... ok
+test parser_keeps_target_and_legacy_modes_explicitly_separate ... ok
+test canonical_checkpoint_requires_complete_source_cursor_evidence_at_complete_boundaries ... ok
+test target_analyze_round_trip_ignores_unknown_legacy_fields_without_emitting_them ... ok
+test target_capability_mismatch_and_mode_errors_fail_closed ... ok
+test target_checkpoint_rejects_cursor_kind_and_source_scope_mismatch ... ok
+test filesystem_root_escape_is_rejected_during_normalization ... ok
+test target_analyze_cursor_required_nullable_keys_cannot_be_omitted ... ok
+test target_analyze_cursor_and_persisted_anchor_must_match ... ok
+test target_complete_and_error_envelopes_enforce_terminal_semantics ... ok
+test target_legacy_checkpoint_adapter_drops_legacy_source_evidence ... ok
+test existing_directory_symlink_is_canonicalized_before_target_startup ... ok
+test target_hello_is_directional_and_capability_intersection_is_fail_closed ... ok
+test target_canonical_batch_rejects_mark_partial_at_all_outbound_boundaries ... ok
+test target_lineage_checkpoint_requires_bound_matching_validated_evidence ... ok
+test target_lineage_transition_and_replacement_validation_state_are_fail_closed ... ok
+test target_identity_and_checkpoint_round_trip_preserve_retry_scope ... ok
+test target_mapping_from_analysis_batch_keeps_identity_and_drops_legacy_revision ... ok
+test target_history_items_require_identity_binding_and_batch_source_scope ... ok
+test target_batch_lineage_checkpoint_required_nullable_keys_cannot_be_omitted ... ok
+test target_complete_accepts_legacy_ok_inbound_but_never_serializes_it ... ok
+test target_outer_identity_and_payload_boundary_are_validated ... ok
+test target_payload_and_checkpoint_drop_legacy_fields_without_using_them ... ok
+test target_mapping_honors_cancellation_and_deadline_controls ... ok
+test target_mapping_deduplicates_overlap_and_rejects_incompatible_checkpoint_state ... ok
+test target_mapping_rejects_invalid_replacement_without_publishing_mutation ... ok
+test target_mapping_projects_real_source_and_resumes_from_checkpoint ... ok
+test target_mapping_projects_rich_adapter_fields_and_unknown_diagnostics ... ok
+test history_v2_delegated_append_restores_binding_and_keeps_one_logical_body ... ok
+test target_mapping_validates_active_head_replacement_and_preserves_source_order ... ok
+test target_mapping_keeps_aliases_and_abort_compaction_parse_gaps_noncanonical ... ok
+test target_replacement_matches_cut_order_and_terminal_status_contract ... ok
+test history_v2_fresh_job_rebuilds_without_old_anchor_and_rejects_cross_profile_append ... ok
+test target_resource_limits_validate_numeric_shape_and_relationship ... ok
+test target_required_nullable_keys_cannot_be_omitted ... ok
+test target_runtime_allows_multiple_batches_when_outbound_json_exceeds_source_budget ... ok
+test target_runtime_negative_ack_clears_state_and_retry_keeps_delivery_identity ... ok
+test target_runtime_settles_ack_watermark_and_rejects_complete_before_ack ... ok
+test target_mapping_promotes_append_and_keeps_partial_snapshot_boundaries_noncanonical ... ok
+test target_mapping_preserves_every_validated_lineage_replacement_in_root_order ... ok
+test target_source_read_honors_cancellation_and_deadline_before_discovery ... ok
+test target_source_read_allows_zst_only_root_through_forward_stream ... ok
+test target_mapping_covers_mode_specific_gap_shrink_and_unfinished_tail_boundaries ... ok
+test target_mapping_same_source_append_revalidates_complete_lineage_and_keeps_delta_cursor ... ok
+test target_source_read_prefers_plain_jsonl_sibling ... ok
+test target_source_read_resolves_cross_date_lineage_from_target_intent_only ... ok
+test target_source_read_rejects_zst_parent_before_publishing_evidence ... ok
+test target_upsert_mutations_require_matching_source_evidence ... ok
+test target_source_read_rejects_missing_parent_cycle_and_multi_head ... ok
+test no_arguments_preserve_the_legacy_entrypoint ... ok
+test target_runtime_late_ack_and_complete_are_fenced_by_deadline ... ok
+test target_process_maps_source_segment_limit_and_clears_active_request ... ok
+test target_process_late_matching_ack_never_emits_complete ... ok
+test target_process_negative_ack_is_terminal_and_idempotent ... ok
+test target_process_rejects_legacy_handshake_and_malformed_lines ... ok
+test target_process_requires_handshake_and_enforces_single_flight ... ok
+test target_process_requires_matching_positive_ack_before_complete ... ok
+test target_process_resolves_cross_date_source_before_cancel ... ok
+test branch_history_inherits_verified_parent_prefix_without_replacing_original_turn ... ok
+test target_process_runs_source_locating_and_fails_closed_on_missing_parent ... ok
+test target_source_enforces_decoded_budget_across_lineage_segments ... ok
+test target_startup_accepts_a_normalized_existing_root_without_business_output ... ok
+test target_startup_allows_a_missing_root_without_creating_it ... ok
+test relative_and_non_directory_roots_fail_closed ... ok
+test target_process_fails_closed_on_capability_mismatch_and_duplicate_hello ... ok
+test target_process_generation_isolated_across_restart ... ok
+test target_process_timeout_and_small_source_limits_do_not_reject_batch_payload ... ok
+test history_v2_process_negotiates_and_saves_real_delegated_batch_only_after_ack ... ok
+test unsupported_or_malformed_startup_arguments_fail_before_legacy_dispatch ... ok
+test target_process_keeps_cancelled_source_worker_occupied_until_exit ... ok
+test target_process_delivers_mapped_batch_and_waits_for_positive_ack ... ok
+test target_process_mapping_and_formal_promotion_controls_never_publish_stale_results ... ok
+
+test result: ok. 74 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.74s
+
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.91s
+     Running tests\stage4_target_protocol.rs (native\codex-rollout-collector\target\debug\deps\stage4_target_protocol-169dfcc7ec4fc9a0.exe)

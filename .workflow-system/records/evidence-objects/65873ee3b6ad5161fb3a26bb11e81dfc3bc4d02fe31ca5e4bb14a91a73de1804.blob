@@ -1,0 +1,10 @@
+
+running 2 tests
+test branch_history_original_sanitized_header_reads_actual_cut ... ok
+test branch_history_inherits_verified_parent_prefix_without_replacing_original_turn ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.11s
+
+   Compiling codex-rollout-collector v0.1.0 (E:\coding\TermLink-rust-source-resolution-codex\native\codex-rollout-collector)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.79s
+     Running tests\stage4_target_protocol.rs (native\codex-rollout-collector\target\debug\deps\stage4_target_protocol-169dfcc7ec4fc9a0.exe)

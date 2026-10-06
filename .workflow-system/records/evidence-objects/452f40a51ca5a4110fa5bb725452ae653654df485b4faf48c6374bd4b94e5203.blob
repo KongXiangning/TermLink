@@ -1,0 +1,533 @@
+{
+  "head": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+  "execution_ref": ".workflow-system/records/events/key-caa4ad2a4c543fcbac91cd3b4183dce7bc2022a20a522b3016dd59dce2b6ed35.json",
+  "attachments": [
+    {
+      "path": "native/codex-rollout-collector/src/source/discovery.rs",
+      "sha256": "13b9092a2653c4555035fb1767cc0ebac2dc1b2314042145f3a52692540a2d6e",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "sha256": "668df95c5abf2b3111d140812a9bc10b12f12e1779142a046f9e140a9ff404d5",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "sha256": "ac7ab8ff4c0c0d3cfa97fb029d9379612e888b30aeb0b573568a9adec91fc9e4",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+      "sha256": "e0e465ef3320a6d2ea0438ff91226de163a565a04386745ba03241003f7bae2e",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/fixtures/branch-history/a-full.jsonl",
+      "sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/fixtures/branch-history/c-header.jsonl",
+      "sha256": "ed45c74ad5d959f437bb8416df7eccba72fcc9fd098f1a45cf86610edd2de677",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/fixtures/branch-history/README.md",
+      "sha256": "1c3e790f36a0f89bea54c21603bc02be5d1e9e61552683857bdd40416decbbfa",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "sha256": "22d884d53dc64b61e081cffc3ecfbc193e60cdc0445baf32914fd1b4650f4f04",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "sha256": "a605b57fc72498974e26bc01433fc80da42a8f6d653b3731f44c6bf543332c55",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "docs/changes/records/CR-20261007-0900-branch-history-parent.md",
+      "sha256": "e1fd6abde9f95f10e4c9e65049e5e4dcb5261b7fa1847833e973dde85fc2561f",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+      "sha256": "fa2792daab5591d4b2e83e1a5c085a27090f9a95907b7abec613e6302695c85d",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "sha256": "c5cd7c8fbd89a3b3df2d15542ff34ab91be49e4ec3ac3bb205a83d8bb9e7f49c",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "sha256": "c54fe01079c0af2f65b0fbdce7769bcc6437608b3992fb570c63bb34c2c903e7",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/index.js",
+      "sha256": "f394444946bdd69e9a7effd5679fc46343f7052dc16c6db148b34fef98265c19",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "src/services/codexHistoryProductStore.js",
+      "sha256": "f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "src/services/codexHistoryProductProvider.js",
+      "sha256": "00b4da43488098bcb67bc35879cbfe9ddb3676dd0f83c23216023c71393201de",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "docs/codex/codex-rollout-collector-architecture.md",
+      "sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "docs/workflow/CONTRACTS.md",
+      "sha256": "c9273b9813279785e1f4c0cc48ff49b0d6de6c22dde08bb88811a46187be874c",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "docs/workflow/DECISIONS.md",
+      "sha256": "747236c53ae0ee5450b0cdfd8e2b69eb2de83758a1b61cccc5b4742000f985fd",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "docs/codex/codex-history-shared-compat-contract.md",
+      "sha256": "d1f3ba55d88d41e3946933b9a2c6ecd10f6b3db7b3c40f76def254d8c05d3a05",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/baseline.cjs",
+      "sha256": "1b80e5aaca430007fcdabc55d0273bafcad7be8ae8b18c9ed5e481ce9d67cf7e",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/baseline.json",
+      "sha256": "b928d9e67901abb003e9a6e3ec927866bf5ca7f2cada226484df3a64db2d5914",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_mapping.rs",
+      "sha256": "46621c4ea030f36c2d02746963c0e34e2da5223ad74773d6f5c2ebdaab151df3",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_source.rs",
+      "sha256": "d13e863e3cbc506e0794faef7b1f6cc83b9f12c72fe3c21f5b742a51fdad120f",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/before/native__codex-rollout-collector__src__source__discovery.rs",
+      "sha256": "da15f2bb7b745fc475a2382f75c1229547a9ab343c8252be7dbc4742b9c4e5d1",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/before/native__codex-rollout-collector__tests__stage4_target_protocol.rs",
+      "sha256": "4e6305ba8d895d5ca11ec0507174fb3b1c2bf276cc2b9555d3327347de77d8e7",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-1-result.json",
+      "sha256": "c83ceb5d36b2263d3d0aa0365158de2d20011eb67dc54f9693b385d4a67c5808",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-1.txt",
+      "sha256": "019c4093daf5f69d559b366c4ab25d9fa58b83c813aad7e28ce077fdb4a8cc17",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-2-result.json",
+      "sha256": "b5f8cf29693a5952471e6b83e46f2cd82cc0f9f46cafdc6dfba32435b90356c7",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-2.txt",
+      "sha256": "708a48de0889f72469bad2b7aaf2c623089ca7368c9692e641af995f7ccf804a",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-3-result.json",
+      "sha256": "0b07510d515242b092bf6a9f7b4202ab712d0a0758b7d20e8d8cdf4698fc16ce",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-3.txt",
+      "sha256": "0ad0f4df9b97b0e425589096dc1da465db4bbf5418af989632b4f4381b2047cc",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-4-result.json",
+      "sha256": "6b71f0881e68f2b1bb938053974c9229b12529e4fbff2240c7952f08bbc6ee5a",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-4.txt",
+      "sha256": "df86fbdc648c2168c2f05544b969d3ba24b97426fcd410dd3191f328ac185707",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-5-result.json",
+      "sha256": "f4672bc9d1ef9f541031d9337bb173d61a83cbeaf781a522edf8a83a0999d86a",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/branch-5.txt",
+      "sha256": "65873ee3b6ad5161fb3a26bb11e81dfc3bc4d02fe31ca5e4bb14a91a73de1804",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/checks.cjs",
+      "sha256": "af1f788b5911ec82cc0d61a65989380f12af3dff18fe08e56413c98ca60fb594",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/cr-1-result.json",
+      "sha256": "7af5a72c15b7d8f7bd3cf3a0bb19ae87a4c7bfc7e2e55e45ef0e7d3dc53c0c37",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/cr-1.txt",
+      "sha256": "096af8bbd8577a6910ea018834dabdc6e0ddf1b3bcfe664924cbb0040d786f02",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/diff-1-result.json",
+      "sha256": "637d0997b91dcfc687f6339e79c667996d68dfd0a1bc143bde59ab8b7fc3e7fa",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/diff-1.txt",
+      "sha256": "83b9dcf1232381ba0d4c78e3b906b239785a10de631e7657944fa716294ceb97",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/diff-2-result.json",
+      "sha256": "1b840a9687e339e549e479d2e8298f0a1a6424535228f4085e1bd8df725f5559",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/diff-2.txt",
+      "sha256": "83b9dcf1232381ba0d4c78e3b906b239785a10de631e7657944fa716294ceb97",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/evidence/branch-batch.json",
+      "sha256": "6388d000bb3eba8deb1de756e7f6adfb57c83ee86280363a6304d38ed4f9ae38",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/evidence/original-sanitized-branch-batch.json",
+      "sha256": "c433972728c6e918af603b37e706d9a27cc337087d655f12c5af4b597084c0a8",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/fmt-1-result.json",
+      "sha256": "76779261ff26dd4c75775cbf3f57cf938af4e6fea77c5fac5a597efe61fa81d7",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/fmt-1.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/fmt-2-result.json",
+      "sha256": "a34d72aa2d6ea3fa7165df0b40e317447a4166e1a12ffa854ff559d9256d6abe",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/fmt-2.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/fmt-3-result.json",
+      "sha256": "f0c345dc0347aba455ef45a15111f359b883286b03847e9e21874865a8961913",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/fmt-3.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/record-execution.cjs",
+      "sha256": "809716561a710f0ed6d9d4ad7a0d26e40c485acf4cd9fabd849612009a20c505",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/report.md",
+      "sha256": "463ea6e3aba771e9d1e0b7206cea55f38ed0a8725a59e7ff1b799dbfe529f1e4",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/req-1-result.json",
+      "sha256": "e21278243708b459c748b14a5f160c91173a557bc8566d72ae7ed13c765f64af",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/req-1.txt",
+      "sha256": "1957c2d98c028ef691eff68513cb52e3e5c6330ab6d7d7284f8ba6f2a9632aa5",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/run.cjs",
+      "sha256": "42cf73d62e7601aedfa7576e7476fdb18aac4ab9254fc56862b1eaffb1cd83ff",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/self-check.json",
+      "sha256": "141ea2490ecd90e5957fbc52e588665d8e37b95ff6c6ef3118512b4e1043eeaa",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/source-1-result.json",
+      "sha256": "55382986b97bca9cec3f4f6572193fb1a9a745434c3bd38adac1e93660e38f86",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/source-1.txt",
+      "sha256": "0d7b95d86326e28a7eed875648a41365088e373fdd9cfe1f04d0cfe9503644d4",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/source-after.json",
+      "sha256": "bd5cc84b71050d4d04a06bcdb71564e3b7afc33dbe53a303f54c08ce4b13f3e1",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/status-832-before.json",
+      "sha256": "321bd1f389ca0d8e9cc2eb3a381765d7ec6a5349e31613b70a97ee903d41d19f",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/status-833-before.json",
+      "sha256": "9f276b945ec33a40d24642aed052345b6ee3f9e35c1a8641af5e91969535f7a1",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/status-record-before.json",
+      "sha256": "e0991bca8649d35d12281036cdffb87615fd789921a9b5809b7dc4135616b04d",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/target-1-result.json",
+      "sha256": "0c916910ba3d614cd04c93af44c12cdd7a7128c260bd80e498c15e5383900c97",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/target-1.txt",
+      "sha256": "9375968f14a182b1857923e6b7651826a501a6352e2687c0b91de52cbe898b2d",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/target-2-result.json",
+      "sha256": "c0f10f79f0ff778759ac655d78a218ade01af1216916259739fc67c9d31d97fc",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/target-2.txt",
+      "sha256": "24e67dad1b7bde48bce1032ff98f0c8302a4ad7e4e33172ea0003083f4881808",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/target-3-result.json",
+      "sha256": "75768f634e8346af87aea8830901c8f2fa7a45fbb9fbcd5d74cbab57e1d51ab4",
+      "fixed_matches": true,
+      "live_matches": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s3/target-3.txt",
+      "sha256": "d94dae5c2105696b5db7aab6168d31c64517c0e9c5e94d47fa70d336cacb685c",
+      "fixed_matches": true,
+      "live_matches": true
+    }
+  ],
+  "protectedSubjects": [
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+      "sha256": "fa2792daab5591d4b2e83e1a5c085a27090f9a95907b7abec613e6302695c85d",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "sha256": "c5cd7c8fbd89a3b3df2d15542ff34ab91be49e4ec3ac3bb205a83d8bb9e7f49c",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "sha256": "c54fe01079c0af2f65b0fbdce7769bcc6437608b3992fb570c63bb34c2c903e7",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexRolloutCollector/index.js",
+      "sha256": "f394444946bdd69e9a7effd5679fc46343f7052dc16c6db148b34fef98265c19",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexHistoryProductStore.js",
+      "sha256": "f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16",
+      "matches": true
+    },
+    {
+      "path": "src/services/codexHistoryProductProvider.js",
+      "sha256": "00b4da43488098bcb67bc35879cbfe9ddb3676dd0f83c23216023c71393201de",
+      "matches": true
+    },
+    {
+      "path": "docs/codex/codex-rollout-collector-architecture.md",
+      "sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d",
+      "matches": true
+    },
+    {
+      "path": "docs/workflow/CONTRACTS.md",
+      "sha256": "c9273b9813279785e1f4c0cc48ff49b0d6de6c22dde08bb88811a46187be874c",
+      "matches": true
+    },
+    {
+      "path": "docs/workflow/DECISIONS.md",
+      "sha256": "747236c53ae0ee5450b0cdfd8e2b69eb2de83758a1b61cccc5b4742000f985fd",
+      "matches": true
+    },
+    {
+      "path": "docs/codex/codex-history-shared-compat-contract.md",
+      "sha256": "d1f3ba55d88d41e3946933b9a2c6ecd10f6b3db7b3c40f76def254d8c05d3a05",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-compat-spike/vendor/codex/Cargo.lock",
+      "sha256": "6845a266d5ab6a62927267ce6852bca6f1e12f4787185382a20b072aa2a5e195",
+      "matches": true
+    }
+  ],
+  "currentSubjects": [
+    {
+      "path": "native/codex-rollout-collector/src/source/discovery.rs",
+      "sha256": "13b9092a2653c4555035fb1767cc0ebac2dc1b2314042145f3a52692540a2d6e",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "sha256": "668df95c5abf2b3111d140812a9bc10b12f12e1779142a046f9e140a9ff404d5",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "sha256": "ac7ab8ff4c0c0d3cfa97fb029d9379612e888b30aeb0b573568a9adec91fc9e4",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+      "sha256": "e0e465ef3320a6d2ea0438ff91226de163a565a04386745ba03241003f7bae2e",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/fixtures/branch-history/a-full.jsonl",
+      "sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/fixtures/branch-history/c-header.jsonl",
+      "sha256": "ed45c74ad5d959f437bb8416df7eccba72fcc9fd098f1a45cf86610edd2de677",
+      "matches": true
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/fixtures/branch-history/README.md",
+      "sha256": "1c3e790f36a0f89bea54c21603bc02be5d1e9e61552683857bdd40416decbbfa",
+      "matches": true
+    },
+    {
+      "path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "sha256": "22d884d53dc64b61e081cffc3ecfbc193e60cdc0445baf32914fd1b4650f4f04",
+      "matches": true
+    },
+    {
+      "path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "sha256": "a605b57fc72498974e26bc01433fc80da42a8f6d653b3731f44c6bf543332c55",
+      "matches": true
+    },
+    {
+      "path": "docs/changes/records/CR-20261007-0900-branch-history-parent.md",
+      "sha256": "e1fd6abde9f95f10e4c9e65049e5e4dcb5261b7fa1847833e973dde85fc2561f",
+      "matches": true
+    }
+  ],
+  "binary": {
+    "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+    "sha256": "aef0e539d542fc1af970f3612f17459b69b0afad4d6feb92e20209e817341d35"
+  }
+}

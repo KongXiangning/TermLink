@@ -1,0 +1,22 @@
+{
+  "command": {
+    "bin": "pwsh",
+    "args": [
+      "-NoProfile",
+      "-File",
+      ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+      "-RecordPath",
+      "docs/changes/records/CR-20261007-0219-branch-history-window-repair.md",
+      "-ProjectRoot",
+      ".",
+      "-Strict"
+    ]
+  },
+  "start": "2026-10-06T18:19:44.949Z",
+  "end": "2026-10-06T18:19:45.541Z",
+  "exit_code": 0,
+  "environment": {
+    "CARGO_NET_OFFLINE": "true"
+  },
+  "source_revision": "589a62a78c6214fea13e7c5eecac5466d64d7a5d"
+}

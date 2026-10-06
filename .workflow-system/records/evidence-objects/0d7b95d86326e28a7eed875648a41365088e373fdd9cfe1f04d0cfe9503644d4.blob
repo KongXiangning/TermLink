@@ -1,0 +1,86 @@
+
+running 74 tests
+test protocol::target_source::tests::wire_error_code_preserves_nested_resource_boundaries ... ok
+test source::cursor::tests::append_validation_rejects_fingerprint_anchor_and_source_shrink ... ok
+test source::cursor::tests::backfill_validation_rejects_shrink_before_original_snapshot_boundary ... ok
+test source::cursor::tests::forward_cursor_requires_plain_complete_snapshot_prefix ... ok
+test source::cursor::tests::tail_and_backfill_cursors_fail_closed_when_used_as_append ... ok
+test source::cursor::tests::zstd_never_produces_a_seekable_decompressed_append_cursor ... ok
+test source::digest::tests::sha256_is_stable_across_updates ... ok
+test source::cursor::tests::cursor_round_trip_preserves_kind_and_resume_metadata ... ok
+test source::discovery::tests::active_hint_cannot_hide_unresolved_new_root_like_candidate ... ok
+test source::cursor::tests::metadata_deserialization_is_fail_closed_on_invalid_range ... ok
+test source::discovery::tests::controlled_discovery_fails_before_io_when_cancelled ... ok
+test source::cursor::tests::serialized_cursor_kind_cannot_be_reinterpreted_as_another_type ... ok
+test source::discovery::tests::controlled_discovery_honors_deadline_inside_discovery ... ok
+test source::discovery::tests::controlled_header_read_honors_cancel_after_first_chunk ... ok
+test source::discovery::tests::multiple_root_like_candidates_without_connected_chain_report_all_candidates ... ok
+test source::discovery::tests::lineage_chain_has_no_depth_limit_but_rejects_cycles ... ok
+test source::discovery::tests::newer_root_like_candidate_makes_connected_head_ambiguous ... ok
+test source::discovery::tests::older_root_like_candidate_is_ignored_when_connected_chain_is_unique ... ok
+test source::discovery::tests::same_timestamp_root_like_candidate_is_not_silently_ignored ... ok
+test source::discovery::tests::unorderable_root_like_timestamp_fails_closed ... ok
+test source::jsonl::tests::oversized_line_stops_consuming_at_configured_limit ... ok
+test source::jsonl::tests::decoded_budget_stops_before_consuming_the_next_line ... ok
+test source::lineage::tests::catalog_lookup_is_idempotent_but_conflicting_paths_fail_closed ... ok
+test source::lineage::tests::history_base_keeps_parent_rollout_and_cut_separate ... ok
+test source::oracle::tests::oracle_reports_record_and_completeness_identity ... ok
+test source::read_plan::tests::capabilities_keep_plain_jsonl_random_access_and_zstd_forward_only ... ok
+test source::oracle::tests::oracle_keeps_first_mismatch_auditable ... ok
+test source::lineage::tests::directory_catalog_uses_filename_only_as_parent_lookup_key ... ok
+test source::append::tests::append_helper_digest_matches_known_prefix ... ok
+test source::lineage::tests::compressed_rollout_without_plain_sibling_is_not_hidden ... ok
+test source::append::tests::append_preflight_rejects_a_source_identity_or_epoch_mismatch ... ok
+test source::read_plan::tests::plain_equal_line_and_source_limit_matches_legacy_line_diagnostic ... ok
+test source::lineage::tests::parent_suffix_plan_rejects_ordinary_zstd_with_typed_error ... ok
+test source::read_plan::tests::legacy_full_read_keeps_unterminated_line_compatibility ... ok
+test source::read_plan::tests::full_plan_submits_only_complete_lines_and_reports_growth ... ok
+test source::read_plan::tests::plain_exact_line_limit_unterminated_tail_remains_pending ... ok
+test source::lineage::tests::directory_catalog_prefers_plain_rollout_over_compressed_sibling ... ok
+test source::record::tests::candidate_metadata_cannot_override_the_explicit_target ... ok
+test source::record::tests::different_logical_candidates_at_the_same_priority_fail_closed ... ok
+test source::record::tests::conflicting_metadata_for_same_candidate_fails_closed_independent_of_order ... ok
+test source::record::tests::explicit_binding_preserves_caller_conversation_and_logical_source_id ... ok
+test source::record::tests::invalid_explicit_binding_metadata_fails_closed ... ok
+test source::record::tests::legacy_locator_keeps_filename_identity_without_inventing_target_binding ... ok
+test source::record::tests::same_logical_candidates_use_a_deterministic_path_tie_breaker ... ok
+test source::record::tests::same_logical_source_id_survives_candidate_path_rename ... ok
+test source::record::tests::source_metadata_is_additive_and_available_to_later_reader_steps ... ok
+test source::record::tests::unbound_candidate_is_only_a_fallback_after_mismatched_candidates_are_removed ... ok
+test source::discovery::tests::controlled_discovery_bounds_header_bytes ... ok
+test source::segment::tests::assembler_enforces_resource_limits_before_accepting_more_input ... ok
+test source::read_plan::tests::plain_overlong_line_keeps_boundary_across_io_chunks ... ok
+test source::segment::tests::carriers_survive_segment_deduplication_and_are_sorted_by_stable_key ... ok
+test source::segment::tests::conflicting_overlap_is_partial_but_deterministic_across_acquisition_order ... ok
+test source::segment::tests::descriptors_capture_ranges_and_order_independent_assembly_deduplicates_overlap ... ok
+test source::segment::tests::physical_and_ordinal_gaps_are_partial_without_guessing_canonical_order ... ok
+test source::append::tests::append_is_idempotent_across_repeated_requests_and_new_backend_instances ... ok
+test source::append::tests::append_reads_only_new_complete_lines_and_keeps_pending_tail_for_retry ... ok
+test source::discovery::tests::controlled_discovery_bounds_fingerprint_bytes ... ok
+test source::read_plan::tests::plain_overlong_line_keeps_legacy_bounded_range ... ok
+test source::append::tests::prefix_change_with_same_length_is_detected_before_new_records_are_published ... ok
+test source::discovery::tests::controlled_discovery_keeps_zstd_only_rollout_as_forward_source ... ok
+test source::read_plan::tests::planned_line_and_source_limits_are_reported_without_partial_records ... ok
+test source::discovery::tests::controlled_discovery_does_not_fallback_to_compressed_sibling_when_plain_is_invalid ... ok
+test source::read_plan::tests::range_plan_rejects_split_boundaries_and_segment_overflow ... ok
+test source::read_plan::tests::tail_plan_aligns_to_a_complete_line_and_preserves_global_ordinals ... ok
+test source::discovery::tests::controlled_discovery_keeps_same_rollout_id_at_different_paths_ambiguous ... ok
+test source::read_plan::tests::zstd_exact_line_limit_unterminated_tail_remains_pending ... ok
+test source::read_plan::tests::zstd_stricter_source_limit_wins_after_exact_budget_probe ... ok
+test source::read_plan::tests::zstd_equal_line_and_source_limit_matches_legacy_line_diagnostic ... ok
+test source::read_plan::tests::zstd_plan_is_strict_and_rejects_tail_and_range_modes ... ok
+test source::discovery::tests::controlled_discovery_bounds_directory_entries ... ok
+test source::discovery::tests::controlled_discovery_allows_lineage_deeper_than_date_partition_limit ... ok
+test source::append::tests::same_content_rename_continues_logical_source_but_truncate_and_replace_fail_closed ... ok
+test source::discovery::tests::controlled_discovery_resolves_cross_date_chain_and_hashes_all_candidates ... ok
+test source::append::tests::append_reports_source_gap_for_unbounded_growth_without_emitting_records ... ok
+
+test result: ok. 74 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.15s
+
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on artifact directory
+   Compiling codex-rollout-collector v0.1.0 (E:\coding\TermLink-rust-source-resolution-codex\native\codex-rollout-collector)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.78s
+     Running unittests src\lib.rs (native\codex-rollout-collector\target\debug\deps\codex_rollout_collector-2ab6bbb7994ae850.exe)

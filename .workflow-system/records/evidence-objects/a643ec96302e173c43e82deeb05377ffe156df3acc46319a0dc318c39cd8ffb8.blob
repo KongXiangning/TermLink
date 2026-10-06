@@ -1,0 +1,34 @@
+# TASK-20260832 / S3 repair-r1 change review
+
+2026-10-07，Asia/Shanghai。**结论：clean，R1 在当前修复版本中复审通过，未发现新增需修复问题。** 这是同一实施 agent 的 change self-review，不是独立审查。S3 仍 executed，未 finish；832 active，833 closed。产品/真实宿主/手机验收仍 pending。
+
+## 精确对象
+
+新执行 ref=key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json，832/S3，采纳计划 key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json。基线 HEAD=589a62a78c6214fea13e7c5eecac5466d64d7a5d；修复是未提交工作树，实际版本由 execution 附件哈希和当前 binary SHA256 f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e 标识。
+
+audit.json 核实新 execution 的 70 份附件固定 blob/当前文件全部匹配，11 个 subject 和 11 个保护 subject、HEAD 和 binary 均匹配。完整架构、CONTRACTS/DECISIONS/共享补充沿用本会话已读版本，哈希未变。fresh task-status 确认当前 focus=832、S3 executed/not-reviewed，无 finish disposition，不借旧 next_route 或旧审查选择对象。
+
+原审查 key-aeb521d60861069c8ab289726c2d0160bcd86d0c05de1515c3bb119f1abe562f.json 的 verdict=findings、832-S3-R1 和失败 trace 保留；本次新增 review 与新执行关联，不重写旧结论。用户 repair decision key-7eb92d4aa5333adb8aa2d66eda1f7f750008f3b0f1e31b59a59fdeb60290f721.json 已单独记录。
+
+## R1 复审依据
+
+- plan_inherited_prefix 改为调用与 active backfill 共用的 plan_bounded_range。窗口从 0 顺序覆盖到真实 cut，每次推进到完整行边界，单窗口不超过 max_segment_bytes；单行不能容纳时拒绝。总 planned/decoded 限制、cancel/deadline 仍生效，未放宽任何默认预算。
+- 初次 source 计划和 append lineage recovery 都循环消费这些窗口。每次传递剩余 decoded budget，累计 actual decoded，旧窗口写入原 spool，最后窗口保持 resident。mapper 按 spool→resident 顺序回放并去重，coverage 按物理 source 集合计数，不把窗口数量当 source 数量。
+- 每个 inherited window 要求 actual complete_range 等于 requested range、无 parse gap/pending tail/shrink；最后窗口仍验证 end_byte_offset 和 end_ordinal_exclusive。早先窗口不要求到整个 prefix 的 cut，但仍通过窗口完整性检查；规划端保证无缺口覆盖。
+- target binding 和物理 parent provenance 保留。原对话 cut 后增长不进入 C；跨 conversation 不生成 replacement。旧 same-conversation parent/suffix/replacement 路径没有被改写。共享 helper 是原 active backfill 分段块的提取，目标范围/已有 coverage 选择及 formal promotion/cursor 校验保持。
+
+实际验证读取修复原输出和当前哈希，不重复运行业务测试：branch-5 3/3、target-1 76/76 PASS。新用例涵盖 segment4096 < prefix5542 < decoded65536、连续覆盖、两个实际来源、六个物理委派、resident 只保留 child 但 mapper 可消费 parent；首次进程正 ACK 后 complete；有效 child turn/formal checkpoint 下 append recovery 同样分段并保留新正文。
+
+原 review 的同一 byte-preserved A/C header-only 反例被独立进程按相同预算复跑：parent-bounded、branch-default、branch-bounded 都有 canonical batch 与 complete，trace 中 binary 哈希与当前一致。原 branch-bounded 的 resource_limit_exceeded 已不在当前版本复现。测试 ACK 仍是隔离客户端协议 ACK。
+
+负向回归明确区分真实总预算不足与单段限制，涵盖 aggregate decoded 不足、单行超额、错 ordinal、mid-line cut 和非最后窗口 parse gap。原缺 parent/header、歧义/压缩、取消/超时、resend、旧未知/委派/capability 等保护由 target suite 回归保留。修复期间的编译、red、header-only append anchor 与 CR 格式失败如实保留；没有通过放宽 checkpoint/promotion 或删除失败达成 PASS。
+
+## 范围与剩余
+
+本次审查两项 Rust 修复 diff、对应测试和 source→spool→mapper/lineage recovery 调用链，复核原 S3 目标/来源/继承与 replacement 的边界。REQ 单段/总预算说明、PLAN S3 repair 与新 draft CR 范围一致；未伪造 commit_ref 或将需求标 done。
+
+本轮仅执行 audit 及证据/源码检查；未新跑完整 Rust/source/conformance、Node product store、Gateway、Android、自然宿主或手机。原 source 74/74 仍是修复前历史证据，不能算当前新 PASS。H1/H3 已由 833 交付，不代表 S4–S6 或三类业务目标已经完成。预算允许的多窗口样本通过不等于所有实际源无条件可读；真实总预算、单行、缺口或关系问题仍保持拒绝。
+
+没有修复代码、修改 REQ/PLAN/CR 内容、finish/close、Git 写入、部署或操作真实 source/服务/手机。native 新 review 要分别核对 persistence/association/projection，三个旧管理关联缺口保持，不因 clean 消除。
+
+next_route: execute-step；next_mode: finish；目标 TASK-20260832/S3。结束 S3 后，S4–S6 仍按真实产品/宿主/手机验收继续，不自动开始或跳过。

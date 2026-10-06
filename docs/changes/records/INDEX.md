@@ -23,6 +23,8 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20261007-0900-branch-history-parent | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-0900-branch-history-parent.md` |
+| CR-20261007-0219-branch-history-window-repair | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-0219-branch-history-window-repair.md` |
 | CR-20261006-2016-history-product-delivery | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-2016-history-product-delivery.md` |
 | CR-20261006-1846-history-promotion-proof-repair | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md` |
 | CR-20261006-0200-shared-history-node-consumer | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md` |
