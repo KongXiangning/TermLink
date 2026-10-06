@@ -32,6 +32,7 @@ const COMPLETENESS_VALUES = Object.freeze([
 const PARSER_COMPATIBILITY_PROFILES = Object.freeze([
     'legacy',
     'current',
+    'history-semantics-v2',
     'future-compatible'
 ]);
 const ANALYSIS_EVENT_TYPES = Object.freeze([
@@ -39,6 +40,7 @@ const ANALYSIS_EVENT_TYPES = Object.freeze([
     'TurnStarted',
     'UserMessage',
     'AssistantMessage',
+    'DelegatedInput',
     'ToolStarted',
     'ToolCompleted',
     'PlanUpdated',
@@ -73,7 +75,8 @@ const REQUIRED_CAPABILITIES = Object.freeze([
     'checkpoint',
     'ack'
 ]);
-const OPTIONAL_CAPABILITIES = Object.freeze(['last_turn_replacement_v1']);
+const HISTORY_SEMANTICS_CAPABILITY = 'history_semantics_v2';
+const OPTIONAL_CAPABILITIES = Object.freeze(['last_turn_replacement_v1', HISTORY_SEMANTICS_CAPABILITY]);
 const ACK_REJECTION_CODES = Object.freeze([
     'batch_validation_failed',
     'batch_scope_conflict',
@@ -645,6 +648,26 @@ function validateAnalysisEvent(value, index, batch) {
         case 'AssistantMessage':
             requireString(payload, 'text');
             break;
+        case 'DelegatedInput': {
+            for (const key of ['item_id', 'origin_tool', 'namespace', 'carrier', 'text']) requireString(payload, key);
+            validateEnum(payload.origin_tool, field + '.payload.origin_tool', ['create_thread', 'send_message_to_thread']);
+            validateEnum(payload.carrier, field + '.payload.carrier', ['response_item', 'item_completed']);
+            const metadata = payload.metadata;
+            if (payload.namespace !== 'codex_app'
+                || metadata.item_key !== 'delegated-input:' + payload.item_id
+                || metadata.correlation_id !== payload.item_id
+                || metadata.related_item_key !== null
+                || metadata.identity_origin !== 'native_stable_id'
+                || metadata.availability !== 'present'
+                || metadata.conversation_id !== batch.conversation_id
+                || !isNonEmptyString(metadata.turn_id)
+                || hasOwn(payload, 'call_id')
+                || batch.reducer_state?.reducer_version !== 'target-v2'
+                || batch.parser_provenance?.compatibility_profile !== 'history-semantics-v2') {
+                invalid(field, 'delegated history requires verified identity, attribution and v2 profile');
+            }
+            break;
+        }
         case 'ToolStarted':
             requireString(payload, 'tool_kind');
             validateOptionalString(payload.tool_name, field + '.payload.tool_name');
@@ -1218,6 +1241,11 @@ function validateBatchPayload(payload) {
             );
         });
     }
+
+    if (payload.reducer_state?.reducer_version === 'target-v2'
+        || payload.parser_provenance.compatibility_profile === 'history-semantics-v2') {
+        assertHistoryProfile({ message_type: 'batch', payload }, 'target-v2');
+    }
     if (hasOwn(payload, 'lineage_coverage') && payload.lineage_coverage !== null) {
         validateLineageCoverage(payload.lineage_coverage, 'payload.lineage_coverage');
     }
@@ -1777,7 +1805,7 @@ function createAnalyzeRequest(options = {}) {
     return validateMessage(message);
 }
 
-function createHello(requestId = 'node-hello-' + Date.now()) {
+function createHello(requestId = 'node-hello-' + Date.now(), { historyProfile = 'target-v2' } = {}) {
     return validateMessage({
         ...header('hello', requestId),
         role: 'node',
@@ -1786,7 +1814,8 @@ function createHello(requestId = 'node-hello-' + Date.now()) {
             'cancel',
             'checkpoint',
             'ack',
-            'last_turn_replacement_v1'
+            'last_turn_replacement_v1',
+            ...(historyProfile === 'target-v1' ? [] : [HISTORY_SEMANTICS_CAPABILITY])
         ]
     });
 }
@@ -1806,6 +1835,20 @@ function createAck(options = {}) {
     };
     if (options.error !== undefined && options.error !== null) message.error = options.error;
     return validateMessage(message);
+}
+
+// Node checks only the public envelope; reducer payload remains opaque Rust state.
+function assertHistoryProfile(message, historyProfile) {
+    const envelope = message.message_type === 'batch' ? message.payload : message.checkpoint;
+    const wire = envelope?.parser_provenance || envelope?.wire_profile;
+    const version = envelope?.reducer_state?.reducer_version;
+    const v2 = wire?.compatibility_profile === 'history-semantics-v2' || version === 'target-v2';
+    if ((historyProfile === 'target-v2' && (version !== 'target-v2'
+        || wire?.compatibility_profile !== 'history-semantics-v2'
+        || envelope.reducer_state.reducer_id !== 'termlink.analysis_reducer'))
+        || (historyProfile === 'target-v1' && v2)) {
+        throw new AnalyzerProtocolError('checkpoint_incompatible', 'history profile does not match the negotiated request');
+    }
 }
 
 function createCancel(requestId, reason = 'cancelled_by_caller') {
@@ -1845,6 +1888,8 @@ function isCanonicalBatch(message) {
 }
 
 module.exports = {
+    HISTORY_SEMANTICS_CAPABILITY,
+    assertHistoryProfile,
     PROTOCOL_VERSION,
     MESSAGE_TYPES,
     ANALYZE_MODES,

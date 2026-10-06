@@ -1,0 +1,37 @@
+▶ history v2 saves canonical turn growth by full reread and by durable append, keeping immutable start
+  ✔ backfill (835.2499ms)
+  ✔ append (135.5283ms)
+✔ history v2 saves canonical turn growth by full reread and by durable append, keeping immutable start (973.283ms)
+▶ history v2 saves both delegation carriers once across File staging restart and rejects forged bodies
+  ✔ response-first (219.8177ms)
+  ✖ completed-first (184.7026ms)
+✖ history v2 saves both delegation carriers once across File staging restart and rejects forged bodies (406.1336ms)
+✔ history v2 new backfill leaves nonempty v1 checkpoint intact and sends four empty recovery fields (182.3881ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 5
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1729.5783
+
+✖ failing tests:
+
+test at tests\codexRolloutCollector.realRust.test.js:86:48
+✖ completed-first (184.7026ms)
+  Error: invalid target source request: persisted append evidence is missing source_cursor
+      at AnalyzerProcessManager._handleMessage (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProcessManager.js:1024:25)
+      at AnalyzerProcessManager._consumeStdout (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProcessManager.js:806:35)
+      at Socket.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProcessManager.js:511:54)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Readable.push (node:internal/streams/readable:390:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23) {
+    code: 'analysis_failed',
+    details: undefined,
+    retryable: false,
+    fatal: false
+  }
+

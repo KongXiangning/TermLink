@@ -1,0 +1,48 @@
+# TASK-20260833 / S4 实际执行
+
+2026-10-06（Asia/Shanghai）。**S4 已执行，待 change review，未 finish。** Node 已能接收真实委派正文，并在现有暂存历史上按精确证据更新同轮开始→完成和等价双载体。不宣布三个业务问题或手机验收全部解决。
+
+## 目标、前态与范围
+
+task_id=`task-7ff69ba8242c90c52f0b93fa1144a655`；plan_ref=`key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json`；step=S4。fresh query 确认 S3 clean/finished（finish ref=key-a7cdf3119753d2f8c3f746f9c9fa16c011da36a79848daadd11808bea9144834.json），S4 not-started。HEAD=`7ce1d08e6dbb7863d5b95fb992086f1b37637488`；本批均为其上的未提交变更，无暂存、提交或推送。
+
+仅修改四个 Node 文件 analyzerProtocol.js、analysisBatchImporter.js、analyzerProcessManager.js、index.js，两份既有 collector/realRust 测试，以及 REQ/PLAN/本批 draft CR。index 仅处理原意图 profile、恢复与必要请求参数选择，不改队列/并发/调度；run/checkpoint store 原实现复用。Rust/source/vendor、IPC/Android、DB schema、预算、正式共享规范和治理未改。原未跟踪 Spike vendor Cargo.lock 保留。
+
+## 实装与业务判定
+
+| 项目 | 实际结果 |
+| --- | --- |
+| H1 同轮保存冲突 | 物理开始、完成保持不同事件且不可改写；仅真实同 turn 开始→completed、同 source/epoch、完整性不下降、旧 mutation/fact 与 durable receipt/staging 匹配、当前 batch mutation 重算 FNV 一致，且 full 重见旧开始或 durable prefix 与 delta 连续/合法 overlap 才允许。无 gap 的 canonical→canonical 和原 partial→partial 均有实测。 |
+| H3 委派历史 | 精确 DelegatedInput schema，真实 id/turn/source 与完整正文、无 call_id；等价双载体归约一项，物理事实分别保存，response_item 稳定代表；投影逐字段对应实际 carrier facts。产品 payload.role=system，tool=null，两份 eventFacts 可追溯。 |
+| 能力/profile | hello 可选 history_semantics_v2 的实际交集；新请求的 batch/complete public reducer/wire envelope 与所选 profile 对照，内部 reducer payload 不解释。旧能力进程复用；原 v1 job 必要时在唯一进程空闲时按原 hello 选择，不建立第二采集链。 |
+| 旧状态/原意图 | run record 保留协商 profile 和实际 read intent。无 anchor 的旧未结算 delivery 重启后保留 v1、job/segment/batch 和完整 payload，仅新 request_id。新独立 backfill 在能力交集支持时不携带旧 v1 cursor/anchor/已知范围/recovery；旧 checkpoint 对象保留，原 equality 校验先执行，append 不获得例外。 |
+| 诊断与发布资格 | 原 S1 实际旧 File 暂存文件原样复制到临时测试目录，新重读保留原 receipt 和两份 ParseGap 历史事实，但当前新投影依据当前覆盖判断。另有未知输入的测试仍 partial，不因新 parser 自动宣称完整。 |
+
+H1/H3 在 **Rust→Node File staging/ACK/complete 与业务 DTO 层**通过所列场景；H1/H3 的实际 SQLite 产品事务、provider 关闭重开正文/真实工具详情还未完成，留待 S5。Branch finding/catalog 保留在 832，未修复或验收。
+
+## 验证与版本
+
+最后源码修改后同一次运行：
+
+`node --test tests/codexRolloutCollector.test.js tests/codexRolloutCollector.recovery.test.js tests/codexRolloutCollector.realRust.test.js tests/codexRolloutCollector.checkpointJobs.test.js tests/codexRolloutCollector.isolatedLifecycle.test.js tests/codexHistoryProductFlow.test.js`
+
+结果 **180/180 PASS、exit0**；原件 final-node.txt/-result.json。realRust helper 在每个 Node 测试进程中用 cargo build --locked 构建当前正式 collector，运行环境 CARGO_NET_OFFLINE=true；最终 collector SHA256 与本批开始的已验证 S3 binary 相同。本批无需重复 Rust 测试或重做 S3。
+
+新增实际进程/File 回归检验：full/append canonical 开始→完成；双载体任一先到、File 重开、正文单项/稳定代表、overlap 原 delivery 幂等；原 v1 非空 checkpoint 新 job 四空读取；原 S1 partial prefix 增长与旧 ParseGap/receipt 留存；另有未知输入保持 partial；无 anchor 原 v1 未结算意图跨 Node 恢复且 payload/identity 不变。hash、正文、turn、projection、普通 call 身份、profile、旧开始篡改、gap/scope 负向均在写入前拒绝并保持原快照。
+
+既有回归继续覆盖严格 mutation 冲突、canonical 降级/终态保护、旧 attempt、迟到消息、负 ACK、receipt 原子性、checkpoint、单例、取消、有限重试和已有 productflow。system role/eventFacts 本批新场景使用 productStore 回调 DTO 捕获；**不是新场景的 SQLite 落库或 provider 重开证据**。既有 productflow 使用其原临时数据库场景，不据此宣布 H1/H3 新场景产品验证通过。
+
+REQ/CR 最终用 pwsh -NoProfile -File、显式 ProjectRoot、Strict 校验，均 exit0；CR draft/commit_ref=TBD。git diff --check exit0。self-check 保存 10 份 before、8 个保护边界、S3 execution/review 的 91 份固定 CAS，全部匹配；当前业务 diff 均在本批范围，源文件哈希见 source-after.json。未执行服务、外部真实日志/模型、设备/Android、全套 Node 或新 Rust full suite。
+
+## 失败与修正保留
+
+- existing-initial **125/138 PASS、exit1**：多余 start/profile 重启改变旧进程生命周期和注入 manager 计数；以及 hello 断言尚未包含新可选能力。修正为缺新能力时复用原兼容进程、只对真实 profile manager 增加选择；原必需能力不变。随后 existing-and-v2 **145/145 PASS**。
+- v2-initial **5/7 PASS、exit1**：反序测试保留原 ordinal，制造了 source gap，Rust 正确没有安全 append source_cursor。该反序小型变体使用正式支持的无 ordinal 形状后通过；没有放宽 source guard、伪造 call_id/id、改实际外部日志或替换原 fixture。
+- 首次 REQ/CR 使用 powershell（Windows PowerShell）读取 UTF-8 中文文档，错误报告 status/priority 缺失；同内容用 pwsh 后成功。两个失败原件保留，未修改 validator 或用该错误证明字段不存在。CR 回滚描述补明确 git revert 字样。
+- S2 vendor 离线测试失败、S3 历史初次失败和三条既有管理关联缺口均保留。实现自检不构成独立/正式审查。
+
+## 管理与后续
+
+execution-input/result 保存本次实际事实；readback 保存 recorded、association、projection 和最新状态，分别核对，不以 generic 报告替代关联。S4 待 review/finish；833 active，832 仍 active/S2 executed/未审/未 finish。本批不关闭或自动返回 832。
+
+`next_route: review-change`，目标 TASK-20260833/S4。S5 需分别完成 H1/H3 的实际 Rust→Node durable staging→ACK→complete→产品事务→provider 重开正文和真实工具详情交付；手机切换/重开及 Branch 等三类业务验收仍归 832。

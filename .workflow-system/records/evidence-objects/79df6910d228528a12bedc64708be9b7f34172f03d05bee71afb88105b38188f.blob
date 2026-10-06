@@ -1,0 +1,188 @@
+{
+  "runtime_role": "assistance",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "kind": "task-query/v1",
+  "detail": "step",
+  "status": "available",
+  "source_revision": "3c754b187a58dffeb96ae7bb1bcb5c8eadd2deb47b42ccaf06b61aaae4e1ff76",
+  "view_revision": "64d5f4485aa1054395274cd04e40dc4c4bd95315fa2e0da47829b7e790f2514d",
+  "workflow_home": "docs/workflow",
+  "current_task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+  "focus": {
+    "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+    "ref": ".workflow-system/records/events/key-4ceed6a5100de61ea522fe8eb444f8183c90b564dff0bc604e4b1969e3732335.json",
+    "conflict": null
+  },
+  "next_task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+  "next_step_id": "S4",
+  "next_route": "review-change",
+  "next_mode": null,
+  "next_action": "review-step",
+  "selection": {
+    "requested_task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "status": "resolved",
+    "detail_request": {
+      "detail": "task",
+      "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "workflow_home": "docs/workflow"
+    },
+    "requested_step_id": "S2",
+    "step_status": "resolved"
+  },
+  "health": "needs-attention",
+  "state_completeness": "partial-associations",
+  "records_scanned": 259,
+  "projection": {
+    "cache": "current",
+    "display": "current",
+    "read_only_rebuilt": true
+  },
+  "recovery_options": [
+    "rebuild",
+    "link",
+    "correct",
+    "resolve",
+    "defer",
+    "pause",
+    "close"
+  ],
+  "issues": [
+    {
+      "id": "issue-acce7d78ceebab4ab85bca99",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-bb8b7308bc64f7d580f3cfae",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-ec19a134aefeb23287cb519b",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "message": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "unassociated_records": [
+    {
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "reason": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "task_count": 6,
+  "lifecycle_counts": {
+    "closed": 4,
+    "active": 2
+  },
+  "coverage": {
+    "computation": "full-journal-rebuild",
+    "diagnostics": "all",
+    "history": "selected-step-projection-only"
+  },
+  "note": "Presentation of the complete live rebuild. Omitted detail is not absent history, clean review or permission. Read record refs with read; use detail=full for the compatibility view.",
+  "task": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "display_id": "TASK-20260832",
+    "lifecycle": "active",
+    "adopted_plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+    "legacy_plan_ref": null
+  },
+  "step": {
+    "id": "S2",
+    "title": "明确具体修复文件、行为和回归范围",
+    "environment": [
+      "S1 诊断",
+      "当前架构/接口/IPC 契约",
+      "只准备实施范围"
+    ],
+    "actions": [
+      "每项列具体原因、拟改文件、行为前后、兼容策略和能检出原错误的回归。",
+      "确定 Rust-only 与 Node-only 修改归属/先后；Node 若需 4.5 迁移或契约演进，拆成独立明确任务，不在 Rust 步骤实施。",
+      "若必须更新 vendor，列明上游闭包/patch/manifest/许可证和 Spike→formal 同步及 conformance 范围；不预定全面 vendor 升级。",
+      "落实真实 REQ/PLAN/CR 的文档关联与更新方式；不捏造需求或 commit_ref。",
+      "把仍未覆盖的实际修改和测试副作用形成一次可审阅范围确认；已有具体授权不重复询问。"
+    ],
+    "validation": [
+      "三个问题均有具体处置，不以一个修复遮盖另外两个。",
+      "范围遵守 CONTRACTS、AD-004/018/019/020/021/022；没有偷偷引入新架构。"
+    ],
+    "outputs": [
+      "具体修复与回归方案",
+      "实际范围决定与关联记录；必要时追加候选修订"
+    ],
+    "state": "executed",
+    "legacy_step_status": null,
+    "execution_ref": ".workflow-system/records/events/key-56e67631043abd0af05fa6ce1c8852e2df1e9564c7e919d6233879194db06cd0.json",
+    "execution": {
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S2",
+      "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+      "result": "scope-prepared-user-choice-recorded-separate-candidate-created-no-product-implementation",
+      "decision_ref": ".workflow-system/records/events/key-b16597f8fef0ad14ea72f51db11ed6fd6e8676496e0c2ffe63caf7e9f2e6c32b.json",
+      "dependency_task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "dependency_plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "summary": "Prepared concrete H1 growth-merge, H2 Branch source discovery and H3 delegation wire/owned-event scope. Actual user chose preparing independent minimal shared compatibility candidate, Rust then Node, no full 4.5 migration. Created TASK-20260833 candidate without adoption/focus switch; old task retains H2 and all three real-host/phone acceptance. No product fixes or new test PASS.",
+      "commands": [
+        "Read-only source/contract/test inventory and hashes",
+        "Native decision record and explicit S2 association",
+        "Native task prepare for authorized independent candidate"
+      ],
+      "remaining_work": [
+        "Draft review and user adoption of TASK-20260833 before its implementation",
+        "S2 change review/disposition remain separate; this execution does not finish S2",
+        "All three product problems remain unrepaired; H2 and real-host/phone acceptance remain in original task",
+        "Three historical management association issues retained; no new association issue"
+      ],
+      "links": [
+        {
+          "ref": ".workflow-system/records/events/key-b16597f8fef0ad14ea72f51db11ed6fd6e8676496e0c2ffe63caf7e9f2e6c32b.json",
+          "relation": "after"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+          "relation": "after"
+        }
+      ],
+      "files": [
+        "logs/history-save-repair-20261005/s2/report.md",
+        "logs/history-save-repair-20261005/s2/scope.md",
+        "logs/history-save-repair-20261005/s2/scope.json",
+        "logs/history-save-repair-20261005/s2/source-inventory.json",
+        "logs/history-save-repair-20261005/s2/self-check.json",
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.md",
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json"
+      ],
+      "ref": ".workflow-system/records/events/key-56e67631043abd0af05fa6ce1c8852e2df1e9564c7e919d6233879194db06cd0.json",
+      "interpretation_ref": null
+    },
+    "review_ref": null,
+    "review_status": "not-reviewed",
+    "findings": [],
+    "review_choice": null,
+    "review_decision_ref": null,
+    "review_decisions": [],
+    "tests": [],
+    "disposition_ref": null,
+    "historical_execution_refs": []
+  },
+  "review": null,
+  "detail_request": {
+    "detail": "task",
+    "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "workflow_home": "docs/workflow"
+  }
+}
+

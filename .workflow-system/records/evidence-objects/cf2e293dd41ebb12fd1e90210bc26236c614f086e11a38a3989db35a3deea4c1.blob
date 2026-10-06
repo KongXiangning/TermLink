@@ -1,0 +1,10 @@
+{
+  "command": {
+    "bin": "git",
+    "args": [
+      "diff",
+      "--check"
+    ]
+  },
+  "exit_code": 0
+}

@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-06T11:15:17.741Z",
+  "payload_sha256": "09de1fdfd3f29025e223d9c6f30e90c1559ca00abbb7f99e9be9fa569ae2ec44",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260833-S4-review-change-20261006-v2",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "step_id": "S4",
+      "execution_ref": ".workflow-system/records/events/key-fe2ea2e3cfa3398d95d7b34abe90be165036f95737eec18f5a0a04e473e120ca.json",
+      "source_revision": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+      "verdict": "clean",
+      "findings": [],
+      "provenance": {
+        "kind": "same-agent-change-self-review",
+        "reviewer": "Codex",
+        "independent": false,
+        "new_product_tests_run": false,
+        "readonly_boundary_replay": true,
+        "prior_review_ref": ".workflow-system/records/events/key-f70d47a3fa7402f6ccee4bcfd8de46e18768d4d3395e508df94918c8a52e0e0b.json",
+        "resolved_findings": [
+          {
+            "id": "S4-R1",
+            "assessment": "Resolved within current repaired Node scope:generic protected promotion now proves identical durable/current event;original exact counterexample rejected with snapshot unchanged,real full batch accepted."
+          }
+        ]
+      },
+      "coverage": [
+        "Exact latest S4 repair execution and current working tree;33 fixed/live attachments plus5 source/unchanged S4/protected hashes match",
+        "Current importer call chain,mutation promotion,physical immutability,durable staged proof,G1/G2 and shared contract",
+        "Original saved schema-valid counterexample rejected and state unchanged;original actual Rust full batch accepted in separate Memory store",
+        "Existing added File tests cover same-position,reversed-line,coverage-gap and reopen invariance;before failure and final183/183 applicability verified",
+        "REQ/PLAN/new draft CR scope and unchanged previous S4 capability/profile/intent/system-role behaviors;product/provider/mobile limitations retained"
+      ],
+      "remaining_work": [
+        "S4 clean self-review,executed but not finished;no independent review or task closure",
+        "S5 H1/H3 actual Rust/Node durable ACK/complete/SQLite/provider reopen body and true tool details",
+        "832 active/S2 unchanged;Branch and three real-host/mobile acceptance remain;explicit parent return after833",
+        "Original failures,S2 vendor offline limitation and three old management association gaps retained"
+      ],
+      "files": [
+        "logs/shared-history-compat-20261005/s4/review-2/review-change.md",
+        "logs/shared-history-compat-20261005/s4/review-2/audit.cjs",
+        "logs/shared-history-compat-20261005/s4/review-2/attachment-check.json",
+        "logs/shared-history-compat-20261005/s4/review-2/scope-check.json",
+        "logs/shared-history-compat-20261005/s4/review-2/status-833-before.json",
+        "logs/shared-history-compat-20261005/s4/review-2/status-832-before.json",
+        "logs/shared-history-compat-20261005/s4/review-2/importer-repair.diff",
+        "logs/shared-history-compat-20261005/s4/review-2/tests-repair.diff",
+        "logs/shared-history-compat-20261005/s4/review-2/probe.cjs",
+        "logs/shared-history-compat-20261005/s4/review-2/probe-result.json",
+        "logs/shared-history-compat-20261005/s4/review-2/record-review.cjs",
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "tests/codexRolloutCollector.realRust.test.js",
+        "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+        "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+        "docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md",
+        "logs/shared-history-compat-20261005/s4/repair-r1/final-node-result.json",
+        "logs/shared-history-compat-20261005/s4/repair-r1/report.md"
+      ],
+      "idempotency_key": "task20260833-S4-review-change-20261006-v2"
+    },
+    "files": [
+      "logs/shared-history-compat-20261005/s4/review-2/review-change.md",
+      "logs/shared-history-compat-20261005/s4/review-2/audit.cjs",
+      "logs/shared-history-compat-20261005/s4/review-2/attachment-check.json",
+      "logs/shared-history-compat-20261005/s4/review-2/scope-check.json",
+      "logs/shared-history-compat-20261005/s4/review-2/status-833-before.json",
+      "logs/shared-history-compat-20261005/s4/review-2/status-832-before.json",
+      "logs/shared-history-compat-20261005/s4/review-2/importer-repair.diff",
+      "logs/shared-history-compat-20261005/s4/review-2/tests-repair.diff",
+      "logs/shared-history-compat-20261005/s4/review-2/probe.cjs",
+      "logs/shared-history-compat-20261005/s4/review-2/probe-result.json",
+      "logs/shared-history-compat-20261005/s4/review-2/record-review.cjs",
+      "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "tests/codexRolloutCollector.realRust.test.js",
+      "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md",
+      "logs/shared-history-compat-20261005/s4/repair-r1/final-node-result.json",
+      "logs/shared-history-compat-20261005/s4/repair-r1/report.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "parents": [
+        ".workflow-system/records/events/key-fe2ea2e3cfa3398d95d7b34abe90be165036f95737eec18f5a0a04e473e120ca.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S4",
+        "execution_ref": ".workflow-system/records/events/key-fe2ea2e3cfa3398d95d7b34abe90be165036f95737eec18f5a0a04e473e120ca.json",
+        "source_revision": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+        "verdict": "clean",
+        "findings": [],
+        "provenance": {
+          "kind": "same-agent-change-self-review",
+          "reviewer": "Codex",
+          "independent": false,
+          "new_product_tests_run": false,
+          "readonly_boundary_replay": true,
+          "prior_review_ref": ".workflow-system/records/events/key-f70d47a3fa7402f6ccee4bcfd8de46e18768d4d3395e508df94918c8a52e0e0b.json",
+          "resolved_findings": [
+            {
+              "id": "S4-R1",
+              "assessment": "Resolved within current repaired Node scope:generic protected promotion now proves identical durable/current event;original exact counterexample rejected with snapshot unchanged,real full batch accepted."
+            }
+          ]
+        },
+        "coverage": [
+          "Exact latest S4 repair execution and current working tree;33 fixed/live attachments plus5 source/unchanged S4/protected hashes match",
+          "Current importer call chain,mutation promotion,physical immutability,durable staged proof,G1/G2 and shared contract",
+          "Original saved schema-valid counterexample rejected and state unchanged;original actual Rust full batch accepted in separate Memory store",
+          "Existing added File tests cover same-position,reversed-line,coverage-gap and reopen invariance;before failure and final183/183 applicability verified",
+          "REQ/PLAN/new draft CR scope and unchanged previous S4 capability/profile/intent/system-role behaviors;product/provider/mobile limitations retained"
+        ],
+        "remaining_work": [
+          "S4 clean self-review,executed but not finished;no independent review or task closure",
+          "S5 H1/H3 actual Rust/Node durable ACK/complete/SQLite/provider reopen body and true tool details",
+          "832 active/S2 unchanged;Branch and three real-host/mobile acceptance remain;explicit parent return after833",
+          "Original failures,S2 vendor offline limitation and three old management association gaps retained"
+        ],
+        "files": [
+          "logs/shared-history-compat-20261005/s4/review-2/review-change.md",
+          "logs/shared-history-compat-20261005/s4/review-2/audit.cjs",
+          "logs/shared-history-compat-20261005/s4/review-2/attachment-check.json",
+          "logs/shared-history-compat-20261005/s4/review-2/scope-check.json",
+          "logs/shared-history-compat-20261005/s4/review-2/status-833-before.json",
+          "logs/shared-history-compat-20261005/s4/review-2/status-832-before.json",
+          "logs/shared-history-compat-20261005/s4/review-2/importer-repair.diff",
+          "logs/shared-history-compat-20261005/s4/review-2/tests-repair.diff",
+          "logs/shared-history-compat-20261005/s4/review-2/probe.cjs",
+          "logs/shared-history-compat-20261005/s4/review-2/probe-result.json",
+          "logs/shared-history-compat-20261005/s4/review-2/record-review.cjs",
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "tests/codexRolloutCollector.realRust.test.js",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md",
+          "logs/shared-history-compat-20261005/s4/repair-r1/final-node-result.json",
+          "logs/shared-history-compat-20261005/s4/repair-r1/report.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

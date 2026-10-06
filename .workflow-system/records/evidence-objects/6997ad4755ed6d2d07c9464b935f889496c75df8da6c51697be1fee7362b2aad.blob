@@ -1,0 +1,89 @@
+{
+  "head": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+  "before": [
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProtocol.js",
+      "sha256": "068024352b46db9519bcb5e9bf814a9fa6830701c5b51a27684f44d9900dc379"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisBatchImporter.js",
+      "sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProcessManager.js",
+      "sha256": "cda575e3c5371633d23e7fca3feb7921ecc41b6040695ffffa3bd1cf5f63e865"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/index.js",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__index.js",
+      "sha256": "780d27c0f991e3e0b940cc4092e4f5733d6c50aa99753eb06fbf480cc58a327e"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisCheckpointStore.js",
+      "sha256": "495286171b5ad11ff13e5a3ce52e36bf7c055940630ade9c60d5430f525ee167"
+    },
+    {
+      "path": "tests/codexRolloutCollector.test.js",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.test.js",
+      "sha256": "bbfacb4765cf0d28867666a50afd7db6aa0caeb529448c65f1c47a7b47f914f7"
+    },
+    {
+      "path": "tests/codexRolloutCollector.realRust.test.js",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.realRust.test.js",
+      "sha256": "2c7a9f3b67ed36eaf99ec17be1923f4815399ddc22d0959b29b93a4fa3b30490"
+    },
+    {
+      "path": "tests/codexRolloutCollector.recovery.test.js",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.recovery.test.js",
+      "sha256": "98b1e84fa6fc65b2901534900ddccd462dd5a0e431ac10bc9b720e27c5874c12"
+    },
+    {
+      "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+      "sha256": "10b1979c816f79de6f2628920b8def6c8fb51787632f6d4cede95604b7a7db39"
+    },
+    {
+      "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "snapshot": "logs/shared-history-compat-20261005/s4/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+      "sha256": "373d41184ab2a9d35a8c8f138427f5bdbf1bb7567259eddfe484633bd571c036"
+    }
+  ],
+  "protected": [
+    {
+      "path": "docs/workflow/CONTRACTS.md",
+      "sha256": "c9273b9813279785e1f4c0cc48ff49b0d6de6c22dde08bb88811a46187be874c"
+    },
+    {
+      "path": "docs/workflow/DECISIONS.md",
+      "sha256": "747236c53ae0ee5450b0cdfd8e2b69eb2de83758a1b61cccc5b4742000f985fd"
+    },
+    {
+      "path": "docs/codex/codex-history-shared-compat-contract.md",
+      "sha256": "d1f3ba55d88d41e3946933b9a2c6ecd10f6b3db7b3c40f76def254d8c05d3a05"
+    },
+    {
+      "path": "docs/codex/codex-rollout-collector-architecture.md",
+      "sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d"
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "sha256": "46621c4ea030f36c2d02746963c0e34e2da5223ad74773d6f5c2ebdaab151df3"
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "sha256": "16fcd1064c078967a029e753e83eaf8cfacc79a11d5f1b981f220409e4e29de3"
+    },
+    {
+      "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+      "sha256": "16d5a6857192710514fa3e6fdd4029ff3ea83a1ba29970b4e121d31d8b91b06f"
+    },
+    {
+      "path": "native/codex-rollout-compat-spike/vendor/codex/Cargo.lock",
+      "sha256": "6845a266d5ab6a62927267ce6852bca6f1e12f4787185382a20b072aa2a5e195"
+    }
+  ]
+}

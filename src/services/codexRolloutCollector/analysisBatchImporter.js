@@ -886,6 +886,113 @@ function replacementValuesOf(payload) {
     ];
 }
 
+// These fields are the public TermLink event schema, in producer serialization
+// order. Extra additive fields participate too: they cannot be hidden by a hash.
+function historyEventMarker(event) {
+    const ordered = (value, fields) => Object.fromEntries([
+        ...fields.filter((key) => hasOwn(value, key)).map((key) => [key, value[key]]),
+        ...Object.keys(value).filter((key) => !fields.includes(key)).sort().map((key) => [key, value[key]])
+    ]);
+    const fields = {
+        TurnStarted: ['metadata', 'model_context_window', 'collaboration_mode_kind'],
+        TurnCompleted: ['metadata', 'status', 'message', 'duration_ms'],
+        DelegatedInput: ['metadata', 'item_id', 'origin_tool', 'namespace', 'carrier', 'text']
+    }[event?.event_type];
+    if (!fields) return null;
+    const payload = ordered(event.payload, fields);
+    payload.metadata = ordered(payload.metadata, ['event_id', 'item_key', 'correlation_id', 'related_item_key',
+        'conversation_id', 'turn_id', 'timestamp', 'sequence', 'availability', 'terminal_evidence', 'identity_origin', 'source_ref']);
+    payload.metadata.source_ref = ordered(payload.metadata.source_ref, ['source_identity', 'byte_start', 'byte_end',
+        'physical_line_ordinal', 'rollout_ordinal', 'timestamp', 'item_type']);
+    const value = ordered({ ...event, payload }, ['event_type', 'payload']);
+    let hash = 0xcbf29ce484222325n;
+    for (const byte of Buffer.from(JSON.stringify(value))) hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
+    return 'fnv1a64:' + hash.toString(16).padStart(16, '0');
+}
+
+function eventForMutation(events, mutation, conversationId) {
+    return events.find((event) => event.payload?.metadata?.conversation_id === conversationId
+        && event.payload.metadata.item_key === mutation.item.item_key
+        && sameJson(event.payload.metadata.source_ref, mutation.item.source_ref)
+        && historyEventMarker(event) === mutation.item.content_hash);
+}
+
+function delegatedEquivalent(a, b) {
+    return a?.event_type === 'DelegatedInput' && b?.event_type === 'DelegatedInput'
+        && ['item_id', 'origin_tool', 'namespace', 'text'].every((key) => a.payload[key] === b.payload[key])
+        && ['conversation_id', 'turn_id', 'item_key'].every((key) => a.payload.metadata[key] === b.payload.metadata[key])
+        && a.payload.metadata.source_ref.source_identity === b.payload.metadata.source_ref.source_identity;
+}
+
+function durableMutationProof(state, mutation) {
+    for (const staged of state.staging.values()) {
+        if (!staged.payload.mutations.some((value) => {
+            const observation = clone(value);
+            if (observation.item) observation.item.completeness = mutation.item.completeness;
+            return sameJson(observation, mutation);
+        })) continue;
+        const proof = verifiedStagedBatch(staged, state.receipts.get(staged.delivery_key), {
+            request_id: staged.request_id, job_id: staged.job_id, segment_id: staged.segment_id, batch_id: staged.batch_id
+        }, state.scope);
+        const event = eventForMutation(proof.payload.history_items, mutation, state.scope.conversationId);
+        if (event) return { event, batch: proof };
+    }
+    return null;
+}
+
+function rangeContains(range, ref) {
+    return range && range.start <= ref.byte_start && range.end >= ref.byte_end;
+}
+
+function isUnchangedHistoryObservation(state, batch, previous, incoming) {
+    const old = durableMutationProof(state, previous);
+    const event = eventForMutation(batch.payload.history_items, incoming, batch.scope.conversationId);
+    return Boolean(old && event && sameJson(old.event, event));
+}
+
+function isHistoryObservationUpdate(state, batch, previous, incoming) {
+    if (incoming.mutation !== 'upsert_item' || previous.mutation !== 'upsert_item'
+        || batch.payload.reducer_state?.reducer_version !== 'target-v2'
+        || batch.payload.parser_provenance.compatibility_profile !== 'history-semantics-v2'
+        || incoming.item.source_epoch !== previous.item.source_epoch
+        || incoming.item.item_key !== previous.item.item_key
+        || completenessRank(incoming.item.completeness) < completenessRank(previous.item.completeness)) return false;
+    const old = durableMutationProof(state, previous);
+    const event = eventForMutation(batch.payload.history_items, incoming, batch.scope.conversationId);
+    if (!old || !event) return false;
+    if (delegatedEquivalent(old.event, event)) return true;
+    const a = old.event.payload.metadata, b = event.payload.metadata;
+    if (old.event.event_type !== 'TurnStarted' || event.event_type !== 'TurnCompleted'
+        || event.payload.status !== 'completed' || a.availability !== 'present' || b.availability !== 'present'
+        || !a.turn_id || a.turn_id !== b.turn_id || incoming.item.item_key !== 'turn:' + a.turn_id
+        || a.source_ref.source_identity !== b.source_ref.source_identity
+        || a.source_ref.byte_end > b.source_ref.byte_start
+        || a.source_ref.physical_line_ordinal >= b.source_ref.physical_line_ordinal) return false;
+    const ref = b.source_ref;
+    const span = { byte_start: a.source_ref.byte_start, byte_end: ref.byte_end };
+    if (!rangeContains(batch.payload.source_range, ref)) return false;
+    const reobserved = batch.payload.history_items.some((value) => sameJson(value, old.event));
+    if (reobserved) {
+        if (!rangeContains(batch.payload.source_range, a.source_ref)) return false;
+    } else {
+        const priorRange = old.batch.payload.source_range;
+        const currentRefs = batch.payload.history_items.map((value) => value.payload.metadata.source_ref)
+            .filter((value) => value.source_identity === ref.source_identity);
+        const first = Math.min(...currentRefs.map((value) => value.byte_start));
+        if (!rangeContains(priorRange, a.source_ref) || first > priorRange.end
+            || !rangeContains(batch.payload.source_range, a.source_ref)) return false;
+    }
+    const evidence = reobserved ? [batch.payload] : [old.batch.payload, batch.payload];
+    return !evidence.flatMap((value) => value.history_items).some((value) => {
+        const metadata = value.payload.metadata;
+        return metadata.source_ref.source_identity === ref.source_identity
+            && metadata.source_ref.byte_start < span.byte_end && metadata.source_ref.byte_end > span.byte_start
+            && (['ParseGap', 'UnknownEvent'].includes(value.event_type) || metadata.availability !== 'present');
+    }) && !evidence.flatMap((value) => value.diagnostics).some((value) => value.availability !== 'present'
+        && (!value.source_ref || (value.source_ref.source_identity === ref.source_identity
+            && value.source_ref.byte_start < span.byte_end && value.source_ref.byte_end > span.byte_start)));
+}
+
 function preflightTargetState(state, batch) {
     const payload = batch.payload;
     const itemRecords = payload.history_items.map((item) => itemRecordOf(item, payload));
@@ -908,6 +1015,31 @@ function preflightTargetState(state, batch) {
         const key = eventRecordKey(incoming);
         assertExistingContent(state.items.get(key), incoming, 'history event', key);
     }
+    const delegated = [...state.items.values(), ...itemRecords].filter((record) => record.event.event_type === 'DelegatedInput');
+    const delegationByKey = new Map();
+    const delegationFacts = new Map();
+    for (const record of delegated) {
+        const old = delegationByKey.get(record.item_key);
+        if (old && !delegatedEquivalent(old, record.event)) throw batchConflict('delegated body or attribution conflicts', { key: record.item_key });
+        delegationByKey.set(record.item_key, record.event);
+        const facts = delegationFacts.get(record.item_key) || [];
+        facts.push(record);
+        delegationFacts.set(record.item_key, facts);
+    }
+    for (const turn of payload.projection.turns || []) {
+        for (const item of turn.items || []) {
+            if (item.kind !== 'delegated_input' && !item.item_key?.startsWith('delegated-input:')) continue;
+            const facts = delegationFacts.get(item.item_key) || [];
+            const representative = facts.find((record) => record.event.payload.carrier === 'response_item') || facts[0];
+            const event = representative?.event;
+            if (!event || item.kind !== 'delegated_input' || item.presentation_kind !== 'delegated_input'
+                || item.visible !== true || item.tool !== null || item.content !== event.payload.text
+                || item.turn_id !== event.payload.metadata.turn_id || turn.turn_id !== item.turn_id
+                || !sameJson(item.source_ref, event.payload.metadata.source_ref)) {
+                throw batchConflict('delegated projection is not justified by its actual carrier facts', { key: item.item_key });
+            }
+        }
+    }
     for (const incoming of detailRecords) {
         const key = incoming.item_key || incoming.call_id;
         assertExistingContent(state.toolDetails.get(key), incoming, 'tool detail', key);
@@ -922,21 +1054,41 @@ function preflightTargetState(state, batch) {
     }
 
     const mutationByIdentity = new Map();
+    const mutationRecords = [];
     for (const entry of state.mutations) {
         mutationByIdentity.set(mutationIdentityOf(entry.mutation), entry);
     }
     for (const mutation of payload.mutations) {
+        const protectedItem = payload.reducer_state?.reducer_version === 'target-v2'
+            && mutation.mutation === 'upsert_item' && /^(turn:|delegated-input:)/.test(mutation.item.item_key);
+        if (protectedItem && !eventForMutation(payload.history_items, mutation, batch.scope.conversationId)) {
+            throw batchConflict('history mutation does not match its actual event', { key: mutation.item.item_key });
+        }
         const identity = mutationIdentityOf(mutation);
         const hash = contentHash(mutation);
         const existing = mutationByIdentity.get(identity);
         if (existing && existing.content_hash !== hash
-            && !isUpsertMutationPromotion(existing.mutation, mutation)) {
+            // Completeness alone cannot authorize a changed protected event.
+            && !(isUpsertMutationPromotion(existing.mutation, mutation)
+                && (!protectedItem || isUnchangedHistoryObservation(state, batch, existing.mutation, mutation)))
+            && !isHistoryObservationUpdate(state, batch, existing.mutation, mutation)) {
             throw batchConflict(
                 'mutation evidence conflicts with an existing staged mutation',
                 { mutation: mutation.mutation, identity }
             );
         }
-        mutationByIdentity.set(identity, { content_hash: hash, mutation });
+        let acceptedMutation = mutation;
+        if (protectedItem && existing && mutation.item.item_key.startsWith('delegated-input:')) {
+            const old = durableMutationProof(state, existing.mutation);
+            const event = eventForMutation(payload.history_items, mutation, batch.scope.conversationId);
+            if (!old || !delegatedEquivalent(old.event, event)) throw batchConflict('delegated mutation lacks durable paired evidence');
+            if (old.event.payload.carrier === 'response_item' && event.payload.carrier === 'item_completed') {
+                acceptedMutation = clone(existing.mutation);
+                acceptedMutation.item.completeness = mutation.item.completeness;
+            }
+        }
+        mutationRecords.push(acceptedMutation);
+        mutationByIdentity.set(identity, { content_hash: contentHash(acceptedMutation), mutation: acceptedMutation });
     }
 
     const replacements = replacementValuesOf(payload);
@@ -980,6 +1132,7 @@ function preflightTargetState(state, batch) {
         detailRecords,
         outcomeRecords,
         replacements,
+        mutationRecords,
         projectionHash: incomingProjectionHash,
         usageHash: payload.usage === null ? null : contentHash(payload.usage)
     };
@@ -1038,7 +1191,7 @@ function applyTargetState(state, batch, preflight) {
             state.diagnostics.push({ content_hash: hash, diagnostic: clone(diagnostic) });
         }
     }
-    for (const mutation of payload.mutations) {
+    for (const mutation of preflight.mutationRecords) {
         const hash = contentHash(mutation);
         const identity = mutationIdentityOf(mutation);
         const priorIndex = state.mutations.findIndex(
@@ -1657,6 +1810,7 @@ function productRowsFromSnapshot(snapshot) {
             ordinal,
             payload: {
                 ...projectedPayload,
+                ...(itemType === 'delegated_input' || first?.event?.event_type === 'DelegatedInput' ? { role: 'system' } : {}),
                 eventFacts
             }
         };

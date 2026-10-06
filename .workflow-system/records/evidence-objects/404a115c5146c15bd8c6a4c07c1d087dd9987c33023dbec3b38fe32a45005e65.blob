@@ -1,0 +1,38 @@
+const fs=require('fs'),os=require('os'),path=require('path'),crypto=require('crypto');
+const {AnalyzerProcessManager}=require('../../../../src/services/codexRolloutCollector/analyzerProcessManager');
+const {AnalysisBatchImporter,MemoryAnalysisStore,normalizeScope}=require('../../../../src/services/codexRolloutCollector/analysisBatchImporter');
+const {createAnalyzeRequest,validateMessage}=require('../../../../src/services/codexRolloutCollector/analyzerProtocol');
+const d='logs/shared-history-compat-20261005/s4/review-1';
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const native='native/codex-rollout-collector/target/debug/codex-rollout-collector.exe';
+const marker=event=>{let h=0xcbf29ce484222325n;for(const b of Buffer.from(JSON.stringify(event)))h=BigInt.asUintN(64,(h^BigInt(b))*0x100000001b3n);return'fnv1a64:'+h.toString(16).padStart(16,'0');};
+(async()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'termlink-s4-review-'));
+ const sessions=path.join(root,'sessions','2026','10','03');fs.mkdirSync(sessions,{recursive:true});
+ const id='00000000-0000-4000-8000-000000000001';
+ fs.copyFileSync('native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl',path.join(sessions,'rollout-2026-10-03T00-00-00-'+id+'.jsonl'));
+ const manager=new AnalyzerProcessManager({analyzerPath:path.resolve(native),cwd:root,env:{CODEX_HOME:root},requestTimeoutMs:10000});
+ try{
+  let real;
+  await manager.request(createAnalyzeRequest({requestId:'review-real',jobId:'review-real-job',conversationId:id,mode:'backfill'}),{onBatch:async b=>{real=structuredClone(b);return{accepted:true,persisted:true};}});
+  fs.writeFileSync(d+'/real-batch.json',JSON.stringify(real,null,2)+'\n');
+  const historical=JSON.parse(fs.readFileSync('logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json','utf8'));
+  const staged=historical.staging[0];
+  const prefix={protocol_version:1,message_type:'batch',request_id:staged.request_id,job_id:staged.job_id,segment_id:staged.segment_id,batch_id:staged.batch_id,payload:staged.payload};
+  const oldStart=prefix.payload.history_items.find(e=>e.event_type==='TurnStarted'&&e.payload.metadata.turn_id.endsWith('000000000008'));
+  const wrong=structuredClone(real);wrong.request_id='review-boundary';wrong.job_id='review-boundary-job';
+  const completion=wrong.payload.history_items.find(e=>e.event_type==='TurnCompleted'&&e.payload.metadata.item_key===oldStart.payload.metadata.item_key);
+  completion.payload.metadata.source_ref=structuredClone(oldStart.payload.metadata.source_ref);
+  const mutation=wrong.payload.mutations.find(m=>m.mutation==='upsert_item'&&m.item.item_key===oldStart.payload.metadata.item_key);
+  mutation.item.source_ref=structuredClone(oldStart.payload.metadata.source_ref);mutation.item.content_hash=marker(completion);
+  fs.writeFileSync(d+'/same-position-completion.json',JSON.stringify(wrong,null,2)+'\n');
+  validateMessage(wrong);
+  const store=new MemoryAnalysisStore(),importer=await new AnalysisBatchImporter({store}).init();
+  await importer.importBatch(prefix);
+  let accepted=false,error=null;
+  try{await importer.importBatch(wrong);accepted=true;}catch(e){error={code:e.code,message:e.message};}
+  const after=await store.snapshot(normalizeScope(prefix));
+  const result={kind:'readonly-review-boundary-counterexample-not-host-behavior',binary_sha256:hash(native),schema_valid:true,accepted,error,old_completeness:prefix.payload.completeness,new_completeness:wrong.payload.completeness,turn_key:mutation.item.item_key,start_ref:oldStart.payload.metadata.source_ref,completion_ref:completion.payload.metadata.source_ref,receipt_count:after.receipts.length,canonical:after.canonical,logical_mutation:after.mutations.find(m=>m.mutation.item?.item_key===mutation.item.item_key)};
+  fs.writeFileSync(d+'/probe-result.json',JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
+ }finally{await manager.stop();if(path.dirname(path.resolve(root))!==path.resolve(os.tmpdir()))throw Error('Temp cleanup escaped root');fs.rmSync(root,{recursive:true,force:true});}
+})().catch(e=>{fs.writeFileSync(d+'/probe-error.txt',e.stack);process.exitCode=1;console.error(e);});

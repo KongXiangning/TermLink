@@ -1,0 +1,750 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-06T07:09:13.635Z",
+  "payload_sha256": "cdf55b5e2e1dd31290981ceb0dd065c1ebacb00cdfac152fd75ea6441f0d0957",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260833-S4-node-history-consumer-execution-20261006-v1",
+    "request": {
+      "action": "execution",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "step_id": "S4",
+      "mode": "default",
+      "source_revision": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+      "result": "S4 Node implemented;final scoped180/180 PASS;actual Rust/File staging/recovery verified;pending change review/finish;H1/H3 SQLite/provider reopening remains S5",
+      "decision_source": "Current human execute-step invocation TASK-20260833 S4 and adopted precise shared compatibility plan",
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) 833 s4",
+      "summary": {
+        "implementation": "Four local Node files:strict DelegatedInput/system role/public profile,immutable facts plus G1/G2 durable proof/FNV recomputation/stable representative;original run hello/profile recovery and fresh v2 four-empty backfill",
+        "qualification": "Implementation self-check,not formal review or finish;new role/product payload assertions use productStore callbacks,not H1/H3 SQLite/provider proof;existing productflow PASS remains its own scenarios",
+        "scope": "Node four src/two existing tests/REQ/PLAN/new draft CR;Rust/vendor/source/governance/IPC/Android/DB schema and budgets unchanged;no Git writes/service/device effects",
+        "baseline": "HEAD7ce1d08;S3 already clean/finished;S4 not-started before;existing untracked vendor Cargo.lock preserved"
+      },
+      "commands": [
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "tests/codexRolloutCollector.test.js",
+              "tests/codexRolloutCollector.recovery.test.js",
+              "tests/codexRolloutCollector.realRust.test.js",
+              "tests/codexRolloutCollector.checkpointJobs.test.js",
+              "tests/codexRolloutCollector.isolatedLifecycle.test.js",
+              "tests/codexHistoryProductFlow.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/final-node.txt"
+        },
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "tests/codexRolloutCollector.test.js",
+              "tests/codexRolloutCollector.recovery.test.js",
+              "tests/codexRolloutCollector.realRust.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit1",
+          "report_ref": "logs/shared-history-compat-20261005/s4/existing-initial.txt"
+        },
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "--test-name-pattern",
+              "history v2",
+              "tests/codexRolloutCollector.realRust.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit1",
+          "report_ref": "logs/shared-history-compat-20261005/s4/v2-initial.txt"
+        },
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "tests/codexRolloutCollector.test.js",
+              "tests/codexRolloutCollector.recovery.test.js",
+              "tests/codexRolloutCollector.realRust.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/existing-and-v2.txt"
+        },
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "--test-name-pattern",
+              "history v2",
+              "tests/codexRolloutCollector.realRust.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt"
+        },
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "--test-name-pattern",
+              "history v2 rereads original",
+              "tests/codexRolloutCollector.realRust.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/old-partial-v2.txt"
+        },
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "--test-name-pattern",
+              "original partial turn growth",
+              "tests/codexRolloutCollector.realRust.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/partial-growth.txt"
+        },
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "--test-name-pattern",
+              "history v2",
+              "tests/codexRolloutCollector.realRust.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/projection-guards.txt"
+        },
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "--test-name-pattern",
+              "saves both delegation",
+              "tests/codexRolloutCollector.realRust.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/paired-negatives.txt"
+        },
+        {
+          "command": {
+            "bin": "powershell",
+            "args": [
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+              "-ReqPath",
+              "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+              "-ProjectRoot",
+              ".",
+              "-Strict"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit1",
+          "report_ref": "logs/shared-history-compat-20261005/s4/req-final.txt"
+        },
+        {
+          "command": {
+            "bin": "powershell",
+            "args": [
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+              "-RecordPath",
+              "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+              "-ProjectRoot",
+              ".",
+              "-Strict"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit1",
+          "report_ref": "logs/shared-history-compat-20261005/s4/cr-final.txt"
+        },
+        {
+          "command": {
+            "bin": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-File",
+              ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+              "-ReqPath",
+              "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+              "-ProjectRoot",
+              ".",
+              "-Strict"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt"
+        },
+        {
+          "command": {
+            "bin": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-File",
+              ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+              "-RecordPath",
+              "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+              "-ProjectRoot",
+              ".",
+              "-Strict"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt"
+        },
+        {
+          "command": {
+            "bin": "git",
+            "args": [
+              "diff",
+              "--check"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true"
+          },
+          "result": "exit0",
+          "report_ref": "logs/shared-history-compat-20261005/s4/diff-check-final.txt"
+        }
+      ],
+      "remaining_work": [
+        "S4 formal change review and step finish not performed",
+        "S5 H1/H3 actual product transaction and provider reopen body/real tool details;new scenario not proven by existing productflow",
+        "832 active/S2 unchanged;Branch and three real-host/phone switch/reopen acceptance remain;explicit return after833",
+        "S2 vendor offline failure and three old management association gaps retained;no full Node/Rust suite or independent review"
+      ],
+      "files": [
+        "src/services/codexRolloutCollector/analyzerProtocol.js",
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "src/services/codexRolloutCollector/analyzerProcessManager.js",
+        "src/services/codexRolloutCollector/index.js",
+        "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+        "tests/codexRolloutCollector.test.js",
+        "tests/codexRolloutCollector.realRust.test.js",
+        "tests/codexRolloutCollector.recovery.test.js",
+        "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+        "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+        "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+        "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+        "logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json",
+        "logs/shared-history-compat-20261005/s4/baseline.cjs",
+        "logs/shared-history-compat-20261005/s4/baseline.json",
+        "logs/shared-history-compat-20261005/s4/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+        "logs/shared-history-compat-20261005/s4/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+        "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisBatchImporter.js",
+        "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisCheckpointStore.js",
+        "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProcessManager.js",
+        "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProtocol.js",
+        "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__index.js",
+        "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.realRust.test.js",
+        "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.recovery.test.js",
+        "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.test.js",
+        "logs/shared-history-compat-20261005/s4/cr-final-result.json",
+        "logs/shared-history-compat-20261005/s4/cr-final.txt",
+        "logs/shared-history-compat-20261005/s4/cr-pwsh-final-result.json",
+        "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt",
+        "logs/shared-history-compat-20261005/s4/diff-check-final-result.json",
+        "logs/shared-history-compat-20261005/s4/diff-check-final.txt",
+        "logs/shared-history-compat-20261005/s4/existing-and-v2-result.json",
+        "logs/shared-history-compat-20261005/s4/existing-and-v2.txt",
+        "logs/shared-history-compat-20261005/s4/existing-initial-result.json",
+        "logs/shared-history-compat-20261005/s4/existing-initial.txt",
+        "logs/shared-history-compat-20261005/s4/final-node-result.json",
+        "logs/shared-history-compat-20261005/s4/final-node.txt",
+        "logs/shared-history-compat-20261005/s4/old-partial-v2-result.json",
+        "logs/shared-history-compat-20261005/s4/old-partial-v2.txt",
+        "logs/shared-history-compat-20261005/s4/paired-negatives-result.json",
+        "logs/shared-history-compat-20261005/s4/paired-negatives.txt",
+        "logs/shared-history-compat-20261005/s4/partial-growth-result.json",
+        "logs/shared-history-compat-20261005/s4/partial-growth.txt",
+        "logs/shared-history-compat-20261005/s4/projection-guards-result.json",
+        "logs/shared-history-compat-20261005/s4/projection-guards.txt",
+        "logs/shared-history-compat-20261005/s4/protection-and-recovery-result.json",
+        "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt",
+        "logs/shared-history-compat-20261005/s4/readback.cjs",
+        "logs/shared-history-compat-20261005/s4/record-execution.cjs",
+        "logs/shared-history-compat-20261005/s4/report.md",
+        "logs/shared-history-compat-20261005/s4/req-final-result.json",
+        "logs/shared-history-compat-20261005/s4/req-final.txt",
+        "logs/shared-history-compat-20261005/s4/req-pwsh-final-result.json",
+        "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt",
+        "logs/shared-history-compat-20261005/s4/run.cjs",
+        "logs/shared-history-compat-20261005/s4/self-check.cjs",
+        "logs/shared-history-compat-20261005/s4/self-check.json",
+        "logs/shared-history-compat-20261005/s4/source-after.json",
+        "logs/shared-history-compat-20261005/s4/status-832-before.json",
+        "logs/shared-history-compat-20261005/s4/status-S3-before.json",
+        "logs/shared-history-compat-20261005/s4/status-S4-before.json",
+        "logs/shared-history-compat-20261005/s4/v2-initial-result.json",
+        "logs/shared-history-compat-20261005/s4/v2-initial.txt"
+      ],
+      "idempotency_key": "task20260833-S4-node-history-consumer-execution-20261006-v1"
+    },
+    "files": [
+      "src/services/codexRolloutCollector/analyzerProtocol.js",
+      "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "src/services/codexRolloutCollector/index.js",
+      "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+      "tests/codexRolloutCollector.test.js",
+      "tests/codexRolloutCollector.realRust.test.js",
+      "tests/codexRolloutCollector.recovery.test.js",
+      "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+      "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+      "logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json",
+      "logs/shared-history-compat-20261005/s4/baseline.cjs",
+      "logs/shared-history-compat-20261005/s4/baseline.json",
+      "logs/shared-history-compat-20261005/s4/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+      "logs/shared-history-compat-20261005/s4/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+      "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisBatchImporter.js",
+      "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisCheckpointStore.js",
+      "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProcessManager.js",
+      "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProtocol.js",
+      "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__index.js",
+      "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.realRust.test.js",
+      "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.recovery.test.js",
+      "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.test.js",
+      "logs/shared-history-compat-20261005/s4/cr-final-result.json",
+      "logs/shared-history-compat-20261005/s4/cr-final.txt",
+      "logs/shared-history-compat-20261005/s4/cr-pwsh-final-result.json",
+      "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt",
+      "logs/shared-history-compat-20261005/s4/diff-check-final-result.json",
+      "logs/shared-history-compat-20261005/s4/diff-check-final.txt",
+      "logs/shared-history-compat-20261005/s4/existing-and-v2-result.json",
+      "logs/shared-history-compat-20261005/s4/existing-and-v2.txt",
+      "logs/shared-history-compat-20261005/s4/existing-initial-result.json",
+      "logs/shared-history-compat-20261005/s4/existing-initial.txt",
+      "logs/shared-history-compat-20261005/s4/final-node-result.json",
+      "logs/shared-history-compat-20261005/s4/final-node.txt",
+      "logs/shared-history-compat-20261005/s4/old-partial-v2-result.json",
+      "logs/shared-history-compat-20261005/s4/old-partial-v2.txt",
+      "logs/shared-history-compat-20261005/s4/paired-negatives-result.json",
+      "logs/shared-history-compat-20261005/s4/paired-negatives.txt",
+      "logs/shared-history-compat-20261005/s4/partial-growth-result.json",
+      "logs/shared-history-compat-20261005/s4/partial-growth.txt",
+      "logs/shared-history-compat-20261005/s4/projection-guards-result.json",
+      "logs/shared-history-compat-20261005/s4/projection-guards.txt",
+      "logs/shared-history-compat-20261005/s4/protection-and-recovery-result.json",
+      "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt",
+      "logs/shared-history-compat-20261005/s4/readback.cjs",
+      "logs/shared-history-compat-20261005/s4/record-execution.cjs",
+      "logs/shared-history-compat-20261005/s4/report.md",
+      "logs/shared-history-compat-20261005/s4/req-final-result.json",
+      "logs/shared-history-compat-20261005/s4/req-final.txt",
+      "logs/shared-history-compat-20261005/s4/req-pwsh-final-result.json",
+      "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt",
+      "logs/shared-history-compat-20261005/s4/run.cjs",
+      "logs/shared-history-compat-20261005/s4/self-check.cjs",
+      "logs/shared-history-compat-20261005/s4/self-check.json",
+      "logs/shared-history-compat-20261005/s4/source-after.json",
+      "logs/shared-history-compat-20261005/s4/status-832-before.json",
+      "logs/shared-history-compat-20261005/s4/status-S3-before.json",
+      "logs/shared-history-compat-20261005/s4/status-S4-before.json",
+      "logs/shared-history-compat-20261005/s4/v2-initial-result.json",
+      "logs/shared-history-compat-20261005/s4/v2-initial.txt"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "parents": [
+        ".workflow-system/records/events/key-a7cdf3119753d2f8c3f746f9c9fa16c011da36a79848daadd11808bea9144834.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S4",
+        "mode": "default",
+        "source_revision": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+        "result": "S4 Node implemented;final scoped180/180 PASS;actual Rust/File staging/recovery verified;pending change review/finish;H1/H3 SQLite/provider reopening remains S5",
+        "decision_source": "Current human execute-step invocation TASK-20260833 S4 and adopted precise shared compatibility plan",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) 833 s4",
+        "summary": {
+          "implementation": "Four local Node files:strict DelegatedInput/system role/public profile,immutable facts plus G1/G2 durable proof/FNV recomputation/stable representative;original run hello/profile recovery and fresh v2 four-empty backfill",
+          "qualification": "Implementation self-check,not formal review or finish;new role/product payload assertions use productStore callbacks,not H1/H3 SQLite/provider proof;existing productflow PASS remains its own scenarios",
+          "scope": "Node four src/two existing tests/REQ/PLAN/new draft CR;Rust/vendor/source/governance/IPC/Android/DB schema and budgets unchanged;no Git writes/service/device effects",
+          "baseline": "HEAD7ce1d08;S3 already clean/finished;S4 not-started before;existing untracked vendor Cargo.lock preserved"
+        },
+        "commands": [
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "tests/codexRolloutCollector.test.js",
+                "tests/codexRolloutCollector.recovery.test.js",
+                "tests/codexRolloutCollector.realRust.test.js",
+                "tests/codexRolloutCollector.checkpointJobs.test.js",
+                "tests/codexRolloutCollector.isolatedLifecycle.test.js",
+                "tests/codexHistoryProductFlow.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/final-node.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "tests/codexRolloutCollector.test.js",
+                "tests/codexRolloutCollector.recovery.test.js",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit1",
+            "report_ref": "logs/shared-history-compat-20261005/s4/existing-initial.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "history v2",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit1",
+            "report_ref": "logs/shared-history-compat-20261005/s4/v2-initial.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "tests/codexRolloutCollector.test.js",
+                "tests/codexRolloutCollector.recovery.test.js",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/existing-and-v2.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "history v2",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "history v2 rereads original",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/old-partial-v2.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "original partial turn growth",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/partial-growth.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "history v2",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/projection-guards.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "saves both delegation",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/paired-negatives.txt"
+          },
+          {
+            "command": {
+              "bin": "powershell",
+              "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+                "-ReqPath",
+                "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+                "-ProjectRoot",
+                ".",
+                "-Strict"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit1",
+            "report_ref": "logs/shared-history-compat-20261005/s4/req-final.txt"
+          },
+          {
+            "command": {
+              "bin": "powershell",
+              "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+                "-RecordPath",
+                "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+                "-ProjectRoot",
+                ".",
+                "-Strict"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit1",
+            "report_ref": "logs/shared-history-compat-20261005/s4/cr-final.txt"
+          },
+          {
+            "command": {
+              "bin": "pwsh",
+              "args": [
+                "-NoProfile",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+                "-ReqPath",
+                "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+                "-ProjectRoot",
+                ".",
+                "-Strict"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt"
+          },
+          {
+            "command": {
+              "bin": "pwsh",
+              "args": [
+                "-NoProfile",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+                "-RecordPath",
+                "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+                "-ProjectRoot",
+                ".",
+                "-Strict"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt"
+          },
+          {
+            "command": {
+              "bin": "git",
+              "args": [
+                "diff",
+                "--check"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/diff-check-final.txt"
+          }
+        ],
+        "remaining_work": [
+          "S4 formal change review and step finish not performed",
+          "S5 H1/H3 actual product transaction and provider reopen body/real tool details;new scenario not proven by existing productflow",
+          "832 active/S2 unchanged;Branch and three real-host/phone switch/reopen acceptance remain;explicit return after833",
+          "S2 vendor offline failure and three old management association gaps retained;no full Node/Rust suite or independent review"
+        ],
+        "files": [
+          "src/services/codexRolloutCollector/analyzerProtocol.js",
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "src/services/codexRolloutCollector/analyzerProcessManager.js",
+          "src/services/codexRolloutCollector/index.js",
+          "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+          "tests/codexRolloutCollector.test.js",
+          "tests/codexRolloutCollector.realRust.test.js",
+          "tests/codexRolloutCollector.recovery.test.js",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+          "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+          "logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json",
+          "logs/shared-history-compat-20261005/s4/baseline.cjs",
+          "logs/shared-history-compat-20261005/s4/baseline.json",
+          "logs/shared-history-compat-20261005/s4/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+          "logs/shared-history-compat-20261005/s4/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisBatchImporter.js",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisCheckpointStore.js",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProcessManager.js",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProtocol.js",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__index.js",
+          "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.realRust.test.js",
+          "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.recovery.test.js",
+          "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.test.js",
+          "logs/shared-history-compat-20261005/s4/cr-final-result.json",
+          "logs/shared-history-compat-20261005/s4/cr-final.txt",
+          "logs/shared-history-compat-20261005/s4/cr-pwsh-final-result.json",
+          "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt",
+          "logs/shared-history-compat-20261005/s4/diff-check-final-result.json",
+          "logs/shared-history-compat-20261005/s4/diff-check-final.txt",
+          "logs/shared-history-compat-20261005/s4/existing-and-v2-result.json",
+          "logs/shared-history-compat-20261005/s4/existing-and-v2.txt",
+          "logs/shared-history-compat-20261005/s4/existing-initial-result.json",
+          "logs/shared-history-compat-20261005/s4/existing-initial.txt",
+          "logs/shared-history-compat-20261005/s4/final-node-result.json",
+          "logs/shared-history-compat-20261005/s4/final-node.txt",
+          "logs/shared-history-compat-20261005/s4/old-partial-v2-result.json",
+          "logs/shared-history-compat-20261005/s4/old-partial-v2.txt",
+          "logs/shared-history-compat-20261005/s4/paired-negatives-result.json",
+          "logs/shared-history-compat-20261005/s4/paired-negatives.txt",
+          "logs/shared-history-compat-20261005/s4/partial-growth-result.json",
+          "logs/shared-history-compat-20261005/s4/partial-growth.txt",
+          "logs/shared-history-compat-20261005/s4/projection-guards-result.json",
+          "logs/shared-history-compat-20261005/s4/projection-guards.txt",
+          "logs/shared-history-compat-20261005/s4/protection-and-recovery-result.json",
+          "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt",
+          "logs/shared-history-compat-20261005/s4/readback.cjs",
+          "logs/shared-history-compat-20261005/s4/record-execution.cjs",
+          "logs/shared-history-compat-20261005/s4/report.md",
+          "logs/shared-history-compat-20261005/s4/req-final-result.json",
+          "logs/shared-history-compat-20261005/s4/req-final.txt",
+          "logs/shared-history-compat-20261005/s4/req-pwsh-final-result.json",
+          "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt",
+          "logs/shared-history-compat-20261005/s4/run.cjs",
+          "logs/shared-history-compat-20261005/s4/self-check.cjs",
+          "logs/shared-history-compat-20261005/s4/self-check.json",
+          "logs/shared-history-compat-20261005/s4/source-after.json",
+          "logs/shared-history-compat-20261005/s4/status-832-before.json",
+          "logs/shared-history-compat-20261005/s4/status-S3-before.json",
+          "logs/shared-history-compat-20261005/s4/status-S4-before.json",
+          "logs/shared-history-compat-20261005/s4/v2-initial-result.json",
+          "logs/shared-history-compat-20261005/s4/v2-initial.txt"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

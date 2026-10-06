@@ -24,7 +24,7 @@ related_docs: [docs/product/plans/PLAN-20261005-codex-history-shared-compat.md, 
 
 TASK-20260832 已分别定位新对话保存冲突、分支找不到原对话、委派解析失败。用户选择独立准备共享兼容任务，并在 TASK-20260833 草案自审后明确 confirm。本需求只承接委派输入与正常历史增长的前置修复，不将原任务三项业务目标缩为一个普通样本。
 
-真实委派正文要以正确身份保存；同轮真实开始→完成应能在已有暂存历史上处理；真正内容/来源冲突、旧 canonical 与未知输入的保护继续成立。S1/S2 当前均已 finished；S3 Rust 委派事件/归约/能力与旧状态保护已执行待审。Node 接收/证明合并和产品保存仍由 S4/S5 实施，产品问题尚未验收通过。
+真实委派正文要以正确身份保存；同轮真实开始→完成应能在已有暂存历史上处理；真正内容/来源冲突、旧 canonical 与未知输入的保护继续成立。S1/S2/S3 当前均已 finished；S4 首次审查 needs-repair（S4-R1：完整性提升绕过开始→完成证明），本批修复执行后待新审查，未 finish。H1/H3 的产品事务和重开完整验收仍由 S5 实施，产品问题尚未验收通过。
 
 ## 2. In Scope
 
@@ -40,7 +40,7 @@ TASK-20260832 已分别定位新对话保存冲突、分支找不到原对话、
 
 ## 5. 接口/数据结构变更
 
-Rust 已实现 DelegatedInput：真实 item_id、origin_tool、namespace、carrier、text 和既有 metadata；无 call_id。可选能力 history_semantics_v2 以 hello 交集启用；新 reducer profile target-v2、wire compatibility_profile=history-semantics-v2，旧 profile target-v1/current。protocol/data/cursor/checkpoint schema_version=1、三种 mode 保持。Node 实现仍待 S4；同轮生命周期与等价双载体的窄范围逻辑更新条件由共享规范约束，物理事件保持不可变。
+Rust 已实现 DelegatedInput：真实 item_id、origin_tool、namespace、carrier、text 和既有 metadata；无 call_id。Node S4 已实现严格接收与 system role、G1/G2 证明合并。可选能力 history_semantics_v2 以 hello 交集启用；新 reducer profile target-v2、wire compatibility_profile=history-semantics-v2，旧 profile target-v1/current。protocol/data/cursor/checkpoint schema_version=1、三种 mode 保持；物理事件保持不可变。
 
 ## 6. 验收标准
 
@@ -57,8 +57,8 @@ Rust 已实现 DelegatedInput：真实 item_id、origin_tool、namespace、carri
 
 ## 8. 风险与回滚
 
-逻辑项更新不能变成任意覆盖；新版 decoder 不能把旧 receipt 当新解释；缺 role 会使正文误标 assistant。按契约和负向用例保护。本批只实现 Rust，Node system role/产品保存尚待验证；保留已发布治理来源与旧 canonical、intent、诊断。回滚依据实际 CR/commit，不自动部署/回滚。
+逻辑项更新不能变成任意覆盖；新版 decoder 不能把旧 receipt 当新解释；缺 role 会使正文误标 assistant。Node S4 的 File 暂存、恢复与 system role DTO 已验证；新场景产品 SQLite/provider 保存仍待 S5。保留已发布治理来源与旧 canonical、intent、诊断。回滚依据实际 CR/commit，不自动部署/回滚。
 
 ## 9. 发布计划
 
-S1 原稿 needs-repair、修正自审 clean 和带欠项 finish 分别保留；S2 正式规范发布与 wire 交付已审查/finished，原独立 vendor 离线失败保留。S3 executed 待审：最终 conformance39/stage3对照5/target73 PASS，初次 target67/72 失败与修正保留，未 finish。PLAN 与 CR-20261006-0010-shared-history-rust-semantics 已同步；S4/S5 pending、REQ in_progress，真实手机验收由 832 负责。
+S1/S2/S3 历史失败、执行、审查和 finish 分别保留；S3 clean/finished 已由 journal 核对。S4 原执行/首次审查保留，本批 S4-R1 修复及回归见 logs/shared-history-compat-20261005/s4/repair-r1/report.md；PLAN 与独立 draft CR-20261006-1846-history-promotion-proof-repair 同步。修复自检不构成新 review；S5 pending、REQ in_progress，真实手机验收由 832 负责。

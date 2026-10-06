@@ -7,6 +7,8 @@ const os = require('node:os');
 const path = require('node:path');
 const {
     REQUIRED_CAPABILITIES,
+    HISTORY_SEMANTICS_CAPABILITY,
+    assertHistoryProfile,
     ACK_REJECTION_CODES,
     AnalyzerProtocolError,
     canonicalizeCapabilities,
@@ -353,9 +355,24 @@ class AnalyzerProcessManager extends EventEmitter {
         this.activeRequest = null;
         this.idleWaiters = new Set();
         this.processInvalidationPromise = null;
+        this.offeredHistoryProfile = 'target-v2';
+        this.negotiatedCapabilities = [];
+        this.analyzerCapabilities = [];
     }
 
-    async start({ timeoutMs = null } = {}) {
+    async start({ timeoutMs = null, historyProfile = null } = {}) {
+        if (historyProfile !== null && !['target-v1', 'target-v2'].includes(historyProfile)) {
+            throw new AnalyzerProtocolError('checkpoint_incompatible', 'unknown history profile');
+        }
+        if (historyProfile && historyProfile !== this.offeredHistoryProfile) {
+            if (this.activeRequest || this.handshake) {
+                throw new AnalyzerProtocolError('busy', 'cannot change hello profile during an active request');
+            }
+            const canReuseLegacy = this.child && this.readyGeneration === this.generation
+                && !this.analyzerCapabilities.includes(HISTORY_SEMANTICS_CAPABILITY);
+            if (!canReuseLegacy) await this.stop();
+            this.offeredHistoryProfile = historyProfile;
+        }
         const requestedTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
             ? timeoutMs
             : null;
@@ -365,7 +382,7 @@ class AnalyzerProcessManager extends EventEmitter {
             if (this.processInvalidationPromise === invalidation) {
                 this.processInvalidationPromise = null;
             }
-            return this.start({ timeoutMs });
+            return this.start({ timeoutMs, historyProfile });
         }
         if (this.child && this.startupFailure) throw this.startupFailure;
         if (this.stopping) {
@@ -482,7 +499,9 @@ class AnalyzerProcessManager extends EventEmitter {
                     timer
                 };
                 try {
-                    this.send(createHello(requestId));
+                    const hello = createHello(requestId, { historyProfile: this.offeredHistoryProfile });
+                    this.handshake.offeredCapabilities = hello.capabilities;
+                    this.send(hello);
                 } catch (error) {
                     this._failStartup(error, { generation, child });
                 }
@@ -590,13 +609,25 @@ class AnalyzerProcessManager extends EventEmitter {
         return message;
     }
 
+    historyProfileFor(request) {
+        if (request?.recovery && request.persisted_anchor?.reducer_state?.reducer_version === 'target-v1') {
+            return 'target-v1';
+        }
+        return this.negotiatedCapabilities.includes(HISTORY_SEMANTICS_CAPABILITY) ? 'target-v2' : 'target-v1';
+    }
+
     async request(request, {
         onBatch = null,
         onComplete = null,
         timeoutMs = this.requestTimeoutMs,
-        attempt = 0
+        attempt = 0,
+        historyProfile = null
     } = {}) {
-        await this.start({ timeoutMs });
+        await this.start({ timeoutMs, historyProfile });
+        const selectedHistoryProfile = this.historyProfileFor(request);
+        if (historyProfile === 'target-v2' && selectedHistoryProfile !== historyProfile) {
+            throw new AnalyzerProtocolError('unsupported_capability', 'original v2 delivery cannot be read by this analyzer');
+        }
         const requestId = request?.request_id;
         if (!requestId) throw new AnalyzerProtocolError('missing_field', 'request_id is required');
         if (this.requests.has(requestId)) {
@@ -618,6 +649,7 @@ class AnalyzerProcessManager extends EventEmitter {
             requestId,
             generation: this.generation,
             attempt,
+            historyProfile: selectedHistoryProfile,
             child: this.child,
             onBatch,
             onComplete,
@@ -831,6 +863,10 @@ class AnalyzerProcessManager extends EventEmitter {
                     return;
                 }
                 const handshake = this.handshake;
+                this.analyzerCapabilities = capabilities;
+                this.negotiatedCapabilities = capabilities.filter(
+                    (capability) => handshake.offeredCapabilities.includes(capability)
+                );
                 this.readyGeneration = handshake.generation;
                 this._clearHandshake(handshake);
                 handshake.resolve();
@@ -848,7 +884,10 @@ class AnalyzerProcessManager extends EventEmitter {
         if (message.message_type === 'batch') {
             state.batchDrain = (state.batchDrain || Promise.resolve())
                 .catch(() => {})
-                .then(() => (typeof state.onBatch === 'function' ? state.onBatch(message) : null))
+                .then(() => {
+                    assertHistoryProfile(message, state.historyProfile);
+                    return typeof state.onBatch === 'function' ? state.onBatch(message) : null;
+                })
                 .then((result) => {
                     if (!this._isCurrentRequest(state)) return;
                     const accepted = result?.accepted !== false;
@@ -956,7 +995,9 @@ class AnalyzerProcessManager extends EventEmitter {
                         return;
                     }
                     return Promise.resolve()
-                        .then(() => (typeof state.onComplete === 'function'
+                        .then(() => {
+                            assertHistoryProfile(message, state.historyProfile);
+                            return typeof state.onComplete === 'function'
                             ? state.onComplete(message, {
                                 acceptedDelivery: state.lastAcceptedDelivery
                                     ? { ...state.lastAcceptedDelivery, scope: state.lastAcceptedDelivery.scope
@@ -964,7 +1005,8 @@ class AnalyzerProcessManager extends EventEmitter {
                                         : null }
                                     : null
                             })
-                            : null))
+                            : null;
+                        })
                         .then(() => {
                             if (!this._isCurrentRequest(state)) return;
                             this.tracker.resolve(requestId, message, this._scopeOf(state));

@@ -1,0 +1,38 @@
+[
+  {
+    "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+    "sha256": "4217fa818af014f7f8fc013fbff0a2a600649c6c66d1aa2370a9aa0692e20832"
+  },
+  {
+    "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+    "sha256": "e551ce08554b3356a38b598588f3433cb2d9c7135bfc3682836f29a9e20c2c65"
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+    "sha256": "0d837d4b08f565de59a8c0c3522a25ed63c5028fa7a3b27de7253b6edd53fb41"
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+    "sha256": "c54fe01079c0af2f65b0fbdce7769bcc6437608b3992fb570c63bb34c2c903e7"
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+    "sha256": "fa2792daab5591d4b2e83e1a5c085a27090f9a95907b7abec613e6302695c85d"
+  },
+  {
+    "path": "src/services/codexRolloutCollector/index.js",
+    "sha256": "f394444946bdd69e9a7effd5679fc46343f7052dc16c6db148b34fef98265c19"
+  },
+  {
+    "path": "tests/codexRolloutCollector.realRust.test.js",
+    "sha256": "b3c4f164533e5c5ef02b565225ff9ddb273d19e1ab7905f349b6192a63d91e0f"
+  },
+  {
+    "path": "tests/codexRolloutCollector.test.js",
+    "sha256": "33f8ab5ed411bf7841bbbddf1ed7cc4cd76b9e01adb8cd5918e83578e4b99a43"
+  },
+  {
+    "path": "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+    "sha256": "b477fe37137efbc54afcafadec7db006d0f07b4e1cb163f2806ae9d393391231"
+  }
+]

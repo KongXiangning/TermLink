@@ -1,0 +1,10 @@
+const fs=require('fs'),cp=require('child_process');
+const d='logs/shared-history-compat-20261005/s4/repair-r1';
+const label=process.argv[2];
+const args=process.argv.slice(3);
+const started=new Date().toISOString();
+const r=cp.spawnSync('node',args,{encoding:'utf8',env:{...process.env,CARGO_NET_OFFLINE:'true'},maxBuffer:32*1024*1024});
+fs.writeFileSync(`${d}/${label}.txt`,(r.stdout||'')+(r.stderr||''));
+fs.writeFileSync(`${d}/${label}-result.json`,JSON.stringify({command:{bin:'node',args},started,finished:new Date().toISOString(),exit_code:r.status,error:r.error?.message,environment:{CARGO_NET_OFFLINE:'true'}},null,2)+'\n');
+console.log(JSON.stringify({label,exit_code:r.status,tail:((r.stdout||'')+(r.stderr||'')).slice(-4500)}));
+process.exitCode=r.status??1;

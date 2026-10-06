@@ -1,0 +1,72 @@
+▶ history v2 rereads original partial delegation prefix without treating retained ParseGap as current coverage
+  ✖ same-position (23.9477ms)
+  ✖ reversed-line (15.7756ms)
+  ✖ missing-start-coverage (10.5136ms)
+✖ history v2 rereads original partial delegation prefix without treating retained ParseGap as current coverage (1008.9056ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1173.0273
+
+✖ failing tests:
+
+test at tests\codexRolloutCollector.realRust.test.js:257:96
+✖ same-position (23.9477ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.realRust.test.js:284:9)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.realRust.test.js:257:88)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.realRust.test.js:257:96
+✖ reversed-line (15.7756ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  Error: mutation evidence conflicts with an existing staged mutation
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.realRust.test.js:284:9)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.realRust.test.js:257:88)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: mutation evidence conflicts with an existing staged mutation
+        at importerError (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analysisBatchImporter.js:364:19)
+        at batchConflict (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analysisBatchImporter.js:372:12)
+        at preflightTargetState (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analysisBatchImporter.js:1067:19)
+        at FileAnalysisStore._applyTargetBatch (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analysisBatchImporter.js:1392:27)
+        at FileAnalysisStore.applyBatch (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analysisBatchImporter.js:1429:54)
+        at E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analysisBatchImporter.js:1645:44,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.realRust.test.js:257:96
+✖ missing-start-coverage (10.5136ms)
+  Error [AnalyzerProtocolError]: payload.history_items[0].payload.metadata.source_ref exceeds the batch source scope
+      at invalid (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProtocol.js:157:11)
+      at validateSourceRefScope (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProtocol.js:413:9)
+      at validateEventMetadata (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProtocol.js:574:5)
+      at validateAnalysisEvent (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProtocol.js:628:5)
+      at E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProtocol.js:1186:52
+      at Array.forEach (<anonymous>)
+      at validateBatchPayload (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProtocol.js:1186:27)
+      at Object.validateMessage (E:\coding\TermLink-rust-source-resolution-codex\src\services\codexRolloutCollector\analyzerProtocol.js:1714:13)
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.realRust.test.js:283:75)
+      at async Test.run (node:internal/test_runner/test:1113:7) {
+    code: 'invalid_field',
+    details: { field: 'payload.history_items[0].payload.metadata.source_ref' }
+  }

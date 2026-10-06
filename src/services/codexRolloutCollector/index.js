@@ -164,6 +164,9 @@ class CodexRolloutCollector {
                 attempt: 0,
                 scope: null,
                 pendingRecoveryDelivery: request?.recovery || null,
+                historyProfile: request?.recovery
+                    ? (request.persisted_anchor?.reducer_state?.reducer_version === 'target-v2' ? 'target-v2' : 'target-v1')
+                    : null,
                 resolve,
                 reject,
                 completionPromise: null,
@@ -416,6 +419,7 @@ class CodexRolloutCollector {
                     attempt: run.attempt + 1, scope,
                     recoveryDelivery: receipt || null,
                     pendingRecoveryDelivery: pendingRecovery || null,
+                    historyProfile: run.history_profile || (recovery ? 'target-v1' : null),
                     enqueueSequence: run.enqueue_sequence,
                     lifecycleGeneration: this.lifecycleGeneration,
                     status: 'queued', settled: false, cancelRequested: false,
@@ -605,12 +609,30 @@ class CodexRolloutCollector {
                     recovery: { segment_id: recovery.segment_id, batch_id: recovery.batch_id } };
             }
         }
+        if (typeof this.processManager.historyProfileFor === 'function') {
+            await this._startProcessForIntent(intent, deadline);
+        }
         const normalizedRequest = {
             ...intent.request,
             request_id: intent.requestId,
             protocol_version: intent.request?.protocol_version || 1,
             message_type: 'analyze'
         };
+        validateMessage(normalizedRequest);
+        const selectedProfile = this.processManager.historyProfileFor?.(normalizedRequest) || 'target-v1';
+        if (intent.historyProfile === 'target-v2' && selectedProfile !== 'target-v2') {
+            throw coordinatorError('unsupported_capability', 'original v2 job requires history_semantics_v2');
+        }
+        if (!intent.historyProfile && selectedProfile === 'target-v2'
+            && normalizedRequest.mode === 'backfill' && !normalizedRequest.recovery
+            && normalizedRequest.persisted_anchor?.reducer_state?.reducer_version === 'target-v1') {
+            if (normalizedRequest.job_id === normalizedRequest.persisted_anchor.job_id) {
+                throw coordinatorError('checkpoint_incompatible', 'new history semantics require a distinct backfill job');
+            }
+            for (const field of ['cursor', 'persisted_anchor', 'known_complete_range', 'recovery']) normalizedRequest[field] = null;
+        }
+        intent.historyProfile = selectedProfile;
+        intent.request = { ...normalizedRequest };
         // Target requests carry their own recovery anchor.  Node must not
         // reconstruct a source spec or discover a Rust source on behalf of the
         // analyzer; the source scope becomes durable only after the first
@@ -634,6 +656,10 @@ class CodexRolloutCollector {
             process_generation: currentProcessGeneration,
             recovery_delivery: resumedRequest.recovery || null
         }, deadline);
+        await this._awaitWithDeadline(() => this.runStore.update(intent.runId, {
+            history_profile: intent.historyProfile,
+            read_intent: clone(normalizedRequest)
+        }), { intent, deadline, phase: 'startup' });
 
         try {
             const startingRetryCount = intent.retryCount;
@@ -684,6 +710,7 @@ class CodexRolloutCollector {
                         () => this.processManager.request(attemptRequest, {
                             timeoutMs: remainingTimeoutMs,
                             attempt,
+                            historyProfile: intent.historyProfile,
                             onBatch: async (batch) => {
                                 this._assertCurrentAttempt(intent, currentRequestId);
                                 assertBatchConversation(batch, intent.conversationId);
@@ -1137,7 +1164,7 @@ class CodexRolloutCollector {
     async _startProcessForIntent(intent, deadline) {
         this._assertIntentLive(intent);
         if (!Number.isFinite(deadline)) {
-            await this.processManager.start();
+            await this.processManager.start({ historyProfile: intent.historyProfile || 'target-v2' });
             return;
         }
         const remainingTimeoutMs = await this._requireRemainingTimeout(
@@ -1146,7 +1173,7 @@ class CodexRolloutCollector {
             'startup'
         );
         await this._awaitWithDeadline(
-            () => this.processManager.start({ timeoutMs: remainingTimeoutMs }),
+            () => this.processManager.start({ timeoutMs: remainingTimeoutMs, historyProfile: intent.historyProfile || 'target-v2' }),
             { intent, deadline, phase: 'startup' }
         );
         if (this.stopping

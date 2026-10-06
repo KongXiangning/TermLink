@@ -1,0 +1,381 @@
+✔ real Rust target durably imports tools, usage, outcomes and unknown diagnostics (3397.2204ms)
+✔ real Rust target enforces a zero resource timeout and remains usable for the next job (128.5812ms)
+✔ real Rust accepts consecutive new jobs for the same conversation and persisted source (185.0024ms)
+✔ interactive preemption waits for termination fence and resumes the same background job (43.9622ms)
+✔ new interactive selection preempts the old selection and a same-conversation intent supersedes it (30.1566ms)
+✔ Node restart recovers durable staging even when run ACK-pending update never happened (1033.28ms)
+✔ restart rejects expired, incompatible and exhausted jobs without analyze (1.0212ms)
+✔ latest interactive selection wins while cancellation is still draining (64.3755ms)
+✔ queued intent is durable before dispatch, and queue timeout does not kill another conversation (46.7944ms)
+✔ queued never-attempted job with zero retry budget resumes once and preserves queue policy (30.6202ms)
+✔ run recovery scan limit fails closed before dispatch and preserves every record (0.4384ms)
+✔ restart executes the already reserved last retry without charging its budget twice (29.7032ms)
+✔ interactive intent does not preempt an accepted complete during checkpoint persistence (31.2418ms)
+✔ one attempt accepts multiple batches and clears only its recovered delivery expectation (1.5672ms)
+✔ a recovered queue snapshot never replaces a newer live intent arriving during init (45.2104ms)
+✔ terminal run history does not exhaust the bounded pending recovery capacity (115.6844ms)
+✔ target protocol is JSONL and rejects legacy analyze fields (2.0132ms)
+✔ target analyze recovery uses a complete opaque delivery pair (0.1897ms)
+✖ target hello advertises canonical capabilities and normalizes only the old analyze alias (0.7798ms)
+✔ target startup resolves CODEX_HOME and builds the fixed sessions-root args (7.5906ms)
+✔ target startup falls back to OS home/.codex/sessions without CODEX_HOME (1.8408ms)
+✔ target process manager passes startup args and gates analyze behind echoed hello (168.8664ms)
+✔ target process manager rejects direct analyze sends until the current hello is ready (278.6141ms)
+✔ target process manager clears synchronous spawn failures before retrying startup (2.9928ms)
+✔ target process manager clears start promise when default spawn throws synchronously (0.9521ms)
+✔ target process manager rejects hello mismatch_request (273.8584ms)
+✔ target process manager rejects hello wrong_role (203.1403ms)
+✔ target process manager rejects hello missing_capability (241.232ms)
+✔ target process manager rejects hello wrong_protocol (234.2831ms)
+✔ target process manager rejects hello timeout without sending analyze (57.6557ms)
+✔ target process manager fences startup failures until child exit is proven (returns false) (56.6235ms)
+✔ target process manager fences startup failures until child exit is proven (throws) (62.1315ms)
+✔ target process manager bounds a request while hello startup is already in flight (165.6079ms)
+✔ target request tracker binds attempt generation and phase deadlines (0.6083ms)
+✔ target request tracker settles each normal terminal attempt once and releases it (0.2254ms)
+✔ target request tracker keeps a cancelled attempt occupied until termination and rejects stale callbacks (0.1781ms)
+✔ target request tracker reports hello/analyze/complete timeout and retains the active slot (0.2201ms)
+✔ target process manager enforces one active request and drops an old generation message (461.3262ms)
+✔ process manager does not release a generation before worker exit (1101.6193ms)
+✔ process manager keeps a pre-registered idle waiter behind ACK invalidation (76.889ms)
+✔ process manager fences child errors that do not prove worker exit (77.4674ms)
+✔ process manager normalizes asynchronous stdin errors and fences the child until exit (156.1088ms)
+✔ collector keeps one running intent and replaces only the same conversation pending intent (1187.9178ms)
+✔ collector closes a timed-out active slot before dispatching the next intent (650.6801ms)
+✔ collector waits for explicit cancellation settlement before dispatching the next intent (870.4588ms)
+▶ collector settles cancel and timeout before a non-draining worker releases
+  ✖ cancel (1.0857ms)
+  ✖ timeout (34.1199ms)
+✖ collector settles cancel and timeout before a non-draining worker releases (35.7446ms)
+✖ collector retries a crashed process with a new request id within the fixed budget (469.0854ms)
+✔ collector stop fences delayed initialization without leaking an analyzer process (2.3346ms)
+✔ collector fences bounded analyze against an in-flight unbounded init (71.7232ms)
+✖ collector does not restart after stop begins during the restart idle wait (14.3826ms)
+✖ collector bounds initial hello startup by the intent deadline (46.4602ms)
+✔ collector bounds a delayed restart start by the intent deadline (30.47ms)
+✔ collector enforces one total deadline across batch and complete phases (404.8917ms)
+✖ collector replaces a ready child whose stdin becomes unavailable before exit (313.9238ms)
+✖ collector invalidates the current generation when batch ACK writing fails (408.9959ms)
+✔ process manager force-terminates workers that ignore cancel or timeout (1486.793ms)
+✔ process manager keeps a live worker fenced after nonfatal cancel or timeout error (439.7837ms)
+✔ target batch keeps delivery identity outside the payload (0.5273ms)
+✔ target batch validates Rust event variants and batch evidence fields (0.8589ms)
+✔ target batch requires complete lineage evidence when history_base is present (0.2547ms)
+✔ target lineage accepts multiple transitions and binds coverage/checkpoint evidence (0.7421ms)
+✔ target replacement evidence binds to exactly one matching lineage transition (0.5822ms)
+✔ target cursor kind requires its declared capability (0.2194ms)
+✔ target complete validates checkpoint and cursor consistency (0.3832ms)
+✔ target ACK requires job, segment, batch and stable settlement pairs (0.1089ms)
+✔ target batch importer validates and durably stages the outer delivery identity (1.2693ms)
+✔ target complete binds its checkpoint watermark to the latest accepted delivery (25.0749ms)
+▶ complete checkpoint must match the durable ACKed batch evidence after restart
+  ✔ memory: rejects mismatched range (1.2106ms)
+  ✔ memory: rejects mismatched completeness (0.9636ms)
+  ✔ memory: rejects mismatched reducer (1.1331ms)
+  ✔ memory: rejects mismatched provenance (1.0895ms)
+  ✔ file: rejects mismatched range (14.8539ms)
+  ✔ file: rejects mismatched completeness (13.922ms)
+  ✔ file: rejects mismatched reducer (13.9482ms)
+  ✔ file: rejects mismatched provenance (14.7261ms)
+✔ complete checkpoint must match the durable ACKed batch evidence after restart (69.7765ms)
+✔ recovery delivery comes from the latest verified durable batch, not request or file order (20.8048ms)
+✔ file recovery fails closed on unreadable or corrupt durable analysis evidence (84.9048ms)
+✔ opaque Rust reducer payload round-trips unchanged through staging and complete (11.2318ms)
+✔ target batch importer excludes nested generic revisions from semantic and durable payloads (14.2411ms)
+✔ target batch importer recovers File staging receipts without replaying the batch (10.501ms)
+✔ target File importer serializes concurrent receipts and reindexes staging ranges (14.3065ms)
+✔ target batch importer keeps range index deterministic and deduplicates overlap (1.323ms)
+✔ target batch importer treats retry request changes as idempotent but keeps job scope strict (1.2706ms)
+✔ target batch importer rejects delivery content and scope conflicts before staging (0.8007ms)
+✔ target batch importer promotes partial to canonical without a late downgrade (1.1653ms)
+✔ target batch importer validates checkpoint evidence before any receipt is written (0.9875ms)
+✔ target batch importer rejects malformed payload before the ACK precondition can be met (0.1372ms)
+✔ last-turn replacement is capability-advertised, validated, and idempotently imported (2.2634ms)
+✔ replacement evidence binds source identities, cut positions, and child history base (0.8967ms)
+✔ replacement evidence conflicts are rejected before Memory/File state mutation (13.8125ms)
+✔ partial and provisional top-level replacements fail closed before import (2.9281ms)
+✔ online last-turn replacement retains the parent history and commits the child head (23.799ms)
+✔ malformed canonical batches fail closed before importer state changes (0.3396ms)
+✔ complete and checkpoint claims fail closed without recovery evidence (0.1554ms)
+✔ complete cannot commit unless the same request imported a batch (1.0262ms)
+✔ collector binds the first batch to the requested conversation before staging (1.7976ms)
+✔ collector retries the failed later batch and does not reuse the prior durable batch identity (2.2826ms)
+✔ restart prefers an explicit pending later batch over an older durable receipt (3.3815ms)
+✔ mutation evidence is complete before importer state can be touched (0.2084ms)
+✔ importer deduplicates overlap and promotes provisional data before checkpoint commit (1.0686ms)
+✔ importer never downgrades a canonical projection on a late incomplete overlap (0.917ms)
+✔ file checkpoint store replaces one validated scope atomically (11.2579ms)
+✔ memory and file checkpoint stores only advance monotonically (7.4436ms)
+✔ target checkpoint stores validate scope, preserve opaque metadata, and recover across attempts (16.3681ms)
+✔ target run stores persist attempts, retry state, receipt progress, and terminal result (19.0354ms)
+✔ target run stores bind request identity to attempt and preserve monotonic batch IDs (19.5834ms)
+✔ target run stores keep completed and failed terminal states immutable (25.6024ms)
+✔ target run stores reject late terminal callbacks after a retry changes identity (17.653ms)
+✔ target checkpoint stores serialize concurrent progress without rollback (6.7757ms)
+✔ target run stores serialize concurrent progress and late failure updates (24.4141ms)
+✔ collector starts an isolated analyzer process, ACKs imported batches, and persists completion checkpoint (380.205ms)
+✔ collector holds the single-flight slot until Rust confirms a negative batch ACK (736.394ms)
+✖ collector retries a staging rejection with the same job and recovery delivery (371.4938ms)
+✖ collector retries retryable fatal errors only after a new analyzer generation is ready (543.1318ms)
+✖ collector does not retry a nonretryable fatal error but recycles before the next intent (450.3059ms)
+✖ collector preserves typed nonfatal analyzer errors without flattening or restarting (317.1235ms)
+✔ collector timeout sends cancel and rejects the request without hanging the process (182.6085ms)
+✔ collector restarts the analyzer after a before_batch exit and retries the same job (466.0806ms)
+✔ collector restarts the analyzer after a after_batch exit and retries the same job (488.2686ms)
+✔ collector can restart against file stores without duplicating the persisted batch (851.0927ms)
+✔ fake analyzer quarantines stale output and deduplicates a repeated opaque delivery (364.9584ms)
+▶ collector records a durable terminal run when late-begin compensation fail writer rejects
+  ✔ memory (203.1386ms)
+  ✔ file (205.7409ms)
+✔ collector records a durable terminal run when late-begin compensation fail writer rejects (413.5516ms)
+▶ collector compensates a delayed run begin after a deadline for memory and file stores
+  ✔ memory (210.3649ms)
+  ✔ file (210.037ms)
+✔ collector compensates a delayed run begin after a deadline for memory and file stores (424.7126ms)
+▶ collector compensates a delayed run begin when cancellation wins for memory and file stores
+  ✔ memory (155.7764ms)
+  ✔ file (236.5306ms)
+✔ collector compensates a delayed run begin when cancellation wins for memory and file stores (397.304ms)
+▶ collector preserves delayed run-store begin failures without a running artifact
+  ✔ memory (214.6753ms)
+  ✔ file (151.9585ms)
+✔ collector preserves delayed run-store begin failures without a running artifact (369.2065ms)
+✔ collector retries a failed staging attempt with the same opaque identity and only a new request id (382.4904ms)
+✔ collector completes and restarts against the real Rust target with checkpoint identity reuse (848.1009ms)
+ℹ tests 138
+ℹ suites 0
+ℹ pass 125
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18736.5856
+
+✖ failing tests:
+
+test at tests\codexRolloutCollector.test.js:810:1
+✖ target hello advertises canonical capabilities and normalizes only the old analyze alias (0.7798ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'analyze_v1',
+      'cancel',
+      'checkpoint',
+      'ack',
+      'last_turn_replacement_v1',
+  +   'history_semantics_v2'
+    ]
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:812:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'analyze_v1', 'cancel', 'checkpoint', 'ack', 'last_turn_replacement_v1', 'history_semantics_v2' ],
+    expected: [ 'analyze_v1', 'cancel', 'checkpoint', 'ack', 'last_turn_replacement_v1' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:2198:17
+✖ cancel (1.0857ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:2297:20)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:2198:9)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:2198:17
+✖ timeout (34.1199ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:2297:20)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:2198:9)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:2319:1
+✖ collector retries a crashed process with a new request id within the fixed budget (469.0854ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:2359:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:2487:1
+✖ collector does not restart after stop begins during the restart idle wait (14.3826ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:2542:12)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:2549:1
+✖ collector bounds initial hello startup by the intent deadline (46.4602ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:2638:12)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:2754:1
+✖ collector replaces a ready child whose stdin becomes unavailable before exit (313.9238ms)
+  AssertionError [ERR_ASSERTION]: Expected "actual" to be strictly unequal to:
+  
+  'nonrunning-retry-request'
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:2797:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'nonrunning-retry-request',
+    expected: 'nonrunning-retry-request',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:2804:1
+✖ collector invalidates the current generation when batch ACK writing fails (408.9959ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:2862:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:5936:1
+✖ collector retries a staging rejection with the same job and recovery delivery (371.4938ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:5996:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:6014:1
+✖ collector retries retryable fatal errors only after a new analyzer generation is ready (543.1318ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:6059:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:6071:1
+✖ collector does not retry a nonretryable fatal error but recycles before the next intent (450.3059ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:6119:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\codexRolloutCollector.test.js:6135:1
+✖ collector preserves typed nonfatal analyzer errors without flattening or restarting (317.1235ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\codexRolloutCollector.test.js:6179:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+

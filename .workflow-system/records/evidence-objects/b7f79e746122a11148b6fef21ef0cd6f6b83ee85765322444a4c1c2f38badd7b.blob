@@ -1,0 +1,16 @@
+{
+  "command": {
+    "bin": "pwsh",
+    "args": [
+      "-NoProfile",
+      "-File",
+      ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+      "-RecordPath",
+      "docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md",
+      "-ProjectRoot",
+      ".",
+      "-Strict"
+    ]
+  },
+  "exit_code": 0
+}

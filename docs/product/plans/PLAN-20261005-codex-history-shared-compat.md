@@ -21,11 +21,13 @@ related_docs: [docs/product/requirements/REQ-20261005-codex-history-shared-compa
 | S1-C REQ/PLAN/CR 与文件/回归分工 | delivered | 原 draft CR/执行/审查保留，本次另有 S2 CR。 |
 | S1-D 共享治理正文受控发布 | published_in_S2 | 用户“继续”同意本次在途直接文档同步并保存 journal/前后证据；旧 finish pending 保留为历史。 |
 | S2 最小 Spike→formal wire patch | finished | 当前 journal 已有 clean 自审与 finish ref=key-1985d100d644279d1e58e1c9ebc2b4e97fe98ead22822ed5320d4ef81833629a.json；原 S2 待审报告及独立 vendor 离线失败仍保留为历史。 |
-| S3 Rust 自有事件、投影、target profile | executed_pending_review | DelegatedInput、归属/双载体/不可变物理证据、target-v2/协商与旧状态保护已实现；conformance39/stage3对照5/target73 PASS，未改 Node，未 finish。 |
-| S4 Node 局部接收与证明合并 | pending | 依据 S3 稳定契约，不做整个迁移。 |
+| S3 Rust 自有事件、投影、target profile | finished | 原 execution/report 保留；change 自审 clean ref=key-9cbd6bc83843db4a56ee72e21b8e0ae7ce207880b53a8837244a8b30dc5f084e.json，finish ref=key-a7cdf3119753d2f8c3f746f9c9fa16c011da36a79848daadd11808bea9144834.json。 |
+| S4 Node 局部接收与证明合并 | repair_executed_pending_review | 首次 change 自审 needs-repair（S4-R1：完整性升级短路 G1），原执行/审查保留。本批限定通用提升为同一 durable 事件观察；开始→完成变化继续走 G1。修复与 File 拒绝/重开回归见 s4/repair-r1/report.md；待新 review，未 finish。 |
 | S5 隔离产品保存交付 | pending | 不代替真机。 |
 
-原执行 needs-repair 与修正后的 clean 自审分别保留；S1 finished 带发布欠项在 S2 补齐。S3 开始时实际 HEAD=644d9b1fad603719ee58d3514d32668735b1efdb，S2 已 finished，S3 已执行待 review。当前新 CR 为 `CR-20261006-0010-shared-history-rust-semantics`，draft/commit_ref=TBD；本步不标产品 done。
+原执行 needs-repair 与修正后的 clean 自审分别保留；S1 finished 带发布欠项在 S2 补齐。S3 原待审状态已由真实 review/finish 处置，历史报告不重写。S4 开始 HEAD=7ce1d08e6dbb7863d5b95fb992086f1b37637488，新 CR 为 `CR-20261006-0200-shared-history-node-consumer`，draft/commit_ref=TBD；本步不标产品 done。
+
+2026-10-06 S4 repair：对应 change review `key-f70d47a3fa7402f6ccee4bcfd8de46e18768d4d3395e508df94918c8a52e0e0b.json` 的 S4-R1；独立 draft CR `CR-20261006-1846-history-promotion-proof-repair`。仅 importer、既有 realRust 测试及进度文档，没有重做 S3 或扩大到 S5。修复自检不替代新 change review。
 
 ## 1. 模块顺序与交付
 
@@ -37,8 +39,8 @@ S1 固定 shared design → S2 Spike 最小 typed wire 并推广 formal → S3 �
 
 ## 3. 原任务与返回
 
-832 仍 active/S2 executed。833 当前显式 focus/S3；不将 832 pause、finish 或 close。833 结束后应明确 focus 回 832/S2，读取实际修复与未解决项，整理原 S3/S4 中已转交的重复实施范围，再审查/finish S2。832 继续分支定位、三类真实宿主保存与手机切换/重开正文和工具详情验收。close 不是自动返回机制，也不是修复成功证据。
+832 仍 active/S2 executed。833 当前显式 focus/S4；不将 832 pause、finish 或 close。833 结束后应明确 focus 回 832/S2，读取实际修复与未解决项，整理原 S3/S4 中已转交的重复实施范围，再审查/finish S2。832 继续分支定位、三类真实宿主保存与手机切换/重开正文和工具详情验收。close 不是自动返回机制，也不是修复成功证据。
 
 ## 4. 本批验证与后续
 
-S2 历史结果见 logs/shared-history-compat-20261005/s2/report.md。S3 实装与实际失败/修正见 logs/shared-history-compat-20261005/s3/report.md，Node 交接见同目录 node-handoff.md。最终同一次离线运行 conformance39、stage3对照5、target73 PASS；此前 target67/72 及占位版本/错误文本修正不删除。真实 Node staging/产品DB/服务/模型/手机未运行，REQ 未 done，下一步 review-change 833/S3。
+S2/S3 历史实装、失败和处置证据保留。S4 原执行见 logs/shared-history-compat-20261005/s4/report.md；首次审查发现完整性提升绕过 G1，本批修复/测试原件见 s4/repair-r1/report.md。原未知事件仍 partial，产品 system role/正文是回调 DTO 断言，H1/H3 的 SQLite/provider 重开完整交付仍待 S5；已有 productflow 回归不代替该新场景。服务/模型/手机未运行，REQ 未 done，下一步 review-change 833/S4 修复版本。

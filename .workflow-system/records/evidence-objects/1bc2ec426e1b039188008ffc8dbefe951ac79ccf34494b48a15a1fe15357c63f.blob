@@ -1,0 +1,2810 @@
+{
+  "runtime_role": "assistance",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "status": "applied",
+  "recorded": true,
+  "ref": ".workflow-system/records/events/key-d8bcc00aeffee86f5383294807418ef92cf1b1d38b24d58d764896228f4e1cec.json",
+  "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+  "task": {
+    "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+    "display_id": "TASK-20260833",
+    "title": "委派输入与正常历史增长的最小共享兼容修复（Rust契约先行）",
+    "lifecycle": "active",
+    "lifecycle_ref": ".workflow-system/records/events/key-c9ee87ca72baea443b6cb1d53f14387af5407d633ad8cdf5988b80c0be34ff1d.json",
+    "adopted_plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+    "plan_status": "adopted",
+    "plan": {
+      "title": "委派输入与正常历史增长的最小共享兼容修复（Rust契约先行）",
+      "goal": "让真实create_thread/send_message委派输入按正确业务身份保存，并允许有来源证据的同turn正常开始→完成更新；严格保留真实冲突/未知/partial/旧canonical保护。交付稳定Rust契约与现有Node局部consumer、隔离产品持久化证据，再回到TASK-20260832进行分支定位和真实宿主/手机三场景验收。",
+      "acceptance": [
+        "两种真实委派carrier、create_thread/send_message分别有脱敏形状/身份/turn关联证据；不造call_id，不当普通user/assistant或本地tool，不用Diagnostic代替业务正文。",
+        "相同nativeitem_id双carrier和overlap/retry/restart只生成一个正确逻辑委派项，保留两份物理来源；内容/归属冲突与未知/畸形输入仍typedpartial/fail-closed。",
+        "共享AnalysisEvent字段、能力/version/checkpoint/旧consumer策略先审查固定；新Rust不向不支持的新consumer静默发送无法验证的事件并宣称canonical。无新analyze mode/产品revision/epoch/worker。",
+        "H1实际prefix→增长样本在旧durablestaging存在时正确处理合法生命周期演进；同event内容变更、source/scope不一致、旧request和canonical降级仍拒绝，旧failedruns/receipts/intents保持。",
+        "完整backfill与deltaappend的更新证据分别定义并回归，不凭ordinal/hash/更高completeness猜测合法替换；如果无法证明，仍拒绝并明确剩余问题。",
+        "旧partial/ParseGap在新解析兼容下的普通重读、旧checkpoint拒绝/恢复和canonical投影资格必须分别取证；不能删除旧诊断或清库让新版本通过。",
+        "Spike→formal相同最小vendorpatch、manifests与closure/许可证来源可核对；普通带call_id工具输出旧路径通过；无本机外部Codex依赖/default网络下载。",
+        "Rust独立步骤不改Node/App/DB/IPC；Node步骤仅现有schema/importer/presentation，保持一条Node→Rust链和正式module/process入口。",
+        "委派内容使用现有genericproductrows/eventFacts及正确role/presentation保留正文，无新增产品DBschema；如确需Android/Gateway修改，明确文件/实际行为并另行准备，不静默扩本task。",
+        "隔离actualRust→durablestaging/positiveACK→validatedcomplete→临时产品SQLitetransaction→productprovider读回的身份/正文及真实工具详情分别成立；fixture/mock不是手机验收。",
+        "新普通对话/Branch/委派全部真实宿主和指定手机切换重开验收仍归TASK-20260832；本task不得用isolatedPASS替代三个业务目标。",
+        "每批真实REQ/PLAN/CR同步，未提交draft/真实未提交，不造activecommit_ref；最终保留未解决项、版本/失败与测层，审查clean/finished/closed非业务PASS。"
+      ],
+      "scope": [
+        "共享最小事件和合并语义的独立契约范围；以S1和S2证据为基础，协议候选名称不当既定事实。",
+        "Rust候选：model/analysis_event.rs、analysis.rs、codex_adapter、wire facade/profile、target_data/mapping/runtime的实际必要处。",
+        "仓库内Spike/formalvendorprotocol models/items必要patch与两份manifest、Spikecodex_decode；先确定确切closure影响，不预定全量upstream升级。",
+        "Node候选：existinganalyzerProtocol.js和analysisBatchImporter.js；产品presentation仅现有泛化payload字段，不改产品DBschema。",
+        "现有stage3/stage4及Nodecollector/realRust/productflow聚焦回归；扩展能检出原缺陷和保护真实冲突的断言，不新造通用框架。",
+        "已确认新目标的REQ/PLAN/CR，最小共享data/wire/architecture/coordinator文档；CONTRACTS/DECISIONS实际修改须遵守治理写入边界及精确已确认范围，不改变IPCfreeze。"
+      ],
+      "exclusions": [
+        "不做整个Node4.5迁移，不新增协议mode/产品epoch/对象revision/commitFence/多writer/第二collector。",
+        "不改IPC/follower/subscription/owner/Androidauthority/A-B isolation，不改Android/Gateway/UI或DBschema；必要扩大另行明确。",
+        "不修H2source/discovery/Branch继承定位；保留为TASK-20260832依赖后的Rust步骤，与本task不重复实施。",
+        "不把委派变普通user/assistant，不伪造call_id/native关系、canonical/DTO/ACK，不忽略未知或放宽所有upsert。",
+        "不编辑外部rollout/真实DB，不清旧staging/cache/failedrun/intent/receipt来制造通过；不放宽资源或retention预算。",
+        "不生成真实聊天/Branch/委派回合、不启动本地服务或操作真机；真实E2E副作用仅在原task的已确认预算内。",
+        "不自动stage/commit/push/deploy/release，不关闭/暂停/切换原task焦点；当前prepare不授权实现或改共享契约。"
+      ],
+      "steps": [
+        {
+          "id": "S1",
+          "title": "固定最小共享事件、更新证明与兼容契约",
+          "environment": [
+            "S1三问题诊断与脱敏包、TASK-20260832/S2范围",
+            "当前架构/CONTRACTS/AD-004/018/019/020/021/022",
+            "只读Rust与现有Nodeconsumer"
+          ],
+          "actions": [
+            "联合对照生产/消费模型，固定DelegatedInput候选字段、逻辑/物理身份、两carrierturn/text冲突与正确presentation。",
+            "固定真实生命周期更新允许条件，区分同event篡改和后来完成事件；完整backfill/deltaappend分别证明，不单方选择放宽规则。",
+            "固定hello/version/旧consumer/旧checkpoint/旧partialParseGap恢复策略；确切schema和能力名必须有依据，不预先猜测。",
+            "列确切文件/测试/doc影响，确认仍未覆盖的共享变更一次；此前同target/action/后果的明确决定不重复询问。",
+            "正式修改契约前依据项目治理写入边界更新必要来源，真实新增REQ/PLAN绑定用户目标，不改历史done需求为新修复已完成。"
+          ],
+          "validation": [
+            "字段/方向/兼容/错误/证据完整可审阅，保持单例/三mode/外部源只读和模块次序。",
+            "无强制App/DB/IPC扩展；需要时保存缺口并另立范围。"
+          ],
+          "outputs": [
+            "精确共享契约与范围决定",
+            "REQ/PLAN关联及必要契约/决策更新记录，未实现状态真实"
+          ]
+        },
+        {
+          "id": "S2",
+          "title": "Spike验证并同步最小wire兼容闭包",
+          "environment": [
+            "仓库内Spikevendor",
+            "原形状脱敏两carrier及普通call_id样本",
+            "隔离编译/fixture，非真实服务"
+          ],
+          "actions": [
+            "仅已确认typedvendorpatch支持实际两carrier；不在facade自定义重复wire模型。",
+            "普通带call_id输出保持原语义，未知namespace/name/output形状明确拒绝/partial。",
+            "先Spike解码/conformance再同源promotion至formal，两manifest登记实际patch/closure/hash，保留LICENSE/NOTICE和真实upstreamrevision。"
+          ],
+          "validation": [
+            "两carrier分别解码正确，正常旧工具/missingidentity/unknown负向保护成立。",
+            "实际cargo依赖图仅仓库内Codexclosure；不能用默认构建下载或外部checkout。"
+          ],
+          "outputs": [
+            "wire兼容fixture与最小patch/来源证据",
+            "Spike→formalpromotion记录，Rust未修改Node"
+          ]
+        },
+        {
+          "id": "S3",
+          "title": "实现Rust委派事件、归约与target兼容",
+          "environment": [
+            "已固定共享契约及Spike验证closure",
+            "formalRustcrate及既有stage3/stage4回归",
+            "隔离process"
+          ],
+          "actions": [
+            "Adapter唯一映射typedcarrier到正确TermLink-owned委派事件，保留nativeidentity与来源/turn。",
+            "Reducer/projection对双carrier和重复读取幂等，不生成本地tool，不把未知Gap升canonical。",
+            "落实targetvalidation/checkpoint/capability及旧consumer策略，必要producer表示调整仅按确认契约。",
+            "同步RustCR/PLAN和稳定Nodehandoff说明，不在此步改Node。"
+          ],
+          "validation": [
+            "两carrier/create_thread/send_message及unknown/mismatch/partial/overlap/retry/restart聚焦conformance通过。",
+            "资源、身份、canonicalcoverage、normal工具及abort保护未变。"
+          ],
+          "outputs": [
+            "Rust事件/target修复及实际binary/hash/回归",
+            "现有Nodeconsumer的确切stablecontract说明"
+          ]
+        },
+        {
+          "id": "S4",
+          "title": "现有Node按契约保存委派并纠正有证据的增长合并",
+          "environment": [
+            "S3稳定Rustbinary",
+            "existingNodecollector/importer/protocol",
+            "独立FileAnalysisStore和临时SQLite"
+          ],
+          "actions": [
+            "支持精确新事件schema和协商；正确产品role/presentation保存正文，优先复用既有eventFacts。",
+            "只按共享证据规则修H1preflight/merge，不改event_id/epoch、不无条件放宽upsert或清旧state。",
+            "验证旧partial/diagnostic/checkpoint普通重读与恢复，保留历史失败/旧canonical。",
+            "同步独立NodeCR/PLAN，仅确切consumer局部文件，不全量4.5迁移。"
+          ],
+          "validation": [
+            "S1真实形状prefix→增长在旧staging上可成功，真实内容/scope/旧attempt/降级仍拒绝。",
+            "重试/overlap/重启幂等；正文/工具细节可追溯，未支持功能仍显式partial。"
+          ],
+          "outputs": [
+            "Node局部修复及receipt/checkpoint/合并证据",
+            "H1/H3分别修复或未解决判定"
+          ]
+        },
+        {
+          "id": "S5",
+          "title": "验证隔离产品保存并交回三场景业务验收",
+          "environment": [
+            "实际Rust/Node版本和临时产品SQLite",
+            "existingproductprovider/Gateway集成测试入口",
+            "不启动真实服务/聊天或操作手机"
+          ],
+          "actions": [
+            "用已有realRust/productflow回归证明durablebatch/ACK、Rustcomplete、产品transactionCOMMIT/provider读回和内容身份。",
+            "分别保留ordinary/委派负向及详情/reopen/旧canonical保护，无法闭合项明确failed/partial。",
+            "整理稳定契约、修复文件、binary/schema/兼容结论，交回TASK-20260832，不自行执行其S3/S5/S6或结束它。"
+          ],
+          "validation": [
+            "H1/H3各自成功或明确未解决；不以mock或一个普通样本代替委派。",
+            "原task三项真实业务验收、H2定位及指定手机durableACK/重开仍显式未验，不重复预算。"
+          ],
+          "outputs": [
+            "共享兼容修复交付矩阵与handoff",
+            "REQ/PLAN/CR实际进度及当前taskstatus，不把处置当PASS"
+          ]
+        }
+      ],
+      "validation_strategy": "Minimum-sufficient: reuseexistingstage3/stage4modulefixtures andNodecollectorrealRustproductflow; addonly originalfailure-detector andcriticalnegative/idempotence. Exactselectors inconfirmedstep, no preparationtests/fullsuite/device/modelturn. TemporaryDB/store/files only, originalevidence readonly.",
+      "source_scope_ref": "logs/history-save-repair-20261005/s2/scope.md",
+      "source_decision": "Direct human choice toprepare separate minimalsharedcontractcompatibility, notadoption",
+      "original_task": "TASK-20260832",
+      "future_document_strategy": {
+        "existing_baseline_REQ": "docs/product/requirements/REQ-20260309-codex-capability-mvp.md",
+        "existing_baseline_PLAN": "docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md",
+        "baseline_status": "historical done, not current bug repair complete",
+        "new_requirement_source": "Human confirmedTASK20260832 adoptedplan actual three business acceptance criteria",
+        "new_doc_paths_candidate_only": [
+          "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+          "docs/product/plans/PLAN-20261005-codex-history-save-repair.md"
+        ],
+        "future_CR": "Separate real Rust/Node implementationbatch records; draft/TBDuntil actualcommit; no fakeactivecommit_ref"
+      },
+      "ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "parent_plan_ref": null
+    },
+    "plans": [
+      {
+        "title": "委派输入与正常历史增长的最小共享兼容修复（Rust契约先行）",
+        "goal": "让真实create_thread/send_message委派输入按正确业务身份保存，并允许有来源证据的同turn正常开始→完成更新；严格保留真实冲突/未知/partial/旧canonical保护。交付稳定Rust契约与现有Node局部consumer、隔离产品持久化证据，再回到TASK-20260832进行分支定位和真实宿主/手机三场景验收。",
+        "acceptance": [
+          "两种真实委派carrier、create_thread/send_message分别有脱敏形状/身份/turn关联证据；不造call_id，不当普通user/assistant或本地tool，不用Diagnostic代替业务正文。",
+          "相同nativeitem_id双carrier和overlap/retry/restart只生成一个正确逻辑委派项，保留两份物理来源；内容/归属冲突与未知/畸形输入仍typedpartial/fail-closed。",
+          "共享AnalysisEvent字段、能力/version/checkpoint/旧consumer策略先审查固定；新Rust不向不支持的新consumer静默发送无法验证的事件并宣称canonical。无新analyze mode/产品revision/epoch/worker。",
+          "H1实际prefix→增长样本在旧durablestaging存在时正确处理合法生命周期演进；同event内容变更、source/scope不一致、旧request和canonical降级仍拒绝，旧failedruns/receipts/intents保持。",
+          "完整backfill与deltaappend的更新证据分别定义并回归，不凭ordinal/hash/更高completeness猜测合法替换；如果无法证明，仍拒绝并明确剩余问题。",
+          "旧partial/ParseGap在新解析兼容下的普通重读、旧checkpoint拒绝/恢复和canonical投影资格必须分别取证；不能删除旧诊断或清库让新版本通过。",
+          "Spike→formal相同最小vendorpatch、manifests与closure/许可证来源可核对；普通带call_id工具输出旧路径通过；无本机外部Codex依赖/default网络下载。",
+          "Rust独立步骤不改Node/App/DB/IPC；Node步骤仅现有schema/importer/presentation，保持一条Node→Rust链和正式module/process入口。",
+          "委派内容使用现有genericproductrows/eventFacts及正确role/presentation保留正文，无新增产品DBschema；如确需Android/Gateway修改，明确文件/实际行为并另行准备，不静默扩本task。",
+          "隔离actualRust→durablestaging/positiveACK→validatedcomplete→临时产品SQLitetransaction→productprovider读回的身份/正文及真实工具详情分别成立；fixture/mock不是手机验收。",
+          "新普通对话/Branch/委派全部真实宿主和指定手机切换重开验收仍归TASK-20260832；本task不得用isolatedPASS替代三个业务目标。",
+          "每批真实REQ/PLAN/CR同步，未提交draft/真实未提交，不造activecommit_ref；最终保留未解决项、版本/失败与测层，审查clean/finished/closed非业务PASS。"
+        ],
+        "scope": [
+          "共享最小事件和合并语义的独立契约范围；以S1和S2证据为基础，协议候选名称不当既定事实。",
+          "Rust候选：model/analysis_event.rs、analysis.rs、codex_adapter、wire facade/profile、target_data/mapping/runtime的实际必要处。",
+          "仓库内Spike/formalvendorprotocol models/items必要patch与两份manifest、Spikecodex_decode；先确定确切closure影响，不预定全量upstream升级。",
+          "Node候选：existinganalyzerProtocol.js和analysisBatchImporter.js；产品presentation仅现有泛化payload字段，不改产品DBschema。",
+          "现有stage3/stage4及Nodecollector/realRust/productflow聚焦回归；扩展能检出原缺陷和保护真实冲突的断言，不新造通用框架。",
+          "已确认新目标的REQ/PLAN/CR，最小共享data/wire/architecture/coordinator文档；CONTRACTS/DECISIONS实际修改须遵守治理写入边界及精确已确认范围，不改变IPCfreeze。"
+        ],
+        "exclusions": [
+          "不做整个Node4.5迁移，不新增协议mode/产品epoch/对象revision/commitFence/多writer/第二collector。",
+          "不改IPC/follower/subscription/owner/Androidauthority/A-B isolation，不改Android/Gateway/UI或DBschema；必要扩大另行明确。",
+          "不修H2source/discovery/Branch继承定位；保留为TASK-20260832依赖后的Rust步骤，与本task不重复实施。",
+          "不把委派变普通user/assistant，不伪造call_id/native关系、canonical/DTO/ACK，不忽略未知或放宽所有upsert。",
+          "不编辑外部rollout/真实DB，不清旧staging/cache/failedrun/intent/receipt来制造通过；不放宽资源或retention预算。",
+          "不生成真实聊天/Branch/委派回合、不启动本地服务或操作真机；真实E2E副作用仅在原task的已确认预算内。",
+          "不自动stage/commit/push/deploy/release，不关闭/暂停/切换原task焦点；当前prepare不授权实现或改共享契约。"
+        ],
+        "steps": [
+          {
+            "id": "S1",
+            "title": "固定最小共享事件、更新证明与兼容契约",
+            "environment": [
+              "S1三问题诊断与脱敏包、TASK-20260832/S2范围",
+              "当前架构/CONTRACTS/AD-004/018/019/020/021/022",
+              "只读Rust与现有Nodeconsumer"
+            ],
+            "actions": [
+              "联合对照生产/消费模型，固定DelegatedInput候选字段、逻辑/物理身份、两carrierturn/text冲突与正确presentation。",
+              "固定真实生命周期更新允许条件，区分同event篡改和后来完成事件；完整backfill/deltaappend分别证明，不单方选择放宽规则。",
+              "固定hello/version/旧consumer/旧checkpoint/旧partialParseGap恢复策略；确切schema和能力名必须有依据，不预先猜测。",
+              "列确切文件/测试/doc影响，确认仍未覆盖的共享变更一次；此前同target/action/后果的明确决定不重复询问。",
+              "正式修改契约前依据项目治理写入边界更新必要来源，真实新增REQ/PLAN绑定用户目标，不改历史done需求为新修复已完成。"
+            ],
+            "validation": [
+              "字段/方向/兼容/错误/证据完整可审阅，保持单例/三mode/外部源只读和模块次序。",
+              "无强制App/DB/IPC扩展；需要时保存缺口并另立范围。"
+            ],
+            "outputs": [
+              "精确共享契约与范围决定",
+              "REQ/PLAN关联及必要契约/决策更新记录，未实现状态真实"
+            ]
+          },
+          {
+            "id": "S2",
+            "title": "Spike验证并同步最小wire兼容闭包",
+            "environment": [
+              "仓库内Spikevendor",
+              "原形状脱敏两carrier及普通call_id样本",
+              "隔离编译/fixture，非真实服务"
+            ],
+            "actions": [
+              "仅已确认typedvendorpatch支持实际两carrier；不在facade自定义重复wire模型。",
+              "普通带call_id输出保持原语义，未知namespace/name/output形状明确拒绝/partial。",
+              "先Spike解码/conformance再同源promotion至formal，两manifest登记实际patch/closure/hash，保留LICENSE/NOTICE和真实upstreamrevision。"
+            ],
+            "validation": [
+              "两carrier分别解码正确，正常旧工具/missingidentity/unknown负向保护成立。",
+              "实际cargo依赖图仅仓库内Codexclosure；不能用默认构建下载或外部checkout。"
+            ],
+            "outputs": [
+              "wire兼容fixture与最小patch/来源证据",
+              "Spike→formalpromotion记录，Rust未修改Node"
+            ]
+          },
+          {
+            "id": "S3",
+            "title": "实现Rust委派事件、归约与target兼容",
+            "environment": [
+              "已固定共享契约及Spike验证closure",
+              "formalRustcrate及既有stage3/stage4回归",
+              "隔离process"
+            ],
+            "actions": [
+              "Adapter唯一映射typedcarrier到正确TermLink-owned委派事件，保留nativeidentity与来源/turn。",
+              "Reducer/projection对双carrier和重复读取幂等，不生成本地tool，不把未知Gap升canonical。",
+              "落实targetvalidation/checkpoint/capability及旧consumer策略，必要producer表示调整仅按确认契约。",
+              "同步RustCR/PLAN和稳定Nodehandoff说明，不在此步改Node。"
+            ],
+            "validation": [
+              "两carrier/create_thread/send_message及unknown/mismatch/partial/overlap/retry/restart聚焦conformance通过。",
+              "资源、身份、canonicalcoverage、normal工具及abort保护未变。"
+            ],
+            "outputs": [
+              "Rust事件/target修复及实际binary/hash/回归",
+              "现有Nodeconsumer的确切stablecontract说明"
+            ]
+          },
+          {
+            "id": "S4",
+            "title": "现有Node按契约保存委派并纠正有证据的增长合并",
+            "environment": [
+              "S3稳定Rustbinary",
+              "existingNodecollector/importer/protocol",
+              "独立FileAnalysisStore和临时SQLite"
+            ],
+            "actions": [
+              "支持精确新事件schema和协商；正确产品role/presentation保存正文，优先复用既有eventFacts。",
+              "只按共享证据规则修H1preflight/merge，不改event_id/epoch、不无条件放宽upsert或清旧state。",
+              "验证旧partial/diagnostic/checkpoint普通重读与恢复，保留历史失败/旧canonical。",
+              "同步独立NodeCR/PLAN，仅确切consumer局部文件，不全量4.5迁移。"
+            ],
+            "validation": [
+              "S1真实形状prefix→增长在旧staging上可成功，真实内容/scope/旧attempt/降级仍拒绝。",
+              "重试/overlap/重启幂等；正文/工具细节可追溯，未支持功能仍显式partial。"
+            ],
+            "outputs": [
+              "Node局部修复及receipt/checkpoint/合并证据",
+              "H1/H3分别修复或未解决判定"
+            ]
+          },
+          {
+            "id": "S5",
+            "title": "验证隔离产品保存并交回三场景业务验收",
+            "environment": [
+              "实际Rust/Node版本和临时产品SQLite",
+              "existingproductprovider/Gateway集成测试入口",
+              "不启动真实服务/聊天或操作手机"
+            ],
+            "actions": [
+              "用已有realRust/productflow回归证明durablebatch/ACK、Rustcomplete、产品transactionCOMMIT/provider读回和内容身份。",
+              "分别保留ordinary/委派负向及详情/reopen/旧canonical保护，无法闭合项明确failed/partial。",
+              "整理稳定契约、修复文件、binary/schema/兼容结论，交回TASK-20260832，不自行执行其S3/S5/S6或结束它。"
+            ],
+            "validation": [
+              "H1/H3各自成功或明确未解决；不以mock或一个普通样本代替委派。",
+              "原task三项真实业务验收、H2定位及指定手机durableACK/重开仍显式未验，不重复预算。"
+            ],
+            "outputs": [
+              "共享兼容修复交付矩阵与handoff",
+              "REQ/PLAN/CR实际进度及当前taskstatus，不把处置当PASS"
+            ]
+          }
+        ],
+        "validation_strategy": "Minimum-sufficient: reuseexistingstage3/stage4modulefixtures andNodecollectorrealRustproductflow; addonly originalfailure-detector andcriticalnegative/idempotence. Exactselectors inconfirmedstep, no preparationtests/fullsuite/device/modelturn. TemporaryDB/store/files only, originalevidence readonly.",
+        "source_scope_ref": "logs/history-save-repair-20261005/s2/scope.md",
+        "source_decision": "Direct human choice toprepare separate minimalsharedcontractcompatibility, notadoption",
+        "original_task": "TASK-20260832",
+        "future_document_strategy": {
+          "existing_baseline_REQ": "docs/product/requirements/REQ-20260309-codex-capability-mvp.md",
+          "existing_baseline_PLAN": "docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md",
+          "baseline_status": "historical done, not current bug repair complete",
+          "new_requirement_source": "Human confirmedTASK20260832 adoptedplan actual three business acceptance criteria",
+          "new_doc_paths_candidate_only": [
+            "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+            "docs/product/plans/PLAN-20261005-codex-history-save-repair.md"
+          ],
+          "future_CR": "Separate real Rust/Node implementationbatch records; draft/TBDuntil actualcommit; no fakeactivecommit_ref"
+        },
+        "ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "parent_plan_ref": null
+      }
+    ],
+    "adopted_by": ".workflow-system/records/events/key-c9ee87ca72baea443b6cb1d53f14387af5407d633ad8cdf5988b80c0be34ff1d.json",
+    "adoption": {
+      "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "review_ref": ".workflow-system/records/events/key-bbe91039c711443f08dc185dfade7a066c7e16dd283c644fdad1e039aa2f478a.json",
+      "decision_source": "Direct human prepare-task confirm invocation immediately after TASK-20260833 draft review in this conversation",
+      "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+      "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+      "focus": false,
+      "conditions": [
+        "S1 fixes exact shared event, legal lifecycle proof, old consumer/checkpoint/partial reread before implementation consumes contract",
+        "Rust stable S3 contract and actual version evidence precede Node S4; no blanket upsert weakening or fake call_id",
+        "H1/H3 must each meet positive isolated acceptance; unresolved is not product success; original TASK-20260832 retains H2 and all three real-host/phone acceptance"
+      ],
+      "summary": "Adopts exact clean self-reviewed minimal shared compatibility plan; no execution, focus switch, pause/close of original task or full migration.",
+      "files": [
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/confirm.md",
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+        "logs/history-save-repair-20261005/s2/shared-compat-candidate/review-draft.md"
+      ],
+      "activate": true,
+      "ref": ".workflow-system/records/events/key-c9ee87ca72baea443b6cb1d53f14387af5407d633ad8cdf5988b80c0be34ff1d.json"
+    },
+    "candidate_plan_refs": [],
+    "current_step_id": "S4",
+    "steps": [
+      {
+        "id": "S1",
+        "title": "固定最小共享事件、更新证明与兼容契约",
+        "environment": [
+          "S1三问题诊断与脱敏包、TASK-20260832/S2范围",
+          "当前架构/CONTRACTS/AD-004/018/019/020/021/022",
+          "只读Rust与现有Nodeconsumer"
+        ],
+        "actions": [
+          "联合对照生产/消费模型，固定DelegatedInput候选字段、逻辑/物理身份、两carrierturn/text冲突与正确presentation。",
+          "固定真实生命周期更新允许条件，区分同event篡改和后来完成事件；完整backfill/deltaappend分别证明，不单方选择放宽规则。",
+          "固定hello/version/旧consumer/旧checkpoint/旧partialParseGap恢复策略；确切schema和能力名必须有依据，不预先猜测。",
+          "列确切文件/测试/doc影响，确认仍未覆盖的共享变更一次；此前同target/action/后果的明确决定不重复询问。",
+          "正式修改契约前依据项目治理写入边界更新必要来源，真实新增REQ/PLAN绑定用户目标，不改历史done需求为新修复已完成。"
+        ],
+        "validation": [
+          "字段/方向/兼容/错误/证据完整可审阅，保持单例/三mode/外部源只读和模块次序。",
+          "无强制App/DB/IPC扩展；需要时保存缺口并另立范围。"
+        ],
+        "outputs": [
+          "精确共享契约与范围决定",
+          "REQ/PLAN关联及必要契约/决策更新记录，未实现状态真实"
+        ],
+        "state": "finished",
+        "legacy_step_status": null,
+        "execution_ref": ".workflow-system/records/events/key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+        "execution": {
+          "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+          "files": [
+            "docs/codex/codex-history-shared-compat-contract.md",
+            "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+            "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+            "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md",
+            "logs/shared-history-compat-20261005/s1/repair-1/report.md",
+            "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md",
+            "logs/shared-history-compat-20261005/s1/repair-1/hashes-before.json",
+            "logs/shared-history-compat-20261005/s1/repair-1/hashes-after.json",
+            "logs/shared-history-compat-20261005/s1/repair-1/historical-evidence-check.json",
+            "logs/shared-history-compat-20261005/s1/repair-1/self-check.json",
+            "logs/shared-history-compat-20261005/s1/repair-1/validation.json",
+            "logs/shared-history-compat-20261005/s1/repair-1/validate-req.txt",
+            "logs/shared-history-compat-20261005/s1/repair-1/validate-cr.txt",
+            "logs/shared-history-compat-20261005/s1/repair-1/request-shape-probe.cjs",
+            "logs/shared-history-compat-20261005/s1/repair-1/request-shape-result.json",
+            "logs/shared-history-compat-20261005/s1/repair-1/request-shape-exit.json",
+            "logs/shared-history-compat-20261005/s1/repair-1/diff-check.txt"
+          ],
+          "result": "S1-R1-R2-design-repaired-pending-new-review-and-controlled-publication-no-product-implementation",
+          "base_execution_ref": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+          "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+          "step_id": "S1",
+          "repair_review_ref": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json",
+          "commands": [
+            {
+              "command": "pwsh strict REQ validator",
+              "result": "exit0 PASS"
+            },
+            {
+              "command": "pwsh strict new CR validator",
+              "result": "exit0 PASS with rollback-command warning retained"
+            },
+            {
+              "command": "node one-off existing request validator shape probe",
+              "result": "exit0, original request rejected; repaired request accepted; mismatch/wrong conversation rejected; old fixture unchanged; no Rust source read"
+            },
+            {
+              "command": "SHA256 protected paths and prior fixed attachments",
+              "result": "13 protected before-paths unchanged;20 historical blobs intact;only3expected existing docs changed"
+            },
+            {
+              "command": "git diff --check",
+              "result": "exit0 tracked only, untracked docs validated separately"
+            }
+          ],
+          "mode": "repair",
+          "summary": {
+            "R1": "Evidenced canonical-to-canonical TurnStarted-to-TurnCompleted; snapshot coverage distinct from lifecycle; existing partial and strict negative cases retained",
+            "R2": "Independent new-profile ordinary backfill job with cursor/persisted_anchor/known_complete_range/recovery empty; old state local unchanged; no Rust equality exception",
+            "qualification": "Design repair only, not formal review or findings-resolved/product-PASS",
+            "governance": "Revised exact publication diff saved, sources unchanged; no supported in-progress publication action inspected; no incompatible old transaction attempted",
+            "plan_coverage": "S1-A/S1-B design repair and S1-C doc sync only; S1-D pending"
+          },
+          "decision_ref": ".workflow-system/records/events/key-40f27b04d351b69eebfb8dac5e503b20d0810b174528d9bbc740155319aa4198.json",
+          "remaining_work": [
+            "New exact-execution change review; original needs-repair retained historical, not changed to clean/resolved",
+            "S1-D controlled publication still pending; cannot claim entire S1 complete or enable new shared rules",
+            "S2-S5 product implementation and planned Rust/Node/storage regressions not run",
+            "TASK-20260832 active/S2 retained; explicit focus return after actual 833 delivery/closure and original real-host/phone acceptance remains",
+            "Three pre-existing management association gaps preserved"
+          ],
+          "ref": ".workflow-system/records/events/key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+          "interpretation_ref": null
+        },
+        "review_ref": ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+        "review_status": "clean",
+        "findings": [],
+        "review_choice": "continue",
+        "review_decision_ref": ".workflow-system/records/events/key-e870e977a57361772ba5c894b4336ab2b374ae62cd00bb313de6570ae34d2fc3.json",
+        "review_decisions": [
+          {
+            "choice": "finish",
+            "decision_text": "结束 S1，保留发布待办（推荐）",
+            "decision_source": "Human answer to request_user_input_async call_yTTYsyTSj5YMZ8oacj5K8vTA about finishing S1 with controlled-publication pending",
+            "review_ref": ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+            "files": [
+              "logs/shared-history-compat-20261005/s1/finish-1/assessment.md",
+              "logs/shared-history-compat-20261005/s1/finish-1/proposed-disposition.json",
+              "logs/shared-history-compat-20261005/s1/finish-1/review-applicability.json"
+            ],
+            "disclosed_gaps": [
+              "S1-D formal CONTRACTS/DECISIONS publication not complete;current typed interface supports close-task archive only",
+              "Finish disposition keeps publication pending;must be completed before implementing new shared rules",
+              "833 remains active,832 state unchanged,no automatic S2 implementation"
+            ],
+            "scope": "TASK20260833/S1 work disposition only;not product PASS,no permission for direct governance writes,Runtime edits,Git,close or next-step execution",
+            "ref": ".workflow-system/records/events/key-754c4c4d66dc26bed718abcf5a607be65603a5880b8236446e38378663a87dea.json",
+            "interpretation_ref": null
+          },
+          {
+            "decision_source": "Human reply 继续 to the disclosed S2 publication-method proposal; interpreted as the first offered option, as stated in commentary",
+            "files": [
+              "logs/shared-history-compat-20261005/s2/publication-proposal.md",
+              "logs/shared-history-compat-20261005/s2/publication-targets-before.json"
+            ],
+            "review_ref": ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+            "decision_text": "继续",
+            "decision_scope": "This reviewed TASK20260833 shared-document publication directly into named governance/associated contracts with journal evidence, replacing in-progress unavailable typed operation for this action only;then existing S2 Spike-to-formal wire and tests",
+            "disclosed_gaps": [
+              "execute-step governance_sources empty and original typed-only normal publication rule",
+              "Existing typed publication only supports task archive;direct document sync is the specific proposed method change",
+              "No Runtime edit,task closure,Node/Android/IPC/DB expansion or Git/deployment"
+            ],
+            "choice": "continue",
+            "ref": ".workflow-system/records/events/key-e870e977a57361772ba5c894b4336ab2b374ae62cd00bb313de6570ae34d2fc3.json",
+            "interpretation_ref": null
+          }
+        ],
+        "tests": [],
+        "disposition_ref": ".workflow-system/records/events/key-cf5c109d54d84b23a5238ae6a1f158fcc180b6aa05d7ce5a226b547e94a87cd6.json",
+        "historical_execution_refs": []
+      },
+      {
+        "id": "S2",
+        "title": "Spike验证并同步最小wire兼容闭包",
+        "environment": [
+          "仓库内Spikevendor",
+          "原形状脱敏两carrier及普通call_id样本",
+          "隔离编译/fixture，非真实服务"
+        ],
+        "actions": [
+          "仅已确认typedvendorpatch支持实际两carrier；不在facade自定义重复wire模型。",
+          "普通带call_id输出保持原语义，未知namespace/name/output形状明确拒绝/partial。",
+          "先Spike解码/conformance再同源promotion至formal，两manifest登记实际patch/closure/hash，保留LICENSE/NOTICE和真实upstreamrevision。"
+        ],
+        "validation": [
+          "两carrier分别解码正确，正常旧工具/missingidentity/unknown负向保护成立。",
+          "实际cargo依赖图仅仓库内Codexclosure；不能用默认构建下载或外部checkout。"
+        ],
+        "outputs": [
+          "wire兼容fixture与最小patch/来源证据",
+          "Spike→formalpromotion记录，Rust未修改Node"
+        ],
+        "state": "finished",
+        "legacy_step_status": null,
+        "execution_ref": ".workflow-system/records/events/key-debf41cd5061f6e5a4a33043db5815bca9513c7396550d5dcfde38bfc5437308.json",
+        "execution": {
+          "files": [
+            "docs/workflow/CONTRACTS.md",
+            "docs/workflow/DECISIONS.md",
+            "docs/codex/codex-rollout-collector-architecture.md",
+            "docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md",
+            "docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md",
+            "docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md",
+            "docs/codex/codex-rollout-collector-codex-compatibility.md",
+            "docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md",
+            "docs/codex/codex-history-shared-compat-contract.md",
+            "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+            "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+            "docs/changes/records/CR-20261005-1901-shared-history-wire-compat.md",
+            "native/codex-rollout-compat-spike/src/codex_decode.rs",
+            "native/codex-rollout-compat-spike/fixtures/delegated-input.jsonl",
+            "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+            "native/codex-rollout-collector/tests/conformance.rs",
+            "native/codex-rollout-collector/tests/fixtures/current/delegated-input.jsonl",
+            "native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs",
+            "native/codex-rollout-compat-spike/vendor/codex/protocol/src/models.rs",
+            "native/codex-rollout-compat-spike/vendor/codex/protocol/src/items.rs",
+            "native/codex-rollout-compat-spike/vendor/codex/protocol/src/legacy_events.rs",
+            "native/codex-rollout-compat-spike/vendor/codex/protocol/src/models/executed_tool_calls_tests.rs",
+            "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml",
+            "native/codex-rollout-compat-spike/vendor/codex/LICENSE",
+            "native/codex-rollout-compat-spike/vendor/codex/NOTICE",
+            "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+            "native/codex-rollout-collector/vendor/codex/protocol/src/models.rs",
+            "native/codex-rollout-collector/vendor/codex/protocol/src/items.rs",
+            "native/codex-rollout-collector/vendor/codex/protocol/src/legacy_events.rs",
+            "native/codex-rollout-collector/vendor/codex/protocol/src/models/executed_tool_calls_tests.rs",
+            "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+            "native/codex-rollout-collector/vendor/codex/LICENSE",
+            "native/codex-rollout-collector/vendor/codex/NOTICE",
+            "logs/shared-history-compat-20261005/s2/addendum-eol-result.json",
+            "logs/shared-history-compat-20261005/s2/demo-bin-build-result.json",
+            "logs/shared-history-compat-20261005/s2/demo-bin-build.txt",
+            "logs/shared-history-compat-20261005/s2/dependency-audit-corrected.json",
+            "logs/shared-history-compat-20261005/s2/dependency-audit.json",
+            "logs/shared-history-compat-20261005/s2/diff-check-final-result.json",
+            "logs/shared-history-compat-20261005/s2/diff-check-final.txt",
+            "logs/shared-history-compat-20261005/s2/diff-check-fixed-result.json",
+            "logs/shared-history-compat-20261005/s2/diff-check-fixed.txt",
+            "logs/shared-history-compat-20261005/s2/diff-check-result.json",
+            "logs/shared-history-compat-20261005/s2/diff-check.txt",
+            "logs/shared-history-compat-20261005/s2/doc-validation.json",
+            "logs/shared-history-compat-20261005/s2/final-delivery-hashes.json",
+            "logs/shared-history-compat-20261005/s2/final-validation-commands.json",
+            "logs/shared-history-compat-20261005/s2/final-validation-summary.json",
+            "logs/shared-history-compat-20261005/s2/fix-new-addendum-eol.cjs",
+            "logs/shared-history-compat-20261005/s2/fixture-provenance.json",
+            "logs/shared-history-compat-20261005/s2/formal-cargo-metadata-result.json",
+            "logs/shared-history-compat-20261005/s2/formal-cargo-metadata.json",
+            "logs/shared-history-compat-20261005/s2/formal-conformance-result.json",
+            "logs/shared-history-compat-20261005/s2/formal-conformance.txt",
+            "logs/shared-history-compat-20261005/s2/formal-final-conformance-result.json",
+            "logs/shared-history-compat-20261005/s2/formal-final-conformance.txt",
+            "logs/shared-history-compat-20261005/s2/guard-promotion.json",
+            "logs/shared-history-compat-20261005/s2/historical-cas-check.json",
+            "logs/shared-history-compat-20261005/s2/license-check.json",
+            "logs/shared-history-compat-20261005/s2/license-restoration.json",
+            "logs/shared-history-compat-20261005/s2/oracle-binaries-final.json",
+            "logs/shared-history-compat-20261005/s2/oracle-binaries.json",
+            "logs/shared-history-compat-20261005/s2/promotion.json",
+            "logs/shared-history-compat-20261005/s2/publication-after.json",
+            "logs/shared-history-compat-20261005/s2/publication-baseline.json",
+            "logs/shared-history-compat-20261005/s2/publication-decision-input.json",
+            "logs/shared-history-compat-20261005/s2/publication-decision-result.json",
+            "logs/shared-history-compat-20261005/s2/publication-final.json",
+            "logs/shared-history-compat-20261005/s2/publication-proposal.md",
+            "logs/shared-history-compat-20261005/s2/publication-targets-before.json",
+            "logs/shared-history-compat-20261005/s2/report.md",
+            "logs/shared-history-compat-20261005/s2/self-check.json",
+            "logs/shared-history-compat-20261005/s2/snapshot-inventory.json",
+            "logs/shared-history-compat-20261005/s2/source-after.json",
+            "logs/shared-history-compat-20261005/s2/source-before.json",
+            "logs/shared-history-compat-20261005/s2/spike-bin-build-result.json",
+            "logs/shared-history-compat-20261005/s2/spike-bin-build.txt",
+            "logs/shared-history-compat-20261005/s2/spike-cargo-metadata-result.json",
+            "logs/shared-history-compat-20261005/s2/spike-cargo-metadata.json",
+            "logs/shared-history-compat-20261005/s2/spike-conformance-result.json",
+            "logs/shared-history-compat-20261005/s2/spike-conformance.txt",
+            "logs/shared-history-compat-20261005/s2/spike-final-bin-build-result.json",
+            "logs/shared-history-compat-20261005/s2/spike-final-bin-build.txt",
+            "logs/shared-history-compat-20261005/s2/spike-final-conformance-result.json",
+            "logs/shared-history-compat-20261005/s2/spike-final-conformance.txt",
+            "logs/shared-history-compat-20261005/s2/spike-initial-compile-result.json",
+            "logs/shared-history-compat-20261005/s2/spike-initial-compile.txt",
+            "logs/shared-history-compat-20261005/s2/spike-vendor-test-compile-result.json",
+            "logs/shared-history-compat-20261005/s2/spike-vendor-test-compile.txt",
+            "logs/shared-history-compat-20261005/s2/stage3-conformance-result.json",
+            "logs/shared-history-compat-20261005/s2/stage3-conformance.txt",
+            "logs/shared-history-compat-20261005/s2/stage3-final-conformance-result.json",
+            "logs/shared-history-compat-20261005/s2/stage3-final-conformance.txt",
+            "logs/shared-history-compat-20261005/s2/status-awaiting-publication-choice.json",
+            "logs/shared-history-compat-20261005/s2/status-before.json",
+            "logs/shared-history-compat-20261005/s2/status-resumed.json",
+            "logs/shared-history-compat-20261005/s2/unaffected-boundaries.json",
+            "logs/shared-history-compat-20261005/s2/validate-cr.txt",
+            "logs/shared-history-compat-20261005/s2/validate-req-after.txt",
+            "logs/shared-history-compat-20261005/s2/validate-req-before.txt",
+            "logs/shared-history-compat-20261005/s2/vendor-parity-final-result.json",
+            "logs/shared-history-compat-20261005/s2/vendor-parity-final.txt",
+            "logs/shared-history-compat-20261005/s2/vendor-parity-result.json",
+            "logs/shared-history-compat-20261005/s2/vendor-parity.txt",
+            "logs/shared-history-compat-20261005/s2/publication-before/codex-history-shared-compat-contract.md",
+            "logs/shared-history-compat-20261005/s2/publication-before/codex-history-sync-node-server-coordinator-contract-draft.md",
+            "logs/shared-history-compat-20261005/s2/publication-before/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md",
+            "logs/shared-history-compat-20261005/s2/publication-before/codex-rollout-collector-architecture.md",
+            "logs/shared-history-compat-20261005/s2/publication-before/codex-rollout-collector-codex-compatibility.md",
+            "logs/shared-history-compat-20261005/s2/publication-before/codex-rollout-collector-rust-analyzer-data-contract-draft.md",
+            "logs/shared-history-compat-20261005/s2/publication-before/codex-rollout-collector-rust-analyzer-wire-contract-draft.md",
+            "logs/shared-history-compat-20261005/s2/publication-before/CONTRACTS.md",
+            "logs/shared-history-compat-20261005/s2/publication-before/DECISIONS.md",
+            "logs/shared-history-compat-20261005/s2/source-before/formal__executed_tool_calls_tests.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__src__codex_adapter__mod.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__src__codex_wire__decode.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__vendor__codex__protocol__src__items.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__vendor__codex__protocol__src__legacy_events.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__vendor__codex__protocol__src__models.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__vendor__codex__vendor-manifest.toml",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__src__codex_decode.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__vendor__codex__protocol__src__items.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__vendor__codex__protocol__src__legacy_events.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__vendor__codex__protocol__src__models.rs",
+            "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__vendor__codex__vendor-manifest.toml",
+            "logs/shared-history-compat-20261005/s2/source-before/spike__executed_tool_calls_tests.rs"
+          ],
+          "mode": "default",
+          "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+          "commands": [
+            {
+              "result": "exit0",
+              "selector": "spike-final-conformance",
+              "command": "cargo test --manifest-path native/codex-rollout-compat-spike/Cargo.toml --lib --offline"
+            },
+            {
+              "result": "exit0",
+              "selector": "formal-final-conformance",
+              "command": "cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --offline"
+            },
+            {
+              "result": "exit0",
+              "selector": "stage3-final-conformance",
+              "command": "cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test stage3_conformance --locked --offline -- --nocapture"
+            },
+            {
+              "result": "exit0",
+              "selector": "vendor-parity-final",
+              "command": "pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1"
+            },
+            {
+              "result": "exit0",
+              "selector": "spike-final-bin-build",
+              "command": "cargo build --manifest-path native/codex-rollout-compat-spike/Cargo.toml --bin codex-rollout-compat-spike --locked --offline"
+            },
+            {
+              "result": "exit0",
+              "selector": "diff-check-final",
+              "command": "git diff --check final"
+            },
+            {
+              "command": "cargo metadata --manifest-path native/codex-rollout-compat-spike/Cargo.toml --format-version 1 --offline --locked",
+              "result": "exit0;14Codexdependencies local"
+            },
+            {
+              "command": "cargo metadata --manifest-path native/codex-rollout-collector/Cargo.toml --format-version 1 --offline --locked",
+              "result": "exit0;14Codexdependencies local"
+            },
+            {
+              "command": "cargo check --manifest-path native/codex-rollout-compat-spike/vendor/codex/protocol/Cargo.toml --tests --offline --target-dir native/codex-rollout-compat-spike/target",
+              "result": "exit101 missing cached diff v0.1.13;no vendor dev compilation/test PASS"
+            },
+            {
+              "command": "pwsh strict REQ and new CR validators",
+              "result": "bothexit0"
+            }
+          ],
+          "step_id": "S2",
+          "result": "S1-D-published-by-specific-user-method-choice-S2-Spike-formal-native-wire-delivered-required-conformance-pass-optional-vendor-dev-check-unrun-pending-review",
+          "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+          "resolved_remaining_work": [
+            {
+              "item": "S1-D controlled formal/shared-source publication",
+              "actual_outcome": "Completed by explicit task-specific direct-sync method choice,exact reviewed rules+before/after snapshots;journal decision and execution separate;old pending record unchanged",
+              "prior_disposition_ref": ".workflow-system/records/events/key-cf5c109d54d84b23a5238ae6a1f158fcc180b6aa05d7ce5a226b547e94a87cd6.json"
+            }
+          ],
+          "summary": {
+            "publication": "User 继续 applied to specific direct-doc sync with journal snapshots;formal sources updated,pending publication resolved for this task,Runtime unchanged",
+            "coverage": "S1-D exact reviewed-doc publication and S2 typed native wire, strict input shapes, same-source promotion and regressions;not S3-S5 business behavior",
+            "wire": "Option missing call_id with explicit null/empty rejection;native TurnItem FunctionCallOutput and ordinary required-call identity retained;only actual response/completed carriers supported",
+            "qualification": "S2 executed only,no formal review/finish/product PASS;delegation stays semantics_pending ParseGap until S3",
+            "promotion": "Upstream5ee6 unchanged,7patch parity;final stricter guard restored then promoted after Spike10PASS;license files restored from unchanged formal same-upstream originals"
+          },
+          "remaining_work": [
+            "S2 exact current change review;not reviewed/finished/closed by execution",
+            "S3 DelegatedInput semantics/reducer/version capability and old state recovery still pending;partial protects until delivery",
+            "S4 Node local consumer/G1-G2 merge and S5 isolated save not implemented or tested",
+            "Optional independent vendor dev compile could not run offline missing cached diff;failure retained,not proof of failed root builds or vendor unit PASS",
+            "TASK20260832 active/S2 retains branch finding and real-host/phone three-goal acceptance;explicit return after actual833handoff",
+            "Three pre-existing management association gaps retained"
+          ],
+          "decision_ref": ".workflow-system/records/events/key-e870e977a57361772ba5c894b4336ab2b374ae62cd00bb313de6570ae34d2fc3.json",
+          "ref": ".workflow-system/records/events/key-debf41cd5061f6e5a4a33043db5815bca9513c7396550d5dcfde38bfc5437308.json",
+          "interpretation_ref": null
+        },
+        "review_ref": ".workflow-system/records/events/key-7272b62c7444cf75799a47caa06045b85e27a6be16a1b84ae5570ce44655fb8f.json",
+        "review_status": "clean",
+        "findings": [],
+        "review_choice": null,
+        "review_decision_ref": null,
+        "review_decisions": [],
+        "tests": [],
+        "disposition_ref": ".workflow-system/records/events/key-1985d100d644279d1e58e1c9ebc2b4e97fe98ead22822ed5320d4ef81833629a.json",
+        "historical_execution_refs": []
+      },
+      {
+        "id": "S3",
+        "title": "实现Rust委派事件、归约与target兼容",
+        "environment": [
+          "已固定共享契约及Spike验证closure",
+          "formalRustcrate及既有stage3/stage4回归",
+          "隔离process"
+        ],
+        "actions": [
+          "Adapter唯一映射typedcarrier到正确TermLink-owned委派事件，保留nativeidentity与来源/turn。",
+          "Reducer/projection对双carrier和重复读取幂等，不生成本地tool，不把未知Gap升canonical。",
+          "落实targetvalidation/checkpoint/capability及旧consumer策略，必要producer表示调整仅按确认契约。",
+          "同步RustCR/PLAN和稳定Nodehandoff说明，不在此步改Node。"
+        ],
+        "validation": [
+          "两carrier/create_thread/send_message及unknown/mismatch/partial/overlap/retry/restart聚焦conformance通过。",
+          "资源、身份、canonicalcoverage、normal工具及abort保护未变。"
+        ],
+        "outputs": [
+          "Rust事件/target修复及实际binary/hash/回归",
+          "现有Nodeconsumer的确切stablecontract说明"
+        ],
+        "state": "finished",
+        "legacy_step_status": null,
+        "execution_ref": ".workflow-system/records/events/key-133d6c3b6cac6f1b6a502ab2dc2c76c61e198c19ee1324bda700d90326895382.json",
+        "execution": {
+          "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+          "step_id": "S3",
+          "mode": "default",
+          "source_revision": "644d9b1fad603719ee58d3514d32668735b1efdb",
+          "result": "Rust S3 implemented; conformance39/stage3 comparison5/target73 passed;pending change review and finish;Node/storage/product/phone not validated",
+          "decision_source": "Current human execute-step TASK-20260833 S3 invocation, adopted plan and already published precise shared contract",
+          "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) 833 S3",
+          "summary": {
+            "implementation": "TermLink-owned delegated event,validated native identity/turn/physical binding,immutable physical facts/logical dedup/stable representative;optional negotiated v2 profile to worker/mapper/checkpoint with legacy/cross-profile protection",
+            "qualification": "Implementation self-check only;no formal review or step finish;process ACK flags are test-driver claims,not actual Node durable storage",
+            "scope": "Formal Rust only,12 existing files and one exact sanitized context fixture;main and protocol exports only direct necessary plumbing;REQ/PLAN/new draft CR synced;source/vendor/Node/governance/IPC/Android/DB unchanged",
+            "baseline": "S2 already finished and clean at fresh query;HEAD644d9b1 committed before this batch,all S3 changes uncommitted"
+          },
+          "commands": [
+            {
+              "command": {
+                "bin": "cargo",
+                "args": [
+                  "test",
+                  "--manifest-path",
+                  "native/codex-rollout-collector/Cargo.toml",
+                  "--test",
+                  "conformance",
+                  "--test",
+                  "stage4_target_protocol",
+                  "--test",
+                  "stage3_conformance",
+                  "--locked",
+                  "--offline",
+                  "--",
+                  "--nocapture"
+                ]
+              },
+              "environment": {
+                "TERMLINK_STAGE3_DEMO_BIN": "E:/coding/TermLink-rust-source-resolution-codex/native/codex-rollout-demo/target/debug/codex-rollout-demo.exe",
+                "TERMLINK_STAGE3_SPIKE_BIN": "E:/coding/TermLink-rust-source-resolution-codex/native/codex-rollout-compat-spike/target/debug/codex-rollout-compat-spike.exe"
+              },
+              "result": "exit0;39/5/73 PASS",
+              "report_ref": "logs/shared-history-compat-20261005/s3/final-adapter-guard-validation.txt"
+            },
+            {
+              "command": {
+                "bin": "cargo",
+                "args": [
+                  "test",
+                  "--manifest-path",
+                  "native/codex-rollout-collector/Cargo.toml",
+                  "--test",
+                  "stage4_target_protocol",
+                  "--locked",
+                  "--offline"
+                ]
+              },
+              "result": "exit101;67/72;4placeholder version failures and1message assertion;preserved,localized corrections then rerun",
+              "report_ref": "logs/shared-history-compat-20261005/s3/target-all-initial.txt"
+            },
+            {
+              "command": {
+                "bin": "pwsh",
+                "args": [
+                  "-NoProfile",
+                  "-File",
+                  ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+                  "-ReqPath",
+                  "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+                  "-ProjectRoot",
+                  "E:/coding/TermLink-rust-source-resolution-codex",
+                  "-Strict"
+                ]
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s3/req-final.txt"
+            },
+            {
+              "command": {
+                "bin": "pwsh",
+                "args": [
+                  "-NoProfile",
+                  "-File",
+                  ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+                  "-RecordPath",
+                  "docs/changes/records/CR-20261006-0010-shared-history-rust-semantics.md",
+                  "-ProjectRoot",
+                  "E:/coding/TermLink-rust-source-resolution-codex",
+                  "-Strict"
+                ]
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s3/cr-final.txt"
+            },
+            {
+              "command": {
+                "bin": "git",
+                "args": [
+                  "diff",
+                  "--check"
+                ]
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s3/diff-check-final.txt"
+            },
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "logs/shared-history-compat-20261005/s3/self-check.cjs"
+                ]
+              },
+              "result": "15before originals,8protected boundaries,167historical fixed attachments,2unchanged oracle binaries and exact sanitized fixture match;scope confined;actual collector/source hashes saved"
+            }
+          ],
+          "remaining_work": [
+            "S3 change review/finish remain separate;this execution is not review clean or finished",
+            "S4 Node strict event/profile reception and original intent hello/profile,G1/G2 durable evidence merge/system role;S5 actual Rust-to-staging/ACK/complete/product SQLite/provider reopen remain",
+            "Unanchored old pending job must retain original Node profile;unknown prior parser payload is not claimed reproducible;old intent/receipt remains",
+            "Full Rust/vendor unit tests not run;S2 standalone vendor offline failure retained",
+            "832 active/S2 preserved;Branch and all three real-host/phone acceptance remain;explicit return,not automatic",
+            "Three existing unassociated management records remain;no metadata repair replay"
+          ],
+          "files": [
+            "native/codex-rollout-collector/src/model/analysis_event.rs",
+            "native/codex-rollout-collector/src/analysis.rs",
+            "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+            "native/codex-rollout-collector/src/codex_wire/profile.rs",
+            "native/codex-rollout-collector/src/codex_wire/decode.rs",
+            "native/codex-rollout-collector/src/protocol/target.rs",
+            "native/codex-rollout-collector/src/protocol/target_runtime.rs",
+            "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+            "native/codex-rollout-collector/src/protocol/target_data.rs",
+            "native/codex-rollout-collector/src/protocol/mod.rs",
+            "native/codex-rollout-collector/src/main.rs",
+            "native/codex-rollout-collector/tests/conformance.rs",
+            "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+            "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+            "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+            "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+            "docs/changes/records/CR-20261006-0010-shared-history-rust-semantics.md",
+            "logs/shared-history-compat-20261005/s3/baseline.cjs",
+            "logs/shared-history-compat-20261005/s3/baseline.json",
+            "logs/shared-history-compat-20261005/s3/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+            "logs/shared-history-compat-20261005/s3/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__analysis.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__codex_adapter__mod.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__codex_wire__decode.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__codex_wire__profile.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__main.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__model__analysis_event.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__mod.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_data.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_mapping.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_runtime.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__tests__conformance.rs",
+            "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__tests__stage4_target_protocol.rs",
+            "logs/shared-history-compat-20261005/s3/conformance-initial-result.json",
+            "logs/shared-history-compat-20261005/s3/conformance-initial.txt",
+            "logs/shared-history-compat-20261005/s3/conformance-target-final-result.json",
+            "logs/shared-history-compat-20261005/s3/conformance-target-final.txt",
+            "logs/shared-history-compat-20261005/s3/conformance-v2-result.json",
+            "logs/shared-history-compat-20261005/s3/conformance-v2.txt",
+            "logs/shared-history-compat-20261005/s3/cr-final-result.json",
+            "logs/shared-history-compat-20261005/s3/cr-final.txt",
+            "logs/shared-history-compat-20261005/s3/diff-check-final-result.json",
+            "logs/shared-history-compat-20261005/s3/diff-check-final.txt",
+            "logs/shared-history-compat-20261005/s3/final-adapter-guard-validation-result.json",
+            "logs/shared-history-compat-20261005/s3/final-adapter-guard-validation.txt",
+            "logs/shared-history-compat-20261005/s3/final-rust-validation-result.json",
+            "logs/shared-history-compat-20261005/s3/final-rust-validation.txt",
+            "logs/shared-history-compat-20261005/s3/node-handoff.md",
+            "logs/shared-history-compat-20261005/s3/record-execution.cjs",
+            "logs/shared-history-compat-20261005/s3/report.md",
+            "logs/shared-history-compat-20261005/s3/req-final-result.json",
+            "logs/shared-history-compat-20261005/s3/req-final.txt",
+            "logs/shared-history-compat-20261005/s3/req-validation-initial-failure.txt",
+            "logs/shared-history-compat-20261005/s3/run.cjs",
+            "logs/shared-history-compat-20261005/s3/self-check.cjs",
+            "logs/shared-history-compat-20261005/s3/self-check.json",
+            "logs/shared-history-compat-20261005/s3/source-after.json",
+            "logs/shared-history-compat-20261005/s3/status-S2-before.json",
+            "logs/shared-history-compat-20261005/s3/status-S3-before.json",
+            "logs/shared-history-compat-20261005/s3/target-all-initial-result.json",
+            "logs/shared-history-compat-20261005/s3/target-all-initial.txt",
+            "logs/shared-history-compat-20261005/s3/target-v2-initial-result.json",
+            "logs/shared-history-compat-20261005/s3/target-v2-initial.txt"
+          ],
+          "ref": ".workflow-system/records/events/key-133d6c3b6cac6f1b6a502ab2dc2c76c61e198c19ee1324bda700d90326895382.json",
+          "interpretation_ref": null
+        },
+        "review_ref": ".workflow-system/records/events/key-9cbd6bc83843db4a56ee72e21b8e0ae7ce207880b53a8837244a8b30dc5f084e.json",
+        "review_status": "clean",
+        "findings": [],
+        "review_choice": "finish",
+        "review_decision_ref": ".workflow-system/records/events/key-6c5a9d01e359323bf4ac641d3c3fe10cbad0d21007b825d384dda9b897ad4043.json",
+        "review_decisions": [
+          {
+            "review_ref": ".workflow-system/records/events/key-9cbd6bc83843db4a56ee72e21b8e0ae7ce207880b53a8837244a8b30dc5f084e.json",
+            "choice": "finish",
+            "decision_source": "Current human execute-step finish request for TASK-20260833 S3",
+            "decision_text": "833/S3 审查结果为 clean；审查记录已保存、关联并读回；明确请求 next_mode: finish。该 finish 保留 Node 写盘、产品历史保存、手机重开验收及非完整 Rust/vendor 测试等未验证项。",
+            "ref": ".workflow-system/records/events/key-6c5a9d01e359323bf4ac641d3c3fe10cbad0d21007b825d384dda9b897ad4043.json",
+            "interpretation_ref": null
+          }
+        ],
+        "tests": [],
+        "disposition_ref": ".workflow-system/records/events/key-a7cdf3119753d2f8c3f746f9c9fa16c011da36a79848daadd11808bea9144834.json",
+        "historical_execution_refs": []
+      },
+      {
+        "id": "S4",
+        "title": "现有Node按契约保存委派并纠正有证据的增长合并",
+        "environment": [
+          "S3稳定Rustbinary",
+          "existingNodecollector/importer/protocol",
+          "独立FileAnalysisStore和临时SQLite"
+        ],
+        "actions": [
+          "支持精确新事件schema和协商；正确产品role/presentation保存正文，优先复用既有eventFacts。",
+          "只按共享证据规则修H1preflight/merge，不改event_id/epoch、不无条件放宽upsert或清旧state。",
+          "验证旧partial/diagnostic/checkpoint普通重读与恢复，保留历史失败/旧canonical。",
+          "同步独立NodeCR/PLAN，仅确切consumer局部文件，不全量4.5迁移。"
+        ],
+        "validation": [
+          "S1真实形状prefix→增长在旧staging上可成功，真实内容/scope/旧attempt/降级仍拒绝。",
+          "重试/overlap/重启幂等；正文/工具细节可追溯，未支持功能仍显式partial。"
+        ],
+        "outputs": [
+          "Node局部修复及receipt/checkpoint/合并证据",
+          "H1/H3分别修复或未解决判定"
+        ],
+        "state": "executed",
+        "legacy_step_status": null,
+        "execution_ref": ".workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json",
+        "execution": {
+          "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+          "step_id": "S4",
+          "mode": "default",
+          "source_revision": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+          "result": "S4 Node implemented;final scoped180/180 PASS;actual Rust/File staging/recovery verified;pending change review/finish;H1/H3 SQLite/provider reopening remains S5",
+          "decision_source": "Current human execute-step invocation TASK-20260833 S4 and adopted precise shared compatibility plan",
+          "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) 833 s4",
+          "summary": {
+            "implementation": "Four local Node files:strict DelegatedInput/system role/public profile,immutable facts plus G1/G2 durable proof/FNV recomputation/stable representative;original run hello/profile recovery and fresh v2 four-empty backfill",
+            "qualification": "Implementation self-check,not formal review or finish;new role/product payload assertions use productStore callbacks,not H1/H3 SQLite/provider proof;existing productflow PASS remains its own scenarios",
+            "scope": "Node four src/two existing tests/REQ/PLAN/new draft CR;Rust/vendor/source/governance/IPC/Android/DB schema and budgets unchanged;no Git writes/service/device effects",
+            "baseline": "HEAD7ce1d08;S3 already clean/finished;S4 not-started before;existing untracked vendor Cargo.lock preserved"
+          },
+          "commands": [
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "--test",
+                  "tests/codexRolloutCollector.test.js",
+                  "tests/codexRolloutCollector.recovery.test.js",
+                  "tests/codexRolloutCollector.realRust.test.js",
+                  "tests/codexRolloutCollector.checkpointJobs.test.js",
+                  "tests/codexRolloutCollector.isolatedLifecycle.test.js",
+                  "tests/codexHistoryProductFlow.test.js"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/final-node.txt"
+            },
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "--test",
+                  "tests/codexRolloutCollector.test.js",
+                  "tests/codexRolloutCollector.recovery.test.js",
+                  "tests/codexRolloutCollector.realRust.test.js"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit1",
+              "report_ref": "logs/shared-history-compat-20261005/s4/existing-initial.txt"
+            },
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "--test",
+                  "--test-name-pattern",
+                  "history v2",
+                  "tests/codexRolloutCollector.realRust.test.js"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit1",
+              "report_ref": "logs/shared-history-compat-20261005/s4/v2-initial.txt"
+            },
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "--test",
+                  "tests/codexRolloutCollector.test.js",
+                  "tests/codexRolloutCollector.recovery.test.js",
+                  "tests/codexRolloutCollector.realRust.test.js"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/existing-and-v2.txt"
+            },
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "--test",
+                  "--test-name-pattern",
+                  "history v2",
+                  "tests/codexRolloutCollector.realRust.test.js"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt"
+            },
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "--test",
+                  "--test-name-pattern",
+                  "history v2 rereads original",
+                  "tests/codexRolloutCollector.realRust.test.js"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/old-partial-v2.txt"
+            },
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "--test",
+                  "--test-name-pattern",
+                  "original partial turn growth",
+                  "tests/codexRolloutCollector.realRust.test.js"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/partial-growth.txt"
+            },
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "--test",
+                  "--test-name-pattern",
+                  "history v2",
+                  "tests/codexRolloutCollector.realRust.test.js"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/projection-guards.txt"
+            },
+            {
+              "command": {
+                "bin": "node",
+                "args": [
+                  "--test",
+                  "--test-name-pattern",
+                  "saves both delegation",
+                  "tests/codexRolloutCollector.realRust.test.js"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/paired-negatives.txt"
+            },
+            {
+              "command": {
+                "bin": "powershell",
+                "args": [
+                  "-ExecutionPolicy",
+                  "Bypass",
+                  "-File",
+                  ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+                  "-ReqPath",
+                  "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+                  "-ProjectRoot",
+                  ".",
+                  "-Strict"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit1",
+              "report_ref": "logs/shared-history-compat-20261005/s4/req-final.txt"
+            },
+            {
+              "command": {
+                "bin": "powershell",
+                "args": [
+                  "-ExecutionPolicy",
+                  "Bypass",
+                  "-File",
+                  ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+                  "-RecordPath",
+                  "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+                  "-ProjectRoot",
+                  ".",
+                  "-Strict"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit1",
+              "report_ref": "logs/shared-history-compat-20261005/s4/cr-final.txt"
+            },
+            {
+              "command": {
+                "bin": "pwsh",
+                "args": [
+                  "-NoProfile",
+                  "-File",
+                  ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+                  "-ReqPath",
+                  "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+                  "-ProjectRoot",
+                  ".",
+                  "-Strict"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt"
+            },
+            {
+              "command": {
+                "bin": "pwsh",
+                "args": [
+                  "-NoProfile",
+                  "-File",
+                  ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+                  "-RecordPath",
+                  "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+                  "-ProjectRoot",
+                  ".",
+                  "-Strict"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt"
+            },
+            {
+              "command": {
+                "bin": "git",
+                "args": [
+                  "diff",
+                  "--check"
+                ]
+              },
+              "environment": {
+                "CARGO_NET_OFFLINE": "true"
+              },
+              "result": "exit0",
+              "report_ref": "logs/shared-history-compat-20261005/s4/diff-check-final.txt"
+            }
+          ],
+          "remaining_work": [
+            "S4 formal change review and step finish not performed",
+            "S5 H1/H3 actual product transaction and provider reopen body/real tool details;new scenario not proven by existing productflow",
+            "832 active/S2 unchanged;Branch and three real-host/phone switch/reopen acceptance remain;explicit return after833",
+            "S2 vendor offline failure and three old management association gaps retained;no full Node/Rust suite or independent review"
+          ],
+          "files": [
+            "src/services/codexRolloutCollector/analyzerProtocol.js",
+            "src/services/codexRolloutCollector/analysisBatchImporter.js",
+            "src/services/codexRolloutCollector/analyzerProcessManager.js",
+            "src/services/codexRolloutCollector/index.js",
+            "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+            "tests/codexRolloutCollector.test.js",
+            "tests/codexRolloutCollector.realRust.test.js",
+            "tests/codexRolloutCollector.recovery.test.js",
+            "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+            "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+            "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+            "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+            "logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json",
+            "logs/shared-history-compat-20261005/s4/baseline.cjs",
+            "logs/shared-history-compat-20261005/s4/baseline.json",
+            "logs/shared-history-compat-20261005/s4/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+            "logs/shared-history-compat-20261005/s4/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+            "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisBatchImporter.js",
+            "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisCheckpointStore.js",
+            "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProcessManager.js",
+            "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProtocol.js",
+            "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__index.js",
+            "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.realRust.test.js",
+            "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.recovery.test.js",
+            "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.test.js",
+            "logs/shared-history-compat-20261005/s4/cr-final-result.json",
+            "logs/shared-history-compat-20261005/s4/cr-final.txt",
+            "logs/shared-history-compat-20261005/s4/cr-pwsh-final-result.json",
+            "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt",
+            "logs/shared-history-compat-20261005/s4/diff-check-final-result.json",
+            "logs/shared-history-compat-20261005/s4/diff-check-final.txt",
+            "logs/shared-history-compat-20261005/s4/existing-and-v2-result.json",
+            "logs/shared-history-compat-20261005/s4/existing-and-v2.txt",
+            "logs/shared-history-compat-20261005/s4/existing-initial-result.json",
+            "logs/shared-history-compat-20261005/s4/existing-initial.txt",
+            "logs/shared-history-compat-20261005/s4/final-node-result.json",
+            "logs/shared-history-compat-20261005/s4/final-node.txt",
+            "logs/shared-history-compat-20261005/s4/old-partial-v2-result.json",
+            "logs/shared-history-compat-20261005/s4/old-partial-v2.txt",
+            "logs/shared-history-compat-20261005/s4/paired-negatives-result.json",
+            "logs/shared-history-compat-20261005/s4/paired-negatives.txt",
+            "logs/shared-history-compat-20261005/s4/partial-growth-result.json",
+            "logs/shared-history-compat-20261005/s4/partial-growth.txt",
+            "logs/shared-history-compat-20261005/s4/projection-guards-result.json",
+            "logs/shared-history-compat-20261005/s4/projection-guards.txt",
+            "logs/shared-history-compat-20261005/s4/protection-and-recovery-result.json",
+            "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt",
+            "logs/shared-history-compat-20261005/s4/readback.cjs",
+            "logs/shared-history-compat-20261005/s4/record-execution.cjs",
+            "logs/shared-history-compat-20261005/s4/report.md",
+            "logs/shared-history-compat-20261005/s4/req-final-result.json",
+            "logs/shared-history-compat-20261005/s4/req-final.txt",
+            "logs/shared-history-compat-20261005/s4/req-pwsh-final-result.json",
+            "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt",
+            "logs/shared-history-compat-20261005/s4/run.cjs",
+            "logs/shared-history-compat-20261005/s4/self-check.cjs",
+            "logs/shared-history-compat-20261005/s4/self-check.json",
+            "logs/shared-history-compat-20261005/s4/source-after.json",
+            "logs/shared-history-compat-20261005/s4/status-832-before.json",
+            "logs/shared-history-compat-20261005/s4/status-S3-before.json",
+            "logs/shared-history-compat-20261005/s4/status-S4-before.json",
+            "logs/shared-history-compat-20261005/s4/v2-initial-result.json",
+            "logs/shared-history-compat-20261005/s4/v2-initial.txt"
+          ],
+          "ref": ".workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json",
+          "interpretation_ref": null
+        },
+        "review_ref": ".workflow-system/records/events/key-f70d47a3fa7402f6ccee4bcfd8de46e18768d4d3395e508df94918c8a52e0e0b.json",
+        "review_status": "needs-repair",
+        "findings": [
+          {
+            "id": "S4-R1",
+            "priority": 1,
+            "severity": "P1",
+            "title": "Completeness promotion bypasses G1 start-to-completion proof",
+            "file": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+            "start": 1064,
+            "end": 1066,
+            "description": "Generic isUpsertMutationPromotion is evaluated before isHistoryObservationUpdate; partial-to-canonical turn updates can replace content_hash while retaining source_ref and skip durable start/order/coverage proof. A schema-valid same-position completion with recomputed FNV is accepted and marks temporary MemoryAnalysisStore canonical.",
+            "evidence": "logs/shared-history-compat-20261005/s4/review-1/probe-result.json",
+            "qualification": "Inbound validation counterexample, not observed host output or actual SQLite publication",
+            "repair_scope": "Importer and existing boundary tests; preserve G2 and strict other mutations; no new shared contract or unrelated product changes"
+          }
+        ],
+        "review_choice": "repair",
+        "review_decision_ref": ".workflow-system/records/events/key-d8bcc00aeffee86f5383294807418ef92cf1b1d38b24d58d764896228f4e1cec.json",
+        "review_decisions": [
+          {
+            "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+            "step_id": "S4",
+            "review_ref": ".workflow-system/records/events/key-f70d47a3fa7402f6ccee4bcfd8de46e18768d4d3395e508df94918c8a52e0e0b.json",
+            "choice": "repair",
+            "decision_source": "Current human execute-step repair invocation after the S4-R1 review",
+            "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) repair",
+            "ref": ".workflow-system/records/events/key-d8bcc00aeffee86f5383294807418ef92cf1b1d38b24d58d764896228f4e1cec.json",
+            "interpretation_ref": null
+          }
+        ],
+        "tests": [],
+        "disposition_ref": null,
+        "historical_execution_refs": []
+      },
+      {
+        "id": "S5",
+        "title": "验证隔离产品保存并交回三场景业务验收",
+        "environment": [
+          "实际Rust/Node版本和临时产品SQLite",
+          "existingproductprovider/Gateway集成测试入口",
+          "不启动真实服务/聊天或操作手机"
+        ],
+        "actions": [
+          "用已有realRust/productflow回归证明durablebatch/ACK、Rustcomplete、产品transactionCOMMIT/provider读回和内容身份。",
+          "分别保留ordinary/委派负向及详情/reopen/旧canonical保护，无法闭合项明确failed/partial。",
+          "整理稳定契约、修复文件、binary/schema/兼容结论，交回TASK-20260832，不自行执行其S3/S5/S6或结束它。"
+        ],
+        "validation": [
+          "H1/H3各自成功或明确未解决；不以mock或一个普通样本代替委派。",
+          "原task三项真实业务验收、H2定位及指定手机durableACK/重开仍显式未验，不重复预算。"
+        ],
+        "outputs": [
+          "共享兼容修复交付矩阵与handoff",
+          "REQ/PLAN/CR实际进度及当前taskstatus，不把处置当PASS"
+        ],
+        "state": "not-started",
+        "legacy_step_status": null,
+        "execution_ref": null,
+        "execution": null,
+        "review_ref": null,
+        "review_status": "not-reviewed",
+        "findings": [],
+        "review_choice": null,
+        "review_decision_ref": null,
+        "review_decisions": [],
+        "tests": [],
+        "disposition_ref": null,
+        "historical_execution_refs": []
+      }
+    ],
+    "reviews": [
+      {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S2",
+        "execution_ref": ".workflow-system/records/events/key-debf41cd5061f6e5a4a33043db5815bca9513c7396550d5dcfde38bfc5437308.json",
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "verdict": "clean",
+        "findings": [],
+        "provenance": {
+          "kind": "same-agent-change-self-review",
+          "reviewer": "Codex",
+          "independent": false,
+          "new_product_tests_run": false,
+          "assessment": "Read-only source/diff and exact saved evidence review; fresh attachment/dependency/oracle hashes and live state checks. No product repair or business-test rerun."
+        },
+        "coverage": [
+          "Exact latest S2 execution;126 fixed/live attachment hashes match;actual current HEAD plus working files",
+          "Native two-carrier typed shape validation,strict missing/null/unknown/mixed/carrier negatives,ordinary call_id/text/structured output protection",
+          "Formal necessary compile adaptation and pending ParseGap fail-closed,not S3 semantics",
+          "Same-upstream Spike-to-formal patch closure/parity,promotion correction and LICENSE/NOTICE provenance",
+          "Final saved Spike10/formal36/stage3 comparison5/parity evidence,current oracles and14localCodexdependencies per root;standalone vendor failure retained",
+          "Actual user-authorized S1-D publication and S1-R1/R2 normative corrections;REQ/PLAN/CR and833/832 retained scope/state"
+        ],
+        "remaining_work": [
+          "S2 executed/un-finished;review does not finish or close",
+          "Independent vendor test compilation blocked by offline missing diff v0.1.13;vendor unit tests not verified;no full suite or independent review",
+          "S3 Rust owned events/reducer/capability/profile,S4 Node localized merging,S5 actual Rust/isolated product persistence remain",
+          "832 active/S2 retained;branch discovery and three real-host/phone body/tool-detail acceptance remain;explicit return required",
+          "Three pre-existing management association issues retained"
+        ],
+        "observations": [
+          {
+            "kind": "evidence-qualification",
+            "detail": "Some command fields carry human run labels (including git diff --check final), not literal CLI; actual commands/output and reporting qualifications reviewed."
+          }
+        ],
+        "files": [
+          "logs/shared-history-compat-20261005/s2/review-1/review-change.md",
+          "logs/shared-history-compat-20261005/s2/review-1/attachment-check.json",
+          "logs/shared-history-compat-20261005/s2/review-1/dependency-check.json",
+          "logs/shared-history-compat-20261005/s2/review-1/oracle-check.json",
+          "logs/shared-history-compat-20261005/s2/review-1/validation-check.json",
+          "logs/shared-history-compat-20261005/s2/review-1/audit.cjs",
+          "logs/shared-history-compat-20261005/s2/review-1/status-833-before.json",
+          "logs/shared-history-compat-20261005/s2/review-1/status-832-before.json",
+          "docs/workflow/CONTRACTS.md",
+          "docs/workflow/DECISIONS.md",
+          "docs/codex/codex-rollout-collector-architecture.md",
+          "docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md",
+          "docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md",
+          "docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md",
+          "docs/codex/codex-rollout-collector-codex-compatibility.md",
+          "docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md",
+          "docs/codex/codex-history-shared-compat-contract.md",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261005-1901-shared-history-wire-compat.md",
+          "native/codex-rollout-compat-spike/src/codex_decode.rs",
+          "native/codex-rollout-compat-spike/fixtures/delegated-input.jsonl",
+          "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+          "native/codex-rollout-collector/tests/conformance.rs",
+          "native/codex-rollout-collector/tests/fixtures/current/delegated-input.jsonl",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/protocol/src/models.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/protocol/src/items.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/protocol/src/legacy_events.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/protocol/src/models/executed_tool_calls_tests.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml",
+          "native/codex-rollout-compat-spike/vendor/codex/LICENSE",
+          "native/codex-rollout-compat-spike/vendor/codex/NOTICE",
+          "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+          "native/codex-rollout-collector/vendor/codex/protocol/src/models.rs",
+          "native/codex-rollout-collector/vendor/codex/protocol/src/items.rs",
+          "native/codex-rollout-collector/vendor/codex/protocol/src/legacy_events.rs",
+          "native/codex-rollout-collector/vendor/codex/protocol/src/models/executed_tool_calls_tests.rs",
+          "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+          "native/codex-rollout-collector/vendor/codex/LICENSE",
+          "native/codex-rollout-collector/vendor/codex/NOTICE"
+        ],
+        "ref": ".workflow-system/records/events/key-7272b62c7444cf75799a47caa06045b85e27a6be16a1b84ae5570ce44655fb8f.json",
+        "interpretation_ref": null
+      },
+      {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S3",
+        "execution_ref": ".workflow-system/records/events/key-133d6c3b6cac6f1b6a502ab2dc2c76c61e198c19ee1324bda700d90326895382.json",
+        "source_revision": "644d9b1fad603719ee58d3514d32668735b1efdb",
+        "verdict": "clean",
+        "findings": [],
+        "provenance": {
+          "kind": "same-agent-change-self-review",
+          "reviewer": "Codex",
+          "independent": false,
+          "new_product_tests_run": false,
+          "assessment": "Read-only review of exact S3 code/diff/call chain/shared contract and saved final evidence;fresh 64 attachment,subject,boundary,binary hash checks and journal state;no business rerun or product edit."
+        },
+        "coverage": [
+          "Exact latest S3 execution on HEAD644d9b1 working tree;64 fixed/live attachments match;current source and tested collector/oracle hashes match",
+          "DelegatedInput native shape/identity/turn/physical binding and canonical target priority;ordinary tool and unknown diagnostics protected",
+          "Two immutable physical facts versus one logical body;single carrier/reverse/retry/checkpoint/stable representative/conflict behavior",
+          "Actual hello intersection and worker decoder/adapter/mapper/lineage/checkpoint profile propagation;legacy/cross-profile fail-closed",
+          "Old nonempty cursor unchanged,fresh v2 job four empty recovery fields actual reread,equality checks and same-v2 delivery payload/identity restart",
+          "Final saved39conformance/5stage3/73target;earlier failures and qualifications retained;REQ/PLAN/draft CR and scoped Node handoff"
+        ],
+        "remaining_work": [
+          "S3 executed/clean review is not finish or task close;no independent review",
+          "S4 Node must preserve original hello/profile for unanchored old unsettled delivery;not proven by same-v2 replay",
+          "S4 Node validation/system role/G1/G2 durable evidence and S5 actual Rust-to-Node/File/SQLite/provider reopen remain;test-driver ACK not disk evidence",
+          "832 active/S2 unchanged;Branch discovery and three real-host/phone body/tool-detail acceptance remain;833 close requires explicit return",
+          "No full Rust suite or standalone vendor tests;S2 offline vendor failure retained;three old management association gaps retained"
+        ],
+        "files": [
+          "logs/shared-history-compat-20261005/s3/review-1/review-change.md",
+          "logs/shared-history-compat-20261005/s3/review-1/attachment-check.json",
+          "logs/shared-history-compat-20261005/s3/review-1/scope-check.json",
+          "logs/shared-history-compat-20261005/s3/review-1/validation-check.json",
+          "logs/shared-history-compat-20261005/s3/review-1/audit.cjs",
+          "logs/shared-history-compat-20261005/s3/review-1/status-833-before.json",
+          "logs/shared-history-compat-20261005/s3/review-1/status-832-before.json",
+          "logs/shared-history-compat-20261005/s3/report.md",
+          "logs/shared-history-compat-20261005/s3/node-handoff.md",
+          "logs/shared-history-compat-20261005/s3/final-adapter-guard-validation.txt",
+          "native/codex-rollout-collector/src/model/analysis_event.rs",
+          "native/codex-rollout-collector/src/analysis.rs",
+          "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+          "native/codex-rollout-collector/src/codex_wire/profile.rs",
+          "native/codex-rollout-collector/src/codex_wire/decode.rs",
+          "native/codex-rollout-collector/src/protocol/target.rs",
+          "native/codex-rollout-collector/src/protocol/target_runtime.rs",
+          "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+          "native/codex-rollout-collector/src/protocol/target_data.rs",
+          "native/codex-rollout-collector/src/protocol/mod.rs",
+          "native/codex-rollout-collector/src/main.rs",
+          "native/codex-rollout-collector/tests/conformance.rs",
+          "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+          "docs/changes/records/CR-20261006-0010-shared-history-rust-semantics.md"
+        ],
+        "ref": ".workflow-system/records/events/key-9cbd6bc83843db4a56ee72e21b8e0ae7ce207880b53a8837244a8b30dc5f084e.json",
+        "interpretation_ref": null
+      },
+      {
+        "stage": "change",
+        "files": [
+          "logs/shared-history-compat-20261005/s1/repair-1/review-1/review-change.md",
+          "logs/shared-history-compat-20261005/s1/repair-1/review-1/subject-hashes.json",
+          "logs/shared-history-compat-20261005/s1/repair-1/review-1/protected-hashes.json",
+          "docs/codex/codex-history-shared-compat-contract.md",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md",
+          "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md"
+        ],
+        "prior_findings_assessment": [
+          {
+            "qualification": "not implemented or product-tested",
+            "id": "S1-R1",
+            "status": "design-repair-verified",
+            "evidence": "contract:68-78,130; actual canonical gate and InProgress reducer; REQ/PLAN regression cases"
+          },
+          {
+            "qualification": "request structure only;no Rust process/source read or stored old state verification",
+            "id": "S1-R2",
+            "status": "design-repair-verified",
+            "evidence": "contract:104-118;target.rs:540-555,628-641;Node validator and saved shape probe"
+          }
+        ],
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "previous_review_ref": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json",
+        "execution_ref": ".workflow-system/records/events/key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+        "provenance": {
+          "reviewer": "Codex",
+          "independent": false,
+          "assessment": "Static source/design and saved evidence review; no product code edits or business test rerun",
+          "new_product_tests_run": false,
+          "kind": "same-agent-change-self-review"
+        },
+        "verdict": "clean",
+        "remaining_work": [
+          "S1-D controlled publication still pending;clean is not full S1 completion or authority to bypass governance",
+          "S1 still executed/un-finished;finish entry must inspect remaining work, no missing-work acceptance recorded",
+          "S2-S5 implementation and actual Rust/Node/storage regressions not run",
+          "TASK20260832 active/S2 retained; explicit return and branch/real-host/phone validation remains",
+          "Three pre-existing management association issues retained"
+        ],
+        "coverage": [
+          "Exact latest S1 repair execution and17unchanged fixed/live attachments;13protected source/governance objects unchanged",
+          "Complete shared design,REQ/PLAN/repair CR and precise pending-publication proposal",
+          "S1-R1 evidenced canonical-to-canonical G1, lifecycle distinct from snapshot coverage, full/delta proof and original partial/negative planning",
+          "S1-R2 actual Rust optional fields/equality and Node request construction/validator plus fixed synthetic probe evidence",
+          "DelegatedInput/G2/version/profile/old delivery and scope boundaries retained",
+          "S1-D pending and original832 state/three business goals, no product success or step finish"
+        ],
+        "findings": [],
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S1",
+        "ref": ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+        "interpretation_ref": null
+      },
+      {
+        "stage": "draft",
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "verdict": "clean",
+        "findings": [],
+        "coverage": [
+          "Actual original three business goals, exact independent candidate and user prepare-only decision",
+          "Rust then minimal existing Node order, AD022 and excluded full migration",
+          "H1 actual staged-growth failure, H3 two carriers and correct owned identity; H2 retained original task",
+          "Old consumer/checkpoint/partial reread, strict conflict and canonical protection",
+          "Generic product payload and existing Android text/role decoding feasibility, unverified E2E retained",
+          "Minimum-sufficient existing realRust/productflow regression selection and negative cases",
+          "REQ/PLAN/CR truthfulness, IPC/DB/source/vendor/module freeze and side-effect exclusions"
+        ],
+        "provenance": {
+          "kind": "same-agent-draft-self-review",
+          "implementation_verified": false,
+          "reviewer": "Codex",
+          "independent": false,
+          "new_tests_run": false
+        },
+        "conditions": [
+          "Implement S1 exact shared schema, lifecycle proof, compatibility and recovery rules before using them in Rust/Node",
+          "Rust S3 stable contract and actual version evidence precede Node S4; no blanket overwrite or fake call_id",
+          "H1/H3 isolated publication must meet positive acceptance or be reported unresolved; original task retains H2 and three real-host/phone acceptance"
+        ],
+        "summary": "No material plan correction identified. Candidate ready for user plan confirmation, not adopted or implemented. Three product failures remain unrepaired. Original focus/S2 review and finish unchanged.",
+        "files": [
+          "logs/history-save-repair-20261005/s2/shared-compat-candidate/review-draft.md",
+          "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.json",
+          "logs/history-save-repair-20261005/s2/shared-compat-candidate/plan.md"
+        ],
+        "ref": ".workflow-system/records/events/key-bbe91039c711443f08dc185dfade7a066c7e16dd283c644fdad1e039aa2f478a.json",
+        "interpretation_ref": null
+      },
+      {
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S1",
+        "stage": "change",
+        "execution_ref": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "verdict": "needs-repair",
+        "findings": [
+          {
+            "file": "docs/codex/codex-history-shared-compat-contract.md",
+            "id": "S1-R1",
+            "title": "Include evidenced canonical-to-canonical turn start-to-complete",
+            "resolution": "Specify narrowly evidenced canonical-to-canonical G1 without downgrade or physical-event rewrite; retain original partial case and ordinary gap-free running canonical then completion regression.",
+            "evidence": [
+              "native/codex-rollout-collector/src/protocol/target_mapping.rs:217",
+              "native/codex-rollout-collector/src/protocol/target_mapping.rs:1422",
+              "native/codex-rollout-collector/src/analysis.rs:785",
+              "native/codex-rollout-collector/src/analysis.rs:748"
+            ],
+            "priority": 1,
+            "line": 70,
+            "body": "G1 explicitly permits same partial/provisional and canonical promotion but omits same canonical progression. Current Rust canonical gate proves safe snapshot coverage without requiring terminal turn; ordinary running history can already stage canonical TurnStarted. Later canonical TurnCompleted changes mutation content/source_ref and falls outside strict allowed cases, so save rejection remains after parse-gap repair."
+          },
+          {
+            "file": "docs/codex/codex-history-shared-compat-contract.md",
+            "id": "S1-R2",
+            "title": "Make old checkpoint backfill parameters pass request validation",
+            "resolution": "Fix exact compatible request and limited validation scope; retain original old state and strict append/redelivery validation; include old non-null cursor case.",
+            "evidence": [
+              "native/codex-rollout-collector/src/protocol/target.rs:628",
+              "native/codex-rollout-collector/src/protocol/target.rs:636"
+            ],
+            "priority": 1,
+            "line": 102,
+            "body": "Fresh-profile backfill requires cursor=null while permitting a valid target-v1 persisted_anchor. Such anchor may have non-null cursor; TargetAnalyzeRequest.validate requires anchor.cursor equal request.cursor before mapper/source compatibility can run. Recovery promise is unexecutable for that legal old state."
+          }
+        ],
+        "coverage": [
+          "Exact16unchanged artifacts and source baseline",
+          "New DelegatedInput field/identity/carrier and role design, source/vendor/module boundaries",
+          "G1/G2 strict growth versus physical immutable events, canonical coverage versus turn lifecycle",
+          "Hello profiles, old checkpoint and pending-delivery semantics against actual request/mapper validations",
+          "REQ/PLAN/CR and acknowledged pending controlled governance publication",
+          "Original TASK20260832 scope/state and explicit return; no product/phone validation claims"
+        ],
+        "provenance": {
+          "kind": "same-agent-change-self-review",
+          "reviewer": "Codex",
+          "assessment": "Static source/design counterexamples; no new runtime reproduction or repair",
+          "independent": false,
+          "new_product_tests_run": false
+        },
+        "remaining_work": [
+          "Repair both design findings and synchronize documentation before new review",
+          "Controlled governance publication remains pending as already reported; review does not authorize bypass, Runtime edits or premature close",
+          "S1 not finished; no implementation/product success"
+        ],
+        "files": [
+          "logs/shared-history-compat-20261005/s1/review-change.md",
+          "logs/shared-history-compat-20261005/s1/review-subject-hashes.json",
+          "docs/codex/codex-history-shared-compat-contract.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md"
+        ],
+        "ref": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json",
+        "interpretation_ref": null
+      },
+      {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S4",
+        "execution_ref": ".workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json",
+        "source_revision": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+        "verdict": "needs-repair",
+        "findings": [
+          {
+            "id": "S4-R1",
+            "priority": 1,
+            "severity": "P1",
+            "title": "Completeness promotion bypasses G1 start-to-completion proof",
+            "file": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+            "start": 1064,
+            "end": 1066,
+            "description": "Generic isUpsertMutationPromotion is evaluated before isHistoryObservationUpdate; partial-to-canonical turn updates can replace content_hash while retaining source_ref and skip durable start/order/coverage proof. A schema-valid same-position completion with recomputed FNV is accepted and marks temporary MemoryAnalysisStore canonical.",
+            "evidence": "logs/shared-history-compat-20261005/s4/review-1/probe-result.json",
+            "qualification": "Inbound validation counterexample, not observed host output or actual SQLite publication",
+            "repair_scope": "Importer and existing boundary tests; preserve G2 and strict other mutations; no new shared contract or unrelated product changes"
+          }
+        ],
+        "provenance": {
+          "kind": "same-agent-change-self-review",
+          "reviewer": "Codex",
+          "independent": false,
+          "new_product_tests_run": false,
+          "readonly_probe_run": true,
+          "assessment": "Exact S4 code/diff/call chain/shared contract and saved final evidence reviewed;63 fixed/live attachment checks,9 subjects and8 protected hashes match;actual current Rust batch plus original old prefix used for isolated read-only importer counterexample;no product edits or full test rerun."
+        },
+        "coverage": [
+          "Exact latest S4 execution on HEAD7ce1d08 working tree;63 fixed/live execution attachments and current subjects/boundaries match",
+          "Protocol DelegatedInput public schema/FNV/profile and hello capability intersection;public envelope checks before ACK/complete",
+          "Original v1 unsettled intent retention and singleton manager profile selection;fresh v2 independent backfill four empty recovery fields",
+          "G1/G2 durable staging evidence,physical event immutability,logical mutation preflight,representative and product system role DTO",
+          "Original final180/180 evidence current applicability;new isolated partial-to-canonical same-position boundary probe finds bypass",
+          "REQ/PLAN/draft CR scope and S5 product/832 host/mobile acceptance limitations retained"
+        ],
+        "remaining_work": [
+          "Repair S4-R1 and validate protected turn completeness upgrades cannot bypass G1;new execution and change review required",
+          "S4 executed/needs-repair,not finished;833 active;self-review not independent review",
+          "S5 actual Rust-to-Node durable staging/ACK/complete/SQLite/provider reopen body and true tool details remain",
+          "832 active/S2 unchanged;Branch discovery and three host/mobile acceptance cases remain;833 closure is not automatic parent business completion",
+          "Earlier failures,S2 vendor offline limitation and three old management association gaps retained"
+        ],
+        "files": [
+          "logs/shared-history-compat-20261005/s4/review-1/review-change.md",
+          "logs/shared-history-compat-20261005/s4/review-1/audit.cjs",
+          "logs/shared-history-compat-20261005/s4/review-1/attachment-check.json",
+          "logs/shared-history-compat-20261005/s4/review-1/scope-check.json",
+          "logs/shared-history-compat-20261005/s4/review-1/status-833-before.json",
+          "logs/shared-history-compat-20261005/s4/review-1/status-832-before.json",
+          "logs/shared-history-compat-20261005/s4/review-1/probe.cjs",
+          "logs/shared-history-compat-20261005/s4/review-1/probe-result.json",
+          "logs/shared-history-compat-20261005/s4/review-1/real-batch.json",
+          "logs/shared-history-compat-20261005/s4/review-1/same-position-completion.json",
+          "logs/shared-history-compat-20261005/s4/review-1/record-review.cjs",
+          "logs/shared-history-compat-20261005/s4/report.md",
+          "logs/shared-history-compat-20261005/s4/final-node-result.json",
+          "src/services/codexRolloutCollector/analyzerProtocol.js",
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "src/services/codexRolloutCollector/analyzerProcessManager.js",
+          "src/services/codexRolloutCollector/index.js",
+          "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+          "tests/codexRolloutCollector.test.js",
+          "tests/codexRolloutCollector.realRust.test.js",
+          "tests/codexRolloutCollector.recovery.test.js",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+          "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl"
+        ],
+        "ref": ".workflow-system/records/events/key-f70d47a3fa7402f6ccee4bcfd8de46e18768d4d3395e508df94918c8a52e0e0b.json",
+        "interpretation_ref": null
+      }
+    ],
+    "executions": [
+      {
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S3",
+        "mode": "default",
+        "source_revision": "644d9b1fad603719ee58d3514d32668735b1efdb",
+        "result": "Rust S3 implemented; conformance39/stage3 comparison5/target73 passed;pending change review and finish;Node/storage/product/phone not validated",
+        "decision_source": "Current human execute-step TASK-20260833 S3 invocation, adopted plan and already published precise shared contract",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) 833 S3",
+        "summary": {
+          "implementation": "TermLink-owned delegated event,validated native identity/turn/physical binding,immutable physical facts/logical dedup/stable representative;optional negotiated v2 profile to worker/mapper/checkpoint with legacy/cross-profile protection",
+          "qualification": "Implementation self-check only;no formal review or step finish;process ACK flags are test-driver claims,not actual Node durable storage",
+          "scope": "Formal Rust only,12 existing files and one exact sanitized context fixture;main and protocol exports only direct necessary plumbing;REQ/PLAN/new draft CR synced;source/vendor/Node/governance/IPC/Android/DB unchanged",
+          "baseline": "S2 already finished and clean at fresh query;HEAD644d9b1 committed before this batch,all S3 changes uncommitted"
+        },
+        "commands": [
+          {
+            "command": {
+              "bin": "cargo",
+              "args": [
+                "test",
+                "--manifest-path",
+                "native/codex-rollout-collector/Cargo.toml",
+                "--test",
+                "conformance",
+                "--test",
+                "stage4_target_protocol",
+                "--test",
+                "stage3_conformance",
+                "--locked",
+                "--offline",
+                "--",
+                "--nocapture"
+              ]
+            },
+            "environment": {
+              "TERMLINK_STAGE3_DEMO_BIN": "E:/coding/TermLink-rust-source-resolution-codex/native/codex-rollout-demo/target/debug/codex-rollout-demo.exe",
+              "TERMLINK_STAGE3_SPIKE_BIN": "E:/coding/TermLink-rust-source-resolution-codex/native/codex-rollout-compat-spike/target/debug/codex-rollout-compat-spike.exe"
+            },
+            "result": "exit0;39/5/73 PASS",
+            "report_ref": "logs/shared-history-compat-20261005/s3/final-adapter-guard-validation.txt"
+          },
+          {
+            "command": {
+              "bin": "cargo",
+              "args": [
+                "test",
+                "--manifest-path",
+                "native/codex-rollout-collector/Cargo.toml",
+                "--test",
+                "stage4_target_protocol",
+                "--locked",
+                "--offline"
+              ]
+            },
+            "result": "exit101;67/72;4placeholder version failures and1message assertion;preserved,localized corrections then rerun",
+            "report_ref": "logs/shared-history-compat-20261005/s3/target-all-initial.txt"
+          },
+          {
+            "command": {
+              "bin": "pwsh",
+              "args": [
+                "-NoProfile",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+                "-ReqPath",
+                "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+                "-ProjectRoot",
+                "E:/coding/TermLink-rust-source-resolution-codex",
+                "-Strict"
+              ]
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s3/req-final.txt"
+          },
+          {
+            "command": {
+              "bin": "pwsh",
+              "args": [
+                "-NoProfile",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+                "-RecordPath",
+                "docs/changes/records/CR-20261006-0010-shared-history-rust-semantics.md",
+                "-ProjectRoot",
+                "E:/coding/TermLink-rust-source-resolution-codex",
+                "-Strict"
+              ]
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s3/cr-final.txt"
+          },
+          {
+            "command": {
+              "bin": "git",
+              "args": [
+                "diff",
+                "--check"
+              ]
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s3/diff-check-final.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "logs/shared-history-compat-20261005/s3/self-check.cjs"
+              ]
+            },
+            "result": "15before originals,8protected boundaries,167historical fixed attachments,2unchanged oracle binaries and exact sanitized fixture match;scope confined;actual collector/source hashes saved"
+          }
+        ],
+        "remaining_work": [
+          "S3 change review/finish remain separate;this execution is not review clean or finished",
+          "S4 Node strict event/profile reception and original intent hello/profile,G1/G2 durable evidence merge/system role;S5 actual Rust-to-staging/ACK/complete/product SQLite/provider reopen remain",
+          "Unanchored old pending job must retain original Node profile;unknown prior parser payload is not claimed reproducible;old intent/receipt remains",
+          "Full Rust/vendor unit tests not run;S2 standalone vendor offline failure retained",
+          "832 active/S2 preserved;Branch and all three real-host/phone acceptance remain;explicit return,not automatic",
+          "Three existing unassociated management records remain;no metadata repair replay"
+        ],
+        "files": [
+          "native/codex-rollout-collector/src/model/analysis_event.rs",
+          "native/codex-rollout-collector/src/analysis.rs",
+          "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+          "native/codex-rollout-collector/src/codex_wire/profile.rs",
+          "native/codex-rollout-collector/src/codex_wire/decode.rs",
+          "native/codex-rollout-collector/src/protocol/target.rs",
+          "native/codex-rollout-collector/src/protocol/target_runtime.rs",
+          "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+          "native/codex-rollout-collector/src/protocol/target_data.rs",
+          "native/codex-rollout-collector/src/protocol/mod.rs",
+          "native/codex-rollout-collector/src/main.rs",
+          "native/codex-rollout-collector/tests/conformance.rs",
+          "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+          "docs/changes/records/CR-20261006-0010-shared-history-rust-semantics.md",
+          "logs/shared-history-compat-20261005/s3/baseline.cjs",
+          "logs/shared-history-compat-20261005/s3/baseline.json",
+          "logs/shared-history-compat-20261005/s3/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+          "logs/shared-history-compat-20261005/s3/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__analysis.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__codex_adapter__mod.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__codex_wire__decode.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__codex_wire__profile.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__main.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__model__analysis_event.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__mod.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_data.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_mapping.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__src__protocol__target_runtime.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__tests__conformance.rs",
+          "logs/shared-history-compat-20261005/s3/before/native__codex-rollout-collector__tests__stage4_target_protocol.rs",
+          "logs/shared-history-compat-20261005/s3/conformance-initial-result.json",
+          "logs/shared-history-compat-20261005/s3/conformance-initial.txt",
+          "logs/shared-history-compat-20261005/s3/conformance-target-final-result.json",
+          "logs/shared-history-compat-20261005/s3/conformance-target-final.txt",
+          "logs/shared-history-compat-20261005/s3/conformance-v2-result.json",
+          "logs/shared-history-compat-20261005/s3/conformance-v2.txt",
+          "logs/shared-history-compat-20261005/s3/cr-final-result.json",
+          "logs/shared-history-compat-20261005/s3/cr-final.txt",
+          "logs/shared-history-compat-20261005/s3/diff-check-final-result.json",
+          "logs/shared-history-compat-20261005/s3/diff-check-final.txt",
+          "logs/shared-history-compat-20261005/s3/final-adapter-guard-validation-result.json",
+          "logs/shared-history-compat-20261005/s3/final-adapter-guard-validation.txt",
+          "logs/shared-history-compat-20261005/s3/final-rust-validation-result.json",
+          "logs/shared-history-compat-20261005/s3/final-rust-validation.txt",
+          "logs/shared-history-compat-20261005/s3/node-handoff.md",
+          "logs/shared-history-compat-20261005/s3/record-execution.cjs",
+          "logs/shared-history-compat-20261005/s3/report.md",
+          "logs/shared-history-compat-20261005/s3/req-final-result.json",
+          "logs/shared-history-compat-20261005/s3/req-final.txt",
+          "logs/shared-history-compat-20261005/s3/req-validation-initial-failure.txt",
+          "logs/shared-history-compat-20261005/s3/run.cjs",
+          "logs/shared-history-compat-20261005/s3/self-check.cjs",
+          "logs/shared-history-compat-20261005/s3/self-check.json",
+          "logs/shared-history-compat-20261005/s3/source-after.json",
+          "logs/shared-history-compat-20261005/s3/status-S2-before.json",
+          "logs/shared-history-compat-20261005/s3/status-S3-before.json",
+          "logs/shared-history-compat-20261005/s3/target-all-initial-result.json",
+          "logs/shared-history-compat-20261005/s3/target-all-initial.txt",
+          "logs/shared-history-compat-20261005/s3/target-v2-initial-result.json",
+          "logs/shared-history-compat-20261005/s3/target-v2-initial.txt"
+        ],
+        "ref": ".workflow-system/records/events/key-133d6c3b6cac6f1b6a502ab2dc2c76c61e198c19ee1324bda700d90326895382.json",
+        "interpretation_ref": null
+      },
+      {
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S1",
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "result": "precise-shared-design-and-REQ-PLAN-CR-delivered-governance-publication-pending-no-product-implementation",
+        "decision_ref": ".workflow-system/records/events/key-c9ee87ca72baea443b6cb1d53f14387af5407d633ad8cdf5988b80c0be34ff1d.json",
+        "focus_ref": ".workflow-system/records/events/key-4ceed6a5100de61ea522fe8eb444f8183c90b564dff0bc604e4b1969e3732335.json",
+        "summary": {
+          "governance": "Exact proposed append and source hashes saved; direct governance writes excluded and available typed promotion requires archive; no fake archive or old gate invocation. Current governance sources unchanged, publication pending.",
+          "compatibility": "Optional history_semantics_v2 intersection; target-v2 reducer profile; target wire/data schema remain1; old pending delivery stays same job/scope/payload; ordinary new-profile backfill does not fake retry or clear prior state.",
+          "business": "DelegatedInput correct native identity/body and G1/G2 narrow lifecycle/equivalent-carrier proof; physical events immutable; both full/backfill and delta conditions defined.",
+          "qualification": "Design delivery and static/doc checks only, no product code/analyzer/product tests/phone PASS; no formal review or finish.",
+          "files": "Four new docs; exact Rust/Node ownership and minimum-sufficient selectors; conditional manager/profile/checkpoint only, no full migration."
+        },
+        "commands": [
+          {
+            "result": "Textual PASS with null LASTEXITCODE retained",
+            "command": "PowerShell7 direct validate-req/validate-change-record"
+          },
+          {
+            "result": "Both exit1 missing status/priority; original logs retained",
+            "command": "Windows PowerShell child strict REQ/CR validators"
+          },
+          {
+            "result": "Both exit0 on unchanged same docs; explicit UTF-8 host",
+            "command": "pwsh child strict REQ/CR validators"
+          },
+          {
+            "result": "3 carrier pairs valid;32 original paths unchanged; governing sources unchanged",
+            "command": "Read-only sanitized fixture/source/document corroboration"
+          },
+          {
+            "result": "exit0; only4new docs, no index/product/governance changes",
+            "command": "git diff --check"
+          }
+        ],
+        "remaining_work": [
+          "S1 controlled governance/source publication remains pending; cannot count entire S1 complete or enable new shared rules yet",
+          "Change review of this exact S1 execution; no review/finish generated",
+          "S2-S5 wire/Rust/Node/product implementation and all business repairs remain unimplemented",
+          "Explicit return to original TASK-20260832/S2 after actual delivery/closure; no automatic focus return; original state retained",
+          "Three pre-existing management association issues remain; this execution must read back associated"
+        ],
+        "technical_decisions": {
+          "growth": "G1 only validated turn start-completed; G2 only verified equivalent carrier source normalization",
+          "existing_source_status": "unchanged; task design pending controlled publication",
+          "capability": "history_semantics_v2",
+          "event": "DelegatedInput",
+          "reducer_profile": "target-v2"
+        },
+        "files": [
+          "docs/codex/codex-history-shared-compat-contract.md",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261005-1521-shared-history-compat-design.md",
+          "logs/shared-history-compat-20261005/s1/report.md",
+          "logs/shared-history-compat-20261005/s1/governance-publication.md",
+          "logs/shared-history-compat-20261005/s1/source-hashes.json",
+          "logs/shared-history-compat-20261005/s1/self-check.json",
+          "logs/shared-history-compat-20261005/s1/validation-result.json",
+          "logs/shared-history-compat-20261005/s1/validation-process-result.json",
+          "logs/shared-history-compat-20261005/s1/validate-req-process.txt",
+          "logs/shared-history-compat-20261005/s1/validate-cr-process.txt",
+          "logs/shared-history-compat-20261005/s1/validation-pwsh-result.json",
+          "logs/shared-history-compat-20261005/s1/validate-req-pwsh.txt",
+          "logs/shared-history-compat-20261005/s1/validate-cr-pwsh.txt",
+          "logs/shared-history-compat-20261005/s1/diff-check-final.txt"
+        ],
+        "ref": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+        "interpretation_ref": null
+      },
+      {
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S4",
+        "mode": "default",
+        "source_revision": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+        "result": "S4 Node implemented;final scoped180/180 PASS;actual Rust/File staging/recovery verified;pending change review/finish;H1/H3 SQLite/provider reopening remains S5",
+        "decision_source": "Current human execute-step invocation TASK-20260833 S4 and adopted precise shared compatibility plan",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) 833 s4",
+        "summary": {
+          "implementation": "Four local Node files:strict DelegatedInput/system role/public profile,immutable facts plus G1/G2 durable proof/FNV recomputation/stable representative;original run hello/profile recovery and fresh v2 four-empty backfill",
+          "qualification": "Implementation self-check,not formal review or finish;new role/product payload assertions use productStore callbacks,not H1/H3 SQLite/provider proof;existing productflow PASS remains its own scenarios",
+          "scope": "Node four src/two existing tests/REQ/PLAN/new draft CR;Rust/vendor/source/governance/IPC/Android/DB schema and budgets unchanged;no Git writes/service/device effects",
+          "baseline": "HEAD7ce1d08;S3 already clean/finished;S4 not-started before;existing untracked vendor Cargo.lock preserved"
+        },
+        "commands": [
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "tests/codexRolloutCollector.test.js",
+                "tests/codexRolloutCollector.recovery.test.js",
+                "tests/codexRolloutCollector.realRust.test.js",
+                "tests/codexRolloutCollector.checkpointJobs.test.js",
+                "tests/codexRolloutCollector.isolatedLifecycle.test.js",
+                "tests/codexHistoryProductFlow.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/final-node.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "tests/codexRolloutCollector.test.js",
+                "tests/codexRolloutCollector.recovery.test.js",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit1",
+            "report_ref": "logs/shared-history-compat-20261005/s4/existing-initial.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "history v2",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit1",
+            "report_ref": "logs/shared-history-compat-20261005/s4/v2-initial.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "tests/codexRolloutCollector.test.js",
+                "tests/codexRolloutCollector.recovery.test.js",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/existing-and-v2.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "history v2",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "history v2 rereads original",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/old-partial-v2.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "original partial turn growth",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/partial-growth.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "history v2",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/projection-guards.txt"
+          },
+          {
+            "command": {
+              "bin": "node",
+              "args": [
+                "--test",
+                "--test-name-pattern",
+                "saves both delegation",
+                "tests/codexRolloutCollector.realRust.test.js"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/paired-negatives.txt"
+          },
+          {
+            "command": {
+              "bin": "powershell",
+              "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+                "-ReqPath",
+                "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+                "-ProjectRoot",
+                ".",
+                "-Strict"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit1",
+            "report_ref": "logs/shared-history-compat-20261005/s4/req-final.txt"
+          },
+          {
+            "command": {
+              "bin": "powershell",
+              "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+                "-RecordPath",
+                "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+                "-ProjectRoot",
+                ".",
+                "-Strict"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit1",
+            "report_ref": "logs/shared-history-compat-20261005/s4/cr-final.txt"
+          },
+          {
+            "command": {
+              "bin": "pwsh",
+              "args": [
+                "-NoProfile",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+                "-ReqPath",
+                "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+                "-ProjectRoot",
+                ".",
+                "-Strict"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt"
+          },
+          {
+            "command": {
+              "bin": "pwsh",
+              "args": [
+                "-NoProfile",
+                "-File",
+                ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+                "-RecordPath",
+                "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+                "-ProjectRoot",
+                ".",
+                "-Strict"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt"
+          },
+          {
+            "command": {
+              "bin": "git",
+              "args": [
+                "diff",
+                "--check"
+              ]
+            },
+            "environment": {
+              "CARGO_NET_OFFLINE": "true"
+            },
+            "result": "exit0",
+            "report_ref": "logs/shared-history-compat-20261005/s4/diff-check-final.txt"
+          }
+        ],
+        "remaining_work": [
+          "S4 formal change review and step finish not performed",
+          "S5 H1/H3 actual product transaction and provider reopen body/real tool details;new scenario not proven by existing productflow",
+          "832 active/S2 unchanged;Branch and three real-host/phone switch/reopen acceptance remain;explicit return after833",
+          "S2 vendor offline failure and three old management association gaps retained;no full Node/Rust suite or independent review"
+        ],
+        "files": [
+          "src/services/codexRolloutCollector/analyzerProtocol.js",
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "src/services/codexRolloutCollector/analyzerProcessManager.js",
+          "src/services/codexRolloutCollector/index.js",
+          "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+          "tests/codexRolloutCollector.test.js",
+          "tests/codexRolloutCollector.realRust.test.js",
+          "tests/codexRolloutCollector.recovery.test.js",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+          "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+          "logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json",
+          "logs/shared-history-compat-20261005/s4/baseline.cjs",
+          "logs/shared-history-compat-20261005/s4/baseline.json",
+          "logs/shared-history-compat-20261005/s4/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+          "logs/shared-history-compat-20261005/s4/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisBatchImporter.js",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisCheckpointStore.js",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProcessManager.js",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProtocol.js",
+          "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__index.js",
+          "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.realRust.test.js",
+          "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.recovery.test.js",
+          "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.test.js",
+          "logs/shared-history-compat-20261005/s4/cr-final-result.json",
+          "logs/shared-history-compat-20261005/s4/cr-final.txt",
+          "logs/shared-history-compat-20261005/s4/cr-pwsh-final-result.json",
+          "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt",
+          "logs/shared-history-compat-20261005/s4/diff-check-final-result.json",
+          "logs/shared-history-compat-20261005/s4/diff-check-final.txt",
+          "logs/shared-history-compat-20261005/s4/existing-and-v2-result.json",
+          "logs/shared-history-compat-20261005/s4/existing-and-v2.txt",
+          "logs/shared-history-compat-20261005/s4/existing-initial-result.json",
+          "logs/shared-history-compat-20261005/s4/existing-initial.txt",
+          "logs/shared-history-compat-20261005/s4/final-node-result.json",
+          "logs/shared-history-compat-20261005/s4/final-node.txt",
+          "logs/shared-history-compat-20261005/s4/old-partial-v2-result.json",
+          "logs/shared-history-compat-20261005/s4/old-partial-v2.txt",
+          "logs/shared-history-compat-20261005/s4/paired-negatives-result.json",
+          "logs/shared-history-compat-20261005/s4/paired-negatives.txt",
+          "logs/shared-history-compat-20261005/s4/partial-growth-result.json",
+          "logs/shared-history-compat-20261005/s4/partial-growth.txt",
+          "logs/shared-history-compat-20261005/s4/projection-guards-result.json",
+          "logs/shared-history-compat-20261005/s4/projection-guards.txt",
+          "logs/shared-history-compat-20261005/s4/protection-and-recovery-result.json",
+          "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt",
+          "logs/shared-history-compat-20261005/s4/readback.cjs",
+          "logs/shared-history-compat-20261005/s4/record-execution.cjs",
+          "logs/shared-history-compat-20261005/s4/report.md",
+          "logs/shared-history-compat-20261005/s4/req-final-result.json",
+          "logs/shared-history-compat-20261005/s4/req-final.txt",
+          "logs/shared-history-compat-20261005/s4/req-pwsh-final-result.json",
+          "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt",
+          "logs/shared-history-compat-20261005/s4/run.cjs",
+          "logs/shared-history-compat-20261005/s4/self-check.cjs",
+          "logs/shared-history-compat-20261005/s4/self-check.json",
+          "logs/shared-history-compat-20261005/s4/source-after.json",
+          "logs/shared-history-compat-20261005/s4/status-832-before.json",
+          "logs/shared-history-compat-20261005/s4/status-S3-before.json",
+          "logs/shared-history-compat-20261005/s4/status-S4-before.json",
+          "logs/shared-history-compat-20261005/s4/v2-initial-result.json",
+          "logs/shared-history-compat-20261005/s4/v2-initial.txt"
+        ],
+        "ref": ".workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json",
+        "interpretation_ref": null
+      },
+      {
+        "files": [
+          "docs/workflow/CONTRACTS.md",
+          "docs/workflow/DECISIONS.md",
+          "docs/codex/codex-rollout-collector-architecture.md",
+          "docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md",
+          "docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md",
+          "docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md",
+          "docs/codex/codex-rollout-collector-codex-compatibility.md",
+          "docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md",
+          "docs/codex/codex-history-shared-compat-contract.md",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261005-1901-shared-history-wire-compat.md",
+          "native/codex-rollout-compat-spike/src/codex_decode.rs",
+          "native/codex-rollout-compat-spike/fixtures/delegated-input.jsonl",
+          "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+          "native/codex-rollout-collector/tests/conformance.rs",
+          "native/codex-rollout-collector/tests/fixtures/current/delegated-input.jsonl",
+          "native/codex-rollout-compat-spike/vendor/codex/history/src/lib.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/protocol/src/models.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/protocol/src/items.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/protocol/src/legacy_events.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/protocol/src/models/executed_tool_calls_tests.rs",
+          "native/codex-rollout-compat-spike/vendor/codex/vendor-manifest.toml",
+          "native/codex-rollout-compat-spike/vendor/codex/LICENSE",
+          "native/codex-rollout-compat-spike/vendor/codex/NOTICE",
+          "native/codex-rollout-collector/vendor/codex/history/src/lib.rs",
+          "native/codex-rollout-collector/vendor/codex/protocol/src/models.rs",
+          "native/codex-rollout-collector/vendor/codex/protocol/src/items.rs",
+          "native/codex-rollout-collector/vendor/codex/protocol/src/legacy_events.rs",
+          "native/codex-rollout-collector/vendor/codex/protocol/src/models/executed_tool_calls_tests.rs",
+          "native/codex-rollout-collector/vendor/codex/vendor-manifest.toml",
+          "native/codex-rollout-collector/vendor/codex/LICENSE",
+          "native/codex-rollout-collector/vendor/codex/NOTICE",
+          "logs/shared-history-compat-20261005/s2/addendum-eol-result.json",
+          "logs/shared-history-compat-20261005/s2/demo-bin-build-result.json",
+          "logs/shared-history-compat-20261005/s2/demo-bin-build.txt",
+          "logs/shared-history-compat-20261005/s2/dependency-audit-corrected.json",
+          "logs/shared-history-compat-20261005/s2/dependency-audit.json",
+          "logs/shared-history-compat-20261005/s2/diff-check-final-result.json",
+          "logs/shared-history-compat-20261005/s2/diff-check-final.txt",
+          "logs/shared-history-compat-20261005/s2/diff-check-fixed-result.json",
+          "logs/shared-history-compat-20261005/s2/diff-check-fixed.txt",
+          "logs/shared-history-compat-20261005/s2/diff-check-result.json",
+          "logs/shared-history-compat-20261005/s2/diff-check.txt",
+          "logs/shared-history-compat-20261005/s2/doc-validation.json",
+          "logs/shared-history-compat-20261005/s2/final-delivery-hashes.json",
+          "logs/shared-history-compat-20261005/s2/final-validation-commands.json",
+          "logs/shared-history-compat-20261005/s2/final-validation-summary.json",
+          "logs/shared-history-compat-20261005/s2/fix-new-addendum-eol.cjs",
+          "logs/shared-history-compat-20261005/s2/fixture-provenance.json",
+          "logs/shared-history-compat-20261005/s2/formal-cargo-metadata-result.json",
+          "logs/shared-history-compat-20261005/s2/formal-cargo-metadata.json",
+          "logs/shared-history-compat-20261005/s2/formal-conformance-result.json",
+          "logs/shared-history-compat-20261005/s2/formal-conformance.txt",
+          "logs/shared-history-compat-20261005/s2/formal-final-conformance-result.json",
+          "logs/shared-history-compat-20261005/s2/formal-final-conformance.txt",
+          "logs/shared-history-compat-20261005/s2/guard-promotion.json",
+          "logs/shared-history-compat-20261005/s2/historical-cas-check.json",
+          "logs/shared-history-compat-20261005/s2/license-check.json",
+          "logs/shared-history-compat-20261005/s2/license-restoration.json",
+          "logs/shared-history-compat-20261005/s2/oracle-binaries-final.json",
+          "logs/shared-history-compat-20261005/s2/oracle-binaries.json",
+          "logs/shared-history-compat-20261005/s2/promotion.json",
+          "logs/shared-history-compat-20261005/s2/publication-after.json",
+          "logs/shared-history-compat-20261005/s2/publication-baseline.json",
+          "logs/shared-history-compat-20261005/s2/publication-decision-input.json",
+          "logs/shared-history-compat-20261005/s2/publication-decision-result.json",
+          "logs/shared-history-compat-20261005/s2/publication-final.json",
+          "logs/shared-history-compat-20261005/s2/publication-proposal.md",
+          "logs/shared-history-compat-20261005/s2/publication-targets-before.json",
+          "logs/shared-history-compat-20261005/s2/report.md",
+          "logs/shared-history-compat-20261005/s2/self-check.json",
+          "logs/shared-history-compat-20261005/s2/snapshot-inventory.json",
+          "logs/shared-history-compat-20261005/s2/source-after.json",
+          "logs/shared-history-compat-20261005/s2/source-before.json",
+          "logs/shared-history-compat-20261005/s2/spike-bin-build-result.json",
+          "logs/shared-history-compat-20261005/s2/spike-bin-build.txt",
+          "logs/shared-history-compat-20261005/s2/spike-cargo-metadata-result.json",
+          "logs/shared-history-compat-20261005/s2/spike-cargo-metadata.json",
+          "logs/shared-history-compat-20261005/s2/spike-conformance-result.json",
+          "logs/shared-history-compat-20261005/s2/spike-conformance.txt",
+          "logs/shared-history-compat-20261005/s2/spike-final-bin-build-result.json",
+          "logs/shared-history-compat-20261005/s2/spike-final-bin-build.txt",
+          "logs/shared-history-compat-20261005/s2/spike-final-conformance-result.json",
+          "logs/shared-history-compat-20261005/s2/spike-final-conformance.txt",
+          "logs/shared-history-compat-20261005/s2/spike-initial-compile-result.json",
+          "logs/shared-history-compat-20261005/s2/spike-initial-compile.txt",
+          "logs/shared-history-compat-20261005/s2/spike-vendor-test-compile-result.json",
+          "logs/shared-history-compat-20261005/s2/spike-vendor-test-compile.txt",
+          "logs/shared-history-compat-20261005/s2/stage3-conformance-result.json",
+          "logs/shared-history-compat-20261005/s2/stage3-conformance.txt",
+          "logs/shared-history-compat-20261005/s2/stage3-final-conformance-result.json",
+          "logs/shared-history-compat-20261005/s2/stage3-final-conformance.txt",
+          "logs/shared-history-compat-20261005/s2/status-awaiting-publication-choice.json",
+          "logs/shared-history-compat-20261005/s2/status-before.json",
+          "logs/shared-history-compat-20261005/s2/status-resumed.json",
+          "logs/shared-history-compat-20261005/s2/unaffected-boundaries.json",
+          "logs/shared-history-compat-20261005/s2/validate-cr.txt",
+          "logs/shared-history-compat-20261005/s2/validate-req-after.txt",
+          "logs/shared-history-compat-20261005/s2/validate-req-before.txt",
+          "logs/shared-history-compat-20261005/s2/vendor-parity-final-result.json",
+          "logs/shared-history-compat-20261005/s2/vendor-parity-final.txt",
+          "logs/shared-history-compat-20261005/s2/vendor-parity-result.json",
+          "logs/shared-history-compat-20261005/s2/vendor-parity.txt",
+          "logs/shared-history-compat-20261005/s2/publication-before/codex-history-shared-compat-contract.md",
+          "logs/shared-history-compat-20261005/s2/publication-before/codex-history-sync-node-server-coordinator-contract-draft.md",
+          "logs/shared-history-compat-20261005/s2/publication-before/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md",
+          "logs/shared-history-compat-20261005/s2/publication-before/codex-rollout-collector-architecture.md",
+          "logs/shared-history-compat-20261005/s2/publication-before/codex-rollout-collector-codex-compatibility.md",
+          "logs/shared-history-compat-20261005/s2/publication-before/codex-rollout-collector-rust-analyzer-data-contract-draft.md",
+          "logs/shared-history-compat-20261005/s2/publication-before/codex-rollout-collector-rust-analyzer-wire-contract-draft.md",
+          "logs/shared-history-compat-20261005/s2/publication-before/CONTRACTS.md",
+          "logs/shared-history-compat-20261005/s2/publication-before/DECISIONS.md",
+          "logs/shared-history-compat-20261005/s2/source-before/formal__executed_tool_calls_tests.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__src__codex_adapter__mod.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__src__codex_wire__decode.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__vendor__codex__protocol__src__items.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__vendor__codex__protocol__src__legacy_events.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__vendor__codex__protocol__src__models.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-collector__vendor__codex__vendor-manifest.toml",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__src__codex_decode.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__vendor__codex__protocol__src__items.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__vendor__codex__protocol__src__legacy_events.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__vendor__codex__protocol__src__models.rs",
+          "logs/shared-history-compat-20261005/s2/source-before/native__codex-rollout-compat-spike__vendor__codex__vendor-manifest.toml",
+          "logs/shared-history-compat-20261005/s2/source-before/spike__executed_tool_calls_tests.rs"
+        ],
+        "mode": "default",
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "commands": [
+          {
+            "result": "exit0",
+            "selector": "spike-final-conformance",
+            "command": "cargo test --manifest-path native/codex-rollout-compat-spike/Cargo.toml --lib --offline"
+          },
+          {
+            "result": "exit0",
+            "selector": "formal-final-conformance",
+            "command": "cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --offline"
+          },
+          {
+            "result": "exit0",
+            "selector": "stage3-final-conformance",
+            "command": "cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test stage3_conformance --locked --offline -- --nocapture"
+          },
+          {
+            "result": "exit0",
+            "selector": "vendor-parity-final",
+            "command": "pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1"
+          },
+          {
+            "result": "exit0",
+            "selector": "spike-final-bin-build",
+            "command": "cargo build --manifest-path native/codex-rollout-compat-spike/Cargo.toml --bin codex-rollout-compat-spike --locked --offline"
+          },
+          {
+            "result": "exit0",
+            "selector": "diff-check-final",
+            "command": "git diff --check final"
+          },
+          {
+            "command": "cargo metadata --manifest-path native/codex-rollout-compat-spike/Cargo.toml --format-version 1 --offline --locked",
+            "result": "exit0;14Codexdependencies local"
+          },
+          {
+            "command": "cargo metadata --manifest-path native/codex-rollout-collector/Cargo.toml --format-version 1 --offline --locked",
+            "result": "exit0;14Codexdependencies local"
+          },
+          {
+            "command": "cargo check --manifest-path native/codex-rollout-compat-spike/vendor/codex/protocol/Cargo.toml --tests --offline --target-dir native/codex-rollout-compat-spike/target",
+            "result": "exit101 missing cached diff v0.1.13;no vendor dev compilation/test PASS"
+          },
+          {
+            "command": "pwsh strict REQ and new CR validators",
+            "result": "bothexit0"
+          }
+        ],
+        "step_id": "S2",
+        "result": "S1-D-published-by-specific-user-method-choice-S2-Spike-formal-native-wire-delivered-required-conformance-pass-optional-vendor-dev-check-unrun-pending-review",
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "resolved_remaining_work": [
+          {
+            "item": "S1-D controlled formal/shared-source publication",
+            "actual_outcome": "Completed by explicit task-specific direct-sync method choice,exact reviewed rules+before/after snapshots;journal decision and execution separate;old pending record unchanged",
+            "prior_disposition_ref": ".workflow-system/records/events/key-cf5c109d54d84b23a5238ae6a1f158fcc180b6aa05d7ce5a226b547e94a87cd6.json"
+          }
+        ],
+        "summary": {
+          "publication": "User 继续 applied to specific direct-doc sync with journal snapshots;formal sources updated,pending publication resolved for this task,Runtime unchanged",
+          "coverage": "S1-D exact reviewed-doc publication and S2 typed native wire, strict input shapes, same-source promotion and regressions;not S3-S5 business behavior",
+          "wire": "Option missing call_id with explicit null/empty rejection;native TurnItem FunctionCallOutput and ordinary required-call identity retained;only actual response/completed carriers supported",
+          "qualification": "S2 executed only,no formal review/finish/product PASS;delegation stays semantics_pending ParseGap until S3",
+          "promotion": "Upstream5ee6 unchanged,7patch parity;final stricter guard restored then promoted after Spike10PASS;license files restored from unchanged formal same-upstream originals"
+        },
+        "remaining_work": [
+          "S2 exact current change review;not reviewed/finished/closed by execution",
+          "S3 DelegatedInput semantics/reducer/version capability and old state recovery still pending;partial protects until delivery",
+          "S4 Node local consumer/G1-G2 merge and S5 isolated save not implemented or tested",
+          "Optional independent vendor dev compile could not run offline missing cached diff;failure retained,not proof of failed root builds or vendor unit PASS",
+          "TASK20260832 active/S2 retains branch finding and real-host/phone three-goal acceptance;explicit return after actual833handoff",
+          "Three pre-existing management association gaps retained"
+        ],
+        "decision_ref": ".workflow-system/records/events/key-e870e977a57361772ba5c894b4336ab2b374ae62cd00bb313de6570ae34d2fc3.json",
+        "ref": ".workflow-system/records/events/key-debf41cd5061f6e5a4a33043db5815bca9513c7396550d5dcfde38bfc5437308.json",
+        "interpretation_ref": null
+      },
+      {
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "files": [
+          "docs/codex/codex-history-shared-compat-contract.md",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md",
+          "logs/shared-history-compat-20261005/s1/repair-1/report.md",
+          "logs/shared-history-compat-20261005/s1/repair-1/governance-publication.md",
+          "logs/shared-history-compat-20261005/s1/repair-1/hashes-before.json",
+          "logs/shared-history-compat-20261005/s1/repair-1/hashes-after.json",
+          "logs/shared-history-compat-20261005/s1/repair-1/historical-evidence-check.json",
+          "logs/shared-history-compat-20261005/s1/repair-1/self-check.json",
+          "logs/shared-history-compat-20261005/s1/repair-1/validation.json",
+          "logs/shared-history-compat-20261005/s1/repair-1/validate-req.txt",
+          "logs/shared-history-compat-20261005/s1/repair-1/validate-cr.txt",
+          "logs/shared-history-compat-20261005/s1/repair-1/request-shape-probe.cjs",
+          "logs/shared-history-compat-20261005/s1/repair-1/request-shape-result.json",
+          "logs/shared-history-compat-20261005/s1/repair-1/request-shape-exit.json",
+          "logs/shared-history-compat-20261005/s1/repair-1/diff-check.txt"
+        ],
+        "result": "S1-R1-R2-design-repaired-pending-new-review-and-controlled-publication-no-product-implementation",
+        "base_execution_ref": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S1",
+        "repair_review_ref": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json",
+        "commands": [
+          {
+            "command": "pwsh strict REQ validator",
+            "result": "exit0 PASS"
+          },
+          {
+            "command": "pwsh strict new CR validator",
+            "result": "exit0 PASS with rollback-command warning retained"
+          },
+          {
+            "command": "node one-off existing request validator shape probe",
+            "result": "exit0, original request rejected; repaired request accepted; mismatch/wrong conversation rejected; old fixture unchanged; no Rust source read"
+          },
+          {
+            "command": "SHA256 protected paths and prior fixed attachments",
+            "result": "13 protected before-paths unchanged;20 historical blobs intact;only3expected existing docs changed"
+          },
+          {
+            "command": "git diff --check",
+            "result": "exit0 tracked only, untracked docs validated separately"
+          }
+        ],
+        "mode": "repair",
+        "summary": {
+          "R1": "Evidenced canonical-to-canonical TurnStarted-to-TurnCompleted; snapshot coverage distinct from lifecycle; existing partial and strict negative cases retained",
+          "R2": "Independent new-profile ordinary backfill job with cursor/persisted_anchor/known_complete_range/recovery empty; old state local unchanged; no Rust equality exception",
+          "qualification": "Design repair only, not formal review or findings-resolved/product-PASS",
+          "governance": "Revised exact publication diff saved, sources unchanged; no supported in-progress publication action inspected; no incompatible old transaction attempted",
+          "plan_coverage": "S1-A/S1-B design repair and S1-C doc sync only; S1-D pending"
+        },
+        "decision_ref": ".workflow-system/records/events/key-40f27b04d351b69eebfb8dac5e503b20d0810b174528d9bbc740155319aa4198.json",
+        "remaining_work": [
+          "New exact-execution change review; original needs-repair retained historical, not changed to clean/resolved",
+          "S1-D controlled publication still pending; cannot claim entire S1 complete or enable new shared rules",
+          "S2-S5 product implementation and planned Rust/Node/storage regressions not run",
+          "TASK-20260832 active/S2 retained; explicit focus return after actual 833 delivery/closure and original real-host/phone acceptance remains",
+          "Three pre-existing management association gaps preserved"
+        ],
+        "ref": ".workflow-system/records/events/key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+        "interpretation_ref": null
+      }
+    ],
+    "tests": [],
+    "review_decisions": [
+      {
+        "summary": "Address S1-R1 and S1-R2 design findings only. Keep controlled publication pending, original review retained, no product implementation or finish.",
+        "decision_source": "Current human invocation following S1 needs-repair review; necessary in-scope repair, not finish or acceptance of findings",
+        "choice": "repair",
+        "review_ref": ".workflow-system/records/events/key-cbf7c012eace7a805d3610c4f6145dfb91227ef85689ebfb944b9441ca115f56.json",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\\\.agents\\skills\\execute-step\\SKILL.md) 833s1",
+        "ref": ".workflow-system/records/events/key-40f27b04d351b69eebfb8dac5e503b20d0810b174528d9bbc740155319aa4198.json",
+        "interpretation_ref": null
+      },
+      {
+        "review_ref": ".workflow-system/records/events/key-9cbd6bc83843db4a56ee72e21b8e0ae7ce207880b53a8837244a8b30dc5f084e.json",
+        "choice": "finish",
+        "decision_source": "Current human execute-step finish request for TASK-20260833 S3",
+        "decision_text": "833/S3 审查结果为 clean；审查记录已保存、关联并读回；明确请求 next_mode: finish。该 finish 保留 Node 写盘、产品历史保存、手机重开验收及非完整 Rust/vendor 测试等未验证项。",
+        "ref": ".workflow-system/records/events/key-6c5a9d01e359323bf4ac641d3c3fe10cbad0d21007b825d384dda9b897ad4043.json",
+        "interpretation_ref": null
+      },
+      {
+        "choice": "finish",
+        "decision_text": "结束 S1，保留发布待办（推荐）",
+        "decision_source": "Human answer to request_user_input_async call_yTTYsyTSj5YMZ8oacj5K8vTA about finishing S1 with controlled-publication pending",
+        "review_ref": ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+        "files": [
+          "logs/shared-history-compat-20261005/s1/finish-1/assessment.md",
+          "logs/shared-history-compat-20261005/s1/finish-1/proposed-disposition.json",
+          "logs/shared-history-compat-20261005/s1/finish-1/review-applicability.json"
+        ],
+        "disclosed_gaps": [
+          "S1-D formal CONTRACTS/DECISIONS publication not complete;current typed interface supports close-task archive only",
+          "Finish disposition keeps publication pending;must be completed before implementing new shared rules",
+          "833 remains active,832 state unchanged,no automatic S2 implementation"
+        ],
+        "scope": "TASK20260833/S1 work disposition only;not product PASS,no permission for direct governance writes,Runtime edits,Git,close or next-step execution",
+        "ref": ".workflow-system/records/events/key-754c4c4d66dc26bed718abcf5a607be65603a5880b8236446e38378663a87dea.json",
+        "interpretation_ref": null
+      },
+      {
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S4",
+        "review_ref": ".workflow-system/records/events/key-f70d47a3fa7402f6ccee4bcfd8de46e18768d4d3395e508df94918c8a52e0e0b.json",
+        "choice": "repair",
+        "decision_source": "Current human execute-step repair invocation after the S4-R1 review",
+        "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) repair",
+        "ref": ".workflow-system/records/events/key-d8bcc00aeffee86f5383294807418ef92cf1b1d38b24d58d764896228f4e1cec.json",
+        "interpretation_ref": null
+      },
+      {
+        "decision_source": "Human reply 继续 to the disclosed S2 publication-method proposal; interpreted as the first offered option, as stated in commentary",
+        "files": [
+          "logs/shared-history-compat-20261005/s2/publication-proposal.md",
+          "logs/shared-history-compat-20261005/s2/publication-targets-before.json"
+        ],
+        "review_ref": ".workflow-system/records/events/key-9da7726c3ed64ab37608400182198197e38acbe7deca619892a62916484d5def.json",
+        "decision_text": "继续",
+        "decision_scope": "This reviewed TASK20260833 shared-document publication directly into named governance/associated contracts with journal evidence, replacing in-progress unavailable typed operation for this action only;then existing S2 Spike-to-formal wire and tests",
+        "disclosed_gaps": [
+          "execute-step governance_sources empty and original typed-only normal publication rule",
+          "Existing typed publication only supports task archive;direct document sync is the specific proposed method change",
+          "No Runtime edit,task closure,Node/Android/IPC/DB expansion or Git/deployment"
+        ],
+        "choice": "continue",
+        "ref": ".workflow-system/records/events/key-e870e977a57361772ba5c894b4336ab2b374ae62cd00bb313de6570ae34d2fc3.json",
+        "interpretation_ref": null
+      }
+    ],
+    "commits": [],
+    "dispositions": [],
+    "next_route": "execute-step",
+    "next_mode": "repair",
+    "next_action": "repair-step",
+    "recommendation_only": true,
+    "origin": null,
+    "dependency": {
+      "state": "not-applicable",
+      "ref": null
+    },
+    "return_entry": null,
+    "return_result": null,
+    "dependencies": [],
+    "waiting_on_task_ids": [],
+    "continuation": null,
+    "legacy_source": null,
+    "legacy_plan_ref": null,
+    "legacy_plan": null,
+    "heads": [
+      ".workflow-system/records/events/key-d8bcc00aeffee86f5383294807418ef92cf1b1d38b24d58d764896228f4e1cec.json"
+    ]
+  },
+  "association": "applied",
+  "projection": {
+    "status": "updated",
+    "cache_ref": ".workflow-system/records/task-view.json",
+    "display": "updated",
+    "display_ref": "docs/workflow/CURRENT_TASK.md"
+  },
+  "current_task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+  "next_task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+  "next_step_id": "S4",
+  "next_route": "execute-step",
+  "next_mode": "repair",
+  "next_action": "repair-step",
+  "return_result": null,
+  "issues": [
+    {
+      "id": "issue-acce7d78ceebab4ab85bca99",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-bb8b7308bc64f7d580f3cfae",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-ec19a134aefeb23287cb519b",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "message": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "recovery_options": [
+    "rebuild",
+    "link",
+    "correct",
+    "resolve",
+    "defer",
+    "pause",
+    "close"
+  ]
+}
+

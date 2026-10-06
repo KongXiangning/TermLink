@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-06T07:16:40.278Z",
+  "payload_sha256": "2e99ec4ce2e84dc60d0e24f59bd746b9ce45be8b7d403a81fdeb33ff7fac3bd8",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260833-S4-review-change-20261006-v1",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "step_id": "S4",
+      "execution_ref": ".workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json",
+      "source_revision": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+      "verdict": "needs-repair",
+      "findings": [
+        {
+          "id": "S4-R1",
+          "priority": 1,
+          "severity": "P1",
+          "title": "Completeness promotion bypasses G1 start-to-completion proof",
+          "file": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "start": 1064,
+          "end": 1066,
+          "description": "Generic isUpsertMutationPromotion is evaluated before isHistoryObservationUpdate; partial-to-canonical turn updates can replace content_hash while retaining source_ref and skip durable start/order/coverage proof. A schema-valid same-position completion with recomputed FNV is accepted and marks temporary MemoryAnalysisStore canonical.",
+          "evidence": "logs/shared-history-compat-20261005/s4/review-1/probe-result.json",
+          "qualification": "Inbound validation counterexample, not observed host output or actual SQLite publication",
+          "repair_scope": "Importer and existing boundary tests; preserve G2 and strict other mutations; no new shared contract or unrelated product changes"
+        }
+      ],
+      "provenance": {
+        "kind": "same-agent-change-self-review",
+        "reviewer": "Codex",
+        "independent": false,
+        "new_product_tests_run": false,
+        "readonly_probe_run": true,
+        "assessment": "Exact S4 code/diff/call chain/shared contract and saved final evidence reviewed;63 fixed/live attachment checks,9 subjects and8 protected hashes match;actual current Rust batch plus original old prefix used for isolated read-only importer counterexample;no product edits or full test rerun."
+      },
+      "coverage": [
+        "Exact latest S4 execution on HEAD7ce1d08 working tree;63 fixed/live execution attachments and current subjects/boundaries match",
+        "Protocol DelegatedInput public schema/FNV/profile and hello capability intersection;public envelope checks before ACK/complete",
+        "Original v1 unsettled intent retention and singleton manager profile selection;fresh v2 independent backfill four empty recovery fields",
+        "G1/G2 durable staging evidence,physical event immutability,logical mutation preflight,representative and product system role DTO",
+        "Original final180/180 evidence current applicability;new isolated partial-to-canonical same-position boundary probe finds bypass",
+        "REQ/PLAN/draft CR scope and S5 product/832 host/mobile acceptance limitations retained"
+      ],
+      "remaining_work": [
+        "Repair S4-R1 and validate protected turn completeness upgrades cannot bypass G1;new execution and change review required",
+        "S4 executed/needs-repair,not finished;833 active;self-review not independent review",
+        "S5 actual Rust-to-Node durable staging/ACK/complete/SQLite/provider reopen body and true tool details remain",
+        "832 active/S2 unchanged;Branch discovery and three host/mobile acceptance cases remain;833 closure is not automatic parent business completion",
+        "Earlier failures,S2 vendor offline limitation and three old management association gaps retained"
+      ],
+      "files": [
+        "logs/shared-history-compat-20261005/s4/review-1/review-change.md",
+        "logs/shared-history-compat-20261005/s4/review-1/audit.cjs",
+        "logs/shared-history-compat-20261005/s4/review-1/attachment-check.json",
+        "logs/shared-history-compat-20261005/s4/review-1/scope-check.json",
+        "logs/shared-history-compat-20261005/s4/review-1/status-833-before.json",
+        "logs/shared-history-compat-20261005/s4/review-1/status-832-before.json",
+        "logs/shared-history-compat-20261005/s4/review-1/probe.cjs",
+        "logs/shared-history-compat-20261005/s4/review-1/probe-result.json",
+        "logs/shared-history-compat-20261005/s4/review-1/real-batch.json",
+        "logs/shared-history-compat-20261005/s4/review-1/same-position-completion.json",
+        "logs/shared-history-compat-20261005/s4/review-1/record-review.cjs",
+        "logs/shared-history-compat-20261005/s4/report.md",
+        "logs/shared-history-compat-20261005/s4/final-node-result.json",
+        "src/services/codexRolloutCollector/analyzerProtocol.js",
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "src/services/codexRolloutCollector/analyzerProcessManager.js",
+        "src/services/codexRolloutCollector/index.js",
+        "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+        "tests/codexRolloutCollector.test.js",
+        "tests/codexRolloutCollector.realRust.test.js",
+        "tests/codexRolloutCollector.recovery.test.js",
+        "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+        "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+        "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+        "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl"
+      ],
+      "idempotency_key": "task20260833-S4-review-change-20261006-v1"
+    },
+    "files": [
+      "logs/shared-history-compat-20261005/s4/review-1/review-change.md",
+      "logs/shared-history-compat-20261005/s4/review-1/audit.cjs",
+      "logs/shared-history-compat-20261005/s4/review-1/attachment-check.json",
+      "logs/shared-history-compat-20261005/s4/review-1/scope-check.json",
+      "logs/shared-history-compat-20261005/s4/review-1/status-833-before.json",
+      "logs/shared-history-compat-20261005/s4/review-1/status-832-before.json",
+      "logs/shared-history-compat-20261005/s4/review-1/probe.cjs",
+      "logs/shared-history-compat-20261005/s4/review-1/probe-result.json",
+      "logs/shared-history-compat-20261005/s4/review-1/real-batch.json",
+      "logs/shared-history-compat-20261005/s4/review-1/same-position-completion.json",
+      "logs/shared-history-compat-20261005/s4/review-1/record-review.cjs",
+      "logs/shared-history-compat-20261005/s4/report.md",
+      "logs/shared-history-compat-20261005/s4/final-node-result.json",
+      "src/services/codexRolloutCollector/analyzerProtocol.js",
+      "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "src/services/codexRolloutCollector/index.js",
+      "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+      "tests/codexRolloutCollector.test.js",
+      "tests/codexRolloutCollector.realRust.test.js",
+      "tests/codexRolloutCollector.recovery.test.js",
+      "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+      "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+      "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "parents": [
+        ".workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "step_id": "S4",
+        "execution_ref": ".workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json",
+        "source_revision": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+        "verdict": "needs-repair",
+        "findings": [
+          {
+            "id": "S4-R1",
+            "priority": 1,
+            "severity": "P1",
+            "title": "Completeness promotion bypasses G1 start-to-completion proof",
+            "file": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+            "start": 1064,
+            "end": 1066,
+            "description": "Generic isUpsertMutationPromotion is evaluated before isHistoryObservationUpdate; partial-to-canonical turn updates can replace content_hash while retaining source_ref and skip durable start/order/coverage proof. A schema-valid same-position completion with recomputed FNV is accepted and marks temporary MemoryAnalysisStore canonical.",
+            "evidence": "logs/shared-history-compat-20261005/s4/review-1/probe-result.json",
+            "qualification": "Inbound validation counterexample, not observed host output or actual SQLite publication",
+            "repair_scope": "Importer and existing boundary tests; preserve G2 and strict other mutations; no new shared contract or unrelated product changes"
+          }
+        ],
+        "provenance": {
+          "kind": "same-agent-change-self-review",
+          "reviewer": "Codex",
+          "independent": false,
+          "new_product_tests_run": false,
+          "readonly_probe_run": true,
+          "assessment": "Exact S4 code/diff/call chain/shared contract and saved final evidence reviewed;63 fixed/live attachment checks,9 subjects and8 protected hashes match;actual current Rust batch plus original old prefix used for isolated read-only importer counterexample;no product edits or full test rerun."
+        },
+        "coverage": [
+          "Exact latest S4 execution on HEAD7ce1d08 working tree;63 fixed/live execution attachments and current subjects/boundaries match",
+          "Protocol DelegatedInput public schema/FNV/profile and hello capability intersection;public envelope checks before ACK/complete",
+          "Original v1 unsettled intent retention and singleton manager profile selection;fresh v2 independent backfill four empty recovery fields",
+          "G1/G2 durable staging evidence,physical event immutability,logical mutation preflight,representative and product system role DTO",
+          "Original final180/180 evidence current applicability;new isolated partial-to-canonical same-position boundary probe finds bypass",
+          "REQ/PLAN/draft CR scope and S5 product/832 host/mobile acceptance limitations retained"
+        ],
+        "remaining_work": [
+          "Repair S4-R1 and validate protected turn completeness upgrades cannot bypass G1;new execution and change review required",
+          "S4 executed/needs-repair,not finished;833 active;self-review not independent review",
+          "S5 actual Rust-to-Node durable staging/ACK/complete/SQLite/provider reopen body and true tool details remain",
+          "832 active/S2 unchanged;Branch discovery and three host/mobile acceptance cases remain;833 closure is not automatic parent business completion",
+          "Earlier failures,S2 vendor offline limitation and three old management association gaps retained"
+        ],
+        "files": [
+          "logs/shared-history-compat-20261005/s4/review-1/review-change.md",
+          "logs/shared-history-compat-20261005/s4/review-1/audit.cjs",
+          "logs/shared-history-compat-20261005/s4/review-1/attachment-check.json",
+          "logs/shared-history-compat-20261005/s4/review-1/scope-check.json",
+          "logs/shared-history-compat-20261005/s4/review-1/status-833-before.json",
+          "logs/shared-history-compat-20261005/s4/review-1/status-832-before.json",
+          "logs/shared-history-compat-20261005/s4/review-1/probe.cjs",
+          "logs/shared-history-compat-20261005/s4/review-1/probe-result.json",
+          "logs/shared-history-compat-20261005/s4/review-1/real-batch.json",
+          "logs/shared-history-compat-20261005/s4/review-1/same-position-completion.json",
+          "logs/shared-history-compat-20261005/s4/review-1/record-review.cjs",
+          "logs/shared-history-compat-20261005/s4/report.md",
+          "logs/shared-history-compat-20261005/s4/final-node-result.json",
+          "src/services/codexRolloutCollector/analyzerProtocol.js",
+          "src/services/codexRolloutCollector/analysisBatchImporter.js",
+          "src/services/codexRolloutCollector/analyzerProcessManager.js",
+          "src/services/codexRolloutCollector/index.js",
+          "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+          "tests/codexRolloutCollector.test.js",
+          "tests/codexRolloutCollector.realRust.test.js",
+          "tests/codexRolloutCollector.recovery.test.js",
+          "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+          "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+          "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+          "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

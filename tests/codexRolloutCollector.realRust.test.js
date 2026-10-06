@@ -28,7 +28,7 @@ async function normalizedSnapshot(store, scope) {
     return snapshot;
 }
 
-async function createRustCollector(t) {
+async function createRustCollector(t, { contents = null, targetId = conversationId } = {}) {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'termlink-rich-target-'));
     let collector;
     t.after(async () => {
@@ -38,10 +38,9 @@ async function createRustCollector(t) {
     const codexHome = path.join(root, 'codex-home');
     const sessionDirectory = path.join(codexHome, 'sessions', '2026', '08', '18');
     await fs.mkdir(sessionDirectory, { recursive: true });
-    await fs.copyFile(
-        path.join(nativeRoot, 'tests/fixtures/current/minimal-rollout.jsonl'),
-        path.join(sessionDirectory, `rollout-2026-08-18T10-00-00-${conversationId}.jsonl`)
-    );
+    const sourcePath = path.join(sessionDirectory, `rollout-2026-08-18T10-00-00-${targetId}.jsonl`);
+    if (contents !== null) await fs.writeFile(sourcePath, contents);
+    else await fs.copyFile(path.join(nativeRoot, 'tests/fixtures/current/minimal-rollout.jsonl'), sourcePath);
     const storeRoot = path.join(root, 'analysis');
     collector = new CodexRolloutCollector({
         analyzerPath: await resolveRustTargetBinary(),
@@ -53,8 +52,297 @@ async function createRustCollector(t) {
         requestTimeoutMs: 10000,
         processRestartRetries: 0
     });
-    return { collector, storeRoot };
+    return { collector, storeRoot, sourcePath };
 }
+
+const delegatedId = '00000000-0000-4000-8000-000000000001';
+const delegatedRows = () => fs.readFile(path.join(nativeRoot, 'tests/fixtures/current/delegated-context.jsonl'), 'utf8')
+    .then((text) => text.trimEnd().split('\n'));
+const readRequest = (job, options = {}) => createAnalyzeRequest({ requestId: job + '-request', jobId: job,
+    conversationId: delegatedId, mode: 'backfill', ...options });
+
+test('history v2 saves canonical turn growth by full reread and by durable append, keeping immutable start', async (t) => {
+    const rows = await delegatedRows();
+    for (const mode of ['backfill', 'append']) await t.test(mode, async (t) => {
+        const prefix = rows.slice(0, 2).join('\n') + '\n';
+        const { collector, sourcePath } = await createRustCollector(t, { contents: prefix, targetId: delegatedId });
+        const messages = [];
+        collector.processManager.on('message', (message) => messages.push(message));
+        const first = await collector.analyze(readRequest('growth-prefix-' + mode));
+        const start = first.state.items.find((record) => record.event.event_type === 'TurnStarted');
+        assert.equal(first.complete.completeness, 'canonical');
+        const anchor = await collector.checkpointStore.load(first.scope);
+        await fs.writeFile(sourcePath, prefix + rows.find((line) => line.includes('"type":"task_complete"')) + '\n');
+        const next = await collector.analyze(readRequest('growth-complete-' + mode, {
+            mode, ...(mode === 'append' ? { cursor: anchor.cursor, persistedAnchor: anchor } : {})
+        }));
+        assert.equal(next.complete.completeness, 'canonical');
+        assert.equal(next.state.projection.turns[0].status, 'completed');
+        assert.deepEqual(next.state.items.find((record) => record.event_id === start.event_id).event, start.event);
+        assert.equal(next.state.items.filter((record) => record.item_key === start.item_key).length, 2);
+        const batches = messages.filter((message) => message.message_type === 'batch');
+        for (const change of ['hash', 'turn', 'gap', 'start-content', 'scope']) {
+            const store = new MemoryAnalysisStore();
+            const importer = await new AnalysisBatchImporter({ store }).init();
+            await importer.importBatch(batches[0]);
+            const before = await normalizedSnapshot(store, first.scope);
+            const forged = structuredClone(batches[1]);
+            forged.request_id = 'growth-forged-' + change;
+            forged.job_id = 'growth-forged-job-' + change;
+            const mutation = forged.payload.mutations.find((value) => value.item?.item_key === start.item_key);
+            const terminal = forged.payload.history_items.find((event) => event.event_type === 'TurnCompleted');
+            if (change === 'hash') mutation.item.content_hash = 'fnv1a64:0000000000000000';
+            if (change === 'turn') {
+                terminal.payload.metadata.turn_id = 'wrong-turn';
+                let hash = 0xcbf29ce484222325n;
+                for (const byte of Buffer.from(JSON.stringify(terminal))) hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
+                mutation.item.content_hash = 'fnv1a64:' + hash.toString(16).padStart(16, '0');
+            }
+            if (change === 'gap') {
+                const gap = structuredClone(terminal);
+                gap.event_type = 'ParseGap';
+                gap.payload = { metadata: gap.payload.metadata, reason: 'unverified coverage' };
+                gap.payload.metadata.event_id = 'gap-event';
+                gap.payload.metadata.item_key = 'diagnostic:gap';
+                gap.payload.metadata.availability = 'partial_rollout';
+                forged.payload.history_items.push(gap);
+            }
+            if (change === 'start-content') {
+                const changed = structuredClone(start.event);
+                changed.payload.model_context_window = 1000;
+                forged.payload.history_items.push(changed);
+            }
+            if (change === 'scope') mutation.item.source_epoch += ':wrong';
+            await assert.rejects(() => importer.importBatch(forged), (error) => ['ANALYSIS_BATCH_SCOPE_CONFLICT', 'invalid_field'].includes(error.code));
+            assert.deepEqual(await normalizedSnapshot(store, first.scope), before);
+        }
+    });
+});
+
+test('history v2 saves both delegation carriers once across File staging restart and rejects forged bodies', async (t) => {
+    const originalRows = await delegatedRows();
+    for (const firstCarrier of [2, 3]) await t.test(firstCarrier === 2 ? 'response-first' : 'completed-first', async (t) => {
+        // Reordered single-carrier source uses the supported no-ordinal form;
+        // keeping original ordinals would manufacture a source gap/reversal.
+        const rows = firstCarrier === 2 ? originalRows : originalRows.map((line) => {
+            const value = JSON.parse(line); delete value.ordinal; return JSON.stringify(value);
+        });
+        const prefix = [rows[0], rows[1], rows[firstCarrier]].join('\n') + '\n';
+        const { collector, sourcePath, storeRoot } = await createRustCollector(t, { contents: prefix, targetId: delegatedId });
+        const messages = [];
+        collector.processManager.on('message', (message) => messages.push(message));
+        const first = await collector.analyze(readRequest('delegate-prefix-' + firstCarrier));
+        const anchor = await collector.checkpointStore.load(first.scope);
+        await collector.stop();
+        collector.store = new FileAnalysisStore({ rootDir: storeRoot });
+        collector.importer = await new AnalysisBatchImporter({ store: collector.store, checkpointStore: collector.checkpointStore }).init();
+        const other = firstCarrier === 2 ? 3 : 2;
+        await fs.writeFile(sourcePath, prefix + rows[other] + '\n' + rows[4] + '\n');
+        const next = await collector.analyze(readRequest('delegate-complete-' + firstCarrier, { mode: 'append', cursor: anchor.cursor, persistedAnchor: anchor }));
+        assert.equal(next.complete.completeness, 'canonical');
+        const items = next.state.projection.turns.flatMap((turn) => turn.items).filter((item) => item.kind === 'delegated_input');
+        assert.equal(items.length, 1);
+        assert.equal(items[0].tool, null);
+        assert.equal(next.state.items.filter((record) => record.event.event_type === 'DelegatedInput').length, 2);
+        const mutation = next.state.mutations.find((entry) => entry.mutation.item?.item_key.startsWith('delegated-input:')).mutation;
+        const representative = next.state.items.find((record) => record.event.event_type === 'DelegatedInput'
+            && record.event.payload.carrier === 'response_item');
+        assert.deepEqual(mutation.item.source_ref, representative.source_ref);
+        const batch = messages.filter((message) => message.message_type === 'batch').at(-1);
+        const seed = messages.find((message) => message.message_type === 'batch');
+        for (const change of ['body', 'projection', 'profile', 'ordinary-call']) {
+            const store = new MemoryAnalysisStore();
+            const importer = await new AnalysisBatchImporter({ store }).init();
+            await importer.importBatch(seed);
+            const before = await normalizedSnapshot(store, first.scope);
+            const forged = structuredClone(batch);
+            forged.job_id = 'pair-conflict-job-' + change;
+            forged.request_id = 'pair-conflict-request-' + change;
+            const event = forged.payload.history_items.find((value) => value.event_type === 'DelegatedInput');
+            if (change === 'body') {
+                event.payload.text += ' changed carrier';
+                let hash = 0xcbf29ce484222325n;
+                for (const byte of Buffer.from(JSON.stringify(event))) hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
+                forged.payload.mutations.find((value) => value.item?.item_key === event.payload.metadata.item_key).item.content_hash
+                    = 'fnv1a64:' + hash.toString(16).padStart(16, '0');
+            }
+            if (change === 'projection') forged.payload.projection.turns[0].items[0].content = 'invented projection body';
+            if (change === 'profile') forged.payload.reducer_state.reducer_version = 'target-v1';
+            if (change === 'ordinary-call') event.payload.call_id = 'invented-tool-call';
+            await assert.rejects(() => importer.importBatch(forged), (error) => ['ANALYSIS_BATCH_SCOPE_CONFLICT', 'invalid_field', 'checkpoint_incompatible'].includes(error.code));
+            assert.deepEqual(await normalizedSnapshot(store, first.scope), before);
+        }
+        const before = await normalizedSnapshot(collector.store, next.scope);
+        for (const change of ['body', 'turn', 'hash']) {
+            const forged = structuredClone(batch);
+            forged.request_id = 'forged-' + change;
+            forged.job_id = 'forged-job-' + change;
+            if (change === 'hash') forged.payload.mutations.find((m) => m.item?.item_key.startsWith('delegated-input:')).item.content_hash = 'fnv1a64:0000000000000000';
+            else {
+                const event = forged.payload.history_items.find((event) => event.event_type === 'DelegatedInput');
+                if (change === 'body') event.payload.text += ' forged';
+                else event.payload.metadata.turn_id = 'different-turn';
+            }
+            await assert.rejects(() => collector.importer.importBatch(forged), (error) => error.code === 'ANALYSIS_BATCH_SCOPE_CONFLICT');
+            assert.deepEqual(await normalizedSnapshot(collector.store, next.scope), before);
+        }
+        const overlap = structuredClone(batch);
+        overlap.request_id = 'same-delivery-new-attempt';
+        assert.equal((await collector.importer.importBatch(overlap)).duplicate, true);
+    });
+});
+
+test('history v2 new backfill leaves nonempty v1 checkpoint intact and sends four empty recovery fields', async (t) => {
+    const rows = await delegatedRows();
+    const prefix = rows.slice(0, 2).join('\n') + '\n';
+    const { collector, sourcePath } = await createRustCollector(t, { contents: prefix, targetId: delegatedId });
+    await collector.processManager.start({ historyProfile: 'target-v1' });
+    // Obtain a genuine legacy delivery through the public process boundary.
+    const oldRequest = readRequest('old-profile');
+    let scope;
+    const oldComplete = await collector.processManager.request(oldRequest, {
+        historyProfile: 'target-v1',
+        onBatch: async (batch) => { const result = await collector.importer.importBatch(batch); scope = result.scope; return result; },
+        onComplete: (message, context) => collector.importer.commitComplete(message, { scope, acceptedDelivery: context.acceptedDelivery })
+    });
+    const anchor = oldComplete.checkpoint;
+    const original = structuredClone(anchor);
+    assert.ok(anchor.cursor);
+    await fs.writeFile(sourcePath, rows.join('\n') + '\n');
+    const sent = [];
+    const send = collector.processManager.send.bind(collector.processManager);
+    collector.processManager.send = (message) => { sent.push(structuredClone(message)); return send(message); };
+    const next = await collector.analyze(readRequest('new-profile', { cursor: anchor.cursor, persistedAnchor: anchor, knownCompleteRange: anchor.cursor.complete_range }));
+    const actual = sent.find((message) => message.message_type === 'analyze');
+    for (const field of ['cursor', 'persisted_anchor', 'known_complete_range', 'recovery']) assert.equal(actual[field] ?? null, null);
+    assert.equal(next.complete.checkpoint.reducer_state.reducer_version, 'target-v2');
+    assert.deepEqual(anchor, original);
+    assert.equal(next.state.projection.turns.flatMap((turn) => turn.items).filter((item) => item.kind === 'delegated_input').length, 3);
+});
+
+test('history v2 rereads original partial delegation prefix without treating retained ParseGap as current coverage', async (t) => {
+    const rows = await delegatedRows();
+    const { collector, storeRoot } = await createRustCollector(t, { contents: rows.join('\n') + '\n', targetId: delegatedId });
+    const messages = [];
+    collector.processManager.on('message', (message) => messages.push(message));
+    // Byte-preserved actual old File staging, not reconstructed receipt facts.
+    const historicalPath = path.resolve(__dirname, '../logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json');
+    const historical = JSON.parse(await fs.readFile(historicalPath, 'utf8'));
+    await fs.mkdir(storeRoot, { recursive: true });
+    await fs.copyFile(historicalPath, path.join(storeRoot, path.basename(historicalPath)));
+    let productPayload;
+    const staged = new Map();
+    collector.importer.productStore = {
+        stageBatch: async (value) => staged.set(value.batchId, value),
+        readStagedBatch: async (_, batchId) => staged.get(batchId),
+        publishCanonical: async (value) => { productPayload = value; }
+    };
+    const next = await collector.analyze(readRequest('historical-partial-reread'));
+    assert.equal(next.complete.completeness, 'canonical');
+    assert.equal(next.state.projection.complete, true);
+    assert.deepEqual(next.state.receipts.find((receipt) => receipt.batch_id === historical.receipts[0].batch_id), historical.receipts[0]);
+    assert.equal(next.state.items.filter((record) => record.event.event_type === 'ParseGap').length, 2);
+    const delegated = productPayload.items.filter((item) => item.itemType === 'delegated_input');
+    assert.equal(delegated.length, 3);
+    assert.ok(delegated.every((item) => item.payload.role === 'system' && item.payload.tool === null
+        && item.payload.eventFacts.length === 2 && item.payload.content.startsWith('[sanitized delegation')));
+    assert.ok(productPayload.items.every((item) => !['ParseGap', 'UnknownEvent'].includes(item.itemType)));
+
+    const saved = historical.staging[0];
+    const prefix = { protocol_version: 1, message_type: 'batch', request_id: saved.request_id,
+        job_id: saved.job_id, segment_id: saved.segment_id, batch_id: saved.batch_id, payload: saved.payload };
+    const oldStart = prefix.payload.history_items.find((event) => event.event_type === 'TurnStarted'
+        && event.payload.metadata.turn_id.endsWith('000000000008'));
+    const full = messages.find((message) => message.message_type === 'batch');
+    for (const change of ['same-position', 'reversed-line', 'coverage-gap']) await t.test(change, async (t) => {
+        const root = await fs.mkdtemp(path.join(os.tmpdir(), 'termlink-growth-upgrade-'));
+        t.after(() => fs.rm(root, { recursive: true, force: true }));
+        const store = new FileAnalysisStore({ rootDir: root });
+        const importer = await new AnalysisBatchImporter({ store }).init();
+        await importer.importBatch(prefix);
+        const before = await normalizedSnapshot(store, next.scope);
+        const forged = structuredClone(full);
+        forged.request_id = 'upgrade-forged-' + change;
+        forged.job_id = 'upgrade-forged-job-' + change;
+        const terminal = forged.payload.history_items.find((event) => event.event_type === 'TurnCompleted'
+            && event.payload.metadata.item_key === oldStart.payload.metadata.item_key);
+        const mutation = forged.payload.mutations.find((value) => value.mutation === 'upsert_item'
+            && value.item.item_key === oldStart.payload.metadata.item_key);
+        if (change === 'coverage-gap') {
+            const metadata = structuredClone(terminal.payload.metadata);
+            metadata.event_id = 'upgrade-coverage-gap';
+            metadata.item_key = 'diagnostic:upgrade-gap';
+            metadata.availability = 'partial_rollout';
+            forged.payload.history_items.push({ event_type: 'ParseGap', payload: { metadata, reason: 'unverified completion coverage' } });
+        } else {
+            terminal.payload.metadata.source_ref = structuredClone(oldStart.payload.metadata.source_ref);
+            if (change === 'reversed-line') terminal.payload.metadata.source_ref.physical_line_ordinal -= 1;
+            mutation.item.source_ref = structuredClone(terminal.payload.metadata.source_ref);
+            let hash = 0xcbf29ce484222325n;
+            for (const byte of Buffer.from(JSON.stringify(terminal))) hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
+            mutation.item.content_hash = 'fnv1a64:' + hash.toString(16).padStart(16, '0');
+        }
+        assert.equal(prefix.payload.completeness, 'partial');
+        assert.equal(forged.payload.completeness, 'canonical');
+        require('../src/services/codexRolloutCollector/analyzerProtocol').validateMessage(forged);
+        await assert.rejects(importer.importBatch(forged), (error) => error.code === 'ANALYSIS_BATCH_SCOPE_CONFLICT');
+        assert.deepEqual(await normalizedSnapshot(store, next.scope), before);
+        const reopened = new FileAnalysisStore({ rootDir: root });
+        await reopened.init();
+        assert.deepEqual(await normalizedSnapshot(reopened, next.scope), before);
+    });
+});
+
+test('history v2 preserves unanchored unsettled v1 delivery profile, payload and identity across Node restart', async (t) => {
+    const rows = await delegatedRows();
+    const { collector } = await createRustCollector(t, { contents: rows.slice(0, 2).join('\n') + '\n', targetId: delegatedId });
+    await collector.importer.init();
+    const request = readRequest('unsettled-v1');
+    let original;
+    await collector.processManager.request(request, {
+        historyProfile: 'target-v1',
+        onBatch: async (batch) => { original = structuredClone(batch); return collector.importer.importBatch(batch); }
+    });
+    await collector.processManager.stop();
+    assert.equal(request.persisted_anchor ?? null, null);
+    await collector.runStore.init();
+    await collector.runStore.enqueue({ run_id: 'unsettled-v1-run', job_id: request.job_id,
+        request_id: request.request_id, conversation_id: delegatedId, mode: request.mode,
+        read_intent: request, recovery_schema_version: 1, history_profile: 'target-v1',
+        priority: 'background', enqueue_sequence: 1, deadline: Date.now() + 15000,
+        retry_budget: 2, retry_count: 0, attempt: 0, process_generation: 1,
+        pending_recovery_delivery: { segment_id: original.segment_id, batch_id: original.batch_id } });
+    await collector.runStore.update('unsettled-v1-run', { status: 'ack_pending' });
+    const messages = [];
+    collector.processManager.on('message', (message) => messages.push(message));
+    await collector.init();
+    await collector.waitForRecovery();
+    const batch = messages.find((message) => message.message_type === 'batch');
+    assert.ok(batch);
+    assert.equal(batch.job_id, original.job_id);
+    assert.equal(batch.segment_id, original.segment_id);
+    assert.equal(batch.batch_id, original.batch_id);
+    assert.notEqual(batch.request_id, original.request_id);
+    assert.deepEqual(batch.payload, original.payload);
+    assert.equal((await collector.runStore.get('unsettled-v1-run')).history_profile, 'target-v1');
+    assert.equal((await collector.runStore.get('unsettled-v1-run')).status, 'completed');
+});
+
+test('history v2 accepts original partial turn growth while a separate unresolved input remains partial', async (t) => {
+    const rows = await delegatedRows();
+    const unknown = JSON.stringify({ timestamp: '2026-10-03T00:00:13.000Z', ordinal: 13,
+        type: 'event_msg', payload: { type: 'future_unmapped_event' } });
+    const { collector, storeRoot } = await createRustCollector(t, { contents: rows.join('\n') + '\n' + unknown + '\n', targetId: delegatedId });
+    const historicalPath = path.resolve(__dirname, '../logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json');
+    await fs.mkdir(storeRoot, { recursive: true });
+    await fs.copyFile(historicalPath, path.join(storeRoot, path.basename(historicalPath)));
+    const next = await collector.analyze(readRequest('original-partial-growth'));
+    assert.equal(next.complete.completeness, 'partial');
+    assert.equal(next.state.projection.complete, false);
+    assert.equal(next.state.projection.turns[1].status, 'completed');
+    assert.equal(next.state.projection.turns.flatMap((turn) => turn.items).filter((item) => item.kind === 'delegated_input').length, 3);
+    assert.equal(next.state.receipts.length, 2);
+});
 
 test('real Rust target durably imports tools, usage, outcomes and unknown diagnostics', async (t) => {
     const { collector, storeRoot } = await createRustCollector(t);

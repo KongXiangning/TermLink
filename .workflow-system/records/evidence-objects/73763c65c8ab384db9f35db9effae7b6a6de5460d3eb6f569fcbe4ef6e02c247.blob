@@ -1,0 +1,25 @@
+const fs=require('fs'),cp=require('child_process'),crypto=require('crypto');
+const d='logs/shared-history-compat-20261005/s4/repair-r1';
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const save=(name,value)=>fs.writeFileSync(`${d}/${name}.json`,JSON.stringify(value,null,2)+'\n');
+const changed=new Set(['src/services/codexRolloutCollector/analysisBatchImporter.js','tests/codexRolloutCollector.realRust.test.js','docs/product/requirements/REQ-20261005-codex-history-shared-compat.md','docs/product/plans/PLAN-20261005-codex-history-shared-compat.md']);
+const previous=['.workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json','.workflow-system/records/events/key-f70d47a3fa7402f6ccee4bcfd8de46e18768d4d3395e508df94918c8a52e0e0b.json'];
+const historical=previous.map(ref=>({ref,checks:JSON.parse(fs.readFileSync(ref.replace('/events/','/attachments/'),'utf8')).attachments.map(a=>({path:a.source_path,fixed_matches:hash(a.ref)===a.sha256,live_matches:hash(a.source_path)===a.sha256,changed_in_repair:changed.has(a.source_path)}))}));
+const baseline=JSON.parse(fs.readFileSync('logs/shared-history-compat-20261005/s4/baseline.json','utf8'));
+const protectedChecks=baseline.protected.map(p=>({...p,matches:hash(p.path)===p.sha256}));
+const head=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+const sources=[...changed,'docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md'].map(path=>({path,sha256:hash(path)}));
+save('self-check',{head,historical,protectedChecks,sources});
+if(head!=='7ce1d08e6dbb7863d5b95fb992086f1b37637488'||!protectedChecks.every(p=>p.matches)||!historical.every(r=>r.checks.every(p=>p.fixed_matches&&(p.live_matches||p.changed_in_repair))))throw Error('Unexpected subject/boundary change');
+for(const [label,id,step] of [['833','task-7ff69ba8242c90c52f0b93fa1144a655','S4'],['832','task-58bc12d9a46b8d84fb6e42888785b402','S2']]){
+ const r=cp.spawnSync('node',['.workflow-system/runtime/support/assistance.mjs','task-status','--root','.'],{input:JSON.stringify({detail:'step',task_ref:id,step_id:step}),encoding:'utf8'});
+ fs.writeFileSync(`${d}/status-${label}-before.json`,r.stdout);if(r.status!==0)throw Error(r.stderr||r.stdout);
+}
+for(const [label,bin,args] of [
+ ['req','pwsh',['-NoProfile','-File','.agents/skills/docs-requirement-sync/scripts/validate-req.ps1','-ReqPath','docs/product/requirements/REQ-20261005-codex-history-shared-compat.md','-ProjectRoot','.','-Strict']],
+ ['cr','pwsh',['-NoProfile','-File','.agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1','-RecordPath','docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md','-ProjectRoot','.','-Strict']],
+ ['diff-check','git',['diff','--check']]
+]){
+ const r=cp.spawnSync(bin,args,{encoding:'utf8'});fs.writeFileSync(`${d}/${label}.txt`,(r.stdout||'')+(r.stderr||''));save(label+'-result',{command:{bin,args},exit_code:r.status});console.log(JSON.stringify({label,exit_code:r.status}));if(r.status!==0)throw Error(r.stderr||r.stdout);
+}
+console.log(JSON.stringify({head,previous_fixed:historical.map(r=>r.checks.length),protected_match:protectedChecks.every(p=>p.matches),only_expected_subjects_changed:true,sources:sources.length}));

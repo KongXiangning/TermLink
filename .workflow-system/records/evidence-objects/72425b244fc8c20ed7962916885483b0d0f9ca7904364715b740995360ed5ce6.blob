@@ -1,0 +1,17 @@
+{
+  "command": {
+    "bin": "node",
+    "args": [
+      "--test",
+      "--test-name-pattern",
+      "history v2",
+      "tests/codexRolloutCollector.realRust.test.js"
+    ]
+  },
+  "started": "2026-10-06T07:01:05.639Z",
+  "ended": "2026-10-06T07:01:07.883Z",
+  "exit_code": 0,
+  "environment": {
+    "CARGO_NET_OFFLINE": "true"
+  }
+}

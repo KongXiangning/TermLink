@@ -1,0 +1,12 @@
+const fs=require('fs'),cp=require('child_process'),crypto=require('crypto');
+const d='logs/shared-history-compat-20261005/s4';
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const paths=['analyzerProtocol.js','analysisBatchImporter.js','analyzerProcessManager.js','index.js','analysisCheckpointStore.js'].map(p=>'src/services/codexRolloutCollector/'+p).concat(['tests/codexRolloutCollector.test.js','tests/codexRolloutCollector.realRust.test.js','tests/codexRolloutCollector.recovery.test.js','docs/product/requirements/REQ-20261005-codex-history-shared-compat.md','docs/product/plans/PLAN-20261005-codex-history-shared-compat.md']);
+fs.mkdirSync(d+'/before',{recursive:true});
+if(fs.existsSync(d+'/baseline.json'))throw Error('Baseline already exists');
+const before=paths.map(p=>{const snapshot=d+'/before/'+p.replaceAll('/','__');fs.copyFileSync(p,snapshot);return{path:p,snapshot,sha256:hash(p)};});
+const protectedPaths=['docs/workflow/CONTRACTS.md','docs/workflow/DECISIONS.md','docs/codex/codex-history-shared-compat-contract.md','docs/codex/codex-rollout-collector-architecture.md','native/codex-rollout-collector/src/protocol/target_mapping.rs','native/codex-rollout-collector/src/protocol/target_source.rs','native/codex-rollout-collector/target/debug/codex-rollout-collector.exe','native/codex-rollout-compat-spike/vendor/codex/Cargo.lock'];
+fs.writeFileSync(d+'/baseline.json',JSON.stringify({head:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),before,protected:protectedPaths.map(p=>({path:p,sha256:hash(p)}))},null,2)+'\n');
+for(const [label,id,step] of [['S3','task-7ff69ba8242c90c52f0b93fa1144a655','S3'],['S4','task-7ff69ba8242c90c52f0b93fa1144a655','S4'],['832','task-58bc12d9a46b8d84fb6e42888785b402','S2']]){
+const r=cp.spawnSync('node',['.workflow-system/runtime/support/assistance.mjs','task-status','--root','.'],{input:JSON.stringify({detail:'step',task_ref:id,step_id:step}),encoding:'utf8'});fs.writeFileSync(d+'/status-'+label+'-before.json',r.stdout);if(r.status!==0)throw Error(r.stderr||r.stdout);}
+console.log(JSON.stringify({before:before.length,protected:protectedPaths.length}));

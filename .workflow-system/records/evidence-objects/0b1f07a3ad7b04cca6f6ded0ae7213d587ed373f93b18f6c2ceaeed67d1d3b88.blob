@@ -1,0 +1,16 @@
+{
+  "command": {
+    "bin": "pwsh",
+    "args": [
+      "-NoProfile",
+      "-File",
+      ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+      "-ReqPath",
+      "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+      "-ProjectRoot",
+      ".",
+      "-Strict"
+    ]
+  },
+  "exit_code": 0
+}

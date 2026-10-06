@@ -1,0 +1,64 @@
+diff --git a/logs/shared-history-compat-20261005/s4/repair-r1/before/realRust.test.js b/tests/codexRolloutCollector.realRust.test.js
+index 0735355b..1da6573f 100644
+--- a/logs/shared-history-compat-20261005/s4/repair-r1/before/realRust.test.js
++++ b/tests/codexRolloutCollector.realRust.test.js
+@@ -223,6 +223,8 @@ test('history v2 new backfill leaves nonempty v1 checkpoint intact and sends fou
+ test('history v2 rereads original partial delegation prefix without treating retained ParseGap as current coverage', async (t) => {
+     const rows = await delegatedRows();
+     const { collector, storeRoot } = await createRustCollector(t, { contents: rows.join('\n') + '\n', targetId: delegatedId });
++    const messages = [];
++    collector.processManager.on('message', (message) => messages.push(message));
+     // Byte-preserved actual old File staging, not reconstructed receipt facts.
+     const historicalPath = path.resolve(__dirname, '../logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json');
+     const historical = JSON.parse(await fs.readFile(historicalPath, 'utf8'));
+@@ -245,6 +247,50 @@ test('history v2 rereads original partial delegation prefix without treating ret
+     assert.ok(delegated.every((item) => item.payload.role === 'system' && item.payload.tool === null
+         && item.payload.eventFacts.length === 2 && item.payload.content.startsWith('[sanitized delegation')));
+     assert.ok(productPayload.items.every((item) => !['ParseGap', 'UnknownEvent'].includes(item.itemType)));
++
++    const saved = historical.staging[0];
++    const prefix = { protocol_version: 1, message_type: 'batch', request_id: saved.request_id,
++        job_id: saved.job_id, segment_id: saved.segment_id, batch_id: saved.batch_id, payload: saved.payload };
++    const oldStart = prefix.payload.history_items.find((event) => event.event_type === 'TurnStarted'
++        && event.payload.metadata.turn_id.endsWith('000000000008'));
++    const full = messages.find((message) => message.message_type === 'batch');
++    for (const change of ['same-position', 'reversed-line', 'coverage-gap']) await t.test(change, async (t) => {
++        const root = await fs.mkdtemp(path.join(os.tmpdir(), 'termlink-growth-upgrade-'));
++        t.after(() => fs.rm(root, { recursive: true, force: true }));
++        const store = new FileAnalysisStore({ rootDir: root });
++        const importer = await new AnalysisBatchImporter({ store }).init();
++        await importer.importBatch(prefix);
++        const before = await normalizedSnapshot(store, next.scope);
++        const forged = structuredClone(full);
++        forged.request_id = 'upgrade-forged-' + change;
++        forged.job_id = 'upgrade-forged-job-' + change;
++        const terminal = forged.payload.history_items.find((event) => event.event_type === 'TurnCompleted'
++            && event.payload.metadata.item_key === oldStart.payload.metadata.item_key);
++        const mutation = forged.payload.mutations.find((value) => value.mutation === 'upsert_item'
++            && value.item.item_key === oldStart.payload.metadata.item_key);
++        if (change === 'coverage-gap') {
++            const metadata = structuredClone(terminal.payload.metadata);
++            metadata.event_id = 'upgrade-coverage-gap';
++            metadata.item_key = 'diagnostic:upgrade-gap';
++            metadata.availability = 'partial_rollout';
++            forged.payload.history_items.push({ event_type: 'ParseGap', payload: { metadata, reason: 'unverified completion coverage' } });
++        } else {
++            terminal.payload.metadata.source_ref = structuredClone(oldStart.payload.metadata.source_ref);
++            if (change === 'reversed-line') terminal.payload.metadata.source_ref.physical_line_ordinal -= 1;
++            mutation.item.source_ref = structuredClone(terminal.payload.metadata.source_ref);
++            let hash = 0xcbf29ce484222325n;
++            for (const byte of Buffer.from(JSON.stringify(terminal))) hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
++            mutation.item.content_hash = 'fnv1a64:' + hash.toString(16).padStart(16, '0');
++        }
++        assert.equal(prefix.payload.completeness, 'partial');
++        assert.equal(forged.payload.completeness, 'canonical');
++        require('../src/services/codexRolloutCollector/analyzerProtocol').validateMessage(forged);
++        await assert.rejects(importer.importBatch(forged), (error) => error.code === 'ANALYSIS_BATCH_SCOPE_CONFLICT');
++        assert.deepEqual(await normalizedSnapshot(store, next.scope), before);
++        const reopened = new FileAnalysisStore({ rootDir: root });
++        await reopened.init();
++        assert.deepEqual(await normalizedSnapshot(reopened, next.scope), before);
++    });
+ });
+ 
+ test('history v2 preserves unanchored unsettled v1 delivery profile, payload and identity across Node restart', async (t) => {

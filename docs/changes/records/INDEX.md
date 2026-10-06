@@ -1,5 +1,5 @@
 ---
-title: 鍙樻洿璁板綍绱㈠紩
+title: 閸欐ɑ娲跨拋鏉跨秿缁便垹绱?
 status: active
 owner: @maintainer
 last_updated: 2026-04-17
@@ -10,19 +10,21 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 # Change Records Index
 
-鏈储寮曠敤浜庣淮鎶?compact 椋庢牸鐨勫疄鏂界暀鐥曪紝鏀寔鍥炴斁銆佸洖婊氬拰鍚庣画淇敼杩借釜銆?
+閺堫剛鍌ㄥ鏇犳暏娴滃海娣幎?compact 妞嬪孩鐗搁惃鍕杽閺傜晫鏆€閻ユ洩绱濋弨顖涘瘮閸ョ偞鏂侀妴浣告礀濠婃艾鎷伴崥搴ｇ敾娣囶喗鏁兼潻鍊熼嚋閵?
 
-## 浣跨敤瑙勫垯
+## 娴ｈ法鏁ょ憴鍕灟
 
-1. 姣忔瀹炴柦/鎻愪氦蹇呴』鏂板涓€鏉?CR 璁板綍銆?
-2. CR 蹇呴』鍖呭惈 `req_id + commit_ref`锛沗draft` 鐘舵€佸厑璁?`commit_ref: TBD`銆?
-3. 闇€姹傜姸鎬佹祦杞埌 `done` 鍓嶏紝蹇呴』鑷冲皯瀛樺湪涓€鏉?`active` CR銆?
-4. `CHANGELOG_PROJECT.md` 浠呬繚鐣欐憳瑕侊紝璇︾粏鍥炴粴涓庢仮澶嶄俊鎭互 CR 涓哄噯銆?
+1. 濮ｅ繑顐肩€圭偞鏌?閹绘劒姘﹁箛鍛淬€忛弬鏉款杻娑撯偓閺?CR 鐠佹澘缍嶉妴?
+2. CR 韫囧懘銆忛崠鍛儓 `req_id + commit_ref`閿涙矖draft` 閻樿埖鈧礁鍘戠拋?`commit_ref: TBD`閵?
+3. 闂団偓濮瑰倻濮搁幀浣圭ウ鏉烆剙鍩?`done` 閸撳稄绱濊箛鍛淬€忛懛鍐茬毌鐎涙ê婀稉鈧弶?`active` CR閵?
+4. `CHANGELOG_PROJECT.md` 娴犲懍绻氶悾娆愭喅鐟曚緤绱濈拠锔剧矎閸ョ偞绮存稉搴划婢跺秳淇婇幁顖欎簰 CR 娑撳搫鍣妴?
 
 ## Records
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20261006-1846-history-promotion-proof-repair | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md` |
+| CR-20261006-0200-shared-history-node-consumer | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md` |
 | CR-20261006-0010-shared-history-rust-semantics | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-0010-shared-history-rust-semantics.md` |
 | CR-20261005-1901-shared-history-wire-compat | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-05 |  | `docs/changes/records/CR-20261005-1901-shared-history-wire-compat.md` |
 | CR-20261005-1722-shared-history-compat-design-repair | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-05 |  | `docs/changes/records/CR-20261005-1722-shared-history-compat-design-repair.md` |

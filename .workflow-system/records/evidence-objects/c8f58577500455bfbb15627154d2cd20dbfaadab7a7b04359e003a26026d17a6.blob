@@ -1,0 +1,25 @@
+const fs=require('fs'),assert=require('node:assert/strict');
+const {AnalysisBatchImporter,MemoryAnalysisStore,normalizeScope}=require('../../../../src/services/codexRolloutCollector/analysisBatchImporter');
+const {validateMessage}=require('../../../../src/services/codexRolloutCollector/analyzerProtocol');
+const d='logs/shared-history-compat-20261005/s4/review-2';
+const historical=JSON.parse(fs.readFileSync('logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json','utf8'));
+const staged=historical.staging[0];
+const prefix={protocol_version:1,message_type:'batch',request_id:staged.request_id,job_id:staged.job_id,segment_id:staged.segment_id,batch_id:staged.batch_id,payload:staged.payload};
+const read=name=>JSON.parse(fs.readFileSync('logs/shared-history-compat-20261005/s4/review-1/'+name+'.json','utf8'));
+(async()=>{
+ const cases=[];
+ for(const [label,batch,shouldAccept] of [['original-exact-counterexample',read('same-position-completion'),false],['original-actual-rust-full',read('real-batch'),true]]){
+  validateMessage(batch);
+  const store=new MemoryAnalysisStore(),importer=await new AnalysisBatchImporter({store}).init();
+  await importer.importBatch(prefix);
+  const scope=normalizeScope(prefix),before=await store.snapshot(scope);
+  let accepted=false,error=null;
+  try{await importer.importBatch(batch);accepted=true;}catch(e){error={code:e.code,message:e.message};}
+  const after=await store.snapshot(scope);
+  assert.equal(accepted,shouldAccept);
+  if(!shouldAccept){assert.equal(error.code,'ANALYSIS_BATCH_SCOPE_CONFLICT');assert.deepEqual(after,before);}
+  else{assert.equal(after.canonical,true);assert.equal(after.receipts.length,2);}
+  cases.push({label,schema_valid:true,accepted,error,state_unchanged:!shouldAccept,canonical:after.canonical,receipt_count:after.receipts.length});
+ }
+ fs.writeFileSync(`${d}/probe-result.json`,JSON.stringify({kind:'readonly-exact-saved-boundary-recheck',cases},null,2)+'\n');console.log(JSON.stringify(cases));
+})().catch(e=>{fs.writeFileSync(`${d}/probe-error.txt`,e.stack);process.exitCode=1;console.error(e);});

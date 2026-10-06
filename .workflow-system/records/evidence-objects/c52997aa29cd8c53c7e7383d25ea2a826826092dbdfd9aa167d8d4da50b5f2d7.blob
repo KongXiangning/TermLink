@@ -1,0 +1,380 @@
+[
+  {
+    "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+    "sha256": "fa2792daab5591d4b2e83e1a5c085a27090f9a95907b7abec613e6302695c85d",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+    "sha256": "0d837d4b08f565de59a8c0c3522a25ed63c5028fa7a3b27de7253b6edd53fb41",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+    "sha256": "c54fe01079c0af2f65b0fbdce7769bcc6437608b3992fb570c63bb34c2c903e7",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "src/services/codexRolloutCollector/index.js",
+    "sha256": "f394444946bdd69e9a7effd5679fc46343f7052dc16c6db148b34fef98265c19",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+    "sha256": "495286171b5ad11ff13e5a3ce52e36bf7c055940630ade9c60d5430f525ee167",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "tests/codexRolloutCollector.test.js",
+    "sha256": "33f8ab5ed411bf7841bbbddf1ed7cc4cd76b9e01adb8cd5918e83578e4b99a43",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "tests/codexRolloutCollector.realRust.test.js",
+    "sha256": "b3c4f164533e5c5ef02b565225ff9ddb273d19e1ab7905f349b6192a63d91e0f",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "tests/codexRolloutCollector.recovery.test.js",
+    "sha256": "98b1e84fa6fc65b2901534900ddccd462dd5a0e431ac10bc9b720e27c5874c12",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+    "sha256": "e551ce08554b3356a38b598588f3433cb2d9c7135bfc3682836f29a9e20c2c65",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "docs/product/plans/PLAN-20261005-codex-history-shared-compat.md",
+    "sha256": "4217fa818af014f7f8fc013fbff0a2a600649c6c66d1aa2370a9aa0692e20832",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "docs/changes/records/CR-20261006-0200-shared-history-node-consumer.md",
+    "sha256": "b477fe37137efbc54afcafadec7db006d0f07b4e1cb163f2806ae9d393391231",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+    "sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/history-save-repair-20261005/s1/repair-r1/run-1/seeded-analysis/9f09fea249cf87ec5a16f0440db7b935482e142957fb4e5ffdfaa68f138c05b5.json",
+    "sha256": "16f58d6c90e546f76148ec8a598c6e6e490a8d4657f330b4fed5a1ae928f2ffe",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/baseline.cjs",
+    "sha256": "c232d7a0c0b2fc96dc744dc85ab2efe4938083ddbabe9e72e170cdfdcbc62dcb",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/baseline.json",
+    "sha256": "6997ad4755ed6d2d07c9464b935f889496c75df8da6c51697be1fee7362b2aad",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/docs__product__plans__PLAN-20261005-codex-history-shared-compat.md",
+    "sha256": "373d41184ab2a9d35a8c8f138427f5bdbf1bb7567259eddfe484633bd571c036",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/docs__product__requirements__REQ-20261005-codex-history-shared-compat.md",
+    "sha256": "10b1979c816f79de6f2628920b8def6c8fb51787632f6d4cede95604b7a7db39",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisBatchImporter.js",
+    "sha256": "6f957f30811ec01e0ddde392e7dc38c309d22b91be1ee9d9c30b7c901f9bcfb8",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analysisCheckpointStore.js",
+    "sha256": "495286171b5ad11ff13e5a3ce52e36bf7c055940630ade9c60d5430f525ee167",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProcessManager.js",
+    "sha256": "cda575e3c5371633d23e7fca3feb7921ecc41b6040695ffffa3bd1cf5f63e865",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__analyzerProtocol.js",
+    "sha256": "068024352b46db9519bcb5e9bf814a9fa6830701c5b51a27684f44d9900dc379",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/src__services__codexRolloutCollector__index.js",
+    "sha256": "780d27c0f991e3e0b940cc4092e4f5733d6c50aa99753eb06fbf480cc58a327e",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.realRust.test.js",
+    "sha256": "2c7a9f3b67ed36eaf99ec17be1923f4815399ddc22d0959b29b93a4fa3b30490",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.recovery.test.js",
+    "sha256": "98b1e84fa6fc65b2901534900ddccd462dd5a0e431ac10bc9b720e27c5874c12",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/before/tests__codexRolloutCollector.test.js",
+    "sha256": "bbfacb4765cf0d28867666a50afd7db6aa0caeb529448c65f1c47a7b47f914f7",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/cr-final-result.json",
+    "sha256": "da24e70d24aaa72d27c2cfb8546b8d7d3f87ada23ebe082272e90ac337bfd914",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/cr-final.txt",
+    "sha256": "8d42c944841eba3b6bdb35e7781cc53ec35e0ca9ad7c6b6499f94a6cb3cd6791",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/cr-pwsh-final-result.json",
+    "sha256": "61c5b3c072064fe0074fbd0be9c7f2f0fcd55d30de5f8892cd0427fac938a7ff",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/cr-pwsh-final.txt",
+    "sha256": "c9f76b6e2fc1101dc4aa7ac6d003d91deaf5c9882d3130aeec25a0650b19fc51",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/diff-check-final-result.json",
+    "sha256": "69f2ef09c44e8d0186b354ff96e2d2fe8dcf80b19a96d3898b7a21b5f9cf1089",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/diff-check-final.txt",
+    "sha256": "9a907727a9b00c48f4c1633cf6f61316a393360510f3dad21e916f7da1e6ca4c",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/existing-and-v2-result.json",
+    "sha256": "1f77e56cedd8abe020e6b8bbe029ff806fc12e6b6cda978d5cb4c822a5846d41",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/existing-and-v2.txt",
+    "sha256": "263677e72fda1d041ce61ee21ac621b5a8d55c0ba59d316c5dd1990ddc1cca2e",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/existing-initial-result.json",
+    "sha256": "463a0e88453f9740391b8325bf4213c2f790a8e5a8dfba3adbd1bcca75700b92",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/existing-initial.txt",
+    "sha256": "d5b15cc0223eda8993c3428bc690e237e8fcdcdccbbeac173b05aff9b35f3a0f",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/final-node-result.json",
+    "sha256": "45a45be74b69ce5841722ad6df99790967af2a537d51b2c6fb1cd8432e367b45",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/final-node.txt",
+    "sha256": "c6fc47e46abc208910e0900614fd10a9cb6691811f7b68e2537e1a221a08f8fe",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/old-partial-v2-result.json",
+    "sha256": "9cc7c5ec539722fd95c0b011f35ed9b76a2f19de2609e937ebf4b4fd514d9a18",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/old-partial-v2.txt",
+    "sha256": "05c006c112af1077137bed6cac94a9fa5888fc5ea83b41c4d8a3b444f926567c",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/paired-negatives-result.json",
+    "sha256": "a60f3d3e048b27a5672c0a3f63be0af197227ad164200600724be4fea4644b08",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/paired-negatives.txt",
+    "sha256": "ec106132387d297bdffdd6ca6267f077159cf3ae33ba0a0e00e5d43b2a037dc3",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/partial-growth-result.json",
+    "sha256": "abf5c508b4452388d723dad6dcde4122ffe9c780172f437b9695c57f44025f8b",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/partial-growth.txt",
+    "sha256": "8ede7cc81066ee39314a0736942caeacde90c3cafb53bfc48747bf535bd1785c",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/projection-guards-result.json",
+    "sha256": "4efb4cc8a156a7aef7adada4a5ab3b71abd35608c750bad75f1a019710f6d0a7",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/projection-guards.txt",
+    "sha256": "cdee72275aa292757a074e6deea9309fee604f6e93fc7e8780a05dc85e385616",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/protection-and-recovery-result.json",
+    "sha256": "72425b244fc8c20ed7962916885483b0d0f9ca7904364715b740995360ed5ce6",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/protection-and-recovery.txt",
+    "sha256": "4b747435873baff2a454d2b1c68889aa949d94173a7b26bd61419e3afe1afc27",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/readback.cjs",
+    "sha256": "939ec24aee18bd46e5d5984ee78ea107ac961fdc82bbb9c5c028ea357e1a4513",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/record-execution.cjs",
+    "sha256": "625270338092b9a27f5bb0f29cdf7802aced48acb8e2c4cb875a20c834d77c73",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/report.md",
+    "sha256": "50f2e5f42cb888a7f03d9f9b69d80914cb50caf02d75a7d0e7fef145893b825f",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/req-final-result.json",
+    "sha256": "1011ee6d498b5c90264f1f770fd9c0b08c8ed411279a129fa1263d22f5e9079b",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/req-final.txt",
+    "sha256": "4373ff3dcf711c160653fa48829d14241010fa3770fce9ad2a3887cc768554f2",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/req-pwsh-final-result.json",
+    "sha256": "1a04f26395882b30e266cea29e3aa920e43670105117a13af482afd52d2bc900",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/req-pwsh-final.txt",
+    "sha256": "75ace29a5d3d6c2652b6c4b9f663678eecaf8ea01f0e720d03a6f5e737f58454",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/run.cjs",
+    "sha256": "fc13bcf6b4defabf03e3eff032f2bab32336ee7b56cdef1398b1c8cce3542648",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/self-check.cjs",
+    "sha256": "09945a52878463e369c478e94350aff58fd7da8b30c6c8bb4cb247c278edbb17",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/self-check.json",
+    "sha256": "c5360aaa818c942be8941f27a661fe6bda2f5952f40c0796d015f72dfc2fcec2",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/source-after.json",
+    "sha256": "40157d0a28249ed656b75d93bd6e633d13b2274c989ff2b3e59960c1ef87c13a",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/status-832-before.json",
+    "sha256": "76abce17777fb87404bb2b06da365503025513dd82a5cfd57f7b7b0bb034e9b7",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/status-S3-before.json",
+    "sha256": "d0baa7159e265d6d6c5470bd03f9ab7a51ea640b9c0ba6e65bcf02042f38aae4",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/status-S4-before.json",
+    "sha256": "cb0541874963ddce7ea73f759180f5754d7cc0f801c0649c986a2f4680b34f6f",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/v2-initial-result.json",
+    "sha256": "b4c139bc74689ae221a8aab523313cbc6bae14091bbdcb9f0524679a51f8665e",
+    "fixed_matches": true,
+    "live_matches": true
+  },
+  {
+    "path": "logs/shared-history-compat-20261005/s4/v2-initial.txt",
+    "sha256": "24d35575d7180986aac8b30f5a01cfb71d6c6385087e67727f62c5ccd80c38c2",
+    "fixed_matches": true,
+    "live_matches": true
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "kind": "readonly-exact-saved-boundary-recheck",
+  "cases": [
+    {
+      "label": "original-exact-counterexample",
+      "schema_valid": true,
+      "accepted": false,
+      "error": {
+        "code": "ANALYSIS_BATCH_SCOPE_CONFLICT",
+        "message": "mutation evidence conflicts with an existing staged mutation"
+      },
+      "state_unchanged": true,
+      "canonical": false,
+      "receipt_count": 1
+    },
+    {
+      "label": "original-actual-rust-full",
+      "schema_valid": true,
+      "accepted": true,
+      "error": null,
+      "state_unchanged": false,
+      "canonical": true,
+      "receipt_count": 2
+    }
+  ]
+}

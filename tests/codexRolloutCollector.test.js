@@ -814,9 +814,11 @@ test('target hello advertises canonical capabilities and normalizes only the old
         'cancel',
         'checkpoint',
         'ack',
-        'last_turn_replacement_v1'
+        'last_turn_replacement_v1',
+        'history_semantics_v2'
     ]);
     assert.equal(hasRequiredCapabilities(hello.capabilities), true);
+    assert.equal(createHello('legacy-profile', { historyProfile: 'target-v1' }).capabilities.includes('history_semantics_v2'), false);
     assert.equal(hasRequiredCapabilities(['preview', 'backfill', 'append', 'cancel']), false);
     assert.deepEqual(
         canonicalizeCapabilities(['ack', 'analyze', 'cancel', 'analyze_v1']),
