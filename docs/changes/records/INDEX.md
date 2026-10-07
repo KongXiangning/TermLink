@@ -1,5 +1,5 @@
 ---
-title: 閸欐ɑ娲跨拋鏉跨秿缁便垹绱?
+title: 变更记录索引
 status: active
 owner: @maintainer
 last_updated: 2026-04-17
@@ -10,20 +10,21 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 # Change Records Index
 
-閺堫剛鍌ㄥ鏇犳暏娴滃海娣幎?compact 妞嬪孩鐗搁惃鍕杽閺傜晫鏆€閻ユ洩绱濋弨顖涘瘮閸ョ偞鏂侀妴浣告礀濠婃艾鎷伴崥搴ｇ敾娣囶喗鏁兼潻鍊熼嚋閵?
+本索引用于维护 compact 风格的实施留痕，支持回放、回滚和后续修改追踪。
 
-## 娴ｈ法鏁ょ憴鍕灟
+## 使用规则
 
-1. 濮ｅ繑顐肩€圭偞鏌?閹绘劒姘﹁箛鍛淬€忛弬鏉款杻娑撯偓閺?CR 鐠佹澘缍嶉妴?
-2. CR 韫囧懘銆忛崠鍛儓 `req_id + commit_ref`閿涙矖draft` 閻樿埖鈧礁鍘戠拋?`commit_ref: TBD`閵?
-3. 闂団偓濮瑰倻濮搁幀浣圭ウ鏉烆剙鍩?`done` 閸撳稄绱濊箛鍛淬€忛懛鍐茬毌鐎涙ê婀稉鈧弶?`active` CR閵?
-4. `CHANGELOG_PROJECT.md` 娴犲懍绻氶悾娆愭喅鐟曚緤绱濈拠锔剧矎閸ョ偞绮存稉搴划婢跺秳淇婇幁顖欎簰 CR 娑撳搫鍣妴?
+1. 每次实施/提交必须新增一条 CR 记录。
+2. CR 必须包含 `req_id + commit_ref`；`draft` 状态允许 `commit_ref: TBD`。
+3. 需求状态流转到 `done` 前，必须至少存在一条 `active` CR。
+4. `CHANGELOG_PROJECT.md` 仅保留摘要，详细回滚与恢复信息以 CR 为准。
 
 ## Records
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
 | CR-20261007-0900-branch-history-parent | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-0900-branch-history-parent.md` |
+| CR-20261007-0245-branch-product-delivery | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-0245-branch-product-delivery.md` |
 | CR-20261007-0219-branch-history-window-repair | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-0219-branch-history-window-repair.md` |
 | CR-20261006-2016-history-product-delivery | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-2016-history-product-delivery.md` |
 | CR-20261006-1846-history-promotion-proof-repair | REQ-20261005-codex-history-shared-compat | draft | TBD | @maintainer | 2026-10-06 |  | `docs/changes/records/CR-20261006-1846-history-promotion-proof-repair.md` |

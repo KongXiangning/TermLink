@@ -1,0 +1,67 @@
+▶ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen
+  ✔ backfill (1300.2662ms)
+  ✔ append (239.2247ms)
+✔ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen (1540.0778ms)
+✔ history branch delivery H2 saves inherited bodies and child tools without changing parent across restart and rejection (607.7338ms)
+✔ history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection (405.0051ms)
+✔ product-history-store durably stages, publishes, reopens, and ignores an exact duplicate delivery (33.1263ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"019b2b40-beb6-7b23-bed0-37d570e76816","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-real-rust stages before ACK, publishes validated canonical output, and reaches the history Gateway (425.5528ms)
+✔ product-history projection isolates SessionContext history_base while staging retains child lineage evidence (204.5845ms)
+✔ product-history-unattended wakes on cached terminal source-ready state and resumes from the product checkpoint after restart (349.1421ms)
+✔ product-history-read preserves __proto__ event fields through product-history-store reopen (28.3011ms)
+✔ product-history-store rolls back a failed replacement and preserves the previous canonical data after reopen (37.6055ms)
+✔ product-history-read pages canonical rows and preserves product event fields (3.3944ms)
+✔ product-history-read refreshes a complete root and range cursor when only a detail changes (5.1554ms)
+✔ product-history-read shares its actual detail DTO page hash with Android (2.4038ms)
+✔ product-history-read preserves top-level and nested tool facts with collection-like field names (0.5156ms)
+✔ product-history-read preserves every business JSON key in items and details (1.2769ms)
+✔ product-history-unattended keeps a newer terminal after failure and recovers durable intent (125.3373ms)
+✔ product-history-unattended retains incomplete intent for replay, restart and newer terminal (103.6853ms)
+✔ product-history-unattended actual server reopens a pending job and receipt before serving canonical history (4485.6725ms)
+✔ product-history-read omits parameterized and percent-encoded inline image data URLs (0.5073ms)
+✔ product-history-read detail pages are authenticated-provider-ready, bounded, and path preserving (6.3529ms)
+✔ product-history-read uses bounded payload chunks and fails closed for clients without chunk support (0.9689ms)
+✔ product-history-read bounds detail references and range page estimates (0.9965ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-read Gateway serves product baseline, older pages, and details without a source read (128.0299ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"missing-product-row","previousActiveConversationId":"conversation-product-read","sessionId":"session-product-read","sessionMode":"codex","previousThreadId":"conversation-product-read"}
+✔ product-history-read keeps old clients on v2 and a DB-only miss keeps the cache (138.6619ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-read replaces a complete snapshot with the entire bounded product tail (78.0212ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-read refreshes a complete product range without v2 delete authority (77.4885ms)
+✔ product flow negative assertion rejects deliberate windows path leaks (1.4457ms)
+▶ history v2 saves canonical turn growth by full reread and by durable append, keeping immutable start
+  ✔ backfill (1336.6387ms)
+  ✔ append (150.0253ms)
+✔ history v2 saves canonical turn growth by full reread and by durable append, keeping immutable start (1489.4495ms)
+▶ history v2 saves both delegation carriers once across File staging restart and rejects forged bodies
+  ✔ response-first (224.3706ms)
+  ✔ completed-first (252.6687ms)
+✔ history v2 saves both delegation carriers once across File staging restart and rejects forged bodies (477.8489ms)
+✔ history v2 new backfill leaves nonempty v1 checkpoint intact and sends four empty recovery fields (177.948ms)
+▶ history v2 rereads original partial delegation prefix without treating retained ParseGap as current coverage
+  ✔ same-position (16.9598ms)
+  ✔ reversed-line (16.1615ms)
+  ✔ coverage-gap (16.0598ms)
+✔ history v2 rereads original partial delegation prefix without treating retained ParseGap as current coverage (167.0247ms)
+✔ history v2 preserves unanchored unsettled v1 delivery profile, payload and identity across Node restart (159.7487ms)
+✔ history v2 accepts original partial turn growth while a separate unresolved input remains partial (109.2196ms)
+✔ real Rust target durably imports tools, usage, outcomes and unknown diagnostics (176.396ms)
+✔ real Rust target enforces a zero resource timeout and remains usable for the next job (124.6918ms)
+✔ real Rust accepts consecutive new jobs for the same conversation and persisted source (233.0383ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9000.263

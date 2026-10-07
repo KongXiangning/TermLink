@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T03:30:15.560Z",
+  "payload_sha256": "04ba5f4f37812185505822e626a991456210e764897de887a4b674e785856e39",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260832-S4-review-change-20261007-v1",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S4",
+      "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+      "source_revision": "714379dafa7eedb3517d5d0550518faca969966c",
+      "verdict": "clean",
+      "findings": [],
+      "coverage": [
+        "Exact832S4 execution/currenttestdelta/PLAN/newdraftCR;50fixed/live attachments,4subjects/18protectedsubjects,currentHEAD/binary match",
+        "Actualsource/process/importer/File/SQLite durablestaging andproductpublication/provider callchain;4H2publishtraceorders independentlyaudited",
+        "A/C target/physicalsource/cut/inherited3delegations+childbody/exacttool details;duplicate/reconstructedNodecollectorandstores/Rustrestart/append/wrongconversationnegativeACK/oldAandCcanonical protection",
+        "Currentbinary44product+realRust tests/H1fullappend/H3carriers+conflict+rollback andartifacts reused;no newproductionfix;unknown/oldfailures andtestassertioncorrection retained",
+        "REQin_progress andS5S6naturalhost/mobile work retained;isolatedGatewayfixtureandactualNodeACK notclassifiedasphone/productionacceptance"
+      ],
+      "provenance": {
+        "kind": "same-agent-change-self-review",
+        "reviewer": "Codex",
+        "independent": false,
+        "new_product_tests_run": false,
+        "assessment": "Read-only code/callchain/exactevidencehash/trace audit;reusesexecutiontests and currentbinary,not independentreview or realhost/phonevalidation",
+        "binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e"
+      },
+      "remaining_work": [
+        "Separate832S4finish disposition,832stillactive;notautomaticS5",
+        "S5threeactualhostcases andS6specifiedphone durablebody/tool/switch/reopen withoriginalbudgets;currentrealservice/productDB/Gateway/deviceacceptancepending",
+        "Priorfailures/vendoroffline limitation/3historicalmanagementassociationgaps retained"
+      ],
+      "files": [
+        "logs/history-save-repair-20261005/s4/review-r1/review-change.md",
+        "logs/history-save-repair-20261005/s4/review-r1/audit.cjs",
+        "logs/history-save-repair-20261005/s4/review-r1/audit.json",
+        "logs/history-save-repair-20261005/s4/review-r1/test-diff.txt",
+        "logs/history-save-repair-20261005/s4/review-r1/status-before.json",
+        "logs/history-save-repair-20261005/s4/review-r1/record-review.cjs",
+        "tests/codexHistoryProductFlow.test.js",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261007-0245-branch-product-delivery.md"
+      ],
+      "idempotency_key": "task20260832-S4-review-change-20261007-v1"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/s4/review-r1/review-change.md",
+      "logs/history-save-repair-20261005/s4/review-r1/audit.cjs",
+      "logs/history-save-repair-20261005/s4/review-r1/audit.json",
+      "logs/history-save-repair-20261005/s4/review-r1/test-diff.txt",
+      "logs/history-save-repair-20261005/s4/review-r1/status-before.json",
+      "logs/history-save-repair-20261005/s4/review-r1/record-review.cjs",
+      "tests/codexHistoryProductFlow.test.js",
+      "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "docs/changes/records/CR-20261007-0245-branch-product-delivery.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S4",
+        "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+        "source_revision": "714379dafa7eedb3517d5d0550518faca969966c",
+        "verdict": "clean",
+        "findings": [],
+        "coverage": [
+          "Exact832S4 execution/currenttestdelta/PLAN/newdraftCR;50fixed/live attachments,4subjects/18protectedsubjects,currentHEAD/binary match",
+          "Actualsource/process/importer/File/SQLite durablestaging andproductpublication/provider callchain;4H2publishtraceorders independentlyaudited",
+          "A/C target/physicalsource/cut/inherited3delegations+childbody/exacttool details;duplicate/reconstructedNodecollectorandstores/Rustrestart/append/wrongconversationnegativeACK/oldAandCcanonical protection",
+          "Currentbinary44product+realRust tests/H1fullappend/H3carriers+conflict+rollback andartifacts reused;no newproductionfix;unknown/oldfailures andtestassertioncorrection retained",
+          "REQin_progress andS5S6naturalhost/mobile work retained;isolatedGatewayfixtureandactualNodeACK notclassifiedasphone/productionacceptance"
+        ],
+        "provenance": {
+          "kind": "same-agent-change-self-review",
+          "reviewer": "Codex",
+          "independent": false,
+          "new_product_tests_run": false,
+          "assessment": "Read-only code/callchain/exactevidencehash/trace audit;reusesexecutiontests and currentbinary,not independentreview or realhost/phonevalidation",
+          "binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e"
+        },
+        "remaining_work": [
+          "Separate832S4finish disposition,832stillactive;notautomaticS5",
+          "S5threeactualhostcases andS6specifiedphone durablebody/tool/switch/reopen withoriginalbudgets;currentrealservice/productDB/Gateway/deviceacceptancepending",
+          "Priorfailures/vendoroffline limitation/3historicalmanagementassociationgaps retained"
+        ],
+        "files": [
+          "logs/history-save-repair-20261005/s4/review-r1/review-change.md",
+          "logs/history-save-repair-20261005/s4/review-r1/audit.cjs",
+          "logs/history-save-repair-20261005/s4/review-r1/audit.json",
+          "logs/history-save-repair-20261005/s4/review-r1/test-diff.txt",
+          "logs/history-save-repair-20261005/s4/review-r1/status-before.json",
+          "logs/history-save-repair-20261005/s4/review-r1/record-review.cjs",
+          "tests/codexHistoryProductFlow.test.js",
+          "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+          "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+          "docs/changes/records/CR-20261007-0245-branch-product-delivery.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

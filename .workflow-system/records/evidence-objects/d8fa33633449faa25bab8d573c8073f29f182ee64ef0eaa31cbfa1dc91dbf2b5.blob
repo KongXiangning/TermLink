@@ -1,0 +1,48 @@
+# TASK-20260832 / S4 实际执行
+
+2026-10-07，Asia/Shanghai。**S4 已执行，修复版 H2 分支通过隔离 Rust→Node→产品 SQLite 保存验证；H1/H3 当前回归通过，待 change review/finish。** 832 仍 active；不是自然宿主或手机验收。
+
+## 入口及实际范围
+
+fresh journal 显示 S3 已 finished（ref=key-b0ec63791580b4d7311189096e9944592958761329ff4b7447e93632dc888dff.json），S4 not-started，因此用户裸 execute-step 为 default S4。没有重复 S3 或根据旧 next_route 猜 finish。当前 HEAD=714379dafa7eedb3517d5d0550518faca969966c，编辑前 tracked tree 无业务差异；原 Spike vendor Cargo.lock 保留。
+
+原 S4 的 H1 责任和共享契约已由 833 交付，复用而不重新放宽 importer。本步按原 S4 的产品提交/幂等/冲突/旧 canonical 目标，用 S3 稳定修复版验证未完成的 H2 保存链，并用当前 binary 复跑 H1/H3 支持场景。不自动跳过 S4，不新增公共接口或做整个 4.5 迁移。
+
+只新增既有 tests/codexHistoryProductFlow.test.js 中 H2 用例、更新 PLAN、新增 draft CR-20261007-0245-branch-product-delivery 和 logs。没有发现需要修改 Node 生产实现的问题；Rust、Node importer/process/store/provider/canonicalizer、SQLite schema、IPC/Gateway/Android、vendor、预算与共享规范不改。18 个保护 subject 未变；架构和相关 CONTRACTS/AD-004/018/019/020/021/022 沿用本会话已读、哈希一致版本。
+
+## 三项分别支持的证据
+
+| 问题 | 本次实际支持及边界 |
+| --- | --- |
+| H1 正常增长拒绝 | 复用 833 既有 backfill/append 场景，在当前修复 binary 下重新运行；真实 started→completed 正向更新经 Node 和产品库保存，旧物理开始保留，冲突 hash 获负 ACK，产品 canonical/checkpoint 留旧值。没有重新实现或声称自然新对话已验收。 |
+| H2 分支找不到 parent | formal byte-preserved A prefix/C header + 独立 synthetic 普通 turn；A 正常保存其 cut 后正文/工具，C 只继承 cut 前三份委派并保存自己的正文/工具。每段4096、总decoded65536、line2048，真实 parent cut5542，不靠增加限额。A/C 两个目标分别保存，C 不带入 A cut 后内容、不生成 replacement；全部 C batch events target=C，physical source_ref 保留 A。 |
+| H3 委派保存 | 复用 833 原三组双 carrier 和旧 partial fixture回归，三逻辑正文/system role/两 carrier事实准确，普通工具详情仍在，委派没有 call_id/伪工具详情；实际 forged delegated body、事务 INSERT失败和 ROLLBACK 后旧 canonical 保持。不是自然委派回合或手机验证。 |
+
+H2 新用例先将 A 正常保存，然后停止 collector，用同一隔离产品 DB 建立 C collector。原 A 文件前缀与 C header 不重造，synthetic turn 只附加在测试副本；外部实际 source 不写入。C 内真实 ordinary tool 是 CommandExecution，不把 delegation 当工具。
+
+## 产品提交与恢复保护
+
+- 观察真实现有 SQLite 方法和 processManager 发送：staging BEGIN/COMMIT 后，新 SQLite Store 从文件读回尚未发布的 batch；这早于实际正 ACK 写入。收到真实 Rust complete 后才有产品 COMMIT/published 返回，最终 product checkpoint/body/detail 再重开读回。没有 mock stage/publish/ACK，也没有直接回填 DB。
+- C 的同一个 batch 在 ACK 前重复 import，返回 duplicate；停止 Rust、重新建立 Node File/SQLite stores，再读取相同历史，逻辑 rows/details 逐字段相同。随后合法 checkpoint append 新 turn，父前缀恢复仍正确，三份委派及旧工具保留。
+- provider 详情页核对 command=[cargo,test,--locked]、cwd=file:///synthetic/private/workspace、call_id=command-1、completed/exit_code=0/duration_ms=1000/1 passed 输出。委派 tool=null、role=system、双 carrier事实，无 detailRefs；C provider 正文包含自己的 question/answer。
+- 向实际 importer 注入错误 payload.conversation_id=A 的 C batch，获得实际负 ACK（persisted=false）和 Rust error batch_rejected/rejection_code=batch_validation_failed，无成功 complete。重开读回 A/C history/checkpoint 未变，原 A 临时 source 字节未变。原失败保留，没有删 receipt/intent 或另换 key 掩盖。
+
+完整实际 messages/SQL trace/history/checkpoint/provider/body/detail 为 evidence/product/H2-branch-restart.json，另有当前 H1-backfill、H1-append、H3-reopen-conflict.json。SQLite 是本步真实隔离测试文件；它不是当前服务产品 DB。现有两套用例中的 Gateway 在原随机端口/临时 harness 内运行，不代表自然真实服务/手机操作。
+
+## 验证与版本
+
+1. 聚焦 `node --test --test-name-pattern=history branch delivery H2 tests/codexHistoryProductFlow.test.js`：branch-1，1/1 PASS。
+2. 校正新增 replacement 断言字段为真实 mutation.mutation，补精确工具详情与 rejection code；最终 `node --test tests/codexHistoryProductFlow.test.js tests/codexRolloutCollector.realRust.test.js`：product-1，**44/44 PASS**。覆盖新 H2、原 H1/H3、checkpoint/旧 profile、unknown、staging/ACK/complete/publish、旧 canonical 和既有 Gateway 产品路径。
+3. REQ Strict req-1、CR Strict cr-1、diff-check diff-1 exit0；self-check 核实 source/binary/保护与实际 evidence，产品体不泄露内部 source_ref。
+
+CARGO_NET_OFFLINE=true；既有 realRust helper 在每个测试 Node process 中 cargo build --locked 当前 formal collector。实际 binary SHA256=f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e，与 S3 R1/R2 的修复版相同。该版本只在隔离测试中运行，未部署。历史 833 旧 binary 的产品 PASS 没被冒充本轮新证据。
+
+本批没有实际失败命令；初始 selector 的 mutation.op 断言字段不正确，在最终44/44前校正，原初始输出保留。self-check 另核对实际 batch 的所有目标、physical A来源、零 replacement、child answer/三份委派和确切详情。不制造新 red，因为原 H1/H3 red 与 H2 Rust缺陷已有真实历史证据，且本批不修改生产修复。没有全仓 Node/Rust重跑、自然模型回合、设备/adb/真实服务启停、Git写入或配置操作。
+
+## 文档及剩余
+
+本批覆盖 PLAN S4 保存链验证；PLAN 同步 fresh S3 finished 和 S4 executed_pending_review，新 CR 为 draft/commit_ref=TBD，REQ 仍 in_progress 未改为 done。原初次/repair/review失败及历史 commit 记录保留，不代填已提交旧 CR 的未同步字段。
+
+execution 关联原 adopted plan 与 S4，检查 recorded/association/projection 分别成功并回读。未新建 formal review，未 finish/close、未执行 S5/S6。三类自然宿主新普通 N、native Branch C、委派 D 的业务验收和指定手机正文/工具详情/切换/重开、真实 Gateway/服务产品 DB/durable手机ACK仍 pending；三个旧管理关联缺口和 vendor 离线限制保持。
+
+next_route: review-change；目标 TASK-20260832/S4。

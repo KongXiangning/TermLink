@@ -1,0 +1,17 @@
+{
+  "command": {
+    "bin": "git",
+    "args": [
+      "diff",
+      "--check"
+    ]
+  },
+  "start": "2026-10-06T18:49:22.076Z",
+  "end": "2026-10-06T18:49:22.167Z",
+  "exit_code": 0,
+  "environment": {
+    "CARGO_NET_OFFLINE": "true",
+    "TERMLINK_HISTORY_S5_EVIDENCE_DIR": "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\history-save-repair-20261005\\s4\\evidence\\diff"
+  },
+  "source_revision": "714379dafa7eedb3517d5d0550518faca969966c"
+}

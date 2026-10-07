@@ -1,0 +1,319 @@
+{
+  "runtime_role": "assistance",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "kind": "task-query/v1",
+  "detail": "step",
+  "status": "available",
+  "source_revision": "a813bc8cc6ec77b44f79977e95e6cbc3205c8e95dd771d47e71f31f2d714177f",
+  "view_revision": "4b96d35414584f2cb05eee88ea86e5f33a33cc68c5fdbd7ae9e8f5622a2fd58d",
+  "workflow_home": "docs/workflow",
+  "current_task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "focus": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "ref": ".workflow-system/records/events/key-84c44d145690b43b1036448ac8c73927fb5d3b3d98f0519cf4441f42898a24bc.json",
+    "conflict": null
+  },
+  "next_task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "next_step_id": "S4",
+  "next_route": "review-change",
+  "next_mode": null,
+  "next_action": "review-step",
+  "selection": {
+    "requested_task_ref": "TASK-20260832",
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "status": "resolved",
+    "detail_request": {
+      "detail": "task",
+      "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "workflow_home": "docs/workflow"
+    },
+    "requested_step_id": "S4",
+    "step_status": "resolved"
+  },
+  "health": "needs-attention",
+  "state_completeness": "partial-associations",
+  "records_scanned": 279,
+  "projection": {
+    "cache": "current",
+    "display": "current",
+    "read_only_rebuilt": true
+  },
+  "recovery_options": [
+    "rebuild",
+    "link",
+    "correct",
+    "resolve",
+    "defer",
+    "pause",
+    "close"
+  ],
+  "issues": [
+    {
+      "id": "issue-acce7d78ceebab4ab85bca99",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-bb8b7308bc64f7d580f3cfae",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-ec19a134aefeb23287cb519b",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "message": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "unassociated_records": [
+    {
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "reason": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "task_count": 6,
+  "lifecycle_counts": {
+    "closed": 5,
+    "active": 1
+  },
+  "coverage": {
+    "computation": "full-journal-rebuild",
+    "diagnostics": "all",
+    "history": "selected-step-projection-only"
+  },
+  "note": "Presentation of the complete live rebuild. Omitted detail is not absent history, clean review or permission. Read record refs with read; use detail=full for the compatibility view.",
+  "task": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "display_id": "TASK-20260832",
+    "lifecycle": "active",
+    "adopted_plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+    "legacy_plan_ref": null
+  },
+  "step": {
+    "id": "S4",
+    "title": "修复经证实的保存范围冲突并验证产品落库",
+    "environment": [
+      "S2 已明确授权的责任模块",
+      "S3 稳定接口/修复版 Rust binary",
+      "独立进程协议与临时测试 DB"
+    ],
+    "actions": [
+      "只修改 H1 被证实的 scope 失配位置。若属于 Rust，在 Rust 所属修改中处理；若属于现有 Node consumer，在独立 Node 步骤按已确认契约局部修复，不改对侧接口。",
+      "复用 codexRolloutCollector 与 recovery/checkpoint/realRust、codexHistoryProductFlow 的相关既有用例；新增断言只覆盖原错误机制及有实质价值的保护。",
+      "验证合法交付→staging/ACK→complete→产品事务发布，并验证重复幂等、真实冲突拒绝与旧 canonical 保护。",
+      "如果需要 Node 4.5 整体迁移或共享契约变化，保存当前诊断与剩余缺口并另立范围，不能宣称本问题已修复。"
+    ],
+    "validation": [
+      "原错误可由回归检出，修复后合法消息成功；旧 request/冲突消息仍拒绝。",
+      "从进程协议完成产品库提交，mock/fixture 仅算对应层支持。",
+      "各模块仅改自身已确认文件，实际接口版本和 binary 与证据一致。"
+    ],
+    "outputs": [
+      "H1 修复/未解决判定与验证",
+      "产品保存链各提交点的协议/集成证据"
+    ],
+    "state": "executed",
+    "legacy_step_status": null,
+    "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+    "execution": {
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S4",
+      "mode": "default",
+      "source_revision": "714379dafa7eedb3517d5d0550518faca969966c",
+      "result": "H2 repairedbranch savedthroughactualRust/Node/SQLite/provider;H1H3 reused/currentbinary regression44/44 PASS;pendingchange review/productnaturalhost/mobile acceptance",
+      "decision_source": "Current human bare execute-step;fresh journal S3finished/focused832/S4not-started;confirmed832plan and833handoff reused",
+      "decision_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md)",
+      "summary": {
+        "scope": "Existingproduct-flow test H2,PLAN/newdraftCR/logs;no productionNode/Rust/Gateway/DBschema/IPC/Android/vendor/sharedcontract/defaultbudget/Git/deploy/real source orphonechanges",
+        "business": "H1full+append andH3 exactcarrier/conflict/rollback reusedverifiedcurrentbinary;H2 actualA/C prefix/body/tool identities,SQLite durablestaging→actualNodeACK→Rustcomplete→productCOMMIT,duplicate/restart/append/wrongbindingnegativeACK andA/C oldcanonical protection",
+        "binary": {
+          "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+          "sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e"
+        },
+        "qualification": "Implementation self-check only,notchange/independentreview orfinish/close. ActualNode durableACK inisolatedSQLtest,notphoneACK ornaturalCodex Branch. ExistingGatewaytest harness only.",
+        "test_assertion_correction": "Initialmutation.op assertion correctedtorealmutation.mutation andexactdetail/rejection asserts beforefinal44/44;initialPASS output preserved"
+      },
+      "commands": [
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "--test-name-pattern=history branch delivery H2",
+              "tests/codexHistoryProductFlow.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true",
+            "TERMLINK_HISTORY_S5_EVIDENCE_DIR": "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\history-save-repair-20261005\\s4\\evidence\\branch"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s4/branch-1.txt"
+        },
+        {
+          "command": {
+            "bin": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-File",
+              ".agents/skills/docs-requirement-sync/scripts/validate-change-record.ps1",
+              "-RecordPath",
+              "docs/changes/records/CR-20261007-0245-branch-product-delivery.md",
+              "-ProjectRoot",
+              ".",
+              "-Strict"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true",
+            "TERMLINK_HISTORY_S5_EVIDENCE_DIR": "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\history-save-repair-20261005\\s4\\evidence\\cr"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s4/cr-1.txt"
+        },
+        {
+          "command": {
+            "bin": "git",
+            "args": [
+              "diff",
+              "--check"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true",
+            "TERMLINK_HISTORY_S5_EVIDENCE_DIR": "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\history-save-repair-20261005\\s4\\evidence\\diff"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s4/diff-1.txt"
+        },
+        {
+          "command": {
+            "bin": "node",
+            "args": [
+              "--test",
+              "tests/codexHistoryProductFlow.test.js",
+              "tests/codexRolloutCollector.realRust.test.js"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true",
+            "TERMLINK_HISTORY_S5_EVIDENCE_DIR": "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\history-save-repair-20261005\\s4\\evidence\\product"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s4/product-1.txt"
+        },
+        {
+          "command": {
+            "bin": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-File",
+              ".agents/skills/docs-requirement-sync/scripts/validate-req.ps1",
+              "-ReqPath",
+              "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+              "-ProjectRoot",
+              ".",
+              "-Strict"
+            ]
+          },
+          "environment": {
+            "CARGO_NET_OFFLINE": "true",
+            "TERMLINK_HISTORY_S5_EVIDENCE_DIR": "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\history-save-repair-20261005\\s4\\evidence\\req"
+          },
+          "result": "exit0",
+          "report_ref": "logs/history-save-repair-20261005/s4/req-1.txt"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s4/checks.cjs",
+          "result": "PASS evidence/currentbinary/source/protection checks",
+          "report_ref": "logs/history-save-repair-20261005/s4/self-check.json"
+        }
+      ],
+      "remaining_work": [
+        "S4change review then separatefinish;832active,833closed unchanged",
+        "S5all3naturalhost scenes andS6specifiedphone durablebody/tool/switch/reopen underoriginalbudgets;productDB/service/Gateway/deviceobservationsnotrun",
+        "Originalfailures/vendoroffline limitation/3oldmanagementassociationgaps retained"
+      ],
+      "files": [
+        "tests/codexHistoryProductFlow.test.js",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261007-0245-branch-product-delivery.md",
+        "src/services/codexRolloutCollector/analyzerProtocol.js",
+        "src/services/codexRolloutCollector/analysisBatchImporter.js",
+        "src/services/codexRolloutCollector/analyzerProcessManager.js",
+        "src/services/codexRolloutCollector/index.js",
+        "src/services/codexHistoryProductStore.js",
+        "src/services/codexHistoryProductProvider.js",
+        "docs/codex/codex-rollout-collector-architecture.md",
+        "docs/workflow/CONTRACTS.md",
+        "docs/workflow/DECISIONS.md",
+        "docs/codex/codex-history-shared-compat-contract.md",
+        "native/codex-rollout-compat-spike/vendor/codex/Cargo.lock",
+        "native/codex-rollout-collector/src/source/discovery.rs",
+        "native/codex-rollout-collector/src/protocol/target_source.rs",
+        "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+        "native/codex-rollout-collector/tests/stage4_target_protocol.rs",
+        "native/codex-rollout-collector/tests/fixtures/branch-history/a-full.jsonl",
+        "native/codex-rollout-collector/tests/fixtures/branch-history/c-header.jsonl",
+        "native/codex-rollout-collector/tests/fixtures/branch-history/README.md",
+        "logs/history-save-repair-20261005/s4/baseline.cjs",
+        "logs/history-save-repair-20261005/s4/baseline.json",
+        "logs/history-save-repair-20261005/s4/before/docs__product__plans__PLAN-20261005-codex-history-save-repair.md",
+        "logs/history-save-repair-20261005/s4/before/docs__product__requirements__REQ-20261005-codex-history-save-repair.md",
+        "logs/history-save-repair-20261005/s4/before/tests__codexHistoryProductFlow.test.js",
+        "logs/history-save-repair-20261005/s4/branch-1-result.json",
+        "logs/history-save-repair-20261005/s4/branch-1.txt",
+        "logs/history-save-repair-20261005/s4/checks.cjs",
+        "logs/history-save-repair-20261005/s4/cr-1-result.json",
+        "logs/history-save-repair-20261005/s4/cr-1.txt",
+        "logs/history-save-repair-20261005/s4/diff-1-result.json",
+        "logs/history-save-repair-20261005/s4/diff-1.txt",
+        "logs/history-save-repair-20261005/s4/evidence/branch/H2-branch-restart.json",
+        "logs/history-save-repair-20261005/s4/evidence/product/H1-append.json",
+        "logs/history-save-repair-20261005/s4/evidence/product/H1-backfill.json",
+        "logs/history-save-repair-20261005/s4/evidence/product/H2-branch-restart.json",
+        "logs/history-save-repair-20261005/s4/evidence/product/H3-reopen-conflict.json",
+        "logs/history-save-repair-20261005/s4/product-1-result.json",
+        "logs/history-save-repair-20261005/s4/product-1.txt",
+        "logs/history-save-repair-20261005/s4/record-execution.cjs",
+        "logs/history-save-repair-20261005/s4/report.md",
+        "logs/history-save-repair-20261005/s4/req-1-result.json",
+        "logs/history-save-repair-20261005/s4/req-1.txt",
+        "logs/history-save-repair-20261005/s4/run.cjs",
+        "logs/history-save-repair-20261005/s4/self-check.json",
+        "logs/history-save-repair-20261005/s4/status-before.json",
+        "logs/history-save-repair-20261005/s4/status-record-before.json",
+        "logs/history-save-repair-20261005/s4/status-s3-before.json"
+      ],
+      "ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+      "interpretation_ref": null
+    },
+    "review_ref": null,
+    "review_status": "not-reviewed",
+    "findings": [],
+    "review_choice": null,
+    "review_decision_ref": null,
+    "review_decisions": [],
+    "tests": [],
+    "disposition_ref": null,
+    "historical_execution_refs": []
+  },
+  "review": null,
+  "detail_request": {
+    "detail": "task",
+    "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "workflow_home": "docs/workflow"
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "event_ref": ".workflow-system/records/events/key-dc38d0248e72639eae703f17e05e5efdc19e6df1909d9293dfeb82e00fa0508e.json",
+  "captured_at": "2026-10-07T03:30:15.590Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/de996045e4b5514b20a9741144c425b3c2744c5bff0358c3d789f559ad14df8d.blob",
+      "sha256": "de996045e4b5514b20a9741144c425b3c2744c5bff0358c3d789f559ad14df8d",
+      "size": 5672,
+      "source_path": "logs/history-save-repair-20261005/s4/review-r1/review-change.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/37e9b9c850216505df0975270ebbe9e491697028f240620e9650bd849489d649.blob",
+      "sha256": "37e9b9c850216505df0975270ebbe9e491697028f240620e9650bd849489d649",
+      "size": 6041,
+      "source_path": "logs/history-save-repair-20261005/s4/review-r1/audit.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/7bd9752f704ed57d8dc31a59416256deb29abd37ddc89289e1888d48bfec4b2b.blob",
+      "sha256": "7bd9752f704ed57d8dc31a59416256deb29abd37ddc89289e1888d48bfec4b2b",
+      "size": 21280,
+      "source_path": "logs/history-save-repair-20261005/s4/review-r1/audit.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d09936d77ce9cc64b83e2a4c4d7129101899c77fb82ef2323d0f31ae5430cf4b.blob",
+      "sha256": "d09936d77ce9cc64b83e2a4c4d7129101899c77fb82ef2323d0f31ae5430cf4b",
+      "size": 9019,
+      "source_path": "logs/history-save-repair-20261005/s4/review-r1/test-diff.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/8c87faea8a191e52648d2648c01bfcd52639073d1d52f3e6486a9774b2454a81.blob",
+      "sha256": "8c87faea8a191e52648d2648c01bfcd52639073d1d52f3e6486a9774b2454a81",
+      "size": 15515,
+      "source_path": "logs/history-save-repair-20261005/s4/review-r1/status-before.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a7bdf8086724972ee47407b161411c97349686e31cbb4a42d32e296bac1ce87f.blob",
+      "sha256": "a7bdf8086724972ee47407b161411c97349686e31cbb4a42d32e296bac1ce87f",
+      "size": 4606,
+      "source_path": "logs/history-save-repair-20261005/s4/review-r1/record-review.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b8e3645dfcc0bf7e7a70a39273901fac11bb6ed00b587ccbc48c9280fe51f34e.blob",
+      "sha256": "b8e3645dfcc0bf7e7a70a39273901fac11bb6ed00b587ccbc48c9280fe51f34e",
+      "size": 112979,
+      "source_path": "tests/codexHistoryProductFlow.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/66f6e8b29d45481005f7765af10d1475c126351c9662d91dca231a37f5f7f862.blob",
+      "sha256": "66f6e8b29d45481005f7765af10d1475c126351c9662d91dca231a37f5f7f862",
+      "size": 3283,
+      "source_path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/123fd0a080ed9fb67e4dccf0aa64a27e93787febf2e3ee8707c1298b7c6280b0.blob",
+      "sha256": "123fd0a080ed9fb67e4dccf0aa64a27e93787febf2e3ee8707c1298b7c6280b0",
+      "size": 3739,
+      "source_path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ea73fc8fc77c8fd23c57a6227e24b5203b9aee612582160bd0381cec2b7f6e54.blob",
+      "sha256": "ea73fc8fc77c8fd23c57a6227e24b5203b9aee612582160bd0381cec2b7f6e54",
+      "size": 3674,
+      "source_path": "docs/changes/records/CR-20261007-0245-branch-product-delivery.md",
+      "issues": []
+    }
+  ]
+}
