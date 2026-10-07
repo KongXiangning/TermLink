@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T16:33:58.116Z",
+  "payload_sha256": "0ffa27f9de2edf2fb5711ecc2eb33feacddf6a4df7d9996ba1563ea892d7dab5",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "decision",
+    "task_ref": "TASK-20260832",
+    "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+    "body": {
+      "target": "TASK-20260832/S5",
+      "actual_user_text": "[$execute-step](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\execute-step\\SKILL.md) 补最小修复并重验 A",
+      "choice": "Add minimum Node UTF8 chunk-decoding repair and existing regression tests, then original-root A revalidation in the same S5",
+      "scope_ref": "logs/history-save-repair-20261005/s5/resume-20261008/scope.md",
+      "disclosed_gap": "Original adopted S5 is validation-only; newly diagnosed production file is outside earlier implementation file list",
+      "scope": [
+        "src/services/codexRolloutCollector/analyzerProcessManager.js",
+        "tests/codexRolloutCollector.test.js",
+        "normal original-root validation/evidence/REQ/PLAN/newCR"
+      ],
+      "exclusions": "No shared-contract/schema/limit/IPC/Android/Rust/vendor/Git/deployment/source writes or new model turns; no deletion of prior failures/receipts/checkpoints",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "state_policy": "Explicit user scope supplement to existing S5, retain original adopted identity and completed S1-S4 dispositions; no new task or reinitializing adoption"
+    },
+    "links": [
+      ".workflow-system/records/events/key-19dd68e045a40e76c03d34046984656965a34d4f21ce22b7c7b5a41a3693f51c.json"
+    ],
+    "files": [
+      "logs/history-save-repair-20261005/s5/resume-20261008/scope.md"
+    ],
+    "idempotency_key": "task832-S5-UTF8-repair-human-decision-20261008"
+  },
+  "issues": []
+}

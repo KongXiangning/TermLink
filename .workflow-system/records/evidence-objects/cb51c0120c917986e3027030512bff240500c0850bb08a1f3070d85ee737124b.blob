@@ -1,0 +1,844 @@
+TAP version 13
+# Subtest: interactive preemption waits for termination fence and resumes the same background job
+ok 1 - interactive preemption waits for termination fence and resumes the same background job
+  ---
+  duration_ms: 49.923
+  type: 'test'
+  ...
+# Subtest: new interactive selection preempts the old selection and a same-conversation intent supersedes it
+ok 2 - new interactive selection preempts the old selection and a same-conversation intent supersedes it
+  ---
+  duration_ms: 31.1714
+  type: 'test'
+  ...
+# Subtest: Node restart recovers durable staging even when run ACK-pending update never happened
+ok 3 - Node restart recovers durable staging even when run ACK-pending update never happened
+  ---
+  duration_ms: 1072.568
+  type: 'test'
+  ...
+# Subtest: restart rejects expired, incompatible and exhausted jobs without analyze
+ok 4 - restart rejects expired, incompatible and exhausted jobs without analyze
+  ---
+  duration_ms: 1.0692
+  type: 'test'
+  ...
+# Subtest: latest interactive selection wins while cancellation is still draining
+ok 5 - latest interactive selection wins while cancellation is still draining
+  ---
+  duration_ms: 60.9176
+  type: 'test'
+  ...
+# Subtest: queued intent is durable before dispatch, and queue timeout does not kill another conversation
+ok 6 - queued intent is durable before dispatch, and queue timeout does not kill another conversation
+  ---
+  duration_ms: 46.0005
+  type: 'test'
+  ...
+# Subtest: queued never-attempted job with zero retry budget resumes once and preserves queue policy
+ok 7 - queued never-attempted job with zero retry budget resumes once and preserves queue policy
+  ---
+  duration_ms: 30.2598
+  type: 'test'
+  ...
+# Subtest: run recovery scan limit fails closed before dispatch and preserves every record
+ok 8 - run recovery scan limit fails closed before dispatch and preserves every record
+  ---
+  duration_ms: 0.3974
+  type: 'test'
+  ...
+# Subtest: restart executes the already reserved last retry without charging its budget twice
+ok 9 - restart executes the already reserved last retry without charging its budget twice
+  ---
+  duration_ms: 30.1693
+  type: 'test'
+  ...
+# Subtest: interactive intent does not preempt an accepted complete during checkpoint persistence
+ok 10 - interactive intent does not preempt an accepted complete during checkpoint persistence
+  ---
+  duration_ms: 31.2887
+  type: 'test'
+  ...
+# Subtest: one attempt accepts multiple batches and clears only its recovered delivery expectation
+ok 11 - one attempt accepts multiple batches and clears only its recovered delivery expectation
+  ---
+  duration_ms: 2.1356
+  type: 'test'
+  ...
+# Subtest: a recovered queue snapshot never replaces a newer live intent arriving during init
+ok 12 - a recovered queue snapshot never replaces a newer live intent arriving during init
+  ---
+  duration_ms: 45.8357
+  type: 'test'
+  ...
+# Subtest: terminal run history does not exhaust the bounded pending recovery capacity
+ok 13 - terminal run history does not exhaust the bounded pending recovery capacity
+  ---
+  duration_ms: 106.9516
+  type: 'test'
+  ...
+# Subtest: target protocol is JSONL and rejects legacy analyze fields
+ok 14 - target protocol is JSONL and rejects legacy analyze fields
+  ---
+  duration_ms: 2.3948
+  type: 'test'
+  ...
+# Subtest: target analyze recovery uses a complete opaque delivery pair
+ok 15 - target analyze recovery uses a complete opaque delivery pair
+  ---
+  duration_ms: 0.1777
+  type: 'test'
+  ...
+# Subtest: target hello advertises canonical capabilities and normalizes only the old analyze alias
+ok 16 - target hello advertises canonical capabilities and normalizes only the old analyze alias
+  ---
+  duration_ms: 0.2402
+  type: 'test'
+  ...
+# Subtest: target stdout UTF8 preserves every byte split through the actual JSONL receiver
+ok 17 - target stdout UTF8 preserves every byte split through the actual JSONL receiver
+  ---
+  duration_ms: 1.887
+  type: 'test'
+  ...
+# Subtest: target stdout UTF8 keeps large multi-line deliveries intact across pipe chunks
+ok 18 - target stdout UTF8 keeps large multi-line deliveries intact across pipe chunks
+  ---
+  duration_ms: 3.898
+  type: 'test'
+  ...
+# Subtest: target stdout UTF8 discards partial characters and late bytes across process restart
+ok 19 - target stdout UTF8 discards partial characters and late bytes across process restart
+  ---
+  duration_ms: 8.207
+  type: 'test'
+  ...
+# Subtest: target startup resolves CODEX_HOME and builds the fixed sessions-root args
+ok 20 - target startup resolves CODEX_HOME and builds the fixed sessions-root args
+  ---
+  duration_ms: 2.6257
+  type: 'test'
+  ...
+# Subtest: target startup falls back to OS home/.codex/sessions without CODEX_HOME
+ok 21 - target startup falls back to OS home/.codex/sessions without CODEX_HOME
+  ---
+  duration_ms: 2.1313
+  type: 'test'
+  ...
+# Subtest: target process manager passes startup args and gates analyze behind echoed hello
+ok 22 - target process manager passes startup args and gates analyze behind echoed hello
+  ---
+  duration_ms: 191.6439
+  type: 'test'
+  ...
+# Subtest: target process manager rejects direct analyze sends until the current hello is ready
+ok 23 - target process manager rejects direct analyze sends until the current hello is ready
+  ---
+  duration_ms: 368.2425
+  type: 'test'
+  ...
+# Subtest: target process manager clears synchronous spawn failures before retrying startup
+ok 24 - target process manager clears synchronous spawn failures before retrying startup
+  ---
+  duration_ms: 2.769
+  type: 'test'
+  ...
+# Subtest: target process manager clears start promise when default spawn throws synchronously
+ok 25 - target process manager clears start promise when default spawn throws synchronously
+  ---
+  duration_ms: 1.0427
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello mismatch_request
+ok 26 - target process manager rejects hello mismatch_request
+  ---
+  duration_ms: 350.308
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello wrong_role
+ok 27 - target process manager rejects hello wrong_role
+  ---
+  duration_ms: 267.2813
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello missing_capability
+ok 28 - target process manager rejects hello missing_capability
+  ---
+  duration_ms: 172.5076
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello wrong_protocol
+ok 29 - target process manager rejects hello wrong_protocol
+  ---
+  duration_ms: 172.0653
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello timeout without sending analyze
+ok 30 - target process manager rejects hello timeout without sending analyze
+  ---
+  duration_ms: 49.2116
+  type: 'test'
+  ...
+# Subtest: target process manager fences startup failures until child exit is proven (returns false)
+ok 31 - target process manager fences startup failures until child exit is proven (returns false)
+  ---
+  duration_ms: 58.1472
+  type: 'test'
+  ...
+# Subtest: target process manager fences startup failures until child exit is proven (throws)
+ok 32 - target process manager fences startup failures until child exit is proven (throws)
+  ---
+  duration_ms: 61.0684
+  type: 'test'
+  ...
+# Subtest: target process manager bounds a request while hello startup is already in flight
+ok 33 - target process manager bounds a request while hello startup is already in flight
+  ---
+  duration_ms: 188.606
+  type: 'test'
+  ...
+# Subtest: target request tracker binds attempt generation and phase deadlines
+ok 34 - target request tracker binds attempt generation and phase deadlines
+  ---
+  duration_ms: 0.6622
+  type: 'test'
+  ...
+# Subtest: target request tracker settles each normal terminal attempt once and releases it
+ok 35 - target request tracker settles each normal terminal attempt once and releases it
+  ---
+  duration_ms: 0.3035
+  type: 'test'
+  ...
+# Subtest: target request tracker keeps a cancelled attempt occupied until termination and rejects stale callbacks
+ok 36 - target request tracker keeps a cancelled attempt occupied until termination and rejects stale callbacks
+  ---
+  duration_ms: 0.226
+  type: 'test'
+  ...
+# Subtest: target request tracker reports hello/analyze/complete timeout and retains the active slot
+ok 37 - target request tracker reports hello/analyze/complete timeout and retains the active slot
+  ---
+  duration_ms: 0.2262
+  type: 'test'
+  ...
+# Subtest: target process manager enforces one active request and drops an old generation message
+ok 38 - target process manager enforces one active request and drops an old generation message
+  ---
+  duration_ms: 482.5392
+  type: 'test'
+  ...
+# Subtest: process manager does not release a generation before worker exit
+ok 39 - process manager does not release a generation before worker exit
+  ---
+  duration_ms: 1097.8205
+  type: 'test'
+  ...
+# Subtest: process manager keeps a pre-registered idle waiter behind ACK invalidation
+ok 40 - process manager keeps a pre-registered idle waiter behind ACK invalidation
+  ---
+  duration_ms: 76.3658
+  type: 'test'
+  ...
+# Subtest: process manager fences child errors that do not prove worker exit
+ok 41 - process manager fences child errors that do not prove worker exit
+  ---
+  duration_ms: 77.33
+  type: 'test'
+  ...
+# Subtest: process manager normalizes asynchronous stdin errors and fences the child until exit
+ok 42 - process manager normalizes asynchronous stdin errors and fences the child until exit
+  ---
+  duration_ms: 156.1732
+  type: 'test'
+  ...
+# Subtest: collector keeps one running intent and replaces only the same conversation pending intent
+ok 43 - collector keeps one running intent and replaces only the same conversation pending intent
+  ---
+  duration_ms: 696.3726
+  type: 'test'
+  ...
+# Subtest: collector closes a timed-out active slot before dispatching the next intent
+ok 44 - collector closes a timed-out active slot before dispatching the next intent
+  ---
+  duration_ms: 574.8634
+  type: 'test'
+  ...
+# Subtest: collector waits for explicit cancellation settlement before dispatching the next intent
+ok 45 - collector waits for explicit cancellation settlement before dispatching the next intent
+  ---
+  duration_ms: 662.3918
+  type: 'test'
+  ...
+# Subtest: collector settles cancel and timeout before a non-draining worker releases
+    # Subtest: cancel
+    ok 1 - cancel
+      ---
+      duration_ms: 30.4307
+      type: 'test'
+      ...
+    # Subtest: timeout
+    ok 2 - timeout
+      ---
+      duration_ms: 62.184
+      type: 'test'
+      ...
+    1..2
+ok 46 - collector settles cancel and timeout before a non-draining worker releases
+  ---
+  duration_ms: 93.1245
+  type: 'test'
+  ...
+# Subtest: collector retries a crashed process with a new request id within the fixed budget
+ok 47 - collector retries a crashed process with a new request id within the fixed budget
+  ---
+  duration_ms: 426.9659
+  type: 'test'
+  ...
+# Subtest: collector stop fences delayed initialization without leaking an analyzer process
+ok 48 - collector stop fences delayed initialization without leaking an analyzer process
+  ---
+  duration_ms: 2.174
+  type: 'test'
+  ...
+# Subtest: collector fences bounded analyze against an in-flight unbounded init
+ok 49 - collector fences bounded analyze against an in-flight unbounded init
+  ---
+  duration_ms: 68.3014
+  type: 'test'
+  ...
+# Subtest: collector does not restart after stop begins during the restart idle wait
+ok 50 - collector does not restart after stop begins during the restart idle wait
+  ---
+  duration_ms: 1.7603
+  type: 'test'
+  ...
+# Subtest: collector bounds initial hello startup by the intent deadline
+ok 51 - collector bounds initial hello startup by the intent deadline
+  ---
+  duration_ms: 62.5236
+  type: 'test'
+  ...
+# Subtest: collector bounds a delayed restart start by the intent deadline
+ok 52 - collector bounds a delayed restart start by the intent deadline
+  ---
+  duration_ms: 42.3542
+  type: 'test'
+  ...
+# Subtest: collector enforces one total deadline across batch and complete phases
+ok 53 - collector enforces one total deadline across batch and complete phases
+  ---
+  duration_ms: 544.3238
+  type: 'test'
+  ...
+# Subtest: collector replaces a ready child whose stdin becomes unavailable before exit
+ok 54 - collector replaces a ready child whose stdin becomes unavailable before exit
+  ---
+  duration_ms: 424.3429
+  type: 'test'
+  ...
+# Subtest: collector invalidates the current generation when batch ACK writing fails
+ok 55 - collector invalidates the current generation when batch ACK writing fails
+  ---
+  duration_ms: 437.1834
+  type: 'test'
+  ...
+# Subtest: process manager force-terminates workers that ignore cancel or timeout
+ok 56 - process manager force-terminates workers that ignore cancel or timeout
+  ---
+  duration_ms: 1779.2111
+  type: 'test'
+  ...
+# Subtest: process manager keeps a live worker fenced after nonfatal cancel or timeout error
+ok 57 - process manager keeps a live worker fenced after nonfatal cancel or timeout error
+  ---
+  duration_ms: 541.5928
+  type: 'test'
+  ...
+# Subtest: target batch keeps delivery identity outside the payload
+ok 58 - target batch keeps delivery identity outside the payload
+  ---
+  duration_ms: 0.7473
+  type: 'test'
+  ...
+# Subtest: target batch validates Rust event variants and batch evidence fields
+ok 59 - target batch validates Rust event variants and batch evidence fields
+  ---
+  duration_ms: 1.4577
+  type: 'test'
+  ...
+# Subtest: target batch requires complete lineage evidence when history_base is present
+ok 60 - target batch requires complete lineage evidence when history_base is present
+  ---
+  duration_ms: 0.3875
+  type: 'test'
+  ...
+# Subtest: target lineage accepts multiple transitions and binds coverage/checkpoint evidence
+ok 61 - target lineage accepts multiple transitions and binds coverage/checkpoint evidence
+  ---
+  duration_ms: 2.1665
+  type: 'test'
+  ...
+# Subtest: target replacement evidence binds to exactly one matching lineage transition
+ok 62 - target replacement evidence binds to exactly one matching lineage transition
+  ---
+  duration_ms: 1.0959
+  type: 'test'
+  ...
+# Subtest: target cursor kind requires its declared capability
+ok 63 - target cursor kind requires its declared capability
+  ---
+  duration_ms: 0.3527
+  type: 'test'
+  ...
+# Subtest: target complete validates checkpoint and cursor consistency
+ok 64 - target complete validates checkpoint and cursor consistency
+  ---
+  duration_ms: 0.882
+  type: 'test'
+  ...
+# Subtest: target ACK requires job, segment, batch and stable settlement pairs
+ok 65 - target ACK requires job, segment, batch and stable settlement pairs
+  ---
+  duration_ms: 0.1794
+  type: 'test'
+  ...
+# Subtest: target batch importer validates and durably stages the outer delivery identity
+ok 66 - target batch importer validates and durably stages the outer delivery identity
+  ---
+  duration_ms: 2.9655
+  type: 'test'
+  ...
+# Subtest: target complete binds its checkpoint watermark to the latest accepted delivery
+ok 67 - target complete binds its checkpoint watermark to the latest accepted delivery
+  ---
+  duration_ms: 44.5174
+  type: 'test'
+  ...
+# Subtest: complete checkpoint must match the durable ACKed batch evidence after restart
+    # Subtest: memory: rejects mismatched range
+    ok 1 - memory: rejects mismatched range
+      ---
+      duration_ms: 2.2342
+      type: 'test'
+      ...
+    # Subtest: memory: rejects mismatched completeness
+    ok 2 - memory: rejects mismatched completeness
+      ---
+      duration_ms: 1.82
+      type: 'test'
+      ...
+    # Subtest: memory: rejects mismatched reducer
+    ok 3 - memory: rejects mismatched reducer
+      ---
+      duration_ms: 1.7065
+      type: 'test'
+      ...
+    # Subtest: memory: rejects mismatched provenance
+    ok 4 - memory: rejects mismatched provenance
+      ---
+      duration_ms: 1.5198
+      type: 'test'
+      ...
+    # Subtest: file: rejects mismatched range
+    ok 5 - file: rejects mismatched range
+      ---
+      duration_ms: 29.9131
+      type: 'test'
+      ...
+    # Subtest: file: rejects mismatched completeness
+    ok 6 - file: rejects mismatched completeness
+      ---
+      duration_ms: 28.5266
+      type: 'test'
+      ...
+    # Subtest: file: rejects mismatched reducer
+    ok 7 - file: rejects mismatched reducer
+      ---
+      duration_ms: 30.8122
+      type: 'test'
+      ...
+    # Subtest: file: rejects mismatched provenance
+    ok 8 - file: rejects mismatched provenance
+      ---
+      duration_ms: 25.7172
+      type: 'test'
+      ...
+    1..8
+ok 68 - complete checkpoint must match the durable ACKed batch evidence after restart
+  ---
+  duration_ms: 137.1646
+  type: 'test'
+  ...
+# Subtest: recovery delivery comes from the latest verified durable batch, not request or file order
+ok 69 - recovery delivery comes from the latest verified durable batch, not request or file order
+  ---
+  duration_ms: 33.472
+  type: 'test'
+  ...
+# Subtest: file recovery fails closed on unreadable or corrupt durable analysis evidence
+ok 70 - file recovery fails closed on unreadable or corrupt durable analysis evidence
+  ---
+  duration_ms: 140.6009
+  type: 'test'
+  ...
+# Subtest: opaque Rust reducer payload round-trips unchanged through staging and complete
+ok 71 - opaque Rust reducer payload round-trips unchanged through staging and complete
+  ---
+  duration_ms: 19.9217
+  type: 'test'
+  ...
+# Subtest: target batch importer excludes nested generic revisions from semantic and durable payloads
+ok 72 - target batch importer excludes nested generic revisions from semantic and durable payloads
+  ---
+  duration_ms: 25.1103
+  type: 'test'
+  ...
+# Subtest: target batch importer recovers File staging receipts without replaying the batch
+ok 73 - target batch importer recovers File staging receipts without replaying the batch
+  ---
+  duration_ms: 19.6351
+  type: 'test'
+  ...
+# Subtest: target File importer serializes concurrent receipts and reindexes staging ranges
+ok 74 - target File importer serializes concurrent receipts and reindexes staging ranges
+  ---
+  duration_ms: 22.817
+  type: 'test'
+  ...
+# Subtest: target batch importer keeps range index deterministic and deduplicates overlap
+ok 75 - target batch importer keeps range index deterministic and deduplicates overlap
+  ---
+  duration_ms: 2.3648
+  type: 'test'
+  ...
+# Subtest: target batch importer treats retry request changes as idempotent but keeps job scope strict
+ok 76 - target batch importer treats retry request changes as idempotent but keeps job scope strict
+  ---
+  duration_ms: 2.1565
+  type: 'test'
+  ...
+# Subtest: target batch importer rejects delivery content and scope conflicts before staging
+ok 77 - target batch importer rejects delivery content and scope conflicts before staging
+  ---
+  duration_ms: 1.9613
+  type: 'test'
+  ...
+# Subtest: target batch importer promotes partial to canonical without a late downgrade
+ok 78 - target batch importer promotes partial to canonical without a late downgrade
+  ---
+  duration_ms: 2.258
+  type: 'test'
+  ...
+# Subtest: target batch importer validates checkpoint evidence before any receipt is written
+ok 79 - target batch importer validates checkpoint evidence before any receipt is written
+  ---
+  duration_ms: 1.2624
+  type: 'test'
+  ...
+# Subtest: target batch importer rejects malformed payload before the ACK precondition can be met
+ok 80 - target batch importer rejects malformed payload before the ACK precondition can be met
+  ---
+  duration_ms: 0.5493
+  type: 'test'
+  ...
+# Subtest: last-turn replacement is capability-advertised, validated, and idempotently imported
+ok 81 - last-turn replacement is capability-advertised, validated, and idempotently imported
+  ---
+  duration_ms: 4.3201
+  type: 'test'
+  ...
+# Subtest: replacement evidence binds source identities, cut positions, and child history base
+ok 82 - replacement evidence binds source identities, cut positions, and child history base
+  ---
+  duration_ms: 2.5946
+  type: 'test'
+  ...
+# Subtest: replacement evidence conflicts are rejected before Memory/File state mutation
+ok 83 - replacement evidence conflicts are rejected before Memory/File state mutation
+  ---
+  duration_ms: 25.7006
+  type: 'test'
+  ...
+# Subtest: partial and provisional top-level replacements fail closed before import
+ok 84 - partial and provisional top-level replacements fail closed before import
+  ---
+  duration_ms: 5.9987
+  type: 'test'
+  ...
+# Subtest: online last-turn replacement retains the parent history and commits the child head
+ok 85 - online last-turn replacement retains the parent history and commits the child head
+  ---
+  duration_ms: 42.2188
+  type: 'test'
+  ...
+# Subtest: malformed canonical batches fail closed before importer state changes
+ok 86 - malformed canonical batches fail closed before importer state changes
+  ---
+  duration_ms: 0.6896
+  type: 'test'
+  ...
+# Subtest: complete and checkpoint claims fail closed without recovery evidence
+ok 87 - complete and checkpoint claims fail closed without recovery evidence
+  ---
+  duration_ms: 0.3115
+  type: 'test'
+  ...
+# Subtest: complete cannot commit unless the same request imported a batch
+ok 88 - complete cannot commit unless the same request imported a batch
+  ---
+  duration_ms: 1.9018
+  type: 'test'
+  ...
+# Subtest: collector binds the first batch to the requested conversation before staging
+ok 89 - collector binds the first batch to the requested conversation before staging
+  ---
+  duration_ms: 3.992
+  type: 'test'
+  ...
+# Subtest: collector retries the failed later batch and does not reuse the prior durable batch identity
+ok 90 - collector retries the failed later batch and does not reuse the prior durable batch identity
+  ---
+  duration_ms: 4.0302
+  type: 'test'
+  ...
+# Subtest: restart prefers an explicit pending later batch over an older durable receipt
+ok 91 - restart prefers an explicit pending later batch over an older durable receipt
+  ---
+  duration_ms: 6.2156
+  type: 'test'
+  ...
+# Subtest: mutation evidence is complete before importer state can be touched
+ok 92 - mutation evidence is complete before importer state can be touched
+  ---
+  duration_ms: 0.3828
+  type: 'test'
+  ...
+# Subtest: importer deduplicates overlap and promotes provisional data before checkpoint commit
+ok 93 - importer deduplicates overlap and promotes provisional data before checkpoint commit
+  ---
+  duration_ms: 2.0382
+  type: 'test'
+  ...
+# Subtest: importer never downgrades a canonical projection on a late incomplete overlap
+ok 94 - importer never downgrades a canonical projection on a late incomplete overlap
+  ---
+  duration_ms: 1.6883
+  type: 'test'
+  ...
+# Subtest: file checkpoint store replaces one validated scope atomically
+ok 95 - file checkpoint store replaces one validated scope atomically
+  ---
+  duration_ms: 17.6588
+  type: 'test'
+  ...
+# Subtest: memory and file checkpoint stores only advance monotonically
+ok 96 - memory and file checkpoint stores only advance monotonically
+  ---
+  duration_ms: 15.2227
+  type: 'test'
+  ...
+# Subtest: target checkpoint stores validate scope, preserve opaque metadata, and recover across attempts
+ok 97 - target checkpoint stores validate scope, preserve opaque metadata, and recover across attempts
+  ---
+  duration_ms: 28.9616
+  type: 'test'
+  ...
+# Subtest: target run stores persist attempts, retry state, receipt progress, and terminal result
+ok 98 - target run stores persist attempts, retry state, receipt progress, and terminal result
+  ---
+  duration_ms: 32.9472
+  type: 'test'
+  ...
+# Subtest: target run stores bind request identity to attempt and preserve monotonic batch IDs
+ok 99 - target run stores bind request identity to attempt and preserve monotonic batch IDs
+  ---
+  duration_ms: 33.0698
+  type: 'test'
+  ...
+# Subtest: target run stores keep completed and failed terminal states immutable
+ok 100 - target run stores keep completed and failed terminal states immutable
+  ---
+  duration_ms: 45.7375
+  type: 'test'
+  ...
+# Subtest: target run stores reject late terminal callbacks after a retry changes identity
+ok 101 - target run stores reject late terminal callbacks after a retry changes identity
+  ---
+  duration_ms: 31.3322
+  type: 'test'
+  ...
+# Subtest: target checkpoint stores serialize concurrent progress without rollback
+ok 102 - target checkpoint stores serialize concurrent progress without rollback
+  ---
+  duration_ms: 12.1886
+  type: 'test'
+  ...
+# Subtest: target run stores serialize concurrent progress and late failure updates
+ok 103 - target run stores serialize concurrent progress and late failure updates
+  ---
+  duration_ms: 41.3171
+  type: 'test'
+  ...
+# Subtest: collector starts an isolated analyzer process, ACKs imported batches, and persists completion checkpoint
+ok 104 - collector starts an isolated analyzer process, ACKs imported batches, and persists completion checkpoint
+  ---
+  duration_ms: 212.167
+  type: 'test'
+  ...
+# Subtest: collector holds the single-flight slot until Rust confirms a negative batch ACK
+ok 105 - collector holds the single-flight slot until Rust confirms a negative batch ACK
+  ---
+  duration_ms: 312.655
+  type: 'test'
+  ...
+# Subtest: collector retries a staging rejection with the same job and recovery delivery
+ok 106 - collector retries a staging rejection with the same job and recovery delivery
+  ---
+  duration_ms: 348.952
+  type: 'test'
+  ...
+# Subtest: collector retries retryable fatal errors only after a new analyzer generation is ready
+ok 107 - collector retries retryable fatal errors only after a new analyzer generation is ready
+  ---
+  duration_ms: 395.9713
+  type: 'test'
+  ...
+# Subtest: collector does not retry a nonretryable fatal error but recycles before the next intent
+ok 108 - collector does not retry a nonretryable fatal error but recycles before the next intent
+  ---
+  duration_ms: 404.023
+  type: 'test'
+  ...
+# Subtest: collector preserves typed nonfatal analyzer errors without flattening or restarting
+ok 109 - collector preserves typed nonfatal analyzer errors without flattening or restarting
+  ---
+  duration_ms: 206.0584
+  type: 'test'
+  ...
+# Subtest: collector timeout sends cancel and rejects the request without hanging the process
+ok 110 - collector timeout sends cancel and rejects the request without hanging the process
+  ---
+  duration_ms: 333.3857
+  type: 'test'
+  ...
+# Subtest: collector restarts the analyzer after a before_batch exit and retries the same job
+ok 111 - collector restarts the analyzer after a before_batch exit and retries the same job
+  ---
+  duration_ms: 393.7585
+  type: 'test'
+  ...
+# Subtest: collector restarts the analyzer after a after_batch exit and retries the same job
+ok 112 - collector restarts the analyzer after a after_batch exit and retries the same job
+  ---
+  duration_ms: 582.5259
+  type: 'test'
+  ...
+# Subtest: collector can restart against file stores without duplicating the persisted batch
+ok 113 - collector can restart against file stores without duplicating the persisted batch
+  ---
+  duration_ms: 497.9558
+  type: 'test'
+  ...
+# Subtest: fake analyzer quarantines stale output and deduplicates a repeated opaque delivery
+ok 114 - fake analyzer quarantines stale output and deduplicates a repeated opaque delivery
+  ---
+  duration_ms: 251.8308
+  type: 'test'
+  ...
+# Subtest: collector records a durable terminal run when late-begin compensation fail writer rejects
+    # Subtest: memory
+    ok 1 - memory
+      ---
+      duration_ms: 258.9347
+      type: 'test'
+      ...
+    # Subtest: file
+    ok 2 - file
+      ---
+      duration_ms: 326.9092
+      type: 'test'
+      ...
+    1..2
+ok 115 - collector records a durable terminal run when late-begin compensation fail writer rejects
+  ---
+  duration_ms: 592.702
+  type: 'test'
+  ...
+# Subtest: collector compensates a delayed run begin after a deadline for memory and file stores
+    # Subtest: memory
+    ok 1 - memory
+      ---
+      duration_ms: 254.0546
+      type: 'test'
+      ...
+    # Subtest: file
+    ok 2 - file
+      ---
+      duration_ms: 271.0884
+      type: 'test'
+      ...
+    1..2
+ok 116 - collector compensates a delayed run begin after a deadline for memory and file stores
+  ---
+  duration_ms: 532.1057
+  type: 'test'
+  ...
+# Subtest: collector compensates a delayed run begin when cancellation wins for memory and file stores
+    # Subtest: memory
+    ok 1 - memory
+      ---
+      duration_ms: 254.3604
+      type: 'test'
+      ...
+    # Subtest: file
+    ok 2 - file
+      ---
+      duration_ms: 241.9923
+      type: 'test'
+      ...
+    1..2
+ok 117 - collector compensates a delayed run begin when cancellation wins for memory and file stores
+  ---
+  duration_ms: 504.6849
+  type: 'test'
+  ...
+# Subtest: collector preserves delayed run-store begin failures without a running artifact
+    # Subtest: memory
+    ok 1 - memory
+      ---
+      duration_ms: 193.2049
+      type: 'test'
+      ...
+    # Subtest: file
+    ok 2 - file
+      ---
+      duration_ms: 193.5964
+      type: 'test'
+      ...
+    1..2
+ok 118 - collector preserves delayed run-store begin failures without a running artifact
+  ---
+  duration_ms: 391.1185
+  type: 'test'
+  ...
+# Subtest: collector retries a failed staging attempt with the same opaque identity and only a new request id
+ok 119 - collector retries a failed staging attempt with the same opaque identity and only a new request id
+  ---
+  duration_ms: 204.6097
+  type: 'test'
+  ...
+# Subtest: collector completes and restarts against the real Rust target with checkpoint identity reuse
+ok 120 - collector completes and restarts against the real Rust target with checkpoint identity reuse
+  ---
+  duration_ms: 3001.8375
+  type: 'test'
+  ...
+1..120
+# tests 138
+# suites 0
+# pass 138
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 20417.9379

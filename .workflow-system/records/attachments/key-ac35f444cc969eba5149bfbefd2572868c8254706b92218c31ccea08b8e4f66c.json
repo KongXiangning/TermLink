@@ -1,0 +1,138 @@
+{
+  "event_ref": ".workflow-system/records/events/key-ac35f444cc969eba5149bfbefd2572868c8254706b92218c31ccea08b8e4f66c.json",
+  "captured_at": "2026-10-07T16:57:10.977Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/87c157ed78d309ada234e1c7ac995634b514ffdcbfe3ed00035ffdf9a321a6a0.blob",
+      "sha256": "87c157ed78d309ada234e1c7ac995634b514ffdcbfe3ed00035ffdf9a321a6a0",
+      "size": 5004,
+      "source_path": "logs/history-save-repair-20261005/s5/review-utf8-20261008/review-change.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a9b2a3bdd13439585120d2d6029c76b987f721a648aa6ac615a15b827a8d344b.blob",
+      "sha256": "a9b2a3bdd13439585120d2d6029c76b987f721a648aa6ac615a15b827a8d344b",
+      "size": 3491,
+      "source_path": "logs/history-save-repair-20261005/s5/review-utf8-20261008/audit.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ea93409f7914f8c3a04c707d855c9dfe56f996b45487db8cc6620ec2a62cb0db.blob",
+      "sha256": "ea93409f7914f8c3a04c707d855c9dfe56f996b45487db8cc6620ec2a62cb0db",
+      "size": 9430,
+      "source_path": "logs/history-save-repair-20261005/s5/review-utf8-20261008/audit.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/54f47b2639447078051671c0e23dfabbf722c2949acc8ffc73e82351c4a4c67e.blob",
+      "sha256": "54f47b2639447078051671c0e23dfabbf722c2949acc8ffc73e82351c4a4c67e",
+      "size": 6391,
+      "source_path": "logs/history-save-repair-20261005/s5/review-utf8-20261008/review-diff.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/71334ac72f880e1c1127db8d1c367e78306d29c6caef1a76a6a4c6322a006410.blob",
+      "sha256": "71334ac72f880e1c1127db8d1c367e78306d29c6caef1a76a6a4c6322a006410",
+      "size": 13031,
+      "source_path": "logs/history-save-repair-20261005/s5/review-utf8-20261008/status-before.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/924f279274955ed25b5b9abe126d3892396d7320c1f816133cb472acbda615fb.blob",
+      "sha256": "924f279274955ed25b5b9abe126d3892396d7320c1f816133cb472acbda615fb",
+      "size": 4747,
+      "source_path": "logs/history-save-repair-20261005/s5/review-utf8-20261008/record-review.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/80ac4a87b648876d50ae93e64300888b5ffbb9d1b48bf9b2e59e93f3b0c71f79.blob",
+      "sha256": "80ac4a87b648876d50ae93e64300888b5ffbb9d1b48bf9b2e59e93f3b0c71f79",
+      "size": 6910,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/review-source-checks-20261008.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/49a11e48535002e97ca2c1e8bc5f095e1d36bb24c7612b498492fbb3b971e091.blob",
+      "sha256": "49a11e48535002e97ca2c1e8bc5f095e1d36bb24c7612b498492fbb3b971e091",
+      "size": 49232,
+      "source_path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/e04056d95b1875f83a1af6f7118b4126331942346421d3b2fdfeae956b00bcf8.blob",
+      "sha256": "e04056d95b1875f83a1af6f7118b4126331942346421d3b2fdfeae956b00bcf8",
+      "size": 271831,
+      "source_path": "tests/codexRolloutCollector.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c77b368f2a82b8cab33bd67549593b862b0bdd653dad35654a4ab806a919ebed.blob",
+      "sha256": "c77b368f2a82b8cab33bd67549593b862b0bdd653dad35654a4ab806a919ebed",
+      "size": 4953,
+      "source_path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fdeae0a77790b0111f541d22def6067b9a4bfa0d5397e156ce3d331a2eefd519.blob",
+      "sha256": "fdeae0a77790b0111f541d22def6067b9a4bfa0d5397e156ce3d331a2eefd519",
+      "size": 4576,
+      "source_path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d772a07d36f1329bf974048043a33b6c91fddb7c9dbce7818b8f1d044f45fc31.blob",
+      "sha256": "d772a07d36f1329bf974048043a33b6c91fddb7c9dbce7818b8f1d044f45fc31",
+      "size": 2830,
+      "source_path": "docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md",
+      "issues": []
+    }
+  ]
+}

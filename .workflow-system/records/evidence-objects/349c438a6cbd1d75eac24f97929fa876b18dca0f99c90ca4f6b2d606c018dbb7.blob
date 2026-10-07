@@ -1,0 +1,7 @@
+'use strict';
+const fs=require('fs'),path=require('path'),crypto=require('crypto');const {AnalyzerProcessManager}=require('../../../../src/services/codexRolloutCollector/analyzerProcessManager');
+const sha=s=>crypto.createHash('sha256').update(s).digest('hex'),text='TL832 UTF8 汉字🙂é END';
+function capture(chunks){const m=new AnalyzerProcessManager({analyzerPath:path.resolve('native/codex-rollout-collector/target/debug/codex-rollout-collector.exe')}),seen=[];m._handleMessage=x=>seen.push(x);m.on('protocolError',e=>{throw e;});for(const c of chunks)m._consumeStdout(c);return seen[0].message;}
+const bytes=Buffer.from(JSON.stringify({protocol_version:1,message_type:'error',request_id:'utf8-diagnostic',code:'analysis_failed',message:text,retryable:false,fatal:false})+'\n');
+const offset=bytes.indexOf(Buffer.from('🙂'))+1,whole=capture([bytes]),split=capture([bytes.subarray(0,offset),bytes.subarray(offset)]),result={at:new Date().toISOString(),method:'Pure current _consumeStdout plus actual protocol parseLine, no spawn or Rust request or product store',original:{sha256:sha(text),length:text.length},whole:{sha256:sha(whole),length:whole.length,matches:whole===text},split:{sha256:sha(split),length:split.length,matches:split===text,replacement_codepoints:[...split].filter(c=>c==='\ufffd').length},same_original_bytes:true,split_inside_emoji_utf8:true};
+fs.writeFileSync(path.join(__dirname,'utf8-repro.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify(result));

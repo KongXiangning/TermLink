@@ -1,0 +1,320 @@
+{
+  "event_ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+  "captured_at": "2026-10-07T16:50:56.122Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/49a11e48535002e97ca2c1e8bc5f095e1d36bb24c7612b498492fbb3b971e091.blob",
+      "sha256": "49a11e48535002e97ca2c1e8bc5f095e1d36bb24c7612b498492fbb3b971e091",
+      "size": 49232,
+      "source_path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/e04056d95b1875f83a1af6f7118b4126331942346421d3b2fdfeae956b00bcf8.blob",
+      "sha256": "e04056d95b1875f83a1af6f7118b4126331942346421d3b2fdfeae956b00bcf8",
+      "size": 271831,
+      "source_path": "tests/codexRolloutCollector.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c77b368f2a82b8cab33bd67549593b862b0bdd653dad35654a4ab806a919ebed.blob",
+      "sha256": "c77b368f2a82b8cab33bd67549593b862b0bdd653dad35654a4ab806a919ebed",
+      "size": 4953,
+      "source_path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fdeae0a77790b0111f541d22def6067b9a4bfa0d5397e156ce3d331a2eefd519.blob",
+      "sha256": "fdeae0a77790b0111f541d22def6067b9a4bfa0d5397e156ce3d331a2eefd519",
+      "size": 4576,
+      "source_path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d772a07d36f1329bf974048043a33b6c91fddb7c9dbce7818b8f1d044f45fc31.blob",
+      "sha256": "d772a07d36f1329bf974048043a33b6c91fddb7c9dbce7818b8f1d044f45fc31",
+      "size": 2830,
+      "source_path": "docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/cbece8f9dce83440d4a6f17fd9f75cf5c1ca2278666d0ea435db2ceae653fd8e.blob",
+      "sha256": "cbece8f9dce83440d4a6f17fd9f75cf5c1ca2278666d0ea435db2ceae653fd8e",
+      "size": 5583,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/report.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a5701fdaad02c6eabbe50618ab2a37c42681f878df4d82f121b350b5b11c7f5c.blob",
+      "sha256": "a5701fdaad02c6eabbe50618ab2a37c42681f878df4d82f121b350b5b11c7f5c",
+      "size": 95590,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/test-before.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/cc4e1bda1cb5af62713dd25b27a658fbb4b27fc21c444468d929cd31d215f6e1.blob",
+      "sha256": "cc4e1bda1cb5af62713dd25b27a658fbb4b27fc21c444468d929cd31d215f6e1",
+      "size": 806,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f2084ca09470349b5b91576bc77cfae916cba4321e177954ec7bd8b3bf11548b.blob",
+      "sha256": "f2084ca09470349b5b91576bc77cfae916cba4321e177954ec7bd8b3bf11548b",
+      "size": 182,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after-result.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/cb51c0120c917986e3027030512bff240500c0850bb08a1f3070d85ee737124b.blob",
+      "sha256": "cb51c0120c917986e3027030512bff240500c0850bb08a1f3070d85ee737124b",
+      "size": 29676,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2859a16294ce30f7b9fc7fa4bdbafc7bf9771941d378480a19823a5e4075c394.blob",
+      "sha256": "2859a16294ce30f7b9fc7fa4bdbafc7bf9771941d378480a19823a5e4075c394",
+      "size": 188,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression-result.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/69f5f8c719cb917cf3b5f4b2f40b7b57e2ba70e6b3e12ac1045b01e81fbdf7af.blob",
+      "sha256": "69f5f8c719cb917cf3b5f4b2f40b7b57e2ba70e6b3e12ac1045b01e81fbdf7af",
+      "size": 651,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/run-tests.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9b18e0b16e671170c2fc542f15194708d2a912d320c66ec89e6b77cf7fc6e25f.blob",
+      "sha256": "9b18e0b16e671170c2fc542f15194708d2a912d320c66ec89e6b77cf7fc6e25f",
+      "size": 7148,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/read-all.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/e25d1180b733f4b9091c0b630ea071039c0766e413649d82b17471e4578630d2.blob",
+      "sha256": "e25d1180b733f4b9091c0b630ea071039c0766e413649d82b17471e4578630d2",
+      "size": 25748,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/a-read-all.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ee2fb0f03083049ede2da45172718d9aa8cf73e5fbaed305c66b88ae2916e7e1.blob",
+      "sha256": "ee2fb0f03083049ede2da45172718d9aa8cf73e5fbaed305c66b88ae2916e7e1",
+      "size": 5643,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/checks.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2e9cb078670028dd9dede8c4de822b3a4e538bead17e3d1d99da9c2817fdf924.blob",
+      "sha256": "2e9cb078670028dd9dede8c4de822b3a4e538bead17e3d1d99da9c2817fdf924",
+      "size": 6910,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/self-check.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/21ea9edb0c855ae7e3a6babcd9387f59c388b78362fe5cb7c99ba323486e5c65.blob",
+      "sha256": "21ea9edb0c855ae7e3a6babcd9387f59c388b78362fe5cb7c99ba323486e5c65",
+      "size": 716,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-start.txt",
+      "issues": []
+    },
+    {
+      "status": "unavailable",
+      "request": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-stop.txt",
+      "code": "ENOENT",
+      "message": "ENOENT: no such file or directory, open 'E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\history-save-repair-20261005\\s5\\utf8-repair-20261008\\service-stop.txt'"
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/0e05464e54d508c17a188f3c19576105d5c8723507a8cb985f2e6c97b4e7de56.blob",
+      "sha256": "0e05464e54d508c17a188f3c19576105d5c8723507a8cb985f2e6c97b4e7de56",
+      "size": 2018,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/41374ccaa16c8cee22c00729b50d0880c06013dd6f61bb398f07fb660e8333e1.blob",
+      "sha256": "41374ccaa16c8cee22c00729b50d0880c06013dd6f61bb398f07fb660e8333e1",
+      "size": 2105,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/link-decision.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/835e8e968bf6a90a56e167fecf5b6033ad06d8bcfd8ed6de25a7f22e9e713ca4.blob",
+      "sha256": "835e8e968bf6a90a56e167fecf5b6033ad06d8bcfd8ed6de25a7f22e9e713ca4",
+      "size": 1432,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/correct-decision.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2463a89a93bfa49f2fe12b79aeb117c1e89a59655d5b90d2ce47ae660ed8ec30.blob",
+      "sha256": "2463a89a93bfa49f2fe12b79aeb117c1e89a59655d5b90d2ce47ae660ed8ec30",
+      "size": 1641,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision-correction-input.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/7ca375b8e2c5ea661877d0bbe13e32f38fbf9635a94e703938f1f2b6197bc64c.blob",
+      "sha256": "7ca375b8e2c5ea661877d0bbe13e32f38fbf9635a94e703938f1f2b6197bc64c",
+      "size": 7035,
+      "source_path": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/record-execution.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/614d139542302c71185eaff5d31e8cf8620f2571448634b9a5455bad2fc40257.blob",
+      "sha256": "614d139542302c71185eaff5d31e8cf8620f2571448634b9a5455bad2fc40257",
+      "size": 64157,
+      "source_path": "logs/history-save-repair-20261005/s5/repair-baseline-20261008.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/68b6cfd8307768040a0153a0d423eada387966af63d53ad942f7cf8fa4dfb57f.blob",
+      "sha256": "68b6cfd8307768040a0153a0d423eada387966af63d53ad942f7cf8fa4dfb57f",
+      "size": 68340,
+      "source_path": "logs/history-save-repair-20261005/s5/repair-startup-20261008.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d1e0d54a4f398dae0fcb3a50d8f2c8a0a72fc5b052ca03e29b84422bfe763747.blob",
+      "sha256": "d1e0d54a4f398dae0fcb3a50d8f2c8a0a72fc5b052ca03e29b84422bfe763747",
+      "size": 68340,
+      "source_path": "logs/history-save-repair-20261005/s5/repair-after-20261008.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/67147054e9d624d7b6f2e1531d05cd6fa97368ee09eec5c30ccdc5a97e2d1fb4.blob",
+      "sha256": "67147054e9d624d7b6f2e1531d05cd6fa97368ee09eec5c30ccdc5a97e2d1fb4",
+      "size": 68340,
+      "source_path": "logs/history-save-repair-20261005/s5/repair-final-20261008.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/5e5371c7d22e5b334537495087e5bc91fb5bd22876559173773cfb88c8ae1767.blob",
+      "sha256": "5e5371c7d22e5b334537495087e5bc91fb5bd22876559173773cfb88c8ae1767",
+      "size": 4453,
+      "source_path": "logs/history-save-repair-20261005/s5/inspect.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/875fd7f2ff5f99cb9cadbb417a95cc66c317c5225902b04becb10747ab476069.blob",
+      "sha256": "875fd7f2ff5f99cb9cadbb417a95cc66c317c5225902b04becb10747ab476069",
+      "size": 3539,
+      "source_path": "logs/history-save-repair-20261005/s5/resume-20261008/scope.md",
+      "issues": []
+    }
+  ]
+}

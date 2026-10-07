@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T16:52:08.419Z",
+  "payload_sha256": "dde6cf94723a1c93127a6f1d1d8ca7d26f11a8dba2721b70826c5b5a15aa0b47",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "evidence",
+    "task_ref": "TASK-20260832",
+    "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+    "body": {
+      "target": "832/S5 execution readback",
+      "execution_ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+      "result": "28 saved attachment fixed/live hashes verified. One optional service-stop.txt was never created and unavailable attachment retained. Initial verification helper error corrected by separate readback; no business replay.",
+      "state": "832 active/S5 executed-unreviewed; S1-S4finished;833closed;next review-change",
+      "environment_observation": "3010 no listener and no codex-rollout-collector.exe process after validation"
+    },
+    "links": [
+      {
+        "relation": "after",
+        "ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json"
+      }
+    ],
+    "files": [
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/verify-record.cjs",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/attachment-readback.json",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/final-management-readback.json"
+    ],
+    "idempotency_key": "task832-S5-repair-record-readback-20261008"
+  },
+  "issues": []
+}

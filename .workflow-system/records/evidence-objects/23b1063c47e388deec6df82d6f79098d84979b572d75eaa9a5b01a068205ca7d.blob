@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-07T16:12:26.429Z",
+  "id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+  "session_id": "fb4389b1-01d0-4f34-bd92-8c66aca3adbe",
+  "generation": 301,
+  "error": null,
+  "types": {},
+  "frames": [],
+  "private_wire": {
+    "bytes": 2,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "model_input_sent": false
+}

@@ -1,0 +1,10 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-reporter=tap",
+    "--test-name-pattern=target stdout UTF8",
+    "tests/codexRolloutCollector.test.js"
+  ],
+  "exit_code": 0
+}

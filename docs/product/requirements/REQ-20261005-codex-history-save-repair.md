@@ -55,3 +55,7 @@ H1/H2/H3 各自诊断、修复和实测层级明确；父来源身份/切点正�
 ## 9. 发布计划
 
 本批只完成 S3 隔离 Rust 修复与自检，待 change review；需求仍 in_progress，未部署或发布。真实宿主及手机验收按 PLAN 后续切片执行。
+
+2026-10-08进度补充：S3/S4已由实际journal finished；真实普通N与新分支C分别通过现有产品库保存/Gateway正文及详情读回，手机层未运行。委派A仍未发布，S5新诊断定位到Node stdout逐块UTF8解码破坏多字节字符，候选最小修复尚待范围选择。需求保持in_progress，不以局部通过或生命周期代替三类业务验收。
+
+同日后续：用户明确选择最小接收修复及A重验，当前Node已使用进程代际隔离的UTF8 decoder，既有collector/recovery138/138；真实A/D在原持久根发布40项/9详情，Gateway完整正文/全部详情及有效源字段核对通过。N/C/D三类产品保存证据齐备，旧失败和64KiB有效保留策略原样保留；手机durable ACK/切换/重开尚未运行，需求仍in_progress，S5待review/finish。

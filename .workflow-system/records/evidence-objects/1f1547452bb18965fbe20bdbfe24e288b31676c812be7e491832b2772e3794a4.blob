@@ -1,0 +1,12 @@
+'use strict';
+// Debugger launches the same product server entry, same original persistent root.
+// Only one server/analyzer chain; no direct analyzer request or collector instance.
+const path=require('path');
+// Disabled after DebugMCP failed to establish a session. A delayed launch must exit.
+throw new Error('DebugMCP launch cancelled; use bounded normal-server inspector');
+process.chdir(path.resolve(__dirname,'../../../../'));
+process.env.PORT='3010';
+process.env.TERMLINK_PERSISTENT_ROOT=path.resolve('logs/task005-s2-repair-runtime-2');
+process.env.TERMLINK_CODEX_ROLLOUT_ANALYZER_PATH=path.resolve('native/codex-rollout-collector/target/debug/codex-rollout-collector.exe');
+process.env.TERMLINK_HISTORY_RANGE_SEGMENTS='1';
+require(path.resolve('src/server.js'));

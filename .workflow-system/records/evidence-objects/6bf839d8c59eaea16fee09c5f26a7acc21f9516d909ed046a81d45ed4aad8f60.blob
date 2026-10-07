@@ -1,0 +1,19 @@
+'use strict';
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),WebSocket=require('ws');
+require('dotenv').config({quiet:true});
+const auth='Basic '+Buffer.from(`${process.env.AUTH_USER||'admin'}:${process.env.AUTH_PASS||'admin'}`).toString('base64');
+const out=__dirname,priv=path.join(out,'private');fs.mkdirSync(priv,{recursive:true});
+const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+(async()=>{
+ const id=process.argv[2],label=process.argv[3],save=(n,v)=>fs.writeFileSync(path.join(out,n),JSON.stringify(v,null,2)+'\n',{flag:'wx'});
+ const existing=fs.existsSync(path.join(priv,'session.json'))?JSON.parse(fs.readFileSync(path.join(priv,'session.json'))):null;
+ let session=existing;
+ if(!session){const r=await fetch('http://127.0.0.1:3010/api/sessions',{method:'POST',headers:{Authorization:auth,'Content-Type':'application/json'},body:JSON.stringify({name:'TL832 S5 validation',sessionMode:'codex',cwd:process.cwd()}),signal:AbortSignal.timeout(5000)});if(r.status!==200)throw Error('session HTTP '+r.status);session=await r.json();fs.writeFileSync(path.join(priv,'session.json'),JSON.stringify(session),{flag:'wx'});}
+ const ws=new WebSocket('ws://127.0.0.1:3010/ws?sessionId='+session.id,{headers:{Authorization:auth},handshakeTimeout:5000}),messages=[];
+ let error=null;ws.on('message',b=>{try{messages.push(JSON.parse(b));}catch{}});ws.on('error',e=>error=e.code||e.message);
+ await new Promise((res,rej)=>{ws.once('open',res);ws.once('error',rej);});
+ const generation=Number(process.argv[4]||101);ws.send(JSON.stringify({type:'set_active_conversation',conversationId:id,selectionGeneration:generation}));
+ await new Promise(r=>setTimeout(r,18000));
+ const bytes=Buffer.from(JSON.stringify(messages));fs.writeFileSync(path.join(priv,label+'-wire.json'),bytes,{flag:'wx'});
+ const result={at:new Date().toISOString(),id,session_id:session.id,generation,error,types:messages.reduce((o,m)=>{o[m.type]=(o[m.type]||0)+1;return o;},{}),frames:messages.filter(m=>/snapshot|active_conversation|ipc_status|error/.test(m.type)).map(m=>({type:m.type,conversationId:m.conversationId,keys:Object.keys(m),status:m.status&&typeof m.status==='object'?{online:m.status.online}:m.status,detailCode:m.detailCode})),private_wire:{bytes:bytes.length,sha256:sha(bytes)},model_input_sent:false};save(label+'-selection.json',result);ws.close(1000,'S5 bounded selection');await new Promise(r=>setTimeout(r,200));ws.terminate();console.log(JSON.stringify(result));
+})().catch(e=>{console.error(e.message);process.exitCode=1;});

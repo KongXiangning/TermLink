@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-07T16:19:03.412Z",
+  "source_has_replacement_character": false,
+  "staged": [
+    {
+      "index": 3,
+      "replacement_count": 2
+    },
+    {
+      "index": 4,
+      "replacement_count": 3
+    }
+  ]
+}

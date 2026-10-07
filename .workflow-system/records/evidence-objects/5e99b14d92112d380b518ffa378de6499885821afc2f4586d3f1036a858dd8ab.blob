@@ -1,0 +1,1950 @@
+{
+  "at": "2026-10-07T16:18:29.201Z",
+  "root": "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task005-s2-repair-runtime-2\\data",
+  "ids": {
+    "N": "01a114a2-a201-7f73-993f-9c956ae35713",
+    "C": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+    "D": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+    "F": "01a0ee04-a775-72b3-bd07-04aac804a3b4"
+  },
+  "files": {
+    "data/sessions.json": {
+      "bytes": 585,
+      "sha256": "384437c3729aec71fe4da10703aa837a674f8c264c1f4fbb9bbf873cdcdbb980"
+    },
+    "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe": {
+      "bytes": 639272263,
+      "sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e"
+    },
+    "native/codex-rollout-compat-spike/vendor/codex/Cargo.lock": {
+      "bytes": 137600,
+      "sha256": "6845a266d5ab6a62927267ce6852bca6f1e12f4787185382a20b072aa2a5e195"
+    }
+  },
+  "sources": {
+    "N": [
+      {
+        "path": "C:\\Users\\kongx\\.codex\\sessions\\2026\\10\\07\\rollout-2026-10-07T12-32-47-01a114a2-a201-7f73-993f-9c956ae35713.jsonl",
+        "bytes": 165509,
+        "sha256": "6ffdae13fceaed09b9f6f7000a7059fccb3a0e9c8c8bf8b318d19beefc33324a",
+        "bound_id": "01a114a2-a201-7f73-993f-9c956ae35713",
+        "records": 28,
+        "shapes": {
+          "session_meta": 1,
+          "event_msg/task_started": 1,
+          "response_item/message/developer": 3,
+          "response_item/message/user": 3,
+          "world_state": 1,
+          "turn_context": 1,
+          "event_msg/item_completed": 6,
+          "response_item/reasoning": 2,
+          "response_item/message/assistant": 2,
+          "response_item/custom_tool_call": 1,
+          "token_usage_record": 2,
+          "response_item/custom_tool_call_output": 1,
+          "event_msg/token_count": 2,
+          "event_msg/task_complete": 1,
+          "event_msg/thread_settings_applied": 1
+        },
+        "markers": [
+          "TL832-S5-N-20261007",
+          "TL832-S5-N-DONE"
+        ]
+      }
+    ],
+    "C": [
+      {
+        "path": "C:\\Users\\kongx\\.codex\\sessions\\2026\\10\\07\\rollout-2026-10-07T12-35-13-01a114a4-e693-7be1-aafb-b9a3cb580e1d.jsonl",
+        "bytes": 86257,
+        "sha256": "dd05f3823ad7138c0fe1f2a357ca28ac2802d8d6647db59ef9d4d9ac53e41e0f",
+        "bound_id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+        "history_base": {
+          "thread_id": "01a114a2-a201-7f73-993f-9c956ae35713",
+          "end_ordinal_exclusive": 27,
+          "end_byte_offset": 163403
+        },
+        "forked_from_id": "01a114a2-a201-7f73-993f-9c956ae35713",
+        "records": 30,
+        "shapes": {
+          "session_meta": 1,
+          "event_msg/thread_settings_applied": 3,
+          "event_msg/task_started": 1,
+          "response_item/message/developer": 3,
+          "response_item/message/user": 3,
+          "world_state": 1,
+          "turn_context": 1,
+          "event_msg/item_completed": 6,
+          "response_item/reasoning": 2,
+          "response_item/message/assistant": 2,
+          "response_item/custom_tool_call": 1,
+          "token_usage_record": 2,
+          "response_item/custom_tool_call_output": 1,
+          "event_msg/token_count": 2,
+          "event_msg/task_complete": 1
+        },
+        "markers": [
+          "TL832-S5-C-20261007",
+          "TL832-S5-C-DONE"
+        ]
+      }
+    ],
+    "D": [
+      {
+        "path": "C:\\Users\\kongx\\.codex\\sessions\\2026\\10\\03\\rollout-2026-10-03T03-44-17-01a0fe25-56a2-7910-ba22-61e8016e8ad9.jsonl",
+        "bytes": 493506,
+        "sha256": "f79c1b5328a056e62cb9cb386751e7ccd93b51641f994d4e3581569a564a4503",
+        "bound_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "records": 84,
+        "shapes": {
+          "session_meta": 1,
+          "event_msg/task_started": 3,
+          "response_item/message/developer": 4,
+          "response_item/message/user": 2,
+          "world_state": 2,
+          "turn_context": 3,
+          "response_item/function_call_output": 3,
+          "event_msg/item_completed": 17,
+          "response_item/reasoning": 5,
+          "response_item/message/assistant": 6,
+          "response_item/custom_tool_call": 6,
+          "token_usage_record": 9,
+          "response_item/custom_tool_call_output": 6,
+          "event_msg/token_count": 9,
+          "event_msg/task_complete": 3,
+          "event_msg/thread_settings_applied": 5
+        },
+        "markers": []
+      }
+    ],
+    "F": [
+      {
+        "path": "C:\\Users\\kongx\\.codex\\sessions\\2026\\09\\30\\rollout-2026-09-30T00-34-37-01a0ee04-a775-72b3-bd07-04aac804a3b4.jsonl",
+        "bytes": 1307322,
+        "sha256": "baecd7e819c8631e0370c92c186c8506c70e4a185b038f8004c78650620e0de4",
+        "bound_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+        "records": 229,
+        "shapes": {
+          "session_meta": 1,
+          "event_msg/task_started": 3,
+          "response_item/message/developer": 3,
+          "response_item/message/user": 4,
+          "world_state": 1,
+          "turn_context": 3,
+          "event_msg/item_completed": 76,
+          "response_item/reasoning": 42,
+          "response_item/message/assistant": 10,
+          "response_item/custom_tool_call": 18,
+          "token_usage_record": 21,
+          "response_item/custom_tool_call_output": 18,
+          "event_msg/token_count": 21,
+          "event_msg/task_complete": 3,
+          "event_msg/thread_settings_applied": 5
+        },
+        "markers": []
+      }
+    ]
+  },
+  "integrity": [
+    {
+      "quick_check": "ok"
+    }
+  ],
+  "intents": [
+    {
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "intent_id": "7da0395a-7c96-4311-8122-988b82db70ce",
+      "revision": "1"
+    },
+    {
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "intent_id": "b7558acf-1b0a-46cb-9b2e-d6a89e0967a2",
+      "revision": "55"
+    },
+    {
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "intent_id": "a9b9cd11-0541-401f-a3e6-3fa48f3b175a",
+      "revision": "2"
+    }
+  ],
+  "canonical": [
+    {
+      "id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "coverage": {
+        "completeness": "canonical",
+        "coverageComplete": true,
+        "itemCount": 98,
+        "turnCount": 3
+      },
+      "items": 98,
+      "details": 39,
+      "digest": "bd8a43a45211dd42aba97d435bfd001f43377596ffe515c43ce5014b31381fa9",
+      "checkpoint": [
+        {
+          "sha256": "fc91b4024979e4425e4233fc5946b72c5dd12470c1db6512a0e9b3576f3ced87",
+          "keys": [
+            "completeness",
+            "conversation_id",
+            "cursor",
+            "cursor_kind",
+            "job_id",
+            "lineage_checkpoint",
+            "projection_watermark",
+            "reader",
+            "reducer_state",
+            "request_id",
+            "schema_version",
+            "segment",
+            "source",
+            "wire_profile"
+          ]
+        }
+      ],
+      "marker_counts": {
+        "TL832-S5-N-20261007": 0,
+        "TL832-S5-N-DONE": 0,
+        "TL832-S5-C-20261007": 0,
+        "TL832-S5-C-DONE": 0
+      },
+      "types": {
+        "SessionContext": 1,
+        "TurnStarted": 3,
+        "user_message": 3,
+        "assistant_message": 10,
+        "tool": 39,
+        "RateLimitUpdated": 21,
+        "UsageUpdated": 21
+      }
+    },
+    {
+      "id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "coverage": {
+        "completeness": "canonical",
+        "coverageComplete": true,
+        "itemCount": 46,
+        "turnCount": 4
+      },
+      "items": 46,
+      "details": 9,
+      "digest": "638b753182aa664b45dcd49fc56de71256be2d1c7517b0607730d8f36ad6d961",
+      "checkpoint": [
+        {
+          "sha256": "772c413a38f0f625a0dab06e68980b5dc2e1252d3de5f019bb233a1af06f98bf",
+          "keys": [
+            "completeness",
+            "conversation_id",
+            "cursor",
+            "cursor_kind",
+            "job_id",
+            "lineage_checkpoint",
+            "projection_watermark",
+            "reader",
+            "reducer_state",
+            "request_id",
+            "schema_version",
+            "segment",
+            "source",
+            "wire_profile"
+          ]
+        }
+      ],
+      "marker_counts": {
+        "TL832-S5-N-20261007": 0,
+        "TL832-S5-N-DONE": 0,
+        "TL832-S5-C-20261007": 0,
+        "TL832-S5-C-DONE": 0
+      },
+      "types": {
+        "SessionContext": 2,
+        "TurnStarted": 4,
+        "delegated_input": 4,
+        "assistant_message": 7,
+        "tool": 9,
+        "RateLimitUpdated": 10,
+        "UsageUpdated": 10
+      }
+    },
+    {
+      "id": "01a114a2-a201-7f73-993f-9c956ae35713",
+      "coverage": {
+        "completeness": "canonical",
+        "coverageComplete": true,
+        "itemCount": 11,
+        "turnCount": 1
+      },
+      "items": 11,
+      "details": 2,
+      "digest": "9a29fe74dcff28b7166b7d63723db5b15480fee3edf7212a59201f23b396a1a5",
+      "checkpoint": [
+        {
+          "sha256": "4d31e636d5d3e18585516b357aac16fba5fe2cd2e3cea2c0a5076d9b7511df01",
+          "keys": [
+            "completeness",
+            "conversation_id",
+            "cursor",
+            "cursor_kind",
+            "job_id",
+            "lineage_checkpoint",
+            "projection_watermark",
+            "reader",
+            "reducer_state",
+            "request_id",
+            "schema_version",
+            "segment",
+            "source",
+            "wire_profile"
+          ]
+        }
+      ],
+      "marker_counts": {
+        "TL832-S5-N-20261007": 3,
+        "TL832-S5-N-DONE": 3,
+        "TL832-S5-C-20261007": 0,
+        "TL832-S5-C-DONE": 0
+      },
+      "types": {
+        "SessionContext": 1,
+        "TurnStarted": 1,
+        "user_message": 1,
+        "assistant_message": 2,
+        "tool": 2,
+        "RateLimitUpdated": 2,
+        "UsageUpdated": 2
+      }
+    },
+    {
+      "id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+      "coverage": {
+        "completeness": "canonical",
+        "coverageComplete": true,
+        "itemCount": 22,
+        "turnCount": 2
+      },
+      "items": 22,
+      "details": 4,
+      "digest": "eccd70c15bacf59a7a7355c9aecf6b7eb3061597036691dad7044285ea24ed26",
+      "checkpoint": [
+        {
+          "sha256": "ea12f44dc0735cb7883038db24197d12f981f8bd075809933488067274dc4728",
+          "keys": [
+            "completeness",
+            "conversation_id",
+            "cursor",
+            "cursor_kind",
+            "job_id",
+            "lineage_checkpoint",
+            "projection_watermark",
+            "reader",
+            "reducer_state",
+            "request_id",
+            "schema_version",
+            "segment",
+            "source",
+            "wire_profile"
+          ]
+        }
+      ],
+      "marker_counts": {
+        "TL832-S5-N-20261007": 3,
+        "TL832-S5-N-DONE": 3,
+        "TL832-S5-C-20261007": 3,
+        "TL832-S5-C-DONE": 3
+      },
+      "types": {
+        "SessionContext": 2,
+        "TurnStarted": 2,
+        "user_message": 2,
+        "assistant_message": 4,
+        "tool": 4,
+        "RateLimitUpdated": 4,
+        "UsageUpdated": 4
+      }
+    }
+  ],
+  "staging": [
+    {
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "batches": 16,
+      "published": 16
+    },
+    {
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "batches": 8,
+      "published": 0
+    },
+    {
+      "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "batches": 1,
+      "published": 1
+    },
+    {
+      "conversation_id": "01a114a2-a201-7f73-993f-9c956ae35713",
+      "batches": 1,
+      "published": 1
+    },
+    {
+      "conversation_id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+      "batches": 1,
+      "published": 1
+    }
+  ],
+  "receipts": [
+    {
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "receipts": 16
+    },
+    {
+      "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "receipts": 1
+    },
+    {
+      "conversation_id": "01a114a2-a201-7f73-993f-9c956ae35713",
+      "receipts": 1
+    },
+    {
+      "conversation_id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+      "receipts": 1
+    }
+  ],
+  "runs": [
+    {
+      "file": "003c098c3e502794473954d8249a876380ac4fc07cf1a6486ac2ff80bb3d2111.json",
+      "sha256": "d41b8f514c54c535d3e22912fb681e54a6277525c8e82cae30e7425257ca150b",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790791814881,
+      "completed_at": 1790791817516,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "4626a54382d0f0a46fe7834e2e5fcbcbd97809a01a13c2ef619cf08bd926cd23",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "018f309d170d180902c21ce453e1f8b13296e0852e9cd5720b1c9ebf402f434d.json",
+      "sha256": "0af41b4c7293c890367d47a1d1c82de71eaa1b0b8fd3b6f1b281b04a8d0f4c30",
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "status": "failed",
+      "started_at": 1791052086848,
+      "completed_at": 1791052090533,
+      "error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "last_error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "0b0d1e0b118b4bc95a7fc3bf3e3c6a21b22d4260dac01de46e0761cd10d5aa94.json",
+      "sha256": "acfd00b50705aa373a1c9698fbb0c333da7716cf7ea583295ecd6fc7b1778935",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "completed",
+      "started_at": 1790970324233,
+      "completed_at": 1790970325604,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "5d327ed3ee3787e4de50e25e8135fd90f01b0ce5421460ebe263802c9f241d97",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "0d4f4f3a47b9fa5ffd36118a72d3c91dc61334c7bba61818b7d6f22315ef9c42.json",
+      "sha256": "a478a4c59b16a64f0bc77b7b4225f5cde1f23215ea2bbfb10435d2995c822a22",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790779131181,
+      "completed_at": 1790779132106,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "c00a2a04aa88fc3ee8ad4133581e326a9d2048a092a0b781ba4a8938bfbee692",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "126265b5a2803e37d698576a43f462c2dfb91e64e6f96c397e03558f2c1015e9.json",
+      "sha256": "162fd307d428cee3c2daca06b21c04abae7a5aab03191370aadbea15de8fa08c",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1791052161003,
+      "completed_at": 1791052163365,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "14a691ef961e6433c7c6f3633cc860317b2d494fcd1726dbf61ce1f7da14b10b.json",
+      "sha256": "822622f6180145653c74c31992d2c9b59f725bd32e08a18e1b585d3709bb82ef",
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "status": "failed",
+      "started_at": 1791052090571,
+      "completed_at": 1791052094251,
+      "error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "last_error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "1c0adba34278abf1eaac834307620f8056785ca2966f9c96591f5c35df6388f3.json",
+      "sha256": "93ec6460d26f51466c53c3b8d5f179b6cd805a0899cd1b0de388923a1c7c466d",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791389468326,
+      "completed_at": 1791389474029,
+      "error": {
+        "sha256": "e813f391f08d976c48a8c9c6697094b3c0bfbb1e08944985ee03951e909e1792",
+        "keys": [
+          "code",
+          "message"
+        ],
+        "code": "ANALYSIS_CHECKPOINT_REDUCER_MISMATCH",
+        "message": "checkpoint reducer state does not match batch"
+      },
+      "last_error": {
+        "sha256": "e813f391f08d976c48a8c9c6697094b3c0bfbb1e08944985ee03951e909e1792",
+        "keys": [
+          "code",
+          "message"
+        ],
+        "code": "ANALYSIS_CHECKPOINT_REDUCER_MISMATCH",
+        "message": "checkpoint reducer state does not match batch"
+      },
+      "batches": 1,
+      "receipt_count": 1,
+      "result": null
+    },
+    {
+      "file": "1c7df35213ea22d1b8c72fd73178f348963d59fcc6fdeee1e7aaeb306c2acd70.json",
+      "sha256": "e67c2aed75ee3e4138307ee629eaf8c909a0353061d3c446c219329082a2497f",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790787418082,
+      "completed_at": 1790787420602,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "bea8219036ccf7ea637e64f2e70b209888c84fcc0bf1ce66d6cf555ef1e8bd8f",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "220c5a1776d19ee94f20a4a8260e32096b166071ed48e86126c0796ba23528d5.json",
+      "sha256": "be350cec5adb3e44470c2fc41f6e3fcf836b352ab168b41f9c2ad073f27dacd6",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790787201375,
+      "completed_at": 1790787203757,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "67c9601b2cf8b4725f4f69018986a4c61c561ae07454043f98a2fe9326d0f3f7",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "26b6e8a70e659f9606daefa21e58b6a31661b4773300445a6027c863017d133d.json",
+      "sha256": "2b59c61b898a5e23850c7f992ef9733a773c078d4642434192825204a15fbfb9",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790793424748,
+      "completed_at": 1790793428098,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "55534a313370649903c16fab425a196c4a99dbbf238340f17735c14ef270a27c",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "309d96045a0d2ec365d4962fc284017ba22fa4e6530a7153d22a4d7bfb8ab18d.json",
+      "sha256": "a34d00ec3f453b7275585e98d22acd1528f7a7080e12f8437b36d3006d0e4e7e",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1791051982968,
+      "completed_at": 1791051985077,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "3349ddd5adca184415f162a667f10afad5fb45c5c8f9f2e1c8933eaf6fae5159.json",
+      "sha256": "d31b879d1e8ef4d83e5568478c9e7b4b30d2bea4e4abc3fe98fcfc75a75ea63b",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1790791641911,
+      "completed_at": 1790791645830,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "391b3d5200015fc40f9897b35937e17ceef09c7ba9263fabd312ba9e6153bcba.json",
+      "sha256": "f998f752dfeb0083b684a8a88a68bd3acac65f7341cdb9d4838a31d99c582ccb",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791052308700,
+      "completed_at": 1791052314387,
+      "error": {
+        "sha256": "852b864eaea7071802e59f74099110a42340d5bc0159b75ef20a872a7b18c3e9",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "last_error": {
+        "sha256": "852b864eaea7071802e59f74099110a42340d5bc0159b75ef20a872a7b18c3e9",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "3c41f7c670a5fdf51bc55c096ba2d799a3d6c390e9ba333867b8b64b832f0950.json",
+      "sha256": "8b82ae854bfc97cfd8caba3b69b5d99abae44c154cc0176ad2fae6b8a73f0d4b",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790796470679,
+      "completed_at": 1790796472663,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "db4262cf72b2842eb37a16bd71299ed6fc5272d56a9f96f493ae77cd667cf34d",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "42e7fc0965e1d4c3a4b26f9b524d8dd68abf75556e2bb572ceaad83083c13892.json",
+      "sha256": "8294b18e6081e9759b3c015f1f9051e5189496e50a4860432aaa93a2ba61da06",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1790913179289,
+      "completed_at": 1790913181487,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "4da9bff7ed942095e8bb36b73a7e75191d43665da64ad745b04edcb60bc55de1.json",
+      "sha256": "51831fce5030cc76e72e004bf902f63af412408f2929ad7f53a1acb8ebf004cf",
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "status": "failed",
+      "started_at": 1791052161015,
+      "completed_at": 1791052166686,
+      "error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "last_error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "52eac4db4cc12a53c9419831de9af35a501156552e18ac107614a53b5e64fbd1.json",
+      "sha256": "735b18764b0e1da25fcb65875423a2f8d3e7a7e43bc4cefac5ea010488b9ee8d",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790793441848,
+      "completed_at": 1790793445227,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "c741e8663f31a9bb42dc002324bc91fc68c56842a9f0014ce50e81a5583dad2d",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "533000af35935d2a318d8d84f931d76fe61b29ee64424a3091d2a3eb11082d7a.json",
+      "sha256": "a1d13a9dc74d4ee963398ab828879622f13e0d18f4e4489ec151c1cb238d3208",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790796656879,
+      "completed_at": 1790796658892,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "cf202a7fc9fa9f0033e5117a3bb086791986128c41d0ad32f904f8cd9676fbe9",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "549caabd78394b841ba9ae946cf2b369e7914ab2546157146b0f349b9d78cb49.json",
+      "sha256": "8de0f3ee2edcd374a51d194bd7636fc2d8e807be8dabb52133497ad15f35b956",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791052127568,
+      "completed_at": 1791052128051,
+      "error": {
+        "sha256": "698873d1715cc0e7951113c26feae40ef2c8c86b497578d0c3331b86bc454834",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "last_error": {
+        "sha256": "698873d1715cc0e7951113c26feae40ef2c8c86b497578d0c3331b86bc454834",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "571e688e1a6af55bab55fba3b70a8def53c3bec66c35fee16e829190cc63d325.json",
+      "sha256": "becfad1d036e48e2c3e963874f1a5dcd0dcdc33202cc67bcaa8f2aa7fd29b8ce",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "completed",
+      "started_at": 1791051982982,
+      "completed_at": 1791051986341,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "3339cd667e4c13f1419df45b78dd92df8ac6a81a2a1207bcb7fa3e3fb23309d6",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "574bdf86268cd7a34f78861a3c771daeea387e90421ae94aa7ffff55804afb21.json",
+      "sha256": "1aeeaf7af43c969ea51a090214371463a538098ad9f66f7cada8d1381112af6c",
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "status": "failed",
+      "started_at": 1791052308670,
+      "completed_at": 1791052310614,
+      "error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "last_error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "5b9913afd0a62c3b2ecd5591bdb971997a2abe0a5215a055992bfdad8888a533.json",
+      "sha256": "504313cf745b440932c68db1008697d1eaae8e5f7d3aa39fd0ef0be7f81848b3",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1790936459180,
+      "completed_at": 1790936461295,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "5d883eaa34911a366e854004aa63f07fa3c43b298367e43071fcb50d75bad4cc.json",
+      "sha256": "aa1745f85b0c9a0b35887e3e9932f3c6cb9ef29c8cca570740acef2774c7ef47",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1791347763083,
+      "completed_at": 1791347765245,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "6363cb38010cfb2ae1e708da59ab6fdb678606221f07e048c7c7c1197e7a0799.json",
+      "sha256": "a7f2f5421a90f0bb8903dc24a43461a2f140fcbc50d8e775ef5fa20361646187",
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "status": "failed",
+      "started_at": 1791389468304,
+      "completed_at": 1791389473129,
+      "error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "last_error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "666ad0083824e70ab8cb57c67103f6da759da6811a2d42fdc6c929b81859c173.json",
+      "sha256": "586bc30b5b61700b43675f5a769ee6d80cfb995f1abdbc852af2a7092f4ce178",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "completed",
+      "started_at": 1791052071892,
+      "completed_at": 1791052073449,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "6d2d8b70e9549965de5a7619d3e637efe58292c97f91a11df8b5a5a49b5b4980",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "69b89128f04b5890115956a099f72ef72c3d624531b68d21d9d96815e61fd70f.json",
+      "sha256": "b841fe5d0017340d7cb47d25f6e7409abdb50c8bc383e4cdbbc15c2d0494993f",
+      "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "status": "completed",
+      "started_at": 1791347763111,
+      "completed_at": 1791347766998,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "cd55d7bf48130ca20e728954b889594eb35e53d628c8204bf7c96644b276648e",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "75840f76543a88a4ed189a0864ce8bded07aabe3f67c4d8add6d91533129ba14.json",
+      "sha256": "efdc1a605103f1473c87b8d727db540edd3dbc69d91f682f416961d852dba961",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791347763099,
+      "completed_at": 1791347766025,
+      "error": {
+        "sha256": "e813f391f08d976c48a8c9c6697094b3c0bfbb1e08944985ee03951e909e1792",
+        "keys": [
+          "code",
+          "message"
+        ],
+        "code": "ANALYSIS_CHECKPOINT_REDUCER_MISMATCH",
+        "message": "checkpoint reducer state does not match batch"
+      },
+      "last_error": {
+        "sha256": "e813f391f08d976c48a8c9c6697094b3c0bfbb1e08944985ee03951e909e1792",
+        "keys": [
+          "code",
+          "message"
+        ],
+        "code": "ANALYSIS_CHECKPOINT_REDUCER_MISMATCH",
+        "message": "checkpoint reducer state does not match batch"
+      },
+      "batches": 1,
+      "receipt_count": 1,
+      "result": null
+    },
+    {
+      "file": "76ce95fe763c066e9aa295310a1d4261c031936040273cf435a296ac53a71dd1.json",
+      "sha256": "87b5c707b476f048df8fae8c60e3d7e232af8f9f185401693252150ac7aef5ed",
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "status": "failed",
+      "started_at": 1791389636447,
+      "completed_at": 1791389641598,
+      "error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "last_error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "776af49e3968a594e80276833a9cb5a4dd5b036ba102a523e70710de36b1b7f5.json",
+      "sha256": "5492f21bbcdf10b20e1c295d217296b92ef9fc01da8cc9fecef01d7576460405",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790793281337,
+      "completed_at": 1790793284496,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "43f77e7ff53d5c73ccd035bd4a624a04d5367a76b03330f8158e10f431b0cbfa",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "7e4649f9dedd175012266a6a2223e097a894a254551cd8cca688ad10d521a434.json",
+      "sha256": "a3a1b85ca38278b37fe385139dfe6e0af94e8ebbb52e62141911a6a0515f8fe7",
+      "conversation_id": "01a0ee4c-9088-7d83-a15d-43f724f03a1a",
+      "status": "failed",
+      "started_at": 1791347763123,
+      "completed_at": 1791347768906,
+      "error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "last_error": {
+        "sha256": "c7399226b967f43a2494181400db25b7ee6ec7559ddba43771a8a55eb91c44b3",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "target source resource limit exceeded: aggregate planned bytes 36826206 exceed max_decoded_bytes 33554432"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "7efb29134fd52da9efc9902fc3d54cbd9185e83c9f62d5ec231ccdb80e83da78.json",
+      "sha256": "4cb90f015f297b36abcb5a10b75acbbeba2e99598424ff881c4afff1acc02392",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790793257492,
+      "completed_at": 1790793260322,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "50dbdb9fc3ad297b677ac5183bc1ada0fafe63deeb5d9efdef9068c39630ac6e",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "8cfc337b99d995d2a958eb13009661b971cec7fcafc992a5888505d97fdef63b.json",
+      "sha256": "58e8388505d28e6f00cfe3575c6023d40f2dc664b7b04ce74194934cd27744b6",
+      "conversation_id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+      "status": "completed",
+      "started_at": 1791389578997,
+      "completed_at": 1791389580062,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "be7ed4e5983ff2d90ed2ab4497a73771d01b2109c6e885937264724a1c123eef",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "8f68d78c75761e41651c36cd1ed5cce371119db48384d34d7ac00f56b071b265.json",
+      "sha256": "6d74c108709c3333d4760cbb6981f959acd3fa07cd016cb7df8dd90711baa21d",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790779351937,
+      "completed_at": 1790779353890,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "4d0cee535d7c7c30750e2ce1121fcf91169e41f7feb973011f2042788d920f3c",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "925c8a2140ba3cf2478027e62d77403cd2875f7f7b10fe5945ee386aaed6e62e.json",
+      "sha256": "a9dabef5263b2893076239be49b0ec0beee2b7c4e985409e453479cc5a1e4a6f",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791052127018,
+      "completed_at": 1791052127522,
+      "error": {
+        "sha256": "1f7f45f33e2f016254002b9e9e44f1354641845d08011975d0f27327e580c523",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "last_error": {
+        "sha256": "1f7f45f33e2f016254002b9e9e44f1354641845d08011975d0f27327e580c523",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "92b04c426719e6e2eff0618ed4a205b43c53c996aa22a5161eebd8faf6a0c781.json",
+      "sha256": "dd37af09af9232c135bd1af1c63502154ce27aec90b0c1d08df1a5f05ef1b0da",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790786981490,
+      "completed_at": 1790786983470,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "ed927382a33a704aced4b2d028b90849463a628aa514aba7541aadbafea1a9bc",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "94eca519fb0141f1e1590a6630bca0a6d6cd558f93d2c8c2ade57b8d16286847.json",
+      "sha256": "adb677547443d65a6120b1c39b612f2c7e5a9b80e84afac4bfdf2aa82189fbae",
+      "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "status": "failed",
+      "started_at": 1791106923811,
+      "completed_at": 1791106923865,
+      "error": {
+        "sha256": "ef6fc554a57f0ed31967fee0b4a0987cc3a7c9f9468a9009f93873a7a6b385db",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "analysis_failed",
+        "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9"
+      },
+      "last_error": {
+        "sha256": "ef6fc554a57f0ed31967fee0b4a0987cc3a7c9f9468a9009f93873a7a6b385db",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "analysis_failed",
+        "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "985a8e9510f1dfa84882b32afee832a3e00f9289caebc6e8e9a4edbe0eaedddd.json",
+      "sha256": "ebef0b2211bf1ae3c9fe638cbf77b8a3967220a07329510c9d48a1177d247cb6",
+      "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "status": "failed",
+      "started_at": 1791106711916,
+      "completed_at": 1791106711976,
+      "error": {
+        "sha256": "ef6fc554a57f0ed31967fee0b4a0987cc3a7c9f9468a9009f93873a7a6b385db",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "analysis_failed",
+        "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9"
+      },
+      "last_error": {
+        "sha256": "ef6fc554a57f0ed31967fee0b4a0987cc3a7c9f9468a9009f93873a7a6b385db",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "analysis_failed",
+        "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "9a0c8587e5beb5d32a1e908e6b3bfe8765f637c3c1560e70a5968a4b188e18c0.json",
+      "sha256": "4d7ac17e260c559dfde2d456a8523c96ae90cf64224a6c1d15a643d9ad6caec1",
+      "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "status": "failed",
+      "started_at": 1791106964835,
+      "completed_at": 1791106964886,
+      "error": {
+        "sha256": "ef6fc554a57f0ed31967fee0b4a0987cc3a7c9f9468a9009f93873a7a6b385db",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "analysis_failed",
+        "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9"
+      },
+      "last_error": {
+        "sha256": "ef6fc554a57f0ed31967fee0b4a0987cc3a7c9f9468a9009f93873a7a6b385db",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "analysis_failed",
+        "message": "parent rollout is missing from catalog: 01a0fe25-56a2-7910-ba22-61e8016e8ad9"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "a14e533ec151b7c04351b673f42cbbd1deeb3000014b50b59d3fdd00db93d100.json",
+      "sha256": "f8e5f9eaa0428fb24c0059238cffb9335d402cc2dcbfa87744718f6714b8644e",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790797094316,
+      "completed_at": 1790797096434,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "4c803b3c34d1672f2a72428f2ec5d661b9ff122f432162d759096498613b7e47",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "a2fb6f1c3fe1bedc5f821bc4dd9d447c0d97b92d4f82862bb08d62469885f1f1.json",
+      "sha256": "948635d39b600936d5db5f33b92b45cda195f4e773b107c75a20751fc2c3b16f",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790787304291,
+      "completed_at": 1790787306924,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "036757ee61f24a8e2c4faaab26e63741eb5e0cf2032b68aea37d0440d7460255",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "aa7c232fe7468f1b0523d83286b292d5d5720c7b6d0f72b34c383659802b3a22.json",
+      "sha256": "61a87bda4541baaeeed6aa51cf85720fbc4a26fc151cefdf3679ebdec541a21c",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1791389468269,
+      "completed_at": 1791389470606,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "af6f0552c3b390717276d1c721997d633cdd1f1d7fc192c37105642176359812.json",
+      "sha256": "0511daa99e64b5c222b96c509ecb891d62a2af4eac78bff1394ee010be8b1c85",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791052165093,
+      "completed_at": 1791052167219,
+      "error": {
+        "sha256": "ac77fbb77b35d8d9d5c619e9e9ad0e74dc74215566bc357ad8030b71d91dabf8",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "last_error": {
+        "sha256": "ac77fbb77b35d8d9d5c619e9e9ad0e74dc74215566bc357ad8030b71d91dabf8",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "b30c300135993b1095ef3bc72927429268ab2050af73beae018eb089828497dc.json",
+      "sha256": "a885f2ce5e5bcb6057b12166aae55ad35b170b5887dda0f0ca2e901a1de99a35",
+      "conversation_id": "01a114a2-a201-7f73-993f-9c956ae35713",
+      "status": "completed",
+      "started_at": 1791347787988,
+      "completed_at": 1791347788874,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "e1eea227884ab4f78a2f40a9e5e0bb775596348d3d96c4aef1c3d63568024c12",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "b7cccada6c7a8c065ceccdd7f191edd18dd38ee4ece8e44a8ee8c26e494bcb1f.json",
+      "sha256": "5e2520d0b94c726748f59172da1d0882e72466e0c284d7922ef2ade94627de73",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1791389636418,
+      "completed_at": 1791389638555,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "c07f8b083f628c8b04190af61432ac4c34e377ed48be2482f6b30897dca47cb5.json",
+      "sha256": "3c12e15b073db037a0d102af03bad70f12272d27e9c61df0d658c37f1d4794fd",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1790937347137,
+      "completed_at": 1790937349265,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "c7cfa048ea95278c328726423850ff3d2f04420461d5bef9dbc802592b7f6f77.json",
+      "sha256": "47f8401e57889e4c3030017c9c0331af91ff01ffcda049d05113a61428c86c51",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1791052308686,
+      "completed_at": 1791052313843,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "cbf287734d067b4b0c40001d3c4e504326dcb52d53252a8d5dd14381064c1fe6.json",
+      "sha256": "a96174c215914ac6705d0efac8aee1414380edf3d51940964c443725afc4ac5a",
+      "conversation_id": "01a0e60a-a819-7ed3-99d2-f64d77a0eb8c",
+      "status": "failed",
+      "started_at": 1790966822730,
+      "completed_at": 1790966824959,
+      "error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "last_error": {
+        "sha256": "19d5fd684d95f7e3c219758e9f4eed9d5d00e71aa8c72ef545ba50af886e152d",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal"
+        ],
+        "code": "resource_limit_exceeded",
+        "message": "rollout discovery fingerprint_bytes budget exceeded (limit 67108864)"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "ce147b4877310d2dd215b895c1f6278389e648c3347b060028476847374810f3.json",
+      "sha256": "4850b29272798603c08736cee002f9e77cde0569a89eeabd81a780bc3477c95d",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790779289650,
+      "completed_at": 1790779291487,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "a16f8a27870efbed6f8f3bb3e6645be05c87007303d7cc79ed2919f182d7fa37",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "d0c2d14455efa0261636aac5412b9a2b6c80cd22632af3fbcc149e8a5d9ffda2.json",
+      "sha256": "c570bf7b00e9d3ec65a425424552744c06507b160571dd6a3a98043be98e5c42",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791052252596,
+      "completed_at": 1791052253132,
+      "error": {
+        "sha256": "288f42830aa873cca0778207aebb2386e574f24b852bc14d29be5cf070d44101",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "last_error": {
+        "sha256": "288f42830aa873cca0778207aebb2386e574f24b852bc14d29be5cf070d44101",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "d20dabaadcb48b177571c8bf6711fbe5a9dc1eacc298f9b724e4f16326b97e53.json",
+      "sha256": "d0c897119bfddb7ffe84b948e29e5b1210d03388a453a9970b12163fdf2c8677",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791389636435,
+      "completed_at": 1791389639512,
+      "error": {
+        "sha256": "e813f391f08d976c48a8c9c6697094b3c0bfbb1e08944985ee03951e909e1792",
+        "keys": [
+          "code",
+          "message"
+        ],
+        "code": "ANALYSIS_CHECKPOINT_REDUCER_MISMATCH",
+        "message": "checkpoint reducer state does not match batch"
+      },
+      "last_error": {
+        "sha256": "e813f391f08d976c48a8c9c6697094b3c0bfbb1e08944985ee03951e909e1792",
+        "keys": [
+          "code",
+          "message"
+        ],
+        "code": "ANALYSIS_CHECKPOINT_REDUCER_MISMATCH",
+        "message": "checkpoint reducer state does not match batch"
+      },
+      "batches": 1,
+      "receipt_count": 1,
+      "result": null
+    },
+    {
+      "file": "d6fe251a6d0b35fb0078ec5ceb219eadc7b5663d26f814a8e8a5032dcb807d81.json",
+      "sha256": "d7d5353ad1a2f8014e7e47192c8803cf10acdfab4710dc82b0706baa3d412f67",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791052314433,
+      "completed_at": 1791052314910,
+      "error": {
+        "sha256": "761b687924f68dc6ac89fd84bb30378edf91b2c85876d833c882f76de0c5422b",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "last_error": {
+        "sha256": "761b687924f68dc6ac89fd84bb30378edf91b2c85876d833c882f76de0c5422b",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "dcc7cce07d65e485c7a9a77ee5e69fc3ce2b54dde793a6316bfc89261d06884d.json",
+      "sha256": "c30789a5fa2fe7b600fe7d8afa23edc2eecb4ff2f63e91b87ec65fd02e00f017",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "completed",
+      "started_at": 1791052070344,
+      "completed_at": 1791052071834,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "db0af6a5b4610f8f6576c8d777811c5888345fe6ea4b6ba3ebf3cf51b4c01147",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "e3fd3221988ae73b7299d67ea5d137c387beba5214f6f59808a3b42be2423289.json",
+      "sha256": "7bb18e04c3d77fc060fc0c741237615e6b314bf5d7bee8f5be01bbccfa1fbd9a",
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "status": "completed",
+      "started_at": 1790791890817,
+      "completed_at": 1790791892360,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "36c3a2d31d3c51af5c18a7ae88c0d8b37d5cfa68baff94ca44b799cc9fa20425",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    },
+    {
+      "file": "e5d85ce191af80dc2fc6ddfa1a176a64c74a4114f2639e32de347fe885dafcc0.json",
+      "sha256": "3a2352a17c5109058dc56366c2d2b0b0381a449fff6f2e0cdae549fa52c4ca17",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791052358811,
+      "completed_at": 1791052359149,
+      "error": {
+        "sha256": "df0f89d81b6f587bb6bcb4bf2f714071834a0c9973c3f263e2524b1e57a835f8",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "last_error": {
+        "sha256": "df0f89d81b6f587bb6bcb4bf2f714071834a0c9973c3f263e2524b1e57a835f8",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "ee9a7954a4a1c8c778ce311e5a6b0b4575a04c733264bb92a75d3797237012ec.json",
+      "sha256": "4015a147a973cfcc66b1799139d020d662eef47133a45bffd2416ad1e3bcfebc",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "failed",
+      "started_at": 1791052160989,
+      "completed_at": 1791052161253,
+      "error": {
+        "sha256": "4a6095ce6eab3df9f102540c57ef8046d2fcae8fdc02e6b27415f75f0ea12e01",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "last_error": {
+        "sha256": "4a6095ce6eab3df9f102540c57ef8046d2fcae8fdc02e6b27415f75f0ea12e01",
+        "keys": [
+          "code",
+          "message",
+          "retryable",
+          "fatal",
+          "details"
+        ],
+        "code": "batch_rejected",
+        "message": "Node rejected the target batch at its durable staging boundary"
+      },
+      "batches": 0,
+      "receipt_count": 0,
+      "result": null
+    },
+    {
+      "file": "f09c1a48f4be1b19237425e3661f2065aff4778cf1ab91c63c25cd19e406b699.json",
+      "sha256": "326901e485999ae44210f61e08bbcd3b6d6ca7c937499169957934ed1ebd8726",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "status": "completed",
+      "started_at": 1790970322752,
+      "completed_at": 1790970324181,
+      "error": null,
+      "last_error": null,
+      "batches": 1,
+      "receipt_count": 1,
+      "result": {
+        "sha256": "9a75202b5b9abc12528e8d8f8a0a55108853812941a04809c470ae30d672cee3",
+        "keys": [
+          "status",
+          "completeness",
+          "checkpoint"
+        ]
+      }
+    }
+  ]
+}

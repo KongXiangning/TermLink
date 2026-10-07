@@ -1,0 +1,25 @@
+{
+  "job_id": "job-34faea88-a68a-4c1a-9596-46602a068d14",
+  "batch_id": "batch-32d510724207aa19275a229bd2c78a7e",
+  "persisted": true,
+  "complete": true,
+  "completeness": "canonical",
+  "parser_provenance": {
+    "parser_backend": "analyzer",
+    "wire_source_revision": "5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2",
+    "compatibility_profile": "history-semantics-v2"
+  },
+  "event_counts": {
+    "SessionContext": 1,
+    "TurnStarted": 3,
+    "Diagnostic": 41,
+    "DelegatedInput": 6,
+    "AssistantMessage": 6,
+    "ToolStarted": 9,
+    "ToolCompleted": 9,
+    "UsageUpdated": 9,
+    "RateLimitUpdated": 9,
+    "TurnCompleted": 3
+  },
+  "product_published": false
+}

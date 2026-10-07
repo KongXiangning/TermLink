@@ -5,6 +5,7 @@ const EventEmitter = require('node:events');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { StringDecoder } = require('node:string_decoder');
 const {
     REQUIRED_CAPABILITIES,
     HISTORY_SEMANTICS_CAPABILITY,
@@ -342,6 +343,7 @@ class AnalyzerProcessManager extends EventEmitter {
         this.homedir = homedir;
         this.child = null;
         this.stdoutBuffer = '';
+        this.stdoutDecoder = new StringDecoder('utf8');
         this.requests = new Map();
         this.startPromise = null;
         this.startupReject = null;
@@ -417,6 +419,7 @@ class AnalyzerProcessManager extends EventEmitter {
         this.generation = generation;
         this.readyGeneration = null;
         this.stdoutBuffer = '';
+        this.stdoutDecoder = new StringDecoder('utf8');
         let synchronousSpawnFailure = false;
         const startPromise = new Promise((resolve, reject) => {
             let settled = false;
@@ -779,6 +782,7 @@ class AnalyzerProcessManager extends EventEmitter {
         this.readyGeneration = null;
         if (clearStartupFailure) this.startupFailure = null;
         this.stdoutBuffer = '';
+        this.stdoutDecoder = new StringDecoder('utf8');
         return true;
     }
 
@@ -794,7 +798,11 @@ class AnalyzerProcessManager extends EventEmitter {
             && !this._isCurrentProcess(processScope.generation, processScope.child)) {
             return;
         }
-        this.stdoutBuffer += String(chunk);
+        // Pipe chunks may end within a UTF-8 character. Keep decoder state in
+        // this process generation so batch and checkpoint text remain identical.
+        this.stdoutBuffer += Buffer.isBuffer(chunk)
+            ? this.stdoutDecoder.write(chunk)
+            : String(chunk);
         let newlineIndex = this.stdoutBuffer.indexOf('\n');
         while (newlineIndex >= 0) {
             const line = this.stdoutBuffer.slice(0, newlineIndex).replace(/\r$/, '');

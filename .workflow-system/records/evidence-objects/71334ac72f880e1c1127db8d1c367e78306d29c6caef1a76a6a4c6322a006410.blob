@@ -1,0 +1,230 @@
+{
+  "runtime_role": "assistance",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "kind": "task-query/v1",
+  "detail": "step",
+  "status": "available",
+  "source_revision": "eed76a632c076efb4a59c1e969cd1e112d677a86e83d03d9162e43bc1646f51a",
+  "view_revision": "e32fd27920363bdcacefd7e5324801d86eaf024ccf5e86f9f6cfb470f2b65b7f",
+  "workflow_home": "docs/workflow",
+  "current_task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "focus": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "ref": ".workflow-system/records/events/key-84c44d145690b43b1036448ac8c73927fb5d3b3d98f0519cf4441f42898a24bc.json",
+    "conflict": null
+  },
+  "next_task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "next_step_id": "S5",
+  "next_route": "review-change",
+  "next_mode": null,
+  "next_action": "review-step",
+  "selection": {
+    "requested_task_ref": "TASK-20260832",
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "status": "resolved",
+    "detail_request": {
+      "detail": "task",
+      "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "workflow_home": "docs/workflow"
+    },
+    "requested_step_id": "S5",
+    "step_status": "resolved"
+  },
+  "health": "needs-attention",
+  "state_completeness": "partial-associations",
+  "records_scanned": 289,
+  "projection": {
+    "cache": "current",
+    "display": "current",
+    "read_only_rebuilt": true
+  },
+  "recovery_options": [
+    "rebuild",
+    "link",
+    "correct",
+    "resolve",
+    "defer",
+    "pause",
+    "close"
+  ],
+  "issues": [
+    {
+      "id": "issue-acce7d78ceebab4ab85bca99",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-bb8b7308bc64f7d580f3cfae",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-ec19a134aefeb23287cb519b",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "message": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "unassociated_records": [
+    {
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "reason": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "task_count": 6,
+  "lifecycle_counts": {
+    "closed": 5,
+    "active": 1
+  },
+  "coverage": {
+    "computation": "full-journal-rebuild",
+    "diagnostics": "all",
+    "history": "selected-step-projection-only"
+  },
+  "note": "Presentation of the complete live rebuild. Omitted detail is not absent history, clean review or permission. Read record refs with read; use detail=full for the compatibility view.",
+  "task": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "display_id": "TASK-20260832",
+    "lifecycle": "active",
+    "adopted_plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+    "legacy_plan_ref": null
+  },
+  "step": {
+    "id": "S5",
+    "title": "通过真实宿主分别验证普通、分支和委派历史保存",
+    "environment": [
+      "已确认的修复版 Node/Rust 与原持久根",
+      "真实 Codex 宿主正式聊天/原生 Branch 入口",
+      "真实委派旧 A 或已确认的有界新样本"
+    ],
+    "actions": [
+      "先确认服务归属、单例、持久根、版本、无无关在途作业；记录 source 与旧 canonical 基线。",
+      "普通 N 通过正常聊天入口产生真正 user turn，核实原生 source 形状，不能用 create_thread/send_message 委派载体替代。当前工具不能安全发普通输入时，明确需要人完成一次输入，不伪造样本。",
+      "N 完成后原生 Branch C，完成 C 自身有界回合，核对继承与新增内容，原 N 不受污染。",
+      "委派 D 优先由正常历史入口重新处理仍存在的旧 A；旧运行记录保留。不能直接写 DB/调用 Rust/删 receipt 或手动制造 source。",
+      "逐项定位正文和有限工具详情的 source、staging、complete/checkpoint、产品 publication；保存安全摘要，未通过的项保持 failed/partial。"
+    ],
+    "validation": [
+      "H1/H2/H3 分别有真实成功或明确仍失败，三项互不代替。",
+      "N/C/D 产品库有内容且正确对应各自身份；合法消息与详情应保留字段匹配。",
+      "原 source 外部只读，原 F/其他 canonical 与失败证据不被破坏。"
+    ],
+    "outputs": [
+      "三场景真实保存证据与剩余问题",
+      "供手机验收的 conversation/item/detail 身份和产品来源索引"
+    ],
+    "state": "executed",
+    "legacy_step_status": null,
+    "execution_ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+    "execution": {
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S5",
+      "mode": "default",
+      "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+      "decision_ref": ".workflow-system/records/events/key-b8f7243b9f59b8e74db73e3d4104b0b53010d79888eed4feac3ba6f9bfd035e5.json",
+      "decision_interpretation_ref": ".workflow-system/records/events/key-764e1691f6d37f017d61893bdeac5945fb205666dbc287d15ad360f8bdae2e1f.json",
+      "decision_source": "Current direct human execute-step request",
+      "decision_text": "补最小修复并重验 A",
+      "result": "Requested minimal UTF8 receiver repair and original-root A revalidation complete; S5 three natural scenarios now have server product save/read evidence. Pending change review, separate finish, and S6 phone acceptance.",
+      "summary": {
+        "change": "Generation-local StringDecoder for stdout Buffers; reject stale child before decode; 3 existing-suite regression tests; no shared contract/limits/schema/Rust/IPC/Android changes.",
+        "tests": "Old receiver 2fail/1pass; fixed added tests3/3 and collector+recovery138/138; no formal independent review.",
+        "A": "Old delegated A canonical40items9details; normal original-root singleton startup consumed retained intent, batch1/positive receipt1 and complete checkpoint consistent with batch; product_db body/all details64/64 checks and source/protection36/36.",
+        "three_scenarios": "Reuse exact prior N11items2details and native C22items4details body/tool/inheritance evidence; both canonical digests preserved. A uses real old source, 3 delegated system rows, 9 tools, no new model turn.",
+        "limits": "Long tool output retains existing UTF8-safe64KiB prefix and marker; all published text no U+FFFD. B/Q budget failures and intents retained.",
+        "protection": "N/C/D/F source window hashes unchanged; old canonical digests and all56oldrun hashes unchanged. Service restored stopped, no residual collector.",
+        "management": "Initial same-plan scope decision association unresolved; actual causal correction applied, view updated, S1-S4 retained, old3gaps remain. No business replay."
+      },
+      "commands": [
+        {
+          "command": "node --test --test-reporter=tap --test-name-pattern=target stdout UTF8 tests/codexRolloutCollector.test.js",
+          "result": "before2fail/1pass; after3/3 exit0",
+          "report_ref": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after-result.json"
+        },
+        {
+          "command": "node --test --test-reporter=tap tests/codexRolloutCollector.test.js tests/codexRolloutCollector.recovery.test.js",
+          "result": "138/138 exit0",
+          "report_ref": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression-result.json"
+        },
+        {
+          "command": "local-dev-server-control start/stop -ProjectRoot .; original persistent root/fixed existing Rust executable/range switch",
+          "result": "normal existing intent A publication; no direct Rust, data mutation by diagnostic client or debug preload"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s5/utf8-repair-20261008/read-all.cjs A; node logs/history-save-repair-20261005/s5/utf8-repair-20261008/checks.cjs; S5 inspect.cjs read-only summaries",
+          "result": "Gateway64/64 and source/protection36/36; diagnostic in-memory ACK only, no Android durable ACK"
+        },
+        {
+          "command": "validate-change-record.ps1 and validate-req.ps1 -ProjectRoot . -Strict; git diff --check",
+          "result": "PASS; no commit"
+        }
+      ],
+      "remaining_work": [
+        "review-change current832/S5 execution and explicit finish remain pending",
+        "S6 actual phone durable commitACK/switch/reopen/body/tool details not run; do not infer from server diagnosticACK",
+        "REQ in_progress/newCR draftTBD; B/Q budget limitations and original failures retained",
+        "No Git, close, deployment or device operation authorized/performed; 833 closed and S1-S4 finished unchanged"
+      ],
+      "files": [
+        "src/services/codexRolloutCollector/analyzerProcessManager.js",
+        "tests/codexRolloutCollector.test.js",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/report.md",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/test-before.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after-result.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression-result.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/run-tests.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/read-all.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/a-read-all.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/checks.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/self-check.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-start.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-stop.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/link-decision.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/correct-decision.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision-correction-input.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/record-execution.cjs",
+        "logs/history-save-repair-20261005/s5/repair-baseline-20261008.json",
+        "logs/history-save-repair-20261005/s5/repair-startup-20261008.json",
+        "logs/history-save-repair-20261005/s5/repair-after-20261008.json",
+        "logs/history-save-repair-20261005/s5/repair-final-20261008.json",
+        "logs/history-save-repair-20261005/s5/inspect.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/scope.md"
+      ],
+      "ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+      "interpretation_ref": null
+    },
+    "review_ref": null,
+    "review_status": "not-reviewed",
+    "findings": [],
+    "review_choice": null,
+    "review_decision_ref": null,
+    "review_decisions": [],
+    "tests": [],
+    "disposition_ref": null,
+    "historical_execution_refs": []
+  },
+  "review": null,
+  "detail_request": {
+    "detail": "task",
+    "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "workflow_home": "docs/workflow"
+  }
+}
+

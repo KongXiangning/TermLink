@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T16:22:57.385Z",
+  "payload_sha256": "23bd5f06825a655c9140b261924ae156cff3a042aa3993f4935531eca6dc8a84",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260832-S5-C-live-UTF8-diagnosis-execution-20261008-v1",
+    "request": {
+      "action": "execution",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S5",
+      "mode": "default",
+      "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+      "result": "partial: new native C own ordinary turn canonical product_db body/details/inheritance verified; N/old history protected; real old A failure localized to Node UTF8 chunk decoding, minimal production repair scope prepared awaiting one actual scope decision",
+      "decision_source": "Current human: C 完成，继续 S5; prior adopted root/normal startup/bounded test effects reused",
+      "summary": {
+        "C": "22 items/4 details, product_db complete page/details27/27, source/inheritance/own native tool/body/canonical old history evidence17/17",
+        "D": "Live checkpoint/batch differ only two large tool output strings; actual source no U+FFFD, staged corresponding strings2/3 U+FFFD. Pure current _consumeStdout/parseLine whole bytes intact vs split UTF8 emoji changes content. Producer profile v2, no old v1 anchor/recovery explanation.",
+        "scope": "Read-only diagnosis and normal product entries; no production code, tests, shared contracts, Rust/vendor, default limits, DB schema, IPC, Android or Git/deploy changed. Proposed analyzerProcessManager.js + existing collector tests await chosen scope.",
+        "environment": "Same original root and one normal npm/nodemon/src/server.js chain; two starts for C and corrected live expression, no direct Rust calls or second collector; initial stopped environment restored; normal new transport session retained.",
+        "qualification": "No formal/independent review, finish, close, phone or App ACK; diagnostics are not product unit-test counts. DebugMCP no-session and initial inspector evaluation failure/expired WS/validator wrong-default-root failures retained."
+      },
+      "commands": [
+        {
+          "command": "Codex app read_thread exact C",
+          "result": "own ordinary completed turn verified"
+        },
+        {
+          "command": "normal local-dev-server-control start/stop -ProjectRoot . original root/analyzer env; Node inspector preload guard only src/server.js",
+          "result": "bounded conditional breakpoint on current A; clean detach, stopped restore"
+        },
+        {
+          "command": "select/product-read C via original session then normal new session",
+          "result": "old session frames absent/time out retained; new session healthy surface/C canonical22items4details/product_db27checks pass"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s5/resume-20261008/inspect-live.cjs",
+          "result": "first diagnostic expression failed; corrected live-reducer-diff confirms2tool output differences"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s5/resume-20261008/utf8-repro.cjs",
+          "result": "same JSONL bytes whole exact, split emoji4U+FFFD mismatch; no spawn"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s5/resume-20261008/checks.cjs",
+          "result": "17/17 C/source/49oldrun/oldcanonical protection evidence"
+        },
+        {
+          "command": "validate-change-record.ps1 -ProjectRoot . -RecordPath docs/changes/records/CR-20261008-0022-branch-validation-utf8-diagnosis.md -Strict",
+          "result": "PASS after default root .agents false path failure; original failure retained in report"
+        },
+        {
+          "command": "git diff --check",
+          "result": "PASS; CRLF warnings only"
+        }
+      ],
+      "remaining_work": [
+        "Pending actual scope decision on small Node UTF8 receiving fix and existing tests; no inferred consent or changed adopted implementation scope",
+        "After chosen repair, original-root A publication and body/details/retention/source integrity revalidation; old A still absent/intent retained",
+        "S5 review and explicit finish remain; S6 phone durable ACK/switch/reopen not run",
+        "REQ in_progress, new CR draft/TBD, no Git operation;3old management gaps retained"
+      ],
+      "files": [
+        "logs/history-save-repair-20261005/s5/resume-20261008/c-checks.json",
+        "logs/history-save-repair-20261005/s5/resume-20261008/c-product-read.json",
+        "logs/history-save-repair-20261005/s5/resume-20261008/c-selection.json",
+        "logs/history-save-repair-20261005/s5/resume-20261008/checks.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/debug-server.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/inspect-live.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/inspector-failure.json",
+        "logs/history-save-repair-20261005/s5/resume-20261008/inspector-preload.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/live-reducer-diff.json",
+        "logs/history-save-repair-20261005/s5/resume-20261008/product-read.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/record-execution.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/report.md",
+        "logs/history-save-repair-20261005/s5/resume-20261008/scope.md",
+        "logs/history-save-repair-20261005/s5/resume-20261008/select.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/service-debug-restart.txt",
+        "logs/history-save-repair-20261005/s5/resume-20261008/service-start.txt",
+        "logs/history-save-repair-20261005/s5/resume-20261008/utf8-live-corruption.json",
+        "logs/history-save-repair-20261005/s5/resume-20261008/utf8-repro.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/utf8-repro.json",
+        "logs/history-save-repair-20261005/s5/resume-baseline-20261008.json",
+        "logs/history-save-repair-20261005/s5/resumed-state-20261008.json",
+        "logs/history-save-repair-20261005/s5/resume-final-20261008.json",
+        "logs/history-save-repair-20261005/s5/c-resume-20261008-selection.json",
+        "logs/history-save-repair-20261005/s5/c-resume-20261008-product-read.json",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261008-0022-branch-validation-utf8-diagnosis.md"
+      ],
+      "idempotency_key": "task20260832-S5-C-live-UTF8-diagnosis-execution-20261008-v1"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/s5/resume-20261008/c-checks.json",
+      "logs/history-save-repair-20261005/s5/resume-20261008/c-product-read.json",
+      "logs/history-save-repair-20261005/s5/resume-20261008/c-selection.json",
+      "logs/history-save-repair-20261005/s5/resume-20261008/checks.cjs",
+      "logs/history-save-repair-20261005/s5/resume-20261008/debug-server.cjs",
+      "logs/history-save-repair-20261005/s5/resume-20261008/inspect-live.cjs",
+      "logs/history-save-repair-20261005/s5/resume-20261008/inspector-failure.json",
+      "logs/history-save-repair-20261005/s5/resume-20261008/inspector-preload.cjs",
+      "logs/history-save-repair-20261005/s5/resume-20261008/live-reducer-diff.json",
+      "logs/history-save-repair-20261005/s5/resume-20261008/product-read.cjs",
+      "logs/history-save-repair-20261005/s5/resume-20261008/record-execution.cjs",
+      "logs/history-save-repair-20261005/s5/resume-20261008/report.md",
+      "logs/history-save-repair-20261005/s5/resume-20261008/scope.md",
+      "logs/history-save-repair-20261005/s5/resume-20261008/select.cjs",
+      "logs/history-save-repair-20261005/s5/resume-20261008/service-debug-restart.txt",
+      "logs/history-save-repair-20261005/s5/resume-20261008/service-start.txt",
+      "logs/history-save-repair-20261005/s5/resume-20261008/utf8-live-corruption.json",
+      "logs/history-save-repair-20261005/s5/resume-20261008/utf8-repro.cjs",
+      "logs/history-save-repair-20261005/s5/resume-20261008/utf8-repro.json",
+      "logs/history-save-repair-20261005/s5/resume-baseline-20261008.json",
+      "logs/history-save-repair-20261005/s5/resumed-state-20261008.json",
+      "logs/history-save-repair-20261005/s5/resume-final-20261008.json",
+      "logs/history-save-repair-20261005/s5/c-resume-20261008-selection.json",
+      "logs/history-save-repair-20261005/s5/c-resume-20261008-product-read.json",
+      "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "docs/changes/records/CR-20261008-0022-branch-validation-utf8-diagnosis.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-abe07ca136dfe6172d3e6ab2c443d5b54c5d7ef66e0c571b228a5cebb25ad16b.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S5",
+        "mode": "default",
+        "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+        "result": "partial: new native C own ordinary turn canonical product_db body/details/inheritance verified; N/old history protected; real old A failure localized to Node UTF8 chunk decoding, minimal production repair scope prepared awaiting one actual scope decision",
+        "decision_source": "Current human: C 完成，继续 S5; prior adopted root/normal startup/bounded test effects reused",
+        "summary": {
+          "C": "22 items/4 details, product_db complete page/details27/27, source/inheritance/own native tool/body/canonical old history evidence17/17",
+          "D": "Live checkpoint/batch differ only two large tool output strings; actual source no U+FFFD, staged corresponding strings2/3 U+FFFD. Pure current _consumeStdout/parseLine whole bytes intact vs split UTF8 emoji changes content. Producer profile v2, no old v1 anchor/recovery explanation.",
+          "scope": "Read-only diagnosis and normal product entries; no production code, tests, shared contracts, Rust/vendor, default limits, DB schema, IPC, Android or Git/deploy changed. Proposed analyzerProcessManager.js + existing collector tests await chosen scope.",
+          "environment": "Same original root and one normal npm/nodemon/src/server.js chain; two starts for C and corrected live expression, no direct Rust calls or second collector; initial stopped environment restored; normal new transport session retained.",
+          "qualification": "No formal/independent review, finish, close, phone or App ACK; diagnostics are not product unit-test counts. DebugMCP no-session and initial inspector evaluation failure/expired WS/validator wrong-default-root failures retained."
+        },
+        "commands": [
+          {
+            "command": "Codex app read_thread exact C",
+            "result": "own ordinary completed turn verified"
+          },
+          {
+            "command": "normal local-dev-server-control start/stop -ProjectRoot . original root/analyzer env; Node inspector preload guard only src/server.js",
+            "result": "bounded conditional breakpoint on current A; clean detach, stopped restore"
+          },
+          {
+            "command": "select/product-read C via original session then normal new session",
+            "result": "old session frames absent/time out retained; new session healthy surface/C canonical22items4details/product_db27checks pass"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s5/resume-20261008/inspect-live.cjs",
+            "result": "first diagnostic expression failed; corrected live-reducer-diff confirms2tool output differences"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s5/resume-20261008/utf8-repro.cjs",
+            "result": "same JSONL bytes whole exact, split emoji4U+FFFD mismatch; no spawn"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s5/resume-20261008/checks.cjs",
+            "result": "17/17 C/source/49oldrun/oldcanonical protection evidence"
+          },
+          {
+            "command": "validate-change-record.ps1 -ProjectRoot . -RecordPath docs/changes/records/CR-20261008-0022-branch-validation-utf8-diagnosis.md -Strict",
+            "result": "PASS after default root .agents false path failure; original failure retained in report"
+          },
+          {
+            "command": "git diff --check",
+            "result": "PASS; CRLF warnings only"
+          }
+        ],
+        "remaining_work": [
+          "Pending actual scope decision on small Node UTF8 receiving fix and existing tests; no inferred consent or changed adopted implementation scope",
+          "After chosen repair, original-root A publication and body/details/retention/source integrity revalidation; old A still absent/intent retained",
+          "S5 review and explicit finish remain; S6 phone durable ACK/switch/reopen not run",
+          "REQ in_progress, new CR draft/TBD, no Git operation;3old management gaps retained"
+        ],
+        "files": [
+          "logs/history-save-repair-20261005/s5/resume-20261008/c-checks.json",
+          "logs/history-save-repair-20261005/s5/resume-20261008/c-product-read.json",
+          "logs/history-save-repair-20261005/s5/resume-20261008/c-selection.json",
+          "logs/history-save-repair-20261005/s5/resume-20261008/checks.cjs",
+          "logs/history-save-repair-20261005/s5/resume-20261008/debug-server.cjs",
+          "logs/history-save-repair-20261005/s5/resume-20261008/inspect-live.cjs",
+          "logs/history-save-repair-20261005/s5/resume-20261008/inspector-failure.json",
+          "logs/history-save-repair-20261005/s5/resume-20261008/inspector-preload.cjs",
+          "logs/history-save-repair-20261005/s5/resume-20261008/live-reducer-diff.json",
+          "logs/history-save-repair-20261005/s5/resume-20261008/product-read.cjs",
+          "logs/history-save-repair-20261005/s5/resume-20261008/record-execution.cjs",
+          "logs/history-save-repair-20261005/s5/resume-20261008/report.md",
+          "logs/history-save-repair-20261005/s5/resume-20261008/scope.md",
+          "logs/history-save-repair-20261005/s5/resume-20261008/select.cjs",
+          "logs/history-save-repair-20261005/s5/resume-20261008/service-debug-restart.txt",
+          "logs/history-save-repair-20261005/s5/resume-20261008/service-start.txt",
+          "logs/history-save-repair-20261005/s5/resume-20261008/utf8-live-corruption.json",
+          "logs/history-save-repair-20261005/s5/resume-20261008/utf8-repro.cjs",
+          "logs/history-save-repair-20261005/s5/resume-20261008/utf8-repro.json",
+          "logs/history-save-repair-20261005/s5/resume-baseline-20261008.json",
+          "logs/history-save-repair-20261005/s5/resumed-state-20261008.json",
+          "logs/history-save-repair-20261005/s5/resume-final-20261008.json",
+          "logs/history-save-repair-20261005/s5/c-resume-20261008-selection.json",
+          "logs/history-save-repair-20261005/s5/c-resume-20261008-product-read.json",
+          "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+          "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+          "docs/changes/records/CR-20261008-0022-branch-validation-utf8-diagnosis.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

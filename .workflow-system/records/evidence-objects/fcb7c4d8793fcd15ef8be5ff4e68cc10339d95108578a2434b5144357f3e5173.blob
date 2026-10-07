@@ -1,0 +1,29 @@
+# 832/S5 2026-10-08续执行
+
+用户“C 完成，继续 S5”。HEAD32c6b66179ac314321540fab3b0a82b56050e317，binary仍f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e。当前partial，C已通过，A未发布；未正式review、finish、close或执行S6。
+
+## C真实保存
+
+原生C=01a114a4-e693-7be1-aafb-b9a3cb580e1d，自身普通turn=01a1171c-81c8-7fc0-ab9c-d5f4e3cf3890、command=exec-9a26614e-6fb8-4040-aaf6-aa7e4f8d03a9、exit0/duration133ms/marker TL832-S5-C-20261007。宿主completed；source SessionMeta/C/history_base N/27records/163403bytes保持，N后增settings记录位于切点外，旧前缀hash仍50070eec...。
+
+复用原持久根服务，旧验证session过期导致初次空帧/读回timeout，脚本原未记录close code，不能仅据空帧证明服务故障。当前data/sessions正常状态和新/api/sessions session=ee975b87-42dc-47e7-8571-0bb9533e220f连接后healthy目标surface、正常scheduler发布C。没有模型输入或直接Rust请求。
+
+C产品库canonical/coverageComplete22项4详情、完整checkpoint/receipt；Gateway product_db整页22项且无older cursor，所有payload版本hash/4详情hash及字节27/27。继承N11项payloadJson逐项原样、两份N详情内容/hash相同；C新命令input command/cwd和output status/exit/duration/正文精确匹配source，C最终回复精确存在。N无Cmarker且canonical digest不变；F与旧分支也保持。17/17独立证据检查。不是手机durable ACK或长输出验收。
+
+## A失败诊断
+
+原A仍未发布、intent保持，新v2 canonical batch/receipt后complete严格校验拒绝。live-reducer-diff.json实际Node断点限定A，job-cd0b22cb-475f-4ae7-8017-1e6257b6047a、batch-44b27aa490af20523515e721bddcf107；唯一差异reducer_state.payload.reducer.projection.turns.0.items.{3,4}.tool.output，checkpoint/batch长度38609/38610和61838/61840。profile/version均v2。当前source无U+FFFD，新暂存对应输出有2/3个U+FFFD。
+
+当前接收实现analyzerProcessManager.js:797逐块String(chunk)没有UTF8跨块状态。utf8-repro.json实际_consumeStdout/parseLine纯函数对相同合法JSONL字节：整包20UTF16长度精确，emoji第1字节拆开后22长/4替代字符。工具大输出含汉字/emoji，batch与complete不同块边界产生不同损坏，严格归约比较拒绝；不是需要删checkpoint或放松比较。精确修复候选和回归见scope.md。
+
+DebugMCP加断点后start未建立会话，查询no-session/无进程，调用stop/clear撤销，延迟launcher已显式disabled；初start函数cell因无返回已终止。Node inspector通过仅src/server.js的ignored预加载文件在正常npm/nodemon链上停启动，挂现有文件条件断点后恢复正常intent。首次断点求值使用require不可用，diagnostic evaluation failed结果保留；只读求值改形状后捕获成功，断点移除/resume/disable/disconnect。没有生产临时日志、第二服务/collector、Rust直接读取或状态改写。调试协议参考官方CDP Debugger/Runtime文档；Node文档工具返回404也保留为工具失败。
+
+## 环境与边界
+
+开始服务停止、49旧run无在途；原root logs/task005-s2-repair-runtime-2、旧限额和既有修复binary。两次正常启动用于C与修正断点求值；原失败intent启动恢复自然保留B/Q预算失败。当前56run无在途、原49run逐hash不变。所有N/C/D/F source窗口hash不变，F/N/旧C canonical digest不变。原C一次普通回合由人完成，本轮无额外模型回合、手机、Git或deploy。
+
+结束服务恢复停止，3010无listener、repo tracked process0、collector无残留。停止时npm PID71984已自然退出产生warning，随后状态确认0；不当作仍存活。原正常数据/新session保留，没清理source/DB/receipt/失败run。raw wire/inspector endpoint仅private ignored，不作workflow附件。
+
+## 下一步
+
+待本轮一次范围选择：S5原采纳只验证，新增生产接收修复文件不在已明确实施清单。候选仅Node UTF8 decoder和既有测试，不涉及新共享契约/迁移。暂未改生产代码或宣称A通过；完成选择后按选定范围继续，不重跑已完成S4。REQ/PLAN/newCR同步；旧管理3条关联缺口保留。next_route execute-step/default在范围确认后继续；可先review-change当前partial证据。

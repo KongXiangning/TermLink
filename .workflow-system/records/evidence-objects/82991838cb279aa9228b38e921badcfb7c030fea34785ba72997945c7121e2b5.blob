@@ -1,0 +1,82 @@
+{
+  "at": "2026-10-07T04:41:43.447Z",
+  "checks": [
+    {
+      "name": "protected file native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+      "passed": true
+    },
+    {
+      "name": "protected file native/codex-rollout-compat-spike/vendor/codex/Cargo.lock",
+      "passed": true
+    },
+    {
+      "name": "readonly source N",
+      "passed": true
+    },
+    {
+      "name": "readonly source D",
+      "passed": true
+    },
+    {
+      "name": "readonly source F",
+      "passed": true
+    },
+    {
+      "name": "F canonical items/details retained",
+      "passed": true
+    },
+    {
+      "name": "all old run records byte preserved",
+      "passed": true
+    },
+    {
+      "name": "N published separately",
+      "passed": true
+    },
+    {
+      "name": "N complete coverage",
+      "passed": true
+    },
+    {
+      "name": "N no C marker",
+      "passed": true
+    },
+    {
+      "name": "D retained absent",
+      "passed": true
+    },
+    {
+      "name": "D durable intent retained",
+      "passed": true
+    },
+    {
+      "name": "N product complete page",
+      "passed": true
+    },
+    {
+      "name": "N exactly one ordinary request",
+      "passed": true
+    },
+    {
+      "name": "N native source no delegation",
+      "passed": true
+    },
+    {
+      "name": "N native command detail identity/output",
+      "passed": true
+    },
+    {
+      "name": "N final body exact",
+      "passed": true
+    }
+  ],
+  "passed": 17,
+  "total": 17,
+  "session_file": {
+    "before": "17f0f543790b8c22bc072346ecdfcc5ccee72ddfc7db80489cacb3070d8914cb",
+    "after": "b596aaf12d385f390df882a29daffbbb80562e573541d1ca6595f9849d614da6",
+    "qualification": "Authorized normal new validation session and binding changed durable session metadata; original empty list is not restored/deleted."
+  },
+  "correction": "Initial self-check retained: session metadata naturally changed; coverage uses canonical/coverageComplete; native duration is secs/nanos. Assertions corrected against observed schema, no business tests repeated.",
+  "qualification": "Evidence self-check, not product test count or formal review. C own turn and phone checks still pending. D remains failed; no new delegated replacement sample."
+}

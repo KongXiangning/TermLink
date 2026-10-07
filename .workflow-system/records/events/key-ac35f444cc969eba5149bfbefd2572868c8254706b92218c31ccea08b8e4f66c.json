@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T16:57:10.930Z",
+  "payload_sha256": "d906c32b0a0b9218149aeda20660604e9243a379dfd3074fb8a0659d9ef88fc5",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task832-S5-UTF8-repair-review-change-20261008-v1",
+    "request": {
+      "action": "review",
+      "stage": "change",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S5",
+      "execution_ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+      "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+      "verdict": "clean",
+      "findings": [],
+      "coverage": [
+        "Exact latest832/S5 execution source/test/docs snapshots;28fixed/live hashes match; one missing optional stop log retained with actual later stopped observation",
+        "Node stdout pipe/UTF8/JSONL/validation/message/process lifecycle and stale child callchain; no changes to ACK/complete/checkpoint equality or shared contracts",
+        "Old negative2fail/1pass, fixed3/3 and collector+recovery138/138 real output reused; three tests cover split bytes/large messages/restart isolation; natural A verifies batch/complete product path",
+        "Real A original-root intent/batch/positive receipt/consistent checkpoint/canonical40items9details; Gateway64checks private wire hash verified; repeated read-only source/protection36/36",
+        "Prior real ordinaryN and nativeC own-turn/inheritance evidence reused; unchanged canonical digests; three scenarios separately qualified at server product layer",
+        "64KiB retention/oldfailures/BQbudgets/3legacy management gaps preserved; no phone, independent review, commit, finish or close"
+      ],
+      "provenance": {
+        "kind": "same-agent-change-self-review",
+        "reviewer": "Codex /root",
+        "independent": false,
+        "new_product_tests_run": false,
+        "assessment": "Read-only actual code/callchain/snapshot/wire/source evidence review; saved test output reused. Source/protection evidence checks rerun read-only; no service/device/model effects."
+      },
+      "remaining_work": [
+        "SeparateS5finish disposition;832active/currentS5;S1-S4remainfinished/833closed",
+        "S6 actualphone durablecommitACK/switch/reopen/body/tools notrun;diagnosticACK notsubstitute",
+        "REQin_progress/newCRdraftTBD;oldfailures/BQbudgets/3historyassociationgaps andoptionalstoplogENOENT retained"
+      ],
+      "files": [
+        "logs/history-save-repair-20261005/s5/review-utf8-20261008/review-change.md",
+        "logs/history-save-repair-20261005/s5/review-utf8-20261008/audit.cjs",
+        "logs/history-save-repair-20261005/s5/review-utf8-20261008/audit.json",
+        "logs/history-save-repair-20261005/s5/review-utf8-20261008/review-diff.txt",
+        "logs/history-save-repair-20261005/s5/review-utf8-20261008/status-before.json",
+        "logs/history-save-repair-20261005/s5/review-utf8-20261008/record-review.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/review-source-checks-20261008.json",
+        "src/services/codexRolloutCollector/analyzerProcessManager.js",
+        "tests/codexRolloutCollector.test.js",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md"
+      ],
+      "idempotency_key": "task832-S5-UTF8-repair-review-change-20261008-v1"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/s5/review-utf8-20261008/review-change.md",
+      "logs/history-save-repair-20261005/s5/review-utf8-20261008/audit.cjs",
+      "logs/history-save-repair-20261005/s5/review-utf8-20261008/audit.json",
+      "logs/history-save-repair-20261005/s5/review-utf8-20261008/review-diff.txt",
+      "logs/history-save-repair-20261005/s5/review-utf8-20261008/status-before.json",
+      "logs/history-save-repair-20261005/s5/review-utf8-20261008/record-review.cjs",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/review-source-checks-20261008.json",
+      "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "tests/codexRolloutCollector.test.js",
+      "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "review",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S5",
+        "execution_ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+        "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+        "verdict": "clean",
+        "findings": [],
+        "coverage": [
+          "Exact latest832/S5 execution source/test/docs snapshots;28fixed/live hashes match; one missing optional stop log retained with actual later stopped observation",
+          "Node stdout pipe/UTF8/JSONL/validation/message/process lifecycle and stale child callchain; no changes to ACK/complete/checkpoint equality or shared contracts",
+          "Old negative2fail/1pass, fixed3/3 and collector+recovery138/138 real output reused; three tests cover split bytes/large messages/restart isolation; natural A verifies batch/complete product path",
+          "Real A original-root intent/batch/positive receipt/consistent checkpoint/canonical40items9details; Gateway64checks private wire hash verified; repeated read-only source/protection36/36",
+          "Prior real ordinaryN and nativeC own-turn/inheritance evidence reused; unchanged canonical digests; three scenarios separately qualified at server product layer",
+          "64KiB retention/oldfailures/BQbudgets/3legacy management gaps preserved; no phone, independent review, commit, finish or close"
+        ],
+        "provenance": {
+          "kind": "same-agent-change-self-review",
+          "reviewer": "Codex /root",
+          "independent": false,
+          "new_product_tests_run": false,
+          "assessment": "Read-only actual code/callchain/snapshot/wire/source evidence review; saved test output reused. Source/protection evidence checks rerun read-only; no service/device/model effects."
+        },
+        "remaining_work": [
+          "SeparateS5finish disposition;832active/currentS5;S1-S4remainfinished/833closed",
+          "S6 actualphone durablecommitACK/switch/reopen/body/tools notrun;diagnosticACK notsubstitute",
+          "REQin_progress/newCRdraftTBD;oldfailures/BQbudgets/3historyassociationgaps andoptionalstoplogENOENT retained"
+        ],
+        "files": [
+          "logs/history-save-repair-20261005/s5/review-utf8-20261008/review-change.md",
+          "logs/history-save-repair-20261005/s5/review-utf8-20261008/audit.cjs",
+          "logs/history-save-repair-20261005/s5/review-utf8-20261008/audit.json",
+          "logs/history-save-repair-20261005/s5/review-utf8-20261008/review-diff.txt",
+          "logs/history-save-repair-20261005/s5/review-utf8-20261008/status-before.json",
+          "logs/history-save-repair-20261005/s5/review-utf8-20261008/record-review.cjs",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/review-source-checks-20261008.json",
+          "src/services/codexRolloutCollector/analyzerProcessManager.js",
+          "tests/codexRolloutCollector.test.js",
+          "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+          "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+          "docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

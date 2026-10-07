@@ -849,6 +849,75 @@ test('target hello advertises canonical capabilities and normalizes only the old
     );
 });
 
+test('target stdout UTF8 preserves every byte split through the actual JSONL receiver', () => {
+    const expected = createError({
+        requestId: 'utf8-splits', code: 'analysis_failed',
+        message: '正文汉字🙂é; stdout \r\n detail', retryable: false, fatal: false
+    });
+    const bytes = Buffer.from(`${JSON.stringify(expected)}\n`);
+    for (let split = 1; split < bytes.length; split += 1) {
+        const manager = new AnalyzerProcessManager({ analyzerPath: process.execPath });
+        const messages = [];
+        manager.on('message', (message) => messages.push(message));
+        manager._consumeStdout(bytes.subarray(0, split));
+        assert.equal(messages.length, 0, 'an unfinished JSONL message must not be dispatched');
+        manager._consumeStdout(bytes.subarray(split));
+        assert.deepEqual(messages, [expected], `UTF8 split at byte ${split}`);
+    }
+});
+
+test('target stdout UTF8 keeps large multi-line deliveries intact across pipe chunks', () => {
+    const manager = new AnalyzerProcessManager({ analyzerPath: process.execPath });
+    const messages = [];
+    manager.on('message', (message) => messages.push(message));
+    const expected = [0, 1].map((index) => createError({
+        requestId: `utf8-large-${index}`, code: 'analysis_failed',
+        message: '汉字🙂é\r\n'.repeat(12000), retryable: false, fatal: false
+    }));
+    const bytes = Buffer.from(expected.map((message) => JSON.stringify(message)).join('\r\n') + '\n');
+    for (let start = 0; start < bytes.length; start += 65533) {
+        manager._consumeStdout(bytes.subarray(start, start + 65533));
+    }
+    assert.deepEqual(messages, expected);
+    // Existing string-emitting test transports continue to use the same receiver.
+    manager._consumeStdout(`${JSON.stringify(expected[0])}\n`);
+    assert.deepEqual(messages, [...expected, expected[0]]);
+});
+
+test('target stdout UTF8 discards partial characters and late bytes across process restart', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-utf8-generation-'));
+    const children = [];
+    const manager = new AnalyzerProcessManager({
+        analyzerPath: process.execPath, env: { CODEX_HOME: root },
+        spawnImpl: () => {
+            const child = createSyntheticAnalyzerChild({ exitOnKill: true });
+            children.push(child);
+            setImmediate(() => child.emit('spawn'));
+            return child;
+        }
+    });
+    t.after(async () => {
+        await manager.stop();
+        await fs.promises.rm(root, { recursive: true, force: true });
+    });
+    const errors = [];
+    manager.on('message', (message) => {
+        if (message.message_type === 'error') errors.push(message);
+    });
+    await manager.start();
+    const emoji = Buffer.from('🙂');
+    children[0].stdout.emit('data', emoji.subarray(0, 1));
+    await manager.stop();
+    await manager.start();
+    const expected = createError({ requestId: 'utf8-new-generation', code: 'analysis_failed',
+        message: '新进程汉字🙂é', retryable: false, fatal: false });
+    // A detached child's callback still has the old process scope.
+    children[0].stdout.emit('data', emoji.subarray(1));
+    children[0].stdout.emit('data', `${JSON.stringify(expected)}\n`);
+    children[1].stdout.emit('data', Buffer.from(`${JSON.stringify(expected)}\n`));
+    assert.deepEqual(errors, [expected]);
+});
+
 test('target startup resolves CODEX_HOME and builds the fixed sessions-root args', async (t) => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-target-startup-config-'));
     t.after(() => fs.promises.rm(root, { recursive: true, force: true }));

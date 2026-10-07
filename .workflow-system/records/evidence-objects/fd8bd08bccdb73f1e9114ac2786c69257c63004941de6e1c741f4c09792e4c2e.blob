@@ -1,0 +1,15 @@
+{
+  "id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+  "label": "d",
+  "at": "2026-10-07T04:37:57.931Z",
+  "checks": [],
+  "app_ack_sent": false,
+  "miss": {
+    "state": "cache_only",
+    "detailCode": "history_product_not_found"
+  },
+  "private_wire": {
+    "bytes": 3202,
+    "sha256": "039ca54403026e58040f75e341a95da39522362f963b4e37fcfaf2eba2ecef91"
+  }
+}

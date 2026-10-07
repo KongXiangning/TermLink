@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T16:44:43.419Z",
+  "payload_sha256": "da63f4b2c63abbaf45f8270cec8295978e814086f81db5d19fe61211567fd654",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task832-S5-user-scope-supplement-association-20261008",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-b8f7243b9f59b8e74db73e3d4104b0b53010d79888eed4feac3ba6f9bfd035e5.json",
+      "event": {
+        "action": "adopt",
+        "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+        "data": {
+          "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+          "activate": false,
+          "focus": false,
+          "decision_source": "Current human explicit execute-step choice",
+          "decision_text": "补最小修复并重验 A",
+          "scope_supplement": {
+            "step_id": "S5",
+            "scope_ref": "logs/history-save-repair-20261005/s5/resume-20261008/scope.md",
+            "files": [
+              "src/services/codexRolloutCollector/analyzerProcessManager.js",
+              "tests/codexRolloutCollector.test.js"
+            ],
+            "action": "repair UTF8 receiver and regression; original-root A revalidation",
+            "preserve": "Same adopted plan identity; S1-S4 dispositions retained. No new plan, task, review, finish or lifecycle switch."
+          }
+        }
+      },
+      "idempotency_key": "task832-S5-user-scope-supplement-association-20261008"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "link",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-19dd68e045a40e76c03d34046984656965a34d4f21ce22b7c7b5a41a3693f51c.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-b8f7243b9f59b8e74db73e3d4104b0b53010d79888eed4feac3ba6f9bfd035e5.json",
+        "event": {
+          "action": "adopt",
+          "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+          "data": {
+            "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+            "activate": false,
+            "focus": false,
+            "decision_source": "Current human explicit execute-step choice",
+            "decision_text": "补最小修复并重验 A",
+            "scope_supplement": {
+              "step_id": "S5",
+              "scope_ref": "logs/history-save-repair-20261005/s5/resume-20261008/scope.md",
+              "files": [
+                "src/services/codexRolloutCollector/analyzerProcessManager.js",
+                "tests/codexRolloutCollector.test.js"
+              ],
+              "action": "repair UTF8 receiver and regression; original-root A revalidation",
+              "preserve": "Same adopted plan identity; S1-S4 dispositions retained. No new plan, task, review, finish or lifecycle switch."
+            }
+          }
+        }
+      }
+    }
+  },
+  "issues": []
+}

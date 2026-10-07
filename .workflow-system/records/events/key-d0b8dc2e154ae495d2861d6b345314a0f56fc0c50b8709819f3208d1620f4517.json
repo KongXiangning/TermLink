@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T16:50:56.041Z",
+  "payload_sha256": "fada9643942b819076afbccc8c863aa63820242c936fd2f0a8ab18bf4c012057",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task832-S5-UTF8-minimal-repair-A-real-revalidation-20261008-v1",
+    "request": {
+      "action": "execution",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S5",
+      "mode": "default",
+      "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+      "decision_ref": ".workflow-system/records/events/key-b8f7243b9f59b8e74db73e3d4104b0b53010d79888eed4feac3ba6f9bfd035e5.json",
+      "decision_interpretation_ref": ".workflow-system/records/events/key-764e1691f6d37f017d61893bdeac5945fb205666dbc287d15ad360f8bdae2e1f.json",
+      "decision_source": "Current direct human execute-step request",
+      "decision_text": "补最小修复并重验 A",
+      "result": "Requested minimal UTF8 receiver repair and original-root A revalidation complete; S5 three natural scenarios now have server product save/read evidence. Pending change review, separate finish, and S6 phone acceptance.",
+      "summary": {
+        "change": "Generation-local StringDecoder for stdout Buffers; reject stale child before decode; 3 existing-suite regression tests; no shared contract/limits/schema/Rust/IPC/Android changes.",
+        "tests": "Old receiver 2fail/1pass; fixed added tests3/3 and collector+recovery138/138; no formal independent review.",
+        "A": "Old delegated A canonical40items9details; normal original-root singleton startup consumed retained intent, batch1/positive receipt1 and complete checkpoint consistent with batch; product_db body/all details64/64 checks and source/protection36/36.",
+        "three_scenarios": "Reuse exact prior N11items2details and native C22items4details body/tool/inheritance evidence; both canonical digests preserved. A uses real old source, 3 delegated system rows, 9 tools, no new model turn.",
+        "limits": "Long tool output retains existing UTF8-safe64KiB prefix and marker; all published text no U+FFFD. B/Q budget failures and intents retained.",
+        "protection": "N/C/D/F source window hashes unchanged; old canonical digests and all56oldrun hashes unchanged. Service restored stopped, no residual collector.",
+        "management": "Initial same-plan scope decision association unresolved; actual causal correction applied, view updated, S1-S4 retained, old3gaps remain. No business replay."
+      },
+      "commands": [
+        {
+          "command": "node --test --test-reporter=tap --test-name-pattern=target stdout UTF8 tests/codexRolloutCollector.test.js",
+          "result": "before2fail/1pass; after3/3 exit0",
+          "report_ref": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after-result.json"
+        },
+        {
+          "command": "node --test --test-reporter=tap tests/codexRolloutCollector.test.js tests/codexRolloutCollector.recovery.test.js",
+          "result": "138/138 exit0",
+          "report_ref": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression-result.json"
+        },
+        {
+          "command": "local-dev-server-control start/stop -ProjectRoot .; original persistent root/fixed existing Rust executable/range switch",
+          "result": "normal existing intent A publication; no direct Rust, data mutation by diagnostic client or debug preload"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s5/utf8-repair-20261008/read-all.cjs A; node logs/history-save-repair-20261005/s5/utf8-repair-20261008/checks.cjs; S5 inspect.cjs read-only summaries",
+          "result": "Gateway64/64 and source/protection36/36; diagnostic in-memory ACK only, no Android durable ACK"
+        },
+        {
+          "command": "validate-change-record.ps1 and validate-req.ps1 -ProjectRoot . -Strict; git diff --check",
+          "result": "PASS; no commit"
+        }
+      ],
+      "remaining_work": [
+        "review-change current832/S5 execution and explicit finish remain pending",
+        "S6 actual phone durable commitACK/switch/reopen/body/tool details not run; do not infer from server diagnosticACK",
+        "REQ in_progress/newCR draftTBD; B/Q budget limitations and original failures retained",
+        "No Git, close, deployment or device operation authorized/performed; 833 closed and S1-S4 finished unchanged"
+      ],
+      "files": [
+        "src/services/codexRolloutCollector/analyzerProcessManager.js",
+        "tests/codexRolloutCollector.test.js",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/report.md",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/test-before.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after-result.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression-result.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/run-tests.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/read-all.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/a-read-all.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/checks.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/self-check.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-start.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-stop.txt",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/link-decision.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/correct-decision.cjs",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision-correction-input.json",
+        "logs/history-save-repair-20261005/s5/utf8-repair-20261008/record-execution.cjs",
+        "logs/history-save-repair-20261005/s5/repair-baseline-20261008.json",
+        "logs/history-save-repair-20261005/s5/repair-startup-20261008.json",
+        "logs/history-save-repair-20261005/s5/repair-after-20261008.json",
+        "logs/history-save-repair-20261005/s5/repair-final-20261008.json",
+        "logs/history-save-repair-20261005/s5/inspect.cjs",
+        "logs/history-save-repair-20261005/s5/resume-20261008/scope.md"
+      ],
+      "idempotency_key": "task832-S5-UTF8-minimal-repair-A-real-revalidation-20261008-v1"
+    },
+    "files": [
+      "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "tests/codexRolloutCollector.test.js",
+      "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/report.md",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/test-before.txt",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after.txt",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after-result.json",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression.txt",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression-result.json",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/run-tests.cjs",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/read-all.cjs",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/a-read-all.json",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/checks.cjs",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/self-check.json",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-start.txt",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-stop.txt",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision.cjs",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/link-decision.cjs",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/correct-decision.cjs",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision-correction-input.json",
+      "logs/history-save-repair-20261005/s5/utf8-repair-20261008/record-execution.cjs",
+      "logs/history-save-repair-20261005/s5/repair-baseline-20261008.json",
+      "logs/history-save-repair-20261005/s5/repair-startup-20261008.json",
+      "logs/history-save-repair-20261005/s5/repair-after-20261008.json",
+      "logs/history-save-repair-20261005/s5/repair-final-20261008.json",
+      "logs/history-save-repair-20261005/s5/inspect.cjs",
+      "logs/history-save-repair-20261005/s5/resume-20261008/scope.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-764e1691f6d37f017d61893bdeac5945fb205666dbc287d15ad360f8bdae2e1f.json",
+        ".workflow-system/records/events/key-b8f7243b9f59b8e74db73e3d4104b0b53010d79888eed4feac3ba6f9bfd035e5.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S5",
+        "mode": "default",
+        "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+        "decision_ref": ".workflow-system/records/events/key-b8f7243b9f59b8e74db73e3d4104b0b53010d79888eed4feac3ba6f9bfd035e5.json",
+        "decision_interpretation_ref": ".workflow-system/records/events/key-764e1691f6d37f017d61893bdeac5945fb205666dbc287d15ad360f8bdae2e1f.json",
+        "decision_source": "Current direct human execute-step request",
+        "decision_text": "补最小修复并重验 A",
+        "result": "Requested minimal UTF8 receiver repair and original-root A revalidation complete; S5 three natural scenarios now have server product save/read evidence. Pending change review, separate finish, and S6 phone acceptance.",
+        "summary": {
+          "change": "Generation-local StringDecoder for stdout Buffers; reject stale child before decode; 3 existing-suite regression tests; no shared contract/limits/schema/Rust/IPC/Android changes.",
+          "tests": "Old receiver 2fail/1pass; fixed added tests3/3 and collector+recovery138/138; no formal independent review.",
+          "A": "Old delegated A canonical40items9details; normal original-root singleton startup consumed retained intent, batch1/positive receipt1 and complete checkpoint consistent with batch; product_db body/all details64/64 checks and source/protection36/36.",
+          "three_scenarios": "Reuse exact prior N11items2details and native C22items4details body/tool/inheritance evidence; both canonical digests preserved. A uses real old source, 3 delegated system rows, 9 tools, no new model turn.",
+          "limits": "Long tool output retains existing UTF8-safe64KiB prefix and marker; all published text no U+FFFD. B/Q budget failures and intents retained.",
+          "protection": "N/C/D/F source window hashes unchanged; old canonical digests and all56oldrun hashes unchanged. Service restored stopped, no residual collector.",
+          "management": "Initial same-plan scope decision association unresolved; actual causal correction applied, view updated, S1-S4 retained, old3gaps remain. No business replay."
+        },
+        "commands": [
+          {
+            "command": "node --test --test-reporter=tap --test-name-pattern=target stdout UTF8 tests/codexRolloutCollector.test.js",
+            "result": "before2fail/1pass; after3/3 exit0",
+            "report_ref": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after-result.json"
+          },
+          {
+            "command": "node --test --test-reporter=tap tests/codexRolloutCollector.test.js tests/codexRolloutCollector.recovery.test.js",
+            "result": "138/138 exit0",
+            "report_ref": "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression-result.json"
+          },
+          {
+            "command": "local-dev-server-control start/stop -ProjectRoot .; original persistent root/fixed existing Rust executable/range switch",
+            "result": "normal existing intent A publication; no direct Rust, data mutation by diagnostic client or debug preload"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s5/utf8-repair-20261008/read-all.cjs A; node logs/history-save-repair-20261005/s5/utf8-repair-20261008/checks.cjs; S5 inspect.cjs read-only summaries",
+            "result": "Gateway64/64 and source/protection36/36; diagnostic in-memory ACK only, no Android durable ACK"
+          },
+          {
+            "command": "validate-change-record.ps1 and validate-req.ps1 -ProjectRoot . -Strict; git diff --check",
+            "result": "PASS; no commit"
+          }
+        ],
+        "remaining_work": [
+          "review-change current832/S5 execution and explicit finish remain pending",
+          "S6 actual phone durable commitACK/switch/reopen/body/tool details not run; do not infer from server diagnosticACK",
+          "REQ in_progress/newCR draftTBD; B/Q budget limitations and original failures retained",
+          "No Git, close, deployment or device operation authorized/performed; 833 closed and S1-S4 finished unchanged"
+        ],
+        "files": [
+          "src/services/codexRolloutCollector/analyzerProcessManager.js",
+          "tests/codexRolloutCollector.test.js",
+          "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+          "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+          "docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/report.md",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/test-before.txt",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after.txt",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/utf8-after-result.json",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression.txt",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/collector-regression-result.json",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/run-tests.cjs",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/read-all.cjs",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/a-read-all.json",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/checks.cjs",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/self-check.json",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-start.txt",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/service-stop.txt",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision.cjs",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/link-decision.cjs",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/correct-decision.cjs",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/decision-correction-input.json",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/record-execution.cjs",
+          "logs/history-save-repair-20261005/s5/repair-baseline-20261008.json",
+          "logs/history-save-repair-20261005/s5/repair-startup-20261008.json",
+          "logs/history-save-repair-20261005/s5/repair-after-20261008.json",
+          "logs/history-save-repair-20261005/s5/repair-final-20261008.json",
+          "logs/history-save-repair-20261005/s5/inspect.cjs",
+          "logs/history-save-repair-20261005/s5/resume-20261008/scope.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

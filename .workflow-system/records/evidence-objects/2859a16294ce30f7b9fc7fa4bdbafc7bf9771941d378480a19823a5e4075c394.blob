@@ -1,0 +1,10 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-reporter=tap",
+    "tests/codexRolloutCollector.test.js",
+    "tests/codexRolloutCollector.recovery.test.js"
+  ],
+  "exit_code": 0
+}

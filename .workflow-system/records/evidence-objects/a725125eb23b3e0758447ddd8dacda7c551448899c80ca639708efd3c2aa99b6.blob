@@ -1,0 +1,76 @@
+{
+  "at": "2026-10-07T16:18:30.358Z",
+  "checks": [
+    {
+      "name": "source readonly N",
+      "passed": true
+    },
+    {
+      "name": "source readonly C",
+      "passed": true
+    },
+    {
+      "name": "source readonly D",
+      "passed": true
+    },
+    {
+      "name": "source readonly F",
+      "passed": true
+    },
+    {
+      "name": "old canonical 01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "passed": true
+    },
+    {
+      "name": "old canonical 01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "passed": true
+    },
+    {
+      "name": "old canonical 01a114a2-a201-7f73-993f-9c956ae35713",
+      "passed": true
+    },
+    {
+      "name": "49 old run bytes preserved",
+      "passed": true
+    },
+    {
+      "name": "C canonical distinct and complete",
+      "passed": true
+    },
+    {
+      "name": "C product_db full page",
+      "passed": true
+    },
+    {
+      "name": "all 11 inherited N payloads unchanged",
+      "passed": true
+    },
+    {
+      "name": "both inherited N details unchanged",
+      "passed": true
+    },
+    {
+      "name": "C own ordinary user turn",
+      "passed": true
+    },
+    {
+      "name": "C own detail exact",
+      "passed": true
+    },
+    {
+      "name": "C own final answer",
+      "passed": true
+    },
+    {
+      "name": "N not polluted",
+      "passed": true
+    },
+    {
+      "name": "native parent cut unchanged",
+      "passed": true
+    }
+  ],
+  "passed": 17,
+  "total": 17,
+  "qualification": "Evidence checks, not phone or formal review; D remains unpublished unless separately repaired/revalidated"
+}

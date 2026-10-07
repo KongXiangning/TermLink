@@ -1,0 +1,45 @@
+{
+  "at": "2026-10-07T16:13:16.840Z",
+  "id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+  "session_id": "ee975b87-42dc-47e7-8571-0bb9533e220f",
+  "generation": 301,
+  "error": null,
+  "types": {
+    "session_info": 1,
+    "codex_capabilities": 1,
+    "codex_ipc_status": 1,
+    "codex_ipc_conversations": 1,
+    "follower_mode_changed": 2,
+    "codex_state": 1,
+    "session_codex_thread_bound": 1,
+    "codex_ipc_sync_event": 1,
+    "conversation_surface_snapshot": 1,
+    "output": 1
+  },
+  "frames": [
+    {
+      "type": "codex_ipc_status",
+      "keys": [
+        "type",
+        "status"
+      ],
+      "status": {
+        "online": true
+      }
+    },
+    {
+      "type": "conversation_surface_snapshot",
+      "conversationId": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+      "keys": [
+        "type",
+        "conversationId",
+        "snapshot"
+      ]
+    }
+  ],
+  "private_wire": {
+    "bytes": 10190,
+    "sha256": "af95e8e99b179469c551c93b12a35396ec150fdf5793e39d6c3774944fb3f04c"
+  },
+  "model_input_sent": false
+}

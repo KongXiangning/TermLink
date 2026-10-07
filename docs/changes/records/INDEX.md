@@ -23,6 +23,9 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20261008-0045-stdout-utf8-repair | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-08 |  | `docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md` |
+| CR-20261008-0022-branch-validation-utf8-diagnosis | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-08 |  | `docs/changes/records/CR-20261008-0022-branch-validation-utf8-diagnosis.md` |
+| CR-20261007-1242-live-history-save-validation | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-1242-live-history-save-validation.md` |
 | CR-20261007-0900-branch-history-parent | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-0900-branch-history-parent.md` |
 | CR-20261007-0245-branch-product-delivery | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-0245-branch-product-delivery.md` |
 | CR-20261007-0219-branch-history-window-repair | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-0219-branch-history-window-repair.md` |

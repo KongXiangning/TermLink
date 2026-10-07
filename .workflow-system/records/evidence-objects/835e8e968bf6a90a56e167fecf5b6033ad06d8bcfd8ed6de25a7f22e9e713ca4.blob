@@ -1,0 +1,10 @@
+const fs=require('fs'),cp=require('child_process'),assert=require('assert/strict');
+const dir='logs/history-save-repair-20261005/s5/utf8-repair-20261008';
+const prior=JSON.parse(fs.readFileSync(dir+'/decision-link-result.json'));
+const link=JSON.parse(fs.readFileSync(prior.ref));
+const event=link.payload.request.event;
+event.parents=['.workflow-system/records/events/key-19dd68e045a40e76c03d34046984656965a34d4f21ce22b7c7b5a41a3693f51c.json'];
+const input={action:'correct',task_id:event.task_id,record_ref:link.payload.request.record_ref,event,parents:[prior.ref],decision_source:'Correct observed causal order of current human scope supplement; no new choice',decision_text:'补最小修复并重验 A',idempotency_key:'task832-S5-scope-supplement-causal-correction-20261008'};
+fs.writeFileSync(dir+'/decision-correction-input.json',JSON.stringify(input,null,2)+'\n',{flag:'wx'});
+const r=cp.spawnSync('node',['.workflow-system/runtime/support/assistance.mjs','task','--root','.'],{input:JSON.stringify(input),encoding:'utf8'});fs.writeFileSync(dir+'/decision-correction-result.json',r.stdout,{flag:'wx'});assert.equal(r.status,0,r.stderr);const v=JSON.parse(r.stdout);console.log(JSON.stringify({ref:v.ref,recorded:v.recorded,association:v.association,projection:v.projection,next_step:v.next_step_id,issues:v.issues}));
+assert.equal(v.association,'applied');assert.equal(v.next_step_id,'S5');assert.equal(v.issues.length,3);

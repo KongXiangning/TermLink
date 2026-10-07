@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T04:43:16.742Z",
+  "payload_sha256": "2ca75358a1db0c337c5546d1fba46603c689832f2876b081c75d6b8dd2af42bc",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260832-S5-live-partial-execution-20261007-v1",
+    "request": {
+      "action": "execution",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S5",
+      "mode": "default",
+      "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+      "result": "partial: real ordinary N canonical/product_db body+details verified; old native C recovered; new N→C own turn awaiting human normal input; old delegated A still fails checkpoint reducer comparison and is unpublished",
+      "summary": {
+        "binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e",
+        "root": "logs/task005-s2-repair-runtime-2",
+        "scope": "Original normal server/Node→Rust and product DB path; external rollout readonly; native fork, bounded human N turn; no production source/schema/budget/IPC/Android/Git/deploy modifications",
+        "qualification": "Partial execution self-check only, no formal or independent review, finish or close. New C own turn and S6 not run. Gateway diagnostic reader sends no App ACK.",
+        "issues": [
+          "ANALYSIS_CHECKPOINT_REDUCER_MISMATCH on real old A new v2 canonical batch; staging/receipt are not publication",
+          "Old budget failures retained",
+          "Initial diagnostic hash/coverage/duration/session assertions corrected from native observed schema; original false outputs retained, no business replay",
+          "3 historical unassociated management records retained"
+        ]
+      },
+      "commands": [
+        {
+          "command": "local-dev-server-control status/start/stop -ProjectRoot .; original root/analyzer env, port3010",
+          "result": "started own singleton; all runs settled; restored stopped status"
+        },
+        {
+          "command": "human ordinary N input; native same-directory fork N→C",
+          "result": "N completed, C header history_base verified; C own turn pending"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s5/select.cjs N/n/101 then D/d/102",
+          "result": "N healthy surface and canonical publication; D no target surface; previous startup D failure retained"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s5/product-read.cjs N/n then D/d",
+          "result": "N actual product_db complete page and details; inline hash diagnostic misassertion retained; D cache_only/history_product_not_found"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s5/audit-wire.cjs n",
+          "result": "13/13 same saved wire corrected contentHash/detail checks"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s5/checks.cjs final final-self-check.json",
+          "result": "17/17 evidence checks; initial15/18 retained"
+        },
+        {
+          "command": "validate-change-record.ps1 -RecordPath docs/changes/records/CR-20261007-1242-live-history-save-validation.md -Strict",
+          "result": "PASS; rollback Git command warning, no production code or Git changes"
+        }
+      ],
+      "remaining_work": [
+        "Continue S5 after human ordinary C input: inherited N+new C body/details and N protection",
+        "Real delegated A remains unpublished: compare exact checkpoint/batch reducer state, locate owner/minimal fix; do not delete old checkpoint/receipt or substitute fresh sample/root",
+        "S5 change review and eventual explicit finish remain; S6 specified phone product_db/durable ACK/switch/reopen not run",
+        "No Git operations; PLAN/CR and current durable workflow records uncommitted; spike Cargo.lock untouched",
+        "3 historical management association gaps retained"
+      ],
+      "files": [
+        "logs/history-save-repair-20261005/s5/audit-wire.cjs",
+        "logs/history-save-repair-20261005/s5/baseline-summary.json",
+        "logs/history-save-repair-20261005/s5/before-stop.json",
+        "logs/history-save-repair-20261005/s5/checks.cjs",
+        "logs/history-save-repair-20261005/s5/d-batch-summary.json",
+        "logs/history-save-repair-20261005/s5/d-diagnostic-shapes.json",
+        "logs/history-save-repair-20261005/s5/d-product-read.json",
+        "logs/history-save-repair-20261005/s5/d-selection.json",
+        "logs/history-save-repair-20261005/s5/diagnose.cjs",
+        "logs/history-save-repair-20261005/s5/final-self-check.json",
+        "logs/history-save-repair-20261005/s5/final.json",
+        "logs/history-save-repair-20261005/s5/inspect.cjs",
+        "logs/history-save-repair-20261005/s5/n-after.json",
+        "logs/history-save-repair-20261005/s5/n-product-read.json",
+        "logs/history-save-repair-20261005/s5/n-selection.json",
+        "logs/history-save-repair-20261005/s5/n-wire-audit.json",
+        "logs/history-save-repair-20261005/s5/product-read.cjs",
+        "logs/history-save-repair-20261005/s5/record-execution.cjs",
+        "logs/history-save-repair-20261005/s5/report.md",
+        "logs/history-save-repair-20261005/s5/select.cjs",
+        "logs/history-save-repair-20261005/s5/self-check-corrected.json",
+        "logs/history-save-repair-20261005/s5/self-check.json",
+        "logs/history-save-repair-20261005/s5/service-start.txt",
+        "logs/history-save-repair-20261005/s5/startup-summary.json",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261007-1242-live-history-save-validation.md"
+      ],
+      "idempotency_key": "task20260832-S5-live-partial-execution-20261007-v1"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/s5/audit-wire.cjs",
+      "logs/history-save-repair-20261005/s5/baseline-summary.json",
+      "logs/history-save-repair-20261005/s5/before-stop.json",
+      "logs/history-save-repair-20261005/s5/checks.cjs",
+      "logs/history-save-repair-20261005/s5/d-batch-summary.json",
+      "logs/history-save-repair-20261005/s5/d-diagnostic-shapes.json",
+      "logs/history-save-repair-20261005/s5/d-product-read.json",
+      "logs/history-save-repair-20261005/s5/d-selection.json",
+      "logs/history-save-repair-20261005/s5/diagnose.cjs",
+      "logs/history-save-repair-20261005/s5/final-self-check.json",
+      "logs/history-save-repair-20261005/s5/final.json",
+      "logs/history-save-repair-20261005/s5/inspect.cjs",
+      "logs/history-save-repair-20261005/s5/n-after.json",
+      "logs/history-save-repair-20261005/s5/n-product-read.json",
+      "logs/history-save-repair-20261005/s5/n-selection.json",
+      "logs/history-save-repair-20261005/s5/n-wire-audit.json",
+      "logs/history-save-repair-20261005/s5/product-read.cjs",
+      "logs/history-save-repair-20261005/s5/record-execution.cjs",
+      "logs/history-save-repair-20261005/s5/report.md",
+      "logs/history-save-repair-20261005/s5/select.cjs",
+      "logs/history-save-repair-20261005/s5/self-check-corrected.json",
+      "logs/history-save-repair-20261005/s5/self-check.json",
+      "logs/history-save-repair-20261005/s5/service-start.txt",
+      "logs/history-save-repair-20261005/s5/startup-summary.json",
+      "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "docs/changes/records/CR-20261007-1242-live-history-save-validation.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "execution",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-837c17b5eca4f6c3048c27eb81ba73b07af01c53afc91ad288e47317ed68a023.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S5",
+        "mode": "default",
+        "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317",
+        "result": "partial: real ordinary N canonical/product_db body+details verified; old native C recovered; new N→C own turn awaiting human normal input; old delegated A still fails checkpoint reducer comparison and is unpublished",
+        "summary": {
+          "binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e",
+          "root": "logs/task005-s2-repair-runtime-2",
+          "scope": "Original normal server/Node→Rust and product DB path; external rollout readonly; native fork, bounded human N turn; no production source/schema/budget/IPC/Android/Git/deploy modifications",
+          "qualification": "Partial execution self-check only, no formal or independent review, finish or close. New C own turn and S6 not run. Gateway diagnostic reader sends no App ACK.",
+          "issues": [
+            "ANALYSIS_CHECKPOINT_REDUCER_MISMATCH on real old A new v2 canonical batch; staging/receipt are not publication",
+            "Old budget failures retained",
+            "Initial diagnostic hash/coverage/duration/session assertions corrected from native observed schema; original false outputs retained, no business replay",
+            "3 historical unassociated management records retained"
+          ]
+        },
+        "commands": [
+          {
+            "command": "local-dev-server-control status/start/stop -ProjectRoot .; original root/analyzer env, port3010",
+            "result": "started own singleton; all runs settled; restored stopped status"
+          },
+          {
+            "command": "human ordinary N input; native same-directory fork N→C",
+            "result": "N completed, C header history_base verified; C own turn pending"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s5/select.cjs N/n/101 then D/d/102",
+            "result": "N healthy surface and canonical publication; D no target surface; previous startup D failure retained"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s5/product-read.cjs N/n then D/d",
+            "result": "N actual product_db complete page and details; inline hash diagnostic misassertion retained; D cache_only/history_product_not_found"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s5/audit-wire.cjs n",
+            "result": "13/13 same saved wire corrected contentHash/detail checks"
+          },
+          {
+            "command": "node logs/history-save-repair-20261005/s5/checks.cjs final final-self-check.json",
+            "result": "17/17 evidence checks; initial15/18 retained"
+          },
+          {
+            "command": "validate-change-record.ps1 -RecordPath docs/changes/records/CR-20261007-1242-live-history-save-validation.md -Strict",
+            "result": "PASS; rollback Git command warning, no production code or Git changes"
+          }
+        ],
+        "remaining_work": [
+          "Continue S5 after human ordinary C input: inherited N+new C body/details and N protection",
+          "Real delegated A remains unpublished: compare exact checkpoint/batch reducer state, locate owner/minimal fix; do not delete old checkpoint/receipt or substitute fresh sample/root",
+          "S5 change review and eventual explicit finish remain; S6 specified phone product_db/durable ACK/switch/reopen not run",
+          "No Git operations; PLAN/CR and current durable workflow records uncommitted; spike Cargo.lock untouched",
+          "3 historical management association gaps retained"
+        ],
+        "files": [
+          "logs/history-save-repair-20261005/s5/audit-wire.cjs",
+          "logs/history-save-repair-20261005/s5/baseline-summary.json",
+          "logs/history-save-repair-20261005/s5/before-stop.json",
+          "logs/history-save-repair-20261005/s5/checks.cjs",
+          "logs/history-save-repair-20261005/s5/d-batch-summary.json",
+          "logs/history-save-repair-20261005/s5/d-diagnostic-shapes.json",
+          "logs/history-save-repair-20261005/s5/d-product-read.json",
+          "logs/history-save-repair-20261005/s5/d-selection.json",
+          "logs/history-save-repair-20261005/s5/diagnose.cjs",
+          "logs/history-save-repair-20261005/s5/final-self-check.json",
+          "logs/history-save-repair-20261005/s5/final.json",
+          "logs/history-save-repair-20261005/s5/inspect.cjs",
+          "logs/history-save-repair-20261005/s5/n-after.json",
+          "logs/history-save-repair-20261005/s5/n-product-read.json",
+          "logs/history-save-repair-20261005/s5/n-selection.json",
+          "logs/history-save-repair-20261005/s5/n-wire-audit.json",
+          "logs/history-save-repair-20261005/s5/product-read.cjs",
+          "logs/history-save-repair-20261005/s5/record-execution.cjs",
+          "logs/history-save-repair-20261005/s5/report.md",
+          "logs/history-save-repair-20261005/s5/select.cjs",
+          "logs/history-save-repair-20261005/s5/self-check-corrected.json",
+          "logs/history-save-repair-20261005/s5/self-check.json",
+          "logs/history-save-repair-20261005/s5/service-start.txt",
+          "logs/history-save-repair-20261005/s5/startup-summary.json",
+          "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+          "docs/changes/records/CR-20261007-1242-live-history-save-validation.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

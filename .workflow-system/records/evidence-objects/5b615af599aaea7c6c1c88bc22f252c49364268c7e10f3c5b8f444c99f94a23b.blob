@@ -1,0 +1,354 @@
+{
+  "id": "01a114a2-a201-7f73-993f-9c956ae35713",
+  "label": "n",
+  "at": "2026-10-07T04:37:41.970Z",
+  "checks": [
+    {
+      "name": "product DB target identity",
+      "passed": true
+    },
+    {
+      "name": "payload hash session:01a114a2-a201-7f73-993f-9c956ae35713",
+      "passed": false
+    },
+    {
+      "name": "payload hash turn:01a114a2-af63-77a3-a51c-a156e35078bb",
+      "passed": false
+    },
+    {
+      "name": "payload hash message:d89d3f8d-c3a4-442d-9bb9-6edccfd8e8d4",
+      "passed": false
+    },
+    {
+      "name": "payload hash message:msg_0e007a00c4faf686016ac5cb77812c87d0b211da0cde761371",
+      "passed": false
+    },
+    {
+      "name": "payload hash tool:call_wBnxLOBAwmf7Qrzxih99L0rE",
+      "passed": false
+    },
+    {
+      "name": "detail hash 18e48d9f1c16f30219c6b7875578170648a9a93a77fedb4327be8e2a5e1f91b4",
+      "passed": true
+    },
+    {
+      "name": "payload hash tool:exec-57e3cac5-da0a-4ef8-b44f-88726133194a",
+      "passed": false
+    },
+    {
+      "name": "detail hash 28510c8721cc51646fc9c73f88507f67d94917ab00944951f485911801db95c2",
+      "passed": true
+    },
+    {
+      "name": "payload hash rate-limit:ordinal-19:1",
+      "passed": false
+    },
+    {
+      "name": "payload hash usage:ordinal-19:0",
+      "passed": false
+    },
+    {
+      "name": "payload hash message:msg_0e007a00c4faf686016ac5cb7ad65c87d0bb0a18af68625202",
+      "passed": false
+    },
+    {
+      "name": "payload hash rate-limit:ordinal-25:1",
+      "passed": false
+    },
+    {
+      "name": "payload hash usage:ordinal-25:0",
+      "passed": false
+    }
+  ],
+  "app_ack_sent": false,
+  "page": {
+    "id": "01a114a2-a201-7f73-993f-9c956ae35713",
+    "range": {
+      "version": 1,
+      "segmentId": "79e78c4cf1ba5f05e8b1a60cdfcf013be83a0577cfdb9df79619899170c3190b",
+      "rangeId": "79e78c4cf1ba5f05e8b1a60cdfcf013be83a0577cfdb9df79619899170c3190b",
+      "rangeKind": "tail",
+      "providerMode": "product_db",
+      "providerIdentityHash": "0684ef35b8d2846c3d8b1c30b3f25f02d8475849b7c1697b2715ca52410ca7cb",
+      "newestAnchor": {
+        "key": "usage:ordinal-25:0",
+        "hash": "1a30fd2aef45144a8dfce19f8ef7ca388d494d9a446224c2961aa2c55190d719"
+      },
+      "oldestAnchor": {
+        "key": "session:01a114a2-a201-7f73-993f-9c956ae35713",
+        "hash": "431a3c7d02b93ae5f7b96cc370e63a8e4d5950badf06cc63d6d57934db199f7e"
+      },
+      "nextOlderCursor": null,
+      "hasMoreBefore": false,
+      "coverageRoot": "4d9b29481737d301f86d1b137993a33bcf22008a28fbe99337e9924c464bd3f2",
+      "coverageComplete": true
+    },
+    "upserts": 11,
+    "pageHash": "abb576c4f551a4e33a662be118456d864a9b2ece2dcad10c2b0a781c2b5f54b3",
+    "targetRoot": "4d9b29481737d301f86d1b137993a33bcf22008a28fbe99337e9924c464bd3f2",
+    "items": [
+      {
+        "itemKey": "session:01a114a2-a201-7f73-993f-9c956ae35713",
+        "payloadBytes": 309,
+        "keys": [
+          "eventFacts"
+        ],
+        "markers": [],
+        "details": []
+      },
+      {
+        "itemKey": "turn:01a114a2-af63-77a3-a51c-a156e35078bb",
+        "payloadBytes": 425,
+        "keys": [
+          "eventFacts"
+        ],
+        "markers": [
+          "TL832-S5-N-DONE"
+        ],
+        "details": []
+      },
+      {
+        "itemKey": "message:d89d3f8d-c3a4-442d-9bb9-6edccfd8e8d4",
+        "payloadBytes": 1395,
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "markers": [
+          "TL832-S5-N-20261007",
+          "TL832-S5-N-DONE"
+        ],
+        "details": []
+      },
+      {
+        "itemKey": "message:msg_0e007a00c4faf686016ac5cb77812c87d0b211da0cde761371",
+        "payloadBytes": 869,
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "markers": [],
+        "details": []
+      },
+      {
+        "itemKey": "tool:call_wBnxLOBAwmf7Qrzxih99L0rE",
+        "payloadBytes": 1988,
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "markers": [
+          "TL832-S5-N-20261007"
+        ],
+        "details": [
+          {
+            "refId": "18e48d9f1c16f30219c6b7875578170648a9a93a77fedb4327be8e2a5e1f91b4",
+            "state": "ok",
+            "contentHash": "4434eb126215fd9d2848dbd38281773d300441649ac3d3882d3fb2e0bb9bc956",
+            "byteSize": 579,
+            "byteOffset": 0,
+            "nextCursor": null,
+            "bytes": 579,
+            "sha256": "4434eb126215fd9d2848dbd38281773d300441649ac3d3882d3fb2e0bb9bc956",
+            "markers": [
+              "TL832-S5-N-20261007"
+            ]
+          }
+        ]
+      },
+      {
+        "itemKey": "tool:exec-57e3cac5-da0a-4ef8-b44f-88726133194a",
+        "payloadBytes": 1841,
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "markers": [
+          "TL832-S5-N-20261007"
+        ],
+        "details": [
+          {
+            "refId": "28510c8721cc51646fc9c73f88507f67d94917ab00944951f485911801db95c2",
+            "state": "ok",
+            "contentHash": "b14ca2eec78b6feb2a2535c08904352f055dbc031fde48a7ff3cc2e8f60097c3",
+            "byteSize": 469,
+            "byteOffset": 0,
+            "nextCursor": null,
+            "bytes": 469,
+            "sha256": "b14ca2eec78b6feb2a2535c08904352f055dbc031fde48a7ff3cc2e8f60097c3",
+            "markers": [
+              "TL832-S5-N-20261007"
+            ]
+          }
+        ]
+      },
+      {
+        "itemKey": "rate-limit:ordinal-19:1",
+        "payloadBytes": 277,
+        "keys": [
+          "eventFacts"
+        ],
+        "markers": [],
+        "details": []
+      },
+      {
+        "itemKey": "usage:ordinal-19:0",
+        "payloadBytes": 392,
+        "keys": [
+          "eventFacts"
+        ],
+        "markers": [],
+        "details": []
+      },
+      {
+        "itemKey": "message:msg_0e007a00c4faf686016ac5cb7ad65c87d0bb0a18af68625202",
+        "payloadBytes": 815,
+        "keys": [
+          "answer",
+          "artifact_id",
+          "artifact_name",
+          "attachment_name",
+          "availability",
+          "content",
+          "correlation_id",
+          "eventFacts",
+          "item_key",
+          "kind",
+          "media_type",
+          "path",
+          "plan",
+          "plan_action",
+          "presentation_kind",
+          "query",
+          "question",
+          "related_item_key",
+          "result",
+          "sequence",
+          "summary",
+          "timestamp",
+          "tool",
+          "turn_id",
+          "visible"
+        ],
+        "markers": [
+          "TL832-S5-N-DONE"
+        ],
+        "details": []
+      },
+      {
+        "itemKey": "rate-limit:ordinal-25:1",
+        "payloadBytes": 277,
+        "keys": [
+          "eventFacts"
+        ],
+        "markers": [],
+        "details": []
+      },
+      {
+        "itemKey": "usage:ordinal-25:0",
+        "payloadBytes": 390,
+        "keys": [
+          "eventFacts"
+        ],
+        "markers": [],
+        "details": []
+      }
+    ]
+  },
+  "private_wire": {
+    "bytes": 19935,
+    "sha256": "fd98f5c820313534d15a6394cea13e9874b8b0a5e47d34700162a242d58e57dc"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-b8f7243b9f59b8e74db73e3d4104b0b53010d79888eed4feac3ba6f9bfd035e5.json",
+  "captured_at": "2026-10-07T16:33:58.140Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/875fd7f2ff5f99cb9cadbb417a95cc66c317c5225902b04becb10747ab476069.blob",
+      "sha256": "875fd7f2ff5f99cb9cadbb417a95cc66c317c5225902b04becb10747ab476069",
+      "size": 3539,
+      "source_path": "logs/history-save-repair-20261005/s5/resume-20261008/scope.md",
+      "issues": []
+    }
+  ]
+}

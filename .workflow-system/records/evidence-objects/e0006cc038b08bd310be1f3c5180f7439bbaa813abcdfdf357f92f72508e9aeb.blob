@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-07T04:37:25.485Z",
+  "id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+  "session_id": "fb4389b1-01d0-4f34-bd92-8c66aca3adbe",
+  "generation": 102,
+  "error": null,
+  "types": {
+    "session_info": 1,
+    "codex_capabilities": 1,
+    "codex_ipc_status": 1,
+    "codex_ipc_conversations": 1,
+    "follower_mode_changed": 2,
+    "codex_state": 1,
+    "session_codex_thread_bound": 1
+  },
+  "frames": [
+    {
+      "type": "codex_ipc_status",
+      "keys": [
+        "type",
+        "status"
+      ],
+      "status": {
+        "online": true
+      }
+    }
+  ],
+  "private_wire": {
+    "bytes": 3241,
+    "sha256": "1a23bf41c142b0e473c5be28ff8751848a2bc956f7e3481f5b6fd3b5a2eb0129"
+  },
+  "model_input_sent": false
+}
