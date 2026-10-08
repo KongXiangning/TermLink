@@ -1,0 +1,7 @@
+{
+  "at": "2026-10-07T17:12:55.362Z",
+  "target": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+  "exit": 0,
+  "stdout": "Starting: Intent { cmp=com.termlink.app/.codex.CodexActivity (has extras) }\r\n",
+  "stderr": ""
+}

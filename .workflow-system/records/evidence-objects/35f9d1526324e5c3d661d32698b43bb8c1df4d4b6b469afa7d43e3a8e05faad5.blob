@@ -1,0 +1,1 @@
+{"command":"node independent-review-20261008/phone-audit.cjs","exit_code":1,"message":"JSON.parse is not a function or its return value is not iterable","cause":"Independent audit treated nullable detail_refs_json as iterable. Corrected audit to existing empty-ref semantics; no business replay or source change."}

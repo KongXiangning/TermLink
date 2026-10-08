@@ -1,0 +1,34 @@
+{
+  "suites": [
+    {
+      "name": "TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+      "tests": 169,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+      "tests": 34,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "total": 216,
+  "failed": 0
+}

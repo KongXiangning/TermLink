@@ -1,0 +1,131 @@
+{
+  "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+  "decision_source": "Latest direct human close-task invocation, current conversation",
+  "decision_text": "[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\close-task\\SKILL.md)",
+  "pre_close_lifecycle": "active",
+  "six_finished": [
+    {
+      "id": "S1",
+      "state": "finished",
+      "execution_ref": ".workflow-system/records/events/key-248acd0c7d34961431c8c987339c07919fbf316b12d5d8bcca70cb2061cf37d2.json",
+      "review_ref": ".workflow-system/records/events/key-742d35389ab246b97089c88a75f7d8ccef6e20d86f51dee96a10ea6f22ea15fa.json",
+      "review_status": "clean",
+      "review_decision_ref": null,
+      "disposition_ref": ".workflow-system/records/events/key-86cd0e1e115d8b48ec03c2dd26bf8d5bf74a6bc73f72fb6dee74b255f520a043.json"
+    },
+    {
+      "id": "S2",
+      "state": "finished",
+      "execution_ref": ".workflow-system/records/events/key-56e67631043abd0af05fa6ce1c8852e2df1e9564c7e919d6233879194db06cd0.json",
+      "review_ref": ".workflow-system/records/events/key-0b716b3d374bab7fa4ba3543c8492c2c2959045d2921500da205ff7e9eb2e675.json",
+      "review_status": "clean",
+      "review_decision_ref": null,
+      "disposition_ref": ".workflow-system/records/events/key-1bf17b543f6a0cd77feda64b334a08e4202b0963e8580459b73c22ab08cb69bf.json"
+    },
+    {
+      "id": "S3",
+      "state": "finished",
+      "execution_ref": ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json",
+      "review_ref": ".workflow-system/records/events/key-958b83d4b47d6501c8f62740900373b3b199ffafa68e3a7e403f9183a1300241.json",
+      "review_status": "clean",
+      "review_decision_ref": null,
+      "disposition_ref": ".workflow-system/records/events/key-b0ec63791580b4d7311189096e9944592958761329ff4b7447e93632dc888dff.json"
+    },
+    {
+      "id": "S4",
+      "state": "finished",
+      "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+      "review_ref": ".workflow-system/records/events/key-34aeb4f6f11447bf5cc9528734ac068654e860392c1700dd0daf33e39bf5462c.json",
+      "review_status": "findings",
+      "review_decision_ref": ".workflow-system/records/events/key-408f51671b6093a9c696e4bebbd4707f41aca22635680f88a1f41598e333824b.json",
+      "disposition_ref": ".workflow-system/records/events/key-837c17b5eca4f6c3048c27eb81ba73b07af01c53afc91ad288e47317ed68a023.json"
+    },
+    {
+      "id": "S5",
+      "state": "finished",
+      "execution_ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+      "review_ref": ".workflow-system/records/events/key-e7610cd01694812b70bb50f55ffacfbae7e96d564976a7bc27855023d8339724.json",
+      "review_status": "findings",
+      "review_decision_ref": ".workflow-system/records/events/key-ec7199470f5cf35aca48d866a841f677245a12a18fa221729fe6a1b40b2f048f.json",
+      "disposition_ref": ".workflow-system/records/events/key-f6ab1dab1e1bae7aa7a59e37bf140ca757efdc2459140381e59c0c5269639139.json"
+    },
+    {
+      "id": "S6",
+      "state": "finished",
+      "execution_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+      "review_ref": ".workflow-system/records/events/key-fddeb0484ee29d2ce51249185f43b834c6af6d01daaa5fce835c0704cda3ba29.json",
+      "review_status": "clean",
+      "review_decision_ref": null,
+      "disposition_ref": ".workflow-system/records/events/key-c84f630d612f88d97b65b5a7aa47a805646bc3ae3ec19043f225dbf1c3a24371.json"
+    }
+  ],
+  "p2_disposition_refs": [
+    ".workflow-system/records/events/key-408f51671b6093a9c696e4bebbd4707f41aca22635680f88a1f41598e333824b.json",
+    ".workflow-system/records/events/key-ec7199470f5cf35aca48d866a841f677245a12a18fa221729fe6a1b40b2f048f.json"
+  ],
+  "result": {
+    "scope": "Three distinct history save failures and same-phone persistence, switch/return, reopen body and retained tool details",
+    "delivered": [
+      "H1/H3 shared event/normal growth compatibility delivered by closed TASK-20260833",
+      "H2 verified Rust native branch parent/cut and bounded inherited history windows",
+      "S5 Node UTF8 stdout chunk decoding and original delegated A recovery",
+      "S6 narrow Android native/tool: detail-ID compatibility without changing IPC authority"
+    ],
+    "samples": [
+      {
+        "scene": "normal new conversation",
+        "items": 11,
+        "detail_refs": 2
+      },
+      {
+        "scene": "native branch with own new turn",
+        "items": 22,
+        "detail_refs": 4
+      },
+      {
+        "scene": "original delegated A/D",
+        "items": 40,
+        "detail_refs": 9
+      }
+    ],
+    "validation_reused": {
+      "node_collector_recovery": "138/138",
+      "android_jvm": "216/216 JDK21",
+      "frozen_node_owner_gateway": "139/139",
+      "independent_retained_phone_audit": "60/60 evidence predicates; not test-suite count"
+    },
+    "independent_focused_rechecks": {
+      "android": 3,
+      "rust": 12,
+      "node_utf8": 3,
+      "node_v2": 13,
+      "node_product_scenarios": 5,
+      "legacy_upgrade_repro": "Actual failure reproduced; harness exit0 is not product PASS"
+    },
+    "evidence_limits": [
+      "Closure is user-requested lifecycle disposition, not release/deployment approval, a clean independent verdict or removal of original failures.",
+      "Independent reviewer reused retained phone evidence; no new live phone/service/model validation during review or closure.",
+      "Current-version new saves/append/restart, unsettled original profile/job/delivery protection, cross-profile rejection, external-source read-only, budgets and IPC authority remain required.",
+      "REQ done/publication traceability is pending separately from all six finished plan steps."
+    ],
+    "external_effects": "No new business commands, test/build, device/service operation, source/DB deletion, commit/push/deploy or chat archive during closure; prior S6 restored environment evidence retained."
+  },
+  "remaining_work": [
+    "S6 Android source/test, PLAN/REQ, draft CR and workflow facts/evidence are uncommitted; task closure performs no staging, commit, push or deployment.",
+    "REQ remains in_progress for commit/document traceability: all linked CRs currently draft/TBD, no active CR. Real existing business commits are retained; no fake commit_ref or CR activation.",
+    "IR832-01 is technically not fixed; the human excludes pre-current-version published product-format migration because there was no ordinary-user product release. Do not treat original S4/S5 findings as clean.",
+    "Out-of-scope stale reconnect error banner, B/Q budget failures/intents and registration candidate remain; no budget relaxation or data cleanup.",
+    "Three preexisting unassociated management records remain unresolved; no new association repair or historical business replay.",
+    "All phone durable detail refs were checked, but only one selected tool detail dialog per scene was operated; other phones/full large-detail/deep-pagination/race/resend matrix and production release are not certified.",
+    "Untracked spike vendor Cargo.lock and local data/codex-rollout-analysis and data/codex-rollout-checkpoints are retained and excluded from any automatic Git or cleanup operation."
+  ],
+  "gaps": [
+    "Closure is user-requested lifecycle disposition, not release/deployment approval, a clean independent verdict or removal of original failures.",
+    "Independent reviewer reused retained phone evidence; no new live phone/service/model validation during review or closure.",
+    "Current-version new saves/append/restart, unsettled original profile/job/delivery protection, cross-profile rejection, external-source read-only, budgets and IPC authority remain required.",
+    "REQ done/publication traceability is pending separately from all six finished plan steps."
+  ],
+  "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+  "actual_closure_status": "See result.json and after.json; this file records the checked basis before the lifecycle action."
+}

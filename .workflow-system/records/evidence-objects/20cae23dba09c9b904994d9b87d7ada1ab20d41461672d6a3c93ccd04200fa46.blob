@@ -1,0 +1,27 @@
+{
+  "phase": "fixed-a-start",
+  "at": "2026-10-07T17:37:20.586Z",
+  "pid": "21469",
+  "xml": {
+    "path": "private/fixed-a-start.xml",
+    "bytes": 31020,
+    "sha256": "98da8681d70c4035e10051619f53d93b20d26d4f05364b9a5806add041937a85"
+  },
+  "screenshot": {
+    "path": "private/fixed-a-start.png",
+    "bytes": 168864,
+    "sha256": "279d65ae3af374661d270b1b671e63d16ed4d3f34f07042900510fcd0db38aa9"
+  },
+  "edit_text_lengths": [
+    0
+  ],
+  "detail_buttons": [
+    {
+      "text": "查看历史详情 1 · 552 字节",
+      "bounds": "[72,459][570,519]"
+    }
+  ],
+  "N_DONE": false,
+  "C_DONE": false,
+  "A_DONE": true
+}

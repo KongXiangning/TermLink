@@ -1,0 +1,20 @@
+{
+  "phase": "fixed-c-detail",
+  "at": "2026-10-07T17:38:18.843Z",
+  "pid": "21469",
+  "xml": {
+    "path": "private/fixed-c-detail.xml",
+    "bytes": 6797,
+    "sha256": "7ff627e326c6ad9f67725541718d1f95b1bce05bb9ab943ca014d80f81e6154a"
+  },
+  "screenshot": {
+    "path": "private/fixed-c-detail.png",
+    "bytes": 269521,
+    "sha256": "a8926cb352179031538018f930c219ad4b03dc68130d220bf26e0f23859cba5a"
+  },
+  "edit_text_lengths": [],
+  "detail_buttons": [],
+  "N_DONE": false,
+  "C_DONE": false,
+  "A_DONE": false
+}

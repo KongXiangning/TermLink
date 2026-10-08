@@ -1,0 +1,394 @@
+{
+  "at": "2026-10-07T17:52:08.432Z",
+  "head": "488dc6c9e597ef096f617d17499fa8e048306c06",
+  "checks": [
+    {
+      "name": "N durable full product scope",
+      "passed": true
+    },
+    {
+      "name": "N all payloads identity/hash/refs exact product provider",
+      "passed": false
+    },
+    {
+      "name": "N complete committed range anchors match provider",
+      "passed": true
+    },
+    {
+      "name": "N all detail refs verified against real product details",
+      "passed": true
+    },
+    {
+      "name": "C durable full product scope",
+      "passed": true
+    },
+    {
+      "name": "C all payloads identity/hash/refs exact product provider",
+      "passed": false
+    },
+    {
+      "name": "C complete committed range anchors match provider",
+      "passed": true
+    },
+    {
+      "name": "C all detail refs verified against real product details",
+      "passed": true
+    },
+    {
+      "name": "D durable full product scope",
+      "passed": true
+    },
+    {
+      "name": "D all payloads identity/hash/refs exact product provider",
+      "passed": false
+    },
+    {
+      "name": "D complete committed range anchors match provider",
+      "passed": true
+    },
+    {
+      "name": "D all detail refs verified against real product details",
+      "passed": true
+    },
+    {
+      "name": "C inherits every N payload under its own conversation",
+      "passed": true
+    },
+    {
+      "name": "N contains no own C marker",
+      "passed": true
+    },
+    {
+      "name": "all unrelated old phone items byte fields preserved",
+      "passed": true
+    },
+    {
+      "name": "N actual phone hash checked delta and server ACK joined by sync identity",
+      "passed": true
+    },
+    {
+      "name": "C actual phone hash checked delta and server ACK joined by sync identity",
+      "passed": true
+    },
+    {
+      "name": "D actual phone hash checked delta and server ACK joined by sync identity",
+      "passed": true
+    },
+    {
+      "name": "N fixed-n-selected correct tail/body/detail entry",
+      "passed": true
+    },
+    {
+      "name": "N fixed-n-returned correct tail/body/detail entry",
+      "passed": true
+    },
+    {
+      "name": "N fixed-n-reopened correct tail/body/detail entry",
+      "passed": true
+    },
+    {
+      "name": "N reopened selected product detail verified and visible",
+      "passed": true
+    },
+    {
+      "name": "C fixed-c-selected correct tail/body/detail entry",
+      "passed": true
+    },
+    {
+      "name": "C fixed-c-returned correct tail/body/detail entry",
+      "passed": true
+    },
+    {
+      "name": "C fixed-c-reopened correct tail/body/detail entry",
+      "passed": true
+    },
+    {
+      "name": "C reopened selected product detail verified and visible",
+      "passed": true
+    },
+    {
+      "name": "D fixed-a-returned correct tail/body/detail entry",
+      "passed": true
+    },
+    {
+      "name": "D fixed-a-reopened correct tail/body/detail entry",
+      "passed": true
+    },
+    {
+      "name": "D reopened selected product detail verified and visible",
+      "passed": true
+    },
+    {
+      "name": "all captured visible drafts actually empty",
+      "passed": true
+    },
+    {
+      "name": "all previous canonical product digests preserved",
+      "passed": true
+    },
+    {
+      "name": "all original source full hashes preserved",
+      "passed": true
+    },
+    {
+      "name": "all59 old runs preserved",
+      "passed": true
+    },
+    {
+      "name": "all72 pre repair runs preserved",
+      "passed": true
+    },
+    {
+      "name": "no in flight jobs",
+      "passed": true
+    },
+    {
+      "name": "nonclear install keeps DB/prefs",
+      "passed": true
+    },
+    {
+      "name": "credential/server preferences byte preserved",
+      "passed": true
+    },
+    {
+      "name": "original A selection restored with normal valid session",
+      "passed": true
+    }
+  ],
+  "passed": 35,
+  "total": 38,
+  "matrix": [
+    {
+      "label": "N",
+      "id": "01a114a2-a201-7f73-993f-9c956ae35713",
+      "items": 11,
+      "detail_refs": 2,
+      "provider": "product_db",
+      "coverage_complete": 1,
+      "coverage_root": "4d9b29481737d301f86d1b137993a33bcf22008a28fbe99337e9924c464bd3f2",
+      "range_id": "79e78c4cf1ba5f05e8b1a60cdfcf013be83a0577cfdb9df79619899170c3190b",
+      "selected_detail_call_id": "exec-57e3cac5-da0a-4ef8-b44f-88726133194a",
+      "phone_items_digest": "d87881688e11f0c0d59349275678537086bb71e409a197fc821639eb6365f955",
+      "protocol": {
+        "conversation_key": "4783674e480b2b42",
+        "acks": [
+          {
+            "at": "2026-10-07T17:37:32.443Z",
+            "sync_id": "483b899e-a743-46fe-8550-216ac45d52d9",
+            "page_index": 0,
+            "state": "synced"
+          },
+          {
+            "at": "2026-10-07T17:38:38.673Z",
+            "sync_id": "586d404f-8a50-436b-85f9-8f7d5b922861",
+            "page_index": 0,
+            "state": "synced"
+          },
+          {
+            "at": "2026-10-07T17:38:49.070Z",
+            "sync_id": "5a672220-52d3-4d98-b2be-a43991911f5f",
+            "page_index": 0,
+            "state": "synced"
+          }
+        ],
+        "phone_hash_verified_events": [
+          {
+            "run_id": "ee2aa55e-81d6-4ff6-b407-b17921ec6a6b",
+            "seq": 58,
+            "generation": 2,
+            "upserts": 11,
+            "chunked": 0
+          },
+          {
+            "run_id": "ee2aa55e-81d6-4ff6-b407-b17921ec6a6b",
+            "seq": 125,
+            "generation": 4,
+            "upserts": 11,
+            "chunked": 0
+          },
+          {
+            "run_id": "010b82ba-6176-4a20-b742-f5ee2a06f44f",
+            "seq": 35,
+            "generation": 1,
+            "upserts": 11,
+            "chunked": 0
+          }
+        ],
+        "apply_results": [
+          "COMMITTED",
+          "COMMITTED",
+          "COMMITTED"
+        ],
+        "qualification": "Phone synced hash is SHA256(server sync UUID) first16. ACK log lacks pageHash/sequence; these are not fabricated. Durable committed range and all exact rows independently checked. A delta is STAGED pending payload chunks; final synced ACK+persisted full payloads/committed range prove the chunk commit, not STAGED alone."
+      }
+    },
+    {
+      "label": "C",
+      "id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+      "items": 22,
+      "detail_refs": 4,
+      "provider": "product_db",
+      "coverage_complete": 1,
+      "coverage_root": "48b75ca6922483a5c464d26abce577330a7ef6dd712f85b58695279c90fce480",
+      "range_id": "630172b5e7c991c48c2ef8d7ce61df44882d681eaaf13e9daecb33e4540e3259",
+      "selected_detail_call_id": "exec-9a26614e-6fb8-4040-aaf6-aa7e4f8d03a9",
+      "phone_items_digest": "65df6e3d39fafce69a4182d052d5f40f3950c35bd36a639940b105bce1fb9d03",
+      "protocol": {
+        "conversation_key": "8a79500500bbefd9",
+        "acks": [
+          {
+            "at": "2026-10-07T17:38:11.377Z",
+            "sync_id": "0885c5df-8c78-454e-aa95-a23e9c4392b1",
+            "page_index": 0,
+            "state": "synced"
+          },
+          {
+            "at": "2026-10-07T17:42:20.715Z",
+            "sync_id": "68763609-dc11-4d68-a9a7-88a9b36e9ea7",
+            "page_index": 0,
+            "state": "synced"
+          },
+          {
+            "at": "2026-10-07T17:42:31.345Z",
+            "sync_id": "bcb120c9-8c76-4496-9bc1-581795f32947",
+            "page_index": 0,
+            "state": "synced"
+          }
+        ],
+        "phone_hash_verified_events": [
+          {
+            "run_id": "ee2aa55e-81d6-4ff6-b407-b17921ec6a6b",
+            "seq": 90,
+            "generation": 3,
+            "upserts": 22,
+            "chunked": 0
+          },
+          {
+            "run_id": "010b82ba-6176-4a20-b742-f5ee2a06f44f",
+            "seq": 78,
+            "generation": 2,
+            "upserts": 22,
+            "chunked": 0
+          },
+          {
+            "run_id": "7f33f7e7-4ba3-4691-b907-fcf193b3a174",
+            "seq": 35,
+            "generation": 1,
+            "upserts": 22,
+            "chunked": 0
+          }
+        ],
+        "apply_results": [
+          "COMMITTED",
+          "COMMITTED",
+          "COMMITTED"
+        ],
+        "qualification": "Phone synced hash is SHA256(server sync UUID) first16. ACK log lacks pageHash/sequence; these are not fabricated. Durable committed range and all exact rows independently checked. A delta is STAGED pending payload chunks; final synced ACK+persisted full payloads/committed range prove the chunk commit, not STAGED alone."
+      }
+    },
+    {
+      "label": "D",
+      "id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "items": 40,
+      "detail_refs": 9,
+      "provider": "product_db",
+      "coverage_complete": 1,
+      "coverage_root": "23a3f13872a9eff71c1715c7f27884005ade1fd78acfda714cedaf2233a7e06b",
+      "range_id": "6339166a63b733e687244e41471ca822861b4aa62dbe18f58c5142b712ea879b",
+      "selected_detail_call_id": "exec-a1d24f9a-ef95-4d3c-871f-b8e2ac617394",
+      "phone_items_digest": "5d829e10ad55e5c1c29eb0bbe72cce8aacb6905d229c6e04ce2775749cc71456",
+      "protocol": {
+        "conversation_key": "d710f9d09d0248bf",
+        "acks": [
+          {
+            "at": "2026-10-07T17:37:19.529Z",
+            "sync_id": "ae0c924d-61d9-4505-a6e1-fd445d78f288",
+            "page_index": 0,
+            "state": "synced"
+          },
+          {
+            "at": "2026-10-07T17:44:10.060Z",
+            "sync_id": "a33635ae-1ff9-4bb9-8a63-91f3988d572b",
+            "page_index": 0,
+            "state": "synced"
+          },
+          {
+            "at": "2026-10-07T17:44:26.479Z",
+            "sync_id": "40433794-43a9-4823-a0f2-f47e53780f7a",
+            "page_index": 0,
+            "state": "synced"
+          }
+        ],
+        "phone_hash_verified_events": [
+          {
+            "run_id": "ee2aa55e-81d6-4ff6-b407-b17921ec6a6b",
+            "seq": 24,
+            "generation": 1,
+            "upserts": 40,
+            "chunked": 1
+          },
+          {
+            "run_id": "7f33f7e7-4ba3-4691-b907-fcf193b3a174",
+            "seq": 69,
+            "generation": 2,
+            "upserts": 40,
+            "chunked": 1
+          },
+          {
+            "run_id": "a42c5bdb-505e-455e-949d-1446b1ab9760",
+            "seq": 24,
+            "generation": 1,
+            "upserts": 40,
+            "chunked": 1
+          }
+        ],
+        "apply_results": [
+          "STAGED",
+          "STAGED",
+          "STAGED"
+        ],
+        "qualification": "Phone synced hash is SHA256(server sync UUID) first16. ACK log lacks pageHash/sequence; these are not fabricated. Durable committed range and all exact rows independently checked. A delta is STAGED pending payload chunks; final synced ACK+persisted full payloads/committed range prove the chunk commit, not STAGED alone."
+      }
+    }
+  ],
+  "unrelated_old_phone_items": 2353,
+  "oldA_cache_changes": [
+    {
+      "item_key": "exec-58d2eff9-dfec-4e12-aded-0a86f18999dc",
+      "retained": false
+    },
+    {
+      "item_key": "exec-a1d24f9a-ef95-4d3c-871f-b8e2ac617394",
+      "retained": false
+    },
+    {
+      "item_key": "exec-f763bc43-72ba-4d9a-853d-1ce04ecbdd3a",
+      "retained": false
+    },
+    {
+      "item_key": "msg_06cd8032aa316888016ac0099e898c87d08933628d1ae7126c",
+      "retained": false
+    },
+    {
+      "item_key": "msg_06cd8032aa316888016ac009d1ba1487d0b2fe51c7636f7dc4",
+      "retained": false
+    },
+    {
+      "item_key": "msg_06cd8032aa316888016ac1492d3acc87d0a273977204fc28e6",
+      "retained": false
+    },
+    {
+      "item_key": "msg_06cd8032aa316888016ac1495e78c487d09f010f32d03d4ca1",
+      "retained": false
+    },
+    {
+      "item_key": "msg_06cd8032aa316888016ac149ddeec087d097678c818d39ea85",
+      "retained": false
+    }
+  ],
+  "old_phone_db_sha": "921990cf50b798c10b697a8e09053cb30c6e22ec7e9ae394a0cf51846f5913fb",
+  "new_phone_db_sha": "355008f58401272a1af3addcb47c7158d69fd7bc0a406fb9d2f13deacf661dc9",
+  "original_runs": 59,
+  "final_runs": 80,
+  "qualification": "Evidence self-checks, not permanent/E2E test count or formal review. Expected DTOs recomputed from read-only real product DB via existing provider; actual phone persistence/UI/ACK separately observed. All full DB/UI/log/APK private originals retained."
+}

@@ -1,0 +1,72 @@
+{
+  "event_ref": ".workflow-system/records/events/key-c5b4ca39826fbb3427b347bf249a6394293ef52508f20715e21e72dda3d5b38f.json",
+  "captured_at": "2026-10-08T07:09:01.012Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/7a5eec7b35440317bcab207b0d066809583349bdebce4cc3d65cbedaa0003607.blob",
+      "sha256": "7a5eec7b35440317bcab207b0d066809583349bdebce4cc3d65cbedaa0003607",
+      "size": 4883,
+      "source_path": "logs/history-save-repair-20261005/close-20261008/report.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/721434cf0f165b38df5e5442a34b4f1fd3cb3796a83b1ef54fcaec7d8e3bf153.blob",
+      "sha256": "721434cf0f165b38df5e5442a34b4f1fd3cb3796a83b1ef54fcaec7d8e3bf153",
+      "size": 2324,
+      "source_path": "logs/history-save-repair-20261005/close-20261008/verification.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d7f44d6a13a67c5e46b654c4f43a23e19daadbdc160b57298d9e5de032999d08.blob",
+      "sha256": "d7f44d6a13a67c5e46b654c4f43a23e19daadbdc160b57298d9e5de032999d08",
+      "size": 942,
+      "source_path": "logs/history-save-repair-20261005/close-20261008/doc-checks.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/000d4a199bd418de345244239aa5ba586b5cac456cc465b878d5ada00c0bf661.blob",
+      "sha256": "000d4a199bd418de345244239aa5ba586b5cac456cc465b878d5ada00c0bf661",
+      "size": 4030,
+      "source_path": "logs/history-save-repair-20261005/close-20261008/record-doc-outcome.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/71bfeca65adecf5b828707dbb8a49e930ce1ef6f571f535439c6299a308d7cbb.blob",
+      "sha256": "71bfeca65adecf5b828707dbb8a49e930ce1ef6f571f535439c6299a308d7cbb",
+      "size": 7655,
+      "source_path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1f70555e698e229fbde42b99eae9bc5a3256bc30f48a019f6381d64f736168ba.blob",
+      "sha256": "1f70555e698e229fbde42b99eae9bc5a3256bc30f48a019f6381d64f736168ba",
+      "size": 7506,
+      "source_path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "phase": "c-offline-reopened",
+  "at": "2026-10-07T17:25:38.786Z",
+  "pid": "16856",
+  "xml": {
+    "path": "private/c-offline-reopened.xml",
+    "bytes": 30917,
+    "sha256": "e2aa0a0e1b8af19301c37d7438cd31eb3357d43cf98eb4d9f2c9512e862d07c9"
+  },
+  "screenshot": {
+    "path": "private/c-offline-reopened.png",
+    "bytes": 159534,
+    "sha256": "69883bac2c6a85932af88189b97683bf0405975b39a579735cccf79bfefb9210"
+  },
+  "edit_text_lengths": [
+    0
+  ],
+  "detail_buttons": [
+    {
+      "text": "查看历史详情 1 · 469 字节",
+      "bounds": "[72,459][570,519]"
+    }
+  ],
+  "N_DONE": false,
+  "C_DONE": true,
+  "A_DONE": false
+}

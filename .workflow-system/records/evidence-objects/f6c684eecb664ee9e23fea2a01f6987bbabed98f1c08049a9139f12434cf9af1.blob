@@ -1,0 +1,76 @@
+'use strict';
+const fs=require('fs'),path=require('path'),cp=require('child_process'),crypto=require('crypto');
+const out=__dirname,base=path.dirname(out),sha=x=>crypto.createHash('sha256').update(x).digest('hex');
+const json=p=>JSON.parse(fs.readFileSync(p)),checks=[],check=(name,passed)=>checks.push({name,passed:!!passed});
+const rows=(db,q,params=[])=>{const s=db.prepare(q);s.bind(params);const a=[];while(s.step())a.push(s.getAsObject());s.free();return a;};
+const phase=p=>path.join(base,p),xmlDecode=s=>s.replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/&amp;/g,'&');
+(async()=>{
+    const before=json(path.join(out,'status-before.json')),exec=before.step.execution_ref;
+    const manifest=json(exec.replace('/events/','/attachments/'));
+    const attachments=manifest.attachments.map(a=>({path:a.source_path,saved:a.status==='saved'&&a.issues.length===0,
+        object_exact:sha(fs.readFileSync(a.ref))===a.sha256&&fs.statSync(a.ref).size===a.size,
+        live_exact:sha(fs.readFileSync(a.source_path))===a.sha256}));
+    check('all123 original execution attachments saved and exact live/object bytes',attachments.length===123&&attachments.every(x=>x.saved&&x.object_exact&&x.live_exact));
+    check('no private raw execution attachments',attachments.every(x=>!x.path.includes('/private/')));
+    check('same HEAD as executed version',cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()===before.step.execution.source_revision);
+    const env=json(phase('environment-restored.json'));
+    check('protected architecture/contracts/decisions/Cargo.lock unchanged',Object.entries(env.versions).filter(([p])=>!p.startsWith('android/')).every(([p,v])=>sha(fs.readFileSync(p))===v.sha256));
+    check('original scope consent exact and associated',json(before.step.execution.decision_ref).payload.request.decision_text==='补最小 Android 兼容并重验 S6（推荐）'&&json(phase('decision-result.json')).association==='applied');
+    const suites=fs.readdirSync(base).filter(n=>n.startsWith('jvm-after-TEST-')&&n.endsWith('.xml')).map(n=>{
+        const head=fs.readFileSync(phase(n),'utf8').match(/<testsuite[^>]+>/)[0];
+        const field=k=>Number(head.match(new RegExp(k+'="(\\d+)"'))[1]);
+        return {file:n,tests:field('tests'),failures:field('failures'),errors:field('errors'),skipped:field('skipped')};
+    });
+    check('216 JVM real XML passed, no skipped/errors',suites.length===4&&suites.reduce((a,x)=>a+x.tests,0)===216&&suites.every(x=>!x.failures&&!x.errors&&!x.skipped));
+    check('old implementation new3 real failures retained',/<testsuite[^>]*tests="3"[^>]*failures="3"[^>]*errors="0"/.test(fs.readFileSync(phase('jvm-before.xml'),'utf8')));
+    const core=json(path.join(out,'node-core-regression-result.json'));
+    check('protected Node gate supplemented139/139',core.exit_code===0&&core.summary.includes('# tests 139')&&core.summary.includes('# pass 139')&&core.summary.includes('# fail 0'));
+    check('build/install version exact',json(phase('apk-build-result.json')).exit_code===0&&sha(fs.readFileSync('android/app/build/outputs/apk/debug/app-debug.apk'))===json(phase('install-preservation.json')).installed_sha256&&sha(fs.readFileSync(phase('private/installed-fixed.apk')))===json(phase('install-preservation.json')).build_sha256);
+    check('nonclear install actual DB/prefs byte preservation',sha(fs.readFileSync(phase('private/final-stopped/databases/codex_conversations.db')))===sha(fs.readFileSync(phase('private/after-install-stopped/databases/codex_conversations.db')))&&Object.keys(json(phase('final-stopped.json')).preference_hashes).every(n=>sha(fs.readFileSync(phase('private/final-stopped/shared_prefs/'+n)))===sha(fs.readFileSync(phase('private/after-install-stopped/shared_prefs/'+n)))));
+    const SQL=await require('sql.js')();
+    const phone=new SQL.Database(fs.readFileSync(phase('private/fixed-final-stopped/databases/codex_conversations.db'))),oldPhone=new SQL.Database(fs.readFileSync(phase('private/baseline/databases/codex_conversations.db'))),product=new SQL.Database(fs.readFileSync('logs/task005-s2-repair-runtime-2/data/codex-history.sqlite'));
+    for(const db of [phone,oldPhone,product])db.run('PRAGMA query_only=ON');
+    check('stable phone backup SHA and quick_check',sha(fs.readFileSync(phase('private/fixed-final-stopped/databases/codex_conversations.db')))===json(phase('fixed-final-stopped.json')).database.sha256&&rows(phone,'PRAGMA quick_check')[0].quick_check==='ok');
+    const store={readConversation:async id=>{
+        const c=rows(product,'SELECT coverage_json FROM conversations WHERE conversation_id=?',[id])[0];
+        return {conversationId:id,coverage:JSON.parse(c.coverage_json),items:rows(product,'SELECT * FROM history_items WHERE conversation_id=? ORDER BY ordinal,item_key',[id]).map(x=>({itemKey:x.item_key,eventId:x.event_id,turnId:x.turn_id,itemType:x.item_type,ordinal:x.ordinal,payload:JSON.parse(x.payload_json)})),toolDetails:rows(product,'SELECT * FROM tool_details WHERE conversation_id=? ORDER BY detail_key',[id]).map(x=>({detailKey:x.detail_key,itemKey:x.item_key,payload:JSON.parse(x.payload_json)}))};
+    }};
+    const {CodexHistoryProductProvider}=require('../../../../src/services/codexHistoryProductProvider');
+    const provider=new CodexHistoryProductProvider({store}),prior=json(phase('self-check-corrected.json')),matrix=[];
+    const lines=p=>fs.readFileSync(p,'utf8').trim().split('\n').flatMap(l=>{try{return [JSON.parse(l)]}catch{return []}});
+    const phoneLogs=[...lines(phase('private/phone-final-termlink-diagnostics.jsonl.1')),...lines(phase('private/phone-final-termlink-diagnostics.jsonl'))],serverLogs=lines('logs/diagnostics/termlink-diagnostics.jsonl');
+    for(const m of prior.matrix){
+        const dto=await provider.readInitial(m.id,{rangeEnabled:true}),cached=rows(phone,'SELECT * FROM items WHERE endpoint_id=? AND conversation_id=? ORDER BY position,item_key',['task005-s2-local',m.id]);
+        check(m.label+' all persisted item identity/body/hash/ref/position/role exact',cached.length===m.items&&cached.length===dto.items.length&&cached.every(c=>{const e=dto.items.find(x=>x.itemKey===c.item_key);return e&&c.turn_id===e.turnId&&c.item_type===e.itemType&&c.position===e.position&&c.role===e.role&&c.payload_json===e.payloadJson&&c.content_hash===e.contentHash&&c.payload_bytes===Buffer.byteLength(e.payloadJson)&&c.provisional===0&&JSON.stringify(JSON.parse(c.detail_refs_json||'[]'))===JSON.stringify(e.detailRefs); }));
+        const c=rows(phone,'SELECT * FROM conversations WHERE endpoint_id=? AND conversation_id=?',['task005-s2-local',m.id])[0];
+        check(m.label+' durable committed product coverage correct',c.provider_mode==='product_db'&&c.coverage_complete===1&&c.has_more_before===0&&c.coverage_state==='complete'&&c.coverage_root===dto.range.coverageRoot&&c.range_id===dto.range.rangeId&&rows(phone,'SELECT * FROM history_segments WHERE endpoint_id=? AND conversation_id=?',['task005-s2-local',m.id]).some(s=>s.state==='committed'&&s.item_count===m.items&&s.segment_root===dto.range.coverageRoot));
+        const refs=cached.flatMap(x=>JSON.parse(x.detail_refs_json||'[]'));
+        let allDetails=true;for(const r of refs){let cursor=null,body='';do{const p=await provider.readDetailPage(m.id,{refId:r.refId,cursor});body+=p.content;cursor=p.nextCursor;}while(cursor);allDetails&&=sha(body)===r.contentHash&&Buffer.byteLength(body)===r.byteSize;}
+        check(m.label+' every saved ref backed by exact product payload',refs.length===m.detail_refs&&allDetails);
+        const protocol=m.protocol.acks.map(a=>{
+            const actual=serverLogs.find(x=>x.pid===111656&&x.event==='server.codex.history.ack_received'&&x.fields.conversationKey===m.protocol.conversation_key&&x.fields.syncId===a.sync_id&&x.fields.pageIndex===0&&x.fields.ok===true&&x.fields.state==='synced');
+            const synced=phoneLogs.find(x=>x.event==='android.codex.history.sync_state'&&x.fields?.conversationKey===m.protocol.conversation_key&&x.fields.syncId===sha(a.sync_id).slice(0,16)&&x.fields.state==='synced');
+            const delta=synced&&phoneLogs.find(x=>x.runId===synced.runId&&x.seq<synced.seq&&x.event==='android.codex.history.delta_received'&&x.fields?.conversationKey===m.protocol.conversation_key&&x.fields.generation===synced.fields.generation&&x.fields.pageHashMatches===true&&x.fields.upsertCount===m.items);
+            return {server_present:!!actual,phone_synced:!!synced,same_run_generation_hash_before_synced:!!delta,sync_id:a.sync_id};
+        });
+        check(m.label+'3 actual ACKs joined to phone synced and same-run hash deltas',protocol.length===3&&protocol.every(x=>x.server_present&&x.phone_synced&&x.same_run_generation_hash_before_synced));
+        const stem=m.label==='D'?'a':m.label.toLowerCase();
+        const uiPhases=['fixed-'+stem+'-returned','fixed-'+stem+'-reopened',...(m.label==='D'?[]:['fixed-'+stem+'-selected'])];
+        for(const p of uiPhases){const u=json(phase(p+'-ui-summary.json')),raw=json(phase('private/'+p+'-ui.json'));
+            check(p+' real captures and target visible body/ref entry',sha(fs.readFileSync(phase('private/'+p+'.png')))===u.screenshot.sha256&&sha(fs.readFileSync(phase('private/'+p+'.xml')))===u.xml.sha256&&u.detail_buttons.length>0&&raw.nodes.some(x=>m.label==='D'?x.text?.includes('E2E-S4-A3-DONE'):x.text==='TL832-S5-'+m.label+'-DONE'));}
+        for(const p of ['fixed-'+stem+'-detail','fixed-'+stem+'-reopened-detail']){const u=json(phase(p+'-ui-summary.json')),raw=json(phase('private/'+p+'-ui.json'));
+            check(p+' actual dialog verified-copy control/capture integrity',sha(fs.readFileSync(phase('private/'+p+'.png')))===u.screenshot.sha256&&sha(fs.readFileSync(phase('private/'+p+'.xml')))===u.xml.sha256&&raw.nodes.some(x=>x.text==='复制详情')&&raw.nodes.some(x=>x.text==='历史详情（只读）')&&!raw.nodes.some(x=>/不可用|加载并校验|引用已更新/.test(x.text||'')));}
+        const selected=rows(product,'SELECT payload_json FROM tool_details WHERE conversation_id=? AND item_key=?',[m.id,'tool:'+m.selected_detail_call_id]);
+        matrix.push({label:m.label,id:m.id,items:cached.length,refs:refs.length,coverage_root:c.coverage_root,protocol,selected_product_detail_digest:sha(selected[0].payload_json),selected_call_id:m.selected_detail_call_id});
+    }
+    const n=rows(phone,'SELECT item_key,payload_json FROM items WHERE conversation_id=?',[prior.matrix[0].id]),c=rows(phone,'SELECT item_key,payload_json FROM items WHERE conversation_id=?',[prior.matrix[1].id]);
+    check('C retains N history and N excludes own C turn',n.every(x=>c.some(y=>y.item_key===x.item_key&&y.payload_json===x.payload_json))&&n.every(x=>!x.payload_json.includes('TL832-S5-C-20261007')));
+    const key=x=>JSON.stringify([x.endpoint_id,x.conversation_id,x.item_key]),after=new Map(rows(phone,'SELECT * FROM items').map(x=>[key(x),x]));const unrelated=rows(oldPhone,'SELECT * FROM items').filter(x=>!prior.matrix.some(m=>m.id===x.conversation_id));
+    check('2353 unrelated old phone rows all exact',unrelated.length===2353&&unrelated.every(x=>JSON.stringify(x)===JSON.stringify(after.get(key(x)))));
+    check('final environment observation correctly qualifies intermediate reverse',env.pid.exit===1&&env.pid.stdout===''&&env.reverse.exit===0&&env.reverse.stdout===''&&env.power.lines.includes('mWakefulness=Asleep')&&env.power.lines.includes('Display Power: state=OFF')&&/TrackedProcessCount: 0/.test(env.service.stdout)&&/Listening: none/.test(env.service.stdout));
+    check('prior failed checker retained and correction only missing field comparison',json(phase('self-check.json')).passed===35&&prior.passed===38&&fs.readFileSync(phase('checks-first-reader.cjs'),'utf8').includes('c.payload_bytes===e.payloadBytes')&&fs.readFileSync('src/services/codexHistoryProductProvider.js','utf8').includes('payloadJson,\n            contentHash,')&&!/payloadBytes:/.test(fs.readFileSync('src/services/codexHistoryProductProvider.js','utf8')));
+    const result={at:new Date().toISOString(),execution_ref:exec,source_revision:before.step.execution.source_revision,provenance:'same implementer review evidence audit, not independent review or new product E2E',checks,passed:checks.filter(x=>x.passed).length,total:checks.length,attachments_count:attachments.length,attachments,matrix,suites,new_node_validation:core,manual_pixel_review:['fixed-n-detail','fixed-c-detail','fixed-a-detail','fixed-n-reopened-detail','fixed-c-reopened-detail','fixed-a-reopened-detail'].map(p=>({path:'private/'+p+'.png',sha256:sha(fs.readFileSync(phase('private/'+p+'.png'))),assessment:'Viewed actual pixels: product tool ID/input command/cwd/output/status/exit/duration match retained selected tool. XML lacks SelectionContainer body; header/copy button alone was not accepted as body proof.'})),qualifications:['N/C return captures show target body and correct current refs/entry; selected details actually opened initially and after reopen. A opened on return and reopen. No additional phone replay.','Phone selected tool per scenario, not all9 delegated dialogs. All persisted refs/content identity checked independently.','Old error bar/budget/registration and3 management gaps preserved; no production edits, finish/close/Git/deploy.']};
+    fs.writeFileSync(path.join(out,'audit.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+    console.log(JSON.stringify({passed:result.passed,total:result.total,failed:checks.filter(x=>!x.passed),attachments:attachments.length,matrix:matrix.map(x=>({label:x.label,items:x.items,refs:x.refs,acks:x.protocol.length}))}));
+    for(const db of [phone,oldPhone,product])db.close();if(result.passed!==result.total)process.exitCode=2;
+})().catch(e=>{console.error(e.stack);process.exitCode=1;});

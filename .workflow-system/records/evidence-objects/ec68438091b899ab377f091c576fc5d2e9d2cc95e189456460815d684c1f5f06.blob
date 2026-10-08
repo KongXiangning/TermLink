@@ -1,0 +1,5 @@
+{
+  "phase": "a-selected",
+  "error": "database disk image is malformed",
+  "qualification": "Live tar taken during DB writes may be inconsistent. Preserved private/a-selected.tar and extracted bytes; no claim that device DB is corrupt. Need stopped backup for durable verification."
+}

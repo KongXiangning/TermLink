@@ -1,0 +1,29 @@
+'use strict';
+const fs=require('fs'),cp=require('child_process'),crypto=require('crypto'),assert=require('assert/strict');
+const dir='logs/history-save-repair-20261005/close-20261008',proof=JSON.parse(fs.readFileSync(dir+'/verification.json'));
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const call=(cmd,input)=>{const r=cp.spawnSync('node',['.workflow-system/runtime/support/assistance.mjs',cmd,'--root','.'],{input:JSON.stringify(input),encoding:'utf8',windowsHide:true});assert.equal(r.status,0,r.stderr||r.stdout);return JSON.parse(r.stdout);};
+const input={kind:'closure-document-outcome',task_ref:'TASK-20260832',source_revision:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),
+ links:[{relation:'documents',ref:proof.close_ref}],
+ body:{task_id:'task-58bc12d9a46b8d84fb6e42888785b402',close_ref:proof.close_ref,
+   actual_lifecycle:'closed',six_steps:'finished',current_task_id:null,
+   updated_docs:['PLAN current closure and done plan disposition','REQ current closure with in_progress commit/CR traceability'],
+   no_business_implementation_in_this_batch:true,p2_disposition:'Excluded by explicit publication premise, not technically fixed; original findings retained',
+   tests:'Only REQ strict format and git diff whitespace verification this turn; prior business validation reused',
+   next_route:'git-commit',route_is_advice_only:true,remaining_work:proof.remaining_work},
+ files:[dir+'/report.md',dir+'/verification.json',dir+'/doc-checks.json',dir+'/record-doc-outcome.cjs',
+   'docs/product/plans/PLAN-20261005-codex-history-save-repair.md','docs/product/requirements/REQ-20261005-codex-history-save-repair.md'],
+ idempotency_key:'task832-closed-final-doc-outcome-20261008-v1'};
+fs.writeFileSync(dir+'/doc-outcome-input.json',JSON.stringify(input,null,2)+'\n',{flag:'wx'});
+const saved=call('record',input);fs.writeFileSync(dir+'/doc-outcome-result.json',JSON.stringify(saved,null,2)+'\n',{flag:'wx'});assert.equal(saved.recorded,true);
+const manifestRef=saved.ref.replace('/events/','/attachments/'),manifest=JSON.parse(fs.readFileSync(manifestRef));
+assert.equal(manifest.attachments.length,input.files.length);for(const a of manifest.attachments){assert.equal(a.status,'saved');assert.equal(a.issues.length,0);assert.equal(hash(a.ref),a.sha256);assert.equal(hash(a.source_path),a.sha256);}
+const after=call('task-status',{detail:'task',task_ref:'TASK-20260832'});
+assert.equal(after.task.lifecycle,'closed');assert.equal(after.current_task_id,null);assert.equal(after.task.lifecycle_ref,proof.close_ref);assert.ok(after.task.steps.every(s=>s.state==='finished'));assert.equal(after.issues.length,proof.old_management_issue_count);
+const hashes=JSON.parse(fs.readFileSync(dir+'/protected-hashes.json'));assert.ok(Object.entries(hashes).every(([p,h])=>hash(p)===h));
+assert.equal(cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),input.source_revision);
+const status=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=normal'],{encoding:'utf8'});
+assert.equal(cp.execFileSync('git',['diff','--cached','--name-only'],{encoding:'utf8'}).trim(),'');
+fs.writeFileSync(dir+'/final-git-status.txt',status,{flag:'wx'});
+const result={close_ref:proof.close_ref,document_outcome_ref:saved.ref,document_outcome_recorded:true,manifest_ref:manifestRef,final_document_snapshots:manifest.attachments.length,all_saved_exact:true,task_lifecycle:after.task.lifecycle,current_task_id:after.current_task_id,six_finished:true,original_reviews_and_user_dispositions_retained:true,old_management_issues:after.issues.length,no_new_management_issues:true,business_review_and_IDE_bytes_unchanged:true,head_unchanged:true,staged_files:0,plan_status:'done',req_status:'in_progress',req_remaining:'Actual Git/CR traceability; no active CR',next_route:'git-commit',native_next_route:after.next_route};
+fs.writeFileSync(dir+'/closure-doc-outcome.json',JSON.stringify(result,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify(result,null,2));

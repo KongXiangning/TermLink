@@ -1,0 +1,50 @@
+{
+  "event_ref": ".workflow-system/records/events/key-ec7199470f5cf35aca48d866a841f677245a12a18fa221729fe6a1b40b2f048f.json",
+  "captured_at": "2026-10-08T06:55:43.633Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f13356cf56b2536a3f6bd9956620a79d13ad52362f326ebc44a61fb73b554bcd.blob",
+      "sha256": "f13356cf56b2536a3f6bd9956620a79d13ad52362f326ebc44a61fb73b554bcd",
+      "size": 1949,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/user-disposition-20261008.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/8ef7827e2428bc46c6ebe47673773b19bb7b38d5efa90248d0264b2ca73197b0.blob",
+      "sha256": "8ef7827e2428bc46c6ebe47673773b19bb7b38d5efa90248d0264b2ca73197b0",
+      "size": 5360,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/management/record-user-disposition.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d83960c0d2fe5448cf7562904ed41e8dc95706ecea9109b712c2fcfd267bf059.blob",
+      "sha256": "d83960c0d2fe5448cf7562904ed41e8dc95706ecea9109b712c2fcfd267bf059",
+      "size": 7037,
+      "source_path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/82afa170f11daf0d087d69489549b1ed756a15b64b63ec19a4c58fa05af8c663.blob",
+      "sha256": "82afa170f11daf0d087d69489549b1ed756a15b64b63ec19a4c58fa05af8c663",
+      "size": 6971,
+      "source_path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "issues": []
+    }
+  ]
+}

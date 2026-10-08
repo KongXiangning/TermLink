@@ -84,6 +84,55 @@ class CodexViewModelThreadReadyTest {
         assertTrue(historyDetailItemsForUiMessage(live, emptyList()).isEmpty())
     }
 
+    private fun prefixedToolCache(itemId: String, turnId: String = "turn-1"): ChatMessage {
+        val fixture = JSONObject(javaClass.classLoader!!.getResourceAsStream("codex_product_db_detail_delta.json")!!
+            .bufferedReader().use { it.readText() })
+        val wire = fixture.getJSONObject("page").getJSONArray("upserts").getJSONObject(0)
+        return decodeCachedHistoryItem(CodexHistoryItem(
+            itemKey = "tool:$itemId", turnId = turnId, position = 0,
+            itemType = "tool", role = "tool", clientRequestId = null,
+            payloadJson = wire.getString("payloadJson"), contentHash = wire.getString("contentHash"),
+            detailRefsJson = wire.getJSONArray("detailRefs").toString()))!!
+    }
+
+    @Test
+    fun prefixedToolDetailRefsMatchTheSameNativeOperationAndTurn() {
+        val cached = prefixedToolCache("exec-one")
+        val live = ChatMessage(id = "turn-1:operation:command:exec-one", role = ChatMessage.Role.TOOL,
+            content = "healthy IPC body", operationTurnId = "turn-1", operationType = "command")
+        assertEquals(listOf(cached), historyDetailItemsForUiMessage(live, listOf(cached)))
+        assertEquals("healthy IPC body", live.content)
+        assertEquals(1, cached.historyDetailRefs.size)
+    }
+
+    @Test
+    fun prefixedToolDetailRefsMatchOnlyCurrentBatchMembers() {
+        val first = prefixedToolCache("exec-one")
+        val second = prefixedToolCache("exec-two")
+        val other = prefixedToolCache("exec-other")
+        val wrongTurn = prefixedToolCache("exec-one", "turn-other")
+        val live = ChatMessage(id = "command-batch:turn-1:exec-one", role = ChatMessage.Role.TOOL,
+            content = "healthy command batch", operationTurnId = "turn-1", operationType = "command",
+            operationBatchMemberIds = listOf("turn-1:operation:command:exec-one", "turn-1:operation:command:exec-two"))
+        assertEquals(listOf(first, second), historyDetailItemsForUiMessage(live, listOf(first, second, other, wrongTurn)))
+    }
+
+    @Test
+    fun prefixedToolDetailRefsRejectMissingScopeAndPreserveLegacyAndPartialRefs() {
+        val cached = prefixedToolCache("exec-one")
+        val live = ChatMessage(id = "turn-1:operation:command:exec-one", role = ChatMessage.Role.TOOL,
+            content = "healthy IPC body", operationTurnId = "turn-1", operationType = "command")
+        listOf(live.copy(operationTurnId = null), live.copy(operationType = null),
+            live.copy(operationTurnId = "turn-other"), live.copy(id = "turn-1:operation:command:unknown"))
+            .forEach { assertTrue(historyDetailItemsForUiMessage(it, listOf(cached)).isEmpty()) }
+        assertTrue(historyDetailItemsForUiMessage(live, listOf(cached.copy(contentType = "text"))).isEmpty())
+        assertTrue(historyDetailItemsForUiMessage(live, listOf(cached.copy(historyDetailRefs = emptyList()))).isEmpty())
+        assertEquals(listOf(cached.copy(historyDetailRefs = emptyList(), historyDetailRefsTruncated = true)),
+            historyDetailItemsForUiMessage(live, listOf(cached.copy(historyDetailRefs = emptyList(), historyDetailRefsTruncated = true))))
+        val legacy = cached.copy(id = "exec-one")
+        assertEquals(listOf(legacy), historyDetailItemsForUiMessage(live, listOf(legacy)))
+    }
+
     @Test
     fun liveReplayTailOnlyAppendsAndNeverDeletesOlderVisibleMessages() {
         val current = listOf(

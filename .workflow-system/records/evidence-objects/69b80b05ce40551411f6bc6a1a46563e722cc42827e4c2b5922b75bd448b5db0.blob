@@ -1,0 +1,25 @@
+{
+  "phase": "a-return-visible",
+  "at": "2026-10-07T17:22:43.533Z",
+  "pid": "14606",
+  "xml": {
+    "path": "private/a-return-visible.xml",
+    "bytes": 31020,
+    "sha256": "f0fa32a0116288f1d2ea0190721262e933bfc0a6a362083f05f447b7a5955330"
+  },
+  "screenshot": {
+    "path": "private/a-return-visible.png",
+    "bytes": 166477,
+    "sha256": "e41940d02a18f21131764721bc1913bc551629c8de59d3fbda8baf30ea35a85e"
+  },
+  "empty_draft": true,
+  "detail_buttons": [
+    {
+      "text": "查看历史详情 1 · 552 字节",
+      "bounds": "[72,459][570,519]"
+    }
+  ],
+  "N_DONE": false,
+  "C_DONE": false,
+  "A_DONE": true
+}

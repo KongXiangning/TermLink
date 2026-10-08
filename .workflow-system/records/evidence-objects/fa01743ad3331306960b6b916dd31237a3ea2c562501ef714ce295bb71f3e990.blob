@@ -1,0 +1,103 @@
+'use strict';
+// Independent, offline audit. All databases are memory copies with query_only.
+// Output is limited to hashes, identity/counts, predicates and test provenance.
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const out = __dirname;
+const root = path.resolve(out, '../../..');
+const s6 = path.join(root, 'logs/history-save-repair-20261005/s6');
+const sha = x => crypto.createHash('sha256').update(x).digest('hex');
+const hashFile = p => sha(fs.readFileSync(p));
+const readJson = p => JSON.parse(fs.readFileSync(p, 'utf8'));
+const query = (db, sql, params = []) => {
+  const statement = db.prepare(sql);
+  statement.bind(params);
+  const rows = [];
+  while (statement.step()) rows.push(statement.getAsObject());
+  statement.free();
+  return rows;
+};
+const checks = [];
+const assert = (name, passed) => checks.push({ name, passed: Boolean(passed) });
+const ids = { N: '01a114a2-a201-7f73-993f-9c956ae35713', C: '01a114a4-e693-7be1-aafb-b9a3cb580e1d', D: '01a0fe25-56a2-7910-ba22-61e8016e8ad9' };
+const parseLogs = p => fs.readFileSync(p, 'utf8').split('\n').flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
+const { DOMParser } = require(path.join(root, 'node_modules/@xmldom/xmldom'));
+const xmlTexts = p => Array.from(new DOMParser().parseFromString(fs.readFileSync(p, 'utf8'), 'text/xml').getElementsByTagName('node')).map(node => node.getAttribute('text'));
+(async () => {
+  const SQL = await require(path.join(root, 'node_modules/sql.js'))();
+  const phonePath = path.join(s6, 'private/fixed-final-stopped/databases/codex_conversations.db');
+  const oldPath = path.join(s6, 'private/baseline/databases/codex_conversations.db');
+  const productPath = path.join(root, 'logs/task005-s2-repair-runtime-2/data/codex-history.sqlite');
+  const phone = new SQL.Database(fs.readFileSync(phonePath));
+  const old = new SQL.Database(fs.readFileSync(oldPath));
+  const product = new SQL.Database(fs.readFileSync(productPath));
+  for (const db of [phone, old, product]) { db.run('PRAGMA query_only=ON'); assert('database quick_check', query(db, 'PRAGMA quick_check')[0].quick_check === 'ok'); }
+  const store = { readConversation: async id => {
+    const c = query(product, 'SELECT coverage_json FROM conversations WHERE conversation_id=?', [id])[0];
+    if (!c) return null;
+    return { conversationId: id, coverage: JSON.parse(c.coverage_json), items: query(product, 'SELECT item_key,event_id,turn_id,item_type,ordinal,payload_json FROM history_items WHERE conversation_id=? ORDER BY ordinal,item_key', [id]).map(r => ({ itemKey: r.item_key, eventId: r.event_id, turnId: r.turn_id, itemType: r.item_type, ordinal: r.ordinal, payload: JSON.parse(r.payload_json) })), toolDetails: query(product, 'SELECT detail_key,item_key,payload_json FROM tool_details WHERE conversation_id=? ORDER BY detail_key', [id]).map(r => ({ detailKey: r.detail_key, itemKey: r.item_key, payload: JSON.parse(r.payload_json) })) };
+  }};
+  const { CodexHistoryProductProvider } = require(path.join(root, 'src/services/codexHistoryProductProvider'));
+  const provider = new CodexHistoryProductProvider({ store });
+  const phoneLogs = ['phone-final-termlink-diagnostics.jsonl.1', 'phone-final-termlink-diagnostics.jsonl'].flatMap(f => parseLogs(path.join(s6, 'private', f)));
+  const unique = new Map(phoneLogs.map(x => [x.runId + ':' + x.seq, x]));
+  const plogs = [...unique.values()].filter(x => x.ts >= '2026-10-07T17:37:00Z');
+  const server = parseLogs(path.join(root, 'logs/diagnostics/termlink-diagnostics.jsonl')).filter(x => x.pid === 111656 && x.ts >= '2026-10-07T17:37:00Z');
+  const matrix = [];
+  for (const [label, id] of Object.entries(ids)) {
+    const projection = await provider.readInitial(id, { rangeEnabled: true });
+    const rows = query(phone, 'SELECT * FROM items WHERE endpoint_id=? AND conversation_id=? ORDER BY position,item_key', ['task005-s2-local', id]);
+    const conversation = query(phone, 'SELECT * FROM conversations WHERE endpoint_id=? AND conversation_id=?', ['task005-s2-local', id])[0];
+    const expected = new Map(projection.items.map(x => [x.itemKey, x]));
+    assert(label + ' full DTO equality independently recomputed', rows.length === expected.size && rows.every(x => { const e = expected.get(x.item_key); return e && x.turn_id === e.turnId && x.item_type === e.itemType && x.payload_json === e.payloadJson && x.content_hash === e.contentHash && x.payload_bytes === Buffer.byteLength(e.payloadJson, 'utf8') && JSON.stringify(JSON.parse(x.detail_refs_json || '[]')) === JSON.stringify(e.detailRefs) && x.provisional === 0; }));
+    const segments = query(phone, 'SELECT * FROM history_segments WHERE endpoint_id=? AND conversation_id=?', ['task005-s2-local', id]);
+    assert(label + ' committed complete product range', conversation.provider_mode === 'product_db' && conversation.coverage_state === 'complete' && conversation.coverage_complete === 1 && conversation.has_more_before === 0 && conversation.coverage_root === projection.range.coverageRoot && conversation.range_id === projection.range.rangeId && conversation.oldest_anchor_key === projection.range.oldestAnchor.key && conversation.newest_anchor_key === projection.range.newestAnchor.key && segments.some(s => s.state === 'committed' && s.item_count === rows.length && s.segment_root === conversation.coverage_root));
+    const details = [];
+    for (const row of rows) for (const ref of JSON.parse(row.detail_refs_json || '[]')) {
+      let cursor = null, content = '';
+      do { const page = await provider.readDetailPage(id, { refId: ref.refId, cursor }); assert(label + ' detail page retains ref hash', page && page.contentHash === ref.contentHash); content += page.content; cursor = page.nextCursor; } while (cursor);
+      assert(label + ' detail exact bytes and hash', Buffer.byteLength(content, 'utf8') === ref.byteSize && sha(content) === ref.contentHash);
+      details.push({ item_key: row.item_key, ref_id: ref.refId, byte_size: ref.byteSize, sha256: sha(content) });
+      const selected = { N: 'exec-57e3cac5-da0a-4ef8-b44f-88726133194a', C: 'exec-9a26614e-6fb8-4040-aaf6-aa7e4f8d03a9', D: 'exec-a1d24f9a-ef95-4d3c-871f-b8e2ac617394' }[label];
+      if (row.item_key === 'tool:' + selected) {
+        const stem = { N: 'n', C: 'c', D: 'a' }[label];
+        for (const phase of ['detail', 'reopened-detail']) {
+          const xml = path.join(s6, 'private/fixed-' + stem + '-' + phase + '.xml');
+          const texts = xmlTexts(xml);
+          assert(label + ' ' + phase + ' modal exact selected persisted content', texts.includes(content) && texts.includes('tool_detail · ' + ref.byteSize + ' 字节') && !texts.some(x => /详情不可用|加载中|重试/.test(x)));
+        }
+      }
+    }
+    const ckey = sha(id).slice(0, 16);
+    const logs = plogs.filter(x => x.fields?.conversationKey === ckey);
+    const synced = logs.filter(x => x.event === 'android.codex.history.sync_state' && x.fields.state === 'synced');
+    const acknowledgements = server.filter(x => x.event === 'server.codex.history.ack_received' && x.fields.conversationKey === ckey && x.fields.ok === true && x.fields.state === 'synced');
+    const joins = acknowledgements.flatMap(ack => synced.filter(x => x.fields.syncId === sha(ack.fields.syncId).slice(0, 16)).map(sync => {
+      const delta = logs.find(x => x.runId === sync.runId && x.fields.generation === sync.fields.generation && x.event === 'android.codex.history.delta_received' && x.fields.pageHashMatches === true && x.seq < sync.seq);
+      const apply = logs.find(x => x.runId === sync.runId && x.fields.generation === sync.fields.generation && x.event === 'android.codex.history.delta_applied' && x.seq < sync.seq);
+      return { sync_hash: sync.fields.syncId, run_id: sync.runId, generation: sync.fields.generation, delta_seq: delta?.seq, sync_seq: sync.seq, apply_result: apply?.fields.result, verified: Boolean(delta && apply) };
+    }));
+    assert(label + ' ACK/hash checked delta same phone run+generation', joins.length === 3 && joins.every(x => x.verified));
+    matrix.push({ label, conversation_id: id, item_count: rows.length, detail_count: details.length, coverage_root: conversation.coverage_root, rows_sha256: sha(JSON.stringify(rows)), details, ack_joins: joins });
+  }
+  const n = query(phone, 'SELECT item_key,payload_json FROM items WHERE conversation_id=?', [ids.N]);
+  const c = query(phone, 'SELECT item_key,payload_json FROM items WHERE conversation_id=?', [ids.C]);
+  assert('branch inherited all ordinary parent rows exactly', n.every(x => c.some(y => y.item_key === x.item_key && y.payload_json === x.payload_json)));
+  assert('branch own content present and parent isolated', c.some(x => x.payload_json.includes('TL832-S5-C-DONE')) && !n.some(x => x.payload_json.includes('TL832-S5-C-DONE')));
+  const unrelated = query(old, 'SELECT * FROM items ORDER BY endpoint_id,conversation_id,item_key').filter(x => !Object.values(ids).includes(x.conversation_id));
+  const after = new Map(query(phone, 'SELECT * FROM items').map(x => [JSON.stringify([x.endpoint_id, x.conversation_id, x.item_key]), x]));
+  assert('2353 unrelated cache rows exactly preserved', unrelated.length === 2353 && unrelated.every(x => JSON.stringify(x) === JSON.stringify(after.get(JSON.stringify([x.endpoint_id, x.conversation_id, x.item_key])))));
+  for (const [label, stem] of [['N', 'n'], ['C', 'c'], ['D', 'a']]) {
+    for (const phase of label === 'D' ? ['returned', 'reopened'] : ['selected', 'returned', 'reopened']) {
+      const texts = xmlTexts(path.join(s6, 'private/fixed-' + stem + '-' + phase + '.xml'));
+      assert(label + ' ' + phase + ' body marker and product detail entry', texts.some(x => label === 'D' ? x.includes('E2E-S4-A3-DONE') : x === 'TL832-S5-' + label + '-DONE') && texts.some(x => x.startsWith('查看历史详情')));
+    }
+  }
+  const restore = readJson(path.join(s6, 'environment-restored.json'));
+  const result = { provenance: { kind: 'independent-readonly-retained-evidence-audit', reviewer: '/root/independent_832_review', live_replay: false }, database_hashes: { final_phone: hashFile(phonePath), baseline_phone: hashFile(oldPath), product: hashFile(productPath) }, checked_source_hashes: { viewmodel: hashFile(path.join(root, 'android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt')), test: hashFile(path.join(root, 'android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt')) }, checks, passed: checks.filter(x => x.passed).length, total: checks.length, matrix, environment_report_sha256: hashFile(path.join(s6, 'environment-restored.json')), limitations: ['Retained device captures audited; this independent review did not operate a device.', 'Selected detail modal per scenario; all durable refs hash audited but other modal dialogs not replayed.', 'ACK log lacks pageHash; same-run/generation phone hash validation and stable committed rows supply separate evidence.', 'Healthy IPC remains body authority; product origin proved by durable provider_mode and exact DTO comparison.'] };
+  fs.writeFileSync(path.join(out, 'phone-audit.json'), JSON.stringify(result, null, 2) + '\n');
+  console.log(JSON.stringify({ passed: result.passed, total: result.total, failed: checks.filter(x => !x.passed), scenarios: matrix.map(x => ({ label: x.label, items: x.item_count, details: x.detail_count, joined_acks: x.ack_joins.length })) }));
+  for (const db of [phone, old, product]) db.close();
+  if (result.passed !== result.total) process.exitCode = 1;
+})().catch(error => { console.error(error.message); process.exitCode = 1; });

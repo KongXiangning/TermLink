@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T18:55:35.966Z",
+  "payload_sha256": "27e5167ddba7ebbc1ba1ffe1c0626bad185316d783ce8715a65dc7113f520a9e",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task832-independent-review-20261008-test-0-v1",
+    "request": {
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S6",
+      "execution_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+      "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "command": "JDK21 gradlew.bat -p android :app:testDebugUnitTest --tests *prefixedToolDetailRefs*",
+      "selector": "JDK21 gradlew.bat -p android :app:testDebugUnitTest --tests *prefixedToolDetailRefs*",
+      "result": "Independent existing prefixedToolDetailRefs3/3, JDK21; build successful. No device replay.",
+      "exit_code": 0,
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+      "validation_kind": "existing-focused-jvm-regression",
+      "applicable_step_ids": [
+        "S6"
+      ],
+      "provenance": {
+        "kind": "independent-task-review-validation",
+        "independent": true,
+        "reviewer": "/root/independent_832_review",
+        "phase": "independent-review"
+      },
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/android-focused.txt",
+        "logs/history-save-repair-20261005/independent-review-20261008/android-focused.xml"
+      ],
+      "idempotency_key": "task832-independent-review-20261008-test-0-v1"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+      "logs/history-save-repair-20261005/independent-review-20261008/android-focused.txt",
+      "logs/history-save-repair-20261005/independent-review-20261008/android-focused.xml"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-c84f630d612f88d97b65b5a7aa47a805646bc3ae3ec19043f225dbf1c3a24371.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S6",
+        "execution_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+        "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+        "command": "JDK21 gradlew.bat -p android :app:testDebugUnitTest --tests *prefixedToolDetailRefs*",
+        "selector": "JDK21 gradlew.bat -p android :app:testDebugUnitTest --tests *prefixedToolDetailRefs*",
+        "result": "Independent existing prefixedToolDetailRefs3/3, JDK21; build successful. No device replay.",
+        "exit_code": 0,
+        "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+        "validation_kind": "existing-focused-jvm-regression",
+        "applicable_step_ids": [
+          "S6"
+        ],
+        "provenance": {
+          "kind": "independent-task-review-validation",
+          "independent": true,
+          "reviewer": "/root/independent_832_review",
+          "phase": "independent-review"
+        },
+        "files": [
+          "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+          "logs/history-save-repair-20261005/independent-review-20261008/android-focused.txt",
+          "logs/history-save-repair-20261005/independent-review-20261008/android-focused.xml"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

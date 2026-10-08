@@ -1,0 +1,746 @@
+{
+  "schema_version": 1,
+  "overall_verdict": "findings",
+  "overall_summary": "One new P2 compatibility defect in settled target-v1 product checkpoint terminal reconciliation. Specified N/C/D save/phone/switch/reopen/selected-details evidence independently corroborated, Rust scope has no new actionable findings.",
+  "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "display_id": "TASK-20260832",
+  "adopted_plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+  "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+  "baseline": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+  "current_lifecycle": "active",
+  "current_steps_state": "all-six-finished; preserved",
+  "steps": [
+    {
+      "step_id": "S1",
+      "execution_ref": ".workflow-system/records/events/key-248acd0c7d34961431c8c987339c07919fbf316b12d5d8bcca70cb2061cf37d2.json",
+      "previous_review_ref": ".workflow-system/records/events/key-a2e028567977550d8c527f3ed3f1d828b6bf122ec968d92d4ed943ecdef61189.json",
+      "existing_disposition_ref": ".workflow-system/records/events/key-86cd0e1e115d8b48ec03c2dd26bf8d5bf74a6bc73f72fb6dee74b255f520a043.json",
+      "existing_state": "finished",
+      "verdict": "clean",
+      "findings": [],
+      "coverage": {
+        "scope": "Three original failure mechanisms, repaired sanitized diagnostic delivery, original mutation/carrier/cut correspondences and preserved errors.",
+        "evidence": [
+          "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json#/originalH1",
+          "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md",
+          "logs/history-save-repair-20261005/s1/report.md",
+          "logs/history-save-repair-20261005/s1/repair-r1/report.md"
+        ],
+        "limits": [
+          "Eight historical A attempts not individually replayed; diagnostics and current focused regressions do not retroactively turn failures into success.",
+          "No business repair or phone acceptance inferred from S1."
+        ],
+        "independent": true,
+        "qualification": "Verdict limited to stated step/cumulative scope; not release, exhaustive business matrix or lifecycle disposition."
+      }
+    },
+    {
+      "step_id": "S2",
+      "execution_ref": ".workflow-system/records/events/key-56e67631043abd0af05fa6ce1c8852e2df1e9564c7e919d6233879194db06cd0.json",
+      "previous_review_ref": ".workflow-system/records/events/key-017b5c23cd48d2662cf693a88789f03aa7a055f19f377c8df34f1f7941fdd150.json",
+      "existing_disposition_ref": ".workflow-system/records/events/key-1bf17b543f6a0cd77feda64b334a08e4202b0963e8580459b73c22ab08cb69bf.json",
+      "existing_state": "finished",
+      "verdict": "clean",
+      "findings": [],
+      "coverage": {
+        "scope": "Adopted original scope, explicit user-approved separate minimal shared compatibility prerequisite, Rust then Node sequencing, S5/S6 concrete scope supplements.",
+        "evidence": [
+          "logs/history-save-repair-20261005/s2/scope.md",
+          "docs/codex/codex-history-shared-compat-contract.md",
+          ".workflow-system/records/events/key-b8f7243b9f59b8e74db73e3d4104b0b53010d79888eed4feac3ba6f9bfd035e5.json",
+          ".workflow-system/records/events/key-d99d9cbfdf82571710ab524da759d74872184e4aafe91bd395b6c8b5f35b3d55.json"
+        ],
+        "limits": [
+          "The design correctly defines v1-to-v2 fresh backfill; implementation omission is associated with S4/S5, not rewritten as a scope/design failure."
+        ],
+        "independent": true,
+        "qualification": "Verdict limited to stated step/cumulative scope; not release, exhaustive business matrix or lifecycle disposition."
+      }
+    },
+    {
+      "step_id": "S3",
+      "execution_ref": ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json",
+      "previous_review_ref": ".workflow-system/records/events/key-b278a596707b0e1ca5ebc9bb36d9d2e47f3141692325f3d88fada2b3b535f3aa.json",
+      "existing_disposition_ref": ".workflow-system/records/events/key-b0ec63791580b4d7311189096e9944592958761329ff4b7447e93632dc888dff.json",
+      "existing_state": "finished",
+      "verdict": "clean",
+      "findings": [],
+      "coverage": {
+        "scope": "Cumulative Rust H2 discovery/physical identity/cut/bounded windows/append recovery and H3 vendor/Adapter/owned semantics/profile/checkpoint strictness, including 833 prerequisite.",
+        "evidence": [
+          "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md",
+          "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json"
+        ],
+        "limits": [
+          "Targeted branch3/delegated6/history_v2_3 independently run; not full Rust/vendor suite.",
+          "No real-source replay, no Rust product publication or phone ACK inferred from harness ACK."
+        ],
+        "independent": true,
+        "qualification": "Verdict limited to stated step/cumulative scope; not release, exhaustive business matrix or lifecycle disposition."
+      }
+    },
+    {
+      "step_id": "S4",
+      "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+      "previous_review_ref": ".workflow-system/records/events/key-dc38d0248e72639eae703f17e05e5efdc19e6df1909d9293dfeb82e00fa0508e.json",
+      "existing_disposition_ref": ".workflow-system/records/events/key-837c17b5eca4f6c3048c27eb81ba73b07af01c53afc91ad288e47317ed68a023.json",
+      "existing_state": "finished",
+      "verdict": "findings",
+      "findings": [
+        {
+          "id": "IR832-01",
+          "priority": 2,
+          "title": "Select a fresh v2 backfill before reconciling an existing v1 product checkpoint",
+          "file": "E:/coding/TermLink-rust-source-resolution-codex/src/services/codexRolloutCollector/index.js",
+          "start": 626,
+          "end": 628,
+          "related_locations": [
+            {
+              "file": "src/services/codexHistoryReconciliationScheduler.js",
+              "start": 167,
+              "end": 191
+            },
+            {
+              "file": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+              "start": 615,
+              "end": 619
+            }
+          ],
+          "affected_steps": [
+            "TASK-20260832/S4",
+            "TASK-20260832/S5"
+          ],
+          "execution_refs": [
+            ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+            ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json"
+          ],
+          "prerequisite": "TASK-20260833 Node profile/request bridge",
+          "trigger": "A previously published canonical target-v1 product checkpoint with nonempty cursor is followed by normal terminal reconciliation after upgrade to the default history_semantics_v2 analyzer.",
+          "observed": {
+            "test": "production scheduler with genuine SQLite canonical v1 checkpoint plus source growth",
+            "originalProfile": "target-v1",
+            "originalCompleteness": "canonical",
+            "originalCursor": true,
+            "checkpointUnchanged": true,
+            "oldCanonicalUnchanged": true,
+            "beforeItems": 2,
+            "afterItems": 2,
+            "completionEventPublished": false,
+            "outgoing": [
+              {
+                "type": "hello",
+                "hasV2": true,
+                "cursorPresent": false,
+                "recoveryPresent": false
+              },
+              {
+                "type": "analyze",
+                "mode": "append",
+                "anchor": "target-v1",
+                "cursorPresent": true,
+                "recoveryPresent": false
+              }
+            ],
+            "result": {
+              "failureCode": "checkpoint_incompatible",
+              "message": "persisted reducer profile is incompatible with negotiated read semantics",
+              "retryable": false
+            }
+          },
+          "impact": "Scheduler always chooses append for that checkpoint. The new manager selects v2, while the collector only clears old recovery fields for a caller-selected backfill. Rust correctly rejects cross-profile append. Normal reconciliation retains its intent and the old canonical but cannot save subsequent content; later terminal observations repeat the same failure.",
+          "minimal_followup": "Choose a distinct ordinary backfill job with cursor/persisted_anchor/known_complete_range/recovery empty for a settled v1 product checkpoint when v2 is negotiated. Preserve original unsettled job/profile/delivery recovery and strict cross-profile append rejection. Add a regression through the actual scheduler with a durably published v1 product checkpoint.",
+          "originating_reviewer_id": "NODE-R1",
+          "priority_label": "P2",
+          "category": "consumer-checkpoint-profile-compatibility",
+          "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+          "scope_qualification": "A newly found omission in the 833 consumer prerequisite accepted by cumulative 832 S4/S5; does not invalidate S2 design, Rust strict gate, or successful specified N/C/D S6 snapshots. It is a concrete retained-state path, not a demand for whole Node4.5 migration.",
+          "evidence_refs": [
+            "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json#/new_reproducer",
+            "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json#/productProfiles/0",
+            "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+            "docs/codex/codex-history-shared-compat-contract.md#5-checkpoint旧-parsegap-与旧交付"
+          ]
+        }
+      ],
+      "coverage": {
+        "scope": "Cumulative Node G1/G2 immutable event preflight, old delivery/profile preservation, actual staging ACK/validated complete/SQLite product/provider chain and production scheduler checkpoint selection.",
+        "evidence": [
+          "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+          "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json"
+        ],
+        "limits": [
+          "H1/H2/H3 isolated product tests pass; direct backfill tests bypass the newly confirmed scheduler v1 canonical upgrade failure.",
+          "Original S4 primarily reused prerequisite and added tests; this review is not authorization to alter a new scheduler file or reopen finished steps."
+        ],
+        "independent": true,
+        "qualification": "Verdict limited to stated step/cumulative scope; not release, exhaustive business matrix or lifecycle disposition."
+      }
+    },
+    {
+      "step_id": "S5",
+      "execution_ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+      "previous_review_ref": ".workflow-system/records/events/key-ac35f444cc969eba5149bfbefd2572868c8254706b92218c31ccea08b8e4f66c.json",
+      "existing_disposition_ref": ".workflow-system/records/events/key-f6ab1dab1e1bae7aa7a59e37bf140ca757efdc2459140381e59c0c5269639139.json",
+      "existing_state": "finished",
+      "verdict": "findings",
+      "findings": [
+        {
+          "id": "IR832-01",
+          "priority": 2,
+          "title": "Select a fresh v2 backfill before reconciling an existing v1 product checkpoint",
+          "file": "E:/coding/TermLink-rust-source-resolution-codex/src/services/codexRolloutCollector/index.js",
+          "start": 626,
+          "end": 628,
+          "related_locations": [
+            {
+              "file": "src/services/codexHistoryReconciliationScheduler.js",
+              "start": 167,
+              "end": 191
+            },
+            {
+              "file": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+              "start": 615,
+              "end": 619
+            }
+          ],
+          "affected_steps": [
+            "TASK-20260832/S4",
+            "TASK-20260832/S5"
+          ],
+          "execution_refs": [
+            ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+            ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json"
+          ],
+          "prerequisite": "TASK-20260833 Node profile/request bridge",
+          "trigger": "A previously published canonical target-v1 product checkpoint with nonempty cursor is followed by normal terminal reconciliation after upgrade to the default history_semantics_v2 analyzer.",
+          "observed": {
+            "test": "production scheduler with genuine SQLite canonical v1 checkpoint plus source growth",
+            "originalProfile": "target-v1",
+            "originalCompleteness": "canonical",
+            "originalCursor": true,
+            "checkpointUnchanged": true,
+            "oldCanonicalUnchanged": true,
+            "beforeItems": 2,
+            "afterItems": 2,
+            "completionEventPublished": false,
+            "outgoing": [
+              {
+                "type": "hello",
+                "hasV2": true,
+                "cursorPresent": false,
+                "recoveryPresent": false
+              },
+              {
+                "type": "analyze",
+                "mode": "append",
+                "anchor": "target-v1",
+                "cursorPresent": true,
+                "recoveryPresent": false
+              }
+            ],
+            "result": {
+              "failureCode": "checkpoint_incompatible",
+              "message": "persisted reducer profile is incompatible with negotiated read semantics",
+              "retryable": false
+            }
+          },
+          "impact": "Scheduler always chooses append for that checkpoint. The new manager selects v2, while the collector only clears old recovery fields for a caller-selected backfill. Rust correctly rejects cross-profile append. Normal reconciliation retains its intent and the old canonical but cannot save subsequent content; later terminal observations repeat the same failure.",
+          "minimal_followup": "Choose a distinct ordinary backfill job with cursor/persisted_anchor/known_complete_range/recovery empty for a settled v1 product checkpoint when v2 is negotiated. Preserve original unsettled job/profile/delivery recovery and strict cross-profile append rejection. Add a regression through the actual scheduler with a durably published v1 product checkpoint.",
+          "originating_reviewer_id": "NODE-R1",
+          "priority_label": "P2",
+          "category": "consumer-checkpoint-profile-compatibility",
+          "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+          "scope_qualification": "A newly found omission in the 833 consumer prerequisite accepted by cumulative 832 S4/S5; does not invalidate S2 design, Rust strict gate, or successful specified N/C/D S6 snapshots. It is a concrete retained-state path, not a demand for whole Node4.5 migration.",
+          "evidence_refs": [
+            "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json#/new_reproducer",
+            "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json#/productProfiles/0",
+            "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+            "docs/codex/codex-history-shared-compat-contract.md#5-checkpoint旧-parsegap-与旧交付"
+          ]
+        }
+      ],
+      "coverage": {
+        "scope": "Natural-host N/new native C/old delegated A server publication evidence, cumulative consumer compatibility, S5 generation-local UTF8 repair and preserved old state.",
+        "evidence": [
+          "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+          "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+          "logs/history-save-repair-20261005/s5/utf8-repair-20261008/report.md",
+          "logs/history-save-repair-20261005/s5/resume-20261008/report.md"
+        ],
+        "limits": [
+          "Natural-host events inspected, not generated again.",
+          "New v2 N/C/A success does not prove normal v1 canonical terminal reconciliation; IR832-01 remains.",
+          "Existing64KiB retention preserved; B/Q original resource failures retained outside stated samples."
+        ],
+        "independent": true,
+        "qualification": "Verdict limited to stated step/cumulative scope; not release, exhaustive business matrix or lifecycle disposition."
+      }
+    },
+    {
+      "step_id": "S6",
+      "execution_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+      "previous_review_ref": ".workflow-system/records/events/key-dd49cf1edc2c17e4ee3bb117d4f3dcdd81b481f4232a81055d5c91304cab1125.json",
+      "existing_disposition_ref": ".workflow-system/records/events/key-c84f630d612f88d97b65b5a7aa47a805646bc3ae3ec19043f225dbf1c3a24371.json",
+      "existing_state": "finished",
+      "verdict": "clean",
+      "findings": [],
+      "coverage": {
+        "scope": "Current Android alias diff, independent3 existing JVM alias tests, retained stable phone SQLite versus product provider full DTO/hash/ref equality, selected normal/reopened detail exact XML content and screenshots, return/reopen body markers, actual ACK joined to phone same-run/generation hash-checked delta, original unrelated cache rows.",
+        "evidence": [
+          "logs/history-save-repair-20261005/independent-review-20261008/phone-audit.cjs",
+          "logs/history-save-repair-20261005/independent-review-20261008/phone-audit.json",
+          "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+          "logs/history-save-repair-20261005/independent-review-20261008/android-focused.xml",
+          "logs/history-save-repair-20261005/s6/report.md",
+          "logs/history-save-repair-20261005/s6/environment-restored.json"
+        ],
+        "limits": [
+          "Independent retained-device evidence audit, no fresh device operation.",
+          "Selected modal per scenario; all2/4/9 refs checked but not all9 delegated dialogs operated.",
+          "Retained JVM216 and frozen Node139 are reused same-version evidence, not new independent test runs.",
+          "Docs S6 progress row remains stale; management observation M1, not a new product-code defect."
+        ],
+        "independent": true,
+        "qualification": "Verdict limited to stated step/cumulative scope; not release, exhaustive business matrix or lifecycle disposition."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "IR832-01",
+      "priority": 2,
+      "title": "Select a fresh v2 backfill before reconciling an existing v1 product checkpoint",
+      "file": "E:/coding/TermLink-rust-source-resolution-codex/src/services/codexRolloutCollector/index.js",
+      "start": 626,
+      "end": 628,
+      "related_locations": [
+        {
+          "file": "src/services/codexHistoryReconciliationScheduler.js",
+          "start": 167,
+          "end": 191
+        },
+        {
+          "file": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+          "start": 615,
+          "end": 619
+        }
+      ],
+      "affected_steps": [
+        "TASK-20260832/S4",
+        "TASK-20260832/S5"
+      ],
+      "execution_refs": [
+        ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+        ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json"
+      ],
+      "prerequisite": "TASK-20260833 Node profile/request bridge",
+      "trigger": "A previously published canonical target-v1 product checkpoint with nonempty cursor is followed by normal terminal reconciliation after upgrade to the default history_semantics_v2 analyzer.",
+      "observed": {
+        "test": "production scheduler with genuine SQLite canonical v1 checkpoint plus source growth",
+        "originalProfile": "target-v1",
+        "originalCompleteness": "canonical",
+        "originalCursor": true,
+        "checkpointUnchanged": true,
+        "oldCanonicalUnchanged": true,
+        "beforeItems": 2,
+        "afterItems": 2,
+        "completionEventPublished": false,
+        "outgoing": [
+          {
+            "type": "hello",
+            "hasV2": true,
+            "cursorPresent": false,
+            "recoveryPresent": false
+          },
+          {
+            "type": "analyze",
+            "mode": "append",
+            "anchor": "target-v1",
+            "cursorPresent": true,
+            "recoveryPresent": false
+          }
+        ],
+        "result": {
+          "failureCode": "checkpoint_incompatible",
+          "message": "persisted reducer profile is incompatible with negotiated read semantics",
+          "retryable": false
+        }
+      },
+      "impact": "Scheduler always chooses append for that checkpoint. The new manager selects v2, while the collector only clears old recovery fields for a caller-selected backfill. Rust correctly rejects cross-profile append. Normal reconciliation retains its intent and the old canonical but cannot save subsequent content; later terminal observations repeat the same failure.",
+      "minimal_followup": "Choose a distinct ordinary backfill job with cursor/persisted_anchor/known_complete_range/recovery empty for a settled v1 product checkpoint when v2 is negotiated. Preserve original unsettled job/profile/delivery recovery and strict cross-profile append rejection. Add a regression through the actual scheduler with a durably published v1 product checkpoint.",
+      "originating_reviewer_id": "NODE-R1",
+      "priority_label": "P2",
+      "category": "consumer-checkpoint-profile-compatibility",
+      "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "scope_qualification": "A newly found omission in the 833 consumer prerequisite accepted by cumulative 832 S4/S5; does not invalidate S2 design, Rust strict gate, or successful specified N/C/D S6 snapshots. It is a concrete retained-state path, not a demand for whole Node4.5 migration.",
+      "evidence_refs": [
+        "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json#/new_reproducer",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json#/productProfiles/0",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+        "docs/codex/codex-history-shared-compat-contract.md#5-checkpoint旧-parsegap-与旧交付"
+      ]
+    }
+  ],
+  "reviewers": [
+    {
+      "id": "/root/independent_832_review",
+      "role": "Independent lead; Android/current scope/phone retained-evidence audit; integrated final judgment"
+    },
+    {
+      "id": "/root/independent_832_review/rust_scope",
+      "role": "Independent cumulative Rust source/lineage/H3/profile review"
+    },
+    {
+      "id": "/root/independent_832_review/node_scope",
+      "role": "Independent cumulative Node H1/profile/persistence/scheduler review"
+    }
+  ],
+  "provenance": {
+    "kind": "independent-review",
+    "independent": true,
+    "implementation_agent": false,
+    "previous_self_reviews_used_as_proof": false,
+    "all_business_source_readonly": true,
+    "journal_mutations": false,
+    "git_mutations": false,
+    "real_server_device_or_model_operations": false,
+    "primary_report": "logs/history-save-repair-20261005/independent-review-20261008/report.md"
+  },
+  "new_test_runs": [
+    {
+      "step_id": "S6",
+      "applicable_step_ids": [
+        "S6"
+      ],
+      "kind": "existing-focused-jvm-regression",
+      "command": "JDK21 gradlew.bat -p android :app:testDebugUnitTest --tests *prefixedToolDetailRefs*",
+      "exit_code": 0,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "errors": 0,
+      "skipped": 0,
+      "result": "Independent existing prefixedToolDetailRefs3/3, JDK21; build successful. No device replay.",
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/android-focused.txt",
+        "logs/history-save-repair-20261005/independent-review-20261008/android-focused.xml"
+      ],
+      "provenance": {
+        "reviewer": "/root/independent_832_review",
+        "independent": true
+      }
+    },
+    {
+      "step_id": "S3",
+      "applicable_step_ids": [
+        "S3"
+      ],
+      "kind": "existing-focused-rust-regression",
+      "command": "cargo test --locked --offline --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_target_protocol branch_history_ -- --nocapture",
+      "selector": "branch_history_",
+      "exit_code": 0,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "filtered": 73,
+      "result": "Passed existing locked/offline focused test selector; harness ACK only.",
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+      "evidence_section": "tests/0",
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md"
+      ],
+      "provenance": {
+        "reviewer": "/root/independent_832_review/rust_scope",
+        "independent": true
+      }
+    },
+    {
+      "step_id": "S3",
+      "applicable_step_ids": [
+        "S3"
+      ],
+      "kind": "existing-focused-rust-regression",
+      "command": "cargo test --locked --offline --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance delegated -- --nocapture",
+      "selector": "delegated",
+      "exit_code": 0,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "filtered": 33,
+      "result": "Passed existing locked/offline focused test selector; harness ACK only.",
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+      "evidence_section": "tests/1",
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md"
+      ],
+      "provenance": {
+        "reviewer": "/root/independent_832_review/rust_scope",
+        "independent": true
+      }
+    },
+    {
+      "step_id": "S3",
+      "applicable_step_ids": [
+        "S3"
+      ],
+      "kind": "existing-focused-rust-regression",
+      "command": "cargo test --locked --offline --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_target_protocol history_v2_ -- --nocapture",
+      "selector": "history_v2_",
+      "exit_code": 0,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "filtered": 73,
+      "result": "Passed existing locked/offline focused test selector; harness ACK only.",
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+      "evidence_section": "tests/2",
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md"
+      ],
+      "provenance": {
+        "reviewer": "/root/independent_832_review/rust_scope",
+        "independent": true
+      }
+    },
+    {
+      "command": "node --test --test-reporter=tap --test-name-pattern='target stdout UTF8' tests/codexRolloutCollector.test.js",
+      "selector": "target stdout UTF8",
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-review.md"
+      ],
+      "exit_code": 0,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skip": 0,
+      "duration_ms": 206.3992,
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+      "actual_output_summary": "TAP tests3 pass3 fail0 cancelled0 skipped0 todo0",
+      "step_id": "S5",
+      "applicable_step_ids": [
+        "S5"
+      ],
+      "kind": "existing-focused-node-regression",
+      "source_files": [
+        "tests/codexRolloutCollector.test.js"
+      ],
+      "evidence_section": "new_test_runs/0",
+      "result": "TAP tests3 pass3 fail0 cancelled0 skipped0 todo0",
+      "provenance": {
+        "reviewer": "/root/independent_832_review/node_scope",
+        "independent": true
+      }
+    },
+    {
+      "command": "$env:CARGO_NET_OFFLINE='true'; node --test --test-reporter=tap --test-name-pattern='history v2' tests/codexRolloutCollector.realRust.test.js",
+      "selector": "history v2",
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-review.md"
+      ],
+      "exit_code": 0,
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skip": 0,
+      "duration_ms": 2929.4801,
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+      "actual_output_summary": "TAP 6 top-level tests,13 including subtests; pass13 fail0 cancelled0 skipped0 todo0; helper actual offline cargo build --locked against current native sources",
+      "step_id": "S4",
+      "applicable_step_ids": [
+        "S4",
+        "S5"
+      ],
+      "kind": "existing-focused-node-regression",
+      "source_files": [
+        "tests/codexRolloutCollector.realRust.test.js"
+      ],
+      "evidence_section": "new_test_runs/1",
+      "result": "TAP 6 top-level tests,13 including subtests; pass13 fail0 cancelled0 skipped0 todo0; helper actual offline cargo build --locked against current native sources",
+      "provenance": {
+        "reviewer": "/root/independent_832_review/node_scope",
+        "independent": true
+      }
+    },
+    {
+      "command": "$env:CARGO_NET_OFFLINE='true'; node --test --test-reporter=tap --test-name-pattern='history shared delivery H1|history branch delivery H2|history shared delivery H3' tests/codexHistoryProductFlow.test.js",
+      "selector": "history shared delivery H1|history branch delivery H2|history shared delivery H3",
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-review.md"
+      ],
+      "exit_code": 0,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skip": 0,
+      "duration_ms": 2398.6568,
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+      "actual_output_summary": "TAP 3 top-level tests,5 including subtests; pass5 fail0 cancelled0 skipped0 todo0; isolated real Rust/Node/SQLite/provider,reopen and rejection/rollback checks",
+      "step_id": "S4",
+      "applicable_step_ids": [
+        "S4",
+        "S5"
+      ],
+      "kind": "existing-focused-node-regression",
+      "source_files": [
+        "tests/codexHistoryProductFlow.test.js"
+      ],
+      "evidence_section": "new_test_runs/2",
+      "result": "TAP 3 top-level tests,5 including subtests; pass5 fail0 cancelled0 skipped0 todo0; isolated real Rust/Node/SQLite/provider,reopen and rejection/rollback checks",
+      "provenance": {
+        "reviewer": "/root/independent_832_review/node_scope",
+        "independent": true
+      }
+    },
+    {
+      "step_id": "S4",
+      "applicable_step_ids": [
+        "S4",
+        "S5"
+      ],
+      "kind": "isolated-defect-reproduction",
+      "command": "PowerShell literal JavaScript here-string piped to node (isolated SQLite genuine v1 publication, source growth, actual CodexHistoryReconciliationScheduler._reconcile)",
+      "exit_code": 0,
+      "result": "Defect confirmed: actual scheduler sends v2 append with v1 canonical anchor; checkpoint_incompatible retryable=false, product2→2, old state preserved, new completion absent. Harness exit0 observes failure, not product PASS.",
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+      "evidence_section": "new_reproducer",
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs"
+      ],
+      "reproduction_command": "Get-Content -Raw logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs | node",
+      "actual_execution_qualification": "The source was executed through Node stdin, then saved byte-for-byte for repeatability. The saved filename itself was not newly executed.",
+      "provenance": {
+        "reviewer": "/root/independent_832_review/node_scope",
+        "independent": true
+      },
+      "qualification": "Exit0 means harness successfully observed retained failure, not product PASS. No server/phone/model/external source operations."
+    }
+  ],
+  "audit_runs": [
+    {
+      "command": "node logs/history-save-repair-20261005/independent-review-20261008/phone-audit.cjs",
+      "result": "60/60 independent retained-evidence predicates; exact DTO, details, selected UI content and same-run/generation ACK joins. Not JVM/E2E suite count.",
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/phone-audit.json",
+      "independent": true,
+      "prior_instrument_failures": [
+        "logs/history-save-repair-20261005/independent-review-20261008/phone-audit-initial-failure.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/phone-audit-second-failure.json"
+      ],
+      "prior_failure_qualification": "Nullable empty refs then XML attribute parser caused audit errors; corrected audit and reread same snapshots, no business replay."
+    },
+    {
+      "qualification": "Initial minimal-rollout fixture unexpectedly produced partial checkpoint; not used as upgrade proof",
+      "command": "Inline Node stdin isolated scheduler setup using minimal-rollout.jsonl",
+      "exit_code": 0,
+      "observed": {
+        "profile": "target-v1",
+        "completeness": "partial",
+        "failure_code": "CODEX_HISTORY_CHECKPOINT_INVALID",
+        "outgoing": []
+      },
+      "retained": true,
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json#/exploratory_setup_probe"
+    }
+  ],
+  "original_failure_applicability": {
+    "H1": "Eight actual retained failed run files remain failed. Raw immutable start/current completed source events and current targeted G1 tests corroborate precise old conflict mechanism; historical eight attempts not individually replayed.",
+    "H1_refs": [
+      "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json#/originalH1"
+    ],
+    "H2": "Original parent-present catalog filter cause verified; original failed old C kept. S3-R1 segment-window finding repaired under original total budget; new native C inheritance+own turn product/phone proved separately.",
+    "H3": "Original6 gaps in3 two-carrier pairs kept as historical diagnostics; current exact-shaped carriers recognized through owned DelegatedInput with binding/turn/conflict checks; actual old A product/phone preserved40items9refs."
+  },
+  "management_observations": [
+    {
+      "id": "M1",
+      "category": "progress-document-lag",
+      "severity": "observation",
+      "locations": [
+        {
+          "file": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+          "line": 23
+        },
+        {
+          "file": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+          "line": 65
+        }
+      ],
+      "observation": "Current PLAN S6 row and latest REQ paragraph still say pending review/finish while fresh journal is finished. Old execution reports correctly retain original pending timepoint. REQ in_progress/task active itself is consistent.",
+      "business_impact": "Current progress display is stale; no causal history-save failure and no new development gate.",
+      "followup": "Normal documentation sync may append accurate current disposition while preserving historical reports; independent review does not mutate docs."
+    },
+    {
+      "id": "M2",
+      "category": "preexisting-unassociated-records",
+      "severity": "observation",
+      "refs": [
+        ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+        ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+        ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json"
+      ],
+      "observation": "Three preexisting unassociated management records retained; no invented resolution and no new product defect inferred."
+    }
+  ],
+  "preserved_known_issues": [
+    "S4-G1 retained old connection error text after reconnect, explicitly excluded.",
+    "B/Q original fingerprint/decoded-budget failures and intents remain, no raised/disabled limit.",
+    "Registration candidate remains outside scope/unverified.",
+    "64KiB tool detail retention and truncation marker/hash remain; not unlimited full output."
+  ],
+  "unobserved_layers": [
+    "No independent fresh phone run/model turn/live service operation.",
+    "Not all9 delegated detail modal dialogs operated; all durable refs hash verified and selected modal per scene proved.",
+    "No other-device, deep-pagination, large-detail-copy, complete race/offline/multidevice/resend/replacement matrix.",
+    "No full Rust/vendor/Node/JVM suite rerun; only reported focused tests and same-version historical evidence reused.",
+    "No entire4.5 migration, release or deployment certification."
+  ],
+  "remaining_work": [
+    {
+      "id": "IR832-01",
+      "status": "unresolved",
+      "scope": "Minimal Node normal terminal request selection for settled v1 product checkpoint under negotiated v2; actual scheduler regression.",
+      "proposed_files": [
+        "src/services/codexRolloutCollector/index.js",
+        "src/services/codexHistoryReconciliationScheduler.js if caller selection is the chosen minimal boundary",
+        "existing scheduler/product-flow regression file"
+      ],
+      "preserve": [
+        "Original unsettled profile/job/delivery recovery",
+        "Old canonical/checkpoint/receipts",
+        "Rust cross-profile append rejection",
+        "Single chain/process, external-source read-only, original resource budgets and IPC authority"
+      ],
+      "authorization": "Review only; no new scheduler-file edit, task reopen, 833 reopen or repair authorized/performed by this report.",
+      "suggested_entry": "prepare-task to describe the concrete supplement/independent minimal repair; choose actual task scope from the subsequent human instruction."
+    }
+  ],
+  "next_route": "prepare-task",
+  "next_route_reason": "Prepare the identified minimal consumer compatibility follow-up without treating review as code-change authorization, automatically reopening S4/833 or closing832.",
+  "report_files": [
+    "logs/history-save-repair-20261005/independent-review-20261008/report.md",
+    "logs/history-save-repair-20261005/independent-review-20261008/result.json",
+    "logs/history-save-repair-20261005/independent-review-20261008/state-summary.json",
+    "logs/history-save-repair-20261005/independent-review-20261008/phone-audit.cjs",
+    "logs/history-save-repair-20261005/independent-review-20261008/phone-audit.json",
+    "logs/history-save-repair-20261005/independent-review-20261008/phone-audit-initial-failure.json",
+    "logs/history-save-repair-20261005/independent-review-20261008/phone-audit-second-failure.json",
+    "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+    "logs/history-save-repair-20261005/independent-review-20261008/android-focused.txt",
+    "logs/history-save-repair-20261005/independent-review-20261008/android-focused.xml",
+    "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md",
+    "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+    "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+    "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+    "logs/history-save-repair-20261005/independent-review-20261008/compose-result.cjs",
+    "logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs"
+  ]
+}

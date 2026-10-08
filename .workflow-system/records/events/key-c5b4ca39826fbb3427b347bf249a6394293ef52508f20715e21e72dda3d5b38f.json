@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-08T07:09:00.979Z",
+  "payload_sha256": "a4a91b8741f6d3420f306ee20d329b0ab2d569da658d6ca1e963f5b4e853ba4b",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "closure-document-outcome",
+    "task_ref": "TASK-20260832",
+    "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+    "links": [
+      {
+        "relation": "documents",
+        "ref": ".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json"
+      }
+    ],
+    "body": {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "close_ref": ".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json",
+      "actual_lifecycle": "closed",
+      "six_steps": "finished",
+      "current_task_id": null,
+      "updated_docs": [
+        "PLAN current closure and done plan disposition",
+        "REQ current closure with in_progress commit/CR traceability"
+      ],
+      "no_business_implementation_in_this_batch": true,
+      "p2_disposition": "Excluded by explicit publication premise, not technically fixed; original findings retained",
+      "tests": "Only REQ strict format and git diff whitespace verification this turn; prior business validation reused",
+      "next_route": "git-commit",
+      "route_is_advice_only": true,
+      "remaining_work": [
+        "S6 Android source/test, PLAN/REQ, draft CR and workflow facts/evidence are uncommitted; task closure performs no staging, commit, push or deployment.",
+        "REQ remains in_progress for commit/document traceability: all linked CRs currently draft/TBD, no active CR. Real existing business commits are retained; no fake commit_ref or CR activation.",
+        "IR832-01 is technically not fixed; the human excludes pre-current-version published product-format migration because there was no ordinary-user product release. Do not treat original S4/S5 findings as clean.",
+        "Out-of-scope stale reconnect error banner, B/Q budget failures/intents and registration candidate remain; no budget relaxation or data cleanup.",
+        "Three preexisting unassociated management records remain unresolved; no new association repair or historical business replay.",
+        "All phone durable detail refs were checked, but only one selected tool detail dialog per scene was operated; other phones/full large-detail/deep-pagination/race/resend matrix and production release are not certified.",
+        "Untracked spike vendor Cargo.lock and local data/codex-rollout-analysis and data/codex-rollout-checkpoints are retained and excluded from any automatic Git or cleanup operation."
+      ]
+    },
+    "files": [
+      "logs/history-save-repair-20261005/close-20261008/report.md",
+      "logs/history-save-repair-20261005/close-20261008/verification.json",
+      "logs/history-save-repair-20261005/close-20261008/doc-checks.json",
+      "logs/history-save-repair-20261005/close-20261008/record-doc-outcome.cjs",
+      "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "docs/product/requirements/REQ-20261005-codex-history-save-repair.md"
+    ],
+    "idempotency_key": "task832-closed-final-doc-outcome-20261008-v1"
+  },
+  "issues": []
+}

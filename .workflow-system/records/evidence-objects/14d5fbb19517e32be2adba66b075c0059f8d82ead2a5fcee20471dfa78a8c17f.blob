@@ -1,0 +1,336 @@
+{
+  "runtime_role": "assistance",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "kind": "task-query/v1",
+  "detail": "step",
+  "status": "available",
+  "source_revision": "98aa98664f57021f92897de74fab7197ae5787940053f339a704d8e728818863",
+  "view_revision": "2a8c91a7fbe47704a7926d8daf30df3c65c3b5ee392c3d5f126be8076a6afa75",
+  "workflow_home": "docs/workflow",
+  "current_task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "focus": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "ref": ".workflow-system/records/events/key-84c44d145690b43b1036448ac8c73927fb5d3b3d98f0519cf4441f42898a24bc.json",
+    "conflict": null
+  },
+  "next_task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+  "next_step_id": "S6",
+  "next_route": "review-change",
+  "next_mode": null,
+  "next_action": "review-step",
+  "selection": {
+    "requested_task_ref": "TASK-20260832",
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "status": "resolved",
+    "detail_request": {
+      "detail": "task",
+      "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "workflow_home": "docs/workflow"
+    },
+    "requested_step_id": "S6",
+    "step_status": "resolved"
+  },
+  "health": "needs-attention",
+  "state_completeness": "partial-associations",
+  "records_scanned": 294,
+  "projection": {
+    "cache": "current",
+    "display": "current",
+    "read_only_rebuilt": true
+  },
+  "recovery_options": [
+    "rebuild",
+    "link",
+    "correct",
+    "resolve",
+    "defer",
+    "pause",
+    "close"
+  ],
+  "issues": [
+    {
+      "id": "issue-acce7d78ceebab4ab85bca99",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-bb8b7308bc64f7d580f3cfae",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "message": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "id": "issue-ec19a134aefeb23287cb519b",
+      "code": "UNASSOCIATED_RECORD",
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "message": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "unassociated_records": [
+    {
+      "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json",
+      "reason": "No explicit machine-readable task action; use link with the actual meaning, not a new approval."
+    },
+    {
+      "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "reason": "Review must identify its real draft or effective execution target, without inventing a clean receipt."
+    }
+  ],
+  "task_count": 6,
+  "lifecycle_counts": {
+    "closed": 5,
+    "active": 1
+  },
+  "coverage": {
+    "computation": "full-journal-rebuild",
+    "diagnostics": "all",
+    "history": "selected-step-projection-only"
+  },
+  "note": "Presentation of the complete live rebuild. Omitted detail is not absent history, clean review or permission. Read record refs with read; use detail=full for the compatibility view.",
+  "task": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "display_id": "TASK-20260832",
+    "lifecycle": "active",
+    "adopted_plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+    "legacy_plan_ref": null
+  },
+  "step": {
+    "id": "S6",
+    "title": "验证手机切换与重开后正文和工具详情仍可查看，并收束结果",
+    "environment": [
+      "原指定 Android 真机 MQS7N19402011743，实际状态执行前确认",
+      "现有正常 Gateway/App 历史入口",
+      "本仓库服务与真实 N/C/D"
+    ],
+    "actions": [
+      "使用项目 local-dev-server-control 和 adb-real-device-debug；有必要的 Android build/JVM 命令仅用 JDK21，没改 App 且二进制匹配时不默认重建/重装。",
+      "对每个目标正常选择，确认真实 product_db 来源、完整页/hash/身份、App durable DB 提交及对应 ACK，展示正文并展开选定工具详情。",
+      "逐个切换离开再返回；force-stop/重开后再次查看，核对同一内容及持久缓存。healthy IPC 正常保持实时权威，产品 history 只能按现有允许的静态路径进入。",
+      "保护并恢复原草稿、剪贴板、配置/选择及临时连接，按执行前状态恢复测试服务；保留正常产生的数据与失败证据，不清 App 或回灌过期 session。",
+      "报告分别列三问题状态、修复文件、业务验证/fixture/历史复用/未运行层级和原始失败；新审查显式保留已确认产品问题，当前生命周期由 native task-status 读取。"
+    ],
+    "validation": [
+      "N/C/D 各自正常查看、切换返回、重开后正文和选定工具详情一致；缓存/IPC 同文不能代替产品来源与 durable ACK。",
+      "若实际手机/入口不可用或某项发布仍失败，保留该项未验证/失败，不把 task finished/closed 或自审 clean 当业务 PASS。",
+      "最小回归由影响面决定；触及受保护 Gateway/selection 路径时执行其实际强制回归和同机 A→B→A，不顺手改变该架构。"
+    ],
+    "outputs": [
+      "三问题修复与手机验收矩阵",
+      "已确认产品问题/剩余缺口清单",
+      "环境恢复与原件保持证据；执行、审查、finish/close 分别记录"
+    ],
+    "state": "executed",
+    "legacy_step_status": null,
+    "execution_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+    "execution": {
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S6",
+      "mode": "default",
+      "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "decision_ref": ".workflow-system/records/events/key-d99d9cbfdf82571710ab524da759d74872184e4aafe91bd395b6c8b5f35b3d55.json",
+      "decision_source": "Direct human asynchronous answer to disclosed S6 Android scope supplement",
+      "decision_text": "补最小 Android 兼容并重验 S6（推荐）",
+      "result": "S6 execution complete within authorized scope: minimum Android tool detail ref compatibility and independent real N/C/D durable history/ACK/body/selected detail/switch/reopen validation. Await change review; not finished or closed.",
+      "summary": {
+        "initial_failure": "N/C saved full product history but healthy UI lacked product detail buttons. A existing selected detail path worked. Initial observations preserved, not rewritten as PASS.",
+        "change": "Only Android CodexViewModel matches actual native tool IDs to owned tool: cache keys, requiring same turn/tool type/operation scope/ref; old keys, batch and truncated refs preserved. Existing ThreadReady tests extended by3. No body/IPC authority/selection/Gateway/shared schema/Node/Rust/source/limit changes.",
+        "tests": "New tests on old implementation3fail/0error; after minimum fix four existing JVM suites216/216. JDK21 assembleDebug exit0; project install helper adb install -r Success, DB/preferences byte-preserved during installation.",
+        "device": "MQS7N19402011743, fixed installed/build APK sha f148028b15fa3a8dffe63ca483bcda5a1ce9764bbde817e68a357598d25dfd6a; normal existing singleton Gateway/product path and original persistent root/Rust executable; no new model turn.",
+        "scenarios": "N11items2refs, C22items4refs with inherited N plus own turn, D(oldA)40items9refs. Each normal view/switch-return/force-stop plain Activity reopen/body and selected product tool detail verified. Product detail469/469/552bytes includes exact command/cwd/output/status/exit/duration.",
+        "durable": "Stable stopped phone DB full rows exactly match read-only real product provider DTOs; product_db complete committed range/anchors/coverage. Every detail ref verified. Each3 positive real server ACKs joined to actual phone synced/hash events by sync identity; A STAGED delta only followed by completed chunks/persisted full rows/synced ACK, not misreported as immediate COMMITTED.",
+        "self_checks": "Original evidence checker35/38 retained; missing provider payloadBytes field caused instrument comparison failure. Corrected predicate uses actual UTF8 byteLength,38/38. These are evidence assertions, not JVM/E2E test count or formal review.",
+        "protection": "All2353 unrelated old phone items exact fields preserved; oldA8legacy rows normally reconciled to40 product rows. Original canonical/source/all59oldrun and72pre-repair run hashes preserved; final80runs no queued/running. DB file changes normal, not claimed unchanged. App/session root remains original, expired session normally replaced and valid session kept, original A selection restored.",
+        "environment": "Final App stopped/reverse empty/Asleep OFF/service tracked0+3010 no listener. Basic/mtls/serverconfig hashes unchanged; private raw DB/prefs/logs/APKs/UI retained ignored and excluded from attachments.",
+        "qualifications": "Existing64KiB tool retention unchanged. Phone selected tool per case, not all9 delegated detail dialogs; S5 full Gateway detail evidence reused by exact version. Old error bar, B/Q budget and registration candidates remain outside scope. Initial live snapshot/tar/receipt/UI predicate/old-coordinate failures preserved.",
+        "docs": "PLAN/REQ/current draft CR synchronized; CR strict and diff-check passed; first Windows PowerShell5 REQ decoder-related failure retained, same UTF8 source validates via pwsh/PowerShell7 strict. REQ in_progress, CR draft/TBD; no Git/review/finish/close/deployment."
+      },
+      "commands": [
+        {
+          "command": "JDK21 gradlew -p android :app:testDebugUnitTest --tests *prefixedToolDetailRefs*",
+          "result": "Old implementation3fail/0error exit1",
+          "report_ref": "logs/history-save-repair-20261005/s6/jvm-before-result.json"
+        },
+        {
+          "command": "JDK21 gradlew -p android :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelThreadReadyTest --tests com.termlink.app.codex.data.CodexHistoryWireTest --tests com.termlink.app.codex.data.CodexHistoryRangeStorageTest --tests com.termlink.app.codex.data.CodexHistoryPageHashTest",
+          "result": "216/216 exit0",
+          "report_ref": "logs/history-save-repair-20261005/s6/jvm-after-summary.json"
+        },
+        {
+          "command": "JDK21 gradlew -p android :app:assembleDebug; project install-debug-apk.ps1 -Serial MQS7N19402011743 -ProjectRoot . -SkipLaunch",
+          "result": "build exit0, install -r Success; cache/prefs preserved",
+          "report_ref": "logs/history-save-repair-20261005/s6/install-preservation.json"
+        },
+        {
+          "command": "Project local-dev-server-control start/stop -ProjectRoot . and adb -s MQS7N19402011743 normal selection/product details/plain reopen/stopped backup",
+          "result": "N/C/D separately verified, original root normal single collector; final environment restored",
+          "report_ref": "logs/history-save-repair-20261005/s6/environment-restored.json"
+        },
+        {
+          "command": "node logs/history-save-repair-20261005/s6/checks.cjs",
+          "result": "First35/38 diagnostic failure retained; corrected38/38, no business replay",
+          "report_ref": "logs/history-save-repair-20261005/s6/self-check-corrected.json"
+        },
+        {
+          "command": "validate-change-record.ps1 / validate-req.ps1 -ProjectRoot . -Strict; git diff --check",
+          "result": "CR PASS; original PowerShell5 REQ failure retained and PowerShell7 same validator PASS; diff-check PASS",
+          "report_ref": "logs/history-save-repair-20261005/s6/docs-validation.json"
+        }
+      ],
+      "remaining_work": [
+        "review-change must target this actual832/S6 execution; not formal reviewed or finished/closed by this invocation",
+        "REQ in_progress/newCR draftTBD; existing retention, selected phone tools and untouched known problems explicitly qualified",
+        "Old3 unassociated management records remain; no new business replay for receipts or invented resolution",
+        "S1-S5 finished and833 closed preserved, same original plan/task active; no automatic Git/deployment/task closure"
+      ],
+      "files": [
+        "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+        "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+        "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+        "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+        "docs/changes/records/CR-20261008-0135-android-history-detail-alias.md",
+        "logs/history-save-repair-20261005/s6/a-awake.json",
+        "logs/history-save-repair-20261005/s6/a-final-selection-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/a-initial.json",
+        "logs/history-save-repair-20261005/s6/a-product-detail-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/a-reopened-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/a-return-visible-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/a-stopped.json",
+        "logs/history-save-repair-20261005/s6/a-visible.json",
+        "logs/history-save-repair-20261005/s6/after-install-stopped.json",
+        "logs/history-save-repair-20261005/s6/apk-build-result.json",
+        "logs/history-save-repair-20261005/s6/apk-build.txt",
+        "logs/history-save-repair-20261005/s6/apk-install.txt",
+        "logs/history-save-repair-20261005/s6/baseline.json",
+        "logs/history-save-repair-20261005/s6/c-detail-reconnect-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/c-offline-detail-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/c-offline-reopened-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/c-offline-stopped.json",
+        "logs/history-save-repair-20261005/s6/c-reconnected-current-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/c-reopened.json",
+        "logs/history-save-repair-20261005/s6/c-returned-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/c-selected.json",
+        "logs/history-save-repair-20261005/s6/c-stopped.json",
+        "logs/history-save-repair-20261005/s6/c-tool-visible.json",
+        "logs/history-save-repair-20261005/s6/capture-first-reader.cjs",
+        "logs/history-save-repair-20261005/s6/capture.cjs",
+        "logs/history-save-repair-20261005/s6/checker-correction.json",
+        "logs/history-save-repair-20261005/s6/checks-first-reader.cjs",
+        "logs/history-save-repair-20261005/s6/checks.cjs",
+        "logs/history-save-repair-20261005/s6/CodexViewModel-before.kt",
+        "logs/history-save-repair-20261005/s6/decision-result.json",
+        "logs/history-save-repair-20261005/s6/docs-first-validation.json",
+        "logs/history-save-repair-20261005/s6/docs-validation.json",
+        "logs/history-save-repair-20261005/s6/environment-restored.json",
+        "logs/history-save-repair-20261005/s6/final-stopped.json",
+        "logs/history-save-repair-20261005/s6/fixed-a-detail-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-a-reopened-detail-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-a-reopened-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-a-returned-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-a-start-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-a-stopped.json",
+        "logs/history-save-repair-20261005/s6/fixed-c-detail-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-c-reopened-detail-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-c-reopened-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-c-returned-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-c-selected-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-c-stopped.json",
+        "logs/history-save-repair-20261005/s6/fixed-final-stopped.json",
+        "logs/history-save-repair-20261005/s6/fixed-n-detail-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-n-reopened-detail-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-n-reopened-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-n-returned-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-n-selected-ui-summary.json",
+        "logs/history-save-repair-20261005/s6/fixed-n-stopped.json",
+        "logs/history-save-repair-20261005/s6/history-drawer.json",
+        "logs/history-save-repair-20261005/s6/install-preservation.json",
+        "logs/history-save-repair-20261005/s6/jvm-after-result.json",
+        "logs/history-save-repair-20261005/s6/jvm-after-summary.json",
+        "logs/history-save-repair-20261005/s6/jvm-after-TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+        "logs/history-save-repair-20261005/s6/jvm-after-TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+        "logs/history-save-repair-20261005/s6/jvm-after-TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+        "logs/history-save-repair-20261005/s6/jvm-after-TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+        "logs/history-save-repair-20261005/s6/jvm-after.txt",
+        "logs/history-save-repair-20261005/s6/jvm-before-result.json",
+        "logs/history-save-repair-20261005/s6/jvm-before.txt",
+        "logs/history-save-repair-20261005/s6/jvm-before.xml",
+        "logs/history-save-repair-20261005/s6/launch-original.json",
+        "logs/history-save-repair-20261005/s6/launched.json",
+        "logs/history-save-repair-20261005/s6/live-capture-failure.json",
+        "logs/history-save-repair-20261005/s6/n-reopened.json",
+        "logs/history-save-repair-20261005/s6/n-returned.json",
+        "logs/history-save-repair-20261005/s6/n-selected.json",
+        "logs/history-save-repair-20261005/s6/n-stopped.json",
+        "logs/history-save-repair-20261005/s6/n-tool-visible.json",
+        "logs/history-save-repair-20261005/s6/n-tool.json",
+        "logs/history-save-repair-20261005/s6/other-tool-failures.json",
+        "logs/history-save-repair-20261005/s6/prerequisite-before-record.json",
+        "logs/history-save-repair-20261005/s6/record-execution.cjs",
+        "logs/history-save-repair-20261005/s6/record-scope.cjs",
+        "logs/history-save-repair-20261005/s6/report.md",
+        "logs/history-save-repair-20261005/s6/scope.md",
+        "logs/history-save-repair-20261005/s6/select-C-a-initial.json",
+        "logs/history-save-repair-20261005/s6/select-C-a-stopped.json",
+        "logs/history-save-repair-20261005/s6/select-C-after-install-stopped.json",
+        "logs/history-save-repair-20261005/s6/select-C-fixed-n-stopped.json",
+        "logs/history-save-repair-20261005/s6/select-D-a-initial.json",
+        "logs/history-save-repair-20261005/s6/select-D-c-offline-stopped.json",
+        "logs/history-save-repair-20261005/s6/select-D-fixed-c-stopped.json",
+        "logs/history-save-repair-20261005/s6/select-D-n-reopened.json",
+        "logs/history-save-repair-20261005/s6/select-first-reader.cjs",
+        "logs/history-save-repair-20261005/s6/select-N-a-initial.json",
+        "logs/history-save-repair-20261005/s6/select-N-after-install-stopped.json",
+        "logs/history-save-repair-20261005/s6/select-N-final-stopped.json",
+        "logs/history-save-repair-20261005/s6/select.cjs",
+        "logs/history-save-repair-20261005/s6/selection-record-failure.json",
+        "logs/history-save-repair-20261005/s6/self-check-corrected.json",
+        "logs/history-save-repair-20261005/s6/self-check.json",
+        "logs/history-save-repair-20261005/s6/service-final-stop.txt",
+        "logs/history-save-repair-20261005/s6/service-fixed-final-stop.txt",
+        "logs/history-save-repair-20261005/s6/service-start-fixed.txt",
+        "logs/history-save-repair-20261005/s6/service-start-reconnect.txt",
+        "logs/history-save-repair-20261005/s6/service-start.txt",
+        "logs/history-save-repair-20261005/s6/service-stop-window.txt",
+        "logs/history-save-repair-20261005/s6/status-before-audit-record.json",
+        "logs/history-save-repair-20261005/s6/status-before-record.json",
+        "logs/history-save-repair-20261005/s6/status-before-repair.json",
+        "logs/history-save-repair-20261005/s6/tap-detail.cjs",
+        "logs/history-save-repair-20261005/s6/tap-fixed-a-reopened.json",
+        "logs/history-save-repair-20261005/s6/tap-fixed-a-returned.json",
+        "logs/history-save-repair-20261005/s6/tap-fixed-c-first.json",
+        "logs/history-save-repair-20261005/s6/tap-fixed-c-reopened.json",
+        "logs/history-save-repair-20261005/s6/tap-fixed-n-first.json",
+        "logs/history-save-repair-20261005/s6/tap-fixed-n-reopened.json",
+        "logs/history-save-repair-20261005/s6/ui-first-reader.cjs",
+        "logs/history-save-repair-20261005/s6/ui-summary-correction.json",
+        "logs/history-save-repair-20261005/s6/ui.cjs",
+        "logs/history-save-repair-20261005/s5/repair-final-20261008.json",
+        "logs/history-save-repair-20261005/s5/s6-final-20261008.json",
+        "logs/history-save-repair-20261005/s5/s6-fixed-final-20261008.json"
+      ],
+      "ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+      "interpretation_ref": null
+    },
+    "review_ref": null,
+    "review_status": "not-reviewed",
+    "findings": [],
+    "review_choice": null,
+    "review_decision_ref": null,
+    "review_decisions": [],
+    "tests": [],
+    "disposition_ref": null,
+    "historical_execution_refs": []
+  },
+  "review": null,
+  "detail_request": {
+    "detail": "task",
+    "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "workflow_home": "docs/workflow"
+  }
+}
+

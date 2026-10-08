@@ -1,0 +1,20 @@
+const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),{EventEmitter}=require('node:events');
+const {CodexRolloutCollector,FileAnalysisStore,FileCheckpointStore,FileAnalysisRunStore,AnalysisBatchImporter}=require('./src/services/codexRolloutCollector');
+const {createAnalyzeRequest}=require('./src/services/codexRolloutCollector/analyzerProtocol');
+const {CodexHistoryProductStore}=require('./src/services/codexHistoryProductStore');
+const {CodexHistoryReconciliationScheduler}=require('./src/services/codexHistoryReconciliationScheduler');
+const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+(async()=>{const root=await fs.mkdtemp(path.join(os.tmpdir(),'termlink-independent-v1-upgrade-'));let c;let result;try{
+const home=path.join(root,'codex-home'),sessions=path.join(home,'sessions','2026','10','03');await fs.mkdir(sessions,{recursive:true});
+const rows=(await fs.readFile('native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl','utf8')).trimEnd().split('\n');const id=JSON.parse(rows[0]).payload.id,source=path.join(sessions,'rollout-2026-10-03T00-00-00-'+id+'.jsonl');await fs.writeFile(source,rows.slice(0,2).join('\n')+'\n');
+const store=new FileAnalysisStore({rootDir:path.join(root,'analysis')}),checkpointStore=new FileCheckpointStore({rootDir:path.join(root,'checkpoints')}),runStore=new FileAnalysisRunStore({rootDir:path.join(root,'runs')}),productStore=new CodexHistoryProductStore({databasePath:path.join(root,'product.sqlite')}),importer=new AnalysisBatchImporter({store,checkpointStore,productStore});
+c=new CodexRolloutCollector({analyzerPath:path.resolve('native/codex-rollout-collector/target/debug/codex-rollout-collector.exe'),analyzerCwd:root,analyzerEnv:{CODEX_HOME:home},store,checkpointStore,runStore,importer,requestTimeoutMs:10000,processRestartRetries:0});
+await importer.init();let scope;
+const first=await c.processManager.request(createAnalyzeRequest({requestId:'independent-v1-initial',jobId:'independent-v1-initial-job',conversationId:id,mode:'backfill'}),{historyProfile:'target-v1',onBatch:async b=>{const r=await importer.importBatch(b);scope=r.scope;return r;},onComplete:(m,x)=>importer.commitComplete(m,{scope,acceptedDelivery:x.acceptedDelivery})});
+const checkpoint=await productStore.readCheckpoint(id),before=await productStore.readConversation(id);await c.processManager.stop();await fs.appendFile(source,rows.find(l=>l.includes('"type":"task_complete"'))+'\n');
+const outgoing=[];const send=c.processManager.send.bind(c.processManager);c.processManager.send=m=>{if(m.message_type==='hello'||m.message_type==='analyze')outgoing.push({type:m.message_type,mode:m.mode,hasV2:m.capabilities?.includes('history_semantics_v2'),anchor:m.persisted_anchor?.reducer_state?.reducer_version,cursorPresent:!!m.cursor,recoveryPresent:!!m.recovery});return send(m);};
+const scheduler=new CodexHistoryReconciliationScheduler({ipcFeed:new EventEmitter(),collector:c,productStore});
+try{await scheduler._reconcile(id);result={unexpectedSuccess:true};}catch(e){result={failureCode:e.code,message:e.message,retryable:e.retryable};}
+const after=await productStore.readConversation(id),afterCheckpoint=await productStore.readCheckpoint(id);
+console.log(JSON.stringify({test:'production scheduler with genuine SQLite canonical v1 checkpoint plus source growth',originalProfile:checkpoint.reducer_state.reducer_version,originalCompleteness:checkpoint.completeness,originalCursor:!!checkpoint.cursor,checkpointUnchanged:hash(checkpoint)===hash(afterCheckpoint),oldCanonicalUnchanged:hash(before)===hash(after),beforeItems:before.items.length,afterItems:after.items.length,completionEventPublished:after.items.some(x=>x.payload?.eventFacts?.some(e=>e.eventType==='TurnCompleted')),outgoing,result}));
+}finally{await c?.stop();const rel=path.relative(os.tmpdir(),root);if(!rel.startsWith('..')&&!path.isAbsolute(rel))await fs.rm(root,{recursive:true,force:true});}})().catch(e=>{console.error(e.code||e.message);process.exitCode=1;});

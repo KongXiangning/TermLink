@@ -1,0 +1,12 @@
+Stopped PID 111216 (cmd.exe)
+Stopped PID 111048 (node.exe)
+Stopped PID 110972 (node.exe)
+Stopped PID 107040 (cmd.exe)
+Stopped PID 98180 (node.exe)
+Action: status
+ProjectRoot: E:\coding\TermLink-rust-source-resolution-codex
+BaseUrl: http://127.0.0.1:3010
+Port: 3010
+TrackedProcessCount: 0
+Listening: none
+Health: unavailable (http://127.0.0.1:3010/api/health)

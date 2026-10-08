@@ -1,0 +1,27 @@
+{
+  "phase": "a-final-selection",
+  "at": "2026-10-07T17:29:58.345Z",
+  "pid": "16856",
+  "xml": {
+    "path": "private/a-final-selection.xml",
+    "bytes": 31020,
+    "sha256": "9ce503869b8e0c838ad0028ea360976b64868859c2efd0ea6c4f0a0735f93452"
+  },
+  "screenshot": {
+    "path": "private/a-final-selection.png",
+    "bytes": 170044,
+    "sha256": "c87e61d99c5173193d7ce095df9d8d99f1c95d4efdf7527added51f901d40663"
+  },
+  "edit_text_lengths": [
+    0
+  ],
+  "detail_buttons": [
+    {
+      "text": "查看历史详情 1 · 552 字节",
+      "bounds": "[72,459][570,519]"
+    }
+  ],
+  "N_DONE": false,
+  "C_DONE": false,
+  "A_DONE": true
+}

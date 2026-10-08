@@ -1,0 +1,4 @@
+{
+  "correction": "First two UI summaries had an always-true empty_draft helper predicate. Not used as evidence; original XML real EditText lengths independently assessed in final audit; future summaries use exact EditText text length.",
+  "originals_retained": true
+}

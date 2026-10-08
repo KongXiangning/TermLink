@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T18:55:37.813Z",
+  "payload_sha256": "9f6aca6f485f2d25ee70f31ef94525b02476170f71f5b12ec2e67cbb26ffe90b",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task832-independent-review-20261008-test-2-v1",
+    "request": {
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S3",
+      "execution_ref": ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json",
+      "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "command": "cargo test --locked --offline --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance delegated -- --nocapture",
+      "selector": "delegated",
+      "result": "Passed existing locked/offline focused test selector; harness ACK only.",
+      "exit_code": 0,
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+      "validation_kind": "existing-focused-rust-regression",
+      "evidence_section": "tests/1",
+      "applicable_step_ids": [
+        "S3"
+      ],
+      "provenance": {
+        "kind": "independent-task-review-validation",
+        "independent": true,
+        "reviewer": "/root/independent_832_review/rust_scope",
+        "phase": "independent-review"
+      },
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md"
+      ],
+      "idempotency_key": "task832-independent-review-20261008-test-2-v1"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+      "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-fb094d21d8949082c379b0e0180fefa15ec061543ee76a4dfd9f44505f006864.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S3",
+        "execution_ref": ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json",
+        "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+        "command": "cargo test --locked --offline --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance delegated -- --nocapture",
+        "selector": "delegated",
+        "result": "Passed existing locked/offline focused test selector; harness ACK only.",
+        "exit_code": 0,
+        "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+        "validation_kind": "existing-focused-rust-regression",
+        "evidence_section": "tests/1",
+        "applicable_step_ids": [
+          "S3"
+        ],
+        "provenance": {
+          "kind": "independent-task-review-validation",
+          "independent": true,
+          "reviewer": "/root/independent_832_review/rust_scope",
+          "phase": "independent-review"
+        },
+        "files": [
+          "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+          "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

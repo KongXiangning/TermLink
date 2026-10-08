@@ -1,0 +1,27 @@
+{
+  "phase": "fixed-n-selected",
+  "at": "2026-10-07T17:37:34.628Z",
+  "pid": "21469",
+  "xml": {
+    "path": "private/fixed-n-selected.xml",
+    "bytes": 30852,
+    "sha256": "eadb296227a6335791b276ad430f680beced5f4325dafea2cd5448193f61a4d6"
+  },
+  "screenshot": {
+    "path": "private/fixed-n-selected.png",
+    "bytes": 211969,
+    "sha256": "23a94d8de5abfc7656ea1a86e888bc48233e6036b46b56191d026af7ad5e0592"
+  },
+  "edit_text_lengths": [
+    0
+  ],
+  "detail_buttons": [
+    {
+      "text": "查看历史详情 1 · 469 字节",
+      "bounds": "[72,1467][570,1527]"
+    }
+  ],
+  "N_DONE": true,
+  "C_DONE": false,
+  "A_DONE": false
+}

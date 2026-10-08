@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-10-07T17:34:26.551Z" hostname="K-PC" time="0.002">
+  <properties/>
+  <testcase name="prependingTwoOlderPagesUsesDecreasingCompatiblePositions" classname="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" time="0.001"/>
+  <testcase name="onlyServerSnapshotTailMayResetPreviousStaticRangeOwnership" classname="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" time="0.0"/>
+  <testcase name="migratedLegacyCheckpointKeepsV2CompleteButDoesNotClaimRangeCoverage" classname="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" time="0.0"/>
+  <testcase name="positionAllocatorFailsClosedAtIntegerBounds" classname="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" time="0.0"/>
+  <testcase name="anEmptyOlderPageIsNotAcceptedAsTailMetadataOnlyCommit" classname="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" time="0.0"/>
+  <testcase name="appendingAfterOlderPagesDoesNotRewriteExistingPositions" classname="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" time="0.0"/>
+  <testcase name="onlyExplicitRangeProofMayMarkCoverageComplete" classname="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" time="0.0"/>
+  <testcase name="anAlreadyCachedTailCanCommitRangeMetadataWithoutAPlaceholderItem" classname="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" time="0.001"/>
+  <testcase name="olderSegmentsUseDecreasingRanksWithoutRenumberingExistingSegments" classname="com.termlink.app.codex.data.CodexHistoryRangeStorageTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

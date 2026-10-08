@@ -1,0 +1,1088 @@
+{
+  "at": "2026-10-07T18:22:52.965Z",
+  "execution_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+  "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+  "provenance": "same implementer review evidence audit, not independent review or new product E2E",
+  "checks": [
+    {
+      "name": "all123 original execution attachments saved and exact live/object bytes",
+      "passed": true
+    },
+    {
+      "name": "no private raw execution attachments",
+      "passed": true
+    },
+    {
+      "name": "same HEAD as executed version",
+      "passed": true
+    },
+    {
+      "name": "protected architecture/contracts/decisions/Cargo.lock unchanged",
+      "passed": true
+    },
+    {
+      "name": "original scope consent exact and associated",
+      "passed": true
+    },
+    {
+      "name": "216 JVM real XML passed, no skipped/errors",
+      "passed": true
+    },
+    {
+      "name": "old implementation new3 real failures retained",
+      "passed": true
+    },
+    {
+      "name": "protected Node gate supplemented139/139",
+      "passed": true
+    },
+    {
+      "name": "build/install version exact",
+      "passed": true
+    },
+    {
+      "name": "nonclear install actual DB/prefs byte preservation",
+      "passed": true
+    },
+    {
+      "name": "stable phone backup SHA and quick_check",
+      "passed": true
+    },
+    {
+      "name": "N all persisted item identity/body/hash/ref/position/role exact",
+      "passed": true
+    },
+    {
+      "name": "N durable committed product coverage correct",
+      "passed": true
+    },
+    {
+      "name": "N every saved ref backed by exact product payload",
+      "passed": true
+    },
+    {
+      "name": "N3 actual ACKs joined to phone synced and same-run hash deltas",
+      "passed": true
+    },
+    {
+      "name": "fixed-n-returned real captures and target visible body/ref entry",
+      "passed": true
+    },
+    {
+      "name": "fixed-n-reopened real captures and target visible body/ref entry",
+      "passed": true
+    },
+    {
+      "name": "fixed-n-selected real captures and target visible body/ref entry",
+      "passed": true
+    },
+    {
+      "name": "fixed-n-detail actual dialog verified-copy control/capture integrity",
+      "passed": true
+    },
+    {
+      "name": "fixed-n-reopened-detail actual dialog verified-copy control/capture integrity",
+      "passed": true
+    },
+    {
+      "name": "C all persisted item identity/body/hash/ref/position/role exact",
+      "passed": true
+    },
+    {
+      "name": "C durable committed product coverage correct",
+      "passed": true
+    },
+    {
+      "name": "C every saved ref backed by exact product payload",
+      "passed": true
+    },
+    {
+      "name": "C3 actual ACKs joined to phone synced and same-run hash deltas",
+      "passed": true
+    },
+    {
+      "name": "fixed-c-returned real captures and target visible body/ref entry",
+      "passed": true
+    },
+    {
+      "name": "fixed-c-reopened real captures and target visible body/ref entry",
+      "passed": true
+    },
+    {
+      "name": "fixed-c-selected real captures and target visible body/ref entry",
+      "passed": true
+    },
+    {
+      "name": "fixed-c-detail actual dialog verified-copy control/capture integrity",
+      "passed": true
+    },
+    {
+      "name": "fixed-c-reopened-detail actual dialog verified-copy control/capture integrity",
+      "passed": true
+    },
+    {
+      "name": "D all persisted item identity/body/hash/ref/position/role exact",
+      "passed": true
+    },
+    {
+      "name": "D durable committed product coverage correct",
+      "passed": true
+    },
+    {
+      "name": "D every saved ref backed by exact product payload",
+      "passed": true
+    },
+    {
+      "name": "D3 actual ACKs joined to phone synced and same-run hash deltas",
+      "passed": true
+    },
+    {
+      "name": "fixed-a-returned real captures and target visible body/ref entry",
+      "passed": true
+    },
+    {
+      "name": "fixed-a-reopened real captures and target visible body/ref entry",
+      "passed": true
+    },
+    {
+      "name": "fixed-a-detail actual dialog verified-copy control/capture integrity",
+      "passed": true
+    },
+    {
+      "name": "fixed-a-reopened-detail actual dialog verified-copy control/capture integrity",
+      "passed": true
+    },
+    {
+      "name": "C retains N history and N excludes own C turn",
+      "passed": true
+    },
+    {
+      "name": "2353 unrelated old phone rows all exact",
+      "passed": true
+    },
+    {
+      "name": "final environment observation correctly qualifies intermediate reverse",
+      "passed": true
+    },
+    {
+      "name": "prior failed checker retained and correction only missing field comparison",
+      "passed": true
+    }
+  ],
+  "passed": 41,
+  "total": 41,
+  "attachments_count": 123,
+  "attachments": [
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "docs/changes/records/CR-20261008-0135-android-history-detail-alias.md",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/a-awake.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/a-final-selection-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/a-initial.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/a-product-detail-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/a-reopened-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/a-return-visible-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/a-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/a-visible.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/after-install-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/apk-build-result.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/apk-build.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/apk-install.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/baseline.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-detail-reconnect-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-offline-detail-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-offline-reopened-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-offline-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-reconnected-current-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-reopened.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-returned-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-selected.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/c-tool-visible.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/capture-first-reader.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/capture.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/checker-correction.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/checks-first-reader.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/checks.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/CodexViewModel-before.kt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/decision-result.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/docs-first-validation.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/docs-validation.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/environment-restored.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/final-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-a-detail-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-a-reopened-detail-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-a-reopened-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-a-returned-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-a-start-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-a-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-c-detail-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-c-reopened-detail-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-c-reopened-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-c-returned-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-c-selected-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-c-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-final-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-n-detail-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-n-reopened-detail-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-n-reopened-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-n-returned-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-n-selected-ui-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/fixed-n-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/history-drawer.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/install-preservation.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-after-result.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-after-summary.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-after-TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-after-TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-after-TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-after-TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-after.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-before-result.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-before.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/jvm-before.xml",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/launch-original.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/launched.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/live-capture-failure.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/n-reopened.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/n-returned.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/n-selected.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/n-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/n-tool-visible.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/n-tool.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/other-tool-failures.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/prerequisite-before-record.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/record-execution.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/record-scope.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/report.md",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/scope.md",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-C-a-initial.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-C-a-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-C-after-install-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-C-fixed-n-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-D-a-initial.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-D-c-offline-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-D-fixed-c-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-D-n-reopened.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-first-reader.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-N-a-initial.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-N-after-install-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select-N-final-stopped.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/select.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/selection-record-failure.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/self-check-corrected.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/self-check.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/service-final-stop.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/service-fixed-final-stop.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/service-start-fixed.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/service-start-reconnect.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/service-start.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/service-stop-window.txt",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/status-before-audit-record.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/status-before-record.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/status-before-repair.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/tap-detail.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/tap-fixed-a-reopened.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/tap-fixed-a-returned.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/tap-fixed-c-first.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/tap-fixed-c-reopened.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/tap-fixed-n-first.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/tap-fixed-n-reopened.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/ui-first-reader.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/ui-summary-correction.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s6/ui.cjs",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s5/repair-final-20261008.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s5/s6-final-20261008.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    },
+    {
+      "path": "logs/history-save-repair-20261005/s5/s6-fixed-final-20261008.json",
+      "saved": true,
+      "object_exact": true,
+      "live_exact": true
+    }
+  ],
+  "matrix": [
+    {
+      "label": "N",
+      "id": "01a114a2-a201-7f73-993f-9c956ae35713",
+      "items": 11,
+      "refs": 2,
+      "coverage_root": "4d9b29481737d301f86d1b137993a33bcf22008a28fbe99337e9924c464bd3f2",
+      "protocol": [
+        {
+          "server_present": true,
+          "phone_synced": true,
+          "same_run_generation_hash_before_synced": true,
+          "sync_id": "483b899e-a743-46fe-8550-216ac45d52d9"
+        },
+        {
+          "server_present": true,
+          "phone_synced": true,
+          "same_run_generation_hash_before_synced": true,
+          "sync_id": "586d404f-8a50-436b-85f9-8f7d5b922861"
+        },
+        {
+          "server_present": true,
+          "phone_synced": true,
+          "same_run_generation_hash_before_synced": true,
+          "sync_id": "5a672220-52d3-4d98-b2be-a43991911f5f"
+        }
+      ],
+      "selected_product_detail_digest": "b14ca2eec78b6feb2a2535c08904352f055dbc031fde48a7ff3cc2e8f60097c3",
+      "selected_call_id": "exec-57e3cac5-da0a-4ef8-b44f-88726133194a"
+    },
+    {
+      "label": "C",
+      "id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+      "items": 22,
+      "refs": 4,
+      "coverage_root": "48b75ca6922483a5c464d26abce577330a7ef6dd712f85b58695279c90fce480",
+      "protocol": [
+        {
+          "server_present": true,
+          "phone_synced": true,
+          "same_run_generation_hash_before_synced": true,
+          "sync_id": "0885c5df-8c78-454e-aa95-a23e9c4392b1"
+        },
+        {
+          "server_present": true,
+          "phone_synced": true,
+          "same_run_generation_hash_before_synced": true,
+          "sync_id": "68763609-dc11-4d68-a9a7-88a9b36e9ea7"
+        },
+        {
+          "server_present": true,
+          "phone_synced": true,
+          "same_run_generation_hash_before_synced": true,
+          "sync_id": "bcb120c9-8c76-4496-9bc1-581795f32947"
+        }
+      ],
+      "selected_product_detail_digest": "fc83ba4e1bdc6633688cb6f4412e96d20b4db00f4fe007875cacf4fa20455b25",
+      "selected_call_id": "exec-9a26614e-6fb8-4040-aaf6-aa7e4f8d03a9"
+    },
+    {
+      "label": "D",
+      "id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "items": 40,
+      "refs": 9,
+      "coverage_root": "23a3f13872a9eff71c1715c7f27884005ade1fd78acfda714cedaf2233a7e06b",
+      "protocol": [
+        {
+          "server_present": true,
+          "phone_synced": true,
+          "same_run_generation_hash_before_synced": true,
+          "sync_id": "ae0c924d-61d9-4505-a6e1-fd445d78f288"
+        },
+        {
+          "server_present": true,
+          "phone_synced": true,
+          "same_run_generation_hash_before_synced": true,
+          "sync_id": "a33635ae-1ff9-4bb9-8a63-91f3988d572b"
+        },
+        {
+          "server_present": true,
+          "phone_synced": true,
+          "same_run_generation_hash_before_synced": true,
+          "sync_id": "40433794-43a9-4823-a0f2-f47e53780f7a"
+        }
+      ],
+      "selected_product_detail_digest": "5f4f5163228119c15e6fcb16e227529ecac07edfa4fadcec4b124f654079fe1e",
+      "selected_call_id": "exec-a1d24f9a-ef95-4d3c-871f-b8e2ac617394"
+    }
+  ],
+  "suites": [
+    {
+      "file": "jvm-after-TEST-com.termlink.app.codex.CodexViewModelThreadReadyTest.xml",
+      "tests": 169,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "file": "jvm-after-TEST-com.termlink.app.codex.data.CodexHistoryPageHashTest.xml",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "file": "jvm-after-TEST-com.termlink.app.codex.data.CodexHistoryRangeStorageTest.xml",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "file": "jvm-after-TEST-com.termlink.app.codex.data.CodexHistoryWireTest.xml",
+      "tests": 34,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "new_node_validation": {
+    "at": "2026-10-07T18:19:15.049Z",
+    "command": "node --test --test-reporter=tap tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+    "exit_code": 0,
+    "signal": null,
+    "duration_ms": 33792,
+    "summary": [
+      "# tests 139",
+      "# pass 139",
+      "# fail 0",
+      "# cancelled 0",
+      "# skipped 0",
+      "# todo 0",
+      "# duration_ms 33624.9727"
+    ],
+    "qualification": "Additional actual review validation required by protected Android ViewModel CONTRACTS gate. Existing isolated/fake service suites; no production service/device/source changes. Does not rewrite prior execution test coverage."
+  },
+  "manual_pixel_review": [
+    {
+      "path": "private/fixed-n-detail.png",
+      "sha256": "1161f6c799150a2071161e7c9d4c4278b037dca2d3c5b8fb57e6af9d36c31dc2",
+      "assessment": "Viewed actual pixels: product tool ID/input command/cwd/output/status/exit/duration match retained selected tool. XML lacks SelectionContainer body; header/copy button alone was not accepted as body proof."
+    },
+    {
+      "path": "private/fixed-c-detail.png",
+      "sha256": "a8926cb352179031538018f930c219ad4b03dc68130d220bf26e0f23859cba5a",
+      "assessment": "Viewed actual pixels: product tool ID/input command/cwd/output/status/exit/duration match retained selected tool. XML lacks SelectionContainer body; header/copy button alone was not accepted as body proof."
+    },
+    {
+      "path": "private/fixed-a-detail.png",
+      "sha256": "29db1b104e9de026aa4ad3ab80daf8cbaff116b82589e76756dfef02c9c4cbde",
+      "assessment": "Viewed actual pixels: product tool ID/input command/cwd/output/status/exit/duration match retained selected tool. XML lacks SelectionContainer body; header/copy button alone was not accepted as body proof."
+    },
+    {
+      "path": "private/fixed-n-reopened-detail.png",
+      "sha256": "b4796b87fa0bee0f184fece6d51795ad07861f76156a855f9d7be165d4ba74c7",
+      "assessment": "Viewed actual pixels: product tool ID/input command/cwd/output/status/exit/duration match retained selected tool. XML lacks SelectionContainer body; header/copy button alone was not accepted as body proof."
+    },
+    {
+      "path": "private/fixed-c-reopened-detail.png",
+      "sha256": "3650f5052d5ac2ab1d131d9690f2cc4d6d0c806ab0f11025380a74bb22cde647",
+      "assessment": "Viewed actual pixels: product tool ID/input command/cwd/output/status/exit/duration match retained selected tool. XML lacks SelectionContainer body; header/copy button alone was not accepted as body proof."
+    },
+    {
+      "path": "private/fixed-a-reopened-detail.png",
+      "sha256": "18385ad788c16f042b3aabe25185f93af62cac35577660c7c050a177b0aec9e7",
+      "assessment": "Viewed actual pixels: product tool ID/input command/cwd/output/status/exit/duration match retained selected tool. XML lacks SelectionContainer body; header/copy button alone was not accepted as body proof."
+    }
+  ],
+  "qualifications": [
+    "N/C return captures show target body and correct current refs/entry; selected details actually opened initially and after reopen. A opened on return and reopen. No additional phone replay.",
+    "Phone selected tool per scenario, not all9 delegated dialogs. All persisted refs/content identity checked independently.",
+    "Old error bar/budget/registration and3 management gaps preserved; no production edits, finish/close/Git/deploy."
+  ]
+}

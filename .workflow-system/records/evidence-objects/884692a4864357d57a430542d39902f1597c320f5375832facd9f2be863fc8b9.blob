@@ -1,0 +1,27 @@
+{
+  "phase": "fixed-a-reopened",
+  "at": "2026-10-07T17:44:28.587Z",
+  "pid": "24455",
+  "xml": {
+    "path": "private/fixed-a-reopened.xml",
+    "bytes": 31020,
+    "sha256": "824b2b6a80f1db1da0f85f133ffa0015d9db7a14a1de556c184e666e015df230"
+  },
+  "screenshot": {
+    "path": "private/fixed-a-reopened.png",
+    "bytes": 166551,
+    "sha256": "c79fec9d15f2629ee2913851d747eade2693a29c9dea66caf2efec5a490d2285"
+  },
+  "edit_text_lengths": [
+    0
+  ],
+  "detail_buttons": [
+    {
+      "text": "查看历史详情 1 · 552 字节",
+      "bounds": "[72,459][570,519]"
+    }
+  ],
+  "N_DONE": false,
+  "C_DONE": false,
+  "A_DONE": true
+}

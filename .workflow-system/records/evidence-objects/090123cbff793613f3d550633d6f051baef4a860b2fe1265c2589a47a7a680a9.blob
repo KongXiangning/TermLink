@@ -1,0 +1,22 @@
+# 832/S6 手机产品历史详情入口的最小后续范围候选
+
+2026-10-08。当前S6只执行真机验收，尚未授权新增Android生产修复。本候选不是已修复事实，不重开S1-S5，不修改共享契约。
+
+## 实际现象
+
+指定手机MQS7N19402011743上N/C/D均正常保存product_db范围；N11、C22、D40项，详情引用分别2/4/9。N与C在正常连接、切换返回、重开后可显示正文及原生命令展开字段，但没有对应“查看历史详情”按钮。A/D正常重开后可打开552字节的真实product历史详情，exec-a1d24f9a-ef95-4d3c-871f-b8e2ac617394，command/cwd/output/status/exit/duration可见。C断网重开时产品缓存能显示其469字节详情按钮，恢复healthy实时界面后按钮消失。不能以N/C原生IPC展开摘要替代product详情验收。
+
+## 已定位的兼容检查点
+
+手机产品cache键为tool:exec-57e3cac5-da0a-4ef8-b44f-88726133194a和tool:exec-9a26614e-6fb8-4040-aaf6-aa7e4f8d03a9。当前historyItemAliasesForUiMessage只由UI操作presentation key提取raw itemId，没有匹配tool:前缀的canonical key；既有测试仅以raw item-1证明旧链路。此处可解释N/C差异，但实施前仍应以本机真实operation/turn/canonical key核对，不把静态推测写成已证实唯一原因。
+
+## 具体拟议工作
+
+1. 仅在android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt确认并补同一conversation/turn、真实native工具ID到已保存canonical tool key的最小详情引用兼容；保留旧raw键、批操作、selected generation与详情ref更新门禁，不改实时正文/运行态、follower或任何新来源。
+2. 在android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt扩展既有详情别名测试：新tool key、旧raw key、batch、不同工具/turn不串、缺ref继续不匹配；按实际触及的保护路径运行既有相关JVM回归，JDK21。
+3. 若确认后需交付App，使用JDK21构建debug APK、同机非清数据安装；旧APK、缓存/配置/原失败保留；重新进行N/C/D正常查看、产品详情、切换/重开及同机A→N→C→A，保持IPC authority。
+4. 同步REQ/PLAN/独立draft CR/安全证据和实际execution；不自动review/finish/close/提交。
+
+## 排除和后果
+
+不改Rust/vendor/Node/Gateway/shared contract/DB schema/限额/source，不删App数据或失败证据，不发送模型输入，不做Git或部署。既有恢复后旧连接错误提示残留(S4-G1)本次重现，单独保留，不顺手清错误。批准此候选将把S6从纯验收补充为两份Android文件的最小兼容修复，并允许JVM/build/同机APK更新；若具体原因或文件范围不同，先披露新范围。本轮未批准前仅保存partial验收和恢复环境。

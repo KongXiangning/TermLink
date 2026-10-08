@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.termlink.app.codex.data.CodexHistoryPageHashTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-07T17:34:26.536Z" hostname="K-PC" time="0.014">
+  <properties/>
+  <testcase name="productDetailRefsAndAvailabilityMatchNodePageHash" classname="com.termlink.app.codex.data.CodexHistoryPageHashTest" time="0.006"/>
+  <testcase name="rangePageHashMatchesNodeRangeVector" classname="com.termlink.app.codex.data.CodexHistoryPageHashTest" time="0.001"/>
+  <testcase name="goldenVectorsMatchNodePageHash" classname="com.termlink.app.codex.data.CodexHistoryPageHashTest" time="0.004"/>
+  <testcase name="productReplacementRootMatchesNodeCanonicalRoot" classname="com.termlink.app.codex.data.CodexHistoryPageHashTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

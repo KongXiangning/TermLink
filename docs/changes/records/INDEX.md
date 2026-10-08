@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20261008-0135-android-history-detail-alias | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-08 |  | `docs/changes/records/CR-20261008-0135-android-history-detail-alias.md` |
 | CR-20261008-0045-stdout-utf8-repair | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-08 |  | `docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md` |
 | CR-20261008-0022-branch-validation-utf8-diagnosis | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-08 |  | `docs/changes/records/CR-20261008-0022-branch-validation-utf8-diagnosis.md` |
 | CR-20261007-1242-live-history-save-validation | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-07 |  | `docs/changes/records/CR-20261007-1242-live-history-save-validation.md` |

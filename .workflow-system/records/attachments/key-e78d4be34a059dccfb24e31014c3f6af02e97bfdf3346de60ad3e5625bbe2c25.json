@@ -1,0 +1,28 @@
+{
+  "event_ref": ".workflow-system/records/events/key-e78d4be34a059dccfb24e31014c3f6af02e97bfdf3346de60ad3e5625bbe2c25.json",
+  "captured_at": "2026-10-07T18:55:37.823Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2ff551f6a3b7a6f7926a5c59a2502d9f292cbb7a51ce2793b88a06b82087a125.blob",
+      "sha256": "2ff551f6a3b7a6f7926a5c59a2502d9f292cbb7a51ce2793b88a06b82087a125",
+      "size": 6225,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c7c40b903e919793543ad6d84a966acf23d5d17f42f7b92ed65d26b2b4030123.blob",
+      "sha256": "c7c40b903e919793543ad6d84a966acf23d5d17f42f7b92ed65d26b2b4030123",
+      "size": 9176,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md",
+      "issues": []
+    }
+  ]
+}

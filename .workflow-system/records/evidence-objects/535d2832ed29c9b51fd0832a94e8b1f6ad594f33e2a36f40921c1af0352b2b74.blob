@@ -1,0 +1,22 @@
+{
+  "phase": "c-detail-reconnect",
+  "at": "2026-10-07T17:26:59.511Z",
+  "pid": "16856",
+  "xml": {
+    "path": "private/c-detail-reconnect.xml",
+    "bytes": 30196,
+    "sha256": "b3a6e344286ff52cc42447fb8f74e77bf8a3eeba33468d57574af93f91e00b75"
+  },
+  "screenshot": {
+    "path": "private/c-detail-reconnect.png",
+    "bytes": 213531,
+    "sha256": "b12476a9bd883036c29db079699c5db82277a74edeb647b4d585d1a39e4e5baa"
+  },
+  "edit_text_lengths": [
+    0
+  ],
+  "detail_buttons": [],
+  "N_DONE": false,
+  "C_DONE": true,
+  "A_DONE": false
+}

@@ -1,0 +1,237 @@
+{
+  "event_ref": ".workflow-system/records/events/key-34aeb4f6f11447bf5cc9528734ac068654e860392c1700dd0daf33e39bf5462c.json",
+  "captured_at": "2026-10-07T18:55:47.122Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fcc1ff5a866d55311611242b529f622135bd9597f0b1ce89c6e7912a5b7e370f.blob",
+      "sha256": "fcc1ff5a866d55311611242b529f622135bd9597f0b1ce89c6e7912a5b7e370f",
+      "size": 12650,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/report.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/71da42cfcdbad4bd5bab83b19673a721d57a1cd3109c7f51869ed1cb146e400d.blob",
+      "sha256": "71da42cfcdbad4bd5bab83b19673a721d57a1cd3109c7f51869ed1cb146e400d",
+      "size": 41040,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/result.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a68527b3850a08d8dbaae494efca197b4738961ead0844284d4feccc31208640.blob",
+      "sha256": "a68527b3850a08d8dbaae494efca197b4738961ead0844284d4feccc31208640",
+      "size": 4889,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/state-summary.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fa01743ad3331306960b6b916dd31237a3ea2c562501ef714ce295bb71f3e990.blob",
+      "sha256": "fa01743ad3331306960b6b916dd31237a3ea2c562501ef714ce295bb71f3e990",
+      "size": 11611,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/phone-audit.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ac572bf28e536911cbc82a424aefe4561a8cc632402b6c5203f51e2c197bbe6b.blob",
+      "sha256": "ac572bf28e536911cbc82a424aefe4561a8cc632402b6c5203f51e2c197bbe6b",
+      "size": 14492,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/phone-audit.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/35f9d1526324e5c3d661d32698b43bb8c1df4d4b6b469afa7d43e3a8e05faad5.blob",
+      "sha256": "35f9d1526324e5c3d661d32698b43bb8c1df4d4b6b469afa7d43e3a8e05faad5",
+      "size": 316,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/phone-audit-initial-failure.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9bc8710b06ba28736dfd8761d14706e0ff0228c51d4648fd8e28ecf48248b011.blob",
+      "sha256": "9bc8710b06ba28736dfd8761d14706e0ff0228c51d4648fd8e28ecf48248b011",
+      "size": 14498,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/phone-audit-second-failure.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f6f33e7a03f3af5eac60149d163ce3f651ebe097308f03d68a15b75f6a5701d2.blob",
+      "sha256": "f6f33e7a03f3af5eac60149d163ce3f651ebe097308f03d68a15b75f6a5701d2",
+      "size": 241,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/android-focused-result.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/cf7d313db51f75087d9b59776fadefff367ce16e1ed8fa2a02a205670a1ae6dd.blob",
+      "sha256": "cf7d313db51f75087d9b59776fadefff367ce16e1ed8fa2a02a205670a1ae6dd",
+      "size": 4773,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/android-focused.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f5d33316cbb651b23496f5b3069bfe1627c87b0cc815fae3735690ef6cbc21d6.blob",
+      "sha256": "f5d33316cbb651b23496f5b3069bfe1627c87b0cc815fae3735690ef6cbc21d6",
+      "size": 818,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/android-focused.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c7c40b903e919793543ad6d84a966acf23d5d17f42f7b92ed65d26b2b4030123.blob",
+      "sha256": "c7c40b903e919793543ad6d84a966acf23d5d17f42f7b92ed65d26b2b4030123",
+      "size": 9176,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/rust-review.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2ff551f6a3b7a6f7926a5c59a2502d9f292cbb7a51ce2793b88a06b82087a125.blob",
+      "sha256": "2ff551f6a3b7a6f7926a5c59a2502d9f292cbb7a51ce2793b88a06b82087a125",
+      "size": 6225,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/rust-audit.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1337046a6390894a10d72172c002f814b66f4855ef41e819acfc2e594fd1a2ff.blob",
+      "sha256": "1337046a6390894a10d72172c002f814b66f4855ef41e819acfc2e594fd1a2ff",
+      "size": 8142,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/6c8ff425cd6ce4b7de6e2a62b6672374805e9b76e4d5406127345f47c086f1c5.blob",
+      "sha256": "6c8ff425cd6ce4b7de6e2a62b6672374805e9b76e4d5406127345f47c086f1c5",
+      "size": 22067,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1dba48ff1ed00c2a78d8db647479d4604fa8e4f07298a332f79d5600b6622e68.blob",
+      "sha256": "1dba48ff1ed00c2a78d8db647479d4604fa8e4f07298a332f79d5600b6622e68",
+      "size": 15307,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/compose-result.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/6d3d6f50a264eb68a7fec0440ef6cfd4cb37920a9611f82f1ea0a941bb036e70.blob",
+      "sha256": "6d3d6f50a264eb68a7fec0440ef6cfd4cb37920a9611f82f1ea0a941bb036e70",
+      "size": 4071,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/025ba576b305339cafae92de2b60f6a25d71a7c9298821f01dc879423cfe0822.blob",
+      "sha256": "025ba576b305339cafae92de2b60f6a25d71a7c9298821f01dc879423cfe0822",
+      "size": 283938,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/management/task832-before.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/3a4e2c655e75da3e78efc204eb70ffaeef7cbc1ec0c3ff0f7e9ca7d89325fe41.blob",
+      "sha256": "3a4e2c655e75da3e78efc204eb70ffaeef7cbc1ec0c3ff0f7e9ca7d89325fe41",
+      "size": 225497,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/management/task833-before.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f431ffeb498f544a1aa038009c1e94a84551a33ade42d619b2714f7be44aea43.blob",
+      "sha256": "f431ffeb498f544a1aa038009c1e94a84551a33ade42d619b2714f7be44aea43",
+      "size": 1348,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/management/git-before.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/41052aab6d12b3839ce33bd6c1297306ff807c96483045c5705e4d6650653c5b.blob",
+      "sha256": "41052aab6d12b3839ce33bd6c1297306ff807c96483045c5705e4d6650653c5b",
+      "size": 283962,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/management/task832-before-record.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c6a47f2c8e06910ef5511cde0d9113ce97fc3b54ca9f0f5c98374b36b4ba43c3.blob",
+      "sha256": "c6a47f2c8e06910ef5511cde0d9113ce97fc3b54ca9f0f5c98374b36b4ba43c3",
+      "size": 7365,
+      "source_path": "logs/history-save-repair-20261005/independent-review-20261008/management/record-independent-review.cjs",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+Started local dev server with PORT=3010
+Health: OK (http://127.0.0.1:3010/api/health)
+{"status":"ok","uptimeSec":0,"version":"1.0.0","now":"2026-10-07T17:37:13.460Z","privilegeMode":"standard","tls":false,"mtls":false,"listenerTls":false,"listenerMtls":false,"clientCertPolicy":"none","requestSecurity":{"transport":"http","tls":false,"clientCertPolicy":"none","clientCertPresented":false,"clientCertAuthorized":false,"clientCertError":null}}
+Action: status
+ProjectRoot: E:\coding\TermLink-rust-source-resolution-codex
+BaseUrl: http://127.0.0.1:3010
+Port: 3010
+TrackedProcessCount: 5
+PID 111656 node.exe :: D:\ProgramCode\nodejs\node.exe src/server.js
+PID 111156 node.exe :: "D:\ProgramCode\nodejs\\node.exe"  "D:\ProgramCode\nodejs\node_modules\npm\bin\npm-cli.js" run dev
+PID 110648 node.exe :: "node"   "E:\coding\TermLink-rust-source-resolution-codex\node_modules\.bin\\..\nodemon\bin\nodemon.js" src/server.js
+PID 107556 cmd.exe :: C:\WINDOWS\system32\cmd.exe /d /s /c nodemon src/server.js
+PID 98224 cmd.exe :: "C:\WINDOWS\system32\cmd.exe" /c set PORT=3010&& cd /d E:\coding\TermLink-rust-source-resolution-codex && npm run dev >> logs\dev-server.log 2>&1 
+Listening: :::3010 pid=111656
+Health: OK (http://127.0.0.1:3010/api/health)
+{"status":"ok","uptimeSec":3,"version":"1.0.0","now":"2026-10-07T17:37:15.992Z","privilegeMode":"standard","tls":false,"mtls":false,"listenerTls":false,"listenerMtls":false,"clientCertPolicy":"none","requestSecurity":{"transport":"http","tls":false,"clientCertPolicy":"none","clientCertPresented":false,"clientCertAuthorized":false,"clientCertError":null}}

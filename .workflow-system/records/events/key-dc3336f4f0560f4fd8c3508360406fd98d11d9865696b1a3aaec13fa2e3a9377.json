@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T18:55:42.803Z",
+  "payload_sha256": "b30e89c17ae3d46deb4c8fc21540881f774767c1bb65168d51c2d2d571540634",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task832-independent-review-20261008-test-7-v1",
+    "request": {
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S4",
+      "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+      "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "command": "PowerShell literal JavaScript here-string piped to node (isolated SQLite genuine v1 publication, source growth, actual CodexHistoryReconciliationScheduler._reconcile)",
+      "selector": "PowerShell literal JavaScript here-string piped to node (isolated SQLite genuine v1 publication, source growth, actual CodexHistoryReconciliationScheduler._reconcile)",
+      "result": "Defect confirmed: actual scheduler sends v2 append with v1 canonical anchor; checkpoint_incompatible retryable=false, product2→2, old state preserved, new completion absent. Harness exit0 observes failure, not product PASS.",
+      "exit_code": 0,
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+      "validation_kind": "isolated-defect-reproduction",
+      "evidence_section": "new_reproducer",
+      "applicable_step_ids": [
+        "S4",
+        "S5"
+      ],
+      "provenance": {
+        "kind": "independent-task-review-validation",
+        "independent": true,
+        "reviewer": "/root/independent_832_review/node_scope",
+        "phase": "independent-review",
+        "qualification": "Exit0 means harness successfully observed retained failure, not product PASS. No server/phone/model/external source operations."
+      },
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs"
+      ],
+      "idempotency_key": "task832-independent-review-20261008-test-7-v1"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+      "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+      "logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-d62fb5d81d981afe13ba97cd8bde107ff6364b201ba141f6ad7e514b7c170dfc.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S4",
+        "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+        "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+        "command": "PowerShell literal JavaScript here-string piped to node (isolated SQLite genuine v1 publication, source growth, actual CodexHistoryReconciliationScheduler._reconcile)",
+        "selector": "PowerShell literal JavaScript here-string piped to node (isolated SQLite genuine v1 publication, source growth, actual CodexHistoryReconciliationScheduler._reconcile)",
+        "result": "Defect confirmed: actual scheduler sends v2 append with v1 canonical anchor; checkpoint_incompatible retryable=false, product2→2, old state preserved, new completion absent. Harness exit0 observes failure, not product PASS.",
+        "exit_code": 0,
+        "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+        "validation_kind": "isolated-defect-reproduction",
+        "evidence_section": "new_reproducer",
+        "applicable_step_ids": [
+          "S4",
+          "S5"
+        ],
+        "provenance": {
+          "kind": "independent-task-review-validation",
+          "independent": true,
+          "reviewer": "/root/independent_832_review/node_scope",
+          "phase": "independent-review",
+          "qualification": "Exit0 means harness successfully observed retained failure, not product PASS. No server/phone/model/external source operations."
+        },
+        "files": [
+          "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+          "logs/history-save-repair-20261005/independent-review-20261008/node-review.md",
+          "logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

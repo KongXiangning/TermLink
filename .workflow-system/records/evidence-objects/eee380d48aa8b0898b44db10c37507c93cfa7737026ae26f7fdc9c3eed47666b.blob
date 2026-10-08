@@ -1,0 +1,20 @@
+{
+  "phase": "fixed-a-detail",
+  "at": "2026-10-07T17:44:17.383Z",
+  "pid": "23453",
+  "xml": {
+    "path": "private/fixed-a-detail.xml",
+    "bytes": 6900,
+    "sha256": "e0482306ad6b79e697004ade3d6133e3ee6a4a1168aee6e2f10f8e743c9089e1"
+  },
+  "screenshot": {
+    "path": "private/fixed-a-detail.png",
+    "bytes": 306645,
+    "sha256": "29db1b104e9de026aa4ad3ab80daf8cbaff116b82589e76756dfef02c9c4cbde"
+  },
+  "edit_text_lengths": [],
+  "detail_buttons": [],
+  "N_DONE": false,
+  "C_DONE": false,
+  "A_DONE": false
+}

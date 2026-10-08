@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T18:25:44.522Z",
+  "payload_sha256": "2fd03d9061dea69837772292647d9199bb5ba8cdd97e46209512fc4b30e0dd45",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task832-S6-review-protected-Node-gate-139-20261008-v1",
+    "request": {
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S6",
+      "execution_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+      "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "command": "node --test --test-reporter=tap tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+      "selector": "two existing protected Node owner/gateway suites",
+      "result": "passed139/139, exit0, no skip/error; actual supplementary review validation, not replayed original execution",
+      "report_ref": "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression-result.json",
+      "provenance": {
+        "kind": "same-agent-change-self-review-validation",
+        "independent": false,
+        "phase": "review"
+      },
+      "files": [
+        "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression.txt",
+        "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression-result.json"
+      ],
+      "idempotency_key": "task832-S6-review-protected-Node-gate-139-20261008-v1"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression.txt",
+      "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression-result.json"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S6",
+        "execution_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+        "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+        "command": "node --test --test-reporter=tap tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+        "selector": "two existing protected Node owner/gateway suites",
+        "result": "passed139/139, exit0, no skip/error; actual supplementary review validation, not replayed original execution",
+        "report_ref": "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression-result.json",
+        "provenance": {
+          "kind": "same-agent-change-self-review-validation",
+          "independent": false,
+          "phase": "review"
+        },
+        "files": [
+          "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression.txt",
+          "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression-result.json"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,6 @@
+{
+  "head": "488dc6c9e597ef096f617d17499fa8e048306c06",
+  "log": "488dc6c9e597ef096f617d17499fa8e048306c06 fix(history): preserve UTF-8 analyzer output across chunks\n32c6b66179ac314321540fab3b0a82b56050e317 test(history): add branch product delivery regression\n714379dafa7eedb3517d5d0550518faca969966c fix(history): repair branch lineage reads\n589a62a78c6214fea13e7c5eecac5466d64d7a5d test(history): record product delivery persistence evidence\nf2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8 fix(history): gate delegated promotion by durable evidence\n7ce1d08e6dbb7863d5b95fb992086f1b37637488 feat(rust): add delegated event and target compatibility\n644d9b1fad603719ee58d3514d32668735b1efdb feat(workflow): upgrade vNext assistance runtime\n6e04e4ad07c73897683a95265f15eade042e9076 feat(codex): add shared history wire compatibility closure\nfe3969f28b1b8934d2368f0b5b4a8b1a12b35f71 chore(workflow): checkpoint TASK-20260832 S1 disposition\n1d762bb3f8ed3f0f972a47b7edb78f0615220e7f chore(workflow): checkpoint task closure evidence",
+  "changed": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt\nandroid/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt\ndocs/product/plans/PLAN-20261005-codex-history-save-repair.md\ndocs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+  "staged": ""
+}

@@ -1,0 +1,44 @@
+# Independent Node review — TASK-20260832 cumulative S1–S6
+
+2026-10-08. Reviewed baseline `1d762bb3f8ed3f0f972a47b7edb78f0615220e7f` through HEAD `488dc6c9e597ef096f617d17499fa8e048306c06` and current worktree. This is an independent Node reviewer, not the prior implementation/self-review agent. Fresh read-only task-status succeeded: task active, original adopted plan retained, all S1–S6 dispositions finished. Those dispositions are not a clean verdict. No journal/task write, business code edit, Git write, service startup, phone action or model turn occurred.
+
+## Finding NODE-R1 — P2: normal reconciliation cannot upgrade a published v1 checkpoint
+
+Primary changed-code location: `src/services/codexRolloutCollector/index.js:626–628`. Call chain: `src/services/codexHistoryReconciliationScheduler.js:167–191` and `analyzerProcessManager.js:615–619`.
+
+The scheduler selects `append` whenever product SQLite already has a canonical checkpoint and nonempty cursor. The upgraded manager's default hello negotiates `history_semantics_v2` and selects `target-v2`. The collector clears the v1 anchor/cursor only when the caller already selected `backfill`; the scheduler never selects that route for an existing canonical record. Rust therefore correctly rejects the ordinary append as `checkpoint_incompatible`. The scheduler retains the intent and old canonical, but subsequent terminal observations keep taking the same failing route, so new completed content cannot be saved.
+
+This is an actual retained-state compatibility case: the original persistent product DB still contains conversation F `01a0ee04-a775-72b3-bd07-04aac804a3b4` with canonical `target-v1` checkpoint and nonempty cursor (checkpoint SHA256 `fc91b4024979e4425e4233fc5946b72c5dd12470c1db6512a0e9b3576f3ced87`). No live operation was performed on F.
+
+A fresh isolated real-process reproduction durably published a genuine v1 prefix into SQLite through Node importer, positive ACK and Rust complete. After adding a genuine fixture completion row, the actual scheduler sent v2 hello followed by append with v1 anchor and cursor. Observed error: `checkpoint_incompatible: persisted reducer profile is incompatible with negotiated read semantics`, retryable=false. Product items remained 2→2, the completion was absent, and both old canonical and product checkpoint hashes remained unchanged. The harness returned exit0 because it captured this failure; it is not a product PASS. Exact safe stdout and setup are in `node-audit.json#/new_reproducer`.
+
+Affected delivery: 832 S4/S5 accepting the 833 Node profile/request bridge. S4 execution `key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0`; S5 execution `key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517`. This does not invalidate the scoped S2 design, Rust's correct strict rejection, or the specified v2 N/C/A S6 samples.
+
+Minimal follow-up: select a distinct ordinary backfill job with the four old recovery fields empty when a settled v1 product checkpoint meets negotiated v2. Preserve the original checkpoint/receipts, unsettled original profile/job/delivery retry, and strict cross-profile append rejection. Add a regression through the actual production scheduler and a durably published v1 product checkpoint. The passing direct-collector new-backfill test bypasses this missing selection.
+
+## Positive checks and original failures
+
+Read AGENTS/review-change/protocol, full rollout architecture, current IPC/rollout contract boundaries, AD-004/018–022, exact shared compatibility contract, interface index/startup and relevant wire/data/coordinator sections. Audited the cumulative manager/protocol/importer/index changes and unchanged product scheduler/store/provider/Gateway call boundaries.
+
+Original H1 raw state corroborates the recorded mechanism: five retained partial staging batches contain the real TurnStarted at bytes405497–405797 with mutation hash `fnv1a64:110170ff806221c7`; later real TurnCompleted is status=completed at bytes469574–469882 with `fnv1a64:2a8b562ac532263a`. The same immutable old start SHA256 remains unchanged in all new A observations. Exactly eight original batch_rejected/batch_scope_conflict run files remain retained. This supports G1 rather than a request/conversation mismatch diagnosis. The eight historical attempts were not individually replayed.
+
+G1/G2 preflight matches physical event content/source evidence, preserves immutable starts, rejects altered protected mutations and downgrade/gap evidence, and confines delegated role to system without fake tool refs. Capability/profile gates and original anchorless v1 delivery preservation passed focused real-process checks. The UTF8 receiver rejects stale process scope before decoding and keeps decoder state local to generation.
+
+Product publication remains downstream of validated complete; SQLite commits the product projection and its product checkpoint together. The normal reconciliation scheduler reads that product checkpoint, not the separate FileCheckpointStore evidence. Isolated H1/H2/H3 tests independently verified staging-before-ACK, complete-before-publication, reopening, genuine tool details and canonical preservation on rejection/rollback.
+
+## Independently run validation
+
+| Actual command/selector | Result | Qualification |
+| --- | --- | --- |
+| `node --test --test-reporter=tap --test-name-pattern='target stdout UTF8' tests/codexRolloutCollector.test.js` | exit0, 3/3, no skips | Actual JSONL receiver and process restart isolation. |
+| `CARGO_NET_OFFLINE=true; node --test --test-reporter=tap --test-name-pattern='history v2' tests/codexRolloutCollector.realRust.test.js` | exit0, 13/13 including subtests, no skips | Six focused tests: partial/canonical G1, both G2 orders/restart, old ParseGap, v1 new job and original delivery preservation. |
+| `CARGO_NET_OFFLINE=true; node --test --test-reporter=tap --test-name-pattern='history shared delivery H1\|history branch delivery H2\|history shared delivery H3' tests/codexHistoryProductFlow.test.js` | exit0, 5/5 including subtests, no skips | Three isolated Rust→Node→SQLite/provider scenarios, reopening and negative/rollback checks. |
+| Inline isolated v1 product-upgrade harness via actual scheduler | exit0; retained `checkpoint_incompatible` failure | Counterexample, not PASS. |
+
+The integration helpers performed their normal offline locked Cargo build once per test process against current native source. Actual analyzer binary SHA256 and 15 code/test/contract/fixture hashes are recorded in `node-audit.json`. No broad suite or new permanent test was added. Initial exploratory `minimal-rollout` setup produced a partial checkpoint and was correctly rejected before dispatch; that unsuitable probe is retained separately and is not counted as the confirmed canonical upgrade reproduction.
+
+Natural-host N/C/A save/read evidence and original failure artifacts were inspected, not rerun. Android code, phone/UI/durable ACK are outside this Node review and remain the parent review's responsibility. B/Q budget failures, incomplete old-attempt replay, management association gaps, tool retention limits and non-release/full4.5 scope are preserved limitations, not automatically new findings.
+
+**Node verdict: findings (NODE-R1).** Machine-readable evidence: [node-audit.json](node-audit.json). No management disposition or implementation is performed by this report. `next_route: execute-step` — minimal compatibility repair is needed; advice only, no automatic execution.
+
+Reproducibility asset added after the observed run: [node-upgrade-repro.cjs](node-upgrade-repro.cjs) preserves the exact inline JavaScript previously executed through stdin. From the repository root, the equivalent command is `Get-Content -Raw logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs | node`. The original relative imports intentionally preserve stdin execution semantics. Saving this source did not rerun the experiment; the saved filename itself has not been executed. Its SHA256 and the existing actual stdout are recorded in `node-audit.json`.

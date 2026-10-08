@@ -1,0 +1,11 @@
+{
+  "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt": "aac5ced2b1b6c689c1fbfa57b80a19679d6f9d8fa6bb7b7bf5793c6962c00f78",
+  "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt": "91a9e0f622f96fa2bb8c556fce9568708e848dd82e695d496b9bd03a10cf566e",
+  "native/codex-rollout-compat-spike/vendor/codex/Cargo.lock": "6845a266d5ab6a62927267ce6852bca6f1e12f4787185382a20b072aa2a5e195",
+  "logs/history-save-repair-20261005/independent-review-20261008/report.md": "fcc1ff5a866d55311611242b529f622135bd9597f0b1ce89c6e7912a5b7e370f",
+  "logs/history-save-repair-20261005/independent-review-20261008/result.json": "71da42cfcdbad4bd5bab83b19673a721d57a1cd3109c7f51869ed1cb146e400d",
+  "logs/history-save-repair-20261005/independent-review-20261008/node-review.md": "1337046a6390894a10d72172c002f814b66f4855ef41e819acfc2e594fd1a2ff",
+  "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json": "6c8ff425cd6ce4b7de6e2a62b6672374805e9b76e4d5406127345f47c086f1c5",
+  "logs/history-save-repair-20261005/independent-review-20261008/user-disposition-20261008.md": "f13356cf56b2536a3f6bd9956620a79d13ad52362f326ebc44a61fb73b554bcd",
+  "logs/history-save-repair-20261005/s6/report.md": "1420cfc800a31826a6bebcafa17cbe84d3704601da65ccc3bf325be38a1767e6"
+}

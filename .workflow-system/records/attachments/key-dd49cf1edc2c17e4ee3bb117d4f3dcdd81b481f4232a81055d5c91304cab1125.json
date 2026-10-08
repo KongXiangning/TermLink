@@ -1,0 +1,160 @@
+{
+  "event_ref": ".workflow-system/records/events/key-dd49cf1edc2c17e4ee3bb117d4f3dcdd81b481f4232a81055d5c91304cab1125.json",
+  "captured_at": "2026-10-07T18:25:45.445Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/db4206af6ab92243834a1a17ec7d572ed923a86fe607515ad6735f3369697add.blob",
+      "sha256": "db4206af6ab92243834a1a17ec7d572ed923a86fe607515ad6735f3369697add",
+      "size": 9062,
+      "source_path": "logs/history-save-repair-20261005/s6/review-20261008/review-change.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f6c684eecb664ee9e23fea2a01f6987bbabed98f1c08049a9139f12434cf9af1.blob",
+      "sha256": "f6c684eecb664ee9e23fea2a01f6987bbabed98f1c08049a9139f12434cf9af1",
+      "size": 13892,
+      "source_path": "logs/history-save-repair-20261005/s6/review-20261008/audit.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/02c0e7a8619a30adc0310bebd49dd30173368877e8d5ee069d2de333048af433.blob",
+      "sha256": "02c0e7a8619a30adc0310bebd49dd30173368877e8d5ee069d2de333048af433",
+      "size": 32700,
+      "source_path": "logs/history-save-repair-20261005/s6/review-20261008/audit.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/700ea2587d99812211a0c474821aa4e3b3f41040f3b21fbb395c7ec7b2abc659.blob",
+      "sha256": "700ea2587d99812211a0c474821aa4e3b3f41040f3b21fbb395c7ec7b2abc659",
+      "size": 14683,
+      "source_path": "logs/history-save-repair-20261005/s6/review-20261008/review-diff.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/14d5fbb19517e32be2adba66b075c0059f8d82ead2a5fcee20471dfa78a8c17f.blob",
+      "sha256": "14d5fbb19517e32be2adba66b075c0059f8d82ead2a5fcee20471dfa78a8c17f",
+      "size": 22754,
+      "source_path": "logs/history-save-repair-20261005/s6/review-20261008/status-before.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ff49a7e84da07ea3c2c32aeecde51fb8ec2706eb0e2987a3d38b1e79b01e6be6.blob",
+      "sha256": "ff49a7e84da07ea3c2c32aeecde51fb8ec2706eb0e2987a3d38b1e79b01e6be6",
+      "size": 155010,
+      "source_path": "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/5f4603354c94f3bcc31f2c9e25572ed23f5142a5c02555d1f19e89d77be23313.blob",
+      "sha256": "5f4603354c94f3bcc31f2c9e25572ed23f5142a5c02555d1f19e89d77be23313",
+      "size": 631,
+      "source_path": "logs/history-save-repair-20261005/s6/review-20261008/node-core-regression-result.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c7be42b77cb4bb25f9072b9195979f8b8b3446e5d75808cf59fe49b8522bc345.blob",
+      "sha256": "c7be42b77cb4bb25f9072b9195979f8b8b3446e5d75808cf59fe49b8522bc345",
+      "size": 273778,
+      "source_path": "logs/history-save-repair-20261005/s6/review-20261008/test-record-result.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ea292571693cdecaf2ed83c02de95ab2eb4594e86da52baab3a96e6f1ef3ba3c.blob",
+      "sha256": "ea292571693cdecaf2ed83c02de95ab2eb4594e86da52baab3a96e6f1ef3ba3c",
+      "size": 7941,
+      "source_path": "logs/history-save-repair-20261005/s6/review-20261008/record-review.cjs",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/aac5ced2b1b6c689c1fbfa57b80a19679d6f9d8fa6bb7b7bf5793c6962c00f78.blob",
+      "sha256": "aac5ced2b1b6c689c1fbfa57b80a19679d6f9d8fa6bb7b7bf5793c6962c00f78",
+      "size": 696871,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/91a9e0f622f96fa2bb8c556fce9568708e848dd82e695d496b9bd03a10cf566e.blob",
+      "sha256": "91a9e0f622f96fa2bb8c556fce9568708e848dd82e695d496b9bd03a10cf566e",
+      "size": 183056,
+      "source_path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c12e9c88fd3ba58b2e6228f5a4b8147085e931350d622c614a443431e3c60a06.blob",
+      "sha256": "c12e9c88fd3ba58b2e6228f5a4b8147085e931350d622c614a443431e3c60a06",
+      "size": 6154,
+      "source_path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/3bd3b37abd88e76a08e58df740e44c03bd21393db69e69b2d7856aee57031c6b.blob",
+      "sha256": "3bd3b37abd88e76a08e58df740e44c03bd21393db69e69b2d7856aee57031c6b",
+      "size": 5806,
+      "source_path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ef4ee45051828c53f162622eccaaf5ed3c0eede4f51119d75a9ab3b52e4a392d.blob",
+      "sha256": "ef4ee45051828c53f162622eccaaf5ed3c0eede4f51119d75a9ab3b52e4a392d",
+      "size": 4782,
+      "source_path": "docs/changes/records/CR-20261008-0135-android-history-detail-alias.md",
+      "issues": []
+    }
+  ]
+}

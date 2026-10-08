@@ -1,0 +1,18 @@
+{
+  "a_returned": {
+    "operation": "Live app backup tar extraction",
+    "result": "tar exit1, incomplete/inconsistent live backup",
+    "archive": {
+      "relative_path": "private/a-returned.tar",
+      "bytes": 21025806,
+      "sha256": "755a0d579ee4afdfee2fcb92dd0a078a723ede95d005f517aa5df7b1cd5d1217"
+    },
+    "qualification": "Not used for durable verification; stopped stable backups used. No evidence of device DB corruption."
+  },
+  "c_offline_detail": {
+    "operation": "Click previous UI coordinate",
+    "result": "Expected product detail dialog not observed",
+    "evidence": "c-offline-detail-ui-summary.json / private/c-offline-detail-ui.json",
+    "qualification": "Preserved failed UI probe; not a successful product detail read; fixed-version selected details separately verified."
+  }
+}

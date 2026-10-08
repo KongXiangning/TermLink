@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-07T18:55:40.719Z",
+  "payload_sha256": "c364eed8b7073ca2ca9f717ec5157c172467df19ff35b74557631e6d04a51f8e",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task832-independent-review-20261008-test-5-v1",
+    "request": {
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "step_id": "S4",
+      "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+      "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "command": "$env:CARGO_NET_OFFLINE='true'; node --test --test-reporter=tap --test-name-pattern='history v2' tests/codexRolloutCollector.realRust.test.js",
+      "selector": "history v2",
+      "result": "TAP 6 top-level tests,13 including subtests; pass13 fail0 cancelled0 skipped0 todo0; helper actual offline cargo build --locked against current native sources",
+      "exit_code": 0,
+      "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+      "validation_kind": "existing-focused-node-regression",
+      "evidence_section": "new_test_runs/1",
+      "applicable_step_ids": [
+        "S4",
+        "S5"
+      ],
+      "provenance": {
+        "kind": "independent-task-review-validation",
+        "independent": true,
+        "reviewer": "/root/independent_832_review/node_scope",
+        "phase": "independent-review"
+      },
+      "files": [
+        "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+        "logs/history-save-repair-20261005/independent-review-20261008/node-review.md"
+      ],
+      "idempotency_key": "task832-independent-review-20261008-test-5-v1"
+    },
+    "files": [
+      "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+      "logs/history-save-repair-20261005/independent-review-20261008/node-review.md"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "parents": [
+        ".workflow-system/records/events/key-c1bd7b7bf5c1b3f589dd7092a5f9f8f4795d48aa6d27d5b98b5d3cfcf59d0d5d.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "step_id": "S4",
+        "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+        "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06",
+        "command": "$env:CARGO_NET_OFFLINE='true'; node --test --test-reporter=tap --test-name-pattern='history v2' tests/codexRolloutCollector.realRust.test.js",
+        "selector": "history v2",
+        "result": "TAP 6 top-level tests,13 including subtests; pass13 fail0 cancelled0 skipped0 todo0; helper actual offline cargo build --locked against current native sources",
+        "exit_code": 0,
+        "report_ref": "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+        "validation_kind": "existing-focused-node-regression",
+        "evidence_section": "new_test_runs/1",
+        "applicable_step_ids": [
+          "S4",
+          "S5"
+        ],
+        "provenance": {
+          "kind": "independent-task-review-validation",
+          "independent": true,
+          "reviewer": "/root/independent_832_review/node_scope",
+          "phase": "independent-review"
+        },
+        "files": [
+          "logs/history-save-repair-20261005/independent-review-20261008/node-audit.json",
+          "logs/history-save-repair-20261005/independent-review-20261008/node-review.md"
+        ]
+      }
+    }
+  },
+  "issues": []
+}

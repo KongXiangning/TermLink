@@ -1,0 +1,17 @@
+{
+  "provenance": "Actual tool-command results from this closure turn; no business test rerun",
+  "checks": [
+    {
+      "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File .agents/skills/docs-requirement-sync/scripts/validate-req.ps1 -ReqPath docs/product/requirements/REQ-20261005-codex-history-save-repair.md -ProjectRoot . -Strict",
+      "exit_code": 0,
+      "stdout": "REQ: E:\\coding\\TermLink-rust-source-resolution-codex\\docs\\product\\requirements\\REQ-20261005-codex-history-save-repair.md\r\nPASS: REQ validation succeeded.\r\n"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "No whitespace errors; LF/CRLF warnings for CodexViewModel.kt, PLAN and REQ retained as warnings."
+    }
+  ],
+  "requirement_done": false,
+  "reason": "All linked CRs are draft/TBD; no active CR. Task closed and six finished steps do not synthesize commit traceability. No full doc-sync PASS claimed."
+}

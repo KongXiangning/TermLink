@@ -2597,7 +2597,17 @@ private const val COMMAND_BATCH_ID_PREFIX_FOR_UI = "command-batch:"
 
 internal fun historyDetailItemsForUiMessage(message: ChatMessage, cached: List<ChatMessage>): List<ChatMessage> {
     val aliases = historyItemAliasesForUiMessage(message)
-    return cached.filter { it.id in aliases && (it.historyDetailRefs.isNotEmpty() || it.historyDetailRefsTruncated) }
+    val operationTurnId = message.operationTurnId?.trim()?.takeIf(String::isNotEmpty)
+    val hasOperationType = !message.operationType.isNullOrBlank()
+    return cached.filter { item ->
+        // Product rows retain the owned tool: key; IPC operations carry the
+        // native id. Only bridge a real tool in this operation's exact turn.
+        val sameTool = item.contentType == "tool" && item.id.startsWith("tool:") &&
+            operationTurnId != null && hasOperationType && item.sourceTurnId?.trim() == operationTurnId &&
+            item.id.removePrefix("tool:") in aliases
+        (item.id in aliases || sameTool) &&
+            (item.historyDetailRefs.isNotEmpty() || item.historyDetailRefsTruncated)
+    }
 }
 
 /**

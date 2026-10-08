@@ -1,0 +1,5 @@
+{
+  "jdk": "D:\\ProgramCode\\openjdk\\jdk-21",
+  "command": "gradlew -p android :app:testDebugUnitTest --tests *prefixedToolDetailRefs*",
+  "exit_code": 1
+}

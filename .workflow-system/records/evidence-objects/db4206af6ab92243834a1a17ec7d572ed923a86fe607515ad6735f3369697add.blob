@@ -1,0 +1,54 @@
+# TASK-20260832 / S6 变更审查
+
+2026-10-08。结论：**clean（同一实施者自审）**，本次授权范围内没有新增需要修复的正确性、串会话、兼容性或证据问题。没有独立审查者；clean只适用于下述准确版本、已确认范围与验证层级，不表示旧产品问题已清空或任务已关闭。
+
+## 审查对象与实际范围
+
+execution：.workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json；同一原plan key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0，step=S6。HEAD 488dc6c9e597ef096f617d17499fa8e048306c06加两份Android未提交diff，生产源码SHA aac5ced2b1b6c689c1fbfa57b80a19679d6f9d8fa6bb7b7bf5793c6962c00f78，测试源码SHA 91a9e0f622f96fa2bb8c556fce9568708e848dd82e695d496b9bd03a10cf566e。123个执行附件的原object/live bytes逐一相同，private原件未被纳入执行附件；审查报告与audit另存，不改写execution。
+
+用户明确选择“补最小 Android 兼容并重验 S6（推荐）”，对应key-d99d9cbfdf82571710ab524da759d74872184e4aafe91bd395b6c8b5f35b3d55。实际改动没有越出两份Android文件，REQ/PLAN/draft CR记录范围一致。旧S1–S5 finished和833 closed由fresh journal保留；不是通过完成前一步或重做采集来制造当前证据。IDE未跟踪spike Cargo.lock、架构、CONTRACTS、DECISIONS hashes保持；此前已完整读取的rollout架构与当前版本一致，当前复核AD-004/AD-022及冻结区契约。
+
+## 代码与边界审查
+
+- `historyDetailItemsForUiMessage`（2598起）只增加真实native工具ID到已保存`tool:`缓存键的详情ref匹配，要求contentType=tool、operationTurnId非空、operationType非空、sourceTurnId同turn及已有alias/batch成员。没有content/cwd/顺序/文件名猜测；未知ID、不同turn、非tool缓存、无ref仍拒绝。旧direct/raw键及partial/truncated ref路径保留，不向live消息写正文或状态。
+- 唯一生产调用点`CodexScreen.kt:742`仍从当前state.cachedCanonicalMessages返回真实缓存item/ref，并以cached.id调用既有`openHistoryDetail`。后者核对当前缓存ref、selected conversation/generation、current detail ref、response conversation/request/generation及assembly hash/bytes；选择切换清理和cache hydrate generation门禁没有修改。新桥接不新增读取源、详情存储或第二实时权威。
+- new3测试在旧实现确实3 failures/0 errors，固定后包含同ID/同turn、batch成员、异turn/异tool、缺scope/ref、旧raw键与truncated ref，覆盖实际失效条件而非仅测试字符串转换。四suite实际XML共216/216、0skip/0error，来源版本一致，未为本轮审查重复JVM/build/install/手机业务。
+
+冻结区契约还明确要求Android ViewModel改动运行两套Node核心回归。原S6 execution没有该证据，**本轮审查补跑**仓库现有`tests/codexOwnerSurfaceTracker.test.js`和`tests/terminalGateway.codexIpc.test.js`，139/139通过、exit0。fake服务/临时loopback测试，不启动真实开发服务或外部Codex。结果是审查期间新增验证，不能倒填为原execute-step已跑。原216 JVM、安装与手机结果复用，不叠加成新全量/E2E测试计数。
+
+## 三问题业务验收与证据层级
+
+| 业务问题 | 分别核对的现有修复与自然证据 | 手机本轮证据/结论 |
+| --- | --- | --- |
+| 普通新对话保存被拒绝 | 833共享语义与832此前已审查保存链；真实用户普通N，conversation 01a114a2-a201-7f73-993f-9c956ae35713；不以委派工具造普通样本 | N11项/2 refs完整product_db范围；正常查看、返回及重开正文与工具入口正确，初次和重开选定469字节详情可读 |
+| 原生分支找不到原对话 | 832 H2父来源身份/切点修复及真实C，conversation 01a114a4-e693-7be1-aafb-b9a3cb580e1d；继承N全部11项并有自己的回合 | C22项/4 refs完整范围；保留原对话身份隔离，继承N-DONE与自身C-DONE可见；初次和重开自身469字节详情正确 |
+| 特定委派消息解析影响保存 | 833委派owned event兼容与832 S5跨块UTF8修复，复用已审查来源；原A/D conversation 01a0fe25-56a2-7910-ba22-61e8016e8ad9，不发送新模型turn | D40项/9 refs完整范围；返回和重开正文/选定552字节工具详情正确；3次hash delta含chunk，最终synced/ACK和完整持久行证明chunk提交，不以STAGED当完成 |
+
+稳定force-stop手机备份quick_check=ok、SHA与原capture一致；只读SQL.js原产品库与现有provider对照：所有73行的item/turn/type/position/role、payload/hash/UTF8长度、ref和非provisional完全相同，三类committed segment/range/coverage完整。所有2/4/9 refs独立对应真实产品detail hash/byte size。C继承每个N payload，N不含C新增标记。此处完整以既有产品保留策略为准，没有改64KiB工具输出保留或预算。
+
+每类3个真实server positive ACK与phone synced通过实际sync UUID hash对应，再按phone同run/generation核对在synced之前的pageHashMatches=true delta。无需跨设备时间排序，也不虚构ACK日志缺失的pageHash/sequence。A的STAGED后最终稳定40行和committed range/synced ACK联合证明完成；旧legacy complete=0不代替range coverage判断。
+
+已实际查看六张正常/重开产品详情截图的像素：每类选定call_id、input command/cwd、output/status/exit/duration正确，N/C469字节、A552字节。原XML没有SelectionContainer正文，不能仅凭Dialog标题/“复制详情”按钮推导内容正确；像素人工核对与真实产品payload/persistent ref身份分开提供证据。正常选中/返回/重开截图hash、目标正文/详情入口逐一核对。N/C返回阶段记录正文和当前详情ref/入口；详情实际打开记录在初次和重开阶段，A在返回和重开均打开。没有声称每次返回都重新点了所有工具，也没有声称手机打开全部9个委派详情；S5全详情Gateway证据按未变canonical/source版本复用。
+
+证据复核audit.json 41/41是只读审查断言，不是新产品测试。初次执行自检35/38的三项失败确为使用provider未返回的payloadBytes字段；更正为实际UTF8 byteLength后38/38。旧脚本、失败结果、旧实现测试失败、live tar/DB取证失败、记录EEXIST、UI草稿谓词错误、黑屏与旧坐标点击失败均保留，不被新review覆盖。
+
+## 数据、环境与文档资格
+
+安装旧/新APK hash及install -r成功证据一致；安装瞬间实际DB/prefs bytes不变。手机2353条无关旧item字段完全相同，原A8条legacy缓存由正常product同步变为40条，不能称整个手机DB未改变。新有效session由正常App流程创建，旧A选择恢复，未回灌过期session。基础/mtls/server配置hash未变，剪贴板没有读写，UI可见草稿为空。
+
+原产品canonical/source/run保持由未改执行附件与其实际原件支持；正常采集启动所增加run、BQ预算失败及原intent保留，不换库或清checkpoint/receipt掩盖。最后App无PID、service tracked0/无3010 listener、reverse空、Asleep/OFF的安全观察独立于较早仍有reverse的DB capture；审查本轮没有手机动作/真实服务启动。已批准修复APK仍安装，不宣称回退旧APK。
+
+PLAN/REQ/CR准确区分executed与finished、原失败与未覆盖项，REQ保持in_progress、CR draft/TBD；执行时CR/REQ strict及diff-check证据复用，原Windows PowerShell5 REQ读码失败及pwsh相同validator通过分开保留。当前业务文档作为执行版本保持，没有在review中改生产文档或提前标done。
+
+## 仍保留的已知问题与后续
+
+| 事项 | 审查后的状态 |
+| --- | --- |
+| S6初验N/C缺详情按钮 | 本次明确范围内已修复并分别验证，无新增finding |
+| 连接恢复后旧unexpected end of stream错误条残留（S4-G1） | 已观察的真实问题仍在，原因未单独诊断；用户明确排除本次清理。clean不表示已解决，应另立最小Android后续 |
+| B/Q真实预算失败 | 限额/旧intent保留，未确认是否应修改产品要求，未放宽预算；不归入三个小样本PASS |
+| 不存在registration被视为有效的既有候选 | 本轮未复验/修复，保持独立问题，不由历史业务通过推导解决 |
+| 三条既有management unassociated记录 | 保留关联缺口，未制造清理/关联成功；本轮test/review自身的记录、关联和视图须单独read-back |
+| 全部委派详情手机点击、其他设备、4.5整体集成、发布 | 未运行/未交付，不由clean/finish/close自动推导 |
+
+本轮in-scope actionable findings=[]。保存新change self-review并关联准确S6 execution，原判断/旧失败不重写。832仍active，S6仍executed；review不能finish或close。fresh read-back应建议`next_route: execute-step`、`next_mode: finish`处理S6 disposition，随后才是单独close-task。本轮没有Git、部署、业务修复或用户review-decision。

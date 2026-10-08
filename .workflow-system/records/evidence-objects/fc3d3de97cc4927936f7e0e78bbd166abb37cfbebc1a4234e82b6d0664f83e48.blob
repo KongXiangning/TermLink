@@ -1,0 +1,63 @@
+'use strict';
+const fs=require('fs'),cp=require('child_process'),crypto=require('crypto'),assert=require('assert/strict');
+const base='logs/history-save-repair-20261005',dir=base+'/close-20261008';
+fs.mkdirSync(dir,{recursive:true});
+const save=(name,value)=>fs.writeFileSync(dir+'/'+name,JSON.stringify(value,null,2)+'\n',{flag:'wx'});
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const call=(command,input)=>{const r=cp.spawnSync('node',['.workflow-system/runtime/support/assistance.mjs',command,'--root','.'],{input:JSON.stringify(input),encoding:'utf8',windowsHide:true});assert.equal(r.status,0,r.stderr||r.stdout);return JSON.parse(r.stdout);};
+const before=call('task-status',{detail:'task',task_ref:'TASK-20260832'});save('before.json',before);
+const task=before.task;assert.equal(task.lifecycle,'active');assert.equal(task.steps.length,6);assert.ok(task.steps.every(s=>s.state==='finished'));
+const git=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=normal'],{encoding:'utf8'});
+const gitState={head:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),porcelain_lines:git.trimEnd().split(/\r?\n/),staged:cp.execFileSync('git',['diff','--cached','--name-only'],{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean)};
+save('git-before.json',gitState);
+const protectedFiles=[
+ 'android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt',
+ 'android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt',
+ 'native/codex-rollout-compat-spike/vendor/codex/Cargo.lock',
+ base+'/independent-review-20261008/report.md',base+'/independent-review-20261008/result.json',
+ base+'/independent-review-20261008/node-review.md',base+'/independent-review-20261008/node-audit.json',
+ base+'/independent-review-20261008/user-disposition-20261008.md',base+'/s6/report.md'];
+const hashes=Object.fromEntries(protectedFiles.map(p=>[p,hash(p)]));save('protected-hashes.json',hashes);
+const decisionRefs=task.steps.filter(s=>['S4','S5'].includes(s.id)).map(s=>s.review_decision_ref);
+for(const s of task.steps.filter(s=>['S4','S5'].includes(s.id))){assert.equal(s.review_status,'findings');assert.equal(s.review_choice,'accept');assert.ok(s.findings.some(f=>f.id==='IR832-01'));}
+const remaining=[
+ 'S6 Android source/test, PLAN/REQ, draft CR and workflow facts/evidence are uncommitted; task closure performs no staging, commit, push or deployment.',
+ 'REQ remains in_progress for commit/document traceability: all linked CRs currently draft/TBD, no active CR. Real existing business commits are retained; no fake commit_ref or CR activation.',
+ 'IR832-01 is technically not fixed; the human excludes pre-current-version published product-format migration because there was no ordinary-user product release. Do not treat original S4/S5 findings as clean.',
+ 'Out-of-scope stale reconnect error banner, B/Q budget failures/intents and registration candidate remain; no budget relaxation or data cleanup.',
+ 'Three preexisting unassociated management records remain unresolved; no new association repair or historical business replay.',
+ 'All phone durable detail refs were checked, but only one selected tool detail dialog per scene was operated; other phones/full large-detail/deep-pagination/race/resend matrix and production release are not certified.',
+ 'Untracked spike vendor Cargo.lock and local data/codex-rollout-analysis and data/codex-rollout-checkpoints are retained and excluded from any automatic Git or cleanup operation.'
+];
+const gaps=[
+ 'Closure is user-requested lifecycle disposition, not release/deployment approval, a clean independent verdict or removal of original failures.',
+ 'Independent reviewer reused retained phone evidence; no new live phone/service/model validation during review or closure.',
+ 'Current-version new saves/append/restart, unsettled original profile/job/delivery protection, cross-profile rejection, external-source read-only, budgets and IPC authority remain required.',
+ 'REQ done/publication traceability is pending separately from all six finished plan steps.'
+];
+const result={scope:'Three distinct history save failures and same-phone persistence, switch/return, reopen body and retained tool details',
+ delivered:['H1/H3 shared event/normal growth compatibility delivered by closed TASK-20260833','H2 verified Rust native branch parent/cut and bounded inherited history windows','S5 Node UTF8 stdout chunk decoding and original delegated A recovery','S6 narrow Android native/tool: detail-ID compatibility without changing IPC authority'],
+ samples:[{scene:'normal new conversation',items:11,detail_refs:2},{scene:'native branch with own new turn',items:22,detail_refs:4},{scene:'original delegated A/D',items:40,detail_refs:9}],
+ validation_reused:{node_collector_recovery:'138/138',android_jvm:'216/216 JDK21',frozen_node_owner_gateway:'139/139',independent_retained_phone_audit:'60/60 evidence predicates; not test-suite count'},
+ independent_focused_rechecks:{android:3,rust:12,node_utf8:3,node_v2:13,node_product_scenarios:5,legacy_upgrade_repro:'Actual failure reproduced; harness exit0 is not product PASS'},
+ evidence_limits:gaps,external_effects:'No new business commands, test/build, device/service operation, source/DB deletion, commit/push/deploy or chat archive during closure; prior S6 restored environment evidence retained.'};
+save('closure-basis.json',{task_id:task.task_id,plan_ref:task.adopted_plan_ref,decision_source:'Latest direct human close-task invocation, current conversation',decision_text:'[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\close-task\\SKILL.md)',pre_close_lifecycle:task.lifecycle,six_finished:task.steps.map(s=>({id:s.id,state:s.state,execution_ref:s.execution_ref,review_ref:s.review_ref,review_status:s.review_status,review_decision_ref:s.review_decision_ref,disposition_ref:s.disposition_ref})),p2_disposition_refs:decisionRefs,result,remaining_work:remaining,gaps,source_revision:gitState.head,actual_closure_status:'See result.json and after.json; this file records the checked basis before the lifecycle action.'});
+const input={action:'close',task_id:task.task_id,plan_ref:task.adopted_plan_ref,
+ decision_source:'Latest direct human close-task invocation, current conversation',decision_text:'[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\close-task\\SKILL.md)',
+ decision_refs:decisionRefs,review_refs:task.steps.map(s=>s.review_ref),execution_refs:task.steps.map(s=>s.execution_ref),step_disposition_refs:task.steps.map(s=>s.disposition_ref),
+ result,remaining_work:remaining,gaps,source_revision:gitState.head,
+ files:[dir+'/closure-basis.json',dir+'/git-before.json',dir+'/protected-hashes.json',dir+'/close-task.cjs',base+'/independent-review-20261008/report.md',base+'/independent-review-20261008/user-disposition-20261008.md',base+'/s5/utf8-repair-20261008/report.md',base+'/s6/report.md',base+'/s6/environment-restored.json'],
+ idempotency_key:'task832-close-six-finished-user-excludes-IR832-01-20261008-v1'};
+save('input.json',input);const saved=call('task',input);save('result.json',saved);
+assert.equal(saved.recorded,true);assert.equal(saved.association,'applied');assert.equal(saved.projection.status,'updated');
+const after=call('task-status',{detail:'task',task_ref:task.task_id});save('after.json',after);
+assert.equal(after.task.lifecycle,'closed');assert.notEqual(after.current_task_id,task.task_id);assert.equal(after.task.adopted_plan_ref,task.adopted_plan_ref);
+for(const old of task.steps){const current=after.task.steps.find(s=>s.id===old.id);for(const key of ['state','execution_ref','review_ref','review_status','review_decision_ref','disposition_ref'])assert.equal(current[key],old[key]);}
+assert.ok(Object.entries(hashes).every(([p,h])=>hash(p)===h));
+const summary=call('task-status',{detail:'summary'});save('summary-after.json',summary);
+assert.equal(summary.tasks.find(t=>t.display_id==='TASK-20260833').lifecycle,'closed');assert.equal(summary.current_task_id,null);
+const manifestRef=saved.ref.replace('/events/','/attachments/'),manifest=JSON.parse(fs.readFileSync(manifestRef));
+assert.equal(manifest.attachments.length,input.files.length);
+for(const a of manifest.attachments){assert.equal(a.status,'saved');assert.equal(a.issues.length,0);assert.equal(hash(a.ref),a.sha256);assert.equal(hash(a.source_path),a.sha256);}
+const proof={close_ref:saved.ref,recorded:saved.recorded,association:saved.association,projection:saved.projection.status,task_lifecycle:after.task.lifecycle,current_task_id:after.current_task_id,next_task_id:after.next_task_id,next_step_id:after.next_step_id,native_next_route:after.next_route,six_original_finished_dispositions_and_reviews_retained:true,p2_original_findings_retained:true,p2_decision_refs:decisionRefs,task833_lifecycle:'closed',old_management_issue_count:after.issues.length,manifest_ref:manifestRef,snapshots:manifest.attachments.length,snapshots_all_saved_exact:true,protected_business_and_review_bytes_unchanged:true,head_unchanged:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()===gitState.head,remaining_work:remaining};
+assert.ok(proof.head_unchanged);save('verification.json',proof);console.log(JSON.stringify(proof,null,2));

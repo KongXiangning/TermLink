@@ -1,0 +1,52 @@
+'use strict';
+const fs=require('fs'),cp=require('child_process'),assert=require('assert/strict'),out=__dirname,base='logs/history-save-repair-20261005/s6/review-20261008';
+const before=JSON.parse(fs.readFileSync(out+'/status-before.json')),audit=JSON.parse(fs.readFileSync(out+'/audit.json'));
+const call=(cmd,input)=>{const r=cp.spawnSync('node',['.workflow-system/runtime/support/assistance.mjs',cmd,'--root','.'],{input:JSON.stringify(input),encoding:'utf8',windowsHide:true});assert.equal(r.status,0,r.stderr||r.stdout);return {raw:r.stdout,value:JSON.parse(r.stdout)};};
+assert.equal(audit.passed,audit.total);assert.equal(audit.execution_ref,before.step.execution_ref);
+const source=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();assert.equal(source,before.step.execution.source_revision);
+const live=call('task-status',{detail:'step',task_ref:before.task.task_id,step_id:'S6'});
+assert.equal(live.value.step.execution_ref,before.step.execution_ref);assert.equal(live.value.step.disposition_ref,null);
+const testInput={action:'test',task_id:before.task.task_id,plan_ref:before.task.adopted_plan_ref,step_id:'S6',execution_ref:before.step.execution_ref,source_revision:source,
+    command:audit.new_node_validation.command,selector:'two existing protected Node owner/gateway suites',result:'passed139/139, exit0, no skip/error; actual supplementary review validation, not replayed original execution',report_ref:base+'/node-core-regression-result.json',
+    provenance:{kind:'same-agent-change-self-review-validation',independent:false,phase:'review'},files:[base+'/node-core-regression.txt',base+'/node-core-regression-result.json'],idempotency_key:'task832-S6-review-protected-Node-gate-139-20261008-v1'};
+const test=call('task',testInput);fs.writeFileSync(out+'/test-record-result.json',test.raw,{flag:'wx'});
+assert.equal(test.value.recorded,true);assert.equal(test.value.association,'applied');assert.equal(test.value.projection.status,'updated');
+const files=['review-change.md','audit.cjs','audit.json','review-diff.txt','status-before.json','node-core-regression.txt','node-core-regression-result.json','test-record-result.json','record-review.cjs'].map(n=>base+'/'+n).concat([
+    'android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt','android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt',
+    'docs/product/plans/PLAN-20261005-codex-history-save-repair.md','docs/product/requirements/REQ-20261005-codex-history-save-repair.md','docs/changes/records/CR-20261008-0135-android-history-detail-alias.md']);
+for(const f of files)assert.ok(fs.statSync(f).isFile());
+const input={action:'review',stage:'change',task_id:before.task.task_id,plan_ref:before.task.adopted_plan_ref,step_id:'S6',execution_ref:before.step.execution_ref,source_revision:source,
+    verdict:'clean',findings:[],test_refs:[test.value.ref],
+    coverage:[
+        'Exact current832/S6 execution version, authorized same-plan minimum Android scope and original S1-S5/833 dispositions; all123 execution live/snapshot hashes identical and private excluded',
+        'Android history alias/same tool turn/batch/legacy/partial compatibility; actual CodexScreen cached-ref/openHistoryDetail/selection generation/assembly hash guards unchanged; no realtime body/status/IPC authority changes',
+        'Real old3 failures and fixed216/216 JVM XML/build/installed APK and nonclear DB/prefs reused; protected Node gate supplemented in this review139/139 as separately associated test',
+        'Read-only stable real phone/product SQL and existing provider: N11/C22/D40 exact73 rows incl position/role/payload/hash/ref; full product committed ranges, all2/4/9 details; C inherits N and N excludes C new turn',
+        'Each3 actual server positive ACKs joined to phone synced identity and same-run/generation preceding hash-verified delta; A STAGED not treated as commit without durable rows/committed coverage/terminal ACK',
+        'Normal/switch-return/reopen capture integrity and body/ref entry; six actual pixel detail screens reviewed for call ID/input/cwd/output/status/exit/duration. N/C dialog opens initially and after reopen, return shows correct body/entry; A opens return+reopen. Selected tool per case, not all9 phone dialogs',
+        'All2353 unrelated old phone rows preserved, A normal legacy reconciliation qualified; original canonical/source/run/version/environment evidence intact, old failures/tool issues/BQ budgets/old error bar/registration and3 management gaps retained',
+        'REQ/PLAN/CR executed scope and in_progress/draftTBD qualifications retained; no business doc changes, new model turns, phone/service actions, code repair, Git, finish or close'
+    ],
+    provenance:{kind:'same-agent-change-self-review',reviewer:'Codex /root',independent:false,new_product_tests_run:true,
+        assessment:'Read-only code/callchain/immutable evidence/private stopped DB and actual screen pixel review; added only two existing protected Node suites139/139 in isolated fake environment. Prior JVM/build/install/phone observations reused, no E2E replay.'},
+    retained_issues:[
+        {id:'S4-G1',status:'observed-unresolved-out-of-scope',fact:'After healthy reconnect old unexpected end of stream banner remains; no root-cause/cleanup in this minimum fix',scope:'User explicitly excluded old error cleanup; clean does not resolve it'},
+        {id:'B/Q-budget',status:'real-limit-failures-and-intents-retained',fact:'Fingerprint/decoded resource budget failures; no permission/product decision to increase budgets'},
+        {id:'S6-G1-registration',status:'previous-candidate-not-retested-or-fixed',fact:'Not part of history repair; retain prior finding qualification'},
+        {id:'legacy-management-associations',status:'three-old-gaps-retained',fact:'No fabricated link/repair or deleted facts'}
+    ],
+    remaining_work:[
+        'S6 remains executed; explicit execute-step finish disposition next, then separate close-task. Review alone does not finish/close',
+        '832 active and original S1-S5 finished/833 closed preserved; REQ in_progress/CR draftTBD, no Git/deployment',
+        'Old error banner, B/Q budget limits, registration candidate and3 management associations retained; no full product/4.5 release claim',
+        'Selected phone tool per scenario; all9 delegated phone dialogs and other devices not observed; self-review not independent review'
+    ],files,idempotency_key:'task832-S6-Android-ref-phone-review-change-20261008-v1'};
+fs.writeFileSync(out+'/review-input.json',JSON.stringify(input,null,2)+'\n',{flag:'wx'});
+const reviewed=call('task',input);fs.writeFileSync(out+'/review-result.json',reviewed.raw,{flag:'wx'});
+assert.equal(reviewed.value.recorded,true);assert.equal(reviewed.value.association,'applied');assert.equal(reviewed.value.projection.status,'updated');
+const after=call('task-status',{detail:'step',task_ref:before.task.task_id,step_id:'S6'});fs.writeFileSync(out+'/status-after.json',after.raw,{flag:'wx'});
+assert.equal(after.value.step.execution_ref,before.step.execution_ref);assert.equal(after.value.step.review_ref,reviewed.value.ref);
+assert.equal(after.value.step.review_status,'clean');assert.equal(after.value.step.state,'executed');assert.equal(after.value.step.disposition_ref,null);
+assert.equal(after.value.task.lifecycle,'active');assert.equal(after.value.next_route,'execute-step');assert.equal(after.value.next_mode,'finish');
+assert.ok(after.value.step.tests.some(t=>t.ref===test.value.ref));
+console.log(JSON.stringify({test_ref:test.value.ref,review_ref:reviewed.value.ref,recorded:reviewed.value.recorded,association:reviewed.value.association,projection:reviewed.value.projection.status,state:after.value.step.state,review:after.value.step.review_status,disposition:after.value.step.disposition_ref,next_route:after.value.next_route,next_mode:after.value.next_mode,issues:after.value.issues.length}));
