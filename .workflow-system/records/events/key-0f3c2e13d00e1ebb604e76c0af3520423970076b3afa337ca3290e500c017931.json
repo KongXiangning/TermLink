@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-08T07:34:16.890Z",
+  "payload_sha256": "8e137b1d844dfbf6f7dcd3b9d344720a15b6fb2f5a70521c2977c310a7deb4be",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:resolve-task004-s3-review-conflict-select-later-review-20261008",
+    "request": {
+      "decision_text": "Select the later Task 004 S3 review as the effective review for the shared slot; retain the older supplemental review as historical evidence and preserve its stale-report qualifications.",
+      "selected_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+      "idempotency_key": "resolve-task004-s3-review-conflict-select-later-review-20261008",
+      "conflict_id": "conflict-b250a3afe42f0c1498e32062",
+      "action": "resolve"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "resolve",
+      "task_id": null,
+      "parents": [
+        ".workflow-system/records/events/key-37dd3ec0a5c30ed02188c4ec66738d0bcd8516507747a1eb5b7d106f11121bd8.json"
+      ],
+      "data": {
+        "decision_text": "Select the later Task 004 S3 review as the effective review for the shared slot; retain the older supplemental review as historical evidence and preserve its stale-report qualifications.",
+        "selected_ref": ".workflow-system/records/events/key-f59b0b01e92d15e7a16fa3c1fb18eb48d9b2fd40a312ee8a1d53edb848b22120.json",
+        "conflict_id": "conflict-b250a3afe42f0c1498e32062"
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-08T07:34:02.553Z",
+  "payload_sha256": "27acfe9d80cf19175722bde9a79e30c73ebe5c501f222dfc50915c1db6f9cda6",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:link-existing-task004-s3-supplemental-review-20261008",
+    "request": {
+      "record_ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+      "action": "link",
+      "event": {
+        "data": {
+          "historical_subject_preserved": true,
+          "association_reason": "Bind the existing Task 004 S3-corr supplemental review to its exact legacy S3 execution; preserve its incomplete-acceptance and stale-report qualifications without upgrading it to a clean receipt.",
+          "verdict": "acceptable_with_evidence_qualifications",
+          "findings": [],
+          "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+          "coverage": {
+            "stale_reports": [
+              "C2-store-final",
+              "C2-publish",
+              "C4-flow-final",
+              "C4-unattended"
+            ],
+            "negative_controls": "The focused product-flow and package deliberate-Windows-path-leak tests passed in the preceding review of the same file hashes; they verify assertion sensitivity only and do not re-execute the full business flows.",
+            "remaining_work": "Fresh current-subject evidence is needed for the four business slots before they can be considered satisfied; this review does not advance S3.",
+            "target": "completed S3-corr; Windows path non-leak assertions and retained C2/C4 reports",
+            "stale_report_status": "The four retained reports remain stale at their former subject revisions; this review does not rewrite or make them fresh.",
+            "evidence": [
+              "tests/codexHistoryProductFlow.test.js:37-49,375,428,935,1438-1456",
+              "tests/codexHistoryProductPackage.test.js:48-60,366,387-405",
+              "focused negative-control tests reported 1/1 pass for each file"
+            ],
+            "path_assertion": "Both helpers check JSON-escaped, raw, posix and case-insensitive path forms; the three product-flow call sites and package call site use the helper."
+          },
+          "execution_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+          "provenance": "self-review by current Codex agent; supplemental review, not independent review",
+          "stage": "change",
+          "step_id": "S3"
+        },
+        "parents": [
+          ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json"
+        ],
+        "action": "review",
+        "task_id": "legacy-doc-fdd730cf99bb383419d74988"
+      },
+      "idempotency_key": "link-existing-task004-s3-supplemental-review-20261008"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "link",
+      "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+      "parents": [
+        ".workflow-system/records/events/key-69194fc680b7b3662ae4ec505b1eeee8197e335b0edcf9aa407a49a4290a9651.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json",
+        "event": {
+          "data": {
+            "historical_subject_preserved": true,
+            "association_reason": "Bind the existing Task 004 S3-corr supplemental review to its exact legacy S3 execution; preserve its incomplete-acceptance and stale-report qualifications without upgrading it to a clean receipt.",
+            "verdict": "acceptable_with_evidence_qualifications",
+            "findings": [],
+            "plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+            "coverage": {
+              "stale_reports": [
+                "C2-store-final",
+                "C2-publish",
+                "C4-flow-final",
+                "C4-unattended"
+              ],
+              "negative_controls": "The focused product-flow and package deliberate-Windows-path-leak tests passed in the preceding review of the same file hashes; they verify assertion sensitivity only and do not re-execute the full business flows.",
+              "remaining_work": "Fresh current-subject evidence is needed for the four business slots before they can be considered satisfied; this review does not advance S3.",
+              "target": "completed S3-corr; Windows path non-leak assertions and retained C2/C4 reports",
+              "stale_report_status": "The four retained reports remain stale at their former subject revisions; this review does not rewrite or make them fresh.",
+              "evidence": [
+                "tests/codexHistoryProductFlow.test.js:37-49,375,428,935,1438-1456",
+                "tests/codexHistoryProductPackage.test.js:48-60,366,387-405",
+                "focused negative-control tests reported 1/1 pass for each file"
+              ],
+              "path_assertion": "Both helpers check JSON-escaped, raw, posix and case-insensitive path forms; the three product-flow call sites and package call site use the helper."
+            },
+            "execution_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+            "provenance": "self-review by current Codex agent; supplemental review, not independent review",
+            "stage": "change",
+            "step_id": "S3"
+          },
+          "parents": [
+            ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json"
+          ],
+          "action": "review",
+          "task_id": "legacy-doc-fdd730cf99bb383419d74988"
+        }
+      }
+    }
+  },
+  "issues": []
+}
