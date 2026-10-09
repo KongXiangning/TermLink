@@ -18,6 +18,9 @@ data/*.json.tmp
 data/codex-media/**
 # Runtime-generated canonical static history snapshots; may contain task history.
 data/codex-history-snapshots/**
+# Local-generated Codex rollout analysis and checkpoint artifacts.
+data/codex-rollout-analysis/
+data/codex-rollout-checkpoints/
 ops-local/nginx/code.kongxn.com-442.conf
 ops-local/nginx/opencode.kongxn.com-442.conf
 skills/android-local-build-debug/local-config.ps1
