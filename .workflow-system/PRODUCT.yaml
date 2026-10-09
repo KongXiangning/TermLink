@@ -7,7 +7,9 @@
     "docs/product/GOALS.md",
     "docs/product/MANAGED_REQUIREMENTS.md",
     "docs/product/DESIGN_REGISTER.md",
-    "docs/product/DELIVERY_RECONCILIATION.md"
+    "docs/product/DELIVERY_RECONCILIATION.md",
+    "docs/product/ARRANGEMENTS.md",
+    "docs/product/HISTORY_CHANGES.md"
   ],
   "source_paths": [
     "docs/**/*.md",
@@ -15,11 +17,16 @@
     "TASKS/**/*.md",
     "logs/history-save-repair-20261005/**/*.md",
     "logs/shared-history-compat-20261005/**/*.md",
-    ".workflow-system/records/events/*.json"
+    ".workflow-system/records/events/*.json",
+    "docs/product/history/maintenance-20261010/**",
+    "src/services/sessionManager.js",
+    "src/utils/ipCheck.js",
+    ".env.example"
   ],
   "capture_paths": [
     "docs/product/history/maintenance-20261009/**",
-    "docs/product/MATERIAL_INVENTORY.md"
+    "docs/product/MATERIAL_INVENTORY.md",
+    "docs/product/history/maintenance-20261010/**"
   ],
   "exclude_paths": [],
   "maintenance": "enabled"

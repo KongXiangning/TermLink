@@ -1,0 +1,26 @@
+{
+  "schema": "vnext-product-manifest/v2",
+  "project_id": "termlink",
+  "entry": "docs/product/PROJECT.md",
+  "managed_paths": [
+    "docs/product/PROJECT.md",
+    "docs/product/GOALS.md",
+    "docs/product/MANAGED_REQUIREMENTS.md",
+    "docs/product/DESIGN_REGISTER.md",
+    "docs/product/DELIVERY_RECONCILIATION.md"
+  ],
+  "source_paths": [
+    "docs/**/*.md",
+    "docs/product/history/maintenance-20261009/**",
+    "TASKS/**/*.md",
+    "logs/history-save-repair-20261005/**/*.md",
+    "logs/shared-history-compat-20261005/**/*.md",
+    ".workflow-system/records/events/*.json"
+  ],
+  "capture_paths": [
+    "docs/product/history/maintenance-20261009/**",
+    "docs/product/MATERIAL_INVENTORY.md"
+  ],
+  "exclude_paths": [],
+  "maintenance": "enabled"
+}

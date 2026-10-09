@@ -2,44 +2,26 @@
 {
   "schema": "vnext-product-doc/v2",
   "items": [
-    {
-      "type": "requirement",
-      "id": "REQ-20260222-doc-governance",
-      "scope": "current",
-      "assessment_id": "ASMT-TERMLINK-01",
-      "sources": [
-        {
-          "kind": "file",
-          "path": "docs/product/requirements/REQ-20260222-document-governance.md",
-          "sha256": "07170e5046d6be618ca6f725b993239925f230e691f4797172813ed0bf0c134d"
-        }
-      ],
-      "extensions": {
-        "original_frontmatter_status": "in_progress",
-        "original_meta_status": "in_progress",
-        "original_path": "docs/product/requirements/REQ-20260222-document-governance.md",
-        "representation": "完整原文引用；不另立需求范围或确认状态"
-      }
-    },
-    {"type":"requirement","id":"REQ-20260222-server-admin-privilege-mode","scope":"current","assessment_id":"ASMT-TERMLINK-02","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md","sha256":"7469296f36308d847023229fc6bb9f1845189029313be9449404fe7043562f97"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260222-server-admin-privilege-mode","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md","sha256":"7469296f36308d847023229fc6bb9f1845189029313be9449404fe7043562f97"}]}]},
-    {"type":"requirement","id":"REQ-20260222-session-retention-reconnect","scope":"current","assessment_id":"ASMT-TERMLINK-03","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260222-session-retention-reconnect.md","sha256":"1c388c67e07e743aad1ff54677d0ff60ef604f23f9cf1487407edc7fe357b32b"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260222-session-retention-reconnect.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260222-session-retention-reconnect","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260222-session-retention-reconnect.md","sha256":"1c388c67e07e743aad1ff54677d0ff60ef604f23f9cf1487407edc7fe357b32b"}]}]},
-    {"type":"requirement","id":"REQ-20260223-shortcut-keyboard-modifier-newline","scope":"current","assessment_id":"ASMT-TERMLINK-04","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260223-shortcut-keyboard-modifier-newline.md","sha256":"5529b96668af3fc055db4fe9f77f4576651fabcccd409c24d9ca8aba7d754ba3"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260223-shortcut-keyboard-modifier-newline.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260223-shortcut-keyboard-modifier-newline","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260223-shortcut-keyboard-modifier-newline.md","sha256":"5529b96668af3fc055db4fe9f77f4576651fabcccd409c24d9ca8aba7d754ba3"}]}]},
-    {"type":"requirement","id":"REQ-20260224-android-external-web-terminal-profile-sessions","scope":"current","assessment_id":"ASMT-TERMLINK-05","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md","sha256":"b710207bfedad3f8943000e8672db2874ebc55dd2626fdb7d706d454b3d26eb8"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260224-android-external-web-terminal-profile-sessions","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md","sha256":"b710207bfedad3f8943000e8672db2874ebc55dd2626fdb7d706d454b3d26eb8"}]}]},
-    {"type":"requirement","id":"REQ-20260224-screen-keep-awake","scope":"current","assessment_id":"ASMT-TERMLINK-06","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260224-screen-keep-awake.md","sha256":"97b98f635dea28db3553d6f7d67044fca1295c55e73b5281b9c99d3a7ff96d17"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260224-screen-keep-awake.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260224-screen-keep-awake","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260224-screen-keep-awake.md","sha256":"97b98f635dea28db3553d6f7d67044fca1295c55e73b5281b9c99d3a7ff96d17"}]}]},
-    {"type":"requirement","id":"REQ-20260306-codex-app-repair-plan","scope":"retired","assessment_id":"ASMT-TERMLINK-07","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260306-codex-app-repair-plan.md","sha256":"a96cec4ae7929329c887252bdeb05586129cdbadb760e61b04c9fb6f81b437b7"}],"extensions":{"original_frontmatter_status":"archived","original_meta_status":"archived","original_path":"docs/product/requirements/REQ-20260306-codex-app-repair-plan.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260306-codex-app-repair-plan","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260306-codex-app-repair-plan.md","sha256":"a96cec4ae7929329c887252bdeb05586129cdbadb760e61b04c9fb6f81b437b7"}]}]},
-    {"type":"requirement","id":"REQ-20260309-codex-capability-mvp","scope":"current","assessment_id":"ASMT-TERMLINK-08","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260309-codex-capability-mvp.md","sha256":"03f7e401c5b426c25f8b547c00826fd8864e2c9628abfacc8e27100a2815cab9"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260309-codex-capability-mvp.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260309-codex-capability-mvp","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260309-codex-capability-mvp.md","sha256":"03f7e401c5b426c25f8b547c00826fd8864e2c9628abfacc8e27100a2815cab9"}]}]},
-    {"type":"requirement","id":"REQ-20260318-ws-0001-docs-exp","scope":"current","assessment_id":"ASMT-TERMLINK-09","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md","sha256":"ef29df323e78c8787ba372e6d8958247b05aefcab02a3bfca0a22d0b556d1436"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260318-ws-0001-docs-exp","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md","sha256":"ef29df323e78c8787ba372e6d8958247b05aefcab02a3bfca0a22d0b556d1436"}]}]},
-    {"type":"requirement","id":"REQ-20260324-session-list-local-cache","scope":"current","assessment_id":"ASMT-TERMLINK-10","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260324-session-list-local-cache.md","sha256":"168874cbca3bfe0cac7686052383b02643e1736ea6db747301fecbd95745463b"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260324-session-list-local-cache.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260324-session-list-local-cache","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260324-session-list-local-cache.md","sha256":"168874cbca3bfe0cac7686052383b02643e1736ea6db747301fecbd95745463b"}]}]},
-    {"type":"requirement","id":"REQ-20260326-android-profile-mtls-runtime-certificate","scope":"current","assessment_id":"ASMT-TERMLINK-11","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md","sha256":"4222f8a8eca127343b09d9f58c304253783fcef5104f9bd64b698ec1de348423"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260326-android-profile-mtls-runtime-certificate","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md","sha256":"4222f8a8eca127343b09d9f58c304253783fcef5104f9bd64b698ec1de348423"}]}]},
-    {"type":"requirement","id":"REQ-20260329-language-normalization","scope":"current","assessment_id":"ASMT-TERMLINK-12","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260329-language-normalization.md","sha256":"7359fec7282bfd27bcaa43ba02ec7f60b4312c6eb08f2642f3f3c14ff86f7f74"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260329-language-normalization.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260329-language-normalization","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260329-language-normalization.md","sha256":"7359fec7282bfd27bcaa43ba02ec7f60b4312c6eb08f2642f3f3c14ff86f7f74"}]}]},
-    {"type":"requirement","id":"REQ-20260408-codex-native-android-migration","scope":"current","assessment_id":"ASMT-TERMLINK-13","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260408-codex-native-android-migration.md","sha256":"25e7415833d9dd30f0ecb06d9c338e52c62f328c68893f23bec44267ed2abaab"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260408-codex-native-android-migration.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260408-codex-native-android-migration","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260408-codex-native-android-migration.md","sha256":"25e7415833d9dd30f0ecb06d9c338e52c62f328c68893f23bec44267ed2abaab"}]}]},
-    {"type":"requirement","id":"REQ-20260413-relay-control-plane-and-transparent-transit","scope":"planned","assessment_id":"ASMT-TERMLINK-14","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260413-relay-control-plane-and-transparent-transit.md","sha256":"8301ba332276f719e06b03977a442f0eddf39de846f11e5f339abacfdbde682b"}],"extensions":{"original_frontmatter_status":"planned","original_meta_status":"planned","original_path":"docs/product/requirements/REQ-20260413-relay-control-plane-and-transparent-transit.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260413-relay-control-plane-and-transparent-transit","relation":"supports","target":"GOAL-TERMLINK-RELAY-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260413-relay-control-plane-and-transparent-transit.md","sha256":"8301ba332276f719e06b03977a442f0eddf39de846f11e5f339abacfdbde682b"}]}]},
-    {"type":"requirement","id":"REQ-20260415-codex-android-runtime-interaction-fixes","scope":"current","assessment_id":"ASMT-TERMLINK-15","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md","sha256":"7e89ccdb3bc6ef368b5ddf8c136a698992421c8570ceb9595f01b62ef7c0f254"}],"extensions":{"original_frontmatter_status":"in_progress","original_meta_status":"in_progress","original_path":"docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260415-codex-android-runtime-interaction-fixes","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md","sha256":"7e89ccdb3bc6ef368b5ddf8c136a698992421c8570ceb9595f01b62ef7c0f254"}]}]},
-    {"type":"requirement","id":"REQ-20260516-codex-mobile-realtime-sync","scope":"current","assessment_id":"ASMT-TERMLINK-16","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260516-codex-mobile-realtime-sync.md","sha256":"3c6931a5a1f3a322053f84b99574ede430bfe9c9b520f26f3db955d760001dc3"}],"extensions":{"original_frontmatter_status":"planned","original_meta_status":"planned","original_path":"docs/product/requirements/REQ-20260516-codex-mobile-realtime-sync.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260516-codex-mobile-realtime-sync","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260516-codex-mobile-realtime-sync.md","sha256":"3c6931a5a1f3a322053f84b99574ede430bfe9c9b520f26f3db955d760001dc3"}]}]},
-    {"type":"requirement","id":"REQ-20260715-linux-interactive-release-installer","scope":"current","assessment_id":"ASMT-TERMLINK-17","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260715-linux-interactive-release-installer.md","sha256":"56c64044cfab475af6e16b5d7bbdce0aed234c8c502ce7ebb26377ebbf392c0d"}],"extensions":{"original_frontmatter_status":"active","original_meta_status":"in_progress","original_path":"docs/product/requirements/REQ-20260715-linux-interactive-release-installer.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20260715-linux-interactive-release-installer","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260715-linux-interactive-release-installer.md","sha256":"56c64044cfab475af6e16b5d7bbdce0aed234c8c502ce7ebb26377ebbf392c0d"}]}]},
-    {"type":"requirement","id":"REQ-20261005-codex-history-save-repair","scope":"current","assessment_id":"ASMT-TERMLINK-18","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-save-repair.md","sha256":"1f70555e698e229fbde42b99eae9bc5a3256bc30f48a019f6381d64f736168ba"}],"task_bindings":[{"id":"BIND-TASK-20260832","task":{"task_id":"task-58bc12d9a46b8d84fb6e42888785b402","source":{"kind":"file","path":".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json","sha256":"7ad1ade16edf685faf79fb5dc40685ea5c084c4ef0346252ea8afaf85c56bb59"},"label":"TASK-20260832","plan_ref":".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json"},"role":"repair","coverage":"H1/H2/H3三类真实历史保存、手机切换重开与选定工具详情；具体排除和未验项见原记录。","origin":"declared","state":"active","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-save-repair.md","sha256":"1f70555e698e229fbde42b99eae9bc5a3256bc30f48a019f6381d64f736168ba"},{"kind":"file","path":".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json","sha256":"7ad1ade16edf685faf79fb5dc40685ea5c084c4ef0346252ea8afaf85c56bb59"}]}],"extensions":{"original_frontmatter_status":"in_progress","original_meta_status":"in_progress","original_path":"docs/product/requirements/REQ-20261005-codex-history-save-repair.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20261005-codex-history-save-repair","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-save-repair.md","sha256":"1f70555e698e229fbde42b99eae9bc5a3256bc30f48a019f6381d64f736168ba"}]}]},
-    {"type":"requirement","id":"REQ-20261005-codex-history-shared-compat","scope":"current","assessment_id":"ASMT-TERMLINK-19","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-shared-compat.md","sha256":"eb093d22edfe6ad18a52ccf88a4f918cad3915cd94126f92b09aacc895025bdb"}],"task_bindings":[{"id":"BIND-TASK-20260833","task":{"task_id":"task-7ff69ba8242c90c52f0b93fa1144a655","source":{"kind":"file","path":".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json","sha256":"2ff52d93fc480911b12401674a8e790c5e5d07f47d5f3f408d6d9f414ddb9348"},"label":"TASK-20260833","plan_ref":".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json"},"role":"repair","coverage":"H1/H3共享兼容的隔离Rust/Node/产品事务/provider验证，真实宿主/手机归832。","origin":"declared","state":"active","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-shared-compat.md","sha256":"eb093d22edfe6ad18a52ccf88a4f918cad3915cd94126f92b09aacc895025bdb"},{"kind":"file","path":".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json","sha256":"2ff52d93fc480911b12401674a8e790c5e5d07f47d5f3f408d6d9f414ddb9348"}]}],"extensions":{"original_frontmatter_status":"in_progress","original_meta_status":"in_progress","original_path":"docs/product/requirements/REQ-20261005-codex-history-shared-compat.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20261005-codex-history-shared-compat","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-shared-compat.md","sha256":"eb093d22edfe6ad18a52ccf88a4f918cad3915cd94126f92b09aacc895025bdb"}]}]}
-  ]
+    {"type":"requirement","id":"REQ-20260222-doc-governance","scope":"current","assessment_id":"ASMT-TERMLINK-01","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260222-document-governance.md","sha256":"07170e5046d6be618ca6f725b993239925f230e691f4797172813ed0bf0c134d"},{"kind":"file","path":"docs/changes/records/CR-20260325-0000-docs-requirement-sync-plan-coverage.md","sha256":"353009bea12734a5c964c22dd9dcf9eb782938efed0bdcc6965bd08b7c312ea8"}],"extensions":{"original_frontmatter_status":"in_progress","original_meta_status":"in_progress","original_path":"docs/product/requirements/REQ-20260222-document-governance.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"}},
+    {"type":"requirement","id":"REQ-20260222-server-admin-privilege-mode","scope":"current","assessment_id":"ASMT-TERMLINK-02","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md","sha256":"7469296f36308d847023229fc6bb9f1845189029313be9449404fe7043562f97"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260222-server-admin-privilege-mode.md","sha256":"0b6337e92f9429d1b1673d80af96b120ac5e9be349f9f5e4acdb12064a75e820","note":"尚未阅读全文并与实现版本、输入范围核对。"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260222-server-admin-privilege-mode","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md","sha256":"7469296f36308d847023229fc6bb9f1845189029313be9449404fe7043562f97"}]}]},
+    {"type":"requirement","id":"REQ-20260222-session-retention-reconnect","scope":"current","assessment_id":"ASMT-TERMLINK-03","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260222-session-retention-reconnect.md","sha256":"1c388c67e07e743aad1ff54677d0ff60ef604f23f9cf1487407edc7fe357b32b"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260222-session-retention-reconnect.md","sha256":"8f494fa8fab8874ff94ef331443ac640650a314dba739f2a5a5cbf41d7de78b1"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260222-session-retention-reconnect.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260222-session-retention-reconnect","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260222-session-retention-reconnect.md","sha256":"1c388c67e07e743aad1ff54677d0ff60ef604f23f9cf1487407edc7fe357b32b"}]}]},
+    {"type":"requirement","id":"REQ-20260223-shortcut-keyboard-modifier-newline","scope":"current","assessment_id":"ASMT-TERMLINK-04","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260223-shortcut-keyboard-modifier-newline.md","sha256":"5529b96668af3fc055db4fe9f77f4576651fabcccd409c24d9ca8aba7d754ba3"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260223-shortcut-keyboard-modifier-newline.md","sha256":"89c4ec8ff2a6ffeb782aa0c351e89043e25fd98c48acbba3a54eacfac3cfa630","note":"尚未阅读全文并与实现版本、输入范围核对。"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260223-shortcut-keyboard-modifier-newline.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260223-shortcut-keyboard-modifier-newline","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260223-shortcut-keyboard-modifier-newline.md","sha256":"5529b96668af3fc055db4fe9f77f4576651fabcccd409c24d9ca8aba7d754ba3"}]}]},
+    {"type":"requirement","id":"REQ-20260224-android-external-web-terminal-profile-sessions","scope":"current","assessment_id":"ASMT-TERMLINK-05","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md","sha256":"b710207bfedad3f8943000e8672db2874ebc55dd2626fdb7d706d454b3d26eb8"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260224-android-external-web-terminal-profile-sessions.md","sha256":"71d1cb288961d3285cfba8d45f5b816a1d5e7d3fee40bde029fab60cd8ed1881","note":"尚未阅读全文并与实现版本、输入范围核对。"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260224-android-external-web-terminal-profile-sessions","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md","sha256":"b710207bfedad3f8943000e8672db2874ebc55dd2626fdb7d706d454b3d26eb8"}]}]},
+    {"type":"requirement","id":"REQ-20260224-screen-keep-awake","scope":"current","assessment_id":"ASMT-TERMLINK-06","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260224-screen-keep-awake.md","sha256":"97b98f635dea28db3553d6f7d67044fca1295c55e73b5281b9c99d3a7ff96d17"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260224-screen-keep-awake.md","sha256":"8b4265f753c89d6fd0bdacbe6bae475a84544cf8e3b18338376043456f723ce8","note":"尚未阅读全文并与实现版本、输入范围核对。"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260224-screen-keep-awake.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260224-screen-keep-awake","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260224-screen-keep-awake.md","sha256":"97b98f635dea28db3553d6f7d67044fca1295c55e73b5281b9c99d3a7ff96d17"}]}],"task_bindings":[{"id":"BIND-SCREEN-PREFERENCE","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260726-001-android-foreground-screen-timeout.md","sha256":"d26e314d468675ed57e1b845d4b3748e0ec8c50e608d8d72e67203be3432937b"},"label":"20260726-001；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"7月新增全App前台息屏偏好“跟随系统/30秒至10分钟”，覆盖4Activity；单测/构建通过，实机定时等待未做，区别于2月固定2分钟。","origin":"inferred","state":"active","reason":"依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。","sources":[{"kind":"file","path":"TASKS/TASK-20260726-001-android-foreground-screen-timeout.md","sha256":"d26e314d468675ed57e1b845d4b3748e0ec8c50e608d8d72e67203be3432937b"}]}]},
+    {"type":"requirement","id":"REQ-20260306-codex-app-repair-plan","scope":"retired","assessment_id":"ASMT-TERMLINK-07","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260306-codex-app-repair-plan.md","sha256":"a96cec4ae7929329c887252bdeb05586129cdbadb760e61b04c9fb6f81b437b7"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260306-codex-app-repair-plan.md","sha256":"30e191b5f4a5f62e7b5ab0b10004176f0355b473700a5a46d2cef62a854688da","note":"尚未阅读全文并与实现版本、输入范围核对。"}],"extensions":{"original_frontmatter_status":"archived","original_meta_status":"archived","original_path":"docs/product/requirements/REQ-20260306-codex-app-repair-plan.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260306-codex-app-repair-plan","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260306-codex-app-repair-plan.md","sha256":"a96cec4ae7929329c887252bdeb05586129cdbadb760e61b04c9fb6f81b437b7"}]}]},
+    {"type":"requirement","id":"REQ-20260309-codex-capability-mvp","scope":"current","assessment_id":"ASMT-TERMLINK-08","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260309-codex-capability-mvp.md","sha256":"03f7e401c5b426c25f8b547c00826fd8864e2c9628abfacc8e27100a2815cab9"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260309-codex-capability-mvp.md","sha256":"a3365300fcb54bfd55d826a6b2382ffb7d8e9e98c8219031df4c8b90e38abc0a","note":"尚未阅读全文并与实现版本、输入范围核对。"},{"kind":"file","path":"TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md","sha256":"9fbe84e353de05a2c6a922c71039338e315b4083dd9009050dce87ce58dd6f0a"},{"kind":"file","path":"TASKS/TASK-20260722-002-android-codex-open-conversation-files.md","sha256":"f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260309-codex-capability-mvp.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260309-codex-capability-mvp","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260309-codex-capability-mvp.md","sha256":"03f7e401c5b426c25f8b547c00826fd8864e2c9628abfacc8e27100a2815cab9"}]}],"task_bindings":[{"id":"BIND-MOBILE-FILES-OPEN","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260722-002-android-codex-open-conversation-files.md","sha256":"f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561"},"label":"20260722-002；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"历史图片/文件提及/Markdown文件点击打开、配置恢复/Doze通知/命令批次及文本选择后续；报告Huawei验证，保留交叉宿主长任务观察。","origin":"inferred","state":"active","reason":"依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。","sources":[{"kind":"file","path":"TASKS/TASK-20260722-002-android-codex-open-conversation-files.md","sha256":"f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561"}]}]},
+    {"type":"requirement","id":"REQ-20260318-ws-0001-docs-exp","scope":"current","assessment_id":"ASMT-TERMLINK-09","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md","sha256":"ef29df323e78c8787ba372e6d8958247b05aefcab02a3bfca0a22d0b556d1436"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260318-WS-0001-docs-exp.md","sha256":"fc8833070bdbcbb80d98349aa8ef2ac101704ce4f2227d5869fa4334c3943147"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260318-ws-0001-docs-exp","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md","sha256":"ef29df323e78c8787ba372e6d8958247b05aefcab02a3bfca0a22d0b556d1436"}]}],"task_bindings":[{"id":"BIND-WORKSPACE-REWRITE","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md","sha256":"7876e5f9602c8318bd88243784d4008ce430dce6e33c10056efecf84280ae612"},"label":"20260718-003；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"7月只读文档工作区增量：搜索、Markdown/图片/PDF、HEAD/双文件比较、Android只读缓存/系统打开；超出3月text-only范围，保持越界与只读安全。","origin":"inferred","state":"active","reason":"依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。","sources":[{"kind":"file","path":"TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md","sha256":"7876e5f9602c8318bd88243784d4008ce430dce6e33c10056efecf84280ae612"}]},{"id":"BIND-WORKSPACE-READING","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md","sha256":"519c2e36353d8847f818346a48baccd6e567ffa8da770b0d6ac3cf58bde5a1b8"},"label":"20260719-001；历史身份未映射为当前journal ID"},"role":"repair","coverage":"移动Markdown/源码字号、长路径换行与局部滚动，报告浏览器/真机验证；不重建API。","origin":"inferred","state":"active","reason":"依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。","sources":[{"kind":"file","path":"TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md","sha256":"519c2e36353d8847f818346a48baccd6e567ffa8da770b0d6ac3cf58bde5a1b8"}]}]},
+    {"type":"requirement","id":"REQ-20260324-session-list-local-cache","scope":"current","assessment_id":"ASMT-TERMLINK-10","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260324-session-list-local-cache.md","sha256":"168874cbca3bfe0cac7686052383b02643e1736ea6db747301fecbd95745463b"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260324-session-list-local-cache.md","sha256":"5208e2cc870996fc221437e206d2192c9bb1e550fd33431300313ebaf482a71c","note":"尚未阅读全文并与实现版本、输入范围核对。"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260324-session-list-local-cache.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260324-session-list-local-cache","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260324-session-list-local-cache.md","sha256":"168874cbca3bfe0cac7686052383b02643e1736ea6db747301fecbd95745463b"}]}]},
+    {"type":"requirement","id":"REQ-20260326-android-profile-mtls-runtime-certificate","scope":"current","assessment_id":"ASMT-TERMLINK-11","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md","sha256":"4222f8a8eca127343b09d9f58c304253783fcef5104f9bd64b698ec1de348423"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260326-android-profile-mtls-runtime-certificate.md","sha256":"971493b5810b2b6764b1788b87775ae80f4739037b1e6db8e3a1be3db141cfec","note":"尚未阅读全文并与实现版本、输入范围核对。"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260326-android-profile-mtls-runtime-certificate","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md","sha256":"4222f8a8eca127343b09d9f58c304253783fcef5104f9bd64b698ec1de348423"}]}]},
+    {"type":"requirement","id":"REQ-20260329-language-normalization","scope":"current","assessment_id":"ASMT-TERMLINK-12","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260329-language-normalization.md","sha256":"7359fec7282bfd27bcaa43ba02ec7f60b4312c6eb08f2642f3f3c14ff86f7f74"},{"kind":"file","path":"docs/changes/summaries/SUMMARY-REQ-20260329-language-normalization.md","sha256":"3bea98b0521562d924c7a51610431b2be0cf556610335057c845fac4a385770a","note":"尚未阅读全文并与实现版本、输入范围核对。"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260329-language-normalization.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260329-language-normalization","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260329-language-normalization.md","sha256":"7359fec7282bfd27bcaa43ba02ec7f60b4312c6eb08f2642f3f3c14ff86f7f74"}]}]},
+    {"type":"requirement","id":"REQ-20260408-codex-native-android-migration","scope":"current","assessment_id":"ASMT-TERMLINK-13","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260408-codex-native-android-migration.md","sha256":"25e7415833d9dd30f0ecb06d9c338e52c62f328c68893f23bec44267ed2abaab"},{"kind":"file","path":"docs/changes/records/CR-20260409-2332-native-closeout.md","sha256":"f56816f0fd2aa565bb1c80e77dd9b1e628a80c20cd7546ff281c00fd474066d6"}],"extensions":{"original_frontmatter_status":"done","original_meta_status":"done","original_path":"docs/product/requirements/REQ-20260408-codex-native-android-migration.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260408-codex-native-android-migration","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260408-codex-native-android-migration.md","sha256":"25e7415833d9dd30f0ecb06d9c338e52c62f328c68893f23bec44267ed2abaab"}]}],"task_bindings":[{"id":"BIND-NATIVE-VISUAL-REFRESH","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md","sha256":"9fbe84e353de05a2c6a922c71039338e315b4083dd9009050dce87ce58dd6f0a"},"label":"20260718-002；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"7月原生header/Goal/Plan/composer/弹层、真实模型推理权限目录和状态栏收口；active Goal/Plan/Skills部分动态态缺真机视觉覆盖。","origin":"inferred","state":"active","reason":"依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。","sources":[{"kind":"file","path":"TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md","sha256":"9fbe84e353de05a2c6a922c71039338e315b4083dd9009050dce87ce58dd6f0a"}]}]},
+    {"type":"requirement","id":"REQ-20260413-relay-control-plane-and-transparent-transit","scope":"planned","assessment_id":"ASMT-TERMLINK-14","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260413-relay-control-plane-and-transparent-transit.md","sha256":"8301ba332276f719e06b03977a442f0eddf39de846f11e5f339abacfdbde682b"},{"kind":"file","path":"docs/product/plans/PLAN-20260415-relay-control-plane-refactor-freeze.md","sha256":"01e097b5928fb6f045c49eb495a1677e6b32c57d0197da1afc84dfe2b3de88c4"}],"extensions":{"original_frontmatter_status":"planned","original_meta_status":"planned","original_path":"docs/product/requirements/REQ-20260413-relay-control-plane-and-transparent-transit.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260413-relay-control-plane-and-transparent-transit","relation":"supports","target":"GOAL-TERMLINK-RELAY-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260413-relay-control-plane-and-transparent-transit.md","sha256":"8301ba332276f719e06b03977a442f0eddf39de846f11e5f339abacfdbde682b"}]}]},
+    {"type":"requirement","id":"REQ-20260415-codex-android-runtime-interaction-fixes","scope":"current","assessment_id":"ASMT-TERMLINK-15","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md","sha256":"7e89ccdb3bc6ef368b5ddf8c136a698992421c8570ceb9595f01b62ef7c0f254"},{"kind":"file","path":"docs/changes/records/CR-20260418-0048-codex-reopen-transcript-attachment-fix.md","sha256":"8f042d5a108ea6e1124c396bb22b39f05b9c426f047d115df7770424ce281046"}],"extensions":{"original_frontmatter_status":"in_progress","original_meta_status":"in_progress","original_path":"docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260415-codex-android-runtime-interaction-fixes","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md","sha256":"7e89ccdb3bc6ef368b5ddf8c136a698992421c8570ceb9595f01b62ef7c0f254"}]}]},
+    {"type":"requirement","id":"REQ-20260516-codex-mobile-realtime-sync","scope":"current","assessment_id":"ASMT-TERMLINK-16","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260516-codex-mobile-realtime-sync.md","sha256":"3c6931a5a1f3a322053f84b99574ede430bfe9c9b520f26f3db955d760001dc3"},{"kind":"file","path":"TASKS/TASK-20260629-001-server-android-codex-realtime-sync-demo-parity.md","sha256":"b00bb71d368ab50b0cd04403e587a7cae7d266533edebb9b909e76b9fdd55112"}],"extensions":{"original_frontmatter_status":"planned","original_meta_status":"planned","original_path":"docs/product/requirements/REQ-20260516-codex-mobile-realtime-sync.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260516-codex-mobile-realtime-sync","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260516-codex-mobile-realtime-sync.md","sha256":"3c6931a5a1f3a322053f84b99574ede430bfe9c9b520f26f3db955d760001dc3"}]}],"task_bindings":[{"id":"BIND-IPC-DEMO-PARITY","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260629-001-server-android-codex-realtime-sync-demo-parity.md","sha256":"b00bb71d368ab50b0cd04403e587a7cae7d266533edebb9b909e76b9fdd55112"},"label":"20260629-001；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"Desktop/VSCode owner surface跟随、绑定/A-B隔离、owner fallback及approval/PLAN历史闭环；external Goal旧声明后被AD-004撤回。","origin":"inferred","state":"active","reason":"依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。","sources":[{"kind":"file","path":"TASKS/TASK-20260629-001-server-android-codex-realtime-sync-demo-parity.md","sha256":"b00bb71d368ab50b0cd04403e587a7cae7d266533edebb9b909e76b9fdd55112"},{"kind":"file","path":"docs/workflow/DECISIONS.md","sha256":"747236c53ae0ee5450b0cdfd8e2b69eb2de83758a1b61cccc5b4742000f985fd"}]},{"id":"BIND-IPC-SINGLE-AUTHORITY-PAUSED","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md","sha256":"b4ce7320e3baeeeef168847c6dc07f7d6e5d4f1f198907e08b8d6a616a76195b"},"label":"20260727-002；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"P0-A/B单权威及历史缓存/恢复；paused包的B4R A-B-A、B5/P0-C/P1仍未据本轮证明完成，仅读包头与恢复快照目标/验收。","origin":"inferred","state":"active","reason":"依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。","sources":[{"kind":"file","path":"TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md","sha256":"b4ce7320e3baeeeef168847c6dc07f7d6e5d4f1f198907e08b8d6a616a76195b"}]}]},
+    {"type":"requirement","id":"REQ-20260715-linux-interactive-release-installer","scope":"current","assessment_id":"ASMT-TERMLINK-17","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260715-linux-interactive-release-installer.md","sha256":"56c64044cfab475af6e16b5d7bbdce0aed234c8c502ce7ebb26377ebbf392c0d"},{"kind":"file","path":"docs/changes/records/CR-20260715-1635-linux-interactive-installer.md","sha256":"236b07d397d0d779877e53fe416803a553b06e3364316b7bb43ccfc4182b0b37"}],"extensions":{"original_frontmatter_status":"active","original_meta_status":"in_progress","original_path":"docs/product/requirements/REQ-20260715-linux-interactive-release-installer.md","representation":"完整原文引用与范围化交付归纳；不是新的需求批准"},"links":[{"id":"SUPPORTS-20260715-linux-interactive-release-installer","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20260715-linux-interactive-release-installer.md","sha256":"56c64044cfab475af6e16b5d7bbdce0aed234c8c502ce7ebb26377ebbf392c0d"}]}]},
+    {"type":"requirement","id":"REQ-20261005-codex-history-save-repair","scope":"current","assessment_id":"ASMT-TERMLINK-18","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-save-repair.md","sha256":"1f70555e698e229fbde42b99eae9bc5a3256bc30f48a019f6381d64f736168ba"},{"kind":"file","path":"docs/product/plans/PLAN-20261005-codex-history-save-repair.md","sha256":"71bfeca65adecf5b828707dbb8a49e930ce1ef6f571f535439c6299a308d7cbb"}],"task_bindings":[{"id":"BIND-TASK-20260832","task":{"task_id":"task-58bc12d9a46b8d84fb6e42888785b402","source":{"kind":"file","path":".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json","sha256":"7ad1ade16edf685faf79fb5dc40685ea5c084c4ef0346252ea8afaf85c56bb59"},"label":"TASK-20260832","plan_ref":".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json"},"role":"repair","coverage":"H1/H2/H3三类真实历史保存、手机切换重开与选定工具详情；具体排除和未验项见原记录。","origin":"declared","state":"active","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-save-repair.md","sha256":"1f70555e698e229fbde42b99eae9bc5a3256bc30f48a019f6381d64f736168ba"},{"kind":"file","path":".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json","sha256":"7ad1ade16edf685faf79fb5dc40685ea5c084c4ef0346252ea8afaf85c56bb59"}],"plan_items":[{"plan_id":"PLAN-20261005-codex-history-save-repair","work_item_id":"S1"},{"plan_id":"PLAN-20261005-codex-history-save-repair","work_item_id":"S2"},{"plan_id":"PLAN-20261005-codex-history-save-repair","work_item_id":"S3"},{"plan_id":"PLAN-20261005-codex-history-save-repair","work_item_id":"S4"},{"plan_id":"PLAN-20261005-codex-history-save-repair","work_item_id":"S5"},{"plan_id":"PLAN-20261005-codex-history-save-repair","work_item_id":"S6"}]},{"id":"BIND-SHARED-833-TO-SAVE-REPAIR","task":{"task_id":"task-7ff69ba8242c90c52f0b93fa1144a655","source":{"kind":"file","path":".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json","sha256":"2eac783a4cd98a8de297c143ec19ec7ddcbae3a533e97f0e404a327e099bf2ab"},"label":"TASK-20260833 委派输入与正常历史增长的最小共享兼容修复（Rust契约先行）","plan_ref":".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json"},"role":"implementation","coverage":"832 H1正常历史增长与H3委派输入共享Rust/Node兼容及隔离产品保存；H2分支定位与自然宿主/手机验收仍归832，不将833隔离PASS替代。","origin":"inferred","state":"active","reason":"真实833采纳plan明确独立共享范围并交回832，832进度/关闭正文明确复用H1/H3；不创建新任务或改生命周期。","sources":[{"kind":"file","path":".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json","sha256":"2eac783a4cd98a8de297c143ec19ec7ddcbae3a533e97f0e404a327e099bf2ab"},{"kind":"file","path":"docs/product/plans/PLAN-20261005-codex-history-save-repair.md","sha256":"71bfeca65adecf5b828707dbb8a49e930ce1ef6f571f535439c6299a308d7cbb"}],"plan_items":[{"plan_id":"PLAN-20261005-codex-history-save-repair","work_item_id":"S4"}]}],"extensions":{"original_frontmatter_status":"in_progress","original_meta_status":"in_progress","original_path":"docs/product/requirements/REQ-20261005-codex-history-save-repair.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20261005-codex-history-save-repair","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-save-repair.md","sha256":"1f70555e698e229fbde42b99eae9bc5a3256bc30f48a019f6381d64f736168ba"}]}]},
+    {"type":"requirement","id":"REQ-20261005-codex-history-shared-compat","scope":"current","assessment_id":"ASMT-TERMLINK-19","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-shared-compat.md","sha256":"eb093d22edfe6ad18a52ccf88a4f918cad3915cd94126f92b09aacc895025bdb"},{"kind":"file","path":"docs/product/plans/PLAN-20261005-codex-history-shared-compat.md","sha256":"c6271589d7ab979dc4c5e7e1dcb4838337d2e39d4702aa47254cfb7d6d675e43"}],"task_bindings":[{"id":"BIND-TASK-20260833","task":{"task_id":"task-7ff69ba8242c90c52f0b93fa1144a655","source":{"kind":"file","path":".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json","sha256":"2ff52d93fc480911b12401674a8e790c5e5d07f47d5f3f408d6d9f414ddb9348"},"label":"TASK-20260833","plan_ref":".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json"},"role":"repair","coverage":"H1/H3共享兼容的隔离Rust/Node/产品事务/provider验证，真实宿主/手机归832。","origin":"declared","state":"active","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-shared-compat.md","sha256":"eb093d22edfe6ad18a52ccf88a4f918cad3915cd94126f92b09aacc895025bdb"},{"kind":"file","path":".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json","sha256":"2ff52d93fc480911b12401674a8e790c5e5d07f47d5f3f408d6d9f414ddb9348"}],"plan_items":[{"plan_id":"PLAN-20261005-codex-history-shared-compat","work_item_id":"S1"},{"plan_id":"PLAN-20261005-codex-history-shared-compat","work_item_id":"S2"},{"plan_id":"PLAN-20261005-codex-history-shared-compat","work_item_id":"S3"},{"plan_id":"PLAN-20261005-codex-history-shared-compat","work_item_id":"S4"},{"plan_id":"PLAN-20261005-codex-history-shared-compat","work_item_id":"S5"}]}],"extensions":{"original_frontmatter_status":"in_progress","original_meta_status":"in_progress","original_path":"docs/product/requirements/REQ-20261005-codex-history-shared-compat.md","representation":"完整原文引用；不另立需求范围或确认状态"},"links":[{"id":"SUPPORTS-20261005-codex-history-shared-compat","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"依据既有需求正文与原产品定位整理业务归属；不表示新的用户决定或执行授权。","sources":[{"kind":"file","path":"docs/product/requirements/REQ-20261005-codex-history-shared-compat.md","sha256":"eb093d22edfe6ad18a52ccf88a4f918cad3915cd94126f92b09aacc895025bdb"}]}]}
+  , {"id":"REQ-TERMLINK-CORE-TERMINAL","type":"requirement","scope":"current","assessment_id":"ASMT-TERMLINK-CORE-TERMINAL","sources":[{"kind":"file","path":"docs/product/PRODUCT_REQUIREMENTS.md","sha256":"f1c0dc2a8994bbc2a02f2d68c0c43ff9451a1a79f933d9350265f583481cd1fd"},{"kind":"file","path":"docs/architecture/CURRENT_STATE.md","sha256":"b8dadca31ee36f8d025a49d03faf1d5392c2bb3216dd573fe2c77d5adc8038c6"},{"kind":"file","path":"TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md","sha256":"3bec9e6ed1538479d9d7e19e0281cc95c15cb953b76fa518312691530517d9a2"}],"extensions":{"origin":"历史材料补纳管；无新业务task或当前执行授权","recorded_at":"2026-10-10"},"links":[{"id":"SUPPORTS-REQ-TERMLINK-CORE-TERMINAL","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"按既有正文范围归属，不是新决定。","sources":[{"kind":"file","path":"docs/product/PRODUCT_REQUIREMENTS.md","sha256":"f1c0dc2a8994bbc2a02f2d68c0c43ff9451a1a79f933d9350265f583481cd1fd"},{"kind":"file","path":"docs/architecture/CURRENT_STATE.md","sha256":"b8dadca31ee36f8d025a49d03faf1d5392c2bb3216dd573fe2c77d5adc8038c6"},{"kind":"file","path":"TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md","sha256":"3bec9e6ed1538479d9d7e19e0281cc95c15cb953b76fa518312691530517d9a2"}]}],"task_bindings":[]}, {"id":"REQ-TERMLINK-RELEASE-BASELINE","type":"requirement","scope":"current","assessment_id":"ASMT-TERMLINK-RELEASE-BASELINE","sources":[{"kind":"file","path":"TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md","sha256":"4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a"},{"kind":"file","path":"TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md","sha256":"0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"}],"extensions":{"origin":"历史材料补纳管；无新业务task或当前执行授权","recorded_at":"2026-10-10"},"links":[{"id":"SUPPORTS-REQ-TERMLINK-RELEASE-BASELINE","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"按既有正文范围归属，不是新决定。","sources":[{"kind":"file","path":"TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md","sha256":"4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a"},{"kind":"file","path":"TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md","sha256":"0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"}]}],"task_bindings":[{"id":"BIND-REQ-TERMLINK-RELEASE-BASELINE","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md","sha256":"4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a"},"label":"TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"Windows/Linux解压安装、配置自启/健康结果，源码release build和direct/Nginx mTLS证书工具，缺OpenSSL明确失败。5月既有用户目标纳管，7月Linux交互增强仍归原REQ17。","origin":"inferred","state":"active","reason":"来源明确记载原始任务目标与实际结果；不猜当前稳定task_id。","sources":[{"kind":"file","path":"TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md","sha256":"4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a"},{"kind":"file","path":"TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md","sha256":"0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"}]}]}, {"id":"REQ-TERMLINK-WEB-UX","type":"requirement","scope":"current","assessment_id":"ASMT-TERMLINK-WEB-UX","sources":[{"kind":"file","path":"TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md","sha256":"0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"}],"extensions":{"origin":"历史材料补纳管；无新业务task或当前执行授权","recorded_at":"2026-10-10"},"links":[{"id":"SUPPORTS-REQ-TERMLINK-WEB-UX","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"按既有正文范围归属，不是新决定。","sources":[{"kind":"file","path":"TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md","sha256":"0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"}]}],"task_bindings":[{"id":"BIND-REQ-TERMLINK-WEB-UX","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md","sha256":"0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"},"label":"TASK-20260715-002-web-ui-layout-and-terminal-ux；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"安全网页登录、配置/会话分组反馈、terminal-first响应式布局、键盘/触控/focus/resize/reconnect、无障碍标签/对比度/reduced-motion。登录cookie短期HttpOnly/SameSite Strict、HTTPS Secure、登出撤销，不持久密码到localStorage/URL/日志。","origin":"inferred","state":"active","reason":"来源明确记载原始任务目标与实际结果；不猜当前稳定task_id。","sources":[{"kind":"file","path":"TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md","sha256":"0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"}]}]}, {"id":"REQ-TERMLINK-DIAGNOSTICS","type":"requirement","scope":"current","assessment_id":"ASMT-TERMLINK-DIAGNOSTICS","sources":[{"kind":"file","path":"TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md","sha256":"dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857"}],"extensions":{"origin":"历史材料补纳管；无新业务task或当前执行授权","recorded_at":"2026-10-10"},"links":[{"id":"SUPPORTS-REQ-TERMLINK-DIAGNOSTICS","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"按既有正文范围归属，不是新决定。","sources":[{"kind":"file","path":"TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md","sha256":"dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857"}]}],"task_bindings":[{"id":"BIND-REQ-TERMLINK-DIAGNOSTICS","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md","sha256":"dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857"},"label":"TASK-20260726-002-persistent-diagnostics-for-known-issues；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"Android/WebView/Node结构化滚动日志跨APK更新保留，异常/watchdog/Activity/WS/Service/Sessions/IPC/通知事件，采集manifest+原始log+timeline。Debug/本地dev默认开，Release/生产显式开；Android约10MiB、Node约50MiB。","origin":"inferred","state":"active","reason":"来源明确记载原始任务目标与实际结果；不猜当前稳定task_id。","sources":[{"kind":"file","path":"TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md","sha256":"dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857"}]}]}, {"id":"REQ-TERMLINK-HISTORY-PIPELINE","type":"requirement","scope":"current","assessment_id":"ASMT-TERMLINK-HISTORY-PIPELINE","sources":[{"kind":"file","path":"docs/codex/codex-rollout-collector-architecture.md","sha256":"3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d"},{"kind":"file","path":"docs/codex/codex-history-product-contract.md","sha256":"39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d"},{"kind":"file","path":"TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md","sha256":"4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d"},{"kind":"file","path":".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json","sha256":"075a9a9f858346df696ec721bdad022ba743e1f3b970190e9d10f58ab2f6b23a"},{"kind":"file","path":".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json","sha256":"94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d"},{"kind":"file","path":".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json","sha256":"dd20d1ed1bf530167a90eeecd9df86e2d8ffe396b413aaba178d8ac8022736c0"},{"kind":"file","path":"docs/product/history/maintenance-20261010/task-status-before.json","sha256":"1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"}],"extensions":{"origin":"历史材料补纳管；无新业务task或当前执行授权","recorded_at":"2026-10-10"},"links":[{"id":"SUPPORTS-REQ-TERMLINK-HISTORY-PIPELINE","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"按既有正文范围归属，不是新决定。","sources":[{"kind":"file","path":"docs/codex/codex-rollout-collector-architecture.md","sha256":"3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d"},{"kind":"file","path":"docs/codex/codex-history-product-contract.md","sha256":"39d029886c7e4ccef45c94012e57d8495221f4b0892a30f36a8e3a537884600d"},{"kind":"file","path":"TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md","sha256":"4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d"},{"kind":"file","path":".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json","sha256":"075a9a9f858346df696ec721bdad022ba743e1f3b970190e9d10f58ab2f6b23a"},{"kind":"file","path":".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json","sha256":"94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d"},{"kind":"file","path":".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json","sha256":"dd20d1ed1bf530167a90eeecd9df86e2d8ffe396b413aaba178d8ac8022736c0"},{"kind":"file","path":"docs/product/history/maintenance-20261010/task-status-before.json","sha256":"1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"}]}],"task_bindings":[{"id":"BIND-HISTORY-TASK-004","task":{"task_id":"legacy-doc-fdd730cf99bb383419d74988","source":{"kind":"file","path":".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json"},"label":"TASK-004 task-003-rust-node"},"role":"implementation","coverage":"Node产品历史/持久与API阶段；仅journal title与关闭保留事项，不将旧TASK003数字冒认TASK004","origin":"inferred","state":"active","reason":"当前task-status稳定ID与真实采纳plan/关闭事项范围核对，保留实际业务覆盖。","sources":[{"kind":"file","path":"docs/product/history/maintenance-20261010/task-status-before.json","sha256":"1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"}]},{"id":"BIND-HISTORY-TASK-005","task":{"task_id":"task-7a4566ccf322e08968cd5c7935cf61dd","source":{"kind":"file","path":".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"},"label":"TASK-005 Android App 产品历史只读接入与真实纵向 E2E","plan_ref":".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"},"role":"implementation","coverage":"Android产品页/详情与缓存接入、诊断隔离、真实首屏；关闭仍保留older/append/竞态等未核验","origin":"inferred","state":"active","reason":"当前task-status稳定ID与真实采纳plan/关闭事项范围核对，保留实际业务覆盖。","sources":[{"kind":"file","path":"docs/product/history/maintenance-20261010/task-status-before.json","sha256":"1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"},{"kind":"file","path":".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json","sha256":"075a9a9f858346df696ec721bdad022ba743e1f3b970190e9d10f58ab2f6b23a"}]},{"id":"BIND-HISTORY-TASK-20260831","task":{"task_id":"task-25654b249109f357a559899562804c15","source":{"kind":"file","path":".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json"},"label":"TASK-20260831 Codex 历史全链路 E2E 补齐验证（默认不改源码）","plan_ref":".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json"},"role":"verification","coverage":"E01–E12全链E2E调查；主链及多矩阵仍partial","origin":"inferred","state":"active","reason":"当前task-status稳定ID与真实采纳plan/关闭事项范围核对，保留实际业务覆盖。","sources":[{"kind":"file","path":"docs/product/history/maintenance-20261010/task-status-before.json","sha256":"1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"},{"kind":"file","path":".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json","sha256":"94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d"}]},{"id":"BIND-HISTORY-TASK-20260830","task":{"task_id":"task-751a3f4ef6d9d4cd1c08b99ec1b0b963","source":{"kind":"file","path":".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"},"label":"TASK-20260830 Rust rollout 兼容修复：token_usage_record 与 developer 消息","plan_ref":".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"},"role":"implementation","coverage":"Rust token_usage_record/developer typed兼容及隐藏内容保护；不是Node/App验收","origin":"inferred","state":"active","reason":"当前task-status稳定ID与真实采纳plan/关闭事项范围核对，保留实际业务覆盖。","sources":[{"kind":"file","path":"docs/product/history/maintenance-20261010/task-status-before.json","sha256":"1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"},{"kind":"file","path":".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json","sha256":"dd20d1ed1bf530167a90eeecd9df86e2d8ffe396b413aaba178d8ac8022736c0"}]},{"id":"BIND-RUST45-ARCHIVE","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md","sha256":"9bed4e46068be314cc8218ddb4fea3b5a40f2f293f91f4e2efb623d03a1d5fb9"},"label":"TASK-20260826-001-codex-collector-phase45-rust-protocol-migration；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"4.5隔离Rust/Node target artifact，产品DB/App/IPC/发布排除；不据归档推产品集成","origin":"inferred","state":"active","reason":"已读归档目标、范围和交付层级；Runtime身份未核验。","sources":[{"kind":"file","path":"TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md","sha256":"9bed4e46068be314cc8218ddb4fea3b5a40f2f293f91f4e2efb623d03a1d5fb9"}]},{"id":"BIND-NODE45-ARCHIVE","task":{"task_id":null,"source":{"kind":"file","path":"TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md","sha256":"4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d"},"label":"TASK-20260828-001-codex-node-analyzer-phase45-migration；历史身份未映射为当前journal ID"},"role":"implementation","coverage":"4.5隔离Rust/Node target artifact，产品DB/App/IPC/发布排除；不据归档推产品集成","origin":"inferred","state":"active","reason":"已读归档目标、范围和交付层级；Runtime身份未核验。","sources":[{"kind":"file","path":"TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md","sha256":"4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d"}]}]}, {"id":"REQ-TERMLINK-ENHANCEMENT-CANDIDATES","type":"requirement","scope":"candidate","assessment_id":"ASMT-TERMLINK-ENHANCEMENT-CANDIDATES","sources":[{"kind":"file","path":"docs/product/PRODUCT_REQUIREMENTS.md","sha256":"f1c0dc2a8994bbc2a02f2d68c0c43ff9451a1a79f933d9350265f583481cd1fd"},{"kind":"file","path":"docs/product/requirements/REQ-20260408-codex-native-android-migration.md","sha256":"25e7415833d9dd30f0ecb06d9c338e52c62f328c68893f23bec44267ed2abaab"}],"extensions":{"origin":"历史材料补纳管；无新业务task或当前执行授权","recorded_at":"2026-10-10"},"links":[{"id":"SUPPORTS-REQ-TERMLINK-ENHANCEMENT-CANDIDATES","relation":"supports","target":"GOAL-TERMLINK-MOBILE-ACCESS","origin":"inferred","state":"active","reason":"按既有正文范围归属，不是新决定。","sources":[{"kind":"file","path":"docs/product/PRODUCT_REQUIREMENTS.md","sha256":"f1c0dc2a8994bbc2a02f2d68c0c43ff9451a1a79f933d9350265f583481cd1fd"},{"kind":"file","path":"docs/product/requirements/REQ-20260408-codex-native-android-migration.md","sha256":"25e7415833d9dd30f0ecb06d9c338e52c62f328c68893f23bec44267ed2abaab"}]}],"task_bindings":[]}, {"id":"REQ-TERMLINK-HISTORY-BANNER","type":"requirement","scope":"candidate","assessment_id":"ASMT-TERMLINK-HISTORY-BANNER","sources":[{"kind":"file","path":"TASKS/inbox/INBOX-20260807-001-codex-history-sync-banner-ux.md","sha256":"b38bc2659691affdc9771c56761da8570a04435df0d43a4594c632d481c9e6ee"}],"extensions":{"origin":"历史材料补纳管；无新业务task或当前执行授权","recorded_at":"2026-10-10"},"links":[{"id":"SUPPORTS-REQ-TERMLINK-HISTORY-BANNER","relation":"supports","target":"GOAL-TERMLINK-CODEX-CONTINUITY","origin":"inferred","state":"active","reason":"按既有正文范围归属，不是新决定。","sources":[{"kind":"file","path":"TASKS/inbox/INBOX-20260807-001-codex-history-sync-banner-ux.md","sha256":"b38bc2659691affdc9771c56761da8570a04435df0d43a4594c632d481c9e6ee"}]}],"task_bindings":[]}]
 }
 ---
 # TermLink 需求管理读取表示
@@ -49,6 +31,12 @@
 ## [REQ-20260222-doc-governance] 文档统一管理与需求流程标准化
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：沿用统一docs导航、需求/计划/变更追踪与原始历史保留目标；原有状态机/强制入口/skill镜像规则按AGENTS明确的vNext替代关系理解，本轮不新增审批、状态机或任务门禁。
+
+现有进展：3月25日CR c805842报告docs-requirement-sync增加PLAN/CR/最终答复范围回写，文档分层和REQ卡/模板已有实际材料；10月9日PRODUCT和现有5份规范正文已纳管，本轮沿用并补整理。
+
+剩余与核对：3月CR验证结果仍“待回填”，不声称该演练PASS；全历史导航/镜像并未全面核验。当前维护局部保存与软件产物验证不等于整个治理需求完成。
 
 既有依据：[docs/product/requirements/REQ-20260222-document-governance.md](../../docs/product/requirements/REQ-20260222-document-governance.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -134,6 +122,12 @@
 ## [REQ-20260222-server-admin-privilege-mode] 服务端管理员权限模式与安全治理
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：服务端 standard/elevated 显式权限模式及客户端风险可见性：启动认证/非默认强凭据/管理员开关/IP 白名单/可写审计路径，按配置要求 mTLS；会话携带权限与审计关联。PTY 继承启动账户，不自动 UAC/sudo，不引入 RBAC。
+
+现有进展：2月22–24日总结报告了配置、启动门禁、health、WS IP 白名单、审计字段及客户端提示的交付，自动化测试覆盖配置、门禁和 IP 匹配。当前只读代码另确认 IPv6 CIDR 与规范化精确匹配已存在；旧总结的“IPv6 仅精确匹配”是较窄历史描述。
+
+剩余与核对：本次未重验当前部署安全配置、实际审计写入/轮转或客户端告警。IPv6 CIDR 增量的原提交/测试矩阵未追溯，不把代码存在当成当前安全认证。
 
 既有依据：[docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md](../../docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -292,6 +286,12 @@
 
 ### 需求内容
 
+本次业务归纳（2026-10-10）：断联保留 PTY、同 sessionId 续接、失效 ID 明确 4404；默认 24小时、最大50、仅淘汰 idle LRU，活跃连接不被容量回收；显式删除立即释放。进程重启只恢复元数据，不保证运行上下文连续。
+
+现有进展：总结报告 TTL 可配置、断联不 kill、idle-LRU 与无效 sessionId 拒绝已交付并有自动化覆盖。2月24日 CR 1899f6d 只将 .env.example 从6h改24h；本轮只读确认示例仍24h，而 sessionManager 无环境变量/非法值回退仍6h。保留历史交付，完整“默认24h”存在实际未对齐。
+
+剩余与核对：默认24h契约与无配置/非法配置6h回退冲突未修复。未读取实际运行环境，也未开展23小时/24小时真时长验证；不能推断部署TTL。该差异不否定已实现的续接/LRU/4404。
+
 既有依据：[docs/product/requirements/REQ-20260222-session-retention-reconnect.md](../../docs/product/requirements/REQ-20260222-session-retention-reconnect.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
 > ---> 
@@ -422,6 +422,12 @@
 
 ### 需求内容
 
+本次业务归纳（2026-10-10）：Ctrl/Alt 关闭、一次、锁定三态；Ctrl控制字符、Alt ESC前缀；Enter CR、换行LF；文字区触摸滚动及 PgUp/PgDn/Home/End 本地滚动；保持既有协议，不新增自定义键盘。
+
+现有进展：2月24日及3月29日总结报告修饰键/换行、viewport触摸、本地滚动键、缓存版本更新与 Android capture/gesture 回归修复；总结有真机回归通过声明。
+
+剩余与核对：没有本轮新真机输入回归；历史验证限报告中的设备/输入路径，不覆盖任意终端应用或厂商手势。
+
 既有依据：[docs/product/requirements/REQ-20260223-shortcut-keyboard-modifier-newline.md](../../docs/product/requirements/REQ-20260223-shortcut-keyboard-modifier-newline.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
 > ---> 
@@ -540,6 +546,12 @@
 ## [REQ-20260224-android-external-web-terminal-profile-sessions] Android External Web 终端（Profile/Sessions 同级）POC
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：Android Profile 选择 TERMLINK_WS/EXTERNAL_WEB；External 本地 session CRUD/touch，与远端API分流；URL/凭据变更重载、删除profile清本地数据、通用深色提示、空URL错误态及隐藏快捷键盘。仅Android POC，不做跨设备同步或外部站点协议适配。
+
+现有进展：总结及 CR ab47cb8 明确报告9项POC实现，Kotlin编译与debug APK构建通过；CR同时明确当时无在线真机，安装/启动验证待执行。
+
+剩余与核对：外部站点登录、凭据热更新和 WebView 生命周期的实机矩阵仍待可定位证据；报告里的构建PASS不等于站点运行PASS。
 
 既有依据：[docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md](../../docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -669,9 +681,15 @@
 沿用完整原文验收/测试/发布条件及明确的后续范围决定；缺少稳定验收出处的项见PROJECT M06。交付和验证请读取所选assessment，不由done、closed、计划finished或成功写入推出PASS。
 
 
-## [REQ-20260224-screen-keep-awake] Android 前台无操作 2 分钟后恢复系统息屏
+## [REQ-20260224-screen-keep-awake] Android 前台息屏偏好与后台系统息屏
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：Android设置提供“跟随系统 / 30秒至10分钟”的前台息屏时间档位；MainShell、Codex、Settings、Workspace四个Activity共用本地控制器。自定义档位只在Activity前台保持亮屏，后台清除FLAG_KEEP_SCREEN_ON；不修改全局OS息屏策略。2月MainShell固定2分钟为历史基线，当前可配置偏好依据7月26日明确的后续任务。
+
+现有进展：2月CR 46ca7ef 与总结报告了移除WakeLock、窗口FLAG及生命周期实现，Kotlin编译和debug构建通过；7月26日任务进一步报告四个Activity的可配置息屏偏好实现、JVM测试和debug构建通过，真实设备定时等待未执行。
+
+剩余与核对：当前可配置档位、四个Activity及后台清FLAG的真实设备定时等待和厂商差异仍待验证。2月固定2分钟的CR未提供实机定时结果，保留为历史验证限制；7月26日任务已报告偏好实现和自动验证，不再把该增量仅列作待处理反馈。
 
 既有依据：[docs/product/requirements/REQ-20260224-screen-keep-awake.md](../../docs/product/requirements/REQ-20260224-screen-keep-awake.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -766,16 +784,24 @@
 
 ### 范围边界
 
-原文中的In Scope、Out of Scope、冻结条款、补充范围与具体排除均继续有效；原文内部若有阶段冲突，不由本表示静默裁决。管理scope仅表达已有业务义务的时间范围，不是交付结果。
+7月26日已交付偏好增量：“跟随系统/30秒至10分钟”覆盖MainShell/Codex/Settings/Workspace，后台清FLAG。2月固定2分钟语义作为旧基线保留，不把它写成全部当前页面唯一策略；实机定时等待仍未运行。
+
+原文中未被上述明确增量替代的约束继续保留；固定2分钟及仅MainShell页面的描述作为2月阶段历史，不再作为当前四个Activity的统一要求。其他没有明确依据的冲突仍待核对。管理scope不是交付结果。
 
 ### 验收要求
 
-沿用完整原文验收/测试/发布条件及明确的后续范围决定；缺少稳定验收出处的项见PROJECT M06。交付和验证请读取所选assessment，不由done、closed、计划finished或成功写入推出PASS。
+当前验收按7月26日任务的设置档位、四个Activity前台控制和后台清FLAG范围核对；2月原文的固定2分钟步骤保留为历史验收，不再要求所有档位与页面固定2分钟。其余未被替代的生命周期和不修改全局OS策略约束保留。JVM/debug已有报告，真实设备定时等待仍未执行；不由done或closed推出全量PASS。
 
 
 ## [REQ-20260306-codex-app-repair-plan] Codex App 侧修复计划（独立聊天窗与会话路径治理）
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：归档前置基线：sessionMode/cwd持久化、Create Session模式、独立WebView聊天窗、cwd透传/审批桥接及IME首轮布局。后续归属能力MVP，不因归档删除已交付能力。
+
+现有进展：3月6日总结明确 Phase1–4代码完成并通过本地验证，后续REQ-20260309-codex-capability-mvp接管。
+
+剩余与核对：这是被接管的历史范围，不恢复为待执行计划；本地验证没有完整命令/设备输入矩阵，不能代替后续原生/IPC验收。
 
 既有依据：[docs/product/requirements/REQ-20260306-codex-app-repair-plan.md](../../docs/product/requirements/REQ-20260306-codex-app-repair-plan.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -957,6 +983,12 @@
 ## [REQ-20260309-codex-capability-mvp] Codex 能力矩阵驱动主线需求（对话体验优先、后台保活与下一阶段）
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：移动对话首页、模型/推理 next-turn override、一次性plan、阻塞审批/输入、背景信息、线程历史与后台保活；已扩展compact/skills浏览、fork/archive/unarchive/name、图片与@文件。stored config、next-turn effective与interaction state必须分层。/skill只冻结，不开放；Session Defaults/顶部权限UI不恢复。
+
+现有进展：3月9–30日总结按六阶段报告主聊天、配置语义、审批、线程/工具/图片、文件提示与 foreground service 交付，含桌面及Android真机PASS报告。归档修复REQ是前置基线。不能因后来的实时同步仍有剩余而抹去这些既有能力。
+
+剩余与核对：原卡§2/§6/验收§12.4仍写Session Defaults二级入口或打磨，与§5.6/Phase5明确排除冲突；测试§13.17/19又要求顶部权限显示，与§5.7排除冲突。正文保留冲突，当前归纳沿用明确“不恢复”条款，不把旧测试项自动恢复成范围。后台/回补技术描述受AD-004后续IPC authority收敛约束，不能用idle触发轮询。
 
 既有依据：[docs/product/requirements/REQ-20260309-codex-capability-mvp.md](../../docs/product/requirements/REQ-20260309-codex-capability-mvp.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -1550,6 +1582,8 @@
 
 ### 范围边界
 
+上方“不恢复权限UI/Session Defaults”归纳针对3月期。7月18日独立用户视觉刷新任务已采用真实owner/catalog权限profile、模型/推理选择弹层（158/158 JVM、Huawei布局证据），属于有依据的后续局部变化，不是本轮自行恢复旧权限入口；Session Defaults完整UI当前仍无恢复依据。7月22日已报告历史图片/文件点击打开及配置/Doze通知收口。
+
 原文中的In Scope、Out of Scope、冻结条款、补充范围与具体排除均继续有效；原文内部若有阶段冲突，不由本表示静默裁决。管理scope仅表达已有业务义务的时间范围，不是交付结果。
 
 ### 验收要求
@@ -1560,6 +1594,12 @@
 ## [REQ-20260318-ws-0001-docs-exp] 工作区文件浏览与 Diff 查看
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：Codex固定workspaceRoot与cwd分离，保留创建时目录选择/手输、文件分级、Git状态、独立Web页及Android WorkspaceActivity和路径/符号链接越界保护。当前只读范围包含目录导航与受限搜索、文本/代码/Markdown/图片/PDF预览、Git HEAD及双文本文件的unified/side-by-side比较、Android认证下载/25MiB缓存/24h清理/系统打开及自然比例阅读。编辑、上传、多标签和独立@补全仍不纳入；3月对非文本预览、下载和左右diff的排除已由7月18–19日明确的后续任务局部替代。
+
+现有进展：3月23–24日总结报告Server API/Web/Android核心浏览链路交付；7月18–19日任务补充报告只读预览、搜索、比较、Android认证下载/系统打开及移动阅读交付，包含自动化、浏览器和Huawei真机的具体范围证据。SUMMARY的req_id为大写WS，原REQ Meta和管理身份为小写ws；按同一原编号REQ-WS-0001、同一正文和CR链建立显式别名依据，保持既有小写身份。
+
+剩余与核对：3月20个AC与安全/大文件/所有设备输入未逐条追到原始运行日志；7月18–19日增量已有明确任务结果，仍需区分其报告覆盖与更多PDF、超大图片、编码及OEM WebView等未验证样本。原卡“进入实现中/后续真机”保留为历史记录，不覆盖后续已报告的只读能力，也不据此纳入编辑器。
 
 既有依据：[docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md](../../docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -2252,16 +2292,24 @@
 
 ### 范围边界
 
-原文中的In Scope、Out of Scope、冻结条款、补充范围与具体排除均继续有效；原文内部若有阶段冲突，不由本表示静默裁决。管理scope仅表达已有业务义务的时间范围，不是交付结果。
+7月18–19日明确后续交付增量：只读Markdown/图片/PDF、受限搜索、HEAD/双文件及side-by-side比较、Android认证下载/25MiB缓存/系统打开和自然比例阅读。原3月排除的非文本预览、下载、左右diff是当期边界，后续用户任务已明确扩展这些局部能力；文件写入/编辑仍不纳入。
+
+原文中未被7月18–19日明确增量替代的约束继续保留，尤其只读、workspace安全边界及编辑/上传等排除。非文本预览、认证下载、左右diff已纳入上述当前范围，原先相应排除仅保留为3月阶段历史；其他没有明确依据的冲突仍待核对。管理scope不是交付结果。
 
 ### 验收要求
 
-沿用完整原文验收/测试/发布条件及明确的后续范围决定；缺少稳定验收出处的项见PROJECT M06。交付和验证请读取所选assessment，不由done、closed、计划finished或成功写入推出PASS。
+基础浏览与安全验收沿用原文未被替代的条款，增量按7月18日重写任务和7月19日移动阅读任务核对预览、搜索、HEAD/双文件比较、认证下载/系统打开及自然比例阅读。原文对非文本预览、下载和左右diff的排除不再作为这些增量的验收限制，编辑/上传等未扩展范围仍排除。具体已验证样本及未验证范围见相应assessment，不由done或closed推出全量PASS。
 
 
 ## [REQ-20260324-session-list-local-cache] Android 会话列表本地缓存与离线回显
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：Sessions首屏显示按server/auth上下文隔离的最近快照，然后远端刷新；失败保留并标cache态，成功更新；External复用既有本地store。不是离线CRUD/运行态权威，也不扩创建弹窗。
+
+现有进展：3月24–25日总结报告缓存存储、stale/refreshing状态、CRUD回写、generation防旧请求覆盖、view重建与cwd fallback收口，历史验收通过。
+
+剩余与核对：本次没有全设备/多帐号切换的新回归；缓存态持续不等于真实在线能力，不能据此认定实时Codex或离线操作完成。
 
 既有依据：[docs/product/requirements/REQ-20260324-session-list-local-cache.md](../../docs/product/requirements/REQ-20260324-session-list-local-cache.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -2382,6 +2430,12 @@
 ## [REQ-20260326-android-profile-mtls-runtime-certificate] Android Profile 级 mTLS 运行时证书选择
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：Profile级.p12/.pfx私有复制及加密口令、Settings导入/替换/移除、共享解析缓存，WebView/原生API统一证书；升级缺证书挂起态可见、有效证书移除关闭开关、清理残留。Server直连HTTP/WS统一TLS/mTLS；禁止build-time assets fallback。
+
+现有进展：3月26–28日总结报告Android存储/交互/共享解析、服务端监听/安全门禁及直连IP真机联合验证交付。未来透明Relay必须保持目标证书身份；这项已交付不等于Relay产品已实现。
+
+剩余与核对：原文“透明中继不改字段”只在目标身份不变的条件成立，新增relay ingress需独立发现契约，不能概括成任意Relay均兼容。当前证书过期/厂商/provider组合未重跑；历史device通过不代表所有安全负例覆盖。
 
 既有依据：[docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md](../../docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -2610,6 +2664,12 @@
 ## [REQ-20260329-language-normalization] 基于系统语言的应用语言自动适配与 i18n 框架建设
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：Web语言包与Android资源跟随系统语言；中文族归一简中，其余英文；原生/WebView一致、语言key对称及可注册扩展。排除手动切换UI、服务端错误、RTL/格式化、终端输出翻译。
+
+现有进展：3月29–30日总结报告框架、Web字符串迁移、Android资源与locale桥接、完整性及扩展性验证交付，历史结果PASS。
+
+剩余与核对：不把3月首次完整语言包声明扩成后续新增页面的零硬编码保证；当前原生Codex/工作区增量的全UI语言覆盖未逐项检查。
 
 既有依据：[docs/product/requirements/REQ-20260329-language-normalization.md](../../docs/product/requirements/REQ-20260329-language-normalization.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -2843,6 +2903,12 @@
 
 ### 需求内容
 
+本次业务归纳（2026-10-10）：独立原生CodexActivity、协议/wire/domain/UI分层、聊天/slash/mention/审批/计划/工具/用量/图片、恢复/通知/安全区/overlay；多CLI只预留adapter/capability边界，不交付Claude/Copilot；终端WebView不替换。
+
+现有进展：4月9日CR 6aff0fb报告默认原生+受控WebView回退、Huawei消息/HOME恢复/弱网重试/通知及构建通过；4月11日后续CR进一步报告旧Codex用户入口、toggle和fallback移除及launcher/settings/sessions真机回归；REQ后续记载安全区、overlay和设置可读性收口。
+
+剩余与核对：4月9日报告保留回退，4月11日REQ/CR正式移除，PRODUCT概述仍写“可选清理”，不能视为同时可达。后续移除CR仍draft/TBD，但有明确运行验证报告，不因此全部标未知；尚未追到该增量准确提交。其他CLI真实接入属于排除/候选。
+
 既有依据：[docs/product/requirements/REQ-20260408-codex-native-android-migration.md](../../docs/product/requirements/REQ-20260408-codex-native-android-migration.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
 > ---> 
@@ -3066,6 +3132,12 @@
 ## [REQ-20260413-relay-control-plane-and-transparent-transit] Relay 控制平面与透明中转模式
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：私网connector出站、Console/MFA、独立admin/app_client/connector、inventory发布与短时ticket、Android认领/发现；只承载sessions+terminal组合服务，relay ingress/target identity分离，不终止TLS，不扩workspace/Codex/external web。保留单组织单管理员及未来独立子系统/版本/审计/撤销边界。
+
+现有进展：4月15日冻结PLAN明确8项治理/主体/ticket/状态边界/Android接入/绑定缓存/认领发现/兼容审计尚未开始实现；文档冻结已有成果，产品实现none-reported是该计划的报告范围，不是全仓代码不存在的证明。
+
+剩余与核对：后续实施批次与部署验收没有取得。本轮只将现有局部安排转为可展示work_items，不采纳新的实施顺序或启动任务。完整原文的ticket携带位置与端到端透明TLS仍须在实施设计中核实具体可行方案；不能凭设计采用标交付。
 
 既有依据：[docs/product/requirements/REQ-20260413-relay-control-plane-and-transparent-transit.md](../../docs/product/requirements/REQ-20260413-relay-control-plane-and-transparent-transit.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -3862,6 +3934,12 @@
 
 ### 需求内容
 
+本次业务归纳（2026-10-10）：11组问题：中断/进行中通知/完成提醒、两行header/返回最新/slash、历史线程/弱网补回、reopen session复用、当前transcript完整、图片/文件picker分流；不扩大整体UI/通知中心/协议重构。
+
+现有进展：REQ具体记录首8项三批实现、Android测试/debug构建、Huawei历史线程ID不变与断Wi-Fi第5→60行回补。4月18日CR 527bad77进一步覆盖2.9/2.10/2.11与空threadId归一，给出Huawei OK对话及picker证据；本轮只读确认该commit对象存在。
+
+剩余与核对：原REQ称“只待回填commit_ref”，但2.9–2.11已有真实提交；尚未逐一核对其余CR收尾，不自动改REQ为done。4月回补以idle/turn完成thread/read为历史实现，在healthy IPC路径须服从AD-004后来禁止第二实时权威的规则，不能按旧方案再执行。
+
 既有依据：[docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md](../../docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
 > ---> 
@@ -4039,6 +4117,12 @@
 ## [REQ-20260516-codex-mobile-realtime-sync] Codex 手机端与 CLI / 桌面端实时同步
 
 ### 需求内容
+
+本次业务归纳（2026-10-10）：同conversation消息、operation、turn运行态与重连连续性；App所有通信经gateway，follower acquire/desired subscription/reconnect replay/owner定向surface是唯一healthy实时链。只在offline/desynced/本订阅缺目标surface有界canonical恢复；同profile/后端，不承诺跨账号/云协作。
+
+现有进展：6月29–7月15日历史Task归档摘要和最终记录报告Desktop/VSCode→TermLink→Android实时surface、A/B隔离、绑定、owner fallback及真实approval/PLAN闭环，Node149/149和Android JVM通过；有用户确认同步可用记录。该来源读取限目标/归档摘要与后段交付证据，不宣称整份长日志审阅。
+
+剩余与核对：原5月REQ拟定hydrate+ThreadHub方案与当前IPC freeze已演进，旧技术方案不作为新入口。AD-004 7月31日已明确撤回external owner Goal启动/继续语义控制承诺：external只能observer/interrupt等宿主真实支持动作，TermLink writer才有Goal语义控制。后续single-authority paused包仍有B4R实机/B5/P0-C/P1缺口，不以7月归档判全需求完成。
 
 既有依据：[docs/product/requirements/REQ-20260516-codex-mobile-realtime-sync.md](../../docs/product/requirements/REQ-20260516-codex-mobile-realtime-sync.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -4589,6 +4673,12 @@
 
 ### 需求内容
 
+本次业务归纳（2026-10-10）：Debian/Ubuntu systemd amd64/arm64交互/非交互/dry-run、versioned安装/升级回滚、HTTP/direct/Nginx mTLS证书交付与真实semver tag Release；排除非systemd、容器、自动root/elevated及Windows重构。
+
+现有进展：7月15日PLAN P1–P4和CR 20398215报告bootstrap/wizard/FHS事务/证书/Nginx/release workflow已实现；33/33定向、dry-run、OpenSSL验证、tar/checksum等本地门禁通过。本轮只读确认CR commit对象存在。5月跨平台安装器是先前基线，不能替代7月新增wizard验收。
+
+剩余与核对：P5明确保留Debian/Ubuntu实际systemd/Nginx、arm64与真实tag Release smoke未做；原验收只引用可变CURRENT_TASK，应以现有REQ+PLAN+CR的稳定范围解释，完整原矩阵仍缺。既有本地结果保留，不能称已发布。
+
 既有依据：[docs/product/requirements/REQ-20260715-linux-interactive-release-installer.md](../../docs/product/requirements/REQ-20260715-linux-interactive-release-installer.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
 > ---> 
@@ -4670,6 +4760,8 @@
 ## [REQ-20261005-codex-history-save-repair] 新对话、分支与委派消息历史保存修复
 
 ### 需求内容
+
+当前成果与安排（2026-10-10）：三类N/C/A-D真实保存、手机正文/每类选定详情/重开均有范围化证据，H1/H3复用833；六步finished和closed不认定全需求完成。具体范围见所选assessment；历史work_items见[ARRANGEMENTS](ARRANGEMENTS.md)。
 
 既有依据：[docs/product/requirements/REQ-20261005-codex-history-save-repair.md](../../docs/product/requirements/REQ-20261005-codex-history-save-repair.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
@@ -4757,6 +4849,8 @@
 
 ### 需求内容
 
+当前成果与安排（2026-10-10）：H1正常增长及H3真实委派身份/正文最小兼容已有Rust-first/Node隔离43/43成果，真实手机验收由832另列；原PLAN里的832 active/focus返回已过时。具体范围见所选assessment；历史work_items见[ARRANGEMENTS](ARRANGEMENTS.md)。
+
 既有依据：[docs/product/requirements/REQ-20261005-codex-history-shared-compat.md](../../docs/product/requirements/REQ-20261005-codex-history-shared-compat.md)。原有ID、状态、范围、验收、方案、约束、历史补充和未核验报告全部保留在下面的完整原文引用中；不按旧状态断定当前完成。
 
 > ---
@@ -4832,3 +4926,115 @@
 ### 验收要求
 
 沿用完整原文验收/测试/发布条件及明确的后续范围决定；缺少稳定验收出处的项见PROJECT M06。交付和验证请读取所选assessment，不由done、closed、计划finished或成功写入推出PASS。
+
+## [REQ-TERMLINK-CORE-TERMINAL] 远程终端与会话核心基线
+
+### 需求内容
+
+WebSocket input/output/resize、会话list/create/delete/rename、独立浏览器与Android访问、触控输入/断连状态、服务重启元数据恢复，继续保持BasicAuth/按配置mTLS与安全发布检查。刷新已有终端复用有效session、真正无session首入才创建，来源于6月18日既有明确目标。
+
+### 范围边界
+
+当前终端仍是原生Android壳+WebView，原生Codex不表示终端也已迁移。PTY进程重启连续性不承诺；断联保留的具体TTL见已有REQ03。
+
+### 验收要求
+
+原P0低延迟/稳定输出没有具体数值KPI；按既有input/output/resize、session隔离及重连/元数据行为验收。已存在产品基线及6月刷新修复目标，不新增指标。
+
+来源保留：[docs/product/PRODUCT_REQUIREMENTS.md](../../docs/product/PRODUCT_REQUIREMENTS.md)；[docs/architecture/CURRENT_STATE.md](../../docs/architecture/CURRENT_STATE.md)；[TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md](../../TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md)。原文没有更改；完整范围/历史限定以这些定位及原始记录为依据。
+
+## [REQ-TERMLINK-RELEASE-BASELINE] 跨平台发行安装与证书工具基线
+
+### 需求内容
+
+Windows/Linux解压安装、配置自启/健康结果，源码release build和direct/Nginx mTLS证书工具，缺OpenSSL明确失败。5月既有用户目标纳管，7月Linux交互增强仍归原REQ17。
+
+### 范围边界
+
+Windows PM2 fork，Linux正式systemd；不改session/workspace/Android/Codex，证书私钥不进release。7月Windows x64 Setup/Portable验收缺口只从后继task保留来源，原Windows任务包未取得，不虚构task ID。
+
+### 验收要求
+
+release清单/包、安装配置/目录/健康输出、自启与目标主机证据；成功打包不等于clean host或实际Release发布。
+
+来源保留：[TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md](../../TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md)；[TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md](../../TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md)。原文没有更改；完整范围/历史限定以这些定位及原始记录为依据。
+
+## [REQ-TERMLINK-WEB-UX] 浏览器安全登录与终端交互体验
+
+### 需求内容
+
+安全网页登录、配置/会话分组反馈、terminal-first响应式布局、键盘/触控/focus/resize/reconnect、无障碍标签/对比度/reduced-motion。登录cookie短期HttpOnly/SameSite Strict、HTTPS Secure、登出撤销，不持久密码到localStorage/URL/日志。
+
+### 范围边界
+
+Basic Authorization/API401/Auth关闭/一次WS ticket/session/workspace/terminal envelope兼容；不引入前端框架、远程运行依赖，不改Android、release/数据库或Codex IPC语义。
+
+### 验收要求
+
+既有task验收完整10项继续以源包为依据，布局控制台与状态反馈和安全cookie行为均需可操作。
+
+来源保留：[TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md](../../TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md)。原文没有更改；完整范围/历史限定以这些定位及原始记录为依据。
+
+## [REQ-TERMLINK-DIAGNOSTICS] 持久诊断日志与问题取证
+
+### 需求内容
+
+Android/WebView/Node结构化滚动日志跨APK更新保留，异常/watchdog/Activity/WS/Service/Sessions/IPC/通知事件，采集manifest+原始log+timeline。Debug/本地dev默认开，Release/生产显式开；Android约10MiB、Node约50MiB。
+
+### 范围边界
+
+日志失败fail-open，不改业务或IPC authority；不记录prompt/命令/终端正文/附件/认证证书密码。取证不是修复当时九类问题。
+
+### 验收要求
+
+滚动容量、跨install-r更新保留、采集输出完整，正常业务不被日志失败阻断。
+
+来源保留：[TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md](../../TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md)。原文没有更改；完整范围/历史限定以这些定位及原始记录为依据。
+
+## [REQ-TERMLINK-HISTORY-PIPELINE] Codex只读产品历史与详情持久链路
+
+### 需求内容
+
+外部Codex只读source→Rust自有事件→单例Node durable staging/正ACK→validated canonical事务→鉴权history provider→Android持久缓存/ACK/重开；保留真实业务path/cwd/命令/工具内容、隔离内部diagnostics/cursor/source元数据；tail/older/详情分块与选择隔离。此身份收纳原来只有设计/任务的明确产品义务，不生成新业务立项。
+
+### 范围边界
+
+原source不受TermLink控制；正常resend child沿history_base，Branch独立conversation不能猜parent；三种analyze mode，Node不提交path/catalog；Rust/Node隔离基础层不等于产品集成。healthyIPC掌管实时，history只静态基线/更旧前缀，预算/partial/unknown/fail-closed不放宽；不清库。
+
+### 验收要求
+
+分层证据分别取Rust ACK、产品COMMIT/publication、App durable ACK和同conversation/item可見/重开；自然append/resend/Branch、older/大详情复制/更新失效、迟到响应/A-B-A和重启各保留范围结果。Task005/831真实采纳plan是完整要求来源，非本轮创建。
+
+来源保留：[docs/codex/codex-rollout-collector-architecture.md](../../docs/codex/codex-rollout-collector-architecture.md)；[docs/codex/codex-history-product-contract.md](../../docs/codex/codex-history-product-contract.md)；[TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md](../../TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md)；[.workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json](../../.workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json)；[.workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json](../../.workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json)；[.workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json](../../.workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json)；[docs/product/history/maintenance-20261010/task-status-before.json](../../docs/product/history/maintenance-20261010/task-status-before.json)。原文没有更改；完整范围/历史限定以这些定位及原始记录为依据。
+
+## [REQ-TERMLINK-ENHANCEMENT-CANDIDATES] 未细化增强与多CLI候选范围
+
+### 需求内容
+
+总纲尚未独立细化的多设备/多profile体验、更细粒度审批与审计、高频快捷命令/工作流预设、主题与无障碍增强；多CLI真实Claude/Copilot接入当前迁移REQ只预留边界、排除实际实现。
+
+### 范围边界
+
+已交付审计/logger、快捷键、Web无障碍、主题局部UI继续按其实际范围展示，不能因候选列表全部抹去，也不能把局部交付视为候选全实现。
+
+### 验收要求
+
+候选缺具体行为/平台/验证矩阵及已确定实施顺序，后续需具体化；不自行新增验收KPI或自动采纳。
+
+来源保留：[docs/product/PRODUCT_REQUIREMENTS.md](../../docs/product/PRODUCT_REQUIREMENTS.md)；[docs/product/requirements/REQ-20260408-codex-native-android-migration.md](../../docs/product/requirements/REQ-20260408-codex-native-android-migration.md)。原文没有更改；完整范围/历史限定以这些定位及原始记录为依据。
+
+## [REQ-TERMLINK-HISTORY-BANNER] 历史打开时减少短暂校验提示
+
+### 需求内容
+
+可读缓存且healthy IPC已到达时，减少每次切换出现短暂“服务端历史校验并修复中”的干扰；延迟/弱提示/隐藏是原记录的候选方案，持续较久或实际恢复再明显提示。
+
+### 范围边界
+
+保留后台历史校验/缺口修复、IPC authority和触发恢复语义；这是独立UI候选，不是同步正确性缺陷。
+
+### 验收要求
+
+具体展示阈值/方案及用户体验验收尚未确认，不自动采用任一方案。
+
+来源保留：[TASKS/inbox/INBOX-20260807-001-codex-history-sync-banner-ux.md](../../TASKS/inbox/INBOX-20260807-001-codex-history-sync-banner-ux.md)。原文没有更改；完整范围/历史限定以这些定位及原始记录为依据。

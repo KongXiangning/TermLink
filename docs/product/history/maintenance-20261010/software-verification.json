@@ -1,0 +1,40 @@
+{
+  "version": "0.24.5",
+  "manifest_digest": "8095e7a32dd0a5adc8a89c89da188b831cf55fcdce143a5e07b3835c53acee59",
+  "built_manifest_digest": "8095e7a32dd0a5adc8a89c89da188b831cf55fcdce143a5e07b3835c53acee59",
+  "installed_payload_differences": [],
+  "glob_behavior": [
+    {
+      "selected": "docs/dist/P*.md",
+      "excluded": [
+        "docs/dist/*.md"
+      ],
+      "exit": 0,
+      "complete": true,
+      "omitted": [],
+      "expected_complete": true
+    },
+    {
+      "selected": "docs/dist/P*.md",
+      "excluded": [
+        "docs/dist/P*.md"
+      ],
+      "exit": 0,
+      "complete": true,
+      "omitted": [],
+      "expected_complete": true
+    },
+    {
+      "selected": "docs/dist/P*.md",
+      "excluded": [
+        "docs/dist/PLAN.md"
+      ],
+      "exit": 1,
+      "complete": false,
+      "omitted": [
+        "docs/dist"
+      ],
+      "expected_complete": false
+    }
+  ]
+}

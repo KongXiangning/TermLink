@@ -1,0 +1,1017 @@
+{
+  "checked_at": "2026-10-10",
+  "worktree": "E:/coding/TermLink-rust-source-resolution-codex",
+  "helper_status": "available",
+  "check_status": "checked",
+  "coverage": {
+    "complete": true,
+    "files_read": 7,
+    "bytes_read": 757021,
+    "enumeration": "managed_paths only; sources are read only by explicit reference",
+    "omitted": [],
+    "paths": [
+      "docs/product/PROJECT.md",
+      "docs/product/GOALS.md",
+      "docs/product/MANAGED_REQUIREMENTS.md",
+      "docs/product/DESIGN_REGISTER.md",
+      "docs/product/DELIVERY_RECONCILIATION.md",
+      "docs/product/ARRANGEMENTS.md",
+      "docs/product/HISTORY_CHANGES.md"
+    ],
+    "excluded_paths": [],
+    "max_files": 1000,
+    "max_file_bytes": 4194304,
+    "max_total_bytes": 33554432,
+    "usable_count": 72,
+    "invalid_count": 0,
+    "selection": "all-enumerated-items",
+    "source_bodies": "not-read"
+  },
+  "original_quotes": [
+    {
+      "id": "REQ-20260222-doc-governance",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260222-server-admin-privilege-mode",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260222-session-retention-reconnect",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260223-shortcut-keyboard-modifier-newline",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260224-android-external-web-terminal-profile-sessions",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260224-screen-keep-awake",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260306-codex-app-repair-plan",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260309-codex-capability-mvp",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260318-ws-0001-docs-exp",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260324-session-list-local-cache",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260326-android-profile-mtls-runtime-certificate",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260329-language-normalization",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260408-codex-native-android-migration",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260413-relay-control-plane-and-transparent-transit",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260415-codex-android-runtime-interaction-fixes",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260516-codex-mobile-realtime-sync",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20260715-linux-interactive-release-installer",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20261005-codex-history-save-repair",
+      "preserved": true
+    },
+    {
+      "id": "REQ-20261005-codex-history-shared-compat",
+      "preserved": true
+    },
+    {
+      "id": "PROJECT-TERMLINK",
+      "preserved": true
+    }
+  ],
+  "original_source_files_changed": [],
+  "journal_before": "c126a6a4e52fee4c3a93d02e1d387a95b89f6c3649929e7a890f4866d58dd6b2",
+  "journal_after": "c126a6a4e52fee4c3a93d02e1d387a95b89f6c3649929e7a890f4866d58dd6b2",
+  "journal_unchanged": true,
+  "current_task_id": null,
+  "task_lifecycle_unchanged": true,
+  "tracked_diff": [
+    ".workflow-system/PRODUCT.yaml",
+    "docs/product/DELIVERY_RECONCILIATION.md",
+    "docs/product/DESIGN_REGISTER.md",
+    "docs/product/GOALS.md",
+    "docs/product/MANAGED_REQUIREMENTS.md",
+    "docs/product/PROJECT.md"
+  ],
+  "unexpected_tracked_diff": [],
+  "diff_check_exit": 0,
+  "diagnostics": [
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-01",
+      "line": 42
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-02",
+      "line": 63
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-03",
+      "line": 86
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-04",
+      "line": 111
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-07",
+      "line": 178
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-08",
+      "line": 199
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-09",
+      "line": 222
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-10",
+      "line": 245
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-11",
+      "line": 266
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-12",
+      "line": 287
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-13",
+      "line": 308
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-14",
+      "line": 332
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-15",
+      "line": 353
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-16",
+      "line": 374
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-18",
+      "line": 420
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-19",
+      "line": 448
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-SCREEN-PREFERENCE: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-20260224-screen-keep-awake",
+      "line": 1222
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-MOBILE-FILES-OPEN: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-20260309-codex-capability-mvp",
+      "line": 1772
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-WORKSPACE-REWRITE: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-20260318-ws-0001-docs-exp",
+      "line": 2383
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-WORKSPACE-READING: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-20260318-ws-0001-docs-exp",
+      "line": 2383
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-NATIVE-VISUAL-REFRESH: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-20260408-codex-native-android-migration",
+      "line": 4710
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-IPC-DEMO-PARITY: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-20260516-codex-mobile-realtime-sync",
+      "line": 7050
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-IPC-SINGLE-AUTHORITY-PAUSED: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-20260516-codex-mobile-realtime-sync",
+      "line": 7050
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-REQ-TERMLINK-RELEASE-BASELINE: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-TERMLINK-RELEASE-BASELINE",
+      "line": 7944
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-REQ-TERMLINK-WEB-UX: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-TERMLINK-WEB-UX",
+      "line": 7960
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-REQ-TERMLINK-DIAGNOSTICS: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-TERMLINK-DIAGNOSTICS",
+      "line": 7976
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-RUST45-ARCHIVE: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-TERMLINK-HISTORY-PIPELINE",
+      "line": 7992
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-NODE45-ARCHIVE: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-TERMLINK-HISTORY-PIPELINE",
+      "line": 7992
+    }
+  ],
+  "task_bindings": [
+    {
+      "id": "REQ-20260224-screen-keep-awake",
+      "bindings": [
+        {
+          "id": "BIND-SCREEN-PREFERENCE",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260726-001-android-foreground-screen-timeout.md",
+              "sha256": "d26e314d468675ed57e1b845d4b3748e0ec8c50e608d8d72e67203be3432937b"
+            },
+            "label": "20260726-001；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "7月新增全App前台息屏偏好“跟随系统/30秒至10分钟”，覆盖4Activity；单测/构建通过，实机定时等待未做，区别于2月固定2分钟。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260726-001-android-foreground-screen-timeout.md",
+              "sha256": "d26e314d468675ed57e1b845d4b3748e0ec8c50e608d8d72e67203be3432937b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-20260309-codex-capability-mvp",
+      "bindings": [
+        {
+          "id": "BIND-MOBILE-FILES-OPEN",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260722-002-android-codex-open-conversation-files.md",
+              "sha256": "f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561"
+            },
+            "label": "20260722-002；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "历史图片/文件提及/Markdown文件点击打开、配置恢复/Doze通知/命令批次及文本选择后续；报告Huawei验证，保留交叉宿主长任务观察。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260722-002-android-codex-open-conversation-files.md",
+              "sha256": "f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-20260318-ws-0001-docs-exp",
+      "bindings": [
+        {
+          "id": "BIND-WORKSPACE-REWRITE",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md",
+              "sha256": "7876e5f9602c8318bd88243784d4008ce430dce6e33c10056efecf84280ae612"
+            },
+            "label": "20260718-003；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "7月只读文档工作区增量：搜索、Markdown/图片/PDF、HEAD/双文件比较、Android只读缓存/系统打开；超出3月text-only范围，保持越界与只读安全。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md",
+              "sha256": "7876e5f9602c8318bd88243784d4008ce430dce6e33c10056efecf84280ae612"
+            }
+          ]
+        },
+        {
+          "id": "BIND-WORKSPACE-READING",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md",
+              "sha256": "519c2e36353d8847f818346a48baccd6e567ffa8da770b0d6ac3cf58bde5a1b8"
+            },
+            "label": "20260719-001；历史身份未映射为当前journal ID"
+          },
+          "role": "repair",
+          "coverage": "移动Markdown/源码字号、长路径换行与局部滚动，报告浏览器/真机验证；不重建API。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md",
+              "sha256": "519c2e36353d8847f818346a48baccd6e567ffa8da770b0d6ac3cf58bde5a1b8"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-20260408-codex-native-android-migration",
+      "bindings": [
+        {
+          "id": "BIND-NATIVE-VISUAL-REFRESH",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md",
+              "sha256": "9fbe84e353de05a2c6a922c71039338e315b4083dd9009050dce87ce58dd6f0a"
+            },
+            "label": "20260718-002；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "7月原生header/Goal/Plan/composer/弹层、真实模型推理权限目录和状态栏收口；active Goal/Plan/Skills部分动态态缺真机视觉覆盖。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md",
+              "sha256": "9fbe84e353de05a2c6a922c71039338e315b4083dd9009050dce87ce58dd6f0a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-20260516-codex-mobile-realtime-sync",
+      "bindings": [
+        {
+          "id": "BIND-IPC-DEMO-PARITY",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260629-001-server-android-codex-realtime-sync-demo-parity.md",
+              "sha256": "b00bb71d368ab50b0cd04403e587a7cae7d266533edebb9b909e76b9fdd55112"
+            },
+            "label": "20260629-001；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "Desktop/VSCode owner surface跟随、绑定/A-B隔离、owner fallback及approval/PLAN历史闭环；external Goal旧声明后被AD-004撤回。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260629-001-server-android-codex-realtime-sync-demo-parity.md",
+              "sha256": "b00bb71d368ab50b0cd04403e587a7cae7d266533edebb9b909e76b9fdd55112"
+            },
+            {
+              "kind": "file",
+              "path": "docs/workflow/DECISIONS.md",
+              "sha256": "747236c53ae0ee5450b0cdfd8e2b69eb2de83758a1b61cccc5b4742000f985fd"
+            }
+          ]
+        },
+        {
+          "id": "BIND-IPC-SINGLE-AUTHORITY-PAUSED",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md",
+              "sha256": "b4ce7320e3baeeeef168847c6dc07f7d6e5d4f1f198907e08b8d6a616a76195b"
+            },
+            "label": "20260727-002；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "P0-A/B单权威及历史缓存/恢复；paused包的B4R A-B-A、B5/P0-C/P1仍未据本轮证明完成，仅读包头与恢复快照目标/验收。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "依据已读任务实际目标/交付范围补历史关联；不是新任务、执行授权或需求完成证明。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md",
+              "sha256": "b4ce7320e3baeeeef168847c6dc07f7d6e5d4f1f198907e08b8d6a616a76195b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-20261005-codex-history-save-repair",
+      "bindings": [
+        {
+          "id": "BIND-TASK-20260832",
+          "task": {
+            "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+            "source": {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json",
+              "sha256": "7ad1ade16edf685faf79fb5dc40685ea5c084c4ef0346252ea8afaf85c56bb59"
+            },
+            "label": "TASK-20260832",
+            "plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json"
+          },
+          "role": "repair",
+          "coverage": "H1/H2/H3三类真实历史保存、手机切换重开与选定工具详情；具体排除和未验项见原记录。",
+          "origin": "declared",
+          "state": "active",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "docs/product/requirements/REQ-20261005-codex-history-save-repair.md",
+              "sha256": "1f70555e698e229fbde42b99eae9bc5a3256bc30f48a019f6381d64f736168ba"
+            },
+            {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json",
+              "sha256": "7ad1ade16edf685faf79fb5dc40685ea5c084c4ef0346252ea8afaf85c56bb59"
+            }
+          ],
+          "plan_items": [
+            {
+              "plan_id": "PLAN-20261005-codex-history-save-repair",
+              "work_item_id": "S1"
+            },
+            {
+              "plan_id": "PLAN-20261005-codex-history-save-repair",
+              "work_item_id": "S2"
+            },
+            {
+              "plan_id": "PLAN-20261005-codex-history-save-repair",
+              "work_item_id": "S3"
+            },
+            {
+              "plan_id": "PLAN-20261005-codex-history-save-repair",
+              "work_item_id": "S4"
+            },
+            {
+              "plan_id": "PLAN-20261005-codex-history-save-repair",
+              "work_item_id": "S5"
+            },
+            {
+              "plan_id": "PLAN-20261005-codex-history-save-repair",
+              "work_item_id": "S6"
+            }
+          ]
+        },
+        {
+          "id": "BIND-SHARED-833-TO-SAVE-REPAIR",
+          "task": {
+            "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+            "source": {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+              "sha256": "2eac783a4cd98a8de297c143ec19ec7ddcbae3a533e97f0e404a327e099bf2ab"
+            },
+            "label": "TASK-20260833 委派输入与正常历史增长的最小共享兼容修复（Rust契约先行）",
+            "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json"
+          },
+          "role": "implementation",
+          "coverage": "832 H1正常历史增长与H3委派输入共享Rust/Node兼容及隔离产品保存；H2分支定位与自然宿主/手机验收仍归832，不将833隔离PASS替代。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "真实833采纳plan明确独立共享范围并交回832，832进度/关闭正文明确复用H1/H3；不创建新任务或改生命周期。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+              "sha256": "2eac783a4cd98a8de297c143ec19ec7ddcbae3a533e97f0e404a327e099bf2ab"
+            },
+            {
+              "kind": "file",
+              "path": "docs/product/plans/PLAN-20261005-codex-history-save-repair.md",
+              "sha256": "71bfeca65adecf5b828707dbb8a49e930ce1ef6f571f535439c6299a308d7cbb"
+            }
+          ],
+          "plan_items": [
+            {
+              "plan_id": "PLAN-20261005-codex-history-save-repair",
+              "work_item_id": "S4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-20261005-codex-history-shared-compat",
+      "bindings": [
+        {
+          "id": "BIND-TASK-20260833",
+          "task": {
+            "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+            "source": {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json",
+              "sha256": "2ff52d93fc480911b12401674a8e790c5e5d07f47d5f3f408d6d9f414ddb9348"
+            },
+            "label": "TASK-20260833",
+            "plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json"
+          },
+          "role": "repair",
+          "coverage": "H1/H3共享兼容的隔离Rust/Node/产品事务/provider验证，真实宿主/手机归832。",
+          "origin": "declared",
+          "state": "active",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "docs/product/requirements/REQ-20261005-codex-history-shared-compat.md",
+              "sha256": "eb093d22edfe6ad18a52ccf88a4f918cad3915cd94126f92b09aacc895025bdb"
+            },
+            {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json",
+              "sha256": "2ff52d93fc480911b12401674a8e790c5e5d07f47d5f3f408d6d9f414ddb9348"
+            }
+          ],
+          "plan_items": [
+            {
+              "plan_id": "PLAN-20261005-codex-history-shared-compat",
+              "work_item_id": "S1"
+            },
+            {
+              "plan_id": "PLAN-20261005-codex-history-shared-compat",
+              "work_item_id": "S2"
+            },
+            {
+              "plan_id": "PLAN-20261005-codex-history-shared-compat",
+              "work_item_id": "S3"
+            },
+            {
+              "plan_id": "PLAN-20261005-codex-history-shared-compat",
+              "work_item_id": "S4"
+            },
+            {
+              "plan_id": "PLAN-20261005-codex-history-shared-compat",
+              "work_item_id": "S5"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-TERMLINK-RELEASE-BASELINE",
+      "bindings": [
+        {
+          "id": "BIND-REQ-TERMLINK-RELEASE-BASELINE",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md",
+              "sha256": "4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a"
+            },
+            "label": "TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "Windows/Linux解压安装、配置自启/健康结果，源码release build和direct/Nginx mTLS证书工具，缺OpenSSL明确失败。5月既有用户目标纳管，7月Linux交互增强仍归原REQ17。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "来源明确记载原始任务目标与实际结果；不猜当前稳定task_id。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md",
+              "sha256": "4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a"
+            },
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md",
+              "sha256": "0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-TERMLINK-WEB-UX",
+      "bindings": [
+        {
+          "id": "BIND-REQ-TERMLINK-WEB-UX",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md",
+              "sha256": "0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"
+            },
+            "label": "TASK-20260715-002-web-ui-layout-and-terminal-ux；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "安全网页登录、配置/会话分组反馈、terminal-first响应式布局、键盘/触控/focus/resize/reconnect、无障碍标签/对比度/reduced-motion。登录cookie短期HttpOnly/SameSite Strict、HTTPS Secure、登出撤销，不持久密码到localStorage/URL/日志。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "来源明确记载原始任务目标与实际结果；不猜当前稳定task_id。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md",
+              "sha256": "0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-TERMLINK-DIAGNOSTICS",
+      "bindings": [
+        {
+          "id": "BIND-REQ-TERMLINK-DIAGNOSTICS",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md",
+              "sha256": "dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857"
+            },
+            "label": "TASK-20260726-002-persistent-diagnostics-for-known-issues；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "Android/WebView/Node结构化滚动日志跨APK更新保留，异常/watchdog/Activity/WS/Service/Sessions/IPC/通知事件，采集manifest+原始log+timeline。Debug/本地dev默认开，Release/生产显式开；Android约10MiB、Node约50MiB。",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "来源明确记载原始任务目标与实际结果；不猜当前稳定task_id。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md",
+              "sha256": "dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-TERMLINK-HISTORY-PIPELINE",
+      "bindings": [
+        {
+          "id": "BIND-HISTORY-TASK-004",
+          "task": {
+            "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+            "source": {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json"
+            },
+            "label": "TASK-004 task-003-rust-node"
+          },
+          "role": "implementation",
+          "coverage": "Node产品历史/持久与API阶段；仅journal title与关闭保留事项，不将旧TASK003数字冒认TASK004",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "当前task-status稳定ID与真实采纳plan/关闭事项范围核对，保留实际业务覆盖。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "docs/product/history/maintenance-20261010/task-status-before.json",
+              "sha256": "1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"
+            }
+          ]
+        },
+        {
+          "id": "BIND-HISTORY-TASK-005",
+          "task": {
+            "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+            "source": {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"
+            },
+            "label": "TASK-005 Android App 产品历史只读接入与真实纵向 E2E",
+            "plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json"
+          },
+          "role": "implementation",
+          "coverage": "Android产品页/详情与缓存接入、诊断隔离、真实首屏；关闭仍保留older/append/竞态等未核验",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "当前task-status稳定ID与真实采纳plan/关闭事项范围核对，保留实际业务覆盖。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "docs/product/history/maintenance-20261010/task-status-before.json",
+              "sha256": "1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"
+            },
+            {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+              "sha256": "075a9a9f858346df696ec721bdad022ba743e1f3b970190e9d10f58ab2f6b23a"
+            }
+          ]
+        },
+        {
+          "id": "BIND-HISTORY-TASK-20260831",
+          "task": {
+            "task_id": "task-25654b249109f357a559899562804c15",
+            "source": {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json"
+            },
+            "label": "TASK-20260831 Codex 历史全链路 E2E 补齐验证（默认不改源码）",
+            "plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json"
+          },
+          "role": "verification",
+          "coverage": "E01–E12全链E2E调查；主链及多矩阵仍partial",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "当前task-status稳定ID与真实采纳plan/关闭事项范围核对，保留实际业务覆盖。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "docs/product/history/maintenance-20261010/task-status-before.json",
+              "sha256": "1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"
+            },
+            {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+              "sha256": "94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d"
+            }
+          ]
+        },
+        {
+          "id": "BIND-HISTORY-TASK-20260830",
+          "task": {
+            "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+            "source": {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+            },
+            "label": "TASK-20260830 Rust rollout 兼容修复：token_usage_record 与 developer 消息",
+            "plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json"
+          },
+          "role": "implementation",
+          "coverage": "Rust token_usage_record/developer typed兼容及隐藏内容保护；不是Node/App验收",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "当前task-status稳定ID与真实采纳plan/关闭事项范围核对，保留实际业务覆盖。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "docs/product/history/maintenance-20261010/task-status-before.json",
+              "sha256": "1e64123d7331b22e55703f505bafcb7aab40203a62f07058c136c342a2176dba"
+            },
+            {
+              "kind": "file",
+              "path": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+              "sha256": "dd20d1ed1bf530167a90eeecd9df86e2d8ffe396b413aaba178d8ac8022736c0"
+            }
+          ]
+        },
+        {
+          "id": "BIND-RUST45-ARCHIVE",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md",
+              "sha256": "9bed4e46068be314cc8218ddb4fea3b5a40f2f293f91f4e2efb623d03a1d5fb9"
+            },
+            "label": "TASK-20260826-001-codex-collector-phase45-rust-protocol-migration；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "4.5隔离Rust/Node target artifact，产品DB/App/IPC/发布排除；不据归档推产品集成",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "已读归档目标、范围和交付层级；Runtime身份未核验。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md",
+              "sha256": "9bed4e46068be314cc8218ddb4fea3b5a40f2f293f91f4e2efb623d03a1d5fb9"
+            }
+          ]
+        },
+        {
+          "id": "BIND-NODE45-ARCHIVE",
+          "task": {
+            "task_id": null,
+            "source": {
+              "kind": "file",
+              "path": "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md",
+              "sha256": "4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d"
+            },
+            "label": "TASK-20260828-001-codex-node-analyzer-phase45-migration；历史身份未映射为当前journal ID"
+          },
+          "role": "implementation",
+          "coverage": "4.5隔离Rust/Node target artifact，产品DB/App/IPC/发布排除；不据归档推产品集成",
+          "origin": "inferred",
+          "state": "active",
+          "reason": "已读归档目标、范围和交付层级；Runtime身份未核验。",
+          "sources": [
+            {
+              "kind": "file",
+              "path": "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md",
+              "sha256": "4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "plan_order": [
+    {
+      "id": "PLAN-20260415-relay-control-plane-refactor-freeze",
+      "intent": "adopted",
+      "order": [
+        "RELAY-GOVERNANCE",
+        "RELAY-SUBJECTS",
+        "RELAY-TICKET",
+        "RELAY-STATE",
+        "RELAY-ANDROID-ENTRY",
+        "RELAY-BINDING-CACHE",
+        "RELAY-CLAIM-DISCOVERY",
+        "RELAY-COMPAT-AUDIT"
+      ]
+    },
+    {
+      "id": "PLAN-20260715-linux-interactive-release-installer",
+      "intent": "adopted",
+      "order": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5"
+      ]
+    },
+    {
+      "id": "PLAN-20261005-codex-history-save-repair",
+      "intent": "adopted",
+      "order": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S6"
+      ]
+    },
+    {
+      "id": "PLAN-20261005-codex-history-shared-compat",
+      "intent": "adopted",
+      "order": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    }
+  ],
+  "final_entry_readback": {
+    "path": "docs/product/PROJECT.md",
+    "sha256": "0ea91b81f41602f025c02d79e7b4012723fe0001365aefcfbe05b71a4af73457",
+    "overview_at_top": true,
+    "check_status": "checked"
+  }
+}
