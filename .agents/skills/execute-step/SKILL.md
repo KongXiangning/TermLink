@@ -160,6 +160,14 @@ fresh task-status route. Never present a failed or unrecorded finish as finished
 
 ## Result
 
+When enabled product maintenance and existing authorization cover the related
+scope, use maintain-project references/reconcile.md to incorporate actual new
+execution/test sources into the selected delivery assessment or pending_sources.
+Read actual scope and subjects; unchanged requirement hash and task disposition
+are not verification. Report document/task-operation results separately. Deferred
+or failed maintenance does not prevent authorized implementation, Git, step
+disposition, closure or stopping. Read-only requests only return pending locators.
+
 Return the actual requested result, affected scope, evidence/record references,
 remaining work and any unsaved/unreconciled data. Preserve existing user decisions
 and exclusions; an explicit read-only request remains read-only. A record's successful
@@ -173,3 +181,26 @@ advice, not permission or the only allowed next action. Do not invoke it solely
 because it was recommended or widen validation or external effects without authorization.
 
 terminal_boundary: public-entry-terminal/v1
+
+## Minimum sufficient new capture
+
+Keep already saved material by its fixed event/object ref and SHA256. For an existing
+material reused in this run, put its immutable identity in `evidence_refs` (with its role
+or purpose), and put only this run's required new output paths in `files`. The service
+verifies referenced bytes and keeps this run's association without reading the old live
+source again. Read the prior attachment manifest or snapshot result to obtain the real
+ref/digest; never invent a digest or use a mutable document pathname as historical identity.
+
+Do not routinely capture another complete task-status output or a growing bundle of all
+past reports. Prefer references to the retained plan/decision/baseline and a report for
+the actual current run. This is a selection convention, not permission to omit an explicitly
+requested full capture. If a cumulative report itself is required evidence, capture its
+complete current bytes; do not silently crop it, synthesize a delta, or relabel an old object.
+
+Different test runs, failures, user decisions and database before/after states remain
+separate observations with their actual provenance, even when content looks similar.
+Changed files, uncommitted intermediate states and new output must not reuse an old
+reference as if it described current bytes. Exact-byte CAS reuse does not merge run identity
+or imply current applicability. A missing or corrupt reference is an explicit evidence gap;
+retain that failure and the original observation rather than automatically capturing a
+new current file under the old identity.

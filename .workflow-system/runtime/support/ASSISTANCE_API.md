@@ -356,3 +356,195 @@ its structured result. Service failure also exits 1, with status=unavailable. A 
 exits 0 even with reported choices
 or reference gaps. No state/record is written for these commands. Do not write task git/record,
 refresh CURRENT_TASK, or recursively commit a new event merely to report the commit's own SHA.
+
+## Indexed lossless record archives
+
+`archive` changes physical representation only. It does not change task states, event
+bytes, IDs, parents, payload digests or CAS identities. It has no development gate and
+never runs automatically during installation, upgrade, task closure or Git checkpoint.
+The installed module uses native Node built-ins. Existing old Runtime versions and
+external direct-filesystem readers must retain loose files, or restore them first.
+
+Send JSON on stdin to `node .workflow-system/runtime/support/assistance.mjs archive
+--root <project>` (source checkout: `node runtime/vnext/support/assistance.mjs`).
+
+| action | behavior |
+| --- | --- |
+| `plan` | Read-only eligible paths, exact sizes/digests and format limits |
+| `create` | Copy stable eligible loose facts into verified immutable indexed packs; retain all originals |
+| `verify` | Verify every selected archive/index/pack/chunk and reconstructed object, including loose collisions |
+| `quarantine` | After complete verification, move matching loose originals into recoverable quarantine |
+| `reclaim` | Separate explicit operation: verify again and remove only duplicate quarantined bytes; archive-backed restore remains available |
+| `restore` | Recreate original paths and exact bytes from verified archives without overwriting conflicts |
+| `recover-lock` | Explicitly recover only a demonstrably dead lock owner on this host; never steal by age |
+
+`create`/`plan` accept optional `refs: [exact logical paths]`; no refs means all eligible
+loose facts. `quarantine`/`restore` accept optional `archive_ids` and `refs`.
+`reclaim` accepts `archive_ids` only and requires the complete archive to have been
+explicitly quarantined. Omitted archive selection means all existing archives.
+Read the preview and retain an independent project backup before actual project cleanup.
+A request to implement or install this feature is not consent to clean a business project.
+
+Only events, attachments, CAS evidence objects, task-label reservations, and preserved
+legacy baseline/current files qualify. All display recovery files (including mutable
+old-editor capture inodes), task-view revisions and CURRENT_TASK are excluded. Late
+observations and attachments remain new loose facts; task closure is not a storage seal.
+
+The immutable `records/archives/<manifest-sha256>/` directory contains a versioned
+manifest plus numbered indices and packs. Blocks expand to at most 64 KiB. A segment
+holds at most 64 MiB raw data, 2,048 record entries and a 4 MiB index; a large object can
+span segments. Cold lookups route through manifests to matching indices, under explicit
+16 MiB total catalog metadata / 4,096 archive limits. Creation checks the complete
+post-activation catalog before publishing and refuses growth beyond these v1 limits
+while retaining the original loose facts. Lookups fail with `ARCHIVE_CATALOG_LIMIT` rather than
+silently omitting history. Enumeration and full task replay still scale with history.
+
+`read` reports `storage`, `verification` and `read_metrics`. `indexed-selected-chunks`
+means the returned archive page is bound to the verified index and block hashes; it does
+not mean this page read recomputed the whole object's SHA-256. `archive verify` performs
+that complete check. A loose/archive collision, missing index/pack, invalid path, hash,
+length or unsupported format is an error. Never rename arbitrary bytes to a historical
+SHA or fall back to an unverified duplicate.
+
+The ordinary `read`, `find`, task replay, idempotent recording, snapshots and label
+reservation operate on logical original paths. Product SourceRef reads and file-context
+exact reads do too. SourceRef locator-free reads support byte paging; structured locators
+retain their existing file-size budget. File-context whole-file reads over 64 MiB report
+`READ_TOO_LARGE`; use assistance paging. Literal `find` uses range-only discovery: when both representations exist it compares
+the selected loose range to the indexed archive page, and does not claim whole-object
+duplicate verification for unread pages. A conflicting page is reported while independent
+files continue to be searched; gaps are partial results. Native ripgrep file-context search cannot see
+packed bodies and reports its archive coverage gap explicitly; use assistance `find`.
+Product document writers cannot write into the managed records store, even when a custom
+product manifest registers it as a capture target; use the record/snapshot APIs instead.
+
+Checkpoint plans include all necessary manifest/index/pack bytes, validate typed logical
+references, and account for explicit verified archive migrations in `delete_paths`.
+Actual index/commit verification checks the stored packs, not the worktree's cached
+claims. Review the exact plan before staging; the command itself never stages or commits.
+Keep the archives and their indices in the same backup/commit. A fresh offline clone can
+read and restore old logical refs without local quarantine receipts. A missing index must
+be restored from the paired backup/commit; this version does not expose automatic index
+reconstruction, although pack frames retain the reconstruction metadata. An explicit restore
+materializes loose compatibility copies; keep/reclaim them deliberately before planning
+the next checkpoint. No receipt recording the checkpoint's own SHA is needed.
+
+Quarantine alone reduces files in the active record directories but does not save total
+project bytes. Report archive bytes, quarantine bytes and final retained bytes separately.
+Reclaim saves physical duplicate files while preserving every logical fact in the archive;
+it does not erase old Git blobs or promise an equal reduction of `.git` history.
+
+## Generation-side evidence and display reduction
+
+### Fixed material versus this run's capture
+
+`record` and `task` accept `evidence_refs`, an array of immutable `{ref, sha256}`
+identities, or `{sha256}` for an existing content-addressed object. Optional fields are
+`size`, `label`, `purpose`, `role`, and `workflow_home`. `ref` may identify an existing
+record event/attachment, preserved legacy current baseline, or a content-addressed
+`evidence-objects/<sha256>.blob`; a mutable business document path is rejected.
+Obtain the actual identity from a record/snapshot/attachment result, the raw read's
+`actual_sha256`, or a logical task-event read's `wire_sha256`.
+
+The original observation is saved first. Each reference is fully byte-verified and
+associated with this event in its attachment manifest as `status: referenced`,
+`kind: fixed-evidence-reference/v1`, with `live_source_read: false`. No live source
+is recaptured and no new evidence blob is created for that reference. Missing/corrupt,
+wrong-size or invalid references produce explicit unavailable attachment entries;
+they are never silently replaced with live files. A same-request retry reuses the old
+event and manifest rather than creating another run.
+
+`files` retains its existing meaning: capture the complete, explicitly requested current
+bytes. The Runtime never crops a cumulative report, infers that similar runs are redundant,
+or discards different failures, decisions, uncommitted states or database before/after
+results. Use fixed old identities plus this run's necessary `files`; choosing those
+materials is explicit caller/Skill policy, not automatic content inference.
+
+Example record input:
+
+```json
+{"kind":"test-run","idempotency_key":"actual-run-2","body":{"run":"2","result":"failed"},"evidence_refs":[{"ref":".workflow-system/records/evidence-objects/<actual-sha256>.blob","sha256":"<actual-sha256>","role":"fixed-baseline"}],"files":["reports/run-2.txt"]}
+```
+
+### One full report, unchanged logical request
+
+New task-generated events may use `task_event.version: 2` with
+`data_encoding.kind: request-json-pointers`. The complete original request remains
+inside this same event; repeated long data subtrees refer to that request through
+validated event-local JSON pointers and its canonical request SHA256. No extra body
+file or mutable external lookup is introduced. Encoding is used only if the complete
+stored event becomes smaller and self-decoding exactly recovers the logical v1 payload;
+otherwise it retains v1. Arbitrary raw `record` inputs are not rewritten.
+
+The stored `payload_sha256` describes wire bytes' payload, not the hydrated logical
+payload. Readers verify that digest first, then resolve only supported own-property
+pointers. Bad/unknown versions, invalid paths, request mismatch or expansion limits
+are explicit diagnostics; original bytes remain available. Old v1 bytes and IDs are
+not rewritten. Replays compare the complete original request identity, so changed
+heads or focus do not rewrite the first observation.
+
+Default `read` remains original byte paging. For an explicit complete semantic view:
+
+```json
+{"ref":".workflow-system/records/events/<actual-event>.json","format":"logical-task-event"}
+```
+
+It returns the logical v1 `payload`, `wire_size`, `wire_sha256`, `wire_payload_sha256`,
+`logical_payload_sha256`, `request_sha256`, and `encoded`. Default/maximum expansion is
+64MiB and at most 4,096 pointer references; `max_bytes` can further limit the returned
+logical payload. This format accepts no byte offset or evidence-object SHA selector.
+Raw paged reading remains available when a complete logical read is too large.
+The entire report remains searchable in events-only `find`, because it remains in request.
+Older Runtime versions are not consumers of the new task v2 encoding: upgrade readers
+or explicitly export the verified logical view, rather than interpreting the wire template.
+
+### CURRENT_TASK semantic identity
+
+New derived displays use `schema_version: 2`, `kind: vnext-task-view`, a `display_revision`,
+and the v2 marker. Their canonical text contains no volatile fact source/view revisions.
+`task-status`, `context` and the mutable `task-view.json` still carry current fact revisions;
+`display_revision` identifies only the displayed semantic content.
+
+An ordinary fact append that changes source/view revision but not displayed meaning updates
+the cache without creating another task-view snapshot, renaming CURRENT_TASK or producing
+recovery copies. `projection.display: unchanged` describes that write result. Read-only
+status may report display `current` with `display_comparison: semantic-content`; it does
+not claim a retained v1 header contains the newest fact revision. Known v1 baselines remain
+byte-exact until a real displayed change warrants v2 publication.
+
+Current bytes must match an actual readable published baseline before overwrite. Missing
+baselines are not generated to legitimize user content; unknown formats and edits remain
+drift. Real publications keep old-inode capture and late-editor-write protection. Existing
+view snapshots and recovery originals are not deleted, and no per-revision pointer files
+are created. Querying status remains read-only; this is not a new task state or admission.
+
+### Short store-lock contention
+
+A live record-store writer may be awaited for up to two seconds, measured with a monotonic
+clock, before acquiring the original exclusive lock. Only the unacquired lock is retried;
+no business operation or write callback is replayed. Timeout remains `STORE_BUSY`, and dead
+owners still require explicit recovery. This bounded contention improvement does not steal
+locks or change archive reclamation permission.
+
+### Archive query contexts and Windows directory sync
+
+`find`, `task-status`, `task status`, and `context` reuse the validated archive graph
+within one synchronous call. This changes neither stored bytes nor full-journal replay.
+Native storage callers may use `withStoreReadContext(root, readContext => ...)` and
+pass `{ readContext }` to `storeList`, `storeStat`, `storeExists`, `storeRead`, or
+`storeReadFile`. A context is root-bound, synchronous, and closed on return or error;
+retaining it for a later call fails with `INVALID_READ_CONTEXT`.
+
+Only one full or routed catalog is retained per context, under the existing 16 MiB
+metadata budget. Reuse checks archive directories and all loaded manifest/index/pack
+identities (including safe paths and inode/size/mtime/ctime). Changed backing is
+revalidated; a change detected at query exit is `SOURCE_CHANGED`. Writes invalidate
+active contexts and use fresh validation. Loose bytes, collisions, and selected chunk
+digests are still checked on each read. This removes repeated shard entry validation;
+the conservative signature checks still cost lookups × loaded backing files.
+
+Snapshot publishing passes its internally generated relative temporary reference to
+storage; the public path guards still reject drive-qualified storage refs and traversal.
+On Windows only, `EPERM` from fsync of an already-opened, confirmed directory is treated
+as unsupported directory sync. Directory-open errors and file fsync errors still fail.
+This compatibility path does not promise POSIX directory-fsync power-loss durability.

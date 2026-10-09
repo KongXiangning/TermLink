@@ -106,6 +106,13 @@ require consent, and consent cannot make an unavailable dependency work.
 
 ## Result
 
+If product maintenance is enabled and related updates are already authorized,
+use maintain-project references/reconcile.md for new observations and local impact.
+Preserve external report versus Agent reproduction, original requirement/history,
+actual repair scope and any pending sources. Use the existing task API for actual
+task operations. Investigate-only/read-only requests return maintenance locators
+without writing. Documentation or association failure never blocks debugging.
+
 Return the actual requested result, affected scope, evidence/record references,
 remaining work and any unsaved/unreconciled data. Preserve existing user decisions
 and exclusions; an explicit read-only request remains read-only. A record's successful
@@ -119,3 +126,8 @@ advice, not permission or the only allowed next action. Do not invoke it solely
 because it was recommended or widen validation or external effects without authorization.
 
 terminal_boundary: public-entry-terminal/v1
+
+When retaining evidence, apply WORKFLOW_PROTOCOL's **Fixed evidence references and new
+captures** convention: reuse verified immutable material with `evidence_refs`, retain
+this run's necessary output with `files`, and never omit distinct runs, failures, user
+choices or before/after states because they look similar.

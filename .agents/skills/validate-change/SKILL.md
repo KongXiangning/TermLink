@@ -99,6 +99,13 @@ No confirmation is needed merely to read old reports or report missing evidence.
 
 ## Result
 
+For enabled product maintenance, return related assessment/pending-source locators
+with actual input scope and checked subject. A read-only validation/review never
+secretly writes business documents. If the user's combined request includes a
+maintenance write phase, use maintain-project references/reconcile.md afterwards;
+preserve original PASS/failure and distinguish historical truth from current
+applicability. Missing/failed maintenance does not deny validation or stopping.
+
 Return the actual requested result, affected scope, evidence/record references,
 remaining work and any unsaved/unreconciled data. Preserve existing user decisions
 and exclusions; an explicit read-only request remains read-only. A record's successful
@@ -112,3 +119,8 @@ advice, not permission or the only allowed next action. Do not invoke it solely
 because it was recommended or widen validation or external effects without authorization.
 
 terminal_boundary: public-entry-terminal/v1
+
+When retaining evidence, apply WORKFLOW_PROTOCOL's **Fixed evidence references and new
+captures** convention: reuse verified immutable material with `evidence_refs`, retain
+this run's necessary output with `files`, and never omit distinct runs, failures, user
+choices or before/after states because they look similar.

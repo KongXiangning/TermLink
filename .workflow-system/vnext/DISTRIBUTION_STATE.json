@@ -2,9 +2,9 @@
   "schema_version": 1,
   "kind": "vibe-governance-distribution-state",
   "distribution_state": "vnext",
-  "distribution_version": "0.23.9",
-  "manifest_digest": "76b48cfe81ca8d052e0fb600e48b6b1fb19b3a0bead6cb4f64c55c6b3efed108",
-  "installed_at": "2026-10-05T17:29:35.030Z",
+  "distribution_version": "0.24.2",
+  "manifest_digest": "fdbb653cd1024c3e6cb26c380b0d65908f1fe2c0db7d3805b600660bc5a2ac1f",
+  "installed_at": "2026-10-09T05:02:19.191Z",
   "managed_files": [
     {
       "path": ".agents/skills/bootstrap-project/SKILL.md",
@@ -18,17 +18,17 @@
     },
     {
       "path": ".agents/skills/close-task/SKILL.md",
-      "checksum": "c30bb596388c5065b41f44bebcfa19193e2b4b99c0fe7d0a7e4e10c8a9b839c8",
+      "checksum": "e0bf304c97e7818107ea28d95332f9f4e413a23e1809c06ab9a36d167f08d024",
       "category": "skill"
     },
     {
       "path": ".agents/skills/debug-task/SKILL.md",
-      "checksum": "a3e636b821d0a1f24c007216b2da1c329370a4117e9cddf4deafaa2c84bdffd5",
+      "checksum": "66c0ac4ccf1ed32cbacbba02aad15bc00457ee3860b9b79956c76189b2a61d9d",
       "category": "skill"
     },
     {
       "path": ".agents/skills/execute-step/SKILL.md",
-      "checksum": "4db1b88f3a41d88fb196adb37c32869a5413f77d6e59b584f99065ccb0bff9d5",
+      "checksum": "c7a190d8018977efa2ff0e26064bfb3f294f3ccb877711bfd91bd5e6f4b70eb7",
       "category": "skill"
     },
     {
@@ -37,13 +37,18 @@
       "category": "skill"
     },
     {
+      "path": ".agents/skills/maintain-project/SKILL.md",
+      "checksum": "73267bd9503e810b07b1541a6f124486889b280048780f60dc233dea2f08ebe0",
+      "category": "skill"
+    },
+    {
       "path": ".agents/skills/prepare-task/SKILL.md",
-      "checksum": "d43581d65d3230189364d8c4d2640cef75bca43ff56508897d856fcf307c750a",
+      "checksum": "8363548931f404bdd4e6d736f8b754db975f21c7b03ab372daf73a65cd1d45fa",
       "category": "skill"
     },
     {
       "path": ".agents/skills/review-change/SKILL.md",
-      "checksum": "b1eb89a7c4fdc5772d799db7cbc6e5c32553d73ea0d59679fcc43bd82e578e26",
+      "checksum": "24a46396380b5165e2973d0f17932f31e6af78c130edb5fe27e82ef66ccdbcda",
       "category": "skill"
     },
     {
@@ -58,7 +63,7 @@
     },
     {
       "path": ".agents/skills/validate-change/SKILL.md",
-      "checksum": "be38589982305fea19a2f9d866668e69375b81465ddf537a594c409fea8cc882",
+      "checksum": "dc57ad39ae751fac47b3a1ee2025d89162cd9dbb0a823508da5db8c39cc75b67",
       "category": "skill"
     },
     {
@@ -68,7 +73,7 @@
     },
     {
       "path": ".workflow-system/runtime/dist/cli.js",
-      "checksum": "1b5f6d4d91c1777ab5b773ec2d133c7f54d0518227a6728e587dfb585f17d0f4",
+      "checksum": "f6b8bd8101691320f3c759a8d1d5ea56e18c4caa51efce9d1fbde9d4fcaff3b2",
       "category": "runtime"
     },
     {
@@ -78,12 +83,12 @@
     },
     {
       "path": ".workflow-system/runtime/package-lock.json",
-      "checksum": "24637d6cab48d6da65f2a37cbe1ee0cb614225e84fa42b8d939b90830cd84d31",
+      "checksum": "b07fe1887dfe5292f289912a044d929c059d7fc33009eb164f113d8e1406b4aa",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/package.json",
-      "checksum": "1931e341a984e9faaefa9bafdd39b4e9bc0417125c90ebb737158a72ca10af1f",
+      "checksum": "107ad64ab0476a073d6673b039622c50bba9750986299a5f556a9a2034bb31e5",
       "category": "runtime"
     },
     {
@@ -128,7 +133,7 @@
     },
     {
       "path": ".workflow-system/runtime/src/file-context.ts",
-      "checksum": "6aebcbf295b56ab8db36604d0435075a5c4aa6708ca1f2333e901ac2072c531e",
+      "checksum": "0e714d55ccee3daf4d79cbd71d24256993f61453623579aed99b7e9d0c8f9335",
       "category": "runtime"
     },
     {
@@ -153,7 +158,7 @@
     },
     {
       "path": ".workflow-system/runtime/src/kernel.ts",
-      "checksum": "14d8e252bcd46124ef9b3d36a22e432aa75768321e96d385dd5f0e80e3952d95",
+      "checksum": "d7027d4f17023e0991b2dac4aa7f25db75d77f16c6875c6c1640b05d0adde75f",
       "category": "runtime"
     },
     {
@@ -198,7 +203,7 @@
     },
     {
       "path": ".workflow-system/runtime/src/task-context.ts",
-      "checksum": "90b7eb83c4cc89459e24706a0c73a4145309ffd6dae4fb274c8cec244172600e",
+      "checksum": "997c1c500a3229155a1ed0abaded77d13517f3efe1097909b773802194d7f73a",
       "category": "runtime"
     },
     {
@@ -228,12 +233,12 @@
     },
     {
       "path": ".workflow-system/runtime/support/ASSISTANCE_API.md",
-      "checksum": "b89ebf5a746ec522e168a1e280bbe7263d89ed4505e03c28e4a50016b1c81a1a",
+      "checksum": "76ad3c8a5d795ed72af96e9e687a50ab879826df8fe483130b520ba2f70ae6b1",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/support/assistance.mjs",
-      "checksum": "7773d1352d85f128ffc970d160f48ef51643674424761dc44d1dcd19e3ca2db5",
+      "checksum": "2dc4aeae4b32ffba60bfadedf5f3225058fb76cf5022c7db48ee86a01cadae41",
       "category": "runtime"
     },
     {
@@ -252,28 +257,263 @@
       "category": "runtime"
     },
     {
+      "path": ".workflow-system/runtime/support/product-maintenance.js",
+      "checksum": "14ee4f10589fed9b6ba4bd6a7ea27773236137278dd218fabc5d72c116a10d83",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/API.md",
+      "checksum": "e41f1cf66fb34ec4ae32eeef2c0f3fdb0446fe0930c5fc2f8b059b8af7b76911",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/contract.md",
+      "checksum": "0709290da8f151d1b1cbb75d03eca4cac75499174490a50b9aa4620b319a4cf0",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/e6/.workflow-system/PRODUCT.yaml",
+      "checksum": "401bf406938b0b7747fffdd7d207e303cfbcef8fd91c4d2201b02ca2fc2e4397",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/e6/docs/product/ASSESSMENTS.md",
+      "checksum": "8217e22ce42eec46d69dcc6176f61a9777e9d964ac5aaf483014340418e4f122",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/e6/docs/product/DISCUSSIONS.md",
+      "checksum": "5a79534c3b3310784ab84db7b05d32312a9c0355fae916564d4ecbe99ff3baa2",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/e6/docs/product/PLAN.md",
+      "checksum": "94d2f1ff0a5ba072182e40977dd1b3af7086abb519f00cef1b12a552486aa56c",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/e6/docs/product/PROJECT.md",
+      "checksum": "0daefbd95295abec8f45556a51852e3d41ff4b57409f3c81d115101864a812ab",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/e6/docs/product/raw/selected.txt",
+      "checksum": "38062e5560c2a12d5ddf875c0453791f0a22cd9bf4786d0f21d066f2d421020a",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/e6/docs/product/REQUIREMENTS.md",
+      "checksum": "d05bd910f9930f8e55a5db9ddd98dd7ecb0e4a4bb47f3a3fe50c9f645a35bb2a",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/multiple-plans/.workflow-system/PRODUCT.yaml",
+      "checksum": "d56c106cba540d643c5b70308c3efd44ddd12a77df565d5f247370797f608169",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/multiple-plans/docs/product/ASSESSMENTS.md",
+      "checksum": "3b82295669c61ffd2e1af350d780054bbe33ce18cd8f216f0e9c79cf5d9cccc4",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/multiple-plans/docs/product/PLAN-EXPORT.md",
+      "checksum": "73a173b91b93a738d9527e291139a2c1d3afa24ac3ae5d369f205e15e82fe706",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/multiple-plans/docs/product/PLAN-IMPORT.md",
+      "checksum": "775265f4a8d4c9691ce6f4e01a3517a7ecc3096925204c977a0f34489f3ce462",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/multiple-plans/docs/product/PLAN-LEGACY.md",
+      "checksum": "0597b99ec0ed23bbfb0e7f43c44b4d5d57eaced56030922d9a8c36c814a387a1",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/multiple-plans/docs/product/PROJECT.md",
+      "checksum": "74d746ede2ced024471500cd71f23eb3449b373708b60f891754faf7e4533a7c",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/multiple-plans/docs/product/REQUIREMENTS.md",
+      "checksum": "d74e7e5e59e9b304fc5751232de91e22ba7a749bd218c76445fa12ec36d6ddcf",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/no-plan/.workflow-system/PRODUCT.yaml",
+      "checksum": "6fc16da5af896641aff8d2e3d5e6ccd6922a356b8425ac56aa0ea31ee6334066",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/no-plan/docs/product/ASSESSMENTS.md",
+      "checksum": "3b82295669c61ffd2e1af350d780054bbe33ce18cd8f216f0e9c79cf5d9cccc4",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/no-plan/docs/product/PROJECT.md",
+      "checksum": "feec5b0016cd5d53793d5ef2aec84e0d266f63bc595ff566c38dcbc750a2ee94",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/no-plan/docs/product/REQUIREMENTS.md",
+      "checksum": "d74e7e5e59e9b304fc5751232de91e22ba7a749bd218c76445fa12ec36d6ddcf",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/planning/README.md",
+      "checksum": "ef88a9c93a6e354b5842500390351789dffed6d351ac6f83610dbe1a095f00d4",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/offline-reader.js",
+      "checksum": "c37d6459b3ab806317adcb156a313237b118f6df745bada0715ce246516d0507",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/references/discussion.md",
+      "checksum": "e80637f670356897bab32345347c8673fe46fde9a2e7cd15c5670f4bb59a756f",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/references/inventory.md",
+      "checksum": "e0a5094e4db4a676c4faa3bede67947779352b804fcb63c62dfa982ec7d3db20",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/references/plan.md",
+      "checksum": "effbc7f5e400e40f549201e8aaccfe346092d67a190133390228e86f65c22420",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/references/reconcile.md",
+      "checksum": "e0863363d46bd3b1289cd20c0ebc6bb4154ff61030eb4a194494c2635c3fd1d3",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/references/recovery.md",
+      "checksum": "87741e9a3423bef07f5d4dede735b39cff65777d60fe99615613412847c58916",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/references/update.md",
+      "checksum": "b306db54aef0e7c428a32201ddb3be9e62cda6eec5ec3cffd08eaecb2f6c499d",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/schemas/product-doc-v1.json",
+      "checksum": "1d341ee1782e9b4c7c24eaf1b2af344a73445e5ac1356d488ff0915307d5cf4b",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/schemas/product-doc-v2.json",
+      "checksum": "a628cc443f5bdc1495e8d8ae3e9c5c40e7e31eab2278e6bd1442fa31d58e40ce",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/schemas/product-manifest-v1.json",
+      "checksum": "b870b60e82d96bcc1fccaf9fbfad6291b0af66c308e9b497155931bf089a73a5",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/schemas/product-manifest-v2.json",
+      "checksum": "5346e5f45aced8bb82fd613febffaa9186a7a914f9d4cad974c71aa075fbd9a6",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/schemas/request-v1.json",
+      "checksum": "28eb1cd90db044c58bfe5a00422a9435c6a9ebe30772e900e77d35d670c2802d",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/schemas/result-v1.json",
+      "checksum": "d7f2630869ae40acf2b7db0d0e6d58c5f07586873bdade3e0c19d56874e1fcda",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/ASSESSMENT.md",
+      "checksum": "495b143c764384d0c10f3d3f939c292962152e464670bf98d696963035af85fb",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/CHANGE.md",
+      "checksum": "6c66e0ab3afa190786590f7a28a329d0151d1a3d5b84b32c6324e61f31badc4c",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/DESIGN.md",
+      "checksum": "d04554829b293c9ccdcdbb06ec0c3c6eb723427177311172eb5deee897b07e45",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/DISCUSSION.md",
+      "checksum": "0f76ea57eac316366d7b5717bd6045d50a23ae57228cc8c481ec6c605b49e591",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/GOAL.md",
+      "checksum": "8d08674f5400e414639a18605185ff7c82307f53571165dccd82ff009b045e85",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/MODULE.md",
+      "checksum": "30d56b5594bd78b9c8525cd347dd117df31f76fd718e852fb473b15793d24206",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/PLAN.md",
+      "checksum": "e129722ef71a7d40c5caa7ff082194b9684a7a9dac1b61674b91b948e94de93f",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/PRODUCT.yaml",
+      "checksum": "631827f1660c9e66ec80a61137e81ff3295dca843823219f1c7fda8a910b5197",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/PROJECT.md",
+      "checksum": "0d1b131aea3aea4c54c3816409b31c3d90f398e676fe677e2115a1d1076d9038",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/templates/REQUIREMENTS.md",
+      "checksum": "51c239d38ac54e7b683abb691a1fffb1532feace08ca3f8147ad10152b55eb45",
+      "category": "runtime"
+    },
+    {
+      "path": ".workflow-system/runtime/support/record-storage.mjs",
+      "checksum": "997765dafce972fe0ca728548334397009358593a006e8949c7184aa53bf16dd",
+      "category": "runtime"
+    },
+    {
       "path": ".workflow-system/runtime/support/TASK_MANAGEMENT_API.md",
       "checksum": "a396b8457b3aa760909401afaca9cb89c5f6d4e3d1076e936b1aef7490850a1c",
       "category": "runtime"
     },
     {
+      "path": ".workflow-system/runtime/support/task-event-codec.mjs",
+      "checksum": "c53d9f321faa507086883b3526e9369556807b77d4796415574daf51b7a2e200",
+      "category": "runtime"
+    },
+    {
       "path": ".workflow-system/runtime/support/task-management.mjs",
-      "checksum": "57aa438f58bce0b47fcd8f6f32f306382854654a49feefc99200911e0d279406",
+      "checksum": "b01d0181dd4b7c9839d7194a5d63adf346dacc23a96e5d6caa6468ffefd19c40",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/vnext/RUNTIME_CONTRACT.yaml",
-      "checksum": "015f536bfdfc76ac3a3a353c04e7901a91494deef01755dd0f79ff263cb7854e",
+      "checksum": "0f1eaf655cd4506f50705240ff5f1b7cb59a8f84dd9dac015bf29fd38a70d495",
       "category": "protocol"
     },
     {
       "path": ".workflow-system/vnext/SOURCE_CONTRACT.yaml",
-      "checksum": "d714c3ab210d13fc7075a98206a55c433e232807a57fcb13d0b93b5e5ef5f430",
+      "checksum": "f856b4da791b4758b4e999fa9d67286a3bee919edd60fdf4ce5cf7cb0a6f7b61",
       "category": "config"
     },
     {
       "path": ".workflow-system/WORKFLOW_PROTOCOL.md",
-      "checksum": "95b017fd3ef690ab71f342874f90efd5e8c5041e0bbf6ff52106d488d8cb6fc2",
+      "checksum": "adeaa2c72704899766f23ee6d6ab685472362728015351d28586dfabc6704f2d",
       "category": "protocol"
     },
     {

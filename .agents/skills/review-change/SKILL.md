@@ -117,6 +117,12 @@ not perform it or make a missing commit a reason to rewrite the review result.
 
 ## Result
 
+When related product maintenance is enabled, report precise pending document
+locators for new discrepancy/evidence. This review stays read-only: no hidden
+requirement, plan or assessment update. An authorized later maintain-project
+write phase can reconcile the report without changing the review verdict or
+using task closure/unchanged hashes as current PASS.
+
 Return the actual requested result, affected scope, evidence/record references,
 remaining work and any unsaved/unreconciled data. Preserve existing user decisions
 and exclusions; an explicit read-only request remains read-only. A record's successful
@@ -130,3 +136,8 @@ advice, not permission or the only allowed next action. Do not invoke it solely
 because it was recommended or widen validation or external effects without authorization.
 
 terminal_boundary: public-entry-terminal/v1
+
+When retaining evidence, apply WORKFLOW_PROTOCOL's **Fixed evidence references and new
+captures** convention: reuse verified immutable material with `evidence_refs`, retain
+this run's necessary output with `files`, and never omit distinct runs, failures, user
+choices or before/after states because they look similar.
