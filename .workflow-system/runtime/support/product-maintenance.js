@@ -16031,6 +16031,106 @@ ${JSON.stringify(definition2)}`);
 // runtime/vnext/src/product-maintenance/paths.ts
 import * as fs from "node:fs";
 import * as path from "node:path";
+
+// runtime/vnext/src/product-maintenance/glob-coverage.ts
+function matchesEdge(edge, char) {
+  if (edge.kind === "literal")
+    return char === edge.char;
+  if (edge.kind === "segment")
+    return char !== "/";
+  return !`\r
+\u2028\u2029`.includes(char);
+}
+function compile(patterns) {
+  const states = [];
+  function addState() {
+    states.push({ epsilon: [], edges: [], accepting: false });
+    return states.length - 1;
+  }
+  const start = addState();
+  for (const pattern of patterns) {
+    let current = addState();
+    states[start].epsilon.push(current);
+    for (let i = 0;i < pattern.length; i++) {
+      const char = pattern[i], next = addState();
+      if (char === "*" && pattern[i + 1] === "*") {
+        i++;
+        states[current].epsilon.push(next);
+        if (pattern[i + 1] === "/") {
+          i++;
+          const segment = addState();
+          states[current].edges.push({ to: segment, kind: "segment" });
+          states[segment].edges.push({ to: segment, kind: "segment" }, { to: current, kind: "literal", char: "/" });
+        } else
+          states[current].edges.push({ to: current, kind: "any" });
+      } else if (char === "*") {
+        states[current].epsilon.push(next);
+        states[current].edges.push({ to: current, kind: "segment" });
+      } else if (char === "?")
+        states[current].edges.push({ to: next, kind: "segment" });
+      else
+        states[current].edges.push({ to: next, kind: "literal", char });
+      current = next;
+    }
+    states[current].accepting = true;
+  }
+  function closure(seeds) {
+    const result = new Set(seeds), pending = [...seeds];
+    while (pending.length) {
+      for (const next of states[pending.pop()].epsilon) {
+        if (!result.has(next)) {
+          result.add(next);
+          pending.push(next);
+        }
+      }
+    }
+    return [...result].sort((a, b) => a - b);
+  }
+  function advance(active, char) {
+    const next = [];
+    for (const state2 of active) {
+      for (const edge of states[state2].edges) {
+        if (matchesEdge(edge, char))
+          next.push(edge.to);
+      }
+    }
+    return closure(next);
+  }
+  return { start: closure([start]), advance, accepts: (active) => active.some((s) => states[s].accepting) };
+}
+function createGlobCoverageCheck(patterns, excludes) {
+  const selected = compile(patterns), excluded = compile(excludes);
+  const alphabet = [...new Set([...patterns, ...excludes].join("").split("").filter((c) => c !== "*" && c !== "?").concat(["/", "\x00", "\u2028", "\u2029"]))];
+  return (directory) => {
+    let selection = selected.start, exclusion = excluded.start;
+    for (const char of `${directory}/`.split("")) {
+      selection = selected.advance(selection, char);
+      exclusion = excluded.advance(exclusion, char);
+    }
+    const pending = [{ selection, exclusion, inSegment: false }], visited = new Set;
+    while (pending.length) {
+      const current = pending.pop();
+      if (!current.selection.length)
+        continue;
+      const key = `${current.selection.join(",")}|${current.exclusion.join(",")}|${current.inSegment}`;
+      if (visited.has(key))
+        continue;
+      visited.add(key);
+      if (current.inSegment && selected.accepts(current.selection) && !excluded.accepts(current.exclusion))
+        return false;
+      if (visited.size > 4096)
+        return false;
+      for (const char of alphabet) {
+        if (char === "/" && !current.inSegment)
+          continue;
+        pending.push({ selection: selected.advance(current.selection, char), exclusion: excluded.advance(current.exclusion, char), inSegment: char !== "/" });
+      }
+    }
+    return true;
+  };
+}
+
+// runtime/vnext/src/product-maintenance/paths.ts
 function relativePath(value, glob = false) {
   if (typeof value !== "string" || !value || /[\u0000-\u001f\\:]/.test(value) || value.startsWith("/") || value.split("/").some((p) => p === ".." || p === "." || !p || /[. ]$/.test(p)))
     throw new Error("UNSAFE_PATH: expected a relative /-separated path without traversal, alternate streams or ambiguous Windows segments");
@@ -16137,21 +16237,32 @@ function enumerate(root, patterns, excludes, maxFiles, diagnostics) {
   const explicitFiles = new Set(patterns.filter((p) => !/[*?]/.test(p)));
   const skip = (p) => p.split("/").some((s) => [".git", "node_modules", ".next", "dist", "build"].includes(s)) || p.startsWith(".workflow-system/runtime/") || p.startsWith(".workflow-system/records/");
   let visitedCount = 0;
+  let scopeExcluded;
   function omit(relative2, code, message) {
     omitted.add(relative2);
     diagnostics.push(diagnostic(code, relative2, message));
   }
   function visit2(relative2) {
-    if (visited.has(relative2) || stopped || relative2 && (skip(relative2) || matches(relative2, excludes)))
+    const subtreeExcluded = relative2 && excludes.some((pattern) => pattern.endsWith("/**") && matchPattern(relative2, pattern.slice(0, -3)));
+    if (visited.has(relative2) || stopped || relative2 && (matches(relative2, excludes) || subtreeExcluded))
       return;
     visited.add(relative2);
+    if (relative2 && !patterns.some((pattern) => matchPattern(relative2, pattern) || mayContainMatch(relative2, pattern)))
+      return;
+    if (relative2 && skip(relative2)) {
+      if (excludes.length && !matches(relative2, patterns)) {
+        scopeExcluded ??= createGlobCoverageCheck(patterns, excludes);
+        if (scopeExcluded(relative2))
+          return;
+      }
+      omit(relative2, "IMPLICIT_PATH_EXCLUDED", "Selected path intersects a default scan exclusion; register an authorized document outside this directory or explicitly exclude this scope");
+      return;
+    }
     if (++visitedCount > Math.max(1e4, maxFiles * 100)) {
       stopped = true;
       omit(relative2, "ENUMERATION_LIMIT", "Directory entry limit reached; remaining paths were not scanned");
       return;
     }
-    if (relative2 && !patterns.some((pattern) => matchPattern(relative2, pattern) || mayContainMatch(relative2, pattern)))
-      return;
     let stat;
     const absolute = relative2 ? path.join(root, ...relative2.split("/")) : root;
     try {
