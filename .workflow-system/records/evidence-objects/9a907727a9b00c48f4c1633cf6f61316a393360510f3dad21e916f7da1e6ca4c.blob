@@ -1,9 +1,0 @@
-
-warning: in the working copy of 'docs/product/plans/PLAN-20261005-codex-history-shared-compat.md', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'docs/product/requirements/REQ-20261005-codex-history-shared-compat.md', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/services/codexRolloutCollector/analysisBatchImporter.js', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/services/codexRolloutCollector/analyzerProcessManager.js', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/services/codexRolloutCollector/analyzerProtocol.js', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/services/codexRolloutCollector/index.js', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'tests/codexRolloutCollector.realRust.test.js', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'tests/codexRolloutCollector.test.js', LF will be replaced by CRLF the next time Git touches it

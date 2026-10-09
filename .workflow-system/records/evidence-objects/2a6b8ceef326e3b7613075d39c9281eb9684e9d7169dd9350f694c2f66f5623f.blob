@@ -1,4 +1,0 @@
-{
-  "command": "cargo test --manifest-path native/codex-rollout-compat-spike/Cargo.toml --lib --offline",
-  "exit_code": 0
-}

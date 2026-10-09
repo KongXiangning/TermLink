@@ -1,3 +1,0 @@
-{"timestamp":"2026-08-19T04:02:00.000Z","ordinal":1,"type":"event_msg","payload":{"type":"task_complete","turn_id":"legacy-error-turn","last_agent_message":"not a success","error":{"message":"legacy terminal failure"}}}
-{"timestamp":"2026-08-19T04:02:01.000Z","ordinal":2,"type":"event_msg","payload":{"type":"turn_complete","turn_id":"current-error-turn","last_agent_message":"also not a success","error":{"message":"current terminal failure"}}}
-{"timestamp":"2026-08-19T04:02:02.000Z","ordinal":3,"type":"event_msg","payload":{"type":"error","message":"generic event error"}}

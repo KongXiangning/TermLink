@@ -1,4 +1,0 @@
-{
-  "exit_code": 0,
-  "command": "pwsh -NoProfile -File native/codex-rollout-collector/scripts/verify-vendor-parity.ps1"
-}

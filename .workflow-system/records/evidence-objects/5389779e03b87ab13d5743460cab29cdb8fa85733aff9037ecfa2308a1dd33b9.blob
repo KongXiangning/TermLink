@@ -1,3 +1,0 @@
-{"timestamp":"2026-08-18T11:00:00.000Z","ordinal":101,"type":"session_meta","payload":{"id":"019b2b40-beb6-7b23-bed0-37d570e76817","cwd":"E:\\coding\\TermLink","new_object":{"a":1},"new_array":[1,2,3]}}
-{"timestamp":"2026-08-18T11:00:01.000Z","ordinal":102,"type":"response_item","payload":{"type":"function_call","name":"shell_command","arguments":"{\"command\":\"pwd\"}","call_id":"call-unknown","new_response_field":{"stable":true}}}
-{"timestamp":"2026-08-18T11:00:02.000Z","ordinal":103,"type":"event_msg","payload":{"type":"warning","message":"unknown event payload is reported, not fatal","new_warning_field":"ignored"}}

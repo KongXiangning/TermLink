@@ -1,4 +1,0 @@
-{
-  "command": "cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test conformance --offline after supported-carrier guard",
-  "exit_code": 0
-}

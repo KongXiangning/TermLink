@@ -1,5 +1,0 @@
-{
-  "failure": "self-check.json:35/38; three row equality predicates failed",
-  "cause": "projectItems returns payloadJson, contentHash and detailRefs, but no payloadBytes field; first script incorrectly compared integer to undefined",
-  "correction": "Compare cached payload_bytes to Buffer.byteLength(expected payloadJson, utf8). Preserve original script and failure result. No new phone/server/collector actions."
-}

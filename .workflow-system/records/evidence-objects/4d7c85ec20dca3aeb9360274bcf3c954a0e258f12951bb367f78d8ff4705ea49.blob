@@ -1,5 +1,0 @@
-{
-  "command": "gradlew -p android :app:assembleDebug",
-  "jdk": "D:\\ProgramCode\\openjdk\\jdk-21",
-  "exit_code": 0
-}

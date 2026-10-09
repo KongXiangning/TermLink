@@ -1,8 +1,0 @@
-parity: history/src/lib.rs sha256=946935fbd8b3295d72be217d4103bb920f6ad4db7fd8c7995437712e26987265 bytes=15095
-parity: history/src/rollout_payload.rs sha256=d7c96f0fdbc4d37c027e99b0bb2b6c984f4b53fc42bba2e3cfaf0b6281bec625 bytes=9599
-parity: history/src/tests.rs sha256=f13ed66764ba2789a05fc991fa30274f452c40b9155e9dc1995c26cb42480f00 bytes=20398
-parity: protocol/src/models.rs sha256=ac9c579ead64649e7f9897c6a5de6192edd36e0dd787ddedaf5c1941f5740d48 bytes=150148
-parity: protocol/src/items.rs sha256=1239edb905cc1ab95bb485437ff737991880fb77f310fbdcd4e7e9f554a6f6b7 bytes=26598
-parity: protocol/src/legacy_events.rs sha256=3e346546f1ef3c47ed5f8693a4aa788a42d5d6815e1adfa25e87b4fc3fcffeb4 bytes=25641
-parity: protocol/src/models/executed_tool_calls_tests.rs sha256=8c3c48fdbd8d299aaf8837c8915921c9a74c1d7edc7ec54af7565ec94f9c5ae3 bytes=6941
-vendor parity: PASS revision=5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2 patches=7

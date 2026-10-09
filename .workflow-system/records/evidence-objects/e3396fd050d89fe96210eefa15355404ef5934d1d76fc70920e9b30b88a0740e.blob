@@ -1,1 +1,0 @@
-{"timestamp":"2026-08-19T02:01:30.000Z","ordinal":1,"type":"event_msg","payload":{"type":"task_started","turn_id":"unknown-alias-turn","model_context_window":258400,"collaboration_mode_kind":"legacy_default"}}

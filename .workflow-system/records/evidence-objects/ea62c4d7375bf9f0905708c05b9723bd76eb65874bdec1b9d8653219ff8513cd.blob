@@ -1,6 +1,0 @@
-{
-  "reason": "Supported-carrier guard refinement; early staged formal guard restored to prior validated bytes, then promoted after final Spike10PASS; no formal guard execution before proof",
-  "promoted_sha256": "946935fbd8b3295d72be217d4103bb920f6ad4db7fd8c7995437712e26987265",
-  "prior_validated_hash": "3a454fa6960cdbba32ed31d65a5dd4430d4f4ff277652d2ec03fc9d04586decd",
-  "final_spike_exit": 0
-}

@@ -1,5 +1,0 @@
-{
-  "command": "JDK21 gradlew.bat -p android :app:testDebugUnitTest --tests *prefixedToolDetailRefs*",
-  "exit_code": 0,
-  "qualification": "Independent focused run; existing 3 alias regressions only, no phone/device/business replay"
-}

@@ -1,9 +1,0 @@
-const fs=require('fs'),cp=require('child_process');
-const [name,bin,...args]=process.argv.slice(2);
-const d='logs/shared-history-compat-20261005/s3';
-const started=new Date().toISOString();
-const r=cp.spawnSync(bin,args,{encoding:'utf8',maxBuffer:32*1024*1024});
-fs.writeFileSync(`${d}/${name}.txt`,(r.stdout||'')+(r.stderr||''));
-fs.writeFileSync(`${d}/${name}-result.json`,JSON.stringify({command:{bin,args},started,ended:new Date().toISOString(),exit_code:r.status,error:r.error?.message},null,2)+'\n');
-console.log(JSON.stringify({name,exit_code:r.status,tail:((r.stdout||'')+(r.stderr||'')).slice(-2300)}));
-process.exitCode=r.status??1;

@@ -1,6 +1,0 @@
-{
-  "command": "node logs/history-save-repair-20261005/s1/repair-r1/build-fixtures.cjs",
-  "exit_code": 1,
-  "error": "ERR_ASSERTION: unapproved enum value",
-  "phase": "C thread_source agent_forked_thread not yet allowlisted; no fixture writes/analyzer run"
-}

@@ -1,3 +1,0 @@
-{"timestamp":"2026-08-18T11:00:00.000Z","ordinal":101,"type":"session_meta","payload":{"id":"019b2b40-beb6-7b23-bed0-37d570e76817","timestamp":"2026-08-18T11:00:00.000Z","cwd":"E:\\coding\\TermLink","originator":"fixture","cli_version":"0.1.0","source":"cli","model_provider":"openai","git":{},"new_object":{"kept":true},"new_array":[1,2,3]}}
-{"timestamp":"2026-08-18T11:00:01.000Z","ordinal":102,"type":"response_item","payload":{"type":"function_call","name":"shell_command","arguments":"{}","call_id":"call-unknown-field","new_response_field":"ignored"}}
-{"timestamp":"2026-08-18T11:00:02.000Z","ordinal":103,"type":"event_msg","payload":{"type":"warning","message":"future warning field is ignored","new_warning_field":{"ignored":true}}}

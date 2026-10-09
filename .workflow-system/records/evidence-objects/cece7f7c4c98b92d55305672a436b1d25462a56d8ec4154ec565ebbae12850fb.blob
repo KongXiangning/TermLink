@@ -1,4 +1,0 @@
-CR: E:\coding\TermLink-rust-source-resolution-codex\docs\changes\records\CR-20261005-1722-shared-history-compat-design-repair.md
-WARNINGS:
-  - rollback section has no obvious git command (revert/checkout)
-PASS: Change record validation succeeded.

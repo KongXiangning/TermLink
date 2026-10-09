@@ -1,6 +1,0 @@
-2026-10-07。本轮审查辅助脚本初始出现两次失败，均未运行产品业务或写入 task 状态：
-
-1. raw Git blob hash 与 source-inventory 的 Windows working-tree hash 不全相同，`assert.ok(inventory.every(p=>p.historical_matches))` 失败。逐文件复核后确认仅 target_source.rs 需 CRLF 还原，其他 31 个原 Git blob 完全匹配。source-applicability.json 分别保留 raw 与 normalization 结果，不能把还原匹配说成原始字节相同。
-2. 脚本错误使用不存在的 `child.task.closures.at(-1)`，报 TypeError。按实际 task 模型的 lifecycle_ref 读取不可变 close 事件，保存为 child-close.json。最后脚本成功，结果见 summary.json；这只是审查核对成功，不是产品测试通过。
-
-没有重新执行 S1/S2/833 的业务命令来补审查记录。

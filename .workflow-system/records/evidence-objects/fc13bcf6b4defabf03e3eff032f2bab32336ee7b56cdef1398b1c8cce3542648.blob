@@ -1,9 +1,0 @@
-const fs=require('fs'),cp=require('child_process');
-const [label,bin,...args]=process.argv.slice(2),d='logs/shared-history-compat-20261005/s4';
-if(!label||!bin||fs.existsSync(`${d}/${label}.txt`))throw Error('Unique run label required');
-const started=new Date().toISOString();
-const r=cp.spawnSync(bin,args,{encoding:'utf8',windowsHide:true,env:{...process.env,CARGO_NET_OFFLINE:'true'},maxBuffer:16*1024*1024});
-fs.writeFileSync(`${d}/${label}.txt`,r.stdout+'\n'+r.stderr);
-fs.writeFileSync(`${d}/${label}-result.json`,JSON.stringify({command:{bin,args},started,ended:new Date().toISOString(),exit_code:r.status,error:r.error?.message,environment:{CARGO_NET_OFFLINE:'true'}},null,2)+'\n');
-console.log(JSON.stringify({label,exit_code:r.status,error:r.error?.message,tail:r.stdout.slice(-1500),stderr:r.stderr.slice(-700)}));
-process.exitCode=r.status??1;

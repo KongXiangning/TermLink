@@ -1,2 +1,0 @@
-{"timestamp":"2026-08-19T01:01:00.000Z","ordinal":1,"type":"event_msg","payload":{"type":"task_started","turn_id":"legacy-alias-turn","model_context_window":128000,"collaboration_mode_kind":"code"}}
-{"timestamp":"2026-08-19T01:01:01.000Z","ordinal":2,"type":"event_msg","payload":{"type":"user_message","client_id":"legacy-alias-client","message":"legacy alias input","images":[]}}

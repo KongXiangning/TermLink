@@ -1,6 +1,0 @@
-{
-  "req_exit": 0,
-  "cr_exit": 0,
-  "host": "PowerShell 7 UTF-8",
-  "prior_failure": "Windows PowerShell child validation exited 1 missing status/priority; files unchanged; preserved separately."
-}

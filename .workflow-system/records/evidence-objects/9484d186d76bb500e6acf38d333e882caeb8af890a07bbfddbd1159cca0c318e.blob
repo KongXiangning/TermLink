@@ -1,2 +1,0 @@
-{"timestamp":"2026-08-19T02:11:00.000Z","ordinal":1,"type":"event_msg","payload":{"type":"user_message","client_id":"ui-no-plan-1","message":"continue","images":[]}}
-{"timestamp":"2026-08-19T02:11:01.000Z","ordinal":2,"type":"response_item","payload":{"type":"function_call_output","id":"fco-no-plan-1","call_id":"unrelated-call","output":"{\"answers\":{\"q-unseen\":{\"answers\":[\"continue\"]}}}"}}

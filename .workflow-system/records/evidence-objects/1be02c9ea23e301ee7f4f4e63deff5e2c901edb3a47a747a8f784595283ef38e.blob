@@ -1,2 +1,0 @@
-{"timestamp":"2026-08-19T02:07:00.000Z","ordinal":1,"type":"event_msg","payload":{"type":"user_input_answer","call_id":"call-question-unknown","answers":{"q-unknown":{"answers":["continue"]}}}}
-{"timestamp":"2026-08-19T02:07:01.000Z","ordinal":2,"type":"event_msg","payload":{"type":"request_user_input","call_id":"call-question-missing","turn_id":"current-turn-unknown","isBlocking":true}}

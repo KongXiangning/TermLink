@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.termlink.app.codex.CodexViewModelConnectionFailureTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-10-02T04:20:48.614Z" hostname="K-PC" time="0.011">
-  <properties/>
-  <testcase name="serverAndProtocolErrorsRemainVisible" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.01"/>
-  <testcase name="offlineConnectFailuresAreTransient" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
