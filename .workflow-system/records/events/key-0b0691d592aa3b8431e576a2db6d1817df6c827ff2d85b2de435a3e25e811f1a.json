@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:18:11.625Z",
+  "payload_sha256": "19c5ac0467435f36e20235bb8d3877037cb666500e980668cf916889701e90e0",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260718-003-7876e5f9602c8318bd88243784d4008ce430dce6e33c10056efecf84280ae612-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-7a3d46c665a0b11a92e8e5ed6b8584cf863579d94a0c3739b9748f352be18cab.json",
+      "idempotency_key": "legacy-task-import-20261011-20260718-003-7876e5f9602c8318bd88243784d4008ce430dce6e33c10056efecf84280ae612-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260718-003",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "TASK-20260718-003：重写 Android/Web 共享文档工作区",
+            "goal": "在保持只读、现有 session 安全边界和 Android/Web 混合架构的前提下，重做目录导航、文件打开、Git HEAD/双文件比较与自适应界面。",
+            "scope": [
+              "TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260718-003",
+      "parents": [
+        ".workflow-system/records/events/key-3417b9e2a2bdd375e7a223820a4aec7dc37d5b194e36cb1706c068369fa467e8.json",
+        ".workflow-system/records/events/key-2f2ce0bed7a1ac58c9114b32d7741a776a17a81c2f53ba34daf20b6eab4ebf61.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-7a3d46c665a0b11a92e8e5ed6b8584cf863579d94a0c3739b9748f352be18cab.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "5df3152381a3bbde7fd055cbdb4a88e79d983dc57fe24b5229b593b4200353be",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

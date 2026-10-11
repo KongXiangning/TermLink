@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:12:36.878Z",
+  "payload_sha256": "1812c859332d841ee768710b1be2af555ae2c8629a7f5aae2c03265e1b021d05",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260820-003-be492e06681826c95f89cda996f2ff70f5c62bdf815df070e0923acd5cdf600c-disposition-source",
+    "body": {
+      "original_task_id": "20260820-003",
+      "task_id": "20260820-003",
+      "source": "TASKS/TASK-20260820-003-codex-rollout-collector-stage-4-runtime-and-conformance.md",
+      "sha256": "be492e06681826c95f89cda996f2ff70f5c62bdf815df070e0923acd5cdf600c",
+      "original_status": "archived",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": null,
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\n- 任务 ID：20260820-003\n- 任务标题：Codex Rollout Collector 阶段 4：分析器协议、Node 隔离运行时与 conformance 完整性\n- 任务 slug：codex-rollout-collector-stage-4-runtime-and-conformance\n- 开始日期：2026-08-20\n- 归档日期：2026-08-21\n- 最终状态：archived\n- 任务开始基线：`1b37d812a879046bca8f89c3b180149199056e39`\n- 主要实现提交：`21b6d42`、`4646e3e`、`0874ecf`\n- 归档结论：隔离 Rust↔Node analyzer runtime/conformance artifact 已完成并通过目标回归；不宣称既有产品 server/DB、Codex IPC、Android 或 release 集成完成。"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "### Rust formal analyzer\n\n- `native/codex-rollout-collector/src/main.rs`\n- `native/codex-rollout-collector/src/protocol/stage4.rs`\n- `native/codex-rollout-collector/src/protocol/checkpoint.rs`\n- `native/codex-rollout-collector/src/protocol/batch.rs`\n- `native/codex-rollout-collector/src/analysis.rs`\n- `native/codex-rollout-collector/src/codex_adapter/mod.rs`\n- `native/codex-rollout-collector/tests/stage2_input.rs`\n- `native/codex-rollout-collector/tests/stage3_conformance.rs`\n- `native/codex-rollout-collector/tests/stage4_protocol.rs`\n\n实现了 Node→Rust `hello` 握手、stdio JSONL 状态机、cancel/timeout/error、协议级资源预算、stateful Adapter/Reducer、推进式 cursor、source evidence、reducer state checkpoint、derived tool/usage/outcome/mutation 输出，以及 source mutation fail-closed 和 ACK 后状态提交语义。\n\n### Node 隔离运行时\n\n- `src/services/codexRolloutCollector/analyzerProcessManager.js`\n- `src/services/codexRolloutCollector/analyzerProtocol.js`\n- `src/services/codexRolloutCollector/analyzerRequestTracker.js`\n- `src/services/codexRolloutCollector/analysisBatchImporter.js`\n- `src/services/codexRolloutCollector/analysisCheckpointStore.js`\n- `src/services/codexRolloutCollector/analysisRunStore.js`\n- `src/services/codexRolloutCollector/index.js`\n- `tests/codexRolloutCollector.test.js`\n- `tests/fixtures/codex-rollout-collector/fake-analyzer.js`\n\n实现了可注入 store 与默认原子 File store、batch/item/restart 幂等、完整 canonical batch 校验、replacement preflight、stale source evidence fail-closed、有限异常重启、当前 request batch 提交门禁、checkpoint completeness/source-progress 单调校验，以及按同一 `item_key` mutation 绑定的 per-item revision。\n\n### 文档与治理\n\n- 阶段 4 架构、`CONTRACTS.md`、`DECISIONS.md`、`STATUS.md` 和 `CURRENT_TASK.md` 已按实现证据同步。\n- `DECISIONS.md` 新增/收口 AD-008～AD-012；本轮 closeout 新增 `LESSONS.md` 的 L-021。\n- `docs/workflow/CONTRACTS.md` 已记录 Rust↔Node 协议、ACK ordering、checkpoint/import、source identity/epoch 和 Node 隔离边界。\n\n本归档不包含当前工作树中未确认归属的文档及工具产物。它们被原样保留，未执行 reset、checkout、clean、移动、删除、staging 或提交。"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "### 已稳定并同步\n\n- `SourceBackend`、三类 cursor、SegmentAssembly、`CodexEventAdapter`、`AnalysisReducer` 和 `AnalysisBatch` 的既有兼容语义保持不变。\n- 阶段 4 正式数据流固定为：`Node request/run → Rust stdio JSONL analyzer → AnalysisBatch/ACK → Node importer → projection/details/usage/outcome → checkpoint`。\n- `complete` 必须与当前 request 已成功导入的 batch、source/cursor scope 和完整 checkpoint 证据一致。\n- checkpoint 按 completeness 与 source progress 单调推进；canonical 结果不得被较弱或较旧结果覆盖。\n- history item 的 revision 优先来自同一 `item_key` 的 mutation；batch coverage 不能聚合无关 mutation revision。\n- source identity 必须由调用方显式提供；禁止 filename、`unbound` 或 session metadata 推断 canonical identity。\n- source mutation 在任何产品清理语义之前完成全部 preflight；迟到或不完整的旧 source evidence 必须拒绝，不能复活数据，也不建立产品 epoch/tombstone/fence。\n\n### 明确保持不变\n\n- Codex IPC 实时同步冻结区、follower lifecycle、owner fallback、Android IPC authority 和 A/B 隔离未触碰。\n- `src/ws/terminalGateway.js`、Codex IPC 服务、Android Codex wire/selection/ViewModel/Activity/Sessions、既有 server routes/DB schema、Demo/Spike 源码和 vendor closure 未作为本任务实现入口。\n- Node 隔离 store 不是产品 DB；Demo/Spike 仅是只读 correctness oracle，不是 formal runtime dependency。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "### 目标回归\n\n- Rust：66 unit、28 conformance、3 个 `stage2_input` integration、5 个 `stage3_conformance`、8 个 `stage4_protocol`，全部通过。\n- Node：`node --test tests/codexRolloutCollector.test.js` 22/22，通过正式 Rust binary、fake analyzer、Memory/File store 和故障注入路径。\n- `cargo fmt --check`、Node syntax check、`git diff --check` 通过。\n- Rust build/test 在当前 Windows 环境使用显式 MinGW PATH/RUSTFLAGS workaround；plain cargo 的既有 `nanosleep64` linker 环境差异已记录，未写入仓库配置。\n\n### 关键语义证据\n\n- 实际启动 Demo reducer 和 Spike parser，并在临时目录生成输出参与双路径比较。\n- 同一 Plan fixture 覆盖完整读取、tail、backfill、overlap 和 retry delivery；Plan question/answer 跨 segment 关联稳定，segmented projection 与完整读取等价。\n- 覆盖 partial tail→complete backfill promotion、late incomplete 不降级 canonical、ACK 失败 clone-on-write、timeout/cancel、异常重启有限重试交付、无 cursor 恢复请求的 persisted checkpoint 校验。\n- 覆盖 malformed canonical/checkpoint、空 complete、跨 request complete、非法 replacement 原子性、path-only identity、stale epoch resurrection、checkpoint 回退和 per-item revision 故障注入。\n- `review-implementation`、`review-diff`、`verify-contracts` 均无未解决的 critical/major finding；未触及禁区。\n\n### Workflow health\n\n- 尝试运行 `bun run workflow:health`，命令在健康检查开始前失败：`scripts/workflow-runtime.ts` 引用了仓库中不存在的 `./guard-target-root` 模块。\n- 该失败属于既有 workflow runtime 工具链缺失，不是本任务 Rust/Node 实现回归；本轮不修改 `scripts/`，也不把该命令写成通过。\n- 运行 `bun run validate:protocol` 时，workflow-skills/docs/registry 三项通过；整体因两个任务外 artifact 失败：`TASKS/paused/TASK-20260615-001-app-codex-ipc-realtime-sync.md` 缺少 `task_id`，`TASKS/inbox/INBOX-20260807-001-codex-history-sync-banner-ux.md` 不符合当前 inbox 命名契约。本任务未修改、移动或删除它们。\n\n### Release evidence\n\n- Release mode：none / not applicable。\n- Deploy source：none。\n- Target environment：本地 Windows formal Rust package 与 Node 隔离测试。\n- Health checks：not applicable；未启动或变更产品服务。\n- Canary window：none。\n- Performance baseline：not run；本任务未建立产品性能基线。\n- Rollback / recovery：未执行；保留 path-scoped 回滚策略，不执行整树历史重写。\n- Release evidence：无发布、部署、canary 或生产证据；不得表述为产品 release-ready。\n- Remaining observation：跨机器/clean-host toolchain 证据、产品集成和 release 验收需独立任务完成。"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "- L-018：`ForwardAppendCursor` promotion 必须由连续安全前缀证明驱动。\n- L-019：Demo/Spike 只能提供稳定 golden surface，不能成为 formal 实现依赖。\n- L-020：任务外 dirty/untracked 工作树必须先确认归属再做 closeout。\n- L-021：complete、checkpoint 与对象 revision 必须绑定同一证据链。"
+        },
+        {
+          "name": "后续关联",
+          "text": "- 后续任务：当前没有明确的新任务包；未来接入既有 server/DB、IPC、Android 或产品 runtime 时，必须重新执行 `/create-current-task`、`/lock-scope` 和跨边界回归。\n- 环境观察：当前 Windows cargo 回归依赖显式 MinGW PATH/RUSTFLAGS；尚未提供跨机器或 clean-host toolchain 安装证据。\n- 治理工具链观察：`bun run workflow:health` 当前因缺失 `scripts/guard-target-root` import 无法启动，需另立 workflow runtime 修复任务；本归档不修改 `scripts/`。\n- 治理基线观察：`bun run validate:protocol` 的 workflow skills/docs/registry 通过，但既有 paused/inbox artifact 校验失败；需另立治理清理/迁移任务，本归档不修改任务外 artifact。\n- 工作树观察：下列内容保持原样，由原 owner 后续处理：\n  - `docs/codex/codex-rollout-collector-architecture.md`（未确认归属的文档修改）\n  - `docs/DOCUMENTS_BY_MTIME.md`\n  - `docs/codex/codex-history-sync-wire-contract-draft.md`\n  - `docs/codex/codex-rollout-recorder-source-technical-reference.md`\n  - `docs/codex/codex-sync-app-history-ipc-consistency.md`\n  - `native/parse-probe/`\n  - `native/rustup-init.exe`\n  - `native/winlibs.zip`\n- 归档位置：`TASKS/TASK-20260820-003-codex-rollout-collector-stage-4-runtime-and-conformance.md`\n- 下一轮入口：收到新需求后先执行 `/create-current-task`；不自动恢复或扩大既有 paused/inbox 任务。"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-f9877481a2d79b34dfd3596c50475c06c2b627663ee5d7de526a9f3d8eca40d3.json"
+    }
+  },
+  "issues": []
+}

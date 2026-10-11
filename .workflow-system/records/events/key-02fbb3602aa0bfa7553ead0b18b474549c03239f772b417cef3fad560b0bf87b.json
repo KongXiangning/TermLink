@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:20:07.799Z",
+  "payload_sha256": "5f31d2be59c2b74290947dc22ffa92d02d7387231514c62156171e945e971843",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260629-001-b00bb71d368ab50b0cd04403e587a7cae7d266533edebb9b909e76b9fdd55112-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-436d92275aced15d6e42b1a9ece6a6c79a2493ebddbb763551fe70c82161708f.json",
+      "idempotency_key": "legacy-task-import-20261011-20260629-001-b00bb71d368ab50b0cd04403e587a7cae7d266533edebb9b909e76b9fdd55112-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260629-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "按 termlink-demo 改造服务端与安卓端 Codex 实时同步",
+            "goal": "\\coding\\termlink-demo` 的技术实现改造 Codex 会话实时同步能力；`termlink-demo` 只读参考，以代码实现为准、`docs/技术文档.md` 为辅，禁止修改；服务端为 Codex 会话提供同步 Codex Desktop / VS Code Codex 扩展的能力，安卓端 Codex 会话作为展示端，所有获取信息与发送信息都通过服务端通信；安卓端页面布局与基础功能不得变动，功能不得减少。",
+            "scope": [
+              "TASKS/TASK-20260629-001-server-android-codex-realtime-sync-demo-parity.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260629-001-server-android-codex-realtime-sync-demo-parity.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260629-001",
+      "parents": [
+        ".workflow-system/records/events/key-745e4719b7d1551df71e2eaec8889650bd0ca7ce6885dea4b4ef821717420abd.json",
+        ".workflow-system/records/events/key-44a11ef908b12a6626bcc530d7b6d268c2a854c2c55c8efec921b67e4301db3b.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-436d92275aced15d6e42b1a9ece6a6c79a2493ebddbb763551fe70c82161708f.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "2bbeb53ef5a2d2a2ec0cd87a796c128794e575b98c11b2348987aad3e85b6cab",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

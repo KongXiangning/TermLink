@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:07:16.596Z",
+  "payload_sha256": "479c9025d5d46e2072d00ec177b9965cf42b5d8b2cb7ae6ad0538aa0196b868c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260503-001-52c54e998b6f7e2ac32bc871d761720d96f58b2ed611b691b43b057ff7b1f6cd-disposition-source",
+    "body": {
+      "original_task_id": "20260503-001",
+      "task_id": "20260503-001",
+      "source": "TASKS/TASK-20260503-001-clarify-codex-app-skill-cwd-scope.md",
+      "sha256": "52c54e998b6f7e2ac32bc871d761720d96f58b2ed611b691b43b057ff7b1f6cd",
+      "original_status": "completed",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": "重新调查 App 中新增 skill 不可见的问题，并审核当前文档是否把 App 逻辑写清楚：Codex App 中不同会话会打开不同路径，不同路径对应 Codex CLI 中不同 cwd，读取到的 skills 也不同。",
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\n- 项目类型：application\n- 任务 ID：20260503-001\n- 任务标题：Clarify Codex App skill cwd scope\n- 任务 slug：clarify-codex-app-skill-cwd-scope\n- 最终状态：completed\n- 创建时间：2026-05-03\n- 归档时间：2026-05-03"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- 在 `docs/workflow/CONTRACTS.md` 补充 `Codex session cwd / skills discovery scope` 契约。\n- 在 `ARCHITECTURE.md`、`DATABASE.md`、`README.md` 补充 App / CLI skill 可见性与当前 Codex session `cwd` 对齐的说明。\n- 在 `docs/changes/records/CR-20260418-0315-codex-skill-catalog-count-mismatch.md` 补充根因证据和后续修复入口。\n- 在 `docs/workflow/CURRENT_TASK.md` 记录调查证据、完成状态和下一代码批次入口。"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- 确认 `cwd` 是 Codex session 的执行上下文，也是 skill discovery 的项目作用域，不只是 UI 显示路径。\n- 确认 App skill catalog 的排查第一事实是当前 Codex session `cwd`，不是 PM2 / Node 服务部署目录。\n- 确认 `thread/start cwd=...` 不会让后续 `skills/list {}` 自动按该 cwd 枚举；`skills/list` 必须显式携带 `cwds:[session.cwd]`。\n- 本任务只修改文档，不修改运行时代码。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- 运行时复现 1：在 `D:\\ProgramCode\\termlink-win` 进程 cwd 下，`skills/list {}` 返回 14 条，分组 cwd 为 `D:\\ProgramCode\\termlink-win`。\n- 运行时复现 2：同一服务传入 `skills/list { cwds:[\"E:\\\\coding\\\\TermLink\"] }` 返回 45 条，分组 cwd 为 `E:\\coding\\TermLink`，包含 `investigate-root-cause`。\n- 验证命令：`bun run workflow:health`\n- 验证结果：通过，`workflow-runtime health: OK`"
+        },
+        {
+          "name": "发布后验证证据",
+          "text": "- Release mode: none\n- Deploy source: none\n- Target environment: local\n- Health checks: 文档 diff 人工核对；`bun run workflow:health` 通过\n- Canary window: none\n- Performance baseline: none\n- Rollback / recovery: 回滚本轮 `CURRENT_TASK.md`、`CONTRACTS.md`、`ARCHITECTURE.md`、`DATABASE.md`、`README.md`、既有 CR 的文档修正\n- Release evidence: 不涉及部署；workflow health OK\n- canary result: not applicable\n- performance baseline result: not applicable\n- rollback status: not exercised\n- remaining observation: 下一代码批次需要实现并验证 gateway/client 侧 `cwds` 注入"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "- 本任务未直接写入 `docs/workflow/LESSONS.md`。\n- 可复用经验：调查 App skill 可见性时，不能把服务部署目录等同于当前 Codex session `cwd`；先抓 `skills/list` 参数和返回分组 cwd，再判断文件同步或 UI 展示问题。"
+        },
+        {
+          "name": "后续关联",
+          "text": "- 下一任务建议：修复 `skills/list` cwd 绑定。\n- 最小修复入口：`src/ws/terminalGateway.js` 的 `codex_request` 转发逻辑。\n- 建议行为：对 `method === \"skills/list\"` 且请求未显式传入 `cwds` 的情况注入 `cwds:[session.cwd]`，保留客户端显式传入的 `cwds`。\n- 建议验证：在部署目录进程 cwd 下，session cwd 指向 `E:\\coding\\TermLink` 时，`skills/list {}` 经 gateway 返回完整项目 skill 列表并包含 `investigate-root-cause`。"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-07316f021e91534c29b23681fa714805b11ef558a58d6dfeb55107189e195c02.json"
+    }
+  },
+  "issues": []
+}

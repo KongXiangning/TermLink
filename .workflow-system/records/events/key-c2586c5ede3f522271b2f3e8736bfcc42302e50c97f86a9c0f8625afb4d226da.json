@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:08:01.762Z",
+  "payload_sha256": "8118934947e31aa210004771a81b036855fc686af2db57be598d00a10d14e76e",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-legacy-doc-03166aa61e365e5f8af1f680-3ba5ae9714d8803f97e1ef1657327381bfd13298909baeae89b5a9212e0b1bec-lifecycle",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-91546f93fc200c972d910fa2163cc6a90dbf4915d72ee20b31173b7f22ba368a.json",
+      "idempotency_key": "legacy-task-import-20261011-legacy-doc-03166aa61e365e5f8af1f680-3ba5ae9714d8803f97e1ef1657327381bfd13298909baeae89b5a9212e0b1bec-lifecycle",
+      "event": {
+        "action": "close",
+        "task_id": "legacy-doc-03166aa61e365e5f8af1f680",
+        "parents": [
+          ".workflow-system/records/events/key-72f1ac8e88c6f4215c5300f94b9441f6632cc497cd1388f30fb1b55c4317b4df.json"
+        ],
+        "data": {
+          "historical": true,
+          "completion_disposition": "stopped-by-user",
+          "remaining_work": [
+            "原记录 acceptance_satisfied=false、validation_complete=false；未完成验收和后续范围保留原文"
+          ],
+          "gaps": [
+            "原记录 acceptance_satisfied=false、validation_complete=false；未完成验收和后续范围保留原文"
+          ],
+          "decision_source": "TASKS/TASK-003-rust-node-app.md",
+          "decision_text": "导入原任务已发生的关闭/归档事实；本次未重新处置业务任务"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "legacy-doc-03166aa61e365e5f8af1f680",
+      "parents": [
+        ".workflow-system/records/events/key-055bd06bb40a8b11aaf92ae7e8fdbc9856cd3c1e7deada63bc44661744970092.json",
+        ".workflow-system/records/events/key-72f1ac8e88c6f4215c5300f94b9441f6632cc497cd1388f30fb1b55c4317b4df.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-91546f93fc200c972d910fa2163cc6a90dbf4915d72ee20b31173b7f22ba368a.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "965084c3b2c8975e14223052be19232425362ac1f65e0a234a080aecbcdf0fcf",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

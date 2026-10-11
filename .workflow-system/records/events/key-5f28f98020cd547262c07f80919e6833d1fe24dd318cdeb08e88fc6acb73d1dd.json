@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:12:28.555Z",
+  "payload_sha256": "5c42a6be07e2419bfcdd10cfd640eea9ed4e78398cc382c968ab7ca9abd0f4df",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260820-003-be492e06681826c95f89cda996f2ff70f5c62bdf815df070e0923acd5cdf600c-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-f9877481a2d79b34dfd3596c50475c06c2b627663ee5d7de526a9f3d8eca40d3.json",
+      "idempotency_key": "legacy-task-import-20261011-20260820-003-be492e06681826c95f89cda996f2ff70f5c62bdf815df070e0923acd5cdf600c-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260820-003",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "Codex Rollout Collector 阶段 4：分析器协议、Node 隔离运行时与 conformance 完整性",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260820-003-codex-rollout-collector-stage-4-runtime-and-conformance.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260820-003-codex-rollout-collector-stage-4-runtime-and-conformance.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260820-003",
+      "parents": [
+        ".workflow-system/records/events/key-1fdf889c3dc0f9a5ad2705936055459e24a772dd4c7aed307aa4550cbef4e4b1.json",
+        ".workflow-system/records/events/key-a603af6f3481608fcc5b4865c7606a3b701a403c6ad547ac4610037269f27647.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-f9877481a2d79b34dfd3596c50475c06c2b627663ee5d7de526a9f3d8eca40d3.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "3791f916f61b4acca5d40ea8243ec8a30947455b4c9b777903ab703e2aea4424",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

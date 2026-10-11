@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:10:10.327Z",
+  "payload_sha256": "d11d93e5061e76cbe7c36dd6e0f224532831b9ab2dc7a3edd51efec63870e6d0",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260827-001-3267f1dfa558ede915d862eecca823be4cac3ce3c45a4bcc93e273b36f13aa02-disposition-source",
+    "body": {
+      "original_task_id": "20260827-001",
+      "task_id": "20260827-001",
+      "source": "TASKS/TASK-20260827-001-codex-target-delivery-identity-repair.md",
+      "sha256": "3267f1dfa558ede915d862eecca823be4cac3ce3c45a4bcc93e273b36f13aa02",
+      "original_status": "completed_verified_archived",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": "用 target-owned 的纯 identity helper 替换 target_mapping 中简易字符串拼接，使相同 validated source scope 在 request 重试、进程重启和 generation 变化下保持相同逻辑交付 identity，同时让 batch、complete 和 checkpoint watermark 共享同一 mapping 派生结果。",
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\n- 项目类型：application\n- 任务 ID：20260827-001\n- 任务标题：修正 4.5 Rust target delivery identity 的确定性派生\n- 任务 slug：codex-target-delivery-identity-repair\n- 开始时间：2026-08-27\n- 结束时间：2026-08-27\n- 最终状态：completed_verified_archived\n- 任务开始基线：b03f673e052ed89914e5dc525ff95d03b30f17a0\n- 最终实现提交：5a3214a\n- Safety mode：frozen-scope\n- Release mode：none\n- 归档性质：这是对已归档 TASK-20260826-001 的独立 Rust target follow-up，承接跨工作树复核发现的 delivery identity 字段遗漏；不重开原任务，也不改变原任务归档内容。"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- 新增 native/codex-rollout-collector/src/protocol/target_identity.rs：基于现有 TargetSourceScope 的字段类型，实现带长度前缀和 presence tag 的规范化编码、domain-separated SHA-256 派生以及 segment/batch identity helper。\n- 修改 native/codex-rollout-collector/src/protocol/target_mapping.rs：从 request、active source segment、safe complete range 和 next cursor 组装 target source scope；segment 使用 job_id + scope 派生，batch 在 segment identity 上绑定 range 和 index，batch/complete/checkpoint watermark 复用同一结果。\n- 修改 native/codex-rollout-collector/src/protocol/mod.rs：注册 target identity 私有模块，不改变公共 wire export。\n- 在 identity helper 与既有 target mapping/retry 测试中补齐固定向量、job/conversation/source scope、snapshot、完整行边界、ordinal、batch range/index 和 retry stability 证据。\n- 未修改 native/codex-rollout-collector/src/source/**、Node、Android、IPC、数据库、vendor、Demo/Spike 或契约正文。\n- workflow closeout 另在 docs/workflow/LESSONS.md 增加 L-034，记录完整 validated source scope 与规范化 identity 的可复用经验；该条文档变更在归档时仍是工作树中的未提交 closeout 记录。"
+        },
+        {
+          "name": "验收结论",
+          "text": "1. 通过：Codex 既有模块分层保留，新增 helper 只位于 protocol 层，没有机械引入 Alpha 的平行 source 类型。\n2. 通过：segment identity 绑定 job_id、conversation、source id/epoch、cursor kind、range、snapshot、完整行边界和 rollout ordinal。\n3. 通过：request_id、generation 和采集顺序不进入 identity；不同 request id、重试和进程代次保持相同 scope 时 identity 稳定，参与字段变更可区分。\n4. 通过：batch identity 额外绑定 batch range 与 batch index，并通过规范化编码区分可选字段边界。\n5. 通过：batch、complete 和 checkpoint watermark 使用同一 mapping 派生结果，4.5 wire 字段形状未改变。\n6. 通过：identity focused tests 6/6，既有 retry checkpoint 测试 1/1，target mapping 测试 1/1；native 全量回归 235/235。\n7. 通过：范围审查确认未触及 source、Node、Android、IPC、数据库、vendor、Demo/Spike 或契约正文；本任务没有吸收 candidate symlink、source hash interruptibility 或 discovery error 分类等其他 finding。"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- 采用 Codex 现有 TargetSourceScope 和 TargetSource 类型，不建立 Alpha 的平行 source range/boundary 类型。\n- 采用规范化字段、domain separation 和 SHA-256 截断 ID 的思想，但只实现 target delivery 所需的最小 helper。\n- segment identity 是逻辑交付 identity，不是展示标签；request_id 仅承担协议相关性。\n- batch 当前由 mapping pass 使用 batch index 0 派生；helper 同时支持 range/index 绑定，后续多 batch 映射不得省略这两个字段。\n- wire shape 和 opaque string 约束保持不变；本任务未新增公共协议字段或 Node API。\n- Node consumer 尚未开始 4.5 实施，后续 Node 任务应依据 Rust target contract 独立适配；若双方最佳实践最终冲突，再由 Rust/Node owner 联合分析。\n- RD-4.5-006-001 candidate pre-I/O path confinement、RI-4.5-007-011 formal source hash/append prefix digest interruptibility 以及前一任务中明确 deferred 的 source 层风险均未重开。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- native target protocol focused tests：identity 6/6；既有 retry checkpoint 1/1；target mapping 1/1。\n- cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline：235/235 通过，包含 lib 103、main 1、conformance 31、stage2 3、stage3 5、stage4 22、target protocol 70。\n- cargo check --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline：通过。\n- cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check：通过。\n- git diff --check：通过。\n- review-diff：通过；无 scope drift、decision drift 或本任务范围内 finding。\n- review-implementation：通过；identity 编码、mapping 接入、异常边界和测试矩阵无未解释问题。\n- verify-contracts：通过；没有破坏稳定 wire shape、TargetSource 类型边界或 Rust target 分层。\n- 任务开始基线至最终实现提交的变更为 4 个文件、554 insertions、28 deletions；归档时另有 LESSONS.md 的 L-034 closeout 文档改动未提交。"
+        },
+        {
+          "name": "发布后验证证据",
+          "text": "- Release mode：none\n- Deploy source：none\n- Target environment：本地 Windows Rust native crate / Rust analyzer target process\n- Health checks：cargo fmt、locked/offline check/test、target focused tests、review chain、scope/diff checks\n- Canary window：none\n- Performance baseline：none；本任务只验证确定性和既有资源/协议回归，不建立 benchmark 发布门禁\n- Rollback / recovery：仅可将本任务 Allowed Files 恢复到 b03f673e052ed89914e5dc525ff95d03b30f17a0 或后续审计 checkpoint；不执行整树 reset、checkout、clean，不触碰 task-external 内容\n- Release evidence：not applicable；本任务不宣称部署、生产、canary 或 release readiness\n- canary result：not applicable\n- performance baseline result：not applicable\n- rollback status：not exercised\n- remaining observation：Node consumer 仍需独立 4.5 迁移；source candidate pre-I/O confinement、formal source hash interruptibility 和既有治理 artifact 异常继续由后续任务/治理流程承接；当前 closeout 的 L-034 文档变更需随后续 path-scoped 提交处理"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "- 已在 docs/workflow/LESSONS.md 增加 L-034：opaque delivery identity 必须绑定完整 validated source scope，并通过长度/presence 规范化、domain-separated hash、golden vector、mutation/retry 测试锁定算法。\n- 已保留此前 L-029～L-033 的跨模块边界、source pre-I/O、分层错误、request decoded budget 与 cancel/timeout single-flight 经验，不重复改写。"
+        },
+        {
+          "name": "后续关联",
+          "text": "- 下一轮入口：没有预先确定的新需求；执行 /create-current-task 创建新的 task identity，不复用 20260827-001。\n- Node 后续任务：按已确认的 Rust 4.5 startup/wire/data/identity contract 独立设计和实施 Node collector/coordinator，完成后再做 Rust↔Node 联合接口分析。\n- Source boundary 后续任务：如确需 candidate pre-I/O confinement 或 formal hash interruptibility，先单独说明影响、锁定 scope、同步必要契约/决策并取得用户确认。\n- 归档位置：TASKS/TASK-20260827-001-codex-target-delivery-identity-repair.md"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-cd863b64af36580d3334595f0ce472795277b90808159549a28ad1cbdf741950.json"
+    }
+  },
+  "issues": []
+}

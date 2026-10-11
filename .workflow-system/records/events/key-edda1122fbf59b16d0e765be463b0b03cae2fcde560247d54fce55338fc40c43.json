@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:23:10.844Z",
+  "payload_sha256": "8274a4fb7ba6a08081e9cd8eb605e9b2130c5b81d47d949ad22742f143cd7190",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260727-002-b4ce7320e3baeeeef168847c6dc07f7d6e5d4f1f198907e08b8d6a616a76195b-lifecycle",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-69eb1be38d3f4e09af3533f2edd05fcd1c400e744d9e62de1b49eb1fabef7506.json",
+      "idempotency_key": "legacy-task-import-20261011-20260727-002-b4ce7320e3baeeeef168847c6dc07f7d6e5d4f1f198907e08b8d6a616a76195b-lifecycle",
+      "event": {
+        "action": "pause",
+        "task_id": "20260727-002",
+        "parents": [
+          ".workflow-system/records/events/key-bd9ec9d5735f4f2a8c2d5b76069c3b1040f57dd10636d043158f09b0ef511724.json"
+        ],
+        "data": {
+          "historical": true,
+          "completion_disposition": "paused-historical",
+          "remaining_work": [
+            "原暂停任务的未完成步骤、手工验证和恢复条件保留；不因其他任务完成而自动关闭"
+          ],
+          "gaps": [
+            "原暂停任务的未完成步骤、手工验证和恢复条件保留；不因其他任务完成而自动关闭"
+          ],
+          "decision_source": "TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md",
+          "decision_text": "导入原任务已发生的暂停事实；本次未重新处置业务任务"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260727-002",
+      "parents": [
+        ".workflow-system/records/events/key-96008ee6357b12918ef093f5f8b022c26d592053bc6f63bee466f134f640f7af.json",
+        ".workflow-system/records/events/key-bd9ec9d5735f4f2a8c2d5b76069c3b1040f57dd10636d043158f09b0ef511724.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-69eb1be38d3f4e09af3533f2edd05fcd1c400e744d9e62de1b49eb1fabef7506.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "5988f1df4e67f4c453ebfdcd2d65f12da1ec51d47fa8393a00f129d02c4649c2",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:10:01.916Z",
+  "payload_sha256": "5efca5bddf2ea242f3432ffcc59600dae3854e22a55752fe474bd5af49665da1",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260827-001-3267f1dfa558ede915d862eecca823be4cac3ce3c45a4bcc93e273b36f13aa02-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-cd863b64af36580d3334595f0ce472795277b90808159549a28ad1cbdf741950.json",
+      "idempotency_key": "legacy-task-import-20261011-20260827-001-3267f1dfa558ede915d862eecca823be4cac3ce3c45a4bcc93e273b36f13aa02-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260827-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "修正 4.5 Rust target delivery identity 的确定性派生",
+            "goal": "用 target-owned 的纯 identity helper 替换 target_mapping 中简易字符串拼接，使相同 validated source scope 在 request 重试、进程重启和 generation 变化下保持相同逻辑交付 identity，同时让 batch、complete 和 checkpoint watermark 共享同一 mapping 派生结果。",
+            "scope": [
+              "TASKS/TASK-20260827-001-codex-target-delivery-identity-repair.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260827-001-codex-target-delivery-identity-repair.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260827-001",
+      "parents": [
+        ".workflow-system/records/events/key-4a4535dffe3248b49b21938a9db8b76f44fc2b25a85932634234f073308b2d1c.json",
+        ".workflow-system/records/events/key-552c1c9f84f07949c71b70cff603157a86558e5774b288169deaa1b009c92dc2.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-cd863b64af36580d3334595f0ce472795277b90808159549a28ad1cbdf741950.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "3f1fe0f37046ea50f14ff97014d36f928482f2c55e2c098444397e11c1998fee",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

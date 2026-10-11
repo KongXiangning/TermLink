@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-df345d5c68ff0504756c8f3de042f493dbb6b2b65a1e0de5f9863a96c10408b4.json",
+  "captured_at": "2026-10-11T10:11:39.289Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/202da37853950965b1c980bb1b80512f64ff71f0e4d13f1aa45526bd8bf00410.blob",
+      "sha256": "202da37853950965b1c980bb1b80512f64ff71f0e4d13f1aa45526bd8bf00410",
+      "size": 8719,
+      "source_path": "TASKS/TASK-20260823-001-codex-rollout-collector-session-lineage-replan.md",
+      "issues": []
+    }
+  ]
+}

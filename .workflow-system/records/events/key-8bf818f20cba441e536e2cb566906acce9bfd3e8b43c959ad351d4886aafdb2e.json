@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:21:27.230Z",
+  "payload_sha256": "5a138a5f071202062770d96921e810356c10667c5f1a61bb3c59e6fccd71b179",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260617-001-1faa341151c5cf0e076c139ae14bbe2d454e9a9cd7416c063c74c4cae0919def-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-abebef09e3a77d194bf8b7175b0cf2d8a4067c57f279ec70a073eeedea6a096b.json",
+      "idempotency_key": "legacy-task-import-20261011-20260617-001-1faa341151c5cf0e076c139ae14bbe2d454e9a9cd7416c063c74c4cae0919def-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260617-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "网页版 Codex 会话页按安卓端设计对齐",
+            "goal": "将 `public/codex_client.html`（PC 网页端）的布局、视觉风格和功能交互向安卓 APP Codex 会话页对标，在 PC 桌面宽屏下实现与安卓端一致的设计语言。",
+            "scope": [
+              "TASKS/TASK-20260617-001-web-codex-session-android-redesign.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260617-001-web-codex-session-android-redesign.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260617-001",
+      "parents": [
+        ".workflow-system/records/events/key-1a9f6ef9d86296cfa8dc777fbd41bfd916e81ed831f5ababdfa4eb26dc6cf8ec.json",
+        ".workflow-system/records/events/key-4595b64e8be6fe39d19687c83b7c33b4b3d9ba45de82e1c51ef5c083dde605a1.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-abebef09e3a77d194bf8b7175b0cf2d8a4067c57f279ec70a073eeedea6a096b.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "bb2820b3c433eefd3d2df491feb66e39cfb0bb24ad41c570544f764935d33bad",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

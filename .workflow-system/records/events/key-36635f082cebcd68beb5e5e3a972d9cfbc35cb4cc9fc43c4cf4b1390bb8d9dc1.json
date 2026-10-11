@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:08:51.691Z",
+  "payload_sha256": "847814feca12bbd9f0f68fc5ab46f7db1f5ccbe730c55f32e33c395e73a66657",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-legacy-doc-87ea7576bc76f5782bea891f-4c19b6271a590aebc6c376e53a213ac442fd2dc9c8130a0ab08eb2b40ccb9138-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-cbe4bdca8e53b8cd416a74cdffb962a1d1b5bd15602c4fccb551026af3a2a26d.json",
+      "idempotency_key": "legacy-task-import-20261011-legacy-doc-87ea7576bc76f5782bea891f-4c19b6271a590aebc6c376e53a213ac442fd2dc9c8130a0ab08eb2b40ccb9138-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "legacy-doc-87ea7576bc76f5782bea891f",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "建立采集到存储业务用例矩阵，核实当前 worktree 的 RUST-001 至 RUST-009，并评估 Gemini 修复复用。",
+            "goal": "完成当前工作树与 Gemini 工作树关于 Rust 9 项问题及前置提交的只读对比审计、测试用例断言设计、真实验证与复用分类",
+            "scope": [
+              "TASKS/TASK-001-rust-issues-audit-worktree-rust-001-rust-009-gemini.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-001-rust-issues-audit-worktree-rust-001-rust-009-gemini.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "legacy-doc-87ea7576bc76f5782bea891f",
+      "parents": [
+        ".workflow-system/records/events/key-489fb70ce2c2ac68c43222aee4df42bf0a497620fbea8cc31ef37546fb1c4cad.json",
+        ".workflow-system/records/events/key-35fee6552bd03a3d6f626a40a960f6ca012ab916e7b4a8889fa6054dda8b301f.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-cbe4bdca8e53b8cd416a74cdffb962a1d1b5bd15602c4fccb551026af3a2a26d.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "cd14b46fa1b958c49e99f54a02a91d122314c42694f72aec14ac514b72198536",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

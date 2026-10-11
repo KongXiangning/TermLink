@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:18:33.093Z",
+  "payload_sha256": "3ef6257cb8497c69df215c367916b25e8792b4e2c83807c27e03b69ada7561c8",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260718-003-7876e5f9602c8318bd88243784d4008ce430dce6e33c10056efecf84280ae612-lifecycle",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-21f1e65265be1a623512e4943625a6f90420f4506060aa5cbcc9aec9780558b6.json",
+      "idempotency_key": "legacy-task-import-20261011-20260718-003-7876e5f9602c8318bd88243784d4008ce430dce6e33c10056efecf84280ae612-lifecycle",
+      "event": {
+        "action": "close",
+        "task_id": "20260718-003",
+        "parents": [
+          ".workflow-system/records/events/key-7a3d46c665a0b11a92e8e5ed6b8584cf863579d94a0c3739b9748f352be18cab.json"
+        ],
+        "data": {
+          "historical": true,
+          "completion_disposition": "historical-completion-declaration",
+          "remaining_work": [
+            "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+          ],
+          "gaps": [
+            "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+          ],
+          "decision_source": "TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md",
+          "decision_text": "导入原任务已发生的关闭/归档事实；本次未重新处置业务任务"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260718-003",
+      "parents": [
+        ".workflow-system/records/events/key-0b0691d592aa3b8431e576a2db6d1817df6c827ff2d85b2de435a3e25e811f1a.json",
+        ".workflow-system/records/events/key-7a3d46c665a0b11a92e8e5ed6b8584cf863579d94a0c3739b9748f352be18cab.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-21f1e65265be1a623512e4943625a6f90420f4506060aa5cbcc9aec9780558b6.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "4f30eab57d8d25aebd21dfe767bb4f1a21a3351beb220931f73b8fae7c0c85e1",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

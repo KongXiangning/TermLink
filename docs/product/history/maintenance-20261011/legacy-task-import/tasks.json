@@ -1,0 +1,1306 @@
+{
+  "as_of": "2026-10-11",
+  "working_copy": "E:/coding/TermLink-rust-source-resolution-codex",
+  "method": "按可靠原 task ID/document_id 去重；索引、snapshot、task-data、task-history 不重复计数。完成/关闭、暂停、替代和未确认分开。未新建、重开或执行业务 task。",
+  "historical": [
+    {
+      "original_task_id": "20260716-002",
+      "title": "修复 Web Codex 会话配置数据与头部重复路径",
+      "source": "docs/workflow/TASKS/TASK-20260716-002-fix-web-codex-reasoning-permissions-data.md",
+      "sha256": "0848f952f7b6b8956c032170219d6bbef0660a39a45a94e66c03a94340d835f9",
+      "original_status": "archived",
+      "task_id": "20260716-002",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "让 Web Codex 会话页正确显示模型推理强度与权限选项，并把头部重复三次的当前工作目录收敛为一个明确的 `PATH` 展示。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-8c2b8fcd6f81c598d81089c9aeff94732219f5a30240c1ed3a6f688a5a6d87ab.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-f494560be2038c88a3abd897fb58cc379b196caaaf0c042165a7bf0d5901f902.json",
+      "evidence": [
+        {
+          "section": "归档摘要",
+          "text": "- 完成状态：已完成并归档；全部验收项和实施步骤均已关闭。\n- 最终实现 checkpoint：`f74f1d1f4e1c2084a06e6ddec7d77f8a5fdd87d6`。\n- 最终审查范围：`d0cc650d8816d00d0968e9984e87f3232a95b036..f74f1d1f4e1c2084a06e6ddec7d77f8a5fdd87d6`；后续 `01f96c4`、`ec895b2` 为 scope-external 提交。\n- 交付结果：Web Codex 推理强度按模型 metadata 驱动；权限控件使用 effective sandbox 配置并保持 wire 字段兼容；头部当前路径收敛为单一 `PATH` 行。\n- 验证结果：任务定向测试 123/123、TD-004 confirmed narrow gate 125/125、JS syntax、双语 JSON parse、commit-range diff check 全部通过；既有 3020 Edge/WebSocket visual smoke 证据有效。\n- 契约与决策：未新增或改变长期服务端 DTO、网络协议或架构契约；无需更新 `CONTRACTS.md`、`DECISIONS.md` 或宿主 guidance。\n- Canary result：not applicable（Release mode 为 none）。\n- Performance baseline result：model list 继续复用单次加载 Promise/cache，未引入重复请求。\n- Rollback status：未触发；可按本任务 checkpoint 范围回退局部 Web 变更。\n- Remaining observation：全量 `node --test` 的既有未关闭句柄问题继续由 TD-004 窄门禁管理，不构成本任务 blocker；暂停任务需由用户显式选择后再恢复。\n- 后续建议：收到新需求后执行 `/create-current-task`，不要把 scope-external 后续提交并入本任务历史。"
+        },
+        {
+          "section": "发布后验证",
+          "text": "- Release mode：none。\n- Deploy source：none。\n- Target environment：当前本地服务 `http://127.0.0.1:3020`。\n- Health checks：`/api/health`、WebSocket `model/list`、Codex composer capsules。\n- Canary window：not applicable。\n- Performance baseline：model list 仍复用单次加载 Promise/cache，不新增重复请求。\n- Rollback / recovery：回退本任务局部 Web 变更；服务端协议不变。\n- Release evidence：targeted tests、JS/JSON/diff checks、真实 browser/WebSocket smoke。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260617-002",
+      "title": "网页版 Codex 会话页优先使用 IPC 数据通道并保留原通道降级",
+      "source": "docs/workflow/TASKS/20260617-002-web-codex-session-ipc-first-data-routing.md",
+      "sha256": "fc692f2d64b637a62ac23a13a20f9ec5a4ee9a52a33fda6a755b8d68c6d87ffa",
+      "original_status": "completed",
+      "task_id": "20260617-002",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "在不改变 `public/codex_client.html` 文件、可见界面、布局、样式、按钮或交互入口的前提下，让网页版 Codex 会话页的数据层优先消费现有 IPC feed，经 `terminalGateway` 的 IPC WebSocket envelope 与 Desktop / VS Code owner surface 同步；当 IPC 离线、无可用 conversation、主动发送被拒绝或 IPC 数据不可用时，保持现有 `codex_turn` / `codex_state` / `codex_notification` 原通道可用。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-776d00ab67dfc93b12a4dc5d8adcd717b57b4b8fe5655d7c2ec9671c5b43bc69.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-71618c36ee0c7d30c2ec5014df01d462f8612eb8b2b4059bc05381aead4227a9.json",
+      "evidence": [
+        {
+          "section": "发布后验证",
+          "text": "- Release mode: none\r\n- Deploy source: none\r\n- Target environment: local\r\n- Health checks: not-required\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery: 回退本任务改动文件即可恢复旧 `codex_client.html` 数据通道行为。\r\n- Release evidence: not-required"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260513-001",
+      "title": "提供跨平台发行安装脚本与一键 mTLS 证书工具",
+      "source": "TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md",
+      "sha256": "4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a",
+      "original_status": "completed_verified_archived",
+      "task_id": "20260513-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-6160cefb8e1fdce1a9401735378929e579f3c0029f4293c4e2b8f6b4c0d521cf.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-af08e01c920643c681cf8b546697d4595067d9584d212048956d87739f189cb9.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- 审查链：\r\n  - `/review-diff`：clean\r\n  - `/review-implementation`：clean\r\n  - `/verify-contracts`：clean\r\n  - `/run-regression`：diff-aware pass\r\n- 关键验证：\r\n  - `npm run release:build` 可生成 `dist/release-layout\\termlink-win-v1.0.0\\`、`dist/release-layout\\termlink-linux-v1.0.0\\`、`termlink-win-v1.0.0.zip` 与 `termlink-linux-v1.0.0.tar.gz`\r\n  - `node --test tests\\releaseLayout.test.js tests\\directMtlsInstaller.test.js tests\\nginxMtlsTool.test.js tests\\tlsConfig.test.js tests\\health.route.test.js` 通过（30/30）\r\n  - `node --test tests\\tlsConfig.test.js tests\\workspace.routes.test.js tests\\workspace.web.test.js tests\\sessionStore.metadata.test.js tests\\terminal_shortcut_input.test.js tests\\codexSecondaryPanel.integration.test.js` 通过（99/99）\r\n  - Windows 打包目录下 `start.ps1 -Foreground` + `test-health.ps1` 在 `tls.mode=off` 与 `mtls.deployment=direct-server` 两种场景返回 `Health OK HTTP 200`\r\n  - `scripts/certs/generate-direct-mtls.js` 与 `scripts/certs/generate-nginx-mtls.js` 的 OpenSSL smoke 均通过；缺少 OpenSSL 时会显式失败\r\n  - Windows PM2 host proof：依据 2026-05-17 用户确认，正式安装验证已完成\r\n  - Linux `systemd` host proof：依据 2026-05-17 用户确认，主支持路径 host smoke 已验证通过\r\n  - `git diff --check -- docs/workflow/CURRENT_TASK.md docs/workflow/STATUS.md` 无 whitespace error"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode: release-readiness\r\n- Deploy source: existing README / deployment guide / release packaging scripts / local install smoke\r\n- Target environment:\r\n  - Windows host\r\n  - Linux host\r\n  - local release artifact validation\r\n- Health checks:\r\n  - 解压后安装脚本成功退出\r\n  - 安装结果输出包含安装目录、配置文件路径、自启状态、健康检查地址\r\n  - `/api/health` 返回 200\r\n  - direct mTLS 安装模式下证书文件与密码文件实际存在\r\n  - nginx mTLS 工具模式下生成物可被 README 指南消费\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery:\r\n  - 保留当前手动部署方式与现有 Windows skill 脚本作为回退路径\r\n  - 若新安装脚本或新配置模型导致行为不明确，回滚到本任务开始前的 README / 部署文档 / 打包脚本状态\r\n- Release evidence:\r\n  - Windows / Linux release 包与物化目录均已生成\r\n  - Windows / Linux installer、自启脚本、health helper 与 mTLS helper 均已落入 release 清单\r\n  - packaged runtime `/api/health` smoke、direct mTLS 生成 smoke、nginx-side mTLS 工具 smoke、Windows 非管理员自启显式失败 smoke、Windows PM2 host proof、Linux `systemd` host proof 均已补齐\r\n- canary result: not applicable\r\n- performance baseline result: not applicable\r\n- rollback status: not exercised\r\n- remaining observation:\r\n  - `npm run android:check-release-config` 仍对 checked-in `capacitor.config.json` 失败，属于 scope-external known validation failure\r\n  - 若后续需要进一步补强开源 release 证据，可单独补正式 install 路径下的 `/api/health` 端到端验证"
+        },
+        {
+          "section": "后续关联",
+          "text": "- clean handoff：\r\n  - `docs/workflow/CURRENT_TASK.md` 应清理为无活动任务入口，下一轮需求先执行 `/create-current-task`\r\n- 推荐下一轮候选任务：\r\n  - 明确 Android release config 应通过环境覆写还是仓库默认值满足 `npm run android:check-release-config`\r\n  - 如需继续增强开源 release 证据，可补正式 install 路径下的 `/api/health` 端到端验证\r\n  - 根据新的用户需求创建新的 `CURRENT_TASK.md`\r\n- 相关文档：\r\n  - `docs/workflow/STATUS.md`\r\n  - `docs/workflow/DECISIONS.md`\r\n  - `docs/workflow/LESSONS.md`"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260511-001",
+      "title": "隔离 `node --test` full suite 挂起点并判断 gate 处理方式",
+      "source": "TASKS/TASK-20260511-001-isolate-node-test-full-suite-hang-and-classify-gate.md",
+      "sha256": "ecb9946aae341302c6c40eb424bc6f8a19288b48520b9c3a2a992f95c414f98b",
+      "original_status": "completed_verified_archived",
+      "task_id": "20260511-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "从 `20260510-001` 归档后的 clean handoff 入口继续推进候选 1，优先隔离 `node --test` full suite 挂起点并判断 gate 处理方式。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-7cb80c5d3a8603363d00e2ecd7e58ad19a8336ba1ee2378bd71ed0ef55e0e73c.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-80724dd42f79b9053814e34e567744c9e3a96a15cc779458355b698a3e6271ef.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- Step 1 full suite：\n  - `node --test` 在 120 秒窗口内未退出。\n  - `tmp\\20260511-001-step1\\node-test.meta.txt` 记录 `status=hung`、`exit_code=timeout`、`elapsed_sec=120`。\n- Step 2 hanging surface：\n  - `tests\\sessionManager.codexConfig.test.js` 单文件 90 秒未退出。\n  - `tests\\terminalGateway.codex.test.js` 单文件 90 秒未退出。\n  - `tests\\terminalGateway.sessionid.test.js` 单文件 90 秒未退出。\n- Step 2 / Step 4 passing surface：\n  - `tests\\tlsConfig.test.js`\n  - `tests\\workspace.routes.test.js`\n  - `tests\\workspace.web.test.js`\n  - `tests\\sessionStore.metadata.test.js`\n  - `tests\\terminal_shortcut_input.test.js`\n  - `tests\\codexSecondaryPanel.integration.test.js`\n- Final regression：\n  - confirmed narrow gate 命令：\n    `node --test tests\\tlsConfig.test.js tests\\workspace.routes.test.js tests\\workspace.web.test.js tests\\sessionStore.metadata.test.js tests\\terminal_shortcut_input.test.js tests\\codexSecondaryPanel.integration.test.js`\n  - 结果：通过，`tests 99 / pass 99 / fail 0`，duration_ms 2368.8897。\n  - `git diff --check -- docs/workflow/CURRENT_TASK.md docs/workflow/STATUS.md docs/workflow/DECISIONS.md docs/workflow/LESSONS.md` 无 whitespace error。\n- Review chain：\n  - `/review-diff`：clean after RDF-20260511-002 / RDF-20260511-003 fixes。\n  - `/review-implementation`：clean after RDF-20260511-004 fix。\n  - `/verify-contracts`：clean；未破坏锁定接口或架构契约。\n  - `/run-regression`：diff-aware pass。"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode: none\n- Deploy source: none\n- Target environment: local\n- Health checks:\n  - `node --test` full suite hang isolation\n  - confirmed narrow gate regression\n  - allowed/conditional workflow doc diff check\n- Canary window: none\n- Performance baseline: none\n- Rollback / recovery:\n  - 若 TD-004 或状态判断被后续证据推翻，只回滚 `docs/workflow/CURRENT_TASK.md`、`docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` 中对应 gate 结论和经验记录。\n- Release evidence:\n  - 不适用；本轮无发布、部署、生产验证、canary 或性能基线改动。\n- canary result: not applicable\n- performance baseline result: not applicable\n- rollback status: not exercised\n- remaining observation:\n  - 3 个 hanging 文件仍未修复，修复前 terminalGateway / sessionManager codex config 相关回归不能被自动化 full suite gate 捕获。\n  - `npm run android:check-release-config` 仍对 checked-in 配置报错。\n  - integration / e2e / deploy validation 仍未正式绑定。"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 推荐下一轮候选任务：\n  - 修复 `tests\\sessionManager.codexConfig.test.js`、`tests\\terminalGateway.codex.test.js`、`tests\\terminalGateway.sessionid.test.js` 的挂起问题，并恢复 full suite 可运行性。\n  - 明确 Android release config 应通过环境覆写还是仓库默认值满足 `npm run android:check-release-config`。\n  - 清理 active docs 漂移，优先处理 README 默认端口与代码默认值冲突。\n- 相关决策：\n  - `docs/workflow/DECISIONS.md` TD-004\n- 相关状态：\n  - `docs/workflow/STATUS.md`"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260510-001",
+      "title": "补任务 20260504-001 的完整 Android smoke 与归档判断",
+      "source": "TASKS/TASK-20260510-001-complete-20260504-001-android-smoke-and-archive-decision.md",
+      "sha256": "6a5a265cc131759b4d54fa6ddaa19622644e0da469388bf93b5849609dd1211f",
+      "original_status": "completed_verified_archived",
+      "task_id": "20260510-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "从 clean handoff 入口继续推进候选 1，补齐旧任务 `20260504-001` 的完整 Android 真机 smoke 与最终归档判断，同时把候选 2（`node --test` full suite 挂起点）和候选 3（Android release config 策略）保留为后续入口，不在本轮展开。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-f59f05dcc171518de2d0e8c1229458e697008c5430e8e99157de8abdcb09e22f.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-804be0d005df3eaa43fc6a9c8ac6759229b956f9eeabc47334d675757a4f702f.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- 关键真机 smoke：\r\n  - 步骤 12：passed。双 `cwd` 会话历史列表已确认隔离，证据见 `tmp\\20260510-001-step12-13\\session-panel-4.{xml,png}`、`b-main.{xml,png}`、`b-history.{xml,png}`、`a-history.xml`。\r\n  - 步骤 13：passed。A/B 切换后不残留旧 task / thread，回切 A 后可直接继续对话，证据见 `tmp\\20260510-001-step12-13\\a-returned.{xml,png}`、`a-enter-send.{xml,png}`。\r\n  - 步骤 14：passed。same-session re-entry 后 active thread 状态一致，且无需先打开历史列表即可直接发送，证据见 `tmp\\20260510-001-step14-15\\step3-after-retry.{xml,png}`、`step14-direct-send.{xml,png}`、`step14-sessions.json`、`step3-after-retry-logcat.txt`。\r\n  - 步骤 15：passed。点击 `新任务` 后消息区清空，fresh 对话已绑定新 thread `019e12b5-211a-7283-805b-a120127b2d80`，证据见 `tmp\\20260510-001-step14-15\\step15-retry-history-open.{xml,png}`、`step15-retry-new-task.{xml,png}`、`step15-retry-fresh-send.{xml,png}`、`step15-retry-sessions.json`、`step15-retry-logcat.txt`。\r\n- 审查与回归链：\r\n  - `/review-diff`：clean（allowed-path 审查面内无越界）\r\n  - `/review-implementation`：clean（归档判断与证据一致）\r\n  - `/verify-contracts`：clean（未破坏锁定契约）\r\n  - `/run-regression`：diff-aware pass（`/api/health=200`、Session A=`ACTIVE`、`codexThreadId=019e12b5-211a-7283-805b-a120127b2d80`、closeout 关键证据文件齐全）\r\n- 实际修改文件：\r\n  - `docs/workflow/CURRENT_TASK.md`\r\n  - `docs/workflow/STATUS.md`\r\n  - `docs/workflow/LESSONS.md`\r\n  - `TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md`"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode: none\r\n- Deploy source: none\r\n- Target environment: local / Android debug\r\n- Health checks:\r\n  - `/api/health`\r\n  - `/api/sessions` 摘要核对\r\n  - Android 真机 smoke 步骤 12-15\r\n  - allowed-path review / contract / regression chain\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery:\r\n  - 若后续证明本轮归档判断错误，只回滚 `docs/workflow/CURRENT_TASK.md`、`docs/workflow/STATUS.md` 与相关 `TASKS/...` 归档结论段。\r\n- Release evidence:\r\n  - 旧任务 `20260504-001` 的步骤 12-15 已全部通过。\r\n  - Step 15 已确认 `codexThreadId` 从 `019e112a-be07-79d2-a793-2b9bc6902683` 切换到新 thread `019e12b5-211a-7283-805b-a120127b2d80`。\r\n  - Step 4 后的审查与回归链均为 clean。\r\n- canary result: not applicable\r\n- performance baseline result: not applicable\r\n- rollback status: not exercised\r\n- remaining observation:\r\n  - 后续若继续触碰 session / thread / task 状态逻辑，必须重新纳入同级 Android 真机 smoke。\r\n  - 项目级独立风险仍包括 `node --test` full suite 挂起点、Android release config 检查失败、以及 README 与代码默认端口漂移。"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 推荐下一轮候选任务：\r\n  - 隔离 `node --test` full suite 挂起的具体测试点。\r\n  - 明确 Android release config 应通过环境覆写还是仓库默认值满足 `npm run android:check-release-config`。\r\n  - 清理 active docs 漂移，优先处理 README 默认端口与代码默认值冲突。\r\n- 相关归档入口：\r\n  - `TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md`\r\n  - `TASKS/TASK-20260508-001-codex-inline-multiple-skills-and-attachment-visible-history.md`"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260508-001",
+      "title": "Codex 输入区支持多 skill 内联插入并持久展示附件上下文",
+      "source": "TASKS/TASK-20260508-001-codex-inline-multiple-skills-and-attachment-visible-history.md",
+      "sha256": "d16160ee5c0c4a663055e008c6ab436086811c6792309a7d1b8fa55d969282bf",
+      "original_status": "completed_verified_archived",
+      "task_id": "20260508-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "围绕 `RF-20260508-001` 与 `RF-20260508-002`，让 Codex 输入区支持像 VS Code Codex 一样的多 skill 内联 token 输入，并让本地图片 / 本地文件附件上下文在 Web / Android 的发送后历史中持续可见。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-cd746d28ac337630252745cf18e800a337050a096dd74200dedee6eec2f86f31.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-1335f6a78397f1e047a2d1b04d8ceb93b33bdc13c0bf75571f6eeb39ac39fb8c.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- 已通过的自动 / 静态验证：\r\n  - `node --test tests/codexSlashCommands.test.js tests/codexClient.shell.test.js tests/codexShellView.test.js` -> 31/31 通过\r\n  - `Set-Location android; $env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; .\\gradlew.bat :app:testDebugUnitTest --no-daemon` -> 通过\r\n- 已通过的手动 / browser-backed / 真机 smoke：\r\n  - Web pre-send / streaming / completed：\r\n    - `tmp/web-smoke-pre-send-final.png`\r\n    - `tmp/web-smoke-streaming.png`\r\n    - `tmp/web-smoke-short-final.png`\r\n    - `tmp/web-smoke-short-latest.png`\r\n  - Android deterministic / post-send clean：\r\n    - `tmp/step6f-rerun/08_nonplan_sent_1s.xml`\r\n    - `tmp/step6f-rerun/09_nonplan_sent_4s.xml`\r\n    - `tmp/step6f-postsend-clean/48g_before_send_clean2.xml`\r\n    - `tmp/step6f-postsend-clean/49_sent_1s_clean2.xml`\r\n    - `tmp/step6f-postsend-clean/50_sent_4s_clean2.xml`\r\n    - `tmp/step6f-postsend-clean/52_final_userbubble_clean2.xml`\r\n  - 关联风险 smoke（双 cwd / A-B 切换 / same-session re-entry）：\r\n    - Session A：`9fdff741-c636-43a5-b579-94684a0dc41e`\r\n    - Session B：`dac2c014-8bc8-4bfc-8b51-b72d65628d40`\r\n    - Thread A：`019e0dc0-d40d-7b61-a704-bfe134ca7888`\r\n    - Thread B：`019e0dc1-62f7-7a32-85be-169e33933082`\r\n    - 结果：A/B 各自恢复独立历史，切换时不串旧 thread/log，`/api/sessions` 摘要中的 `lastCodexThreadId` 也保持隔离"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode: none\r\n- Deploy source: none\r\n- Target environment: local / Android debug / browser-backed local smoke\r\n- Health checks:\r\n  - Node tests\r\n  - Android JVM unit tests\r\n  - Web browser-backed smoke\r\n  - Android real-device smoke\r\n  - Session/thread risk smoke via `/api/sessions` + Web client re-entry\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery:\r\n  - 回滚本任务涉及的 Web Codex composer / message rendering 改动\r\n  - 回滚 Android Codex UI / ViewModel / metadata 改动\r\n  - 回滚本任务相关测试与 workflow 文档同步\r\n- Release evidence: not applicable\r\n- canary result: not applicable\r\n- performance baseline result: not applicable\r\n- rollback status: not exercised\r\n- remaining observation:\r\n  - standalone `codex_client.html` 做 browser smoke 前，必须确认 runtime config 已注入 `serverUrl/sessionId`，否则页面会出现“看似 ready、实际无 WS”的假在线状态\r\n  - 华为真机 adb smoke 必须按当前 `EditText.bounds` 点击，不能复用键盘区固定低位坐标"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 推荐下一轮候选任务：\r\n  - 补任务 `20260504-001` 的完整 Android smoke 收尾与归档判断\r\n  - 隔离 `node --test` full suite 挂起的具体测试点\r\n  - 明确 Android release config 应通过环境覆写还是仓库默认值满足 release check\r\n- 相关归档入口：\r\n  - `TASKS/TASK-20260503-001-clarify-codex-app-skill-cwd-scope.md`\r\n  - `TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md`"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260504-001",
+      "title": "Scope Codex history and active thread state by session cwd",
+      "source": "TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md",
+      "sha256": "794395a5a820e7590245d735c072929bb208588a059ed24ad932eec4078b0ba2",
+      "original_status": "completed_verified_archived",
+      "task_id": "20260504-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "在 Codex 会话中，根据所选择的项目路径，只显示当前路径下的本地历史任务列表。先确认 App 中的 Codex 会话是否调用 `codex app-server`；如果是，则按 `thread/list(cwd=当前工作区路径)` 实现当前项目历史任务过滤。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-fab4ba5e2e3dd6b390355a69329447d5b6a9fefe12801e442abb321b4c7e05f1.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-e55b4b47be370827fbf32d9970e65fb244d58cbea9ef90b5b365a4dc36fc7bbb.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- 提交：\r\n  - `0700047 chore: update workflow templates and codex session handling`\r\n- 敏感信息扫描：\r\n  - 提交前 staged scan 通过。\r\n  - pre-commit scan 通过。\r\n- 已通过的自动 / 静态验证：\r\n  - `node --check src/ws/terminalGateway.js`\r\n  - `node --check public/terminal_client.js`\r\n  - `node --check tests/terminalGateway.codex.test.js`\r\n  - `node --test --test-force-exit --test-name-pattern \"thread/list\" tests/terminalGateway.codex.test.js`\r\n  - `node --test --test-force-exit --test-name-pattern \"stale missing thread|non-thread-not-found|thread/list\" tests/terminalGateway.codex.test.js`\r\n  - `node --test --test-force-exit --test-name-pattern \"consecutive normal turns|stale missing thread|non-thread-not-found|thread/list\" tests/terminalGateway.codex.test.js`\r\n  - `node --test --test-force-exit --test-name-pattern \"runtime session binding\" tests/codexClient.shell.test.js`\r\n  - `node --test --test-force-exit --test-name-pattern \"active thread id|runtime session binding\" tests/codexClient.shell.test.js`\r\n  - `git diff --check`\r\n  - `bun run workflow:health`\r\n  - Android / WebView 静态检查：确认 thread list cwd 参数、runtime binding reset、active thread id 回写 / 发送路径存在。\r\n- 历史环境观察（不构成当前完成归档 blocker）：\r\n  - 任务实现期曾遇到 `android\\gradlew.bat :app:testDebugUnitTest` 在本机 Java 17 环境下被 `source 21` 不兼容阻塞，错误为 `无效的源发行版：21`；当前项目已明确 Android 构建需使用 Java 21。\r\n  - `tests/codexClient.shell.test.js` 大范围 Phase 2 测试曾有既有 compact 文案断言漂移，不是本轮新增 active thread 修复导致。\r\n- 完整真机 Android smoke（2026-05-10 / 2026-05-11）：\r\n  - 步骤 12：passed。双 `cwd` 会话 A/B 的历史列表已确认隔离，证据见 `tmp\\20260510-001-step12-13\\session-panel-4.{xml,png}`、`b-main.{xml,png}`、`b-history.{xml,png}`、`a-history.xml`。\r\n  - 步骤 13：passed。A/B 切换后不残留旧 task / thread，回切 A 后可直接继续对话，证据见 `tmp\\20260510-001-step12-13\\a-returned.{xml,png}`、`a-enter-send.{xml,png}`。\r\n  - 步骤 14：passed。same-session re-entry 后 active thread 状态一致，且无需先打开历史列表即可直接发送，证据见 `tmp\\20260510-001-step14-15\\step3-after-retry.{xml,png}`、`step14-direct-send.{xml,png}`、`step14-sessions.json`、`step3-after-retry-logcat.txt`。\r\n  - 步骤 15：passed。点击 `新任务` 后消息区清空，fresh 对话已绑定新 thread `019e12b5-211a-7283-805b-a120127b2d80`，证据见 `tmp\\20260510-001-step14-15\\step15-retry-history-open.{xml,png}`、`step15-retry-new-task.{xml,png}`、`step15-retry-fresh-send.{xml,png}`、`step15-retry-sessions.json`、`step15-retry-logcat.txt`。"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode: none\r\n- Deploy source: none\r\n- Target environment: local / Android debug\r\n- Health checks:\r\n  - Android native request payload check\r\n  - WebView static / unit payload check\r\n  - Gateway compatibility test\r\n  - 完整真机 Android smoke\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery:\r\n  - 回滚 Android native `thread/list` 参数改动。\r\n  - 回滚 WebView / browser `thread/list` 参数改动。\r\n  - 回滚 gateway 对旧客户端 `thread/list` 的兼容兜底改动。\r\n  - 回滚 stale thread fallback / binding cleanup 改动。\r\n  - 回滚本任务新增或修改的测试。\r\n- Release evidence:\r\n  - real app-server `thread/list { cwd, limit }` accepts cwd。\r\n  - WebView / gateway focused checks passed。\r\n  - 完整真机 Android smoke 步骤 12-15 全部通过，且 Step 15 已确认 `codexThreadId` 从 `019e112a-be07-79d2-a793-2b9bc6902683` 切换到新 thread `019e12b5-211a-7283-805b-a120127b2d80`。\r\n- canary result: not applicable\r\n- performance baseline result: not applicable\r\n- rollback status: not exercised\r\n- remaining observation:\r\n  - 若后续新需求继续触碰 session / thread / task 状态逻辑，必须重新纳入双 cwd、A/B 切换、same-session re-entry、直接发送与新任务链路的 Android 真机 smoke。"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 后续任务建议：\r\n  - 隔离 `node --test` full suite 挂起的具体测试点\r\n  - 明确 Android release config 应通过环境覆写还是仓库默认值满足 release check\r\n  - 清理 `README` 默认端口与代码默认值冲突等 active docs 漂移\r\n- 后续触发条件：任何继续触碰 session / thread / task 状态逻辑的新需求，都必须重新纳入本归档中的 Android smoke 风险。\r\n- 相关提交：`0700047`\r\n- 归档位置：`TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md`"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260503-001",
+      "title": "Clarify Codex App skill cwd scope",
+      "source": "TASKS/TASK-20260503-001-clarify-codex-app-skill-cwd-scope.md",
+      "sha256": "52c54e998b6f7e2ac32bc871d761720d96f58b2ed611b691b43b057ff7b1f6cd",
+      "original_status": "completed",
+      "task_id": "20260503-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "重新调查 App 中新增 skill 不可见的问题，并审核当前文档是否把 App 逻辑写清楚：Codex App 中不同会话会打开不同路径，不同路径对应 Codex CLI 中不同 cwd，读取到的 skills 也不同。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-07316f021e91534c29b23681fa714805b11ef558a58d6dfeb55107189e195c02.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-864d55a92330799896bba31e55833b59ea8866652a57c86e9918de06423ab4d7.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- 运行时复现 1：在 `D:\\ProgramCode\\termlink-win` 进程 cwd 下，`skills/list {}` 返回 14 条，分组 cwd 为 `D:\\ProgramCode\\termlink-win`。\n- 运行时复现 2：同一服务传入 `skills/list { cwds:[\"E:\\\\coding\\\\TermLink\"] }` 返回 45 条，分组 cwd 为 `E:\\coding\\TermLink`，包含 `investigate-root-cause`。\n- 验证命令：`bun run workflow:health`\n- 验证结果：通过，`workflow-runtime health: OK`"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode: none\n- Deploy source: none\n- Target environment: local\n- Health checks: 文档 diff 人工核对；`bun run workflow:health` 通过\n- Canary window: none\n- Performance baseline: none\n- Rollback / recovery: 回滚本轮 `CURRENT_TASK.md`、`CONTRACTS.md`、`ARCHITECTURE.md`、`DATABASE.md`、`README.md`、既有 CR 的文档修正\n- Release evidence: 不涉及部署；workflow health OK\n- canary result: not applicable\n- performance baseline result: not applicable\n- rollback status: not exercised\n- remaining observation: 下一代码批次需要实现并验证 gateway/client 侧 `cwds` 注入"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 下一任务建议：修复 `skills/list` cwd 绑定。\n- 最小修复入口：`src/ws/terminalGateway.js` 的 `codex_request` 转发逻辑。\n- 建议行为：对 `method === \"skills/list\"` 且请求未显式传入 `cwds` 的情况注入 `cwds:[session.cwd]`，保留客户端显式传入的 `cwds`。\n- 建议验证：在部署目录进程 cwd 下，session cwd 指向 `E:\\coding\\TermLink` 时，`skills/list {}` 经 gateway 返回完整项目 skill 列表并包含 `investigate-root-cause`。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "003",
+      "title": "保留 Rust 采集历史的真实路径与内容，完成 Node 产品历史数据库和可供 App 后续只读加载的历史接口",
+      "source": "TASKS/TASK-003-rust-node-app.md",
+      "sha256": "3ba5ae9714d8803f97e1ef1657327381bfd13298909baeae89b5a9212e0b1bec",
+      "original_status": "closed",
+      "task_id": "legacy-doc-03166aa61e365e5f8af1f680",
+      "state": "closed",
+      "completion_disposition": "stopped-by-user",
+      "goal": "Remove destructive Rust path redaction and connect rollout analysis to product history persistence and APIs.",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-72f1ac8e88c6f4215c5300f94b9441f6632cc497cd1388f30fb1b55c4317b4df.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-91546f93fc200c972d910fa2163cc6a90dbf4915d72ee20b31173b7f22ba368a.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- closure_evidence:\n  - acceptance_satisfied: false\n  - validation_complete: false\n  - no_admitted_or_in_progress_findings: false\n  - no_unresolved_closure_blocker: false\n  - release_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - rollback_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - observation_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - remaining_risks_non_blocking: false\n  - archive_path_verified: true\n\n- acceptance_satisfied: false\n- validation_complete: false\n- verification:\n  - \"Historical S5 package smoke reported 1/1 pass; original stdout was not retained and the result was not registered.\"\n  - Current git diff --check exited 0 with line-ending warnings.\n  - \"S5 record-step-result dry-run was blocked with MUTATION_AUTHORITY_GOVERNANCE_BOUNDARY because the retained preflight lists 58 android/** candidates forbidden by the current task; dry-run did not record a result.\"\n  - \"Runtime closure context reports acceptance_satisfied=false and validation_complete=false; C4-flow-final, C4-package, and C4-unattended remain unfinished obligations.\"\n- release_evidence:\n  - none\n- rollback_evidence:\n  - none\n- observation_evidence:\n  - none\n- next_action: \"Task 003 is stopped by user. Keep code and all findings/evidence history; any future work requires a separately authorized task.\""
+        },
+        {
+          "section": "后续关联",
+          "text": "- remaining_risks:\n  - claim:C4/C4-flow-final\n  - claim:C4/C4-package\n  - claim:C4/C4-unattended\n  - finding:finding-1be3dd2c7838b5fd09a84dcdece01780\n  - finding:finding-d850ba013289f2cd7d621c61e55308c2\n  - gate:acceptance\n  - gate:outstanding-execution\n  - gate:review-coverage\n  - gate:validation\n  - review:review-33edb5c607c391ba7ab68e1095f01fd00866d7c8\n  - step:S5\n  - \"S5 repair execution result was not registered; the retained preflight has 58 android/** candidate paths forbidden by current task admission. Dry-run code: MUTATION_AUTHORITY_GOVERNANCE_BOUNDARY.\"\n  - \"S4 C4-flow-final and C4-unattended reports remain stale for current code; no new reports are submitted by this closure.\"\n  - S5 pending review has two in-progress findings concerning packaged analyzer startup and persistent history state.\n  - \"No release, deployment, rollback exercise, or observation window was completed for Task 003.\"\n- remaining_risks_non_blocking: false\n- next_task: none created by close-task."
+        }
+      ],
+      "limits": "用户停止，acceptance_satisfied=false、validation_complete=false。"
+    },
+    {
+      "original_task_id": "002",
+      "title": "修复 rollout 采集阻断并验证隔离闭环。",
+      "source": "TASKS/TASK-002-rollout.md",
+      "sha256": "a6bd8a5df2e8fc218ee67bd5d1f448870809ab61869191d4207b062d78e582ec",
+      "original_status": "closed",
+      "task_id": "legacy-doc-05c82c8a6e6c9181adfc2be2",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "修复 rollout 采集阻断并验证隔离闭环",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-201f43df719394229ccedc4025480c831c106af6a2b5d26fdcff1c4b3727972f.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-35fee6552bd03a3d6f626a40a960f6ca012ab916e7b4a8889fa6054dda8b301f.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- closure_evidence:\n  - acceptance_satisfied: true\n  - validation_complete: true\n  - no_admitted_or_in_progress_findings: true\n  - no_unresolved_closure_blocker: true\n  - release_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - rollback_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - observation_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - remaining_risks_non_blocking: true\n  - archive_path_verified: true\n\n- acceptance_satisfied: true\n- validation_complete: true\n- verification:\n  - \"C1 rollout_blockers 8/8 通过\"\n  - \"C2 conformance 31/31、stage2_input 3/3、rollout_blockers 8/8 通过\"\n  - \"Rust binary 构建通过；六文件 Node 回归 148/148 通过\"\n  - \"六个 claim-bound 槽位完成，S3 累计 verification review 为 clean，task-complete 已持久化\"\n- release_evidence:\n  - none\n- rollback_evidence:\n  - none\n- observation_evidence:\n  - none\n- next_action: \"产品数据库、业务入口、历史发布及 App 接入须另立任务；本任务未部署或发布。\""
+        },
+        {
+          "section": "后续关联",
+          "text": "- remaining_risks:\n  - none\n- remaining_risks_non_blocking: true\n- next_task: none created by close-task."
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "001",
+      "title": "建立采集到存储业务用例矩阵，核实当前 worktree 的 RUST-001 至 RUST-009，并评估 Gemini 修复复用。",
+      "source": "TASKS/TASK-001-rust-issues-audit-worktree-rust-001-rust-009-gemini.md",
+      "sha256": "4c19b6271a590aebc6c376e53a213ac442fd2dc9c8130a0ab08eb2b40ccb9138",
+      "original_status": "closed",
+      "task_id": "legacy-doc-87ea7576bc76f5782bea891f",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "完成当前工作树与 Gemini 工作树关于 Rust 9 项问题及前置提交的只读对比审计、测试用例断言设计、真实验证与复用分类",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-cbe4bdca8e53b8cd416a74cdffb962a1d1b5bd15602c4fccb551026af3a2a26d.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-2ff0eed124b29415d96c9447e6d68b226ea176b97ce1a822919274f716b83e59.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- closure_evidence:\n  - acceptance_satisfied: true\n  - validation_complete: true\n  - no_admitted_or_in_progress_findings: true\n  - no_unresolved_closure_blocker: true\n  - release_evidence:\n    - triggered: false\n    - complete: true\n    - evidence_refs: []\n  - rollback_evidence:\n    - triggered: false\n    - complete: true\n    - evidence_refs: []\n  - observation_evidence:\n    - triggered: false\n    - complete: true\n    - evidence_refs: []\n  - remaining_risks_non_blocking: true\n  - archive_path_verified: true\n\n- acceptance_satisfied: true\n- validation_complete: true\n- verification:\n  - \"S1 业务矩阵覆盖 32 个业务场景与数据断言\"\n  - \"S2 运行测试套件，32 个用例全部采集完成，准确复现业务差异\"\n  - \"S3-R1 对比报告与实现，完成 RUST-001 至 RUST-009 详细分类\"\n  - \"S4 静态逐 hunk 对比 Gemini 提交，完成 9 项问题及依赖的复用结论与契约影响分析\"\n  - \"S4 独立 review-change 通过，verdict: clean，0 open findings\"\n- release_evidence:\n  - none\n- rollback_evidence:\n  - none\n- observation_evidence:\n  - none\n- next_action: \"任务归档，后续按各问题独立立项并在 Rust 契约先行原则下开展修复与适配\""
+        },
+        {
+          "section": "后续关联",
+          "text": "- remaining_risks:\n  - \"本任务为纯只读审计，未对 Rust、Node 或产品代码进行任何修复修改\"\n  - \"Gemini 代码未经编译、测试或动态基准压测，其性能提升和内存节省声明在真实运行环境中属于未验证状态\"\n  - \"RUST-003、RUST-005、RUST-006 等涉及公共数据契约、部署资源硬上限及脱敏策略演进，后续实施需先经契约与架构治理决策\"\n- remaining_risks_non_blocking: true\n- next_task: none created by close-task."
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260828-001",
+      "title": "4.5 Node analyzer consumer/coordinator 迁移",
+      "source": "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md",
+      "sha256": "4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d",
+      "original_status": "active → archived",
+      "task_id": "20260828-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-be8d1979ac16a25d5130c4018c805010174eb8571e4412a534e1a03498882422.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-552c1c9f84f07949c71b70cff603157a86558e5774b288169deaa1b009c92dc2.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- Required-now review chain：`review-diff`、`review-implementation`、`verify-contracts`、`run-regression` 均 PASS；步骤 9.1～9.5 已收口，无当前步骤 blocking finding、contract/decision/scope drift、unknown failure、cancelled/hung/leak。\n- Node target suite：\n  `node --test tests/codexRolloutCollector.test.js tests/codexRolloutCollector.checkpointJobs.test.js tests/codexRolloutCollector.defaultHome.test.js tests/codexRolloutCollector.realRust.test.js tests/codexRolloutCollector.recovery.test.js`\n  → `147/147` PASS，`0` FAIL，`0` cancelled，`0` skipped。\n- Node/fixture syntax：精确允许文件 `node --check` → `16/16` PASS。\n- Rust dependency verification：\n  - `cargo test target_identity --manifest-path native/codex-rollout-collector/Cargo.toml` → `6/6` PASS。\n  - `cargo test --test stage4_target_protocol --manifest-path native/codex-rollout-collector/Cargo.toml` → `70/70` PASS。\n- Real cross-process evidence：真实 Rust Node hello/analyze/batch/ACK/complete smoke → `1/1` PASS；fake analyzer 证据只用于受控错误、生命周期和故障注入，不冒充 Rust binary 证据。\n- Diff/range：`git diff --check` PASS；精确 Allowed/Forbidden path scan PASS，未发现 Rust/native、IPC、Android、DB、`terminalGateway`、public 或其他越界路径。\n- TD-004 narrow gate：`29/32` PASS；`codexSecondaryPanel.integration.test.js`、`workspace.routes.test.js`、`workspace.web.test.js` 因缺少 `jsdom`/`express` 在加载阶段失败，分类为 unrelated-preexisting 环境依赖缺口，未修改依赖或任务外测试。\n- Remaining evidence classification：历史 `25` 项 future-step expected gap 保留为后续范围记录；`RI-4.5-004-016`/`DEFER-003` 继续 deferred；这些项目均未被伪装为当前步骤失败或已解决。"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode：`none`\n- Deploy source：`none`\n- Target environment：local Node service + Rust analyzer subprocess\n- Health checks：目标 Node collector、Rust target smoke、`node --check`、scope scan、`git diff --check`\n- Canary：not applicable；任务未启用产品入口\n- Performance baseline：none\n- Rollback：以任务起始提交为基线执行 path-scoped revert/恢复；不使用 broad reset/clean，不处理任务外工作树。\n- Release evidence：not applicable；本归档不声明产品发布、稳定性或 canary readiness。"
+        },
+        {
+          "section": "后续关联",
+          "text": "- `Node collector` 到产品 DB/Stage 5、`terminalGateway`、IPC、Android 或 history 的 wiring 是独立后续任务，不从本归档自动展开。\n- `RI-4.5-004-016` 仅在真实泄漏、merge gate 要求、生命周期重构或用户重新打开时重新评估，并需重新 review/lock/regression。\n- Rust source candidate pre-I/O、formal source interruptibility、vendor/上游兼容维护继续由 Rust/source owner 另行承接。\n- TD-004 的缺失依赖仍是环境观察项；如需补齐，应在独立范围内处理。\n- 下一轮入口：创建新的 `CURRENT_TASK.md`，从 `/create-current-task` 开始；本任务不再作为 live active task。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260827-001",
+      "title": "修正 4.5 Rust target delivery identity 的确定性派生",
+      "source": "TASKS/TASK-20260827-001-codex-target-delivery-identity-repair.md",
+      "sha256": "3267f1dfa558ede915d862eecca823be4cac3ce3c45a4bcc93e273b36f13aa02",
+      "original_status": "completed_verified_archived",
+      "task_id": "20260827-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "用 target-owned 的纯 identity helper 替换 target_mapping 中简易字符串拼接，使相同 validated source scope 在 request 重试、进程重启和 generation 变化下保持相同逻辑交付 identity，同时让 batch、complete 和 checkpoint watermark 共享同一 mapping 派生结果。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-cd863b64af36580d3334595f0ce472795277b90808159549a28ad1cbdf741950.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-afa830dc9323a304b665ef62f37c1d75b988253cf1df92f1a04432da450c05f9.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- native target protocol focused tests：identity 6/6；既有 retry checkpoint 1/1；target mapping 1/1。\n- cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline：235/235 通过，包含 lib 103、main 1、conformance 31、stage2 3、stage3 5、stage4 22、target protocol 70。\n- cargo check --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline：通过。\n- cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check：通过。\n- git diff --check：通过。\n- review-diff：通过；无 scope drift、decision drift 或本任务范围内 finding。\n- review-implementation：通过；identity 编码、mapping 接入、异常边界和测试矩阵无未解释问题。\n- verify-contracts：通过；没有破坏稳定 wire shape、TargetSource 类型边界或 Rust target 分层。\n- 任务开始基线至最终实现提交的变更为 4 个文件、554 insertions、28 deletions；归档时另有 LESSONS.md 的 L-034 closeout 文档改动未提交。"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode：none\n- Deploy source：none\n- Target environment：本地 Windows Rust native crate / Rust analyzer target process\n- Health checks：cargo fmt、locked/offline check/test、target focused tests、review chain、scope/diff checks\n- Canary window：none\n- Performance baseline：none；本任务只验证确定性和既有资源/协议回归，不建立 benchmark 发布门禁\n- Rollback / recovery：仅可将本任务 Allowed Files 恢复到 b03f673e052ed89914e5dc525ff95d03b30f17a0 或后续审计 checkpoint；不执行整树 reset、checkout、clean，不触碰 task-external 内容\n- Release evidence：not applicable；本任务不宣称部署、生产、canary 或 release readiness\n- canary result：not applicable\n- performance baseline result：not applicable\n- rollback status：not exercised\n- remaining observation：Node consumer 仍需独立 4.5 迁移；source candidate pre-I/O confinement、formal source hash interruptibility 和既有治理 artifact 异常继续由后续任务/治理流程承接；当前 closeout 的 L-034 文档变更需随后续 path-scoped 提交处理"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 下一轮入口：没有预先确定的新需求；执行 /create-current-task 创建新的 task identity，不复用 20260827-001。\n- Node 后续任务：按已确认的 Rust 4.5 startup/wire/data/identity contract 独立设计和实施 Node collector/coordinator，完成后再做 Rust↔Node 联合接口分析。\n- Source boundary 后续任务：如确需 candidate pre-I/O confinement 或 formal hash interruptibility，先单独说明影响、锁定 scope、同步必要契约/决策并取得用户确认。\n- 归档位置：TASKS/TASK-20260827-001-codex-target-delivery-identity-repair.md"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260826-001",
+      "title": "4.5 阶段 Rust analyzer 公共协议一次性迁移与 legacy 字段退役",
+      "source": "TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md",
+      "sha256": "9bed4e46068be314cc8218ddb4fea3b5a40f2f293f91f4e2efb623d03a1d5fb9",
+      "original_status": "completed_verified_archived",
+      "task_id": "20260826-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "将 formal native crate 的 target 运行态切换到 4.5 startup/wire/data 形状，接通 Rust 内部 `sessions_root` source locating、session lineage、Adapter/reducer/projection 映射、ACK/checkpoint 和进程级验证。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-d3ee3a88876db95de377a7fc4d2fb9416b07bdb0a49737e4e9934e468d6fb356.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-edc05a925de28b80ccc79a9f9af36750a0b97636de56143e952ae5bd1f026cb3.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- `stage4_target_protocol.rs` target protocol/process：`70/70` 通过。\n- native 全量：`229/229` 通过，构成为 97 unit、1 main unit、31 conformance、3 stage2、5 stage3、22 stage4、70 target protocol。\n- `cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check`：通过。\n- `cargo check --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：通过。\n- `cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：通过。\n- target startup/hello direct smoke、cancel/timeout/resource/error、source/lineage、cursor/mapping、ACK/complete 和 restart/retry process matrix：通过。\n- `cargo metadata` / `cargo tree`：539 packages、0 Git source；14 个 Codex packages 来自仓库内 `vendor/codex` relative-path closure。\n- `review-diff`：通过；无 scope drift、decision drift 或新的 current-task-owned finding。\n- `review-implementation`：通过；target mapping、边界状态、异常和测试矩阵已收口，两个 source-level 风险仍显式 deferred。\n- `verify-contracts`：通过；startup/wire/data/runtime、target/legacy dispatch、single-flight、ACK→complete 和 source bridge 未破坏锁定接口/架构边界。\n- `run-regression`：`full-qa` 通过；`git diff --check`、Allowed Files scope scan、target public forbidden-key static scan 通过；无未解释 native/source/lineage/Adapter/reducer 回归。"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode：none\n- Deploy source：none\n- Target environment：本地 Windows Rust native crate / Rust analyzer 子进程\n- Health checks：cargo fmt、locked/offline check/test、target process stdin/stdout JSONL smoke、metadata/tree vendor closure、scope/static boundary scan\n- Canary window：none\n- Performance baseline：none；本任务只验证 bounded resource/timeout/cancel，不建立 benchmark 发布门禁\n- Rollback / recovery：只恢复本任务 Allowed Files 到任务开始基线或审计 checkpoint；不执行整树 reset/checkout/clean，不触碰 task-external dirty/untracked 内容\n- Release evidence：not applicable；本任务不宣称 deploy、production、canary 或 release readiness\n- canary result：not applicable\n- performance baseline result：not applicable\n- rollback status：not exercised\n- remaining observation：Node consumer 仍需独立迁移；source candidate pre-I/O confinement 与 formal source hash interruptibility 继续观察并由后续 scope/owner 联合评审决定；现有 workflow paused/inbox artifact 的任务外校验异常不属于本任务回归失败"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 下一轮入口：新需求执行 `/create-current-task`，使用新的 task identity；不要复用本归档 ID 创建不相关任务。\n- Node 后续任务：依据现行 4.5 startup/wire/data/coordinator 文档实施 Node collector/coordinator 侧迁移，随后再做 Rust↔Node 联合接口/兼容分析。\n- Source boundary 后续任务：如确需 candidate pre-I/O confinement 或 formal hash interruptibility，先单独说明影响、锁定 scope、更新契约/决策并取得用户确认。\n- 归档位置：`TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md`"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260825-003",
+      "title": "收敛 Node↔Rust 接口文档，移除 discovery/fingerprint 业务接口语义",
+      "source": "TASKS/TASK-20260825-003-codex-node-rust-interface-contract-convergence.md",
+      "sha256": "9b4a419fa2508d1b87a4a59a49a866160c9904aa8e8e616f8063e83ed533bdbf",
+      "original_status": "archived",
+      "task_id": "20260825-003",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-714f40f72ddc201f6d535a7c003879e6c504ef46a2b341fc4b6bd17781359504.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-2866ddbc28f5b6e2c259a3934d31840a66d5c28911a4a51477feeb0d3ab7c4d9.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "| 检查项 | 结果 |\n|---|---|\n| `node --test tests/codexRolloutCollector.test.js` | 宿主侧 30/30（2026-08-25 记录）；2026-08-26 WSL 复跑 28/30 |\n| WSL 复跑 2 个失败用例归因 | 均依赖 Windows 构建的正式 Rust `.exe`（`target/debug/codex-rollout-collector.exe`），WSL 会话无法运行——environment-blocked，非代码回归（本任务未修改任何代码） |\n| `git diff --check`（scoped 至 Allowed Files） | CRLF 归一口径（`git -c core.autocrlf=input diff --check`）PASS；未归一口径告警均为仓库既有 CRLF 工作树编码 `\\r`，非本轮新增空白问题 |\n| 字段检索 | discovery / fingerprint / `serverRevision` / `retention_profile` / 泛化 `revision` 的正向必填或 gate 语义在现行来源不再出现；`history_base`、cursor、byte offset、snapshot length、partial/pending、single-flight、内部完整读取恢复语义完整保留 |\n| 验收标准 | 11/11 满足；回归检查项 14/14 勾选 |\n| Release evidence | Release mode：none（纯文档任务）；无部署、canary、benchmark 或性能基线要求 |"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 协议迁移任务（待立项）：物理删除 formal native crate 中 fingerprint/prefix anchor、`retention_profile`、item/source `revision` 兼容字段；需独立范围锁定与 fixture 迁移证据。\n- 治理术语对齐任务（可选，待用户确认）：清理 `CONTRACTS.md`/`DECISIONS.md` 中 AD-011/AD-012 的旧 formal revision 表述。\n- 提交事项：已完成——实现 8 文件 + closeout 治理 4 文件 + 本归档包共 13 个文件已按 path-scoped 提交为 `bef0274`；工作树仍含 R-010 任务外 dirty/untracked 内容，保持原样，后续处理必须继续 path-scoped，禁止整树操作。\n- 相关决策与登记表：AD-009/AD-013/AD-014/AD-017/AD-019/AD-020/AD-021；`docs/codex/codex-concept-layer-status-registry.md`。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260823-001",
+      "title": "重订 Codex Rollout Collector 会话 lineage 发现与读取设计",
+      "source": "TASKS/TASK-20260823-001-codex-rollout-collector-session-lineage-replan.md",
+      "sha256": "202da37853950965b1c980bb1b80512f64ff71f0e4d13f1aa45526bd8bf00410",
+      "original_status": "archived",
+      "task_id": "20260823-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-df345d5c68ff0504756c8f3de042f493dbb6b2b65a1e0de5f9863a96c10408b4.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-a603af6f3481608fcc5b4865c7606a3b701a403c6ad547ac4610037269f27647.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "### 目标回归\n\n- Rust library：96/96 通过。\n- Rust 全量：`cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --all-targets --no-default-features` 通过：96 unit、31 conformance、3 stage2、5 stage3、22 stage4。\n- `cargo fmt --check`、`git diff --check`、提交前敏感信息扫描和版本检查通过。\n- 真实 rollout 目录 smoke 已验证 full read、Preview、Backfill、Append；五文件 fixture 已覆盖跨日期 lineage 与重启恢复矩阵。\n- 最终范围审查 `7e9f552..working-tree` 未发现阻断性缺陷或越界改动。\n\n### Release evidence\n\n- Release mode：none / not applicable。\n- Deploy source：none。\n- Target environment：本地 Windows formal Rust package 与隔离测试。\n- Health checks：not applicable；未启动或变更产品服务。\n- Canary window：none。\n- Performance baseline：not run；本任务未建立产品性能基线。\n- Rollback / recovery：保留基线 `7e9f552` 和提交 `a94dcbc`；未执行整树 reset、clean、删除或历史重写。\n- Release evidence：无发布、部署、canary 或生产证据，不代表产品 release-ready。"
+        },
+        {
+          "section": "后续关联与观察点",
+          "text": "- 后续任务：若进入阶段 4.5，应新建任务设计 Node 服务端持久化、history projection、App ADTO 和同步接入；不得在本归档中提前宣称已完成。\n- 上游兼容观察：Codex 文件名、`SessionMeta`、`history_base` 和 UI last-turn replacement 行为属于 compatibility invariant；未来 vendor/UI 变化时需更新 fixture 并 fail-closed 升级适配。\n- `.zst` 观察：当前只冻结无索引 `.zst` 的 forward-only 边界，不伪造 parent seek/backward/append 能力。\n- 治理工具观察：`bun run workflow:health` 仍因缺失 `scripts/workflow-runtime.ts` 所引用的 `./guard-target-root` 而无法启动；`bun run validate:protocol` 的任务外 paused/inbox artifact 问题另立治理任务处理。\n- 工作树观察：`native/parse-probe/`、`native/rustup-init.exe`、`native/winlibs.zip` 等任务外内容保持原样，未清理、未修改、未纳入本任务实现。\n- `CLAUDE.md` 当前受 `.gitignore` 忽略；host guidance 已生成并与 `AGENTS.md` 对齐，但是否纳入版本控制需另立治理决定。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260820-003",
+      "title": "Codex Rollout Collector 阶段 4：分析器协议、Node 隔离运行时与 conformance 完整性",
+      "source": "TASKS/TASK-20260820-003-codex-rollout-collector-stage-4-runtime-and-conformance.md",
+      "sha256": "be492e06681826c95f89cda996f2ff70f5c62bdf815df070e0923acd5cdf600c",
+      "original_status": "archived",
+      "task_id": "20260820-003",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-f9877481a2d79b34dfd3596c50475c06c2b627663ee5d7de526a9f3d8eca40d3.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-1cf77773e072f2e51f2822558451584eba3e214cf724279476fa0e82d8c7a0c5.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "### 目标回归\n\n- Rust：66 unit、28 conformance、3 个 `stage2_input` integration、5 个 `stage3_conformance`、8 个 `stage4_protocol`，全部通过。\n- Node：`node --test tests/codexRolloutCollector.test.js` 22/22，通过正式 Rust binary、fake analyzer、Memory/File store 和故障注入路径。\n- `cargo fmt --check`、Node syntax check、`git diff --check` 通过。\n- Rust build/test 在当前 Windows 环境使用显式 MinGW PATH/RUSTFLAGS workaround；plain cargo 的既有 `nanosleep64` linker 环境差异已记录，未写入仓库配置。\n\n### 关键语义证据\n\n- 实际启动 Demo reducer 和 Spike parser，并在临时目录生成输出参与双路径比较。\n- 同一 Plan fixture 覆盖完整读取、tail、backfill、overlap 和 retry delivery；Plan question/answer 跨 segment 关联稳定，segmented projection 与完整读取等价。\n- 覆盖 partial tail→complete backfill promotion、late incomplete 不降级 canonical、ACK 失败 clone-on-write、timeout/cancel、异常重启有限重试交付、无 cursor 恢复请求的 persisted checkpoint 校验。\n- 覆盖 malformed canonical/checkpoint、空 complete、跨 request complete、非法 replacement 原子性、path-only identity、stale epoch resurrection、checkpoint 回退和 per-item revision 故障注入。\n- `review-implementation`、`review-diff`、`verify-contracts` 均无未解决的 critical/major finding；未触及禁区。\n\n### Workflow health\n\n- 尝试运行 `bun run workflow:health`，命令在健康检查开始前失败：`scripts/workflow-runtime.ts` 引用了仓库中不存在的 `./guard-target-root` 模块。\n- 该失败属于既有 workflow runtime 工具链缺失，不是本任务 Rust/Node 实现回归；本轮不修改 `scripts/`，也不把该命令写成通过。\n- 运行 `bun run validate:protocol` 时，workflow-skills/docs/registry 三项通过；整体因两个任务外 artifact 失败：`TASKS/paused/TASK-20260615-001-app-codex-ipc-realtime-sync.md` 缺少 `task_id`，`TASKS/inbox/INBOX-20260807-001-codex-history-sync-banner-ux.md` 不符合当前 inbox 命名契约。本任务未修改、移动或删除它们。\n\n### Release evidence\n\n- Release mode：none / not applicable。\n- Deploy source：none。\n- Target environment：本地 Windows formal Rust package 与 Node 隔离测试。\n- Health checks：not applicable；未启动或变更产品服务。\n- Canary window：none。\n- Performance baseline：not run；本任务未建立产品性能基线。\n- Rollback / recovery：未执行；保留 path-scoped 回滚策略，不执行整树历史重写。\n- Release evidence：无发布、部署、canary 或生产证据；不得表述为产品 release-ready。\n- Remaining observation：跨机器/clean-host toolchain 证据、产品集成和 release 验收需独立任务完成。"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 后续任务：当前没有明确的新任务包；未来接入既有 server/DB、IPC、Android 或产品 runtime 时，必须重新执行 `/create-current-task`、`/lock-scope` 和跨边界回归。\n- 环境观察：当前 Windows cargo 回归依赖显式 MinGW PATH/RUSTFLAGS；尚未提供跨机器或 clean-host toolchain 安装证据。\n- 治理工具链观察：`bun run workflow:health` 当前因缺失 `scripts/guard-target-root` import 无法启动，需另立 workflow runtime 修复任务；本归档不修改 `scripts/`。\n- 治理基线观察：`bun run validate:protocol` 的 workflow skills/docs/registry 通过，但既有 paused/inbox artifact 校验失败；需另立治理清理/迁移任务，本归档不修改任务外 artifact。\n- 工作树观察：下列内容保持原样，由原 owner 后续处理：\n  - `docs/codex/codex-rollout-collector-architecture.md`（未确认归属的文档修改）\n  - `docs/DOCUMENTS_BY_MTIME.md`\n  - `docs/codex/codex-history-sync-wire-contract-draft.md`\n  - `docs/codex/codex-rollout-recorder-source-technical-reference.md`\n  - `docs/codex/codex-sync-app-history-ipc-consistency.md`\n  - `native/parse-probe/`\n  - `native/rustup-init.exe`\n  - `native/winlibs.zip`\n- 归档位置：`TASKS/TASK-20260820-003-codex-rollout-collector-stage-4-runtime-and-conformance.md`\n- 下一轮入口：收到新需求后先执行 `/create-current-task`；不自动恢复或扩大既有 paused/inbox 任务。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260820-002",
+      "title": "Codex Rollout Collector 阶段 3：Adapter、事件归约与生命周期 conformance",
+      "source": "TASKS/TASK-20260820-002-codex-rollout-collector-stage-3-adapter-reducer-conformance.md",
+      "sha256": "bc83d1715ca4784b7fe7c4b63388950775b9514f4a060f1ed64546546e9d605e",
+      "original_status": "archived",
+      "task_id": "20260820-002",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "本任务依据：\n\n- docs/codex/codex-rollout-collector-architecture.md\n- TASKS/inbox/INBOX-20260818-001-codex-rollout-collector.md\n- TASKS/TASK-20260820-001-codex-rollout-collector-stage-2-input-compat.md 的归档后复核补充\n- 用户明确要求\n\n目标是在 native/codex-rollout-collector formal package 内完成架构阶段 3：\n\n1. 完整 Adapter 映射与稳定事件 identity。\n2. Tool、Plan、Turn、Usage 的逻辑关联。\n3. AnalysisEvent 到 TermLink-owned reducer/projection 的 conformance。\n4. 与 Demo oracle 的只读 golden 对照。\n5. partial、unknown、alias 的最终 fail-closed 语义。\n6. R-009 的 tail → backfill/segment assembly → 连续完整前缀证明 → ForwardAppendCursor promotion → append 生命周期证据。\n7. R-003 的默认 PowerShell 环境复测。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-20d32f54cbae777f13ba50f9d7631dc3b96da1ebb37e64beac6912b081592dd1.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-ee461c8b49af4d4e69ebdba1dff440917dfde1bec358f69be2add58b9d82b3a9.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "### Formal Rust 验证\n\n以下命令在默认新 PowerShell 进程中完成：\n\n    cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check\n    cargo check --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline\n    cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline\n\n结果：\n\n- cargo fmt：通过。\n- cargo check：通过。\n- cargo test：退出码 0。\n- unit：60 passed。\n- Adapter/conformance：28 passed。\n- stage2_input integration：2 passed。\n- stage3_conformance：5 passed。\n- doc tests：0。\n\n其他验证：\n\n- cargo metadata --locked --offline：539 packages，0 Git sources，0 runfiles。\n- cargo tree --locked --offline：Codex 包全部来自 native/codex-rollout-collector/vendor/codex formal vendor closure。\n- formal path git diff --check：无 whitespace error，仅保留 CRLF conversion warning。\n- source-boundary scan：通过。\n- Demo CLI full-oracle/determinism：schema 3、14 个有效记录、1 个 future unknown、partial=true、turn-1 usage=70、conversation total=120、tool IDs 为 call-1/call-2、plan state=executing、deterministic hashes=true。\n- Demo/Spike git status：无变更。\n\n### Review 与回归\n\n- review-diff：clean with known residual risk；残余仅为 R-010 任务外工作树隔离。\n- review-implementation：修正后无 critical/major finding。\n- verify-contracts：通过。\n- diff-aware regression：通过。\n- R-009：同一 plain JSONL fixture 的 tail acquisition、backfill/segment assembly、连续完整前缀证明、promotion、append、restart、duplicate read 与 mutation fail-closed 证据闭合。\n- R-003：新的默认 PowerShell 进程中 locked/offline cargo test 全量通过。"
+        },
+        {
+          "section": "后续关联与下一轮入口",
+          "text": "- 后续任务：当前没有已明确的新任务包。\n- 下一步：收到新的明确需求后执行 /create-current-task，生成新的 docs/workflow/CURRENT_TASK.md。\n- R-010 不是自动创建或自动修复的下一任务；如用户需要处理其归属，应先单独确认 owner、允许路径和 staging/提交授权。\n- 归档位置：TASKS/TASK-20260820-002-codex-rollout-collector-stage-3-adapter-reducer-conformance.md。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260820-001",
+      "title": "Codex Rollout Collector 阶段 2：输入层与兼容层补齐",
+      "source": "TASKS/TASK-20260820-001-codex-rollout-collector-stage-2-input-compat.md",
+      "sha256": "95c54eb8f73d8bd7bc119ce85f5552f1cd6575678f81eae0845ebc15898e2066",
+      "original_status": "completed_verified_archived",
+      "task_id": "20260820-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-68c42b8e1d1bdc155645d3ee0df46d4c5651775eed59eeb786d29b48e6274b16.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-8452fc8811257a2403aa4682dc33d8219e7c7a7e5b7e8a1c1ce3a5b31f0c0cf1.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "### 代码、契约和回归验证\n\n- cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check：通过。\n- cargo check --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline：通过。\n- locked/offline cargo metadata 与 cargo tree：通过，source-boundary 未发现外部 Codex path/Git/workspace。\n- git diff --check：通过，无 whitespace error。\n- source-boundary 与 target-ignore 检查：通过。\n- review-diff：clean。\n- review-implementation：clean，未发现 open finding。\n- verify-contracts：pass，确认旧入口、batch/provenance、vendor closure、.zst forward-only 和 native-only boundary 未破坏。\n- diff-aware run-regression：pass，active-owner guard 通过，回归归属 current_task_owned。\n\n### Formal suite\n\n- 一次性 MinGW PATH/RUSTFLAGS workaround 下：\n  - 56 unit tests；\n  - 27 conformance tests；\n  - 2 stage2_input integration tests；\n  - 0 doc tests；\n  - 0 failures。\n- 默认 shell 的 cargo test --locked --offline 仍在链接阶段复现 aws_lc_sys/MinGW nanosleep64 environment failure；该问题已与 workaround 结果分开记录，未修改仓库配置，不构成当前 native 语义回归。\n\n### 关键语义证据\n\n- SourceLocator 显式 target conversation binding 与候选 tie-breaker 确定性。\n- rename continuation 与 fingerprint/anchor 保持；truncate、same-length replacement、prefix change 和 unsafe growth 拒绝旧 cursor。\n- plain JSONL full/forward、tail、backward/range、append、pending tail 和 source growth。\n- 三类 cursor 的语义隔离、跨实例序列化和 fail-closed。\n- segment ordinal/range 排序、overlap dedupe、partial gap、carrier 和 bounded resource。\n- 同一 fixture 的 full-vs-segmented SourceRecord/source boundary oracle。\n- 既有 Adapter/Batch 入口的 legacy/current、UnknownEvent、ParserProvenance 和 deterministic serialization smoke。"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode：none；非生产发布任务。\n- Deploy source：none；未部署、未推送、未执行生产安装。\n- Target environment：本地 Windows formal crate 与一次性工具链 workaround 验证环境。\n- Health checks：不适用；本任务不启动服务、不修改 API、数据库或 Android 包。\n- Canary window：none；未建立 canary。\n- Performance baseline：未建立；只验证任务内 segment/record/inflight/resource limits，未承诺生产大文件 benchmark。\n- Rollback / recovery：如需回退，按 native/codex-rollout-collector/** path-scoped diff 或任务 checkpoint 回退；保留既有 dirty/untracked 内容，不使用整树 reset/checkout/清理。\n- Release evidence：not applicable；交付证据为上述 fmt、Cargo graph、formal suite、full-vs-segmented oracle、append recovery、contract 和 scope gates。\n- Canary result：not applicable。\n- Performance baseline result：not run / not applicable。\n- Rollback status：未执行回滚；没有生产或持久化副作用。\n- Remaining observation：默认 linker 环境仍需后续宿主恢复或工具链治理；不影响当前任务归档。阶段 3/4 的完整 analyzer、reducer/projection、Node/Android/IPC/DB 集成仍需独立任务。"
+        },
+        {
+          "section": "后续关联",
+          "text": "- docs/workflow/CURRENT_TASK.md 已清理为无活动任务入口。\n- 下一轮需求尚未明确，不创建新的任务包；收到新需求后先执行 /create-current-task。\n- 不自动恢复或扩展 TASKS/paused/ 中的 IPC/Owner 任务，也不把阶段 3/4、P0-C、P0-B.4R 或产品集成作为本归档的隐含后续承诺。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260819-001",
+      "title": "Codex Rollout Collector 正式模块初始化与兼容层落地",
+      "source": "TASKS/TASK-20260819-001-codex-rollout-collector-formal-bootstrap.md",
+      "sha256": "95b7acec050f03b9e69ae76d035682c67f67a8087d9fdb22a93164062d9a326e",
+      "original_status": "completed_verified_archived",
+      "task_id": "20260819-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-1f3e96e3a943eed0fc504f8ea9de84d6c63f4364b031e0ee85cd8c482f366f8e.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-78dee6bd5e9812e8530832f09d84a41b88155a9aa562816711bd689bdfc88551.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "### 代码与语义验证\n\n- `cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check`：通过。\n- `cargo metadata --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline --format-version 1`：通过；539 packages、0 Git sources、0 runfiles。\n- `cargo check --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：通过。\n- `cargo build --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：通过。\n- `cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：9 项 unit、27 项 conformance、0 doc tests、0 失败。\n- `cargo tree --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：通过；Codex package 均指向正式仓库内 vendor 闭包。\n- Demo 26 项测试、Spike 5 项测试：通过。\n- 同一 3743-byte fixture（SHA-256：`F8F9AE9C4528BC7C81E02FE99264BA07F148C597974BDE8E164B52B49A8BA55F`）完成 Demo full-oracle/determinism、Spike wire parser 和 formal targeted conformance 对照；future variant 的诊断/partial 差异已解释并符合 fail-closed 预期。\n- alias、UnknownEvent、ParseGap、source-boundary、target-ignore、determinism、golden、payload limit 和绝对路径脱敏检查：通过。\n- `git diff --check`：exit code 0；仅保留既有工作树的 LF/CRLF warning 事实。\n\n### 审查链\n\n- `review-diff`：通过，未发现 scope drift、Forbidden/Conditional 文件越界或决策漂移。\n- `review-implementation`：通过，正式 package、兼容映射、异常路径、边界和测试证据满足本轮目标。\n- `verify-contracts`：通过，未破坏既有 API、依赖方向或 Codex IPC 冻结契约。\n- `run-regression`：通过，采用 diff-aware QA；clean checkout、Cargo、双 oracle、fixture、source-boundary 和 diff 门禁均已执行。\n- `F-001`～`F-003`、`F-005`～`F-024`：resolved。\n- `F-004`：按用户明确指令忽略，不作为本任务阻塞项；不宣称该 finding 已修复。\n\n### 已知环境观察\n\n- Spike/Demo 默认 GNU linker 曾受本机 `aws-lc-sys`/`nanosleep64` 环境差异影响；已用一次性 MinGW `PATH/RUSTFLAGS` 完成必要验证，路径未写入仓库，也不是正式 package 的依赖策略。\n- clean checkout 验证使用临时 synthetic commit/clone，因为当前工作树无任务提交；正式 clean checkout 工作树为空且门禁通过，不代表创建了仓库提交。\n- 本任务未运行 Node、Android、browser、auth 或 deploy 回归，因为本轮没有触及这些运行时边界。"
+        },
+        {
+          "section": "发布后验证证据",
+          "text": "- Release mode：非生产发布；本次是 P0-RC.1 隔离基础层交付。\n- Deploy source：无；未部署、未推送、未执行生产安装。\n- Target environment：本地 Windows formal crate，以及临时 clean checkout 验证环境。\n- Health checks：不适用；无服务进程、API、数据库或 Android 包变更。\n- Canary window：无；未建立 canary。\n- Performance baseline：未运行；本任务没有性能目标或 benchmark 交付承诺。\n- Rollback/recovery：如需回退，只撤回本任务新增的正式 crate、技术细节文档和本任务治理记录；保留前置 pause/inbox/toolchain/parse-probe 既有变更。未使用 `git reset --hard`、`git checkout --` 或整树清理。\n- Release evidence：无生产 release evidence；本归档只证明隔离 package 的构建、测试、双 oracle 和边界门禁。\n- Canary result：not applicable。\n- Performance baseline result：not run / not applicable。\n- Rollback status：未执行回滚；当前没有生产或持久化副作用。\n- Remaining observation：后续若扩展到完整 analyzer、P0-C、P0-B.4R 或产品集成，必须创建新的任务并重新锁定范围、契约和回归门禁。"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 当前任务已完成并归档；`docs/workflow/CURRENT_TASK.md` 已清理为无活动任务入口。\n- 下一轮入口：先执行 `/create-current-task`，为新的明确需求建立任务包；不自动恢复或扩展 P0-C/P0-B.4R。\n- 可能的后续方向（仅候选，不构成授权）：在单独任务中推进完整 analyzer、P0-C durable reconciliation 或 P0-B.4R/产品边界集成。\n- 前置任务 `TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md` 保持原状态，不因本归档自动恢复、修改或关闭。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260726-002",
+      "title": "Android / 服务端持久诊断日志与问题取证",
+      "source": "TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md",
+      "sha256": "dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857",
+      "original_status": "completed",
+      "task_id": "20260726-002",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "- 为 Android、WebView 与 Node 服务端增加跨 APK 更新保留的结构化持久诊断日志。\n- 覆盖当时记录的九类问题入口、状态、异常与恢复证据，不改变业务逻辑或 Codex IPC authority。\n- 提供 ADB/服务端采集脚本，生成 manifest、原始日志与合并 timeline。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-2479d9a08ddba7c825e5d67ea9c21cc3e77a4e48abcfbf5d4e31b1d05c17efdd.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-333db0dd7ee72f155e39b031026b128329d44a9722f0706ccd5a6cfe21b455e1.json",
+      "evidence": [
+        {
+          "section": "验证与交付证据",
+          "text": "- `node --check`、诊断 logger tests、IPC gateway targeted tests、Sessions capacity tests 通过。\n- JDK 21 `:app:testDebugUnitTest` 与 `:app:assembleDebug` 通过。\n- 使用 `adb install -r` 连续升级后，App 私有诊断文件和历史尾记录保持。\n- 采集脚本 smoke 成功生成 `manifest.json`、原始日志和 `timeline.jsonl`。\n- 全量 `npm test` 在 124 秒无输出后超时；已按既有 TD-004 窄门禁保留，不伪装为通过。"
+        },
+        {
+          "section": "后续关联",
+          "text": "- 临时问题记录继续位于 `tmp/codex-known-issues-20260726.md`。\n- 后续业务修复可直接使用既有 Android/服务端持久诊断事件取证。\n- 下一任务：`20260727-001` Windows Codex IPC-first / Owner-fallback 第一阶段修复。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260726-001",
+      "title": "TASK-20260726-001 Android App 前台独立息屏时间",
+      "source": "TASKS/TASK-20260726-001-android-foreground-screen-timeout.md",
+      "sha256": "d26e314d468675ed57e1b845d4b3748e0ec8c50e608d8d72e67203be3432937b",
+      "original_status": "completed_ready_for_closeout（已归档）",
+      "task_id": "20260726-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "在 Android 设置页增加“跟随系统 / 30 秒至 10 分钟”的前台息屏时间档位；自定义档位只在 Activity 前台保持亮屏，后台清除 `FLAG_KEEP_SCREEN_ON`。MainShellActivity、CodexActivity、SettingsActivity、WorkspaceActivity 共用本地控制器。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-032fa2dc8fa19affe36f6552ebd2c25d6a3a8dc82c073a65d3f8b91dcfa10ee1.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-f4e9d64be8bfd1ef21dc174982b2af0608f7de139c93671c262728f13b0ac1a0.json",
+      "evidence": [
+        {
+          "section": "目标与结果",
+          "text": "在 Android 设置页增加“跟随系统 / 30 秒至 10 分钟”的前台息屏时间档位；自定义档位只在 Activity 前台保持亮屏，后台清除 `FLAG_KEEP_SCREEN_ON`。MainShellActivity、CodexActivity、SettingsActivity、WorkspaceActivity 共用本地控制器。"
+        },
+        {
+          "section": "验证结果",
+          "text": "- JDK 21 Android JVM tests：BUILD SUCCESSFUL。\n- Debug APK assemble：BUILD SUCCESSFUL。\n- `git diff --check`：通过。\n- 真实设备定时等待 smoke：未执行，保留为交付后手工观察项。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260722-002",
+      "title": "支持 Android Codex 对话记录直接打开图片与文档",
+      "source": "TASKS/TASK-20260722-002-android-codex-open-conversation-files.md",
+      "sha256": "f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561",
+      "original_status": "completed",
+      "task_id": "20260722-002",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "完成 Android Codex 历史消息中的图片、文件提及、Markdown 图片/文件链接的点击打开能力，并完成历史任务绑定、IPC follower、canonical 恢复、配置记忆、后台保活、额度通知、命令批次折叠和文本选择等后续收口。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-914bfaedbb5782dd252d5930d9d6417f46d4055ada5143370e3c4787ddc2957c.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-c15e79485bf00d6d97255747f9f8faf1003add7e93c5784d42fe014b8d880359.json",
+      "evidence": [
+        {
+          "section": "目标与结果",
+          "text": "完成 Android Codex 历史消息中的图片、文件提及、Markdown 图片/文件链接的点击打开能力，并完成历史任务绑定、IPC follower、canonical 恢复、配置记忆、后台保活、额度通知、命令批次折叠和文本选择等后续收口。"
+        },
+        {
+          "section": "验证结果",
+          "text": "- Android JVM 测试与 Debug APK 构建已通过。\n- IPC / owner / gateway、Workspace/Web 定向 Node 回归已通过。\n- `git diff --check` 已通过。\n- Huawei 真机已完成 Markdown 附件打开、任务切换、配置恢复、Doze 保活、额度通知和命令批次折叠验证。\n- 仓库仍保留的 release config 基线失败和交叉宿主长任务证据按原任务记录保留，不影响本次归档确认。"
+        },
+        {
+          "section": "后续观察",
+          "text": "- 后续新需求应创建独立任务，不继续扩展本任务的 Codex IPC 范围。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260722-001",
+      "title": "TASK-20260722-001：修复 Android Codex 会话页入口与 composer 布局",
+      "source": "TASKS/TASK-20260722-001-fix-android-codex-composer-layout.md",
+      "sha256": "53ef3940d668bfd59115ca0b0aa02de9d5c6848d48a7a32af18e780a9d3b7486",
+      "original_status": "completed / archived",
+      "task_id": "20260722-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "恢复 Codex 会话页的会话管理侧栏入口，消除 composer 底部多余空白，并在保持输入框外框尺寸不变的前提下让提示、光标和首行从顶部起笔。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-bc42a9486c1cf316c7255eb05a6a50ee7ea2001ce54d9fb5f0212aa89f3591ed.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-713a81917edc36fbc659fccee1d6ad8293ad764335e33fc51e9fa77e106f7f78.json",
+      "evidence": [
+        {
+          "section": "根因与修复",
+          "text": "- sessions drawer 与 `CodexActivity.openSessions()` 一直存在，视觉改版时仅丢失了 `CodexScreen -> CodexHeader` 的回调和 Header 图标；现恢复 48dp `ic_sessions_24` 左侧入口并复用既有 drawer。\n- composer 将真实 navigation/gesture inset 强制抬高到至少 36dp，真机无可见底部系统栏时仍生成大块空白；现只保留设备真实 reported/legacy inset 的较大值，零 inset 返回零。\n- 输入 Box 使用 `Alignment.CenterStart` 导致首行垂直居中；现改为 `Alignment.TopStart`，保留 composer 132dp 外框、62–140dp 输入区和 footer 布局。\n- 新增纯函数回归测试，覆盖零 inset、非零 navigation bar inset 和 legacy gesture inset。"
+        },
+        {
+          "section": "验证证据",
+          "text": "- JDK 21：Android JVM 163/163，`:app:assembleDebug` BUILD SUCCESSFUL。\n- 稳定链路相邻测试：`codexOwnerSurfaceTracker` + `terminalGateway.codexIpc` 45/45。\n- `git diff --check` 通过；近期真机 logcat 无 TermLink FATAL。\n- Huawei VOG-AL00 / Android 10：360dp 与临时 412dp 密度视觉验证通过，设备已恢复原始 480dpi。\n- 真机点击会话图标成功打开既有 sessions drawer；键盘开/关均无 composer/IME 重叠，底部 synthetic 36dp 空白消失，光标与提示位于输入区顶部。\n- 截图：`output/adb/codex-layout-after-awake.png`、`codex-sessions-drawer-after.png`、`codex-keyboard-after.png`、`codex-layout-412dp-after.png`。"
+        },
+        {
+          "section": "发布与观察",
+          "text": "- Release mode：none；未部署、未 canary、未 benchmark，未触发回滚。\n- 当前真机使用手势导航；三键导航的非零底部 inset 由单测覆盖，未切换系统导航模式补人工截图。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260719-001",
+      "title": "TASK-20260719-001：修复 Android 文档阅读字号与移动端横向溢出",
+      "source": "TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md",
+      "sha256": "519c2e36353d8847f818346a48baccd6e567ffa8da770b0d6ac3cf58bde5a1b8",
+      "original_status": "completed / archived",
+      "task_id": "20260719-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "让手机自然比例下的 Markdown/源码使用较小字号并完整显示长路径，避免依赖手动缩放破坏界面布局。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-534aa659251d395cbea9e57b0361aecb3dc03364ef58959e69be496e514275ac.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-2f2ce0bed7a1ac58c9114b32d7741a776a17a81c2f53ba34daf20b6eab4ebf61.json",
+      "evidence": [
+        {
+          "section": "根因与修复",
+          "text": "- Markdown 正文继承浏览器默认 16px，移动规则此前只缩小 padding；长路径与 inline code 没有内容级换行。\r\n- Android WebView 可能放大文字，而 pinch zoom 会缩放整个 CSS viewport，导致工具栏、卡片与响应式断点一起失配。\r\n- 移动 Markdown 改为 13px/1.62，标题为 22/19/16px；长 token 使用 `overflow-wrap:anywhere`，表格和代码块保留局部滚动。\r\n- 移动源码改为 12px `pre-wrap`，隐藏折行后会错位的独立行号；桌面源码原始横向滚动保持不变。\r\n- viewport 禁止手势缩放并固定 `text-size-adjust:100%`；工具栏、卡片和 44px 点击区域不跟随正文缩小。"
+        },
+        {
+          "section": "验证证据",
+          "text": "- `tests/workspace.web.test.js`：14/14；TD-004 confirmed narrow gate：134/134。\r\n- `npm run android:sync`、debug APK 构建和安装、public/Android assets SHA256 一致、`git diff --check` 通过。\r\n- Playwright 412×915 与 360×800：正文计算值 13px，Markdown/body 均无横向溢出；源码 12px/pre-wrap；console 0 error。\r\n- Huawei VOG-AL00 / Android 10 真机以自然比例打开真实 `docs/adoption/ADOPTION_REPORT.md`，正文和长 token 在卡片内完整换行；logcat 无 WorkspaceActivity/FATAL 错误。\r\n- 截图：`output/playwright/workspace-mobile-412-reading-small.png`、`workspace-mobile-360-reading-small.png`、`workspace-device-reading-small-markdown.png`。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260718-003",
+      "title": "TASK-20260718-003：重写 Android/Web 共享文档工作区",
+      "source": "TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md",
+      "sha256": "7876e5f9602c8318bd88243784d4008ce430dce6e33c10056efecf84280ae612",
+      "original_status": "completed / archived",
+      "task_id": "20260718-003",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "在保持只读、现有 session 安全边界和 Android/Web 混合架构的前提下，重做目录导航、文件打开、Git HEAD/双文件比较与自适应界面。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-7a3d46c665a0b11a92e8e5ed6b8584cf863579d94a0c3739b9748f352be18cab.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-21f1e65265be1a623512e4943625a6f90420f4506060aa5cbcc9aec9780558b6.json",
+      "evidence": [
+        {
+          "section": "验证证据",
+          "text": "- TD-004 confirmed narrow gate 加本任务测试：152/152 通过；workspace focused：47/47 通过。\r\n- JDK 21 `:app:testDebugUnitTest :app:assembleDebug`、`npm run android:sync`、修改 JS syntax 与 `git diff --check` 通过。\r\n- Playwright 在 1440×900、412×915、360×800 完成目录、Markdown、搜索、HEAD/双文件比较与 Android host 模拟；360px 无横向溢出，console 无错误。\r\n- Huawei 真机 Android 10 / WebView 150 完成默认文档、真实目录、搜索结果、IME resize、连续返回与原生宿主 smoke；logcat 无 WorkspaceActivity/AndroidRuntime 错误。\r\n- 截图保存在 `output/playwright/`，含桌面、360/412 移动布局与真机证据。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260718-002",
+      "title": "TASK-20260718-002：美化 Android Codex 会话页与弹层交互",
+      "source": "TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md",
+      "sha256": "9fbe84e353de05a2c6a922c71039338e315b4083dd9009050dce87ce58dd6f0a",
+      "original_status": "completed / archived",
+      "task_id": "20260718-002",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "以 412 × 915dp 为主规格、兼容 360dp 小屏，重组 Android Codex 会话页的 Header、Goal/Plan、Skills、Slash、选择器、弹窗和 composer，并让模型、思考强度、权限由真实 owner/catalog 数据驱动。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-bdabd411d1d849a1eca9c648287e83fbb2f730090f2d7cf618167a9a0eab6ed4.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-61142912ddcdc8af5988fb044a04bf51b1f370bc0df96f21f1c9f8d5191ec34f.json",
+      "evidence": [
+        {
+          "section": "验证证据",
+          "text": "- JDK 21 Android JVM：158/158 通过。\r\n- `:app:assembleDebug` 通过。\r\n- IPC/gateway targeted：73/73；最终状态栏 follow-up owner/gateway：45/45。\r\n- `git diff --check` 通过。\r\n- Huawei VOG-AL00 完成 360dp 与 412 × 915dp 的布局、权限、模型、推理、状态栏隐藏/恢复和顶部空间真机验证。\r\n- 广域 Node 强制退出运行仍有仓库既有 gateway/session-id 基线失败；本任务直接影响路径的 targeted tests 通过，该风险继续由既有 TD-004 管理。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260715-002",
+      "title": "优化网页版登录、配置、页面布局与终端交互",
+      "source": "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md",
+      "sha256": "0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f",
+      "original_status": "archived",
+      "task_id": "20260715-002",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "在保留 TermLink 既有服务端接口、会话语义和终端能力的前提下，系统优化网页版登录、配置、全局布局与终端工作区，使信息层级、操作反馈、键盘/触控可用性、响应式表现和终端高频操作符合现代交互与无障碍最佳实践。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-50ba3be0544cbf6c8d43fc0ff1cc2fe51c7babdc09853086585e7924cf623912.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-44a11ef908b12a6626bcc530d7b6d268c2a854c2c55c8efec921b67e4301db3b.json",
+      "evidence": [
+        {
+          "section": "归档摘要",
+          "text": "- 归档时间：2026-07-16\r\n- 完成情况：验收标准与 Steps 1-9 全部完成。新增安全的浏览器登录，收口 shared UI foundation、配置/会话 UX、terminal-first 工作区、移动输入与跨页响应式/无障碍兼容。\r\n- 修改范围：只触及任务 Allowed Files 与 workflow closeout 条件文档；未触及 Android、release/installer、CI/deploy/database、vendored xterm 或远程运行时依赖。\r\n- 稳定契约：新增 browser authentication session 契约已同步至 `CONTRACTS.md`；Basic Authorization、API 401 challenge、`AUTH_ENABLED=false`、single-use WS ticket、session/workspace DTO、terminal input/resize envelope 和 Codex IPC/state projection 保持 backward-compatible。\r\n- 最终验证：统一 diff target 的 scope/implementation/contracts review clean；13 个相关测试文件 111/111 pass，JS syntax、i18n JSON、`git diff --check` clean。Edge 150 真实浏览器 QA 覆盖 1440×900 / 768×1024 / 390×844 的 login/config/terminal 渲染、认证、键盘/触屏、xterm input/fit/reconnect、focus、overflow、contrast、reduced-motion 与 console。\r\n- Release mode：standard change validation，未部署生产。Target environment：本地 Node + Edge 150。Canary：not applicable。Performance baseline：未引入框架/网络字体，terminal input/resize 真实 smoke 无明显延迟。Rollback status：not triggered，回滚边界为 task base `c6de9d3d2af3ac7cd5bae6e32d8ceff9d9034b2d`。\r\n- Release evidence：`C:\\\\temp\\\\termlink-visual-qa\\\\` 中 10 张截图与 `visual-qa-report.json`，targeted regression 和完整执行记录见本归档。\r\n- 剩余观察：仓库级 `node --test` 的 3 个既有 hanging files、`codexClient.shell` 的既有缺按钮期待和 `codexSecondaryPanel.integration` quick-sandbox 断言均在 task base 已存在，不属于本任务回归；按 TD-004 与 STATUS 继续独立管理。\r\n- 下一步：按新需求执行 `/create-current-task`；如要清理上述 baseline failures，应单独建立 bug task，不重开本任务范围。"
+        },
+        {
+          "section": "发布后验证",
+          "text": "- Release mode：standard change validation；本任务不部署生产环境。\r\n- Target environment：本地 Node 服务 + Chromium 类浏览器；必要时覆盖移动端 viewport。\r\n- Health checks：`/api/health`、登录入口可加载、会话/terminal 主链可连接，浏览器控制台无新增未处理错误。\r\n- Performance baseline：不新增大型框架或网络字体；CSS/JS 改动不得造成明显首屏或终端 resize/input 延迟。\r\n- Rollback / recovery：以任务起始 HEAD 为回滚边界；页面改造按登录/共享样式/配置与会话/terminal 分批，避免一次性不可定位的大改。\r\n- Release evidence：targeted Node/web tests、静态语法检查、截图/viewport smoke、`git diff --check` 与统一 diff review target。"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260629-001",
+      "title": "按 termlink-demo 改造服务端与安卓端 Codex 实时同步",
+      "source": "TASKS/TASK-20260629-001-server-android-codex-realtime-sync-demo-parity.md",
+      "sha256": "b00bb71d368ab50b0cd04403e587a7cae7d266533edebb9b909e76b9fdd55112",
+      "original_status": "archived",
+      "task_id": "20260629-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "\\coding\\termlink-demo` 的技术实现改造 Codex 会话实时同步能力；`termlink-demo` 只读参考，以代码实现为准、`docs/技术文档.md` 为辅，禁止修改；服务端为 Codex 会话提供同步 Codex Desktop / VS Code Codex 扩展的能力，安卓端 Codex 会话作为展示端，所有获取信息与发送信息都通过服务端通信；安卓端页面布局与基础功能不得变动，功能不得减少。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-436d92275aced15d6e42b1a9ece6a6c79a2493ebddbb763551fe70c82161708f.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-3b6c47851a755412dfd473b8ee3375f282bd2c40a8ba20852475ad3e17c4100a.json",
+      "evidence": [
+        {
+          "section": "归档摘要",
+          "text": "- 归档时间：2026-07-15\n- 完成情况：目标已完成；Codex Desktop / VS Code owner surface 到 TermLink 再到 Android 的实时同步、owner fallback、Approval、PLAN implementation、Goal 启动与继续/恢复均已完成自动化与真实真机闭环。\n- 最终验证：Node 相邻 Codex IPC/gateway 套件 149/149 通过；JDK 21 Android Codex JVM tests 通过；本地 `/api/health`、真实 IPC online 与真机 exact conversation selection 通过。\n- 契约与决策：稳定边界已同步至 `CONTRACTS.md`，决策演进已同步至 `DECISIONS.md`，状态已同步至 `STATUS.md`。\n- 剩余观察：external owner IPC 未提供 Goal update/cancel/complete 客户端动作，该能力不属于本任务稳定接口；历史 full `node --test` 挂起与 Android release config 失败仍是任务外已知风险。\n- Release mode：none；Target environment：local；Canary / performance baseline：not applicable；Rollback status：not triggered。"
+        },
+        {
+          "section": "发布后验证",
+          "text": "- Release mode：none\n- Deploy source：none\n- Target environment：local\n- Health checks：本地服务端 tests、Android JVM tests、可选真实 IPC / 真机 smoke。\n- Canary window：none\n- Performance baseline：none\n- Rollback / recovery：回滚本任务修改文件；如触碰 session metadata，必须保留迁移 / 兼容说明。\n- Release evidence：not applicable"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260618-001",
+      "title": "修复刷新页面重复新建 TERMINAL 会话",
+      "source": "TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md",
+      "sha256": "3bec9e6ed1538479d9d7e19e0281cc95c15cb953b76fa518312691530517d9a2",
+      "original_status": "archived",
+      "task_id": "20260618-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "刷新或重新加载已有终端页面时，必须复用当前或最近有效的 TERMINAL session，不得因为页面刷新自动创建新的 TERMINAL session；真正无可用 session 的首次进入仍可按既有行为创建默认 session。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-97e45ddef6df69016645e1e87becf55915dd3a65036b9b07eeacc300520c287e.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-4595b64e8be6fe39d19687c83b7c33b4b3d9ba45de82e1c51ef5c083dde605a1.json",
+      "evidence": [
+        {
+          "section": "发布后验证",
+          "text": "- Release mode：none\r\n- Deploy source：none\r\n- Target environment：local\r\n- Health checks：不涉及生产发布；本轮以本地自动化测试和手动刷新 smoke 为准。\r\n- Canary window：none\r\n- Performance baseline：none\r\n- Rollback / recovery：回退本任务修改即可恢复原行为；若修改 `terminalGateway`，需额外确认 Sessions API 与 WebSocket 基础连接仍通过。\r\n- Release evidence：not applicable"
+        },
+        {
+          "section": "交付摘要",
+          "text": "- 目标：已完成。刷新已有 terminal 页面不再新建 session；首次无 session 兼容路径保留。\r\n- 修改文件：`public/codex_ipc.js`（+23/-5）、`docs/workflow/CURRENT_TASK.md`\r\n- 越界：否。未触碰 Forbidden/Conditional Files。\r\n- 契约：否。Sessions API/DTO/ticket/schema/服务端协议/Android 主线不变。\r\n- 验证：`node --check` pass，12/12 pass，浏览器smoke terminal count不增，full suite预置失败不变。\r\n- Release：none（不涉及生产发布）。\r\n- 剩余风险：Step 5 targeted tests跳过，embedded codex_ipc 首连缺自动化回归保护。3 hanging tests 仍为 TD-004 已知风险。\r\n- 下一步：归档后，如需补测或以 TDD 补齐保护，创建新 CURRENT_TASK。\r\n\r\n(End of file)"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260617-001",
+      "title": "网页版 Codex 会话页按安卓端设计对齐",
+      "source": "TASKS/TASK-20260617-001-web-codex-session-android-redesign.md",
+      "sha256": "1faa341151c5cf0e076c139ae14bbe2d454e9a9cd7416c063c74c4cae0919def",
+      "original_status": "archived",
+      "task_id": "20260617-001",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "将 `public/codex_client.html`（PC 网页端）的布局、视觉风格和功能交互向安卓 APP Codex 会话页对标，在 PC 桌面宽屏下实现与安卓端一致的设计语言。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-abebef09e3a77d194bf8b7175b0cf2d8a4067c57f279ec70a073eeedea6a096b.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-6c8ebbd19e61cfd9d755d2b4d4b926883fb326b81fdb6c9d8bd0f40ee6cc1eec.json",
+      "evidence": [],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260616-001",
+      "title": "主页主链路内整合 Codex 会话入口与 Codex IPC 会话页",
+      "source": "TASKS/TASK-20260616-001-web-session-management-home-and-codex-integration.md",
+      "sha256": "64806d74a19d506734ed909ef6bfdae2834beb0302ff6555ace86e1b63b15ed4",
+      "original_status": "spa_all_5_steps_completed",
+      "task_id": null,
+      "state": "closure-unconfirmed",
+      "completion_disposition": "unconfirmed",
+      "goal": "以现有 `terminal.html` 主入口和会话 drawer 为基线，在网页主链路内补齐 `codex` 会话创建、浏览和跳转能力；同时让 `codex_ipc.html` 具备与终端页一致的 drawer 会话入口与新建会话能力，形成“统一会话入口 -> terminal/codex 分流”的网页体验，且 Codex 页继续基于当前 IPC 实时同步实现",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": null,
+      "lifecycle_source_ref": null,
+      "evidence": [
+        {
+          "section": "发布后验证",
+          "text": "- Release mode: none\r\n- Deploy source: none\r\n- Target environment: local\r\n- Health checks: not-required\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery: 恢复 `terminal.html` / `terminal.js` / `codex_ipc.*` 到任务前状态，删除本轮新增的共享会话管理增强\r\n- Release evidence: not-required"
+        }
+      ],
+      "limits": "五步完成快照，lifecycle active；未找到关闭事实，不据归档目录猜测。"
+    },
+    {
+      "original_task_id": "20260615-002",
+      "title": "为网页版添加基于 IPC 实时同步的 Codex 会话页",
+      "source": "TASKS/TASK-20260615-002-web-codex-ipc-realtime-sync-page.md",
+      "sha256": "012ed5e5a65203e8f5feeaa59ab03fb1820c4c5a7a3b10d60ca98b7bed7be623",
+      "original_status": "closed_archived",
+      "task_id": "20260615-002",
+      "state": "closed",
+      "completion_disposition": "historical-completion-declaration",
+      "goal": "为 TermLink 网页版新增一个与 `termlink-demo` 同等能力的 Codex 实时同步会话页——通过服务端已有的 IPC feed（`codexIpcFeed`）→ WebSocket gateway 路径，使网页端可以像 Android App 一样接收 Desktop/VS Code 的实时 thread stream state、展示消息面/状态/approval/PLAN，并能以 follower 身份发送消息、审批和 PLAN 操作；IPC 不可用时 graceful fallback 到现有 WebSocket 路径",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-961404cf7bb3a537b959d35473da76507c179b1e3a420c48c571786ca0fbb729.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-cd246b8f6b3915491efe508ad6fd7f223c40abd02c580df77e8f197ccaa92ad4.json",
+      "evidence": [
+        {
+          "section": "发布后验证",
+          "text": "- Release mode: none\r\n- Deploy source: none\r\n- Target environment: local\r\n- Health checks: not-required\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery: 删除新增的 HTML/JS/CSS 文件即回退\r\n- Release evidence: not-required"
+        }
+      ],
+      "limits": "历史交付及验证适用于原版本和范围；不是当前全量产品验收。"
+    },
+    {
+      "original_task_id": "20260727-002",
+      "title": "Codex 单权威路由与 TermLink Owner 控制面修复",
+      "source": "TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md",
+      "sha256": "b4ce7320e3baeeeef168847c6dc07f7d6e5d4f1f198907e08b8d6a616a76195b",
+      "original_status": "in_progress",
+      "task_id": "20260727-002",
+      "state": "paused",
+      "completion_disposition": "paused-historical",
+      "goal": "App 只提交任务意图，Gateway 统一完成激活、IPC-first 仲裁、Owner fallback、显式新建、控制路由和 surface 广播；运行中禁止自动切换 authority 或静默更换 canonical thread。",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-bd9ec9d5735f4f2a8c2d5b76069c3b1040f57dd10636d043158f09b0ef511724.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-69eb1be38d3f4e09af3533f2edd05fcd1c400e744d9e62de1b49eb1fabef7506.json",
+      "evidence": [
+        {
+          "section": "发布后验证",
+          "text": "- Release mode：none，本任务只在功能分支实现、构建和真机 smoke。\n- Deploy source：not-applicable\n- Target environment：Windows 本地 TermLink + Android 测试机 + Desktop / VS Code Codex host\n- Health checks：IPC online、fresh surface、Owner discovery、turn start/stop/approval 与 A→B→A。\n- Canary window：not-applicable\n- Performance baseline：任务选择后不新增轮询；fresh-surface grace 保持 5 秒。\n- Rollback / recovery：P0-B 前基线为 `4a78060`。业务行为可通过 `rangeSegments.enabled=false` 回到 v2 history path；一旦 DB 已迁移到 v4，\n  只能使用理解 v4 且关闭 P0-B 的兼容构建回退，不能直接安装旧 v3 APK。首次主设备迁移前必须备份/副本演练。\n- Release evidence：最终测试、APK 构建和双宿主手动 smoke 记录。\n- 当前实际观察（2026-08-02）：用户报告会话 `019fbe25-0c1c-73f3-b9e5-391d72ab37ea` 单次人工验证成功；该结果仅作为 observing 锚点，不等同于双宿主、多轮 Goal、重连、A→B→A 或长任务全链路验收。"
+        },
+        {
+          "section": "Paused Package Metadata",
+          "text": "task_id: 20260727-002\ntask_title: Codex 单权威路由与 TermLink Owner 控制面修复\ntask_slug: codex-single-authority-owner-control-plane\nartifact_kind: paused\nlifecycle_state: paused_pending_closure\nsuspension_reason: pause_for_interposed_task\ntask_start_base: 8f84867\nlast_reviewed_checkpoint: 4a78060\ncurrent_diff_review_target: 4a78060..working-tree\nresume_requires_review: true\nresume_review_reasons: validation_pending, manual_review_pending, remaining_acceptance_pending\nrehydration_status: ready_for_resume\nownership_state: recovery_only\npause_state: paused_pending_closure\npause_marker: ready_for_resume + recovery_only\npaused_at: 2026-08-19\nlast_active_state_before_pause: in_progress / active / implement-current-step（P0-B.4R corrected reimplementation）\npause_intent: 暂时让出 active ownership，先执行 P0-C 与 P0-B.4R 之间的中间任务；保留当前任务完整上下文并允许后续恢复。\nremaining_acceptance: 当前 P0-B.4R 执行包尚未宣告完成；安装后的真实设备 A→B→A 门禁、当前步骤收口审查以及后续 P0-B.5、P0-C、P1 均按快照记录保留。此次暂停是任务调度，不是验证失败或 blocker。"
+        },
+        {
+          "section": "Resume Gate",
+          "text": "恢复前必须执行 `/review-current-task`，重新确认当前基线、working tree、P0-B.4R 当前步骤、人工 A→B→A 门禁和后续 P0-B.5/P0-C/P1 授权状态。\n恢复时不得把本暂停包直接解释为完成，也不得跳过剩余验收。"
+        },
+        {
+          "section": "Transaction Record",
+          "text": "本文件先以 `write_incomplete + recovery_only` 写入；只有 live CURRENT_TASK 切换为 suspended tuple 且 read-back 校验通过后，才可将 `rehydration_status` 更新为 `ready_for_resume`。\ntransaction_result: read_back_validation_passed"
+        }
+      ],
+      "limits": "暂停未自动恢复；旧未完成范围保留。",
+      "original_pause_state": "paused_pending_closure"
+    },
+    {
+      "original_task_id": "20260615-001",
+      "title": "接入 codex-ipc 实现 App Codex 会话页实时同步",
+      "source": "TASKS/paused/TASK-20260615-001-app-codex-ipc-realtime-sync.md",
+      "sha256": "f46d952bed22f798c543102b0092c00b34ec01ea4777be91181ce406789a6d6c",
+      "original_status": "step9_regression_collected_pending_manual_smoke",
+      "task_id": "20260615-001",
+      "state": "paused",
+      "completion_disposition": "paused-historical",
+      "goal": "在 TermLink 服务端新增 `codex-ipc` 接入能力，将现有 Android Codex 会话页接入 Codex Desktop / VS Code 的实时同步数据源与控制链路，使 App 端能够接收 Desktop/VS Code 的实时消息流、状态变更、approval 和 PLAN，同时能从 App 端发送消息、审批和 PLAN 操作并同步回 Desktop/VS Code；整个过程中 App 现有页面设计、操作逻辑和用户交互方式保持不变，IPC 不可用时 graceful fallback 到原有 TermLink Codex 会话路径",
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "source_ref": ".workflow-system/records/events/key-273f762c5f13084cf2c9d913a0e32fd146a6f473ef993ca5af5a42517cf04540.json",
+      "lifecycle_source_ref": ".workflow-system/records/events/key-12102b503a1961b3943473f36527b4673f908797d799174df41d82f7b35adbf8.json",
+      "evidence": [
+        {
+          "section": "发布后验证",
+          "text": "- Release mode: none\r\n- Deploy source: none\r\n- Target environment: local\r\n- Health checks: not-required\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery: 断开 IPC 路径即回退到旧 app-server/gateway 路径；IPC 相关代码通过 feature flag 或模块不存在即降级\r\n- Release evidence: not-required"
+        },
+        {
+          "section": "Paused Package Metadata",
+          "text": "- **Task ID**: 20260615-001\r\n- **Task Title**: 接入 codex-ipc 实现 App Codex 会话页实时同步\r\n- **Task Slug**: app-codex-ipc-realtime-sync\r\n- **Pause State**: paused_blocked\r\n- **Pause Marker**: ready_for_resume + recovery_only\r\n- **Paused At**: 2026-06-15\r\n- **Last Active State Before Pause**: step9_regression_collected_pending_manual_smoke"
+        },
+        {
+          "section": "Blocker Evidence",
+          "text": "- **Blocker Status**: blocked_by_manual_smoke_env\r\n- **Blocking Evidence**:\r\n  - 当前开发环境无 Desktop / VS Code Codex IPC pipe (\\\\.\\pipe\\codex-ipc) 可用\r\n  - 真机验证（MQS7N19402011743, Huawei VOG-AL00, Android 10）已确认 no-IPC fallback 路径通过\r\n  - IPC online 三端同步、follower action (send/approval/PLAN) 场景需 Desktop/VS Code IPC 环境方可复验\r\n- **Remaining Acceptance**:\r\n  - 有 Desktop / VS Code 环境：三端同步消息、状态、approval、PLAN；Android 发送消息后 Desktop 同步出现\r\n  - Android 审批后 Desktop turn 继续/中止\r\n  - Android PLAN 实施后 Desktop 在 Default mode 下执行\r\n  - 切换 conversation 后不串流\r\n  - running 状态下 start-turn 被阻止\r\n- **Failed Checks**: none（自动化回归全部通过，manual smoke 仅缺 IPC online 环境）"
+        },
+        {
+          "section": "Resume Gate",
+          "text": "- **恢复需审查**: true\r\n- **恢复审查原因**: \blocked_by_manual_smoke_env, incomplete_ipc_online_smoke, desktop_vscode_ipc_pipe_required\r\n- **恢复后 Handoff**: /review-current-task"
+        }
+      ],
+      "limits": "暂停未自动恢复；旧未完成范围保留。",
+      "original_pause_state": "paused_blocked"
+    },
+    {
+      "original_task_id": "20260715-001",
+      "title": "提供 Windows x64 安装包和统一配置工具",
+      "task_id": null,
+      "state": "superseded",
+      "completion_disposition": "superseded-with-release-gap",
+      "source": "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md",
+      "sha256": "0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f",
+      "goal": "Windows x64 安装包和统一配置工具；与后继 Web UX 任务的范围不同。",
+      "limits": "实现已完成，但 release-readiness 缺外部 clean Windows x64 host 证据。仅后继任务的“被替代任务记录”与执行记录可定位，未找到独立完整任务包。",
+      "read_scope": "被替代任务记录和2026-07-15执行记录"
+    }
+  ],
+  "existing_journal": [
+    {
+      "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+      "display_id": "TASK-004",
+      "title": "task-003-rust-node",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+      "plan_status": "legacy-summary-only",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+      "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "The four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended are still stale; new current-subject execution evidence is separate and does not rewrite them.",
+        "Execution reports are caller-reported summaries without raw stdout attachments; reviews are Codex self-reviews, not independent test execution.",
+        "The execution journal's CR and contract hashes predate their final edits; the review separately read and bound the current document hashes.",
+        "External Codex host deployment and Android physical-device validation were not performed; no release-readiness claim is made.",
+        "No Git commit, push or deployment performed; CR stays draft with commit_ref TBD.",
+        "Legacy CURRENT_TASK/task-store projection was not reconciled and may still show Task 004 active/S3 ready."
+      ],
+      "gaps": [
+        "The four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended are still stale; new current-subject execution evidence is separate and does not rewrite them.",
+        "Execution reports are caller-reported summaries without raw stdout attachments; reviews are Codex self-reviews, not independent test execution.",
+        "The execution journal's CR and contract hashes predate their final edits; the review separately read and bound the current document hashes.",
+        "External Codex host deployment and Android physical-device validation were not performed; no release-readiness claim is made.",
+        "No Git commit, push or deployment performed; CR stays draft with commit_ref TBD.",
+        "Legacy CURRENT_TASK/task-store projection was not reconciled and may still show Task 004 active/S3 ready."
+      ],
+      "counts": {
+        "steps": 1,
+        "unfinished_steps": 1,
+        "findings_in_current_plan": 0,
+        "plans": 0,
+        "executions": 1,
+        "tests": 9,
+        "reviews": 3,
+        "review_decisions": 1,
+        "commits": 4
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "legacy-doc-fdd730cf99bb383419d74988",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "title": "Android App 产品历史只读接入与真实纵向 E2E",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-dbec71588bac0244303f6bc3daeccbcc0c9d7247e490cf74dd19ce73d0d24e60.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "adopted_by": ".workflow-system/records/events/key-f51e7610b09cf057dbe07e1bd0391d6aa451e06bea629572b7b9bcf5c4fc3f61.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "Natural append/new turn and physical detail-ref update/invalidity remain unverified",
+        "Android large-detail dialog/copy and physical older durable ACK/overlap remain unverified",
+        "Healthy IPC exclusive realtime authority/healthy A-B-A and actual in-flight stale-response isolation remain unverified",
+        "Full ViewModel coroutine timeout/retry/cache-update edge integration and historical S1 activation-retry race coverage are not asserted by the executed probes",
+        "Existing reconciliation fingerprint_bytes budget exceeded (67108864) remains unresolved; no resource bounds relaxed",
+        "CR draft/none/TBD strict-format limitation remains historical and unresolved; no fabricated REQ or commit ref",
+        "Two historical management association issues remain unresolved",
+        "Uncommitted persistent S4 execution/review/finish evidence and this closure fact remain local; a Git checkpoint is a separate user-requested operation",
+        "Raw wire and full exported cache/backup artifacts remain private ignored local evidence, not included in persistent attachments or Git",
+        "Independent review, production release/deployment and additional full E2E are not certified by this closure"
+      ],
+      "gaps": [
+        "Validation coverage partial, not full business PASS",
+        "Self-review retained as self-review",
+        "Historical initial probe ACK failure, restart transport failures, compilation/path-copy/strict CR failures remain original facts, not rewritten as PASS",
+        "No new tests/build/device/service/rollback/commit/push/deployment or filesystem deletion during closure"
+      ],
+      "counts": {
+        "steps": 4,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 4,
+        "executions": 15,
+        "tests": 24,
+        "reviews": 17,
+        "review_decisions": 5,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-7a4566ccf322e08968cd5c7935cf61dd",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "title": "Codex 历史全链路 E2E 补齐验证（默认不改源码）",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-8464c4002ea41b1b57974aaf26a47b116e56a5f8f029fc6e7fc0074df0158a68.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "adopted_by": ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "自然 source→canonical product→Android durable commit/ACK/reopen 主链仍未闭合；普通 append/resend、真机 older/大详情复制、自然 E07 与真实在途竞态仍未验证。",
+        "S2 委派载体解析/A canonical 缺口、S4 G1/G2 与预算失败、S5 C catalog publication/resend/replacement 缺口及 S6-G1 unknown registration 候选仍需另行明确调查或修复范围。",
+        "E01–E12 及子项继续保持真实 E2E、协议/fixture、历史复用和未运行的分层结论；clean、finished、closed 与 5/5、30/30、75/75、4/4 不改变验证结论。",
+        "S6 管理记录与证据当前尚未提交；没有源代码修改、部署或发布。"
+      ],
+      "gaps": [
+        "三条既有未关联管理记录/问题保留：key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json、key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json、key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json。",
+        "S6 review 为同代理证据范围自审，不是独立审查；业务主链仍 partial。"
+      ],
+      "counts": {
+        "steps": 6,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 2,
+        "executions": 8,
+        "tests": 3,
+        "reviews": 10,
+        "review_decisions": 2,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-25654b249109f357a559899562804c15",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "title": "委派输入与正常历史增长的最小共享兼容修复（Rust契约先行）",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "adopted_by": ".workflow-system/records/events/key-c9ee87ca72baea443b6cb1d53f14387af5407d633ad8cdf5988b80c0be34ff1d.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "任务已关闭为管理处置，不代表产品完成或 PASS；S5 43/43 证据来自隔离 Rust/Node/File/SQLite/provider 流程，非自然 Codex 宿主或手机验收。",
+        "832 H2 discovery/catalog localization、普通/Branch/委派三场景真实宿主与手机正文/工具详情/重开验收仍待后续任务完成；832 保持 active，未在本次关闭中修改。",
+        "832 S2 review/finish 及共享实现范围回收仍待后续处理；此前失败、S2 vendor 离线依赖限制和其他未验证项原样保留。",
+        "三个既有未关联管理记录继续保留：key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json、key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json、key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json。",
+        "工作区仍有未提交的 PLAN/REQ/tests 与工作流持久记录；native/codex-rollout-compat-spike/vendor/codex/Cargo.lock 未修改且保持未跟踪；本次关闭不执行 Git commit、push、部署或删除。"
+      ],
+      "gaps": [
+        "最新审查为 same-agent-change-self-review，非独立审查。",
+        "真实宿主、分支保存、手机 durable ACK/重开及产品发布链未由本次 S5 隔离证据证明。",
+        "工作区 dirty，业务修改和管理证据尚未提交。",
+        "状态视图仍有 3 条旧未关联管理记录，state_completeness 为 partial-associations。"
+      ],
+      "counts": {
+        "steps": 5,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 7,
+        "tests": 0,
+        "reviews": 8,
+        "review_decisions": 7,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-7ff69ba8242c90c52f0b93fa1144a655",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "title": "修复新对话、分支对话与委派消息的历史保存失败，并验证手机重开可查看",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "adopted_by": ".workflow-system/records/events/key-d99d9cbfdf82571710ab524da759d74872184e4aafe91bd395b6c8b5f35b3d55.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "S6 Android source/test, PLAN/REQ, draft CR and workflow facts/evidence are uncommitted; task closure performs no staging, commit, push or deployment.",
+        "REQ remains in_progress for commit/document traceability: all linked CRs currently draft/TBD, no active CR. Real existing business commits are retained; no fake commit_ref or CR activation.",
+        "IR832-01 is technically not fixed; the human excludes pre-current-version published product-format migration because there was no ordinary-user product release. Do not treat original S4/S5 findings as clean.",
+        "Out-of-scope stale reconnect error banner, B/Q budget failures/intents and registration candidate remain; no budget relaxation or data cleanup.",
+        "Three preexisting unassociated management records remain unresolved; no new association repair or historical business replay.",
+        "All phone durable detail refs were checked, but only one selected tool detail dialog per scene was operated; other phones/full large-detail/deep-pagination/race/resend matrix and production release are not certified.",
+        "Untracked spike vendor Cargo.lock and local data/codex-rollout-analysis and data/codex-rollout-checkpoints are retained and excluded from any automatic Git or cleanup operation."
+      ],
+      "gaps": [
+        "Closure is user-requested lifecycle disposition, not release/deployment approval, a clean independent verdict or removal of original failures.",
+        "Independent reviewer reused retained phone evidence; no new live phone/service/model validation during review or closure.",
+        "Current-version new saves/append/restart, unsettled original profile/job/delivery protection, cross-profile rejection, external-source read-only, budgets and IPC authority remain required.",
+        "REQ done/publication traceability is pending separately from all six finished plan steps."
+      ],
+      "counts": {
+        "steps": 6,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 2,
+        "plans": 1,
+        "executions": 11,
+        "tests": 9,
+        "reviews": 15,
+        "review_decisions": 9,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "title": "Rust rollout 兼容修复：token_usage_record 与 developer 消息",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-9315aa5f56fdf91a7d40826f4d804242411c2d30690ca05178394be9475ec93c.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "adopted_by": ".workflow-system/records/events/key-d541cb97ed966f0411f7d9df6baeb4e447d062044e94dba489a3dd8fd14590bd.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "The task is closed as a disposition, not verified product completion or PASS.",
+        "The worktree is detached and dirty with in-scope Rust/docs changes plus workflow/runtime records; no Git commit, staging cleanup, push or deployment was performed or authorized.",
+        "The latest review is clean only for the exact isolated Rust S3-R3 subject and is a same-agent self-review, not an independent review.",
+        "The retained initial real-probe wrapper failure compared 269 derived events with 227 physical records; corrected physical progress assertions passed, but the original failure and script remain retained.",
+        "The full Rust library suite, historical Windows nested absolute-path assertion and broad formatting checks were not fully rerun or remain limited.",
+        "check-doc-sync remains failed because no active CR with a real commit_ref exists; the S3 CR remains draft/TBD.",
+        "Node product canonical publication/database transaction and Android first-page/App ACK or device/host integration remain unverified; Task005 remains paused.",
+        "Existing unrelated unassociated management record remains unresolved and state completeness remains partial-associations; stale Task004 reports remain historical.",
+        "No rollback, deployment, Task005 resume, or product integration action was performed."
+      ],
+      "gaps": [
+        "No active committed CR association",
+        "Product publication and Android acceptance not verified",
+        "Unassociated management record issue-ec19a134aefeb23287cb519b",
+        "Dirty detached worktree with no authorized commit"
+      ],
+      "counts": {
+        "steps": 3,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 2,
+        "executions": 7,
+        "tests": 39,
+        "reviews": 9,
+        "review_decisions": 4,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+        "workflow_home": "docs/workflow"
+      }
+    }
+  ],
+  "after": {
+    "task_count": 40,
+    "lifecycle_counts": {
+      "closed": 38,
+      "paused": 2
+    },
+    "current_task_id": null
+  },
+  "historical_counts": {
+    "total": 36,
+    "completion_declarations": 31,
+    "stopped_by_user": 1,
+    "paused": 2,
+    "closure_unconfirmed": 1,
+    "superseded": 1
+  },
+  "excluded": [
+    "3份inbox为候选，不作任务计数",
+    "旧legacy TASK_ARCHIVE空模板不计数",
+    "独立旧TASK003与现journal TASK004身份和范围不同，不合并"
+  ],
+  "unread": "大型CURRENT_TASK内嵌逐步骤快照、全部执行附件、Git对象与其他工作副本未全面重验；此处汇总原任务目标、边界及外层结论，不认证每项当前实现。"
+}

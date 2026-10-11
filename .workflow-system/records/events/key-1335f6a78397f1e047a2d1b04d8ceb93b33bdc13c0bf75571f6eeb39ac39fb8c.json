@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:06:10.099Z",
+  "payload_sha256": "34fdc48adcfb566d4e3fdb336caf43edb8cef948e338ccc0ae385695d31ed644",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260508-001-d16160ee5c0c4a663055e008c6ab436086811c6792309a7d1b8fa55d969282bf-disposition-source",
+    "body": {
+      "original_task_id": "20260508-001",
+      "task_id": "20260508-001",
+      "source": "TASKS/TASK-20260508-001-codex-inline-multiple-skills-and-attachment-visible-history.md",
+      "sha256": "d16160ee5c0c4a663055e008c6ab436086811c6792309a7d1b8fa55d969282bf",
+      "original_status": "completed_verified_archived",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": "围绕 `RF-20260508-001` 与 `RF-20260508-002`，让 Codex 输入区支持像 VS Code Codex 一样的多 skill 内联 token 输入，并让本地图片 / 本地文件附件上下文在 Web / Android 的发送后历史中持续可见。",
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\r\n- 项目类型：application\r\n- 任务 ID：20260508-001\r\n- 任务标题：Codex 输入区支持多 skill 内联插入并持久展示附件上下文\r\n- 任务 slug：codex-inline-multiple-skills-and-attachment-visible-history\r\n- 最终状态：completed_verified_archived\r\n- 创建时间：2026-05-08\r\n- 归档时间：2026-05-09\r\n- 归档性质：完成归档；验收、回归与关联风险 smoke 已补齐"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- Web：\r\n  - `public/lib/codex_slash_commands.js` / `public/terminal_client.js` 把 skill 发送事实源收敛为 composer 内联 token，发送后 user message 与 snapshot 回放按正文 token / metadata 重建 skill 上下文。\r\n  - `public/terminal_client.js` 的 localImage 历史摘要改为只保留安全 label / kind，并用 opaque dedupe key 防止同名本地图片在历史中被误合并。\r\n  - `public/terminal_client.css` / Web message 渲染侧保持 skill、file、image 摘要在消息上下文中稳定显示，不再把 `data:image` 写进可见 DOM/title。\r\n- Android：\r\n  - `CodexSlashRegistry.kt`、`CodexModels.kt`、`CodexViewModel.kt`、`CodexScreen.kt` 对齐多 skill composer-token 语义、localImage metadata 脱敏与 dedupe、post-send user bubble 的 skill / file / image 承载面。\r\n  - `CodexScreen.kt` 的 user message context chips 改为换行布局；post-send user bubble 重新渲染 `message.skills`，并继续隐藏 `SKILL.md` 路径。\r\n  - `CodexViewModelThreadReadyTest.kt` 等 Android 单测补足 `thread_ready` / `thread_started` 下的 optimistic tail 保留行为。\r\n- 测试与文档：\r\n  - `tests/codexClient.shell.test.js`、`tests/codexSlashCommands.test.js`、`tests/codexShellView.test.js` 对齐当前稳定行为，去掉陈旧静态基线假设。\r\n  - `docs/workflow/CURRENT_TASK.md`、`STATUS.md`、`LESSONS.md` 已同步真实执行、验证与 lessons。"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- 保持不变的关键边界：\r\n  - 不改 `CONTRACTS.md` 中锁定的 sessions/workspace API、`codex_state` 语义、`cwd` skill discovery scope。\r\n  - 不改 gateway / service / wire DTO；本轮未触发 `Conditional Files`。\r\n  - 不改现有本地图片 / 本地文件上传能力范围，仍只支持本地图片和本地文件。\r\n- 已验证的兼容策略：\r\n  - 单 skill 发送仍能被 runtime 正常识别。\r\n  - Web / Android 继续以当前 Codex session `cwd` 作为 skill 解析与 thread/history 作用域。\r\n  - 附件展示只显示 label / 类型摘要，不把图片 data URL 或文件正文写回聊天 UI。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- 已通过的自动 / 静态验证：\r\n  - `node --test tests/codexSlashCommands.test.js tests/codexClient.shell.test.js tests/codexShellView.test.js` -> 31/31 通过\r\n  - `Set-Location android; $env:JAVA_HOME='D:\\ProgramCode\\openjdk\\jdk-21'; .\\gradlew.bat :app:testDebugUnitTest --no-daemon` -> 通过\r\n- 已通过的手动 / browser-backed / 真机 smoke：\r\n  - Web pre-send / streaming / completed：\r\n    - `tmp/web-smoke-pre-send-final.png`\r\n    - `tmp/web-smoke-streaming.png`\r\n    - `tmp/web-smoke-short-final.png`\r\n    - `tmp/web-smoke-short-latest.png`\r\n  - Android deterministic / post-send clean：\r\n    - `tmp/step6f-rerun/08_nonplan_sent_1s.xml`\r\n    - `tmp/step6f-rerun/09_nonplan_sent_4s.xml`\r\n    - `tmp/step6f-postsend-clean/48g_before_send_clean2.xml`\r\n    - `tmp/step6f-postsend-clean/49_sent_1s_clean2.xml`\r\n    - `tmp/step6f-postsend-clean/50_sent_4s_clean2.xml`\r\n    - `tmp/step6f-postsend-clean/52_final_userbubble_clean2.xml`\r\n  - 关联风险 smoke（双 cwd / A-B 切换 / same-session re-entry）：\r\n    - Session A：`9fdff741-c636-43a5-b579-94684a0dc41e`\r\n    - Session B：`dac2c014-8bc8-4bfc-8b51-b72d65628d40`\r\n    - Thread A：`019e0dc0-d40d-7b61-a704-bfe134ca7888`\r\n    - Thread B：`019e0dc1-62f7-7a32-85be-169e33933082`\r\n    - 结果：A/B 各自恢复独立历史，切换时不串旧 thread/log，`/api/sessions` 摘要中的 `lastCodexThreadId` 也保持隔离"
+        },
+        {
+          "name": "发布后验证证据",
+          "text": "- Release mode: none\r\n- Deploy source: none\r\n- Target environment: local / Android debug / browser-backed local smoke\r\n- Health checks:\r\n  - Node tests\r\n  - Android JVM unit tests\r\n  - Web browser-backed smoke\r\n  - Android real-device smoke\r\n  - Session/thread risk smoke via `/api/sessions` + Web client re-entry\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery:\r\n  - 回滚本任务涉及的 Web Codex composer / message rendering 改动\r\n  - 回滚 Android Codex UI / ViewModel / metadata 改动\r\n  - 回滚本任务相关测试与 workflow 文档同步\r\n- Release evidence: not applicable\r\n- canary result: not applicable\r\n- performance baseline result: not applicable\r\n- rollback status: not exercised\r\n- remaining observation:\r\n  - standalone `codex_client.html` 做 browser smoke 前，必须确认 runtime config 已注入 `serverUrl/sessionId`，否则页面会出现“看似 ready、实际无 WS”的假在线状态\r\n  - 华为真机 adb smoke 必须按当前 `EditText.bounds` 点击，不能复用键盘区固定低位坐标"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "- 已写入 `docs/workflow/LESSONS.md`：\r\n  - standalone Web Codex client 缺 `serverUrl/sessionId` 注入时，需优先用 `__applyTerminalConfig(...)` 建立真实连接再做 smoke\r\n  - 华为真机 adb / UIAutomator 在键盘弹起后必须按 `EditText.bounds` 点击，避免误把脏字符注入 skill token"
+        },
+        {
+          "name": "后续关联",
+          "text": "- 推荐下一轮候选任务：\r\n  - 补任务 `20260504-001` 的完整 Android smoke 收尾与归档判断\r\n  - 隔离 `node --test` full suite 挂起的具体测试点\r\n  - 明确 Android release config 应通过环境覆写还是仓库默认值满足 release check\r\n- 相关归档入口：\r\n  - `TASKS/TASK-20260503-001-clarify-codex-app-skill-cwd-scope.md`\r\n  - `TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md`"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-cd746d28ac337630252745cf18e800a337050a096dd74200dedee6eec2f86f31.json"
+    }
+  },
+  "issues": []
+}

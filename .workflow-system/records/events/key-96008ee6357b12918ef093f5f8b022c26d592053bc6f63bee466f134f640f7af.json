@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:22:48.231Z",
+  "payload_sha256": "6220d15186714f420de9d0fad4f40d0f604bd218c79e2b9615d51bcb4b09a247",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260727-002-b4ce7320e3baeeeef168847c6dc07f7d6e5d4f1f198907e08b8d6a616a76195b-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-bd9ec9d5735f4f2a8c2d5b76069c3b1040f57dd10636d043158f09b0ef511724.json",
+      "idempotency_key": "legacy-task-import-20261011-20260727-002-b4ce7320e3baeeeef168847c6dc07f7d6e5d4f1f198907e08b8d6a616a76195b-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260727-002",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "Codex 单权威路由与 TermLink Owner 控制面修复",
+            "goal": "App 只提交任务意图，Gateway 统一完成激活、IPC-first 仲裁、Owner fallback、显式新建、控制路由和 surface 广播；运行中禁止自动切换 authority 或静默更换 canonical thread。",
+            "scope": [
+              "TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260727-002",
+      "parents": [
+        ".workflow-system/records/events/key-796ea44dc5333f78e65ed49511de5fbdda294f2c2f214341ca1e64f33edb06ef.json",
+        ".workflow-system/records/events/key-cd246b8f6b3915491efe508ad6fd7f223c40abd02c580df77e8f197ccaa92ad4.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-bd9ec9d5735f4f2a8c2d5b76069c3b1040f57dd10636d043158f09b0ef511724.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "f84ad69302cb318806161b89ff3d3f498fc86ae7ebfaa47ca7a24f10ba0b34bb",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

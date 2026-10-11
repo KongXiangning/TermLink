@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-2479d9a08ddba7c825e5d67ea9c21cc3e77a4e48abcfbf5d4e31b1d05c17efdd.json",
+  "captured_at": "2026-10-11T10:14:48.473Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857.blob",
+      "sha256": "dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857",
+      "size": 2264,
+      "source_path": "TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md",
+      "issues": []
+    }
+  ]
+}

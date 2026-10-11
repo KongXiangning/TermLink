@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:09:26.689Z",
+  "payload_sha256": "0bc65b35027baf3673ea3ff46809383a4e96810ebf6fbe8d3d0a802b26b35736",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260828-001-4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-be8d1979ac16a25d5130c4018c805010174eb8571e4412a534e1a03498882422.json",
+      "idempotency_key": "legacy-task-import-20261011-20260828-001-4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260828-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "4.5 Node analyzer consumer/coordinator 迁移",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260828-001",
+      "parents": [
+        ".workflow-system/records/events/key-e59d2a68215313477433fb2224389a83340ddbdf57881ae22769ce8f63099412.json",
+        ".workflow-system/records/events/key-2ff0eed124b29415d96c9447e6d68b226ea176b97ce1a822919274f716b83e59.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-be8d1979ac16a25d5130c4018c805010174eb8571e4412a534e1a03498882422.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "5606e6f990b7d2f4cbf93ae3fcbd9dda72bec40ed5577f692a68762e38ac42c7",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

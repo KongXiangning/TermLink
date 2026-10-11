@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:20:47.248Z",
+  "payload_sha256": "bf6522ab5b7c0ada56d87b1068b7f667a2a99234cd79476b5d936a854a473334",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260618-001-3bec9e6ed1538479d9d7e19e0281cc95c15cb953b76fa518312691530517d9a2-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-97e45ddef6df69016645e1e87becf55915dd3a65036b9b07eeacc300520c287e.json",
+      "idempotency_key": "legacy-task-import-20261011-20260618-001-3bec9e6ed1538479d9d7e19e0281cc95c15cb953b76fa518312691530517d9a2-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260618-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "修复刷新页面重复新建 TERMINAL 会话",
+            "goal": "刷新或重新加载已有终端页面时，必须复用当前或最近有效的 TERMINAL session，不得因为页面刷新自动创建新的 TERMINAL session；真正无可用 session 的首次进入仍可按既有行为创建默认 session。",
+            "scope": [
+              "TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260618-001",
+      "parents": [
+        ".workflow-system/records/events/key-14fda289e6a27c05f85ddc579ab1439021da9cf44352179e6d3db703a51131e4.json",
+        ".workflow-system/records/events/key-3b6c47851a755412dfd473b8ee3375f282bd2c40a8ba20852475ad3e17c4100a.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-97e45ddef6df69016645e1e87becf55915dd3a65036b9b07eeacc300520c287e.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "98eff7810b5a5b096901b230046826b7baa8abdd96035bfbe2329a03a7602541",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

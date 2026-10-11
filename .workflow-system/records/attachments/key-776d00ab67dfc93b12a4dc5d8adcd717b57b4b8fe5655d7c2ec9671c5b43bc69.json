@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-776d00ab67dfc93b12a4dc5d8adcd717b57b4b8fe5655d7c2ec9671c5b43bc69.json",
+  "captured_at": "2026-10-11T10:03:45.481Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fc692f2d64b637a62ac23a13a20f9ec5a4ee9a52a33fda6a755b8d68c6d87ffa.blob",
+      "sha256": "fc692f2d64b637a62ac23a13a20f9ec5a4ee9a52a33fda6a755b8d68c6d87ffa",
+      "size": 69726,
+      "source_path": "docs/workflow/TASKS/20260617-002-web-codex-session-ipc-first-data-routing.md",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:17:33.329Z",
+  "payload_sha256": "5fd36335e81922b8097afeb6ebadb49540269ea5cb43a6764cc2ae610be4b6df",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260719-001-519c2e36353d8847f818346a48baccd6e567ffa8da770b0d6ac3cf58bde5a1b8-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-534aa659251d395cbea9e57b0361aecb3dc03364ef58959e69be496e514275ac.json",
+      "idempotency_key": "legacy-task-import-20261011-20260719-001-519c2e36353d8847f818346a48baccd6e567ffa8da770b0d6ac3cf58bde5a1b8-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260719-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "TASK-20260719-001：修复 Android 文档阅读字号与移动端横向溢出",
+            "goal": "让手机自然比例下的 Markdown/源码使用较小字号并完整显示长路径，避免依赖手动缩放破坏界面布局。",
+            "scope": [
+              "TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260719-001",
+      "parents": [
+        ".workflow-system/records/events/key-e775748027b6f278b5026ee2d61c4919f743714b63016cfac2bbdb8d03632a6d.json",
+        ".workflow-system/records/events/key-713a81917edc36fbc659fccee1d6ad8293ad764335e33fc51e9fa77e106f7f78.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-534aa659251d395cbea9e57b0361aecb3dc03364ef58959e69be496e514275ac.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "1b9e71726dbacf166d3406629754bfe6db5bec109957af126f8f8a8997bf4545",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:13:05.996Z",
+  "payload_sha256": "721cf085b5e37331992d0b005fc4f51ed40be25e12e90b27220d084264a9afc9",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260820-002-bc83d1715ca4784b7fe7c4b63388950775b9514f4a060f1ed64546546e9d605e-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-20d32f54cbae777f13ba50f9d7631dc3b96da1ebb37e64beac6912b081592dd1.json",
+      "idempotency_key": "legacy-task-import-20261011-20260820-002-bc83d1715ca4784b7fe7c4b63388950775b9514f4a060f1ed64546546e9d605e-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260820-002",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "Codex Rollout Collector 阶段 3：Adapter、事件归约与生命周期 conformance",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260820-002-codex-rollout-collector-stage-3-adapter-reducer-conformance.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260820-002-codex-rollout-collector-stage-3-adapter-reducer-conformance.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260820-002",
+      "parents": [
+        ".workflow-system/records/events/key-bfd1bc4ba85c451f74cdd559409c1876644f9f950a004a34e16d2155a7cb559e.json",
+        ".workflow-system/records/events/key-1cf77773e072f2e51f2822558451584eba3e214cf724279476fa0e82d8c7a0c5.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-20d32f54cbae777f13ba50f9d7631dc3b96da1ebb37e64beac6912b081592dd1.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "34b47affe6daa0fd88af3c765a4c9cf25977db0f4f5492868e58d3dd0605ce6e",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

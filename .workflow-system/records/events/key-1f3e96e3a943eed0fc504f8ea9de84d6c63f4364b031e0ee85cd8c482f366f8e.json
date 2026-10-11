@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:14:09.265Z",
+  "payload_sha256": "d8a61a9092d3ea5dae9929be18d61d55ba03ffe501056bd73718cb513967c110",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-source",
+    "idempotency_key": "legacy-task-import-20261011-20260819-001-95b7acec050f03b9e69ae76d035682c67f67a8087d9fdb22a93164062d9a326e-source",
+    "body": {
+      "original_task_id": "20260819-001",
+      "task_id": "20260819-001",
+      "source": "TASKS/TASK-20260819-001-codex-rollout-collector-formal-bootstrap.md",
+      "sha256": "95b7acec050f03b9e69ae76d035682c67f67a8087d9fdb22a93164062d9a326e",
+      "original_status": "completed_verified_archived",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": null,
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\n- 任务 ID：20260819-001\n- 任务标题：Codex Rollout Collector 正式模块初始化与兼容层落地\n- 任务 slug：codex-rollout-collector-formal-bootstrap\n- 最终状态：completed_verified_archived\n- 任务创建日期：2026-08-19\n- 归档日期：2026-08-19\n- 归档性质：P0-RC.1 正式 Rust collector 隔离基础层完成并通过验证；不宣称完成 P0-C、P0-B.4R 或完整 Rust History Analyzer\n- Task start base：d149b2a6db9f5842218a9cd6d313c2b79aafb6c1\n- Review checkpoint：无任务提交；以工作树审查记录和临时 clean checkout 证据为准\n- 发布状态：本任务不是生产发布任务，未执行部署、canary 或生产迁移"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "### 正式 Rust package\n\n- 新增 `native/codex-rollout-collector/Cargo.toml`、`Cargo.lock`、`README.md` 和 crate-local `.gitignore`。\n- 新增 source、wire、adapter、model、protocol、version 和 error 模块，实现最小 vertical slice。\n- 新增 bounded JSONL/zstd source reader、`SourceRecord`、`SourceRef`、ordinal/offset 记录和 payload-limit fail-closed 行为。\n- 新增 vendored Codex 闭包、`vendor-manifest.toml`、`LICENSE` 和 `NOTICE`；正式目录作为构建 source of truth，Spike 仅作为 staging/provenance。\n- 新增 legacy/current、future-compatible、malformed、partial、tool/file/search、plan、usage、golden 和错误边界 fixture 及 conformance/unit 测试。\n- 新增本机绝对路径/嵌套 tool payload 脱敏、bounded UTF-8 诊断、batch-level deterministic sequence 和 batch golden comparison。\n\n### 兼容与 fail-closed 覆盖\n\n- legacy/current alias fixture 与测试名明确映射：\n  - `legacy_alias_fields_map_to_analysis_events`\n  - `current_alias_fields_map_to_analysis_events`\n  - `unknown_alias_is_diagnostic`\n- 未知 alias、未知 plan carrier、缺失 required payload、error-bearing turn、partial/abort/compaction 均有 UnknownEvent/ParseGap 或不完整 batch 对照。\n- `task_started`/`turn_started`、`task_complete`/`turn_complete` 和 `ModeKind` alias 的兼容映射有 identity 断言；不支持 alias 不被猜测为已知事件。\n\n### 文档与治理\n\n- 新增 `docs/workflow/TECHNICAL_DETAILS-codex-rollout-collector.md`，记录模块映射、双 oracle、vendor promotion、fixture→测试映射、Cargo/clean checkout 门禁和停止条件。\n- 已同步 `docs/workflow/STATUS.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md`、`AGENTS.md` 及被 gitignore 的 `CLAUDE.md`。\n- `CONTRACTS.md` 新增 P0-RC.1 内部 batch 接口和隔离边界；既有 Codex IPC 实时同步核心契约未改变。\n- `DECISIONS.md` 固化普通 Rust registry/Git 可用、Codex history/protocol vendor 闭包受限，以及 P0-RC.1 仅为隔离基础层的边界。\n- `target/**` 已在正式 crate 边界由 `.gitignore` 忽略，避免构建产物进入交付。\n\n### 明确保留的既有变更\n\n以下任务开始前已存在的 dirty/untracked 内容不属于本任务，归档时未修改、未移动、未回滚：\n\n- `TASKS/inbox/INBOX-20260818-001-codex-rollout-collector.md`\n- `TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md`\n- `native/parse-probe/**`\n- `native/rustup-init.exe`\n- `native/winlibs.zip`"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- `docs/workflow/CONTRACTS.md`：新增正式 collector 内部 `SourceBackend → codex_wire → CodexEventAdapter → AnalysisEvent → AnalysisBatch` 边界、ParserProvenance 传播和 Codex vendor 隔离规则。\n- `AD-005`：普通 Rust registry/Git 依赖允许；仅开发者本机路径、外部 Codex path/Git/workspace、默认 Codex 网络下载和未登记 Codex workspace 闭包受阻断。\n- `AD-006`：P0-RC.1 作为隔离正式基础层稳定；完整 analyzer、P0-C、P0-B.4R、Node/Android/IPC/DB 扩展必须另行授权。\n- Codex IPC、owner/follower、desired subscription、reconnect replay、Android authority 等冻结契约未被本任务修改或绕过。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "### 代码与语义验证\n\n- `cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check`：通过。\n- `cargo metadata --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline --format-version 1`：通过；539 packages、0 Git sources、0 runfiles。\n- `cargo check --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：通过。\n- `cargo build --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：通过。\n- `cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：9 项 unit、27 项 conformance、0 doc tests、0 失败。\n- `cargo tree --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline`：通过；Codex package 均指向正式仓库内 vendor 闭包。\n- Demo 26 项测试、Spike 5 项测试：通过。\n- 同一 3743-byte fixture（SHA-256：`F8F9AE9C4528BC7C81E02FE99264BA07F148C597974BDE8E164B52B49A8BA55F`）完成 Demo full-oracle/determinism、Spike wire parser 和 formal targeted conformance 对照；future variant 的诊断/partial 差异已解释并符合 fail-closed 预期。\n- alias、UnknownEvent、ParseGap、source-boundary、target-ignore、determinism、golden、payload limit 和绝对路径脱敏检查：通过。\n- `git diff --check`：exit code 0；仅保留既有工作树的 LF/CRLF warning 事实。\n\n### 审查链\n\n- `review-diff`：通过，未发现 scope drift、Forbidden/Conditional 文件越界或决策漂移。\n- `review-implementation`：通过，正式 package、兼容映射、异常路径、边界和测试证据满足本轮目标。\n- `verify-contracts`：通过，未破坏既有 API、依赖方向或 Codex IPC 冻结契约。\n- `run-regression`：通过，采用 diff-aware QA；clean checkout、Cargo、双 oracle、fixture、source-boundary 和 diff 门禁均已执行。\n- `F-001`～`F-003`、`F-005`～`F-024`：resolved。\n- `F-004`：按用户明确指令忽略，不作为本任务阻塞项；不宣称该 finding 已修复。\n\n### 已知环境观察\n\n- Spike/Demo 默认 GNU linker 曾受本机 `aws-lc-sys`/`nanosleep64` 环境差异影响；已用一次性 MinGW `PATH/RUSTFLAGS` 完成必要验证，路径未写入仓库，也不是正式 package 的依赖策略。\n- clean checkout 验证使用临时 synthetic commit/clone，因为当前工作树无任务提交；正式 clean checkout 工作树为空且门禁通过，不代表创建了仓库提交。\n- 本任务未运行 Node、Android、browser、auth 或 deploy 回归，因为本轮没有触及这些运行时边界。"
+        },
+        {
+          "name": "发布后验证证据",
+          "text": "- Release mode：非生产发布；本次是 P0-RC.1 隔离基础层交付。\n- Deploy source：无；未部署、未推送、未执行生产安装。\n- Target environment：本地 Windows formal crate，以及临时 clean checkout 验证环境。\n- Health checks：不适用；无服务进程、API、数据库或 Android 包变更。\n- Canary window：无；未建立 canary。\n- Performance baseline：未运行；本任务没有性能目标或 benchmark 交付承诺。\n- Rollback/recovery：如需回退，只撤回本任务新增的正式 crate、技术细节文档和本任务治理记录；保留前置 pause/inbox/toolchain/parse-probe 既有变更。未使用 `git reset --hard`、`git checkout --` 或整树清理。\n- Release evidence：无生产 release evidence；本归档只证明隔离 package 的构建、测试、双 oracle 和边界门禁。\n- Canary result：not applicable。\n- Performance baseline result：not run / not applicable。\n- Rollback status：未执行回滚；当前没有生产或持久化副作用。\n- Remaining observation：后续若扩展到完整 analyzer、P0-C、P0-B.4R 或产品集成，必须创建新的任务并重新锁定范围、契约和回归门禁。"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "本任务相关经验已沉淀到 `docs/workflow/LESSONS.md`，重点包括：\n\n- alias 兼容必须有独立 legacy/current fixture、明确测试名和未知 alias 对照。\n- vendor 闭包审查应区分“受保护的 Codex source boundary”和“普通 Rust Git URL 是否允许”。\n- 空测试集不能作为正式 package 验收证据。\n- linker/工具链问题要记录为宿主环境观察，并使用不写入仓库的一次性 workaround。\n- crate-local `target/**` 必须在正式包边界忽略。\n- Demo、Spike、formal collector 应使用同一原始 fixture/hash 做可解释的对照。\n- 模块稳定、门禁通过不等于完整产品阶段或后续任务完成。"
+        },
+        {
+          "name": "后续关联",
+          "text": "- 当前任务已完成并归档；`docs/workflow/CURRENT_TASK.md` 已清理为无活动任务入口。\n- 下一轮入口：先执行 `/create-current-task`，为新的明确需求建立任务包；不自动恢复或扩展 P0-C/P0-B.4R。\n- 可能的后续方向（仅候选，不构成授权）：在单独任务中推进完整 analyzer、P0-C durable reconciliation 或 P0-B.4R/产品边界集成。\n- 前置任务 `TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md` 保持原状态，不因本归档自动恢复、修改或关闭。"
+        }
+      ]
+    },
+    "files": [
+      "TASKS/TASK-20260819-001-codex-rollout-collector-formal-bootstrap.md"
+    ]
+  },
+  "issues": []
+}

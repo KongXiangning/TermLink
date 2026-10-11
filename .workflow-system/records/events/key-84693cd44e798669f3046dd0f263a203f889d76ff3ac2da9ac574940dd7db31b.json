@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:23:29.373Z",
+  "payload_sha256": "c3780271cf03a3308ea4ea7b7a9c3d3d8a09f72f41732aecd40d62ed1a202a67",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260615-001-f46d952bed22f798c543102b0092c00b34ec01ea4777be91181ce406789a6d6c-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-273f762c5f13084cf2c9d913a0e32fd146a6f473ef993ca5af5a42517cf04540.json",
+      "idempotency_key": "legacy-task-import-20261011-20260615-001-f46d952bed22f798c543102b0092c00b34ec01ea4777be91181ce406789a6d6c-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260615-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "接入 codex-ipc 实现 App Codex 会话页实时同步",
+            "goal": "在 TermLink 服务端新增 `codex-ipc` 接入能力，将现有 Android Codex 会话页接入 Codex Desktop / VS Code 的实时同步数据源与控制链路，使 App 端能够接收 Desktop/VS Code 的实时消息流、状态变更、approval 和 PLAN，同时能从 App 端发送消息、审批和 PLAN 操作并同步回 Desktop/VS Code；整个过程中 App 现有页面设计、操作逻辑和用户交互方式保持不变，IPC 不可用时 graceful fallback 到原有 TermLink Codex 会话路径",
+            "scope": [
+              "TASKS/paused/TASK-20260615-001-app-codex-ipc-realtime-sync.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/paused/TASK-20260615-001-app-codex-ipc-realtime-sync.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260615-001",
+      "parents": [
+        ".workflow-system/records/events/key-edda1122fbf59b16d0e765be463b0b03cae2fcde560247d54fce55338fc40c43.json",
+        ".workflow-system/records/events/key-69eb1be38d3f4e09af3533f2edd05fcd1c400e744d9e62de1b49eb1fabef7506.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-273f762c5f13084cf2c9d913a0e32fd146a6f473ef993ca5af5a42517cf04540.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "0a59f8d7a2247cd59c844324a8fd45f5ef954d1abe8f9ee43b017533a900a15b",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

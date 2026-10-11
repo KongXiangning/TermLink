@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:13:52.223Z",
+  "payload_sha256": "4c191fcb9eddaa6b08faf97bf3ebb8dbe8fec5af5b7b4969e4427f336a23dec4",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260820-001-95c54eb8f73d8bd7bc119ce85f5552f1cd6575678f81eae0845ebc15898e2066-disposition-source",
+    "body": {
+      "original_task_id": "20260820-001",
+      "task_id": "20260820-001",
+      "source": "TASKS/TASK-20260820-001-codex-rollout-collector-stage-2-input-compat.md",
+      "sha256": "95c54eb8f73d8bd7bc119ce85f5552f1cd6575678f81eae0845ebc15898e2066",
+      "original_status": "completed_verified_archived",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": null,
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\n- 任务 ID：20260820-001\n- 任务标题：Codex Rollout Collector 阶段 2：输入层与兼容层补齐\n- 任务 slug：codex-rollout-collector-stage-2-input-compat\n- 最终状态：completed_verified_archived\n- 任务创建日期：2026-08-20\n- 归档日期：2026-08-20\n- 归档性质：P0-RC.1 formal collector 的阶段 2 输入/兼容基础层完成；不宣称完整 analyzer、P0-C、P0-B.4R 或产品集成完成\n- Task start base：cecee23d8e36d0c3914b53eaed9f85ada6e49157\n- Review checkpoint：无任务提交；以 HEAD=cecee23d 的 working-tree + untracked native diff、path-scope review 和测试记录为准\n- 发布状态：本任务不是生产发布任务，未执行部署、canary、生产迁移或服务集成"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "### Formal collector source layer\n\n- native/codex-rollout-collector/src/source/record.rs：补齐 SourceCandidate、显式会话绑定、source identity/epoch、fingerprint、prefix anchor 和 snapshot boundary 元数据；保持旧 SourceLocator::new(path)、SourceSpec::new(path) 和 SourceBackend::read full-read 入口。\n- native/codex-rollout-collector/src/source/read_plan.rs：增加 snapshot-aware bounded read plan、完整换行提交、pending tail、source growth/shrink 诊断和读取 capability。\n- native/codex-rollout-collector/src/source/cursor.rs：增加三类不可混用 cursor、metadata round-trip、fingerprint/anchor/长度/完整行边界校验和 .zst capability 拒绝。\n- native/codex-rollout-collector/src/source/segment.rs：增加 ordinal 优先的 segment assembly、物理范围回退排序、overlap dedupe、partial gap、carrier 保留和资源上限。\n- native/codex-rollout-collector/src/source/digest.rs：增加固定 SHA-256 source digest helper。\n- native/codex-rollout-collector/src/source/append.rs：增加 append preflight、captured-range stability check、完整行 cursor 重建、rename continuation 和 truncate/replace/growth fail-closed。\n- native/codex-rollout-collector/src/source/oracle.rs：增加 full-vs-segmented source boundary 对照 helper。\n- native/codex-rollout-collector/src/source/jsonl.rs：保持旧 full-read，并接入阶段 2 的 plain JSONL bounded/tail/range 行边界语义。\n- native/codex-rollout-collector/src/source/mod.rs：汇总并导出新增 source-layer 类型。\n- native/codex-rollout-collector/src/lib.rs：仅增加 source/cursor/segment 所需的最小 crate-root re-export。\n\n### 测试\n\n- native/codex-rollout-collector/tests/stage2_input.rs：\n  - 覆盖 full-read 与 tail/backfill/反向 segment acquisition oracle；\n  - 覆盖 legacy/current profile、UnknownEvent、ParserProvenance、batch equality 和 deterministic serialization smoke；\n  - append recovery 覆盖初始边界、未换行尾行、增长、重启、重叠重读、再次恢复、改名、截断和替换。\n\n### Workflow / governance\n\n- AGENTS.md：同步阶段 2 稳定边界与 native-only 约束；被 gitignore 的 CLAUDE.md 同步了相同 host guidance。\n- docs/workflow/CURRENT_TASK.md：记录完整执行链，归档后清理为 clean handoff。\n- docs/workflow/STATUS.md：记录阶段 2 稳定边界、验证计数和非阻塞 linker 观察。\n- docs/workflow/CONTRACTS.md：记录 source/cursor/segment/append 的 additive 契约和安全边界。\n- docs/workflow/LESSONS.md：新增 L-014～L-017，沉淀阶段映射、确定性 segment、append 稳定性和 acceptance sync 经验。\n- docs/workflow/DECISIONS.md 本轮未新增决策；既有 AD-005/AD-006 和阶段 2 决策继续有效。"
+        },
+        {
+          "name": "是否越界及保留内容",
+          "text": "- 实现 diff 未越界：native collector 代码与测试仅位于 native/codex-rollout-collector/**，没有 Node、Android、IPC、数据库、Demo/Spike、vendor 或产品 runtime 修改。\n- workflow/host guidance 文件是归档前 workflow 同步动作，不属于 native 实现范围扩张。\n- 以下内容属于本任务开始前已有的 dirty/untracked 内容，未修改、未移动、未回滚，也不属于本归档交付：\n  - TASKS/inbox/INBOX-20260818-001-codex-rollout-collector.md\n  - TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md\n  - native/parse-probe/\n  - native/rustup-init.exe\n  - native/winlibs.zip\n- native/codex-rollout-collector/target/** 未纳入交付。"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- 保持 SourceBackend → codex_wire::decode_rollout_line → CodexEventAdapter → AnalysisEvent → AnalysisBatch 数据流。\n- 旧 full-read、analyze_source、AnalysisBatch 必填 ParserProvenance、legacy/current alias、UnknownEvent/ParseGap 和 deterministic serialization 均保持兼容。\n- 新 source metadata、read plan、cursor、segment、append API 仅在 formal crate source 层 additive 扩展。\n- Codex history/protocol 继续使用仓库内 vendor closure；普通 Rust registry/Git 依赖规则未被扩大为全部 Git 禁止。\n- Codex IPC authority、follower lifecycle、reconnect replay、owner fallback 和 Android IPC authority 未触碰。\n- 若后续要把 cursor/segment/source metadata 变成跨 crate、Node 或产品公共接口，必须新建任务并重新 lock scope、sync contracts/decisions 和执行跨边界回归。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "### 代码、契约和回归验证\n\n- cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check：通过。\n- cargo check --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline：通过。\n- locked/offline cargo metadata 与 cargo tree：通过，source-boundary 未发现外部 Codex path/Git/workspace。\n- git diff --check：通过，无 whitespace error。\n- source-boundary 与 target-ignore 检查：通过。\n- review-diff：clean。\n- review-implementation：clean，未发现 open finding。\n- verify-contracts：pass，确认旧入口、batch/provenance、vendor closure、.zst forward-only 和 native-only boundary 未破坏。\n- diff-aware run-regression：pass，active-owner guard 通过，回归归属 current_task_owned。\n\n### Formal suite\n\n- 一次性 MinGW PATH/RUSTFLAGS workaround 下：\n  - 56 unit tests；\n  - 27 conformance tests；\n  - 2 stage2_input integration tests；\n  - 0 doc tests；\n  - 0 failures。\n- 默认 shell 的 cargo test --locked --offline 仍在链接阶段复现 aws_lc_sys/MinGW nanosleep64 environment failure；该问题已与 workaround 结果分开记录，未修改仓库配置，不构成当前 native 语义回归。\n\n### 关键语义证据\n\n- SourceLocator 显式 target conversation binding 与候选 tie-breaker 确定性。\n- rename continuation 与 fingerprint/anchor 保持；truncate、same-length replacement、prefix change 和 unsafe growth 拒绝旧 cursor。\n- plain JSONL full/forward、tail、backward/range、append、pending tail 和 source growth。\n- 三类 cursor 的语义隔离、跨实例序列化和 fail-closed。\n- segment ordinal/range 排序、overlap dedupe、partial gap、carrier 和 bounded resource。\n- 同一 fixture 的 full-vs-segmented SourceRecord/source boundary oracle。\n- 既有 Adapter/Batch 入口的 legacy/current、UnknownEvent、ParserProvenance 和 deterministic serialization smoke。"
+        },
+        {
+          "name": "发布后验证证据",
+          "text": "- Release mode：none；非生产发布任务。\n- Deploy source：none；未部署、未推送、未执行生产安装。\n- Target environment：本地 Windows formal crate 与一次性工具链 workaround 验证环境。\n- Health checks：不适用；本任务不启动服务、不修改 API、数据库或 Android 包。\n- Canary window：none；未建立 canary。\n- Performance baseline：未建立；只验证任务内 segment/record/inflight/resource limits，未承诺生产大文件 benchmark。\n- Rollback / recovery：如需回退，按 native/codex-rollout-collector/** path-scoped diff 或任务 checkpoint 回退；保留既有 dirty/untracked 内容，不使用整树 reset/checkout/清理。\n- Release evidence：not applicable；交付证据为上述 fmt、Cargo graph、formal suite、full-vs-segmented oracle、append recovery、contract 和 scope gates。\n- Canary result：not applicable。\n- Performance baseline result：not run / not applicable。\n- Rollback status：未执行回滚；没有生产或持久化副作用。\n- Remaining observation：默认 linker 环境仍需后续宿主恢复或工具链治理；不影响当前任务归档。阶段 3/4 的完整 analyzer、reducer/projection、Node/Android/IPC/DB 集成仍需独立任务。"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "本任务经验已写入 docs/workflow/LESSONS.md：\n\n- L-014：架构阶段名必须先映射到 workflow steps，不能把“阶段 2”直接等同于 step2。\n- L-015：segment 结果必须按稳定键组装，不能依赖采集顺序。\n- L-016：append 必须完成“校验—读取—复核—提交”两阶段稳定性确认后才发布 cursor。\n- L-017：收尾必须逐项核对 acceptance 与证据，不能只看 step 状态。"
+        },
+        {
+          "name": "后续关联",
+          "text": "- docs/workflow/CURRENT_TASK.md 已清理为无活动任务入口。\n- 下一轮需求尚未明确，不创建新的任务包；收到新需求后先执行 /create-current-task。\n- 不自动恢复或扩展 TASKS/paused/ 中的 IPC/Owner 任务，也不把阶段 3/4、P0-C、P0-B.4R 或产品集成作为本归档的隐含后续承诺。"
+        },
+        {
+          "name": "归档后独立复核补充（2026-08-20）",
+          "text": "本节记录归档后对当前工作树和 formal source 实现的独立复核结果；不重新打开本任务、不修改 Rust 实现，也不把下列事项伪装成已解决。\n\n### R-009：ForwardAppendCursor 生命周期证据延期\n\n- Severity：major / P1（阶段衔接证据缺口）。\n- Source：独立 `review-implementation` + `review-diff`（2026-08-20）。\n- Status：deferred；归属为后续阶段生命周期任务，不作为本归档的当前代码修复项。\n- File / symbol：`native/codex-rollout-collector/src/source/cursor.rs:811`、`:871`、`:897`；`native/codex-rollout-collector/src/source/append.rs:121`、`:678`；`native/codex-rollout-collector/tests/stage2_input.rs:77`。\n- Failure scenario：`TailPreviewCursor::try_into_forward_append` 与 `BackfillCursor::try_into_forward_append` 当前均 fail-closed；`ForwardAppendCursor::from_source` 虽存在，但没有从完成的 tail/backfill/`SegmentAssembly` 结果产生安全 forward cursor 的端到端生产路径。`read_append` 只消费已有 `ForwardAppendCursor`，现有 append tests 通过 helper 手工构造初始 cursor，因此“tail → backfill → 安全完整前缀 → ForwardAppendCursor → append”的生命周期证据尚未闭合。\n- Minimal fix direction：不把 tail/backfill cursor 直接转换为 append cursor。后续 analyzer/checkpoint/coordinator 任务需要定义受连续完整前缀、无 pending tail、无 gap/partial、source identity/fingerprint/anchor 和 snapshot boundary 约束的 promotion；promotion 后再接 append，并保留跨进程 cursor 重建语义。本归档不扩大到被原任务明确禁止的 runtime、Node 或 durable checkpoint 实现。\n- Required test：同一 plain JSONL fixture 覆盖 tail acquisition、backfill/segment assembly、连续完整前缀证明、promotion、append、重启反序列化和重复 append；pending tail、gap/partial、mutation/truncation/replacement 任一存在时不得产生 `ForwardAppendCursor`，并与完整读取 oracle 对照。\n- Recommended route：后续阶段 4/5 生命周期任务开始前重新执行 `/create-current-task`、`/lock-scope` 和 contract review；不能把“source primitive 已实现”写成“完整架构恢复链路已完成”。\n\n### R-010：工作树包含任务外变更，需在收尾时隔离\n\n- Severity：major / closeout scope。\n- Source：独立 working-tree scope review（2026-08-20）。\n- Status：needs-user；不归属本任务代码修复队列。\n- File / symbol：当前 `git status --short` 中除 formal collector 外的 `AGENTS.md`、`TASKS/inbox/**`、`docs/workflow/CONTRACTS.md`、`docs/workflow/CURRENT_TASK.md`、`docs/workflow/LESSONS.md`、`docs/workflow/STATUS.md`、未跟踪 `TASKS/paused/**`、`native/parse-probe/**`、`native/rustup-init.exe` 和 `native/winlibs.zip` 等路径；formal native path 的 source-boundary diff 未发现本 finding 所指的越界。\n- Failure scenario：若把整棵 worktree 当成本任务提交或回滚，可能误提交其他任务的 workflow/宿主规则、暂停包、安装器和临时工具，也可能误删用户已有 dirty/untracked 内容；根目录 `git diff --check` 还会把其他文档的 whitespace 问题混入本任务证据。\n- Minimal fix direction：不执行 reset、checkout、删除或批量清理。后续关闭或提交时只做 path-scoped 归属确认和 staging review：formal collector 变更单独审查/提交，任务外变更保持原样并由其 owner 处理；若用户确认某项属于本任务，再另行创建任务或重新 lock-scope。\n- Required test：`git diff --name-only -- native/codex-rollout-collector`、formal path 的 `git diff --check`、untracked 文件归属清单和最终 path-scoped staging review；确认不把 `AGENTS.md`、其他 `docs/workflow/**`、Demo/Spike、`native/parse-probe/**` 或压缩/安装产物带入阶段 2 交付。\n- Recommended route：`user_decision_required` → 用户确认任务外 dirty/untracked 内容 owner 或授权 path-scoped closeout；在确认前不执行整树清理或再次归档。\n\n### R-003 复核更新：默认链接环境仍延期\n\n- formal package 的 `cargo build --manifest-path native/codex-rollout-collector/Cargo.toml --locked --offline` 已通过。\n- 默认 `cargo test --locked --offline` 仍在最终链接阶段因 `aws_lc_sys`/MinGW `nanosleep64` 失败；一次性 MinGW PATH/RUSTFLAGS workaround 下 56 unit、27 conformance、2 `stage2_input` integration、0 doc tests 通过。\n- 该问题可延后到 clean-checkout/default-toolchain 或发布验收门禁处理，不需要为本阶段修改 Cargo 配置或 Rust source；若后续要求默认工具链 `cargo test` 必须绿灯，应创建独立环境修复任务。\n\n### 延期结论\n\n- 可以把 R-009 的生命周期 promotion 证据和 R-003 的默认链接环境恢复延后，但延期不等于已解决：R-009 必须在后续阶段首次消费 `ForwardAppendCursor` 或最终架构验收前关闭，R-003 必须在要求默认工具链/clean-checkout 测试为门禁前关闭。\n- R-010 不是功能修复项，不能简单等到所有阶段完成后再处理；它是提交、回滚和归档时的路径归属门禁。当前不删除、不回滚、不移动任务外文件。"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-68c42b8e1d1bdc155645d3ee0df46d4c5651775eed59eeb786d29b48e6274b16.json"
+    }
+  },
+  "issues": []
+}

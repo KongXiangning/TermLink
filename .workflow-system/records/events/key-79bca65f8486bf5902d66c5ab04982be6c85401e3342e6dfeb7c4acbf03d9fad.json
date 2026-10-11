@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:23:52.058Z",
+  "payload_sha256": "692aaba90e83721f053beda4a21cabfd17f65a112e44e16513ef42cfb878a562",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260615-001-f46d952bed22f798c543102b0092c00b34ec01ea4777be91181ce406789a6d6c-lifecycle",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-12102b503a1961b3943473f36527b4673f908797d799174df41d82f7b35adbf8.json",
+      "idempotency_key": "legacy-task-import-20261011-20260615-001-f46d952bed22f798c543102b0092c00b34ec01ea4777be91181ce406789a6d6c-lifecycle",
+      "event": {
+        "action": "pause",
+        "task_id": "20260615-001",
+        "parents": [
+          ".workflow-system/records/events/key-273f762c5f13084cf2c9d913a0e32fd146a6f473ef993ca5af5a42517cf04540.json"
+        ],
+        "data": {
+          "historical": true,
+          "completion_disposition": "paused-historical",
+          "remaining_work": [
+            "原暂停任务的未完成步骤、手工验证和恢复条件保留；不因其他任务完成而自动关闭"
+          ],
+          "gaps": [
+            "原暂停任务的未完成步骤、手工验证和恢复条件保留；不因其他任务完成而自动关闭"
+          ],
+          "decision_source": "TASKS/paused/TASK-20260615-001-app-codex-ipc-realtime-sync.md",
+          "decision_text": "导入原任务已发生的暂停事实；本次未重新处置业务任务"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260615-001",
+      "parents": [
+        ".workflow-system/records/events/key-84693cd44e798669f3046dd0f263a203f889d76ff3ac2da9ac574940dd7db31b.json",
+        ".workflow-system/records/events/key-273f762c5f13084cf2c9d913a0e32fd146a6f473ef993ca5af5a42517cf04540.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-12102b503a1961b3943473f36527b4673f908797d799174df41d82f7b35adbf8.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "da94a41ee7c69c542b9376b37d4199368ed7f7422235471b19ff97dd743689e1",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

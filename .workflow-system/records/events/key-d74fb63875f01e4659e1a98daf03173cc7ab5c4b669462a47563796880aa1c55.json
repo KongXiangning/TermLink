@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:18:50.122Z",
+  "payload_sha256": "fa70c00cd3e8781270cc9d0e92d2f0f8106b7025de53ee78ae63bf57a48e7338",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260718-002-9fbe84e353de05a2c6a922c71039338e315b4083dd9009050dce87ce58dd6f0a-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-bdabd411d1d849a1eca9c648287e83fbb2f730090f2d7cf618167a9a0eab6ed4.json",
+      "idempotency_key": "legacy-task-import-20261011-20260718-002-9fbe84e353de05a2c6a922c71039338e315b4083dd9009050dce87ce58dd6f0a-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260718-002",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "TASK-20260718-002：美化 Android Codex 会话页与弹层交互",
+            "goal": "以 412 × 915dp 为主规格、兼容 360dp 小屏，重组 Android Codex 会话页的 Header、Goal/Plan、Skills、Slash、选择器、弹窗和 composer，并让模型、思考强度、权限由真实 owner/catalog 数据驱动。",
+            "scope": [
+              "TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260718-002",
+      "parents": [
+        ".workflow-system/records/events/key-b465acc0e77857177638ef43d91709c133880f5b7ca2d1aba69174dc0867849b.json",
+        ".workflow-system/records/events/key-21f1e65265be1a623512e4943625a6f90420f4506060aa5cbcc9aec9780558b6.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-bdabd411d1d849a1eca9c648287e83fbb2f730090f2d7cf618167a9a0eab6ed4.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "223342cec3677fe85e2bc29d643d47797a7abd533538b51c82639c0ab3d94f61",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

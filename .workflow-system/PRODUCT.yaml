@@ -9,7 +9,8 @@
     "docs/product/DESIGN_REGISTER.md",
     "docs/product/DELIVERY_RECONCILIATION.md",
     "docs/product/ARRANGEMENTS.md",
-    "docs/product/HISTORY_CHANGES.md"
+    "docs/product/HISTORY_CHANGES.md",
+    "docs/product/SCOPED_ASSESSMENTS.md"
   ],
   "source_paths": [
     "docs/**/*.md",
@@ -21,12 +22,14 @@
     "docs/product/history/maintenance-20261010/**",
     "src/services/sessionManager.js",
     "src/utils/ipCheck.js",
-    ".env.example"
+    ".env.example",
+    "docs/product/history/maintenance-20261011/**"
   ],
   "capture_paths": [
     "docs/product/history/maintenance-20261009/**",
     "docs/product/MATERIAL_INVENTORY.md",
-    "docs/product/history/maintenance-20261010/**"
+    "docs/product/history/maintenance-20261010/**",
+    "docs/product/history/maintenance-20261011/**"
   ],
   "exclude_paths": [],
   "maintenance": "enabled"

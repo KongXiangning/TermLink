@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:06:35.878Z",
+  "payload_sha256": "e970685c1058c477451c6f3da3f0252ded7f239badf1cd01d7335526494ed70c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260504-001-794395a5a820e7590245d735c072929bb208588a059ed24ad932eec4078b0ba2-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-fab4ba5e2e3dd6b390355a69329447d5b6a9fefe12801e442abb321b4c7e05f1.json",
+      "idempotency_key": "legacy-task-import-20261011-20260504-001-794395a5a820e7590245d735c072929bb208588a059ed24ad932eec4078b0ba2-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260504-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "Scope Codex history and active thread state by session cwd",
+            "goal": "在 Codex 会话中，根据所选择的项目路径，只显示当前路径下的本地历史任务列表。先确认 App 中的 Codex 会话是否调用 `codex app-server`；如果是，则按 `thread/list(cwd=当前工作区路径)` 实现当前项目历史任务过滤。",
+            "scope": [
+              "TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260504-001",
+      "parents": [
+        ".workflow-system/records/events/key-529cee8937d50d023925287c8708f8c02523f19a16c642d72ec21adb66ef34cf.json",
+        ".workflow-system/records/events/key-1335f6a78397f1e047a2d1b04d8ceb93b33bdc13c0bf75571f6eeb39ac39fb8c.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-fab4ba5e2e3dd6b390355a69329447d5b6a9fefe12801e442abb321b4c7e05f1.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "896b5f8ee3525d5d5eb5b6b0fbe1b73f2a6c887f45414c54714638a1416a93b7",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

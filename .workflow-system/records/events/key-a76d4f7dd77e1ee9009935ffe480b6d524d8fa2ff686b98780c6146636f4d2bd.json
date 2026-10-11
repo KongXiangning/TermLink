@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:15:01.116Z",
+  "payload_sha256": "d5c795bd95ec7762f14b8826c1cda072533ce3eb27eb521cdeff20e454008f21",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260726-002-dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-2479d9a08ddba7c825e5d67ea9c21cc3e77a4e48abcfbf5d4e31b1d05c17efdd.json",
+      "idempotency_key": "legacy-task-import-20261011-20260726-002-dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260726-002",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "Android / 服务端持久诊断日志与问题取证",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260726-002",
+      "parents": [
+        ".workflow-system/records/events/key-8272be78bfab677aa6e41f7688b51a18487ed2729a0a476c32460f5a6ce61fb6.json",
+        ".workflow-system/records/events/key-78dee6bd5e9812e8530832f09d84a41b88155a9aa562816711bd689bdfc88551.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-2479d9a08ddba7c825e5d67ea9c21cc3e77a4e48abcfbf5d4e31b1d05c17efdd.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "4f01a81a0afe576a8eddc4dd20759a68fece0f883fe715f2666ddf7b7c97db8c",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

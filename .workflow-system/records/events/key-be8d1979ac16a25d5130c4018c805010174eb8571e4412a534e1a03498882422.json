@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:09:15.155Z",
+  "payload_sha256": "c4fae6af80d402da262fe287d0de41f1379efc382d0a49934c28aec7ddf38d01",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-source",
+    "idempotency_key": "legacy-task-import-20261011-20260828-001-4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d-source",
+    "body": {
+      "original_task_id": "20260828-001",
+      "task_id": "20260828-001",
+      "source": "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md",
+      "sha256": "4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d",
+      "original_status": "active → archived",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": null,
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\n- 任务 ID：`20260828-001`\n- 任务标题：4.5 Node analyzer consumer/coordinator 迁移\n- 任务 slug：`codex-node-analyzer-phase45-migration`\n- 生命周期：`active → archived`\n- 完成日期：2026-09-13\n- 任务起始提交：`7a167711950710b05f3e84c8d3ad975df1c6ab0c`\n- 最终实现状态：目标实现已在当前 HEAD `20b79197` 及工作树中的 verification repair 中完成；工作树中的用户变更保持未提交，不因归档而被清理或提交。\n- 安全模式：`frozen-scope`\n- 发布模式：`none`；仅验证本地 Node service + Rust analyzer subprocess，不构成产品稳定或 release readiness。\n- 归档性质：Rust 4.5 target 之后的隔离 Node consumer/coordinator/process/import/store artifact；产品 DB、IPC、Android、gateway、release 和部署仍由独立任务承接。"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- Node implementation：\n  - `src/services/codexRolloutCollector/analyzerProtocol.js`\n  - `src/services/codexRolloutCollector/analyzerProcessManager.js`\n  - `src/services/codexRolloutCollector/analyzerRequestTracker.js`\n  - `src/services/codexRolloutCollector/analysisBatchImporter.js`\n  - `src/services/codexRolloutCollector/analysisCheckpointStore.js`\n  - `src/services/codexRolloutCollector/analysisRunStore.js`\n  - `src/services/codexRolloutCollector/index.js`\n- Node tests/fixtures：\n  - `tests/codexRolloutCollector.test.js`\n  - `tests/codexRolloutCollector.checkpointJobs.test.js`\n  - `tests/codexRolloutCollector.defaultHome.test.js`\n  - `tests/codexRolloutCollector.realRust.test.js`\n  - `tests/codexRolloutCollector.recovery.test.js`\n  - `tests/fixtures/codex-rollout-collector/default-home-probe.js`\n  - `tests/fixtures/codex-rollout-collector/fake-analyzer.js`\n  - `tests/fixtures/codex-rollout-collector/node-crash-recovery-probe.js`\n  - `tests/fixtures/codex-rollout-collector/rust-target.js`\n- 最终 verification repair：`analyzerProcessManager.start()` 在同步 spawn 失败时不再让 rejected `startPromise` 重新占用启动槽位；新增同步失败后的 stop/retry 与默认 spawn 参数回归测试，finding `RI-4.5-009-001` 已关闭。\n- Workflow evidence：`CURRENT_TASK.md`、`STATUS.md`、`DECISIONS.md`、`LESSONS.md` 保留任务事实、状态、决策和 lessons；closeout 本轮未新增 `CONTRACTS.md`、宿主指导或 lessons 内容。\n- 未修改 Rust/native、Codex IPC、Android、产品 DB/Stage 5、gateway、public、routes、package manifest 或生产入口。原提交范围中的 `.agents/skills/**`、`AGENTS.md` 等 task-external residue 按 scope review 排除并保持原样。"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- 遵守 `docs/workflow/CONTRACTS.md` 的 4.5 Rust analyzer target startup/process、batch interface 和 P0-RC.1 隔离边界；本任务不改变这些长期契约。\n- 保持 `AD-004` 的 Codex IPC 实时同步冻结区，不触碰 owner/follower/reconnect replay、canonical binding 或 Android authority。\n- 保持 `AD-018`、`AD-019`、`AD-021`、`AD-022`：单例采集链、三种 mode + 新 request 重试、legacy 业务字段退出、Rust-first/Node 后续适配。\n- `AD-024` 记录直接相关测试/fixture/workflow evidence 的纳入不等于产品实现范围扩大；`DEFER-003`/`RI-4.5-004-016` 仍为用户确认的 deferred 项。\n- `RD-4.5-006-001` 等 Rust source 层风险未因 Node 或 Rust target 回归通过而标记 resolved；未来产品 wiring、source 修复和 release 需求必须另立任务或重新锁范围。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- Required-now review chain：`review-diff`、`review-implementation`、`verify-contracts`、`run-regression` 均 PASS；步骤 9.1～9.5 已收口，无当前步骤 blocking finding、contract/decision/scope drift、unknown failure、cancelled/hung/leak。\n- Node target suite：\n  `node --test tests/codexRolloutCollector.test.js tests/codexRolloutCollector.checkpointJobs.test.js tests/codexRolloutCollector.defaultHome.test.js tests/codexRolloutCollector.realRust.test.js tests/codexRolloutCollector.recovery.test.js`\n  → `147/147` PASS，`0` FAIL，`0` cancelled，`0` skipped。\n- Node/fixture syntax：精确允许文件 `node --check` → `16/16` PASS。\n- Rust dependency verification：\n  - `cargo test target_identity --manifest-path native/codex-rollout-collector/Cargo.toml` → `6/6` PASS。\n  - `cargo test --test stage4_target_protocol --manifest-path native/codex-rollout-collector/Cargo.toml` → `70/70` PASS。\n- Real cross-process evidence：真实 Rust Node hello/analyze/batch/ACK/complete smoke → `1/1` PASS；fake analyzer 证据只用于受控错误、生命周期和故障注入，不冒充 Rust binary 证据。\n- Diff/range：`git diff --check` PASS；精确 Allowed/Forbidden path scan PASS，未发现 Rust/native、IPC、Android、DB、`terminalGateway`、public 或其他越界路径。\n- TD-004 narrow gate：`29/32` PASS；`codexSecondaryPanel.integration.test.js`、`workspace.routes.test.js`、`workspace.web.test.js` 因缺少 `jsdom`/`express` 在加载阶段失败，分类为 unrelated-preexisting 环境依赖缺口，未修改依赖或任务外测试。\n- Remaining evidence classification：历史 `25` 项 future-step expected gap 保留为后续范围记录；`RI-4.5-004-016`/`DEFER-003` 继续 deferred；这些项目均未被伪装为当前步骤失败或已解决。"
+        },
+        {
+          "name": "发布后验证证据",
+          "text": "- Release mode：`none`\n- Deploy source：`none`\n- Target environment：local Node service + Rust analyzer subprocess\n- Health checks：目标 Node collector、Rust target smoke、`node --check`、scope scan、`git diff --check`\n- Canary：not applicable；任务未启用产品入口\n- Performance baseline：none\n- Rollback：以任务起始提交为基线执行 path-scoped revert/恢复；不使用 broad reset/clean，不处理任务外工作树。\n- Release evidence：not applicable；本归档不声明产品发布、稳定性或 canary readiness。"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "- 本轮 closeout 未新增 lesson；相关可复用经验已由任务执行阶段写入：\n  - `L-038`：新增测试/fixture 必须按行为链和直接验证关系纳入范围，不等于扩大产品实现。\n  - `L-039`：同步 spawn 异常时必须避免外层 Promise 重新占住启动槽位，确保后续 generation 可重试。"
+        },
+        {
+          "name": "后续关联",
+          "text": "- `Node collector` 到产品 DB/Stage 5、`terminalGateway`、IPC、Android 或 history 的 wiring 是独立后续任务，不从本归档自动展开。\n- `RI-4.5-004-016` 仅在真实泄漏、merge gate 要求、生命周期重构或用户重新打开时重新评估，并需重新 review/lock/regression。\n- Rust source candidate pre-I/O、formal source interruptibility、vendor/上游兼容维护继续由 Rust/source owner 另行承接。\n- TD-004 的缺失依赖仍是环境观察项；如需补齐，应在独立范围内处理。\n- 下一轮入口：创建新的 `CURRENT_TASK.md`，从 `/create-current-task` 开始；本任务不再作为 live active task。"
+        }
+      ]
+    },
+    "files": [
+      "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md"
+    ]
+  },
+  "issues": []
+}

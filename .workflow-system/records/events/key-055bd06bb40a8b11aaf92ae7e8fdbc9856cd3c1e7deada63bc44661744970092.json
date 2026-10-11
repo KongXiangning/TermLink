@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:07:42.877Z",
+  "payload_sha256": "37967901dc3889fe512927208deed89f0884c6ff13f07d651d7e591a6311db7c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-legacy-doc-03166aa61e365e5f8af1f680-3ba5ae9714d8803f97e1ef1657327381bfd13298909baeae89b5a9212e0b1bec-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-72f1ac8e88c6f4215c5300f94b9441f6632cc497cd1388f30fb1b55c4317b4df.json",
+      "idempotency_key": "legacy-task-import-20261011-legacy-doc-03166aa61e365e5f8af1f680-3ba5ae9714d8803f97e1ef1657327381bfd13298909baeae89b5a9212e0b1bec-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "legacy-doc-03166aa61e365e5f8af1f680",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "保留 Rust 采集历史的真实路径与内容，完成 Node 产品历史数据库和可供 App 后续只读加载的历史接口",
+            "goal": "Remove destructive Rust path redaction and connect rollout analysis to product history persistence and APIs.",
+            "scope": [
+              "TASKS/TASK-003-rust-node-app.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-003-rust-node-app.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "legacy-doc-03166aa61e365e5f8af1f680",
+      "parents": [
+        ".workflow-system/records/events/key-a9db7fc0c7bef9d14daa3569c85c9a777215687da75895ea44cb2b7bdf6d71ed.json",
+        ".workflow-system/records/events/key-864d55a92330799896bba31e55833b59ea8866652a57c86e9918de06423ab4d7.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-72f1ac8e88c6f4215c5300f94b9441f6632cc497cd1388f30fb1b55c4317b4df.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "b5e81361077f51dbc19b467eb8ac99f68921e650708e2a46f776efae04aba883",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-97e45ddef6df69016645e1e87becf55915dd3a65036b9b07eeacc300520c287e.json",
+  "captured_at": "2026-10-11T10:20:34.312Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/3bec9e6ed1538479d9d7e19e0281cc95c15cb953b76fa518312691530517d9a2.blob",
+      "sha256": "3bec9e6ed1538479d9d7e19e0281cc95c15cb953b76fa518312691530517d9a2",
+      "size": 46926,
+      "source_path": "TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md",
+      "issues": []
+    }
+  ]
+}

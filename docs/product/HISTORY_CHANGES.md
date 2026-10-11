@@ -446,25 +446,21 @@
         }
       ]
     }
-  ]
+  , {"id":"CHG-TERMLINK-V3-20261011","type":"change","recorded_at":"2026-10-11T04:01:29.081Z","basis":{"kind":"document-edit","text":"保留此前Agent结构登记历史，撤回将维护摘要用作精确总目标/分解的用户采用证明。","sources":[{"kind":"file","path":"docs/product/history/maintenance-20261011/task-scope-correction/user-correction.md","sha256":"39d89a18f9e652fbd9be4e2c689c147324d363c439d216485282cbf37ca01152"}]},"deltas":[{"target":"PROJECT-TERMLINK","before":"root_goal_id未指定；requirement_order未登记","after":"{\"root_goal_id\":\"GOAL-TERMLINK\",\"requirement_order\":[\"REQ-20260222-doc-governance\",\"REQ-20260222-server-admin-privilege-mode\",\"REQ-20260222-session-retention-reconnect\",\"REQ-20260223-shortcut-keyboard-modifier-newline\",\"REQ-20260224-android-external-web-terminal-profile-sessions\",\"REQ-20260224-screen-keep-awake\",\"REQ-20260306-codex-app-repair-plan\",\"REQ-20260309-codex-capability-mvp\",\"REQ-20260318-ws-0001-docs-exp\",\"REQ-20260324-session-list-local-cache\",\"REQ-20260326-android-profile-mtls-runtime-certificate\",\"REQ-20260329-language-normalization\",\"REQ-20260408-codex-native-android-migration\",\"REQ-20260413-relay-control-plane-and-transparent-transit\",\"REQ-20260415-codex-android-runtime-interaction-fixes\",\"REQ-20260516-codex-mobile-realtime-sync\",\"REQ-20260715-linux-interactive-release-installer\",\"REQ-20261005-codex-history-save-repair\",\"REQ-20261005-codex-history-shared-compat\",\"REQ-TERMLINK-CORE-TERMINAL\",\"REQ-TERMLINK-RELEASE-BASELINE\",\"REQ-TERMLINK-WEB-UX\",\"REQ-TERMLINK-DIAGNOSTICS\",\"REQ-TERMLINK-HISTORY-PIPELINE\",\"REQ-TERMLINK-ENHANCEMENT-CANDIDATES\",\"REQ-TERMLINK-HISTORY-BANNER\"]}","note":"用户明确采用现有条目顺序；只是当前登记，不表示历史创建先后或执行先后。"},{"target":"PROJECT-TERMLINK","before":"目标层次与范围未由v3表达；需求支撑关系为推断；成果使用旧v2报告","after":"目标和项目显式迁为v3，需求仍为v2；核对可确认的当前支撑关系并新增6份独立v3报告","note":"旧报告与需求正文保留，21条旧定义摘要提示不代表业务成果失效；未覆盖或不确定内容见review。"}],"sources":[{"kind":"file","path":"docs/product/history/maintenance-20261011/task-scope-correction/user-correction.md","sha256":"39d89a18f9e652fbd9be4e2c689c147324d363c439d216485282cbf37ca01152"}]}, {"id":"CHANGE-TERMLINK-TASK-SCOPE-CORRECTION-20261011","type":"change","recorded_at":"2026-10-11","basis":{"kind":"document-edit","text":"用户明确要求按原task要求及交付纠正Agent推导，不保留错误当前需求。","sources":[{"kind":"file","path":"docs/product/history/maintenance-20261011/task-scope-correction/user-correction.md","sha256":"39d89a18f9e652fbd9be4e2c689c147324d363c439d216485282cbf37ca01152"}]},"sources":[{"kind":"file","path":"docs/product/history/maintenance-20261011/task-scope-correction/user-correction.md","sha256":"39d89a18f9e652fbd9be4e2c689c147324d363c439d216485282cbf37ca01152"}],"deltas":[{"target":"REQ-20260222-server-admin-privilege-mode","before":"由旧卡扩张真实提权与降权回滚为完成障碍","after":"配置/门禁/风险提示及审计关联；不存在App真实提权/OS降权义务","note":"用户已明确否定该义务；原错误留在历史快照。"},{"target":"REQ-20260222-session-retention-reconnect","before":"把代码6h回退判为24h任务欠交","after":"CR仅修改24h示例配置；口径差异单列，不追加代码义务"},{"target":"REQ-TERMLINK-ENHANCEMENT-CANDIDATES","before":"把旧总纲候选主题聚合为独立当前候选REQ","after":null,"note":"从当前正文与登记顺序删除；原P2材料不自动采纳。"},{"target":"GOAL-TERMLINK","before":"以Agent维护摘要宣称用户明确采用总目标和分解","after":"来源于实际任务方向的维护归纳；未由目标反推需求"},{"target":"PROJECT-TERMLINK","before":"以旧卡/代码补造当前剩余清单","after":"原task要求、交付与限制分开；可选观察不变成欠交"}]}]
 }
 ---
 
 # TermLink 重要业务范围与安排变化
 
-## [CHANGE-TERMLINK-RETENTION-24H] 保留期6h到24h及当前回退差异
+## [CHANGE-TERMLINK-RETENTION-24H] 24h配置增量与历史口径差异
 
 ### 变更说明
 
-历史时点：2026-02-24。CR明确只改示例与REQ。当前只读代码反证默认回退未同步。
-
-- REQ-20260222-session-retention-reconnect：6h示例与代码默认 → 24h需求/示例；无配置或非法配置代码仍6h
-
-依据：[docs/changes/records/CR-20260224-0000-session-ttl-24h.md](../../docs/changes/records/CR-20260224-0000-session-ttl-24h.md)；[src/services/sessionManager.js](../../src/services/sessionManager.js)；[.env.example](../../.env.example)。旧原文、原commit/报告均保留，不通过新时间戳选择冲突赢家。
+原CR在2026-02-24仅把示例配置由6h改为24h并改文档，明确排除代码逻辑修改。代码的无配置/非法值6h回退是独立观察；撤回将它直接认定为该task欠交或默认必须修复的结论。原REQ写“默认24h”与窄范围CR的语义差异保留，不靠代码反向推定原用户意图。
 
 ### 影响与未同步项
 
-已更新范围化评估为partial，历史续接/LRU交付保留；未读取运行环境或修改代码。后来的Task仍冻结6h字段是另一个历史依据，不能忽略。
+原变更、实现事实及历史版本保留；不修改代码或创建修复task。当前需求03按实际窄范围配置交付表述。
 
 ## [CHANGE-TERMLINK-CODEX-MVP] 修复基线归档与对话优先主线
 
@@ -569,3 +565,23 @@ closed不是全需求PASS或自动Git。CR/Git追踪、其他手机/深分页/�
 ### 影响与未同步项
 
 原S4/S5独立verdict/findings/复现保留；当前新数据保存/增量/重启、未结算原job/profile/delivery与跨profile fail-closed仍有效，不授权清旧数据。
+
+## [CHG-TERMLINK-V3-20261011] 既有规范结构登记历史
+
+### 变更说明
+
+此前维护登记了总目标、需求阅读顺序与v3报告。维护摘要对“用户明确采用精确总目标及所有关系”的记载没有足够原始决定依据，本次撤回其作为业务授权的用途；保留其结构登记历史。
+
+### 影响与未同步项
+
+当前目标以实际任务方向作维护归纳，关系标inferred；需求顺序沿用已有次序，仅移除本次明确删除的错误聚合条目。旧结构合法或历史报告不证明用户采用或产品完成。修改前材料固定保存在本次纠正目录。
+
+## [CHANGE-TERMLINK-TASK-SCOPE-CORRECTION-20261011] 按原task要求纠正当前目标与需求
+
+### 变更说明
+
+已按原始要求、明确追加决定和实际交付核对25项保留需求；删去1项Agent聚合候选需求，纠正管理员/TTL/多CLI/可选验证范围，撤回11项旧卡驱动的代码完成判断及4项无适当范围依据的目标/TTL报告。Task范围、阶段顺序、关闭事实和业务成果未改。
+
+### 影响与未同步项
+
+原task未定位的2–4月范围仍只有REQ/CR/SUMMARY来源；不因此全部判未知/未开始。原始task包与交付证据未改，旧错误当前规范只存修改前快照用于追溯。没有新业务立项或测试执行。

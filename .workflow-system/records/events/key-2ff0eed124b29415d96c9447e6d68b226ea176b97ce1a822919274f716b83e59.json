@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:08:59.474Z",
+  "payload_sha256": "0c344ffefc7330a53a972f4960eabbbc44d27a619afdbb5002f4d87d2b226e65",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-legacy-doc-87ea7576bc76f5782bea891f-4c19b6271a590aebc6c376e53a213ac442fd2dc9c8130a0ab08eb2b40ccb9138-disposition-source",
+    "body": {
+      "original_task_id": "001",
+      "task_id": "legacy-doc-87ea7576bc76f5782bea891f",
+      "source": "TASKS/TASK-001-rust-issues-audit-worktree-rust-001-rust-009-gemini.md",
+      "sha256": "4c19b6271a590aebc6c376e53a213ac442fd2dc9c8130a0ab08eb2b40ccb9138",
+      "original_status": "closed",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": "完成当前工作树与 Gemini 工作树关于 Rust 9 项问题及前置提交的只读对比审计、测试用例断言设计、真实验证与复用分类",
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- task_id: 001\n- task_title: \"Rust issues audit：建立采集到存储业务用例矩阵，核实当前 worktree 的 RUST-001 至 RUST-009，并评估 Gemini 修复复用。\"\n- task_slug: rust-issues-audit-worktree-rust-001-rust-009-gemini\n- document_id: doc-87ea7576bc76f5782bea891f\n- workflow_status: closed\n- lifecycle_state: archived\n- source_revision: e7d2696d45b5fa8cd947a29d87481f42453cd4546a4fd3c94892e94c1a498e7c\n- archive_path: TASKS/TASK-001-rust-issues-audit-worktree-rust-001-rust-009-gemini.md\n- archive_operation: archive-transaction\n- archive_caller: close-task\n- proposal_idempotency_key: archive-task-001-e7d2696d45b5fa8cd947a29d87481f42\n- closure_delta_digest: 7f2b189d8a70d2d6cce4d96bad4b0c3e71cc7016e7238d95ccecdd5476d9fbea"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- goal: \"完成当前工作树与 Gemini 工作树关于 Rust 9 项问题及前置提交的只读对比审计、测试用例断言设计、真实验证与复用分类\"\n- actual_changes:\n  - \"S1: 交付 32 例 Schema-4 业务测试矩阵 docs/codex/codex-rollout-collector-business-test-matrix.md 及 CR-20260914-rust-issues-audit-s1.md\"\n  - \"S2: 交付原生测试 business_history_audit.rs、执行器 run_business_history_audit.cjs 及 CR-20260914-rust-issues-audit-s2.md\"\n  - \"S3: 交付 9 项问题核实文档 docs/codex/codex-rollout-collector-rust-issues-verification.md 及 CR-20260914-rust-issues-audit-s3.md\"\n  - \"S4: 交付 Gemini 修复复用静态评估报告 docs/codex/codex-rollout-collector-gemini-fix-reuse-assessment.md 及 CR-20260914-rust-issues-audit-s4.md\""
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- affected_contracts: preserved in the CURRENT_TASK snapshot; admitted Contract candidates are reconciled after archive through the typed Runtime operation.\n- confirmed_decisions: preserved in the CURRENT_TASK snapshot; admitted Decision candidates are reconciled after archive through the typed Runtime operation."
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- closure_evidence:\n  - acceptance_satisfied: true\n  - validation_complete: true\n  - no_admitted_or_in_progress_findings: true\n  - no_unresolved_closure_blocker: true\n  - release_evidence:\n    - triggered: false\n    - complete: true\n    - evidence_refs: []\n  - rollback_evidence:\n    - triggered: false\n    - complete: true\n    - evidence_refs: []\n  - observation_evidence:\n    - triggered: false\n    - complete: true\n    - evidence_refs: []\n  - remaining_risks_non_blocking: true\n  - archive_path_verified: true\n\n- acceptance_satisfied: true\n- validation_complete: true\n- verification:\n  - \"S1 业务矩阵覆盖 32 个业务场景与数据断言\"\n  - \"S2 运行测试套件，32 个用例全部采集完成，准确复现业务差异\"\n  - \"S3-R1 对比报告与实现，完成 RUST-001 至 RUST-009 详细分类\"\n  - \"S4 静态逐 hunk 对比 Gemini 提交，完成 9 项问题及依赖的复用结论与契约影响分析\"\n  - \"S4 独立 review-change 通过，verdict: clean，0 open findings\"\n- release_evidence:\n  - none\n- rollback_evidence:\n  - none\n- observation_evidence:\n  - none\n- next_action: \"任务归档，后续按各问题独立立项并在 Rust 契约先行原则下开展修复与适配\""
+        },
+        {
+          "name": "知识晋升",
+          "text": "knowledge_admissions:\n  contracts: []\n  decisions: []"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "lesson_admission:\n  decision: no-op\n  candidate_refs: []\n  evidence_refs: []"
+        },
+        {
+          "name": "后续关联",
+          "text": "- remaining_risks:\n  - \"本任务为纯只读审计，未对 Rust、Node 或产品代码进行任何修复修改\"\n  - \"Gemini 代码未经编译、测试或动态基准压测，其性能提升和内存节省声明在真实运行环境中属于未验证状态\"\n  - \"RUST-003、RUST-005、RUST-006 等涉及公共数据契约、部署资源硬上限及脱敏策略演进，后续实施需先经契约与架构治理决策\"\n- remaining_risks_non_blocking: true\n- next_task: none created by close-task."
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-cbe4bdca8e53b8cd416a74cdffb962a1d1b5bd15602c4fccb551026af3a2a26d.json"
+    }
+  },
+  "issues": []
+}

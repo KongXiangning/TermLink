@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-8c2b8fcd6f81c598d81089c9aeff94732219f5a30240c1ed3a6f688a5a6d87ab.json",
+  "captured_at": "2026-10-11T10:03:14.889Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/0848f952f7b6b8956c032170219d6bbef0660a39a45a94e66c03a94340d835f9.blob",
+      "sha256": "0848f952f7b6b8956c032170219d6bbef0660a39a45a94e66c03a94340d835f9",
+      "size": 16653,
+      "source_path": "docs/workflow/TASKS/TASK-20260716-002-fix-web-codex-reasoning-permissions-data.md",
+      "issues": []
+    }
+  ]
+}

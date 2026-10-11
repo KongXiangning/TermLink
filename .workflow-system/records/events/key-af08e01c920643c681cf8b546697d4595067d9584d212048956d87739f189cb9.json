@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:04:33.843Z",
+  "payload_sha256": "2d5a76f4dd3ae71534243e11ec1614abd1fe5a216508c4a46b4d56cae7562306",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260513-001-4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a-disposition-source",
+    "body": {
+      "original_task_id": "20260513-001",
+      "task_id": "20260513-001",
+      "source": "TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md",
+      "sha256": "4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a",
+      "original_status": "completed_verified_archived",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": "",
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\r\n- 项目类型：application\r\n- 任务 ID：20260513-001\r\n- 任务标题：提供跨平台发行安装脚本与一键 mTLS 证书工具\r\n- 任务 slug：provide-cross-platform-release-installer-and-mtls-tooling\r\n- 最终状态：completed_verified_archived\r\n- 创建时间：2026-05-13\r\n- 归档时间：2026-05-17\r\n- 归档性质：完成归档；跨平台 release/install/tooling 交付面已完成，Windows PM2 与 Linux `systemd` host smoke 已确认，`npm run android:check-release-config` 仍作为 scope-external known validation failure 保留"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- release 构建与清单：\r\n  - `package.json`\r\n  - `scripts/release/build-release.js`\r\n  - `scripts/release/release-layout.js`\r\n- Windows release 安装与自启：\r\n  - `ecosystem.config.js`\r\n  - `scripts/install/termlink-install.config.example.json`\r\n  - `scripts/install/windows/common.ps1`\r\n  - `scripts/install/windows/install-service.ps1`\r\n  - `scripts/install/windows/uninstall-service.ps1`\r\n  - `scripts/install/windows/start.ps1`\r\n  - `scripts/install/windows/test-health.ps1`\r\n  - `scripts/install/windows/enable-autostart.ps1`\r\n  - `scripts/install/windows/disable-autostart.ps1`\r\n  - `scripts/install/windows/pm2-admin-startup.cmd`\r\n- Linux release 安装与自启：\r\n  - `scripts/install/linux/common.sh`\r\n  - `scripts/install/linux/install-service.sh`\r\n  - `scripts/install/linux/uninstall-service.sh`\r\n  - `scripts/install/linux/start.sh`\r\n  - `scripts/install/linux/test-health.sh`\r\n  - `scripts/install/linux/enable-autostart.sh`\r\n  - `scripts/install/linux/disable-autostart.sh`\r\n  - `scripts/install/linux/termlink.service.template`\r\n  - `setup-service.sh`\r\n- mTLS 工具与健康检查辅助：\r\n  - `scripts/certs/direct-mtls.js`\r\n  - `scripts/certs/generate-direct-mtls.js`\r\n  - `scripts/certs/installer-health-check.js`\r\n  - `scripts/certs/nginx-mtls.js`\r\n  - `scripts/certs/generate-nginx-mtls.js`\r\n- 文档与验证辅助：\r\n  - `README.md`\r\n  - `README.zh-CN.md`\r\n  - `docs/guides/deployment.md`\r\n  - `scripts/install/HOST_VALIDATION_GUIDE.md`\r\n  - `tests/directMtlsInstaller.test.js`\r\n  - `tests/nginxMtlsTool.test.js`\r\n  - `tests/releaseLayout.test.js`\r\n- workflow 文档：\r\n  - `docs/workflow/CURRENT_TASK.md`\r\n  - `docs/workflow/STATUS.md`\r\n  - `docs/workflow/DECISIONS.md`\r\n  - `docs/workflow/LESSONS.md`\r\n- 真实 diff 统计：\r\n  - `git diff --stat 911ac451e3ce7a442ec989afeab66f1a78a4d77b..HEAD`\r\n  - 结果：38 files changed, 4468 insertions(+), 377 deletions(-)\r\n- 范围控制：\r\n  - 未触碰 `src/routes/sessions.js`、`src/routes/workspace.js`、`src/services/sessionManager.js`、`src/repositories/sessionStore.js`、`src/ws/terminalGateway.js`、`data/sessions.json`、`android/**`、`public/**`、`templates/**`、`.workflow-system/**` 或 `docs/workflow/generated/**`"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- 新增 / 复用决策：\r\n  - `docs/workflow/DECISIONS.md` 新增 AD-003，确认 Linux 开源 release 自启正式支持范围限定为 `systemd`\r\n  - `docs/workflow/DECISIONS.md` 继续沿用 TD-004 的 confirmed narrow gate，用于本任务 diff-aware regression\r\n- 保持不变的关键边界：\r\n  - `docs/workflow/CONTRACTS.md` 未新增稳定接口、结构或架构边界\r\n  - Sessions / Workspace / `terminalGateway` / `data/sessions.json` 等锁定契约未被触碰\r\n  - Windows PM2 仍保持 `fork` 基线\r\n- Lessons 回写：\r\n  - release / installer 任务要尽早固定精确 diff target，避免 untracked `scripts/**` / `tests/**` 漏进 manifest、回归和证据\r\n  - Windows PowerShell 下验证 PM2 正式分支时应显式优先解析 `pm2.cmd`，把脚本路径分发问题与宿主 PM2 / named-pipe 问题分开取证\r\n  - 跨平台 release 任务应先收敛 release layout / manifest，再分步实现 installer 与 mTLS 工具"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- 审查链：\r\n  - `/review-diff`：clean\r\n  - `/review-implementation`：clean\r\n  - `/verify-contracts`：clean\r\n  - `/run-regression`：diff-aware pass\r\n- 关键验证：\r\n  - `npm run release:build` 可生成 `dist/release-layout\\termlink-win-v1.0.0\\`、`dist/release-layout\\termlink-linux-v1.0.0\\`、`termlink-win-v1.0.0.zip` 与 `termlink-linux-v1.0.0.tar.gz`\r\n  - `node --test tests\\releaseLayout.test.js tests\\directMtlsInstaller.test.js tests\\nginxMtlsTool.test.js tests\\tlsConfig.test.js tests\\health.route.test.js` 通过（30/30）\r\n  - `node --test tests\\tlsConfig.test.js tests\\workspace.routes.test.js tests\\workspace.web.test.js tests\\sessionStore.metadata.test.js tests\\terminal_shortcut_input.test.js tests\\codexSecondaryPanel.integration.test.js` 通过（99/99）\r\n  - Windows 打包目录下 `start.ps1 -Foreground` + `test-health.ps1` 在 `tls.mode=off` 与 `mtls.deployment=direct-server` 两种场景返回 `Health OK HTTP 200`\r\n  - `scripts/certs/generate-direct-mtls.js` 与 `scripts/certs/generate-nginx-mtls.js` 的 OpenSSL smoke 均通过；缺少 OpenSSL 时会显式失败\r\n  - Windows PM2 host proof：依据 2026-05-17 用户确认，正式安装验证已完成\r\n  - Linux `systemd` host proof：依据 2026-05-17 用户确认，主支持路径 host smoke 已验证通过\r\n  - `git diff --check -- docs/workflow/CURRENT_TASK.md docs/workflow/STATUS.md` 无 whitespace error"
+        },
+        {
+          "name": "发布后验证证据",
+          "text": "- Release mode: release-readiness\r\n- Deploy source: existing README / deployment guide / release packaging scripts / local install smoke\r\n- Target environment:\r\n  - Windows host\r\n  - Linux host\r\n  - local release artifact validation\r\n- Health checks:\r\n  - 解压后安装脚本成功退出\r\n  - 安装结果输出包含安装目录、配置文件路径、自启状态、健康检查地址\r\n  - `/api/health` 返回 200\r\n  - direct mTLS 安装模式下证书文件与密码文件实际存在\r\n  - nginx mTLS 工具模式下生成物可被 README 指南消费\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery:\r\n  - 保留当前手动部署方式与现有 Windows skill 脚本作为回退路径\r\n  - 若新安装脚本或新配置模型导致行为不明确，回滚到本任务开始前的 README / 部署文档 / 打包脚本状态\r\n- Release evidence:\r\n  - Windows / Linux release 包与物化目录均已生成\r\n  - Windows / Linux installer、自启脚本、health helper 与 mTLS helper 均已落入 release 清单\r\n  - packaged runtime `/api/health` smoke、direct mTLS 生成 smoke、nginx-side mTLS 工具 smoke、Windows 非管理员自启显式失败 smoke、Windows PM2 host proof、Linux `systemd` host proof 均已补齐\r\n- canary result: not applicable\r\n- performance baseline result: not applicable\r\n- rollback status: not exercised\r\n- remaining observation:\r\n  - `npm run android:check-release-config` 仍对 checked-in `capacitor.config.json` 失败，属于 scope-external known validation failure\r\n  - 若后续需要进一步补强开源 release 证据，可单独补正式 install 路径下的 `/api/health` 端到端验证"
+        },
+        {
+          "name": "后续关联",
+          "text": "- clean handoff：\r\n  - `docs/workflow/CURRENT_TASK.md` 应清理为无活动任务入口，下一轮需求先执行 `/create-current-task`\r\n- 推荐下一轮候选任务：\r\n  - 明确 Android release config 应通过环境覆写还是仓库默认值满足 `npm run android:check-release-config`\r\n  - 如需继续增强开源 release 证据，可补正式 install 路径下的 `/api/health` 端到端验证\r\n  - 根据新的用户需求创建新的 `CURRENT_TASK.md`\r\n- 相关文档：\r\n  - `docs/workflow/STATUS.md`\r\n  - `docs/workflow/DECISIONS.md`\r\n  - `docs/workflow/LESSONS.md`"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-6160cefb8e1fdce1a9401735378929e579f3c0029f4293c4e2b8f6b4c0d521cf.json"
+    }
+  },
+  "issues": []
+}

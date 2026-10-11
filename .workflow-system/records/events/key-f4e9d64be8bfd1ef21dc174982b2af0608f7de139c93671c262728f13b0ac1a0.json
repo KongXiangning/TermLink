@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:15:48.340Z",
+  "payload_sha256": "f01256586d62b5a709c9edefab1850d985d6edd882db9d0b1e52d89f1924a59e",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260726-001-d26e314d468675ed57e1b845d4b3748e0ec8c50e608d8d72e67203be3432937b-disposition-source",
+    "body": {
+      "original_task_id": "20260726-001",
+      "task_id": "20260726-001",
+      "source": "TASKS/TASK-20260726-001-android-foreground-screen-timeout.md",
+      "sha256": "d26e314d468675ed57e1b845d4b3748e0ec8c50e608d8d72e67203be3432937b",
+      "original_status": "completed_ready_for_closeout（已归档）",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": null,
+      "sections": [
+        {
+          "name": "目标与结果",
+          "text": "在 Android 设置页增加“跟随系统 / 30 秒至 10 分钟”的前台息屏时间档位；自定义档位只在 Activity 前台保持亮屏，后台清除 `FLAG_KEEP_SCREEN_ON`。MainShellActivity、CodexActivity、SettingsActivity、WorkspaceActivity 共用本地控制器。"
+        },
+        {
+          "name": "验证结果",
+          "text": "- JDK 21 Android JVM tests：BUILD SUCCESSFUL。\n- Debug APK assemble：BUILD SUCCESSFUL。\n- `git diff --check`：通过。\n- 真实设备定时等待 smoke：未执行，保留为交付后手工观察项。"
+        },
+        {
+          "name": "实际改动与回滚",
+          "text": "- 受影响范围：UiPreferences、SettingsFragment/布局、四个前台 Activity、ScreenTimeoutController 及 Android JVM tests。\n- 未修改服务器、WebSocket、Codex IPC、session、通知和后台服务语义。\n- 回滚基线：052c8f3；仅移除息屏偏好、控件、控制器接入及对应测试/资源。"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-032fa2dc8fa19affe36f6552ebd2c25d6a3a8dc82c073a65d3f8b91dcfa10ee1.json"
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:16:17.231Z",
+  "payload_sha256": "ce66d8052c260018714a8f3e70d1fc7f6c325ca2c2e3645dde48151b33bd8f12",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260722-002-f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-914bfaedbb5782dd252d5930d9d6417f46d4055ada5143370e3c4787ddc2957c.json",
+      "idempotency_key": "legacy-task-import-20261011-20260722-002-f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260722-002",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "支持 Android Codex 对话记录直接打开图片与文档",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260722-002-android-codex-open-conversation-files.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260722-002-android-codex-open-conversation-files.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260722-002",
+      "parents": [
+        ".workflow-system/records/events/key-2ac28c1b01167be9acca4d3860faea1bc9340879227c8af791c58e42dd971e79.json",
+        ".workflow-system/records/events/key-f4e9d64be8bfd1ef21dc174982b2af0608f7de139c93671c262728f13b0ac1a0.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-914bfaedbb5782dd252d5930d9d6417f46d4055ada5143370e3c4787ddc2957c.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "80c8d4c971de0ee8e61211a112b485fc441e1ef37e9558ffec2a3f2c1ea931d6",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

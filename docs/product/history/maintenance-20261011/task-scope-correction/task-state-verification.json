@@ -1,0 +1,12 @@
+{
+  "task_journal_revision_unchanged": true,
+  "source_revision": "dc5d4a226d95b8f21b0d6dbac17a867c08789b3a993c9830e37f968c55444506",
+  "task_count": 40,
+  "lifecycle_counts": {
+    "closed": 38,
+    "paused": 2
+  },
+  "current_task_id": null,
+  "business_source_diff": [],
+  "git_operations": "none"
+}

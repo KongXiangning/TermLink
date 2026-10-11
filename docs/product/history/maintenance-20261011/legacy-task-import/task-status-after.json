@@ -1,0 +1,1110 @@
+{
+  "runtime_role": "assistance",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "kind": "task-query/v1",
+  "detail": "summary",
+  "status": "available",
+  "source_revision": "dc5d4a226d95b8f21b0d6dbac17a867c08789b3a993c9830e37f968c55444506",
+  "view_revision": "01512d7beb18ea5767df31c7562e2b1b4d6a2919471129539e83ed8d025fa320",
+  "display_revision": "b6f6bf84ff59c785e4302cc2876a46318f754765ae21c288b63d3fb8178a093c",
+  "workflow_home": "docs/workflow",
+  "current_task_id": null,
+  "focus": {
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "ref": ".workflow-system/records/events/key-84c44d145690b43b1036448ac8c73927fb5d3b3d98f0519cf4441f42898a24bc.json",
+    "conflict": null
+  },
+  "next_task_id": null,
+  "next_step_id": null,
+  "next_route": null,
+  "next_mode": null,
+  "next_action": null,
+  "selection": {
+    "requested_task_ref": null,
+    "task_id": null,
+    "status": "unresolved",
+    "detail_request": null
+  },
+  "health": "consistent",
+  "state_completeness": "complete",
+  "records_scanned": 456,
+  "projection": {
+    "cache": "current",
+    "display": "current",
+    "display_format": "v2",
+    "display_comparison": "semantic-content",
+    "read_only_rebuilt": true
+  },
+  "recovery_options": [
+    "rebuild",
+    "link",
+    "correct",
+    "resolve",
+    "defer",
+    "pause",
+    "close"
+  ],
+  "issues": [],
+  "unassociated_records": [],
+  "task_count": 40,
+  "lifecycle_counts": {
+    "closed": 38,
+    "paused": 2
+  },
+  "coverage": {
+    "computation": "full-journal-rebuild",
+    "diagnostics": "all",
+    "history": "not-expanded"
+  },
+  "note": "Presentation of the complete live rebuild. Omitted detail is not absent history, clean review or permission. Read record refs with read; use detail=full for the compatibility view.",
+  "tasks": [
+    {
+      "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+      "display_id": "TASK-004",
+      "title": "task-003-rust-node",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+      "plan_status": "legacy-summary-only",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": "legacy-plan-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d",
+      "legacy_source": ".workflow-system/records/legacy/current-099382bca9db406c8c13661372f0fd0dfbbd9fcad23a1eaf4e0c7d7133e38d8d.md",
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "The four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended are still stale; new current-subject execution evidence is separate and does not rewrite them.",
+        "Execution reports are caller-reported summaries without raw stdout attachments; reviews are Codex self-reviews, not independent test execution.",
+        "The execution journal's CR and contract hashes predate their final edits; the review separately read and bound the current document hashes.",
+        "External Codex host deployment and Android physical-device validation were not performed; no release-readiness claim is made.",
+        "No Git commit, push or deployment performed; CR stays draft with commit_ref TBD.",
+        "Legacy CURRENT_TASK/task-store projection was not reconciled and may still show Task 004 active/S3 ready."
+      ],
+      "gaps": [
+        "The four historical Task Store reports C2-store-final, C2-publish, C4-flow-final and C4-unattended are still stale; new current-subject execution evidence is separate and does not rewrite them.",
+        "Execution reports are caller-reported summaries without raw stdout attachments; reviews are Codex self-reviews, not independent test execution.",
+        "The execution journal's CR and contract hashes predate their final edits; the review separately read and bound the current document hashes.",
+        "External Codex host deployment and Android physical-device validation were not performed; no release-readiness claim is made.",
+        "No Git commit, push or deployment performed; CR stays draft with commit_ref TBD.",
+        "Legacy CURRENT_TASK/task-store projection was not reconciled and may still show Task 004 active/S3 ready."
+      ],
+      "counts": {
+        "steps": 1,
+        "unfinished_steps": 1,
+        "findings_in_current_plan": 0,
+        "plans": 0,
+        "executions": 1,
+        "tests": 9,
+        "reviews": 3,
+        "review_decisions": 1,
+        "commits": 4
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "legacy-doc-fdd730cf99bb383419d74988",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "title": "Android App 产品历史只读接入与真实纵向 E2E",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-dbec71588bac0244303f6bc3daeccbcc0c9d7247e490cf74dd19ce73d0d24e60.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "adopted_by": ".workflow-system/records/events/key-f51e7610b09cf057dbe07e1bd0391d6aa451e06bea629572b7b9bcf5c4fc3f61.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "Natural append/new turn and physical detail-ref update/invalidity remain unverified",
+        "Android large-detail dialog/copy and physical older durable ACK/overlap remain unverified",
+        "Healthy IPC exclusive realtime authority/healthy A-B-A and actual in-flight stale-response isolation remain unverified",
+        "Full ViewModel coroutine timeout/retry/cache-update edge integration and historical S1 activation-retry race coverage are not asserted by the executed probes",
+        "Existing reconciliation fingerprint_bytes budget exceeded (67108864) remains unresolved; no resource bounds relaxed",
+        "CR draft/none/TBD strict-format limitation remains historical and unresolved; no fabricated REQ or commit ref",
+        "Two historical management association issues remain unresolved",
+        "Uncommitted persistent S4 execution/review/finish evidence and this closure fact remain local; a Git checkpoint is a separate user-requested operation",
+        "Raw wire and full exported cache/backup artifacts remain private ignored local evidence, not included in persistent attachments or Git",
+        "Independent review, production release/deployment and additional full E2E are not certified by this closure"
+      ],
+      "gaps": [
+        "Validation coverage partial, not full business PASS",
+        "Self-review retained as self-review",
+        "Historical initial probe ACK failure, restart transport failures, compilation/path-copy/strict CR failures remain original facts, not rewritten as PASS",
+        "No new tests/build/device/service/rollback/commit/push/deployment or filesystem deletion during closure"
+      ],
+      "counts": {
+        "steps": 4,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 4,
+        "executions": 15,
+        "tests": 24,
+        "reviews": 17,
+        "review_decisions": 5,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-7a4566ccf322e08968cd5c7935cf61dd",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "title": "Codex 历史全链路 E2E 补齐验证（默认不改源码）",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-8464c4002ea41b1b57974aaf26a47b116e56a5f8f029fc6e7fc0074df0158a68.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "adopted_by": ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "自然 source→canonical product→Android durable commit/ACK/reopen 主链仍未闭合；普通 append/resend、真机 older/大详情复制、自然 E07 与真实在途竞态仍未验证。",
+        "S2 委派载体解析/A canonical 缺口、S4 G1/G2 与预算失败、S5 C catalog publication/resend/replacement 缺口及 S6-G1 unknown registration 候选仍需另行明确调查或修复范围。",
+        "E01–E12 及子项继续保持真实 E2E、协议/fixture、历史复用和未运行的分层结论；clean、finished、closed 与 5/5、30/30、75/75、4/4 不改变验证结论。",
+        "S6 管理记录与证据当前尚未提交；没有源代码修改、部署或发布。"
+      ],
+      "gaps": [
+        "三条既有未关联管理记录/问题保留：key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json、key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json、key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json。",
+        "S6 review 为同代理证据范围自审，不是独立审查；业务主链仍 partial。"
+      ],
+      "counts": {
+        "steps": 6,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 2,
+        "executions": 8,
+        "tests": 3,
+        "reviews": 10,
+        "review_decisions": 2,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-25654b249109f357a559899562804c15",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "title": "委派输入与正常历史增长的最小共享兼容修复（Rust契约先行）",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "adopted_by": ".workflow-system/records/events/key-c9ee87ca72baea443b6cb1d53f14387af5407d633ad8cdf5988b80c0be34ff1d.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "任务已关闭为管理处置，不代表产品完成或 PASS；S5 43/43 证据来自隔离 Rust/Node/File/SQLite/provider 流程，非自然 Codex 宿主或手机验收。",
+        "832 H2 discovery/catalog localization、普通/Branch/委派三场景真实宿主与手机正文/工具详情/重开验收仍待后续任务完成；832 保持 active，未在本次关闭中修改。",
+        "832 S2 review/finish 及共享实现范围回收仍待后续处理；此前失败、S2 vendor 离线依赖限制和其他未验证项原样保留。",
+        "三个既有未关联管理记录继续保留：key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json、key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json、key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json。",
+        "工作区仍有未提交的 PLAN/REQ/tests 与工作流持久记录；native/codex-rollout-compat-spike/vendor/codex/Cargo.lock 未修改且保持未跟踪；本次关闭不执行 Git commit、push、部署或删除。"
+      ],
+      "gaps": [
+        "最新审查为 same-agent-change-self-review，非独立审查。",
+        "真实宿主、分支保存、手机 durable ACK/重开及产品发布链未由本次 S5 隔离证据证明。",
+        "工作区 dirty，业务修改和管理证据尚未提交。",
+        "状态视图仍有 3 条旧未关联管理记录，state_completeness 为 partial-associations。"
+      ],
+      "counts": {
+        "steps": 5,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 7,
+        "tests": 0,
+        "reviews": 8,
+        "review_decisions": 7,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-7ff69ba8242c90c52f0b93fa1144a655",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "title": "修复新对话、分支对话与委派消息的历史保存失败，并验证手机重开可查看",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "adopted_by": ".workflow-system/records/events/key-d99d9cbfdf82571710ab524da759d74872184e4aafe91bd395b6c8b5f35b3d55.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "S6 Android source/test, PLAN/REQ, draft CR and workflow facts/evidence are uncommitted; task closure performs no staging, commit, push or deployment.",
+        "REQ remains in_progress for commit/document traceability: all linked CRs currently draft/TBD, no active CR. Real existing business commits are retained; no fake commit_ref or CR activation.",
+        "IR832-01 is technically not fixed; the human excludes pre-current-version published product-format migration because there was no ordinary-user product release. Do not treat original S4/S5 findings as clean.",
+        "Out-of-scope stale reconnect error banner, B/Q budget failures/intents and registration candidate remain; no budget relaxation or data cleanup.",
+        "Three preexisting unassociated management records remain unresolved; no new association repair or historical business replay.",
+        "All phone durable detail refs were checked, but only one selected tool detail dialog per scene was operated; other phones/full large-detail/deep-pagination/race/resend matrix and production release are not certified.",
+        "Untracked spike vendor Cargo.lock and local data/codex-rollout-analysis and data/codex-rollout-checkpoints are retained and excluded from any automatic Git or cleanup operation."
+      ],
+      "gaps": [
+        "Closure is user-requested lifecycle disposition, not release/deployment approval, a clean independent verdict or removal of original failures.",
+        "Independent reviewer reused retained phone evidence; no new live phone/service/model validation during review or closure.",
+        "Current-version new saves/append/restart, unsettled original profile/job/delivery protection, cross-profile rejection, external-source read-only, budgets and IPC authority remain required.",
+        "REQ done/publication traceability is pending separately from all six finished plan steps."
+      ],
+      "counts": {
+        "steps": 6,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 2,
+        "plans": 1,
+        "executions": 11,
+        "tests": 9,
+        "reviews": 15,
+        "review_decisions": 9,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-58bc12d9a46b8d84fb6e42888785b402",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "title": "Rust rollout 兼容修复：token_usage_record 与 developer 消息",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-9315aa5f56fdf91a7d40826f4d804242411c2d30690ca05178394be9475ec93c.json",
+      "plan_status": "adopted",
+      "adopted_plan_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "adopted_by": ".workflow-system/records/events/key-d541cb97ed966f0411f7d9df6baeb4e447d062044e94dba489a3dd8fd14590bd.json",
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "The task is closed as a disposition, not verified product completion or PASS.",
+        "The worktree is detached and dirty with in-scope Rust/docs changes plus workflow/runtime records; no Git commit, staging cleanup, push or deployment was performed or authorized.",
+        "The latest review is clean only for the exact isolated Rust S3-R3 subject and is a same-agent self-review, not an independent review.",
+        "The retained initial real-probe wrapper failure compared 269 derived events with 227 physical records; corrected physical progress assertions passed, but the original failure and script remain retained.",
+        "The full Rust library suite, historical Windows nested absolute-path assertion and broad formatting checks were not fully rerun or remain limited.",
+        "check-doc-sync remains failed because no active CR with a real commit_ref exists; the S3 CR remains draft/TBD.",
+        "Node product canonical publication/database transaction and Android first-page/App ACK or device/host integration remain unverified; Task005 remains paused.",
+        "Existing unrelated unassociated management record remains unresolved and state completeness remains partial-associations; stale Task004 reports remain historical.",
+        "No rollback, deployment, Task005 resume, or product integration action was performed."
+      ],
+      "gaps": [
+        "No active committed CR association",
+        "Product publication and Android acceptance not verified",
+        "Unassociated management record issue-ec19a134aefeb23287cb519b",
+        "Dirty detached worktree with no authorized commit"
+      ],
+      "counts": {
+        "steps": 3,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 2,
+        "executions": 7,
+        "tests": 39,
+        "reviews": 9,
+        "review_decisions": 4,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260618-001",
+      "display_id": "TASK-20260863",
+      "title": "修复刷新页面重复新建 TERMINAL 会话",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-4595b64e8be6fe39d19687c83b7c33b4b3d9ba45de82e1c51ef5c083dde605a1.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260618-001",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260629-001",
+      "display_id": "TASK-20260862",
+      "title": "按 termlink-demo 改造服务端与安卓端 Codex 实时同步",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-3b6c47851a755412dfd473b8ee3375f282bd2c40a8ba20852475ad3e17c4100a.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260629-001",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "legacy-doc-03166aa61e365e5f8af1f680",
+      "display_id": "TASK-20260842",
+      "title": "保留 Rust 采集历史的真实路径与内容，完成 Node 产品历史数据库和可供 App 后续只读加载的历史接口",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-91546f93fc200c972d910fa2163cc6a90dbf4915d72ee20b31173b7f22ba368a.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原记录 acceptance_satisfied=false、validation_complete=false；未完成验收和后续范围保留原文"
+      ],
+      "gaps": [
+        "原记录 acceptance_satisfied=false、validation_complete=false；未完成验收和后续范围保留原文"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "legacy-doc-03166aa61e365e5f8af1f680",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260828-001",
+      "display_id": "TASK-20260845",
+      "title": "4.5 Node analyzer consumer/coordinator 迁移",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-552c1c9f84f07949c71b70cff603157a86558e5774b288169deaa1b009c92dc2.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260828-001",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260718-003",
+      "display_id": "TASK-20260859",
+      "title": "TASK-20260718-003：重写 Android/Web 共享文档工作区",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-21f1e65265be1a623512e4943625a6f90420f4506060aa5cbcc9aec9780558b6.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260718-003",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260722-002",
+      "display_id": "TASK-20260856",
+      "title": "支持 Android Codex 对话记录直接打开图片与文档",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-c15e79485bf00d6d97255747f9f8faf1003add7e93c5784d42fe014b8d880359.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260722-002",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260826-001",
+      "display_id": "TASK-20260847",
+      "title": "4.5 阶段 Rust analyzer 公共协议一次性迁移与 legacy 字段退役",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-edc05a925de28b80ccc79a9f9af36750a0b97636de56143e952ae5bd1f026cb3.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260826-001",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260820-001",
+      "display_id": "TASK-20260852",
+      "title": "Codex Rollout Collector 阶段 2：输入层与兼容层补齐",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-8452fc8811257a2403aa4682dc33d8219e7c7a7e5b7e8a1c1ce3a5b31f0c0cf1.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260820-001",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "legacy-doc-87ea7576bc76f5782bea891f",
+      "display_id": "TASK-20260844",
+      "title": "建立采集到存储业务用例矩阵，核实当前 worktree 的 RUST-001 至 RUST-009，并评估 Gemini 修复复用。",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-2ff0eed124b29415d96c9447e6d68b226ea176b97ce1a822919274f716b83e59.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "legacy-doc-87ea7576bc76f5782bea891f",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260823-001",
+      "display_id": "TASK-20260849",
+      "title": "重订 Codex Rollout Collector 会话 lineage 发现与读取设计",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-a603af6f3481608fcc5b4865c7606a3b701a403c6ad547ac4610037269f27647.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260823-001",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260617-002",
+      "display_id": "TASK-20260835",
+      "title": "网页版 Codex 会话页优先使用 IPC 数据通道并保留原通道降级",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-71618c36ee0c7d30c2ec5014df01d462f8612eb8b2b4059bc05381aead4227a9.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260617-002",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260716-002",
+      "display_id": "TASK-20260834",
+      "title": "修复 Web Codex 会话配置数据与头部重复路径",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-f494560be2038c88a3abd897fb58cc379b196caaaf0c042165a7bf0d5901f902.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260716-002",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "20260719-001",
+      "display_id": "TASK-20260858",
+      "title": "TASK-20260719-001：修复 Android 文档阅读字号与移动端横向溢出",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-2f2ce0bed7a1ac58c9114b32d7741a776a17a81c2f53ba34daf20b6eab4ebf61.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "20260719-001",
+        "workflow_home": "docs/workflow"
+      }
+    },
+    {
+      "task_id": "legacy-doc-05c82c8a6e6c9181adfc2be2",
+      "display_id": "TASK-20260843",
+      "title": "修复 rollout 采集阻断并验证隔离闭环。",
+      "lifecycle": "closed",
+      "lifecycle_ref": ".workflow-system/records/events/key-35fee6552bd03a3d6f626a40a960f6ca012ab916e7b4a8889fa6054dda8b301f.json",
+      "plan_status": "candidate",
+      "adopted_plan_ref": null,
+      "adopted_by": null,
+      "legacy_plan_ref": null,
+      "legacy_source": null,
+      "current_step_id": null,
+      "current_step": null,
+      "next_route": null,
+      "next_mode": null,
+      "next_action": null,
+      "recommendation_only": true,
+      "origin": null,
+      "dependency": {
+        "state": "not-applicable",
+        "ref": null
+      },
+      "dependencies": [],
+      "return_result": null,
+      "waiting_on_task_ids": [],
+      "continuation": null,
+      "remaining_work": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "gaps": [
+        "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+      ],
+      "counts": {
+        "steps": 0,
+        "unfinished_steps": 0,
+        "findings_in_current_plan": 0,
+        "plans": 1,
+        "executions": 0,
+        "tests": 0,
+        "reviews": 0,
+        "review_decisions": 0,
+        "commits": 0
+      },
+      "detail_request": {
+        "detail": "task",
+        "task_ref": "legacy-doc-05c82c8a6e6c9181adfc2be2",
+        "workflow_home": "docs/workflow"
+      }
+    }
+  ],
+  "pagination": {
+    "total": 40,
+    "offset": 0,
+    "limit": 20,
+    "next_offset": 20,
+    "view_revision": "01512d7beb18ea5767df31c7562e2b1b4d6a2919471129539e83ed8d025fa320",
+    "next_request": {
+      "detail": "summary",
+      "offset": 20,
+      "limit": 20,
+      "expected_view_revision": "01512d7beb18ea5767df31c7562e2b1b4d6a2919471129539e83ed8d025fa320",
+      "workflow_home": "docs/workflow"
+    }
+  }
+}

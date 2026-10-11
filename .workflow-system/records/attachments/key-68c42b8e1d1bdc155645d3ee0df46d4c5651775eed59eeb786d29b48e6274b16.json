@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-68c42b8e1d1bdc155645d3ee0df46d4c5651775eed59eeb786d29b48e6274b16.json",
+  "captured_at": "2026-10-11T10:13:31.396Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/95c54eb8f73d8bd7bc119ce85f5552f1cd6575678f81eae0845ebc15898e2066.blob",
+      "sha256": "95c54eb8f73d8bd7bc119ce85f5552f1cd6575678f81eae0845ebc15898e2066",
+      "size": 16850,
+      "source_path": "TASKS/TASK-20260820-001-codex-rollout-collector-stage-2-input-compat.md",
+      "issues": []
+    }
+  ]
+}

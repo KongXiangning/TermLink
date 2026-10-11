@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:08:17.313Z",
+  "payload_sha256": "fdb6c676aac74aeb7032d2d975f67f3f183d2d22b25165d1da3970268ebd5f98",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-legacy-doc-05c82c8a6e6c9181adfc2be2-a6bd8a5df2e8fc218ee67bd5d1f448870809ab61869191d4207b062d78e582ec-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-201f43df719394229ccedc4025480c831c106af6a2b5d26fdcff1c4b3727972f.json",
+      "idempotency_key": "legacy-task-import-20261011-legacy-doc-05c82c8a6e6c9181adfc2be2-a6bd8a5df2e8fc218ee67bd5d1f448870809ab61869191d4207b062d78e582ec-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "legacy-doc-05c82c8a6e6c9181adfc2be2",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "修复 rollout 采集阻断并验证隔离闭环。",
+            "goal": "修复 rollout 采集阻断并验证隔离闭环",
+            "scope": [
+              "TASKS/TASK-002-rollout.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-002-rollout.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "legacy-doc-05c82c8a6e6c9181adfc2be2",
+      "parents": [
+        ".workflow-system/records/events/key-c2586c5ede3f522271b2f3e8736bfcc42302e50c97f86a9c0f8625afb4d226da.json",
+        ".workflow-system/records/events/key-91546f93fc200c972d910fa2163cc6a90dbf4915d72ee20b31173b7f22ba368a.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-201f43df719394229ccedc4025480c831c106af6a2b5d26fdcff1c4b3727972f.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "d41a1cc7df0da67f0b883e9473898abf6134104dbddfa6ee97717506eba936ea",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

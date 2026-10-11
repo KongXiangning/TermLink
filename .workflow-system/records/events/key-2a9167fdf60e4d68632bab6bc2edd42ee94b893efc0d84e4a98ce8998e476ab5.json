@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:13:43.816Z",
+  "payload_sha256": "35b54ee43b8f7df937e61e76ca31a40d230d1da0ddde31678e8ba662d32030e0",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260820-001-95c54eb8f73d8bd7bc119ce85f5552f1cd6575678f81eae0845ebc15898e2066-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-68c42b8e1d1bdc155645d3ee0df46d4c5651775eed59eeb786d29b48e6274b16.json",
+      "idempotency_key": "legacy-task-import-20261011-20260820-001-95c54eb8f73d8bd7bc119ce85f5552f1cd6575678f81eae0845ebc15898e2066-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260820-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "Codex Rollout Collector 阶段 2：输入层与兼容层补齐",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260820-001-codex-rollout-collector-stage-2-input-compat.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260820-001-codex-rollout-collector-stage-2-input-compat.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260820-001",
+      "parents": [
+        ".workflow-system/records/events/key-264b254b5d125fbb771ee45cf711f6ffc99eaa525c40b95485609669e249ef82.json",
+        ".workflow-system/records/events/key-ee461c8b49af4d4e69ebdba1dff440917dfde1bec358f69be2add58b9d82b3a9.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-68c42b8e1d1bdc155645d3ee0df46d4c5651775eed59eeb786d29b48e6274b16.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "3a3da82228db9a2515005e512d68e5a00d9a2131f3b9db4046ba138119b83cbd",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

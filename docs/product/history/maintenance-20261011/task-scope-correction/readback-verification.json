@@ -1,0 +1,18 @@
+{
+  "old_task_sources_unchanged": true,
+  "task_operations": "none",
+  "requirements_retained": 25,
+  "deleted_current_requirement": "REQ-TERMLINK-ENHANCEMENT-CANDIDATES",
+  "stable_remaining_ids": true,
+  "existing_task_bindings_retained": true,
+  "new_binding_count": 28,
+  "removed_current_assessments": 15,
+  "goals": 4,
+  "selected_historical_sample": {
+    "id": "AS-CODE-TERMLINK-18-SAMPLES-20261011",
+    "conclusion": "satisfied",
+    "scope": "N-C-AD-SAMPLES",
+    "new_tests": false
+  },
+  "material_limits": "2–4月多项原始task未定位；旧大快照及全部执行附件未全面核验；全量当前产品验证未执行。"
+}

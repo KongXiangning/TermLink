@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:06:02.639Z",
+  "payload_sha256": "2ef7779ef1e75741b70953b2e2f711f18259902ef74a6752de17477c0c2a496c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260508-001-d16160ee5c0c4a663055e008c6ab436086811c6792309a7d1b8fa55d969282bf-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-cd746d28ac337630252745cf18e800a337050a096dd74200dedee6eec2f86f31.json",
+      "idempotency_key": "legacy-task-import-20261011-20260508-001-d16160ee5c0c4a663055e008c6ab436086811c6792309a7d1b8fa55d969282bf-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260508-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "Codex 输入区支持多 skill 内联插入并持久展示附件上下文",
+            "goal": "围绕 `RF-20260508-001` 与 `RF-20260508-002`，让 Codex 输入区支持像 VS Code Codex 一样的多 skill 内联 token 输入，并让本地图片 / 本地文件附件上下文在 Web / Android 的发送后历史中持续可见。",
+            "scope": [
+              "TASKS/TASK-20260508-001-codex-inline-multiple-skills-and-attachment-visible-history.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260508-001-codex-inline-multiple-skills-and-attachment-visible-history.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260508-001",
+      "parents": [
+        ".workflow-system/records/events/key-0eda837095f79b8da4abf236322121cd5c52566f19924d730ab657dc82f3f0dc.json",
+        ".workflow-system/records/events/key-804be0d005df3eaa43fc6a9c8ac6759229b956f9eeabc47334d675757a4f702f.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-cd746d28ac337630252745cf18e800a337050a096dd74200dedee6eec2f86f31.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "ad5845b4c547d2724a9f4e3b3045ae20749feb35ff474ac638a2fc5898459860",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

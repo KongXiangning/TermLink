@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:05:30.438Z",
+  "payload_sha256": "664fc7062ec7c7bc85c5e9738738006b43211fb76acf667c919ee122de23ac95",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260510-001-6a5a265cc131759b4d54fa6ddaa19622644e0da469388bf93b5849609dd1211f-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-f59f05dcc171518de2d0e8c1229458e697008c5430e8e99157de8abdcb09e22f.json",
+      "idempotency_key": "legacy-task-import-20261011-20260510-001-6a5a265cc131759b4d54fa6ddaa19622644e0da469388bf93b5849609dd1211f-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260510-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "补任务 20260504-001 的完整 Android smoke 与归档判断",
+            "goal": "从 clean handoff 入口继续推进候选 1，补齐旧任务 `20260504-001` 的完整 Android 真机 smoke 与最终归档判断，同时把候选 2（`node --test` full suite 挂起点）和候选 3（Android release config 策略）保留为后续入口，不在本轮展开。",
+            "scope": [
+              "TASKS/TASK-20260510-001-complete-20260504-001-android-smoke-and-archive-decision.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260510-001-complete-20260504-001-android-smoke-and-archive-decision.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260510-001",
+      "parents": [
+        ".workflow-system/records/events/key-f8234f9d901f7696a06aa9af9d249eb149d418ab710f7d78ea6a48455e20f4f3.json",
+        ".workflow-system/records/events/key-80724dd42f79b9053814e34e567744c9e3a96a15cc779458355b698a3e6271ef.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-f59f05dcc171518de2d0e8c1229458e697008c5430e8e99157de8abdcb09e22f.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "38b4c903c510a5aa02dc6ac8c2cdd77781edd1081d7e13a0cba647b44c19c2fd",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:11:14.643Z",
+  "payload_sha256": "1231ee1f786bd44d43458e0729f7168ac5b8320a9e4ead0886e032327a9e9384",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260825-003-9b4a419fa2508d1b87a4a59a49a866160c9904aa8e8e616f8063e83ed533bdbf-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-714f40f72ddc201f6d535a7c003879e6c504ef46a2b341fc4b6bd17781359504.json",
+      "idempotency_key": "legacy-task-import-20261011-20260825-003-9b4a419fa2508d1b87a4a59a49a866160c9904aa8e8e616f8063e83ed533bdbf-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260825-003",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "收敛 Node↔Rust 接口文档，移除 discovery/fingerprint 业务接口语义",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260825-003-codex-node-rust-interface-contract-convergence.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260825-003-codex-node-rust-interface-contract-convergence.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260825-003",
+      "parents": [
+        ".workflow-system/records/events/key-17f0b3ad01e217993c40080130f47812c1c2549688bfb43f24b501861f58f92b.json",
+        ".workflow-system/records/events/key-edc05a925de28b80ccc79a9f9af36750a0b97636de56143e952ae5bd1f026cb3.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-714f40f72ddc201f6d535a7c003879e6c504ef46a2b341fc4b6bd17781359504.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "59ee1ac11ee4639f5c005331ce9ff9b6a9ea858a5c1c8b786b525a229c6b5c5a",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

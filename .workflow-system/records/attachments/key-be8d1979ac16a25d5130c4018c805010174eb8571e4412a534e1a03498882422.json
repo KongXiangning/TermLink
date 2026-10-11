@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-be8d1979ac16a25d5130c4018c805010174eb8571e4412a534e1a03498882422.json",
+  "captured_at": "2026-10-11T10:09:15.210Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d.blob",
+      "sha256": "4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d",
+      "size": 9531,
+      "source_path": "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md",
+      "issues": []
+    }
+  ]
+}

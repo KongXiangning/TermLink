@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:07:31.515Z",
+  "payload_sha256": "79907b8acb041bee9809fecd279ee6cabe1bce6193bf99794c66f4a957023d19",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-source",
+    "idempotency_key": "legacy-task-import-20261011-legacy-doc-03166aa61e365e5f8af1f680-3ba5ae9714d8803f97e1ef1657327381bfd13298909baeae89b5a9212e0b1bec-source",
+    "body": {
+      "original_task_id": "003",
+      "task_id": "legacy-doc-03166aa61e365e5f8af1f680",
+      "source": "TASKS/TASK-003-rust-node-app.md",
+      "sha256": "3ba5ae9714d8803f97e1ef1657327381bfd13298909baeae89b5a9212e0b1bec",
+      "original_status": "closed",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "stopped-by-user",
+      "qualification": "not-recertified",
+      "original_goal": "Remove destructive Rust path redaction and connect rollout analysis to product history persistence and APIs.",
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- task_id: 003\n- task_title: \"保留 Rust 采集历史的真实路径与内容，完成 Node 产品历史数据库和可供 App 后续只读加载的历史接口\"\n- task_slug: rust-node-app\n- document_id: doc-03166aa61e365e5f8af1f680\n- workflow_status: closed\n- lifecycle_state: archived\n- source_revision: b1edc95785caff04cac4aa7ac5fa1f000769962d5e25c7dc39abf65084136428\n- archive_path: TASKS/TASK-003-rust-node-app.md\n- archive_operation: archive-transaction\n- archive_caller: close-task\n- proposal_idempotency_key: close-003-stopped-20260928-3f403301\n- closure_delta_digest: 7d60eedf505e55027728a5a74be1164a365883fec144cfc21fc5d7663eb5fe70\n- completion_disposition: stopped-by-user\n- exception_decision_ids: [\"close-003-stop-decision-20260928-3f403301\"]"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- goal: Remove destructive Rust path redaction and connect rollout analysis to product history persistence and APIs.\n- actual_changes:\n  - Rust source path preservation and product history store and gateway changes were made in Task 003.\n  - \"Node collector/product history integration, unattended reconciliation, Android generated-project recovery, and release staging changes remain in the workspace.\"\n  - S5 package startup and persistent data repair was implemented locally but its repair result and verification review remain unregistered."
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- affected_contracts: preserved in the CURRENT_TASK snapshot; admitted Contract candidates are reconciled after archive through the typed Runtime operation.\n- confirmed_decisions: preserved in the CURRENT_TASK snapshot; admitted Decision candidates are reconciled after archive through the typed Runtime operation."
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- closure_evidence:\n  - acceptance_satisfied: false\n  - validation_complete: false\n  - no_admitted_or_in_progress_findings: false\n  - no_unresolved_closure_blocker: false\n  - release_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - rollback_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - observation_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - remaining_risks_non_blocking: false\n  - archive_path_verified: true\n\n- acceptance_satisfied: false\n- validation_complete: false\n- verification:\n  - \"Historical S5 package smoke reported 1/1 pass; original stdout was not retained and the result was not registered.\"\n  - Current git diff --check exited 0 with line-ending warnings.\n  - \"S5 record-step-result dry-run was blocked with MUTATION_AUTHORITY_GOVERNANCE_BOUNDARY because the retained preflight lists 58 android/** candidates forbidden by the current task; dry-run did not record a result.\"\n  - \"Runtime closure context reports acceptance_satisfied=false and validation_complete=false; C4-flow-final, C4-package, and C4-unattended remain unfinished obligations.\"\n- release_evidence:\n  - none\n- rollback_evidence:\n  - none\n- observation_evidence:\n  - none\n- next_action: \"Task 003 is stopped by user. Keep code and all findings/evidence history; any future work requires a separately authorized task.\""
+        },
+        {
+          "name": "知识晋升",
+          "text": "knowledge_admissions:\n  contracts: []\n  decisions: []"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "lesson_admission:\n  decision: no-op\n  candidate_refs: []\n  evidence_refs: []"
+        },
+        {
+          "name": "后续关联",
+          "text": "- remaining_risks:\n  - claim:C4/C4-flow-final\n  - claim:C4/C4-package\n  - claim:C4/C4-unattended\n  - finding:finding-1be3dd2c7838b5fd09a84dcdece01780\n  - finding:finding-d850ba013289f2cd7d621c61e55308c2\n  - gate:acceptance\n  - gate:outstanding-execution\n  - gate:review-coverage\n  - gate:validation\n  - review:review-33edb5c607c391ba7ab68e1095f01fd00866d7c8\n  - step:S5\n  - \"S5 repair execution result was not registered; the retained preflight has 58 android/** candidate paths forbidden by current task admission. Dry-run code: MUTATION_AUTHORITY_GOVERNANCE_BOUNDARY.\"\n  - \"S4 C4-flow-final and C4-unattended reports remain stale for current code; no new reports are submitted by this closure.\"\n  - S5 pending review has two in-progress findings concerning packaged analyzer startup and persistent history state.\n  - \"No release, deployment, rollback exercise, or observation window was completed for Task 003.\"\n- remaining_risks_non_blocking: false\n- next_task: none created by close-task."
+        }
+      ]
+    },
+    "files": [
+      "TASKS/TASK-003-rust-node-app.md"
+    ]
+  },
+  "issues": []
+}

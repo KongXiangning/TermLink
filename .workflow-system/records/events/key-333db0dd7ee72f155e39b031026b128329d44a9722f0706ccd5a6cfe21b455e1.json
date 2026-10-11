@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:15:09.829Z",
+  "payload_sha256": "ac7858fbc06246f67e2df8e7ce5e7292f6ecb1ece88f3d23b799a6539707a8b3",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260726-002-dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857-disposition-source",
+    "body": {
+      "original_task_id": "20260726-002",
+      "task_id": "20260726-002",
+      "source": "TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md",
+      "sha256": "dbabf72656e7fa167e05c924e23f1001979fcf55a2f50d3ea8a5602eb015b857",
+      "original_status": "completed",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": null,
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- Task ID：20260726-002\n- Task title：Android / 服务端持久诊断日志与问题取证\n- Task slug：persistent-diagnostics-for-known-issues\n- Task start base：052c8f3\n- Final commit：e9f2a6e\n- Final status：completed"
+        },
+        {
+          "name": "原始任务目标",
+          "text": "- 为 Android、WebView 与 Node 服务端增加跨 APK 更新保留的结构化持久诊断日志。\n- 覆盖当时记录的九类问题入口、状态、异常与恢复证据，不改变业务逻辑或 Codex IPC authority。\n- 提供 ADB/服务端采集脚本，生成 manifest、原始日志与合并 timeline。"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- Android Debug 默认启用私有 `files/diagnostics` JSONL 滚动日志，Release 由构建开关显式启用，总容量约 10MiB。\n- 本地开发服务默认启用服务端 JSONL 滚动日志，生产由环境变量显式启用，总容量约 50MiB。\n- 增加未捕获异常、主线程 watchdog、Activity/WS/Service 生命周期、Sessions、Codex IPC/owner 与通知等脱敏诊断事件。\n- 增加统一采集脚本与开发调试指南；日志不记录 prompt、命令正文、终端输出、附件、认证材料或证书密码。"
+        },
+        {
+          "name": "契约与决策",
+          "text": "- HTTP、WebSocket、DTO、session 持久化和 Codex IPC follower/authority 均未改变。\n- 新增内部 JSONL 观测格式与三个开关：`TERMLINK_DIAGNOSTICS_ENABLED`、`TERMLINK_DIAGNOSTICS_PATH`、`TERMLINK_ANDROID_DIAGNOSTICS_ENABLED`。\n- 日志失败保持 fail-open，不得阻断业务。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- `node --check`、诊断 logger tests、IPC gateway targeted tests、Sessions capacity tests 通过。\n- JDK 21 `:app:testDebugUnitTest` 与 `:app:assembleDebug` 通过。\n- 使用 `adb install -r` 连续升级后，App 私有诊断文件和历史尾记录保持。\n- 采集脚本 smoke 成功生成 `manifest.json`、原始日志和 `timeline.jsonl`。\n- 全量 `npm test` 在 124 秒无输出后超时；已按既有 TD-004 窄门禁保留，不伪装为通过。"
+        },
+        {
+          "name": "后续关联",
+          "text": "- 临时问题记录继续位于 `tmp/codex-known-issues-20260726.md`。\n- 后续业务修复可直接使用既有 Android/服务端持久诊断事件取证。\n- 下一任务：`20260727-001` Windows Codex IPC-first / Owner-fallback 第一阶段修复。"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-2479d9a08ddba7c825e5d67ea9c21cc3e77a4e48abcfbf5d4e31b1d05c17efdd.json"
+    }
+  },
+  "issues": []
+}

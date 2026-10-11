@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:08:25.003Z",
+  "payload_sha256": "db834ef2c570d28cb995f56d3d81a20110be5dc3be0fb713a7543a76d2f91a34",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-legacy-doc-05c82c8a6e6c9181adfc2be2-a6bd8a5df2e8fc218ee67bd5d1f448870809ab61869191d4207b062d78e582ec-disposition-source",
+    "body": {
+      "original_task_id": "002",
+      "task_id": "legacy-doc-05c82c8a6e6c9181adfc2be2",
+      "source": "TASKS/TASK-002-rollout.md",
+      "sha256": "a6bd8a5df2e8fc218ee67bd5d1f448870809ab61869191d4207b062d78e582ec",
+      "original_status": "closed",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": "修复 rollout 采集阻断并验证隔离闭环",
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- task_id: 002\n- task_title: \"修复 rollout 采集阻断并验证隔离闭环。\"\n- task_slug: rollout\n- document_id: doc-05c82c8a6e6c9181adfc2be2\n- workflow_status: closed\n- lifecycle_state: archived\n- source_revision: d465512ce44684d64d6e8cd8129112d272db2bc37d22449dfa73c7c682e6408e\n- archive_path: TASKS/TASK-002-rollout.md\n- archive_operation: archive-transaction\n- archive_caller: close-task\n- proposal_idempotency_key: close-002-rollout-f8a6635c-20260923\n- closure_delta_digest: 7faedcab2ad29cf8525e01005549fb04e085e11f1aa56c9977529ce847096b62\n- completion_disposition: verified"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- goal: \"修复 rollout 采集阻断并验证隔离闭环\"\n- actual_changes:\n  - \"公共 backfill 有界推进并安全衔接 append\"\n  - \"映射 FileChange/CommandExecution 历史事实\"\n  - \"验证真实 Node→Rust stdio→三个 File stores 的恢复闭环；本地提交 f8a6635c1e8d00f236631e7e278bd60893ac74bc\""
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- affected_contracts: preserved in the CURRENT_TASK snapshot; admitted Contract candidates are reconciled after archive through the typed Runtime operation.\n- confirmed_decisions: preserved in the CURRENT_TASK snapshot; admitted Decision candidates are reconciled after archive through the typed Runtime operation."
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- closure_evidence:\n  - acceptance_satisfied: true\n  - validation_complete: true\n  - no_admitted_or_in_progress_findings: true\n  - no_unresolved_closure_blocker: true\n  - release_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - rollback_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - observation_evidence:\n    - triggered: false\n    - complete: false\n    - evidence_refs: []\n  - remaining_risks_non_blocking: true\n  - archive_path_verified: true\n\n- acceptance_satisfied: true\n- validation_complete: true\n- verification:\n  - \"C1 rollout_blockers 8/8 通过\"\n  - \"C2 conformance 31/31、stage2_input 3/3、rollout_blockers 8/8 通过\"\n  - \"Rust binary 构建通过；六文件 Node 回归 148/148 通过\"\n  - \"六个 claim-bound 槽位完成，S3 累计 verification review 为 clean，task-complete 已持久化\"\n- release_evidence:\n  - none\n- rollback_evidence:\n  - none\n- observation_evidence:\n  - none\n- next_action: \"产品数据库、业务入口、历史发布及 App 接入须另立任务；本任务未部署或发布。\""
+        },
+        {
+          "name": "知识晋升",
+          "text": "knowledge_admissions:\n  contracts: []\n  decisions: []"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "lesson_admission:\n  decision: no-op\n  candidate_refs: []\n  evidence_refs: []"
+        },
+        {
+          "name": "后续关联",
+          "text": "- remaining_risks:\n  - none\n- remaining_risks_non_blocking: true\n- next_task: none created by close-task."
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-201f43df719394229ccedc4025480c831c106af6a2b5d26fdcff1c4b3727972f.json"
+    }
+  },
+  "issues": []
+}

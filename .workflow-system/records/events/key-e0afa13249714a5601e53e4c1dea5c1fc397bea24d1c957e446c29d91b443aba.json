@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:16:55.093Z",
+  "payload_sha256": "67493132feb78bf7c2832246b400202e437151e8597852d2c742ab82c497ac35",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260722-001-53ef3940d668bfd59115ca0b0aa02de9d5c6848d48a7a32af18e780a9d3b7486-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-bc42a9486c1cf316c7255eb05a6a50ee7ea2001ce54d9fb5f0212aa89f3591ed.json",
+      "idempotency_key": "legacy-task-import-20261011-20260722-001-53ef3940d668bfd59115ca0b0aa02de9d5c6848d48a7a32af18e780a9d3b7486-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260722-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "TASK-20260722-001：修复 Android Codex 会话页入口与 composer 布局",
+            "goal": "恢复 Codex 会话页的会话管理侧栏入口，消除 composer 底部多余空白，并在保持输入框外框尺寸不变的前提下让提示、光标和首行从顶部起笔。",
+            "scope": [
+              "TASKS/TASK-20260722-001-fix-android-codex-composer-layout.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260722-001-fix-android-codex-composer-layout.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260722-001",
+      "parents": [
+        ".workflow-system/records/events/key-c86fbaad309aadbc80b76377a29899a9e02ee24a6911fe247869c58dfccfb93e.json",
+        ".workflow-system/records/events/key-c15e79485bf00d6d97255747f9f8faf1003add7e93c5784d42fe014b8d880359.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-bc42a9486c1cf316c7255eb05a6a50ee7ea2001ce54d9fb5f0212aa89f3591ed.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "ba9e2fd7d565da3659acf94e6aef82c7b190bbafd8d0952dc5fc65489e281546",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

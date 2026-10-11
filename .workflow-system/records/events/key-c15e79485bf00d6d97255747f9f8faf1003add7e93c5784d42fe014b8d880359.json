@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:16:25.790Z",
+  "payload_sha256": "49874eeeafba79ec8c68f6cfe352f3de911142a7b3019227a20f812567cce515",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260722-002-f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561-disposition-source",
+    "body": {
+      "original_task_id": "20260722-002",
+      "task_id": "20260722-002",
+      "source": "TASKS/TASK-20260722-002-android-codex-open-conversation-files.md",
+      "sha256": "f519b122c8e551466568e164d353cc6d972f5708dc682c08e61272d63666e561",
+      "original_status": "completed",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": null,
+      "sections": [
+        {
+          "name": "任务信息",
+          "text": "- 任务 ID：20260722-002\n- 任务标题：支持 Android Codex 对话记录直接打开图片与文档\n- 状态：completed\n- 任务起始基线：85e7dc6\n- 归档依据：用户在 2026-07-26 明确确认该任务已完成。"
+        },
+        {
+          "name": "目标与结果",
+          "text": "完成 Android Codex 历史消息中的图片、文件提及、Markdown 图片/文件链接的点击打开能力，并完成历史任务绑定、IPC follower、canonical 恢复、配置记忆、后台保活、额度通知、命令批次折叠和文本选择等后续收口。"
+        },
+        {
+          "name": "验证结果",
+          "text": "- Android JVM 测试与 Debug APK 构建已通过。\n- IPC / owner / gateway、Workspace/Web 定向 Node 回归已通过。\n- `git diff --check` 已通过。\n- Huawei 真机已完成 Markdown 附件打开、任务切换、配置恢复、Doze 保活、额度通知和命令批次折叠验证。\n- 仓库仍保留的 release config 基线失败和交叉宿主长任务证据按原任务记录保留，不影响本次归档确认。"
+        },
+        {
+          "name": "后续观察",
+          "text": "- 后续新需求应创建独立任务，不继续扩展本任务的 Codex IPC 范围。"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-914bfaedbb5782dd252d5930d9d6417f46d4055ada5143370e3c4787ddc2957c.json"
+    }
+  },
+  "issues": []
+}

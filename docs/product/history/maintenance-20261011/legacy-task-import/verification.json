@@ -1,0 +1,18 @@
+{
+  "historical_imported": 34,
+  "total_locatable_identities": 42,
+  "unified_tasks": 40,
+  "lifecycles": {
+    "closed": 38,
+    "paused": 2
+  },
+  "current_task_id": null,
+  "fixed_original_attachments_verified": 34,
+  "original_task_sources_unchanged": true,
+  "original_six_dispositions_and_remaining_work_unchanged": true,
+  "requirement_bodies_and_definition_digests_unchanged": true,
+  "bindings_updated": 12,
+  "task_issues": [],
+  "business_execution_performed": false,
+  "read_limitations": "大型CURRENT_TASK逐步骤快照和全部执行附件未全面核验；历史完成/关闭不证明需求全量交付。"
+}

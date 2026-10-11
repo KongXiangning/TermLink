@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:19:28.909Z",
+  "payload_sha256": "568e6413b4ad7b7c2813e3a67d153c2218d289ab770258053f666f40ed0f4c60",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260715-002-0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-50ba3be0544cbf6c8d43fc0ff1cc2fe51c7babdc09853086585e7924cf623912.json",
+      "idempotency_key": "legacy-task-import-20261011-20260715-002-0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260715-002",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "优化网页版登录、配置、页面布局与终端交互",
+            "goal": "在保留 TermLink 既有服务端接口、会话语义和终端能力的前提下，系统优化网页版登录、配置、全局布局与终端工作区，使信息层级、操作反馈、键盘/触控可用性、响应式表现和终端高频操作符合现代交互与无障碍最佳实践。",
+            "scope": [
+              "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260715-002",
+      "parents": [
+        ".workflow-system/records/events/key-5e9d4f6a3982b02f08a1bb74ca8d641b57640c35c3f9f1b7c55c25a4571cc560.json",
+        ".workflow-system/records/events/key-61142912ddcdc8af5988fb044a04bf51b1f370bc0df96f21f1c9f8d5191ec34f.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-50ba3be0544cbf6c8d43fc0ff1cc2fe51c7babdc09853086585e7924cf623912.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "abf046b81b1e4857f4032062ebb0c45d354229e97a165974a97c94cca2eb55d5",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

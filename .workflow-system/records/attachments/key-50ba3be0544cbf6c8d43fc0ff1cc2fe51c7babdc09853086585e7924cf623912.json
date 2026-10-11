@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-50ba3be0544cbf6c8d43fc0ff1cc2fe51c7babdc09853086585e7924cf623912.json",
+  "captured_at": "2026-10-11T10:19:16.090Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f.blob",
+      "sha256": "0ca9e2d8d77b6aaef377989609b259258312b93c9352e77361f70cc754ddfe7f",
+      "size": 59363,
+      "source_path": "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md",
+      "issues": []
+    }
+  ]
+}

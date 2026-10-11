@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:03:55.741Z",
+  "payload_sha256": "4af63810822044fbbe82bab89e5e2bdf2ce18fba380fdab70bc4c2c251b40707",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260617-002-fc692f2d64b637a62ac23a13a20f9ec5a4ee9a52a33fda6a755b8d68c6d87ffa-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-776d00ab67dfc93b12a4dc5d8adcd717b57b4b8fe5655d7c2ec9671c5b43bc69.json",
+      "idempotency_key": "legacy-task-import-20261011-20260617-002-fc692f2d64b637a62ac23a13a20f9ec5a4ee9a52a33fda6a755b8d68c6d87ffa-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260617-002",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "网页版 Codex 会话页优先使用 IPC 数据通道并保留原通道降级",
+            "goal": "在不改变 `public/codex_client.html` 文件、可见界面、布局、样式、按钮或交互入口的前提下，让网页版 Codex 会话页的数据层优先消费现有 IPC feed，经 `terminalGateway` 的 IPC WebSocket envelope 与 Desktop / VS Code owner surface 同步；当 IPC 离线、无可用 conversation、主动发送被拒绝或 IPC 数据不可用时，保持现有 `codex_turn` / `codex_state` / `codex_notification` 原通道可用。",
+            "scope": [
+              "docs/workflow/TASKS/20260617-002-web-codex-session-ipc-first-data-routing.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "docs/workflow/TASKS/20260617-002-web-codex-session-ipc-first-data-routing.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260617-002",
+      "parents": [
+        ".workflow-system/records/events/key-df65f6ccab038368a125c85ac8936991c69f303a5d0f9152da0e07eaa4368ba9.json",
+        ".workflow-system/records/events/key-f494560be2038c88a3abd897fb58cc379b196caaaf0c042165a7bf0d5901f902.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-776d00ab67dfc93b12a4dc5d8adcd717b57b4b8fe5655d7c2ec9671c5b43bc69.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "b0eebb44105ef4115b89deeb676d682a11784df78988ab2c3c7be196129588b2",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

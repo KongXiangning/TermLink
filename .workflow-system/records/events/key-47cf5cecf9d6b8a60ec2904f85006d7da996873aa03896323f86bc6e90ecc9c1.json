@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:03:24.771Z",
+  "payload_sha256": "df95924525df70ff0affe7d559eb4d4a6d2a1c5b00b46b97af14703687ad8aeb",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260716-002-0848f952f7b6b8956c032170219d6bbef0660a39a45a94e66c03a94340d835f9-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-8c2b8fcd6f81c598d81089c9aeff94732219f5a30240c1ed3a6f688a5a6d87ab.json",
+      "idempotency_key": "legacy-task-import-20261011-20260716-002-0848f952f7b6b8956c032170219d6bbef0660a39a45a94e66c03a94340d835f9-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260716-002",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "修复 Web Codex 会话配置数据与头部重复路径",
+            "goal": "让 Web Codex 会话页正确显示模型推理强度与权限选项，并把头部重复三次的当前工作目录收敛为一个明确的 `PATH` 展示。",
+            "scope": [
+              "docs/workflow/TASKS/TASK-20260716-002-fix-web-codex-reasoning-permissions-data.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "docs/workflow/TASKS/TASK-20260716-002-fix-web-codex-reasoning-permissions-data.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260716-002",
+      "parents": [
+        ".workflow-system/records/events/key-0f3c2e13d00e1ebb604e76c0af3520423970076b3afa337ca3290e500c017931.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-8c2b8fcd6f81c598d81089c9aeff94732219f5a30240c1ed3a6f688a5a6d87ab.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "37db0e9d90885a4fd14ed461dfd7ebceca36c070671f3fdec4f5eb2b3b0843d1",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:11:51.443Z",
+  "payload_sha256": "cca21560f2f7b06ce80efd855d74d531cd184340101b4e99c85964e7e249a371",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260823-001-202da37853950965b1c980bb1b80512f64ff71f0e4d13f1aa45526bd8bf00410-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-df345d5c68ff0504756c8f3de042f493dbb6b2b65a1e0de5f9863a96c10408b4.json",
+      "idempotency_key": "legacy-task-import-20261011-20260823-001-202da37853950965b1c980bb1b80512f64ff71f0e4d13f1aa45526bd8bf00410-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260823-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "重订 Codex Rollout Collector 会话 lineage 发现与读取设计",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260823-001-codex-rollout-collector-session-lineage-replan.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260823-001-codex-rollout-collector-session-lineage-replan.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260823-001",
+      "parents": [
+        ".workflow-system/records/events/key-080500399bea22951f293a5fb91237d360665d7867efdb813590f83a7e43792e.json",
+        ".workflow-system/records/events/key-2866ddbc28f5b6e2c259a3934d31840a66d5c28911a4a51477feeb0d3ab7c4d9.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-df345d5c68ff0504756c8f3de042f493dbb6b2b65a1e0de5f9863a96c10408b4.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "4916857d531412e8f2ce705ae8ef1af23072e7311d11a7a4f4c4f2a0b13e77c0",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:10:38.489Z",
+  "payload_sha256": "ca9a59f513ca4bb1fa907819b119c4bcaf8a7384ee945a7720a3456c9f5ee622",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260826-001-9bed4e46068be314cc8218ddb4fea3b5a40f2f293f91f4e2efb623d03a1d5fb9-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-d3ee3a88876db95de377a7fc4d2fb9416b07bdb0a49737e4e9934e468d6fb356.json",
+      "idempotency_key": "legacy-task-import-20261011-20260826-001-9bed4e46068be314cc8218ddb4fea3b5a40f2f293f91f4e2efb623d03a1d5fb9-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260826-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "4.5 阶段 Rust analyzer 公共协议一次性迁移与 legacy 字段退役",
+            "goal": "将 formal native crate 的 target 运行态切换到 4.5 startup/wire/data 形状，接通 Rust 内部 `sessions_root` source locating、session lineage、Adapter/reducer/projection 映射、ACK/checkpoint 和进程级验证。",
+            "scope": [
+              "TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260826-001",
+      "parents": [
+        ".workflow-system/records/events/key-b159439fae6bef37602084a8196c780bf9c55cb52f59af3615a6cdae1f011663.json",
+        ".workflow-system/records/events/key-afa830dc9323a304b665ef62f37c1d75b988253cf1df92f1a04432da450c05f9.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-d3ee3a88876db95de377a7fc4d2fb9416b07bdb0a49737e4e9934e468d6fb356.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "ca59341412d807585d20c108884a91998ee6c54114d98321bf11beeb8be354fc",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

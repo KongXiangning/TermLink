@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-534aa659251d395cbea9e57b0361aecb3dc03364ef58959e69be496e514275ac.json",
+  "captured_at": "2026-10-11T10:17:20.838Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/519c2e36353d8847f818346a48baccd6e567ffa8da770b0d6ac3cf58bde5a1b8.blob",
+      "sha256": "519c2e36353d8847f818346a48baccd6e567ffa8da770b0d6ac3cf58bde5a1b8",
+      "size": 2414,
+      "source_path": "TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md",
+      "issues": []
+    }
+  ]
+}

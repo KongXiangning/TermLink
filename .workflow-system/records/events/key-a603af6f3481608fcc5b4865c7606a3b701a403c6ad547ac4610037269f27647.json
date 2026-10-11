@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:11:59.538Z",
+  "payload_sha256": "6ca929382d2ce590b5890dc57961e0b6531decbc4dd28e0e5e9caf2c2b74f631",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260823-001-202da37853950965b1c980bb1b80512f64ff71f0e4d13f1aa45526bd8bf00410-disposition-source",
+    "body": {
+      "original_task_id": "20260823-001",
+      "task_id": "20260823-001",
+      "source": "TASKS/TASK-20260823-001-codex-rollout-collector-session-lineage-replan.md",
+      "sha256": "202da37853950965b1c980bb1b80512f64ff71f0e4d13f1aa45526bd8bf00410",
+      "original_status": "archived",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": null,
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\n- 任务 ID：20260823-001\n- 任务标题：重订 Codex Rollout Collector 会话 lineage 发现与读取设计\n- 任务 slug：codex-rollout-collector-session-lineage-replan\n- 开始日期：2026-08-23\n- 归档日期：2026-08-24\n- 最终状态：archived\n- 任务开始基线：`7e9f552`\n- 主要实现提交：`a94dcbc`（`fix(collector): canonicalize rollout siblings`）\n- 归档结论：Rust Collector 会话级内部 source 定位、lineage 重建、读取模式和 replacement evidence 已完成并通过目标回归；不宣称 Node 产品持久化、服务端数据库、App ADTO、IPC、Android 或产品 release 已完成。"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "### Rust Collector\n\n- 新增 Rust 内部 source 定位、候选 provenance、日期范围遍历、active-head 选择和 lineage chain 解析。\n- 以 `history_base` 建立跨日期 parent/child 关系，沿 root→head 重建完整历史并保留被替换 turn。\n- 接入 lineage full read、tail/backward recovery、backfill、同文件 append 和 child transition。\n- 输出 additive 的 discovered sources、lineage transitions、coverage、checkpoint 和 replacement evidence。\n- 增加 transition validation state：`discovered`、`validated`、`validation_unavailable`。\n- 将物理 append delta 与完整 lineage snapshot 分离；重启后可恢复最新 active head，不把 delta 当完整历史。\n- 删除不符合已确认 Codex append-only source model 的 parent auxiliary 整文件 mutation guard；保留 source identity、cut、cursor、读取完整性和 replacement validation。\n- 在 discovery/catalog 阶段实现 Codex 兼容的同目录同名 plain sibling 优先：`.jsonl` 与 `.jsonl.zst` 同时存在时只保留 `.jsonl`；zst-only 仍保留。\n\n### Fixture 与测试\n\n- 新增 `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/` 五文件跨日期 synthetic/sanitized fixture。\n- 覆盖 full read、Preview、Backfill、latest-path restart recovery、stale root-like provenance、same-file append、active-head ambiguity、transition validation、`.zst` parent fail-closed 和 plain sibling priority。\n\n### 文档与治理\n\n- 同步 Collector change plan、architecture、Codex compatibility、recorder technical reference、server-sync 上游依赖说明和 Collector technical details。\n- 同步 `CONTRACTS.md` 与 `DECISIONS.md`，明确 discovery、lineage、读取模式、coverage、replacement 和压缩源边界。\n- closeout 期间同步 `STATUS.md`、`LESSONS.md`、`CURRENT_TASK.md` 以及 host guidance；这些治理文件不改变产品运行时边界。"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "### 已稳定并同步\n\n- 文件名不是 canonical conversation identity，也不能单独证明父子关系；`history_base` 是 lineage 关联证据。\n- rollout.jsonl 的物理读取不是分页；日期分区、候选数和内部 locator budget 与 full/tail/backward/append 读取模式分离。\n- 删除 `max_lineage_depth`；循环由 visited 检测，资源边界由 discovery/read budget、取消和 deadline 负责。\n- lineage evidence、lineage coverage、projection coverage、batch completeness 和 replacement mutation 分开表达。\n- 只有验证与 coverage 满足条件时才允许替换投影；partial/evidence-only 不提交 replacement mutation。\n- 同目录 `.jsonl` / `.jsonl.zst` sibling 遵循 plain 优先；不同路径相同 rollout ID 仍保持冲突语义，不跨目录合并。\n- 普通无索引 `.zst` 作为 active/root 可 forward full read；作为 parent 需要随机/后向/切点读取时 fail-closed。\n\n### 保持不变的关键边界\n\n- 当前业务仍是最后一个已终止用户 turn 的一对一编辑替换，不扩展成任意 suffix、多 turn 或通用 branch graph。\n- `SourceBackend`、既有单文件 full/tail/backward/append cursor 语义保持兼容。\n- 不修改 vendor Codex 源码，不把 Demo/Spike 变成正式实现依赖。\n- 不修改 Node 产品持久化、正式数据库 schema/migration、WebSocket/IPC runtime、Android 或既有产品 DTO。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "### 目标回归\n\n- Rust library：96/96 通过。\n- Rust 全量：`cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --all-targets --no-default-features` 通过：96 unit、31 conformance、3 stage2、5 stage3、22 stage4。\n- `cargo fmt --check`、`git diff --check`、提交前敏感信息扫描和版本检查通过。\n- 真实 rollout 目录 smoke 已验证 full read、Preview、Backfill、Append；五文件 fixture 已覆盖跨日期 lineage 与重启恢复矩阵。\n- 最终范围审查 `7e9f552..working-tree` 未发现阻断性缺陷或越界改动。\n\n### Release evidence\n\n- Release mode：none / not applicable。\n- Deploy source：none。\n- Target environment：本地 Windows formal Rust package 与隔离测试。\n- Health checks：not applicable；未启动或变更产品服务。\n- Canary window：none。\n- Performance baseline：not run；本任务未建立产品性能基线。\n- Rollback / recovery：保留基线 `7e9f552` 和提交 `a94dcbc`；未执行整树 reset、clean、删除或历史重写。\n- Release evidence：无发布、部署、canary 或生产证据，不代表产品 release-ready。"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "本任务已新增：\n\n- L-023：文件名只能发现候选，`history_base` 才能建立 session lineage。\n- L-024：发现范围、物理读取模式和 lineage 深度必须分开。\n- L-025：lineage 证据不能直接充当 projection completeness。\n- L-026：plain/compressed sibling 必须在 catalog 冲突前 canonicalize。\n- L-027：host guidance 必须成对同步，并显式处理被忽略的文件。"
+        },
+        {
+          "name": "后续关联与观察点",
+          "text": "- 后续任务：若进入阶段 4.5，应新建任务设计 Node 服务端持久化、history projection、App ADTO 和同步接入；不得在本归档中提前宣称已完成。\n- 上游兼容观察：Codex 文件名、`SessionMeta`、`history_base` 和 UI last-turn replacement 行为属于 compatibility invariant；未来 vendor/UI 变化时需更新 fixture 并 fail-closed 升级适配。\n- `.zst` 观察：当前只冻结无索引 `.zst` 的 forward-only 边界，不伪造 parent seek/backward/append 能力。\n- 治理工具观察：`bun run workflow:health` 仍因缺失 `scripts/workflow-runtime.ts` 所引用的 `./guard-target-root` 而无法启动；`bun run validate:protocol` 的任务外 paused/inbox artifact 问题另立治理任务处理。\n- 工作树观察：`native/parse-probe/`、`native/rustup-init.exe`、`native/winlibs.zip` 等任务外内容保持原样，未清理、未修改、未纳入本任务实现。\n- `CLAUDE.md` 当前受 `.gitignore` 忽略；host guidance 已生成并与 `AGENTS.md` 对齐，但是否纳入版本控制需另立治理决定。"
+        },
+        {
+          "name": "归档与下一轮入口",
+          "text": "- 归档位置：`TASKS/TASK-20260823-001-codex-rollout-collector-session-lineage-replan.md`\n- 下一轮没有明确任务包；收到新需求后执行 `/create-current-task`，不得自动恢复或扩大本任务。"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-df345d5c68ff0504756c8f3de042f493dbb6b2b65a1e0de5f9863a96c10408b4.json"
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:07:09.007Z",
+  "payload_sha256": "ef1eb01c9a60747b5ad7700fa27630284f66e9d17ee0a4ca201ca438cddfd03f",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260503-001-52c54e998b6f7e2ac32bc871d761720d96f58b2ed611b691b43b057ff7b1f6cd-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-07316f021e91534c29b23681fa714805b11ef558a58d6dfeb55107189e195c02.json",
+      "idempotency_key": "legacy-task-import-20261011-20260503-001-52c54e998b6f7e2ac32bc871d761720d96f58b2ed611b691b43b057ff7b1f6cd-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260503-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "Clarify Codex App skill cwd scope",
+            "goal": "重新调查 App 中新增 skill 不可见的问题，并审核当前文档是否把 App 逻辑写清楚：Codex App 中不同会话会打开不同路径，不同路径对应 Codex CLI 中不同 cwd，读取到的 skills 也不同。",
+            "scope": [
+              "TASKS/TASK-20260503-001-clarify-codex-app-skill-cwd-scope.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260503-001-clarify-codex-app-skill-cwd-scope.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260503-001",
+      "parents": [
+        ".workflow-system/records/events/key-2ea075753b8c9e3b3ae7f38df0fd02636afbfbf7386898b89f006fe19e93c5f1.json",
+        ".workflow-system/records/events/key-e55b4b47be370827fbf32d9970e65fb244d58cbea9ef90b5b365a4dc36fc7bbb.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-07316f021e91534c29b23681fa714805b11ef558a58d6dfeb55107189e195c02.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "c1b3a269e0a9a11b802685c0a38d02a7da62be0ab75705084d7850c052f26dc0",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

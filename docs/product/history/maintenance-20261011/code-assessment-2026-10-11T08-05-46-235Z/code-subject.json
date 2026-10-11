@@ -1,0 +1,380 @@
+{
+  "checked_at": "2026-10-11T08:05:46.235Z",
+  "root": "E:/coding/TermLink-rust-source-resolution-codex",
+  "head": "fe81bb1fda5678c5e4f51139879bb37c4c6e0689",
+  "files": [
+    {
+      "path": "docs/README.md",
+      "sha256": "efac8c9825b2689eca44cef0a9b0c7ef8460696c4acdfedb998d2bec24a0b4c4",
+      "bytes": 4136,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": ".agents/skills/docs-requirement-sync/SKILL.md",
+      "sha256": "331c7d8a404a95aa8d8e41e2842c07c383e3cad291eb81c59276fbcc61dff408",
+      "bytes": 3738,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "scripts/generate-cr-index.ps1",
+      "sha256": "121539b07895171713c7e7a7e352bb6047e38ac299def151b2eecf1561a9bf5e",
+      "bytes": 2806,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "scripts/generate-changelog.ps1",
+      "sha256": "0af0fda70d24193f9c76a2c0604a1f731757d9cbd1a5af0d6411c5e8913f3db9",
+      "bytes": 2916,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/config/privilegeConfig.js",
+      "sha256": "11fd8995eab6b4edc60ca6d9d2fe0640bec05cbb7baf488a41b49a37b411c251",
+      "bytes": 2686,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/config/securityGates.js",
+      "sha256": "141dda6331dcacb7009ca0815c39b57836cbf4c471d9e8868c6cccab93287309",
+      "bytes": 7951,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/services/auditService.js",
+      "sha256": "a9e0d03f3965b4d890c207953a5e1b4789237238252bc04881c1b42565c669db",
+      "bytes": 3933,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/server.js",
+      "sha256": "ad0f206de6eb7b03c5a1f78a56345641c640c4bcd48c56dcdbb97c70c039d5d6",
+      "bytes": 12763,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/ws/terminalGateway.js",
+      "sha256": "5072477e3c49fc664e1a2ef9b884c6f517bc2bc9608c2b4b5f927423e22c5cdf",
+      "bytes": 462277,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/utils/ipCheck.js",
+      "sha256": "f3a14ad4e0af4ad76f5329a08d225d931786c3846a2ce200a9343af84c2ab0a1",
+      "bytes": 4848,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/MainShellActivity.kt",
+      "sha256": "9ee6c4e4056d0d38fb63fe092285b7803a90a506b7e2ee628155126094f2b0e7",
+      "bytes": 84315,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/services/sessionManager.js",
+      "sha256": "dd95fb681fb92736a5d09fe969173f3b9efe380260c537e2e53af5864ccaba94",
+      "bytes": 20115,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": ".env.example",
+      "sha256": "ce4c2fe7a9b71cb3004dadc2fe56e245339eefaf2b2f5165042b9a8688ac8552",
+      "bytes": 3747,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "public/terminal_shortcut_input.js",
+      "sha256": "e754e77db27bdb5411b2c82d4e8344301a19472112dfffb504f549f66788f43d",
+      "bytes": 5925,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "public/terminal_client.js",
+      "sha256": "6eff45696997ffcbc3b2313c451ec38b2d9bd4e8958ad9743317e164c01306ba",
+      "bytes": 380498,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "public/terminal_client.html",
+      "sha256": "ce11cae9b3dfcdc83f5c5a873b8ed509604e046f431a62ed88e2fec42c20b51f",
+      "bytes": 3848,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "public/terminal.js",
+      "sha256": "9d2f8e2dfd1a2adc09f6d5d43242997e975b9d168d8d2e64fb342f5d8914b702",
+      "bytes": 67906,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "public/terminal.html",
+      "sha256": "138051b5c4a4e8dd24d8acf00c0527c3c69e2d361e3e5fdb97b765f987724da6",
+      "bytes": 17321,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/data/ExternalSessionStore.kt",
+      "sha256": "5713c9f45d4061b262660673f84cd275f76a1afc59b3f579e4480a67b85aae5c",
+      "bytes": 4395,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt",
+      "sha256": "34d8fda96575e05142bb9390d3e74148d82c9aa54a5ffb225e01794ac86a7ac1",
+      "bytes": 66628,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt",
+      "sha256": "456bd8c8579626602fd0b8651d2397c75f910532dc306deaa4aeb76f1a767ed3",
+      "bytes": 41766,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/routes/workspace.js",
+      "sha256": "13e8fcf7fa8ef5573e1cfcd1765985f35d7b30740d615780938adb6557da29f5",
+      "bytes": 9277,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/services/workspaceContextResolver.js",
+      "sha256": "12b2a700bad3e2245dfcaf384882d9b53439445a1ee0973eb0cadd7c2074a5dc",
+      "bytes": 4866,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/services/workspaceFileService.js",
+      "sha256": "208b920c1613478ebf0746182f59574a29434fd2f3d2b12d0fef0d76c7eae5b5",
+      "bytes": 24780,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "public/workspace.js",
+      "sha256": "70ecf520c43f03b4e02df0732e391dc29adb239d565dcf62b81fba2fe1b271f1",
+      "bytes": 62739,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt",
+      "sha256": "c1c09d74c2e23cf240647cbb3fe4389e5c39573f7240a728ebc00e70da5f22b8",
+      "bytes": 24282,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/data/SessionListCacheStore.kt",
+      "sha256": "c58e43438218cdc78cd26243646d001dd6b4cea4cee0dd718d60886f7c0880e1",
+      "bytes": 5188,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/data/MtlsCertificateStore.kt",
+      "sha256": "b8d7d4d695f1cb610c50284d0abee6698892e3949edfc5943260fb4487bf7aa0",
+      "bytes": 6592,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/data/MtlsCredentialRepository.kt",
+      "sha256": "4e7a81774c5bd51ff411a309b8e76649da6096ce0101a97f2266c249815dc340",
+      "bytes": 4938,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/data/MtlsPolicyResolver.kt",
+      "sha256": "993236080ebd2aef4f8fd78f61169be102bb14875b3bdd10a03f1d051a060f17",
+      "bytes": 3762,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/web/MtlsWebViewClient.kt",
+      "sha256": "318370c995bdf96dd92d64363957c3b43c442489950b76f27c8f5ce1c02b2ae7",
+      "bytes": 4342,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/data/MtlsHttpSupport.kt",
+      "sha256": "5bb04adde92afdb7fbd508ab3d5c16c210600e262195253543e7674509fbb923",
+      "bytes": 2850,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/ui/settings/MtlsProfileFormResolver.kt",
+      "sha256": "d0ff652f1fb8dd7d7922bdac2b34f37f6cbfe6107bd99d74a40ce50c88e01dae",
+      "bytes": 4830,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/config/tlsConfig.js",
+      "sha256": "43aae899c6269fca0d5bb6f17242414c697d71814d3776b36c2ffe9e6fdc962a",
+      "bytes": 5965,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+      "sha256": "2a8439a85cdea3425afded287a095a4ac7c1f1621d475bbece1b2dd0e46b8f00",
+      "bytes": 79359,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "sha256": "aac5ced2b1b6c689c1fbfa57b80a19679d6f9d8fa6bb7b7bf5793c6962c00f78",
+      "bytes": 696871,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+      "sha256": "32766b8542e13d6850d4321218d0b27db038ca50fb97791ff2568c0aadc05469",
+      "bytes": 13001,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt",
+      "sha256": "b588d7d4aaf15e0ef0653416670770e77d46d9f6167f00a9465d7b6358949ff7",
+      "bytes": 78967,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/network/CodexConnectionManager.kt",
+      "sha256": "658ee9da95ede9220333332e08faacb3174e4053019ccd444afa8cb621793a4b",
+      "bytes": 10003,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "sha256": "d492655da7973dbaedf10e3d507c0dd5cddada9679485f9ee6c1b6c6bc733d49",
+      "bytes": 285703,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "sha256": "6a58f496a55b403d55ef643aca00be9ae43f4c126c8d23af0ba7381ca2b85b67",
+      "bytes": 3956,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "sha256": "c398fdb5da553e053db7d3ff55f588903ad9222ca2cbcf8804335523bdabc1f7",
+      "bytes": 71653,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "sha256": "ac7ab8ff4c0c0d3cfa97fb029d9379612e888b30aeb0b573568a9adec91fc9e4",
+      "bytes": 70436,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "sha256": "49a11e48535002e97ca2c1e8bc5f095e1d36bb24c7612b498492fbb3b971e091",
+      "bytes": 49232,
+      "read_scope": "定点正文/入口/调用链与相关字段，未声明全文逐行审计"
+    }
+  ],
+  "groups": {
+    "1": [
+      "docs/README.md",
+      ".agents/skills/docs-requirement-sync/SKILL.md",
+      "scripts/generate-cr-index.ps1",
+      "scripts/generate-changelog.ps1"
+    ],
+    "2": [
+      "src/config/privilegeConfig.js",
+      "src/config/securityGates.js",
+      "src/services/auditService.js",
+      "src/server.js",
+      "src/ws/terminalGateway.js",
+      "src/utils/ipCheck.js",
+      "android/app/src/main/java/com/termlink/app/MainShellActivity.kt"
+    ],
+    "3": [
+      "src/services/sessionManager.js",
+      "src/ws/terminalGateway.js",
+      ".env.example"
+    ],
+    "4": [
+      "public/terminal_shortcut_input.js",
+      "public/terminal_client.js",
+      "public/terminal_client.html",
+      "public/terminal.js",
+      "public/terminal.html"
+    ],
+    "5": [
+      "android/app/src/main/java/com/termlink/app/data/ExternalSessionStore.kt",
+      "android/app/src/main/java/com/termlink/app/MainShellActivity.kt",
+      "android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt",
+      "android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt"
+    ],
+    "9": [
+      "src/routes/workspace.js",
+      "src/services/workspaceContextResolver.js",
+      "src/services/workspaceFileService.js",
+      "public/workspace.js",
+      "android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt"
+    ],
+    "10": [
+      "android/app/src/main/java/com/termlink/app/data/SessionListCacheStore.kt",
+      "android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt",
+      "android/app/src/main/java/com/termlink/app/MainShellActivity.kt",
+      "android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt"
+    ],
+    "11": [
+      "android/app/src/main/java/com/termlink/app/data/MtlsCertificateStore.kt",
+      "android/app/src/main/java/com/termlink/app/data/MtlsCredentialRepository.kt",
+      "android/app/src/main/java/com/termlink/app/data/MtlsPolicyResolver.kt",
+      "android/app/src/main/java/com/termlink/app/web/MtlsWebViewClient.kt",
+      "android/app/src/main/java/com/termlink/app/data/MtlsHttpSupport.kt",
+      "android/app/src/main/java/com/termlink/app/ui/settings/MtlsProfileFormResolver.kt",
+      "src/config/tlsConfig.js",
+      "src/server.js"
+    ],
+    "13": [
+      "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+      "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+      "android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt",
+      "android/app/src/main/java/com/termlink/app/codex/network/CodexConnectionManager.kt",
+      "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "android/app/src/main/AndroidManifest.xml"
+    ],
+    "15": [
+      "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt",
+      "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "src/ws/terminalGateway.js"
+    ],
+    "18": [
+      "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "src/server.js",
+      "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt"
+    ]
+  },
+  "historical": {
+    "baseline": "488dc6c9e597ef096f617d17499fa8e048306c06",
+    "changed": [
+      "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt"
+    ],
+    "historical": [
+      {
+        "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+        "recorded": "aac5ced2b1b6c689c1fbfa57b80a19679d6f9d8fa6bb7b7bf5793c6962c00f78",
+        "current": "aac5ced2b1b6c689c1fbfa57b80a19679d6f9d8fa6bb7b7bf5793c6962c00f78",
+        "matches": true
+      },
+      {
+        "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+        "recorded": "91a9e0f622f96fa2bb8c556fce9568708e848dd82e695d496b9bd03a10cf566e",
+        "current": "91a9e0f622f96fa2bb8c556fce9568708e848dd82e695d496b9bd03a10cf566e",
+        "matches": true
+      }
+    ]
+  },
+  "business_worktree_diff": "",
+  "tests": {
+    "command": "node --test tests/privilegeConfig.securityGates.test.js tests/ipCheck.test.js tests/auditService.test.js tests/terminal_shortcut_input.test.js tests/workspace.routes.test.js tests/workspace.web.test.js",
+    "passed": 61,
+    "failed": 0,
+    "scope": "本地隔离定点测试，无服务部署/真机/全量测试"
+  },
+  "limitations": "源码哈希定位已核对的工作副本；静态范围、历史结果和本轮运行测试分别记录。未读取本机.env或私有证书。"
+}

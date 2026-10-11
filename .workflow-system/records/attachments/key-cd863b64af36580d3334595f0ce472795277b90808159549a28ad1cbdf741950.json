@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-cd863b64af36580d3334595f0ce472795277b90808159549a28ad1cbdf741950.json",
+  "captured_at": "2026-10-11T10:09:50.247Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/3267f1dfa558ede915d862eecca823be4cac3ce3c45a4bcc93e273b36f13aa02.blob",
+      "sha256": "3267f1dfa558ede915d862eecca823be4cac3ce3c45a4bcc93e273b36f13aa02",
+      "size": 9630,
+      "source_path": "TASKS/TASK-20260827-001-codex-target-delivery-identity-repair.md",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-cd746d28ac337630252745cf18e800a337050a096dd74200dedee6eec2f86f31.json",
+  "captured_at": "2026-10-11T10:05:51.997Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d16160ee5c0c4a663055e008c6ab436086811c6792309a7d1b8fa55d969282bf.blob",
+      "sha256": "d16160ee5c0c4a663055e008c6ab436086811c6792309a7d1b8fa55d969282bf",
+      "size": 6944,
+      "source_path": "TASKS/TASK-20260508-001-codex-inline-multiple-skills-and-attachment-visible-history.md",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-12",
+  "items": [
+    {
+      "requirement": "REQ-20260222-doc-governance",
+      "completion": "历史迁移与README交付已确认；整体验收仍无法确认",
+      "missing": "缺原task/原始用户对话及迁移、唯一正文、旧入口导航的当时整体验收记录。README批次通过不能替代PLAN回写CR待回填结果。"
+    },
+    {
+      "requirement": "REQ-20260222-session-retention-reconnect",
+      "completion": "核心与24h示例配置已交付（历史材料确认）；24h运行验收仍无法确认",
+      "missing": "缺原task、实际部署TTL和24h运行结果；SUMMARY全量交付措辞与窄CR待验证/全量场景未补齐并存。CR写2月24日而1899f6de提交日期为3月7日，两者分别保留。"
+    },
+    {
+      "requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+      "completion": "POC及后续刷新修复已交付；External完整运行验收仍无法确认",
+      "missing": "3月CR明确ProfileCommitRefreshResolver只是决策单测，Settings 4/4不是MainShellActivity整体instrumentation；后续mTLS真机3/3测试独立debug宿主，不能当External POC验收。缺原task及External运行结果。"
+    },
+    {
+      "requirement": "REQ-20260224-screen-keep-awake",
+      "completion": "已完成原task交付及自动验证；定时真机smoke为未执行观察项",
+      "missing": "缺该手工观察的设备定时结果和独立用户验收记录；不声称实际等待已通过，不追加全OEM门槛。"
+    },
+    {
+      "requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+      "completion": "5月基线已完成；7月Windows增量实现已确认、clean-host验收未完成",
+      "missing": "缺上述外部clean-host输出及独立旧task完整验收包。a88d971b发行实现提交和本地主机产物不能替代clean host。5月host smoke也不能替代7月自包含包验收。"
+    },
+    {
+      "requirement": "REQ-TERMLINK-WEB-UX",
+      "completion": "已完成已报告历史task范围；详细验收证据有限",
+      "missing": "缺60616原Playwright截图/详细报告、逐条创建/切换/Browse验收结果及独立用户确认；git说明只给有限smoke，不把它扩大为所有验收项已逐条验证。当前导入总账的“关闭未确认”标记需与此历史新证据一起解释，本次不写task生命周期。"
+    }
+  ],
+  "original_scope_unchanged": true,
+  "task_journal_unchanged": true,
+  "task_operations": "none",
+  "new_tests": false,
+  "search_scope": "现存TASKS/文档/legacy文件名与定向正文、相关早期及六月/七月Git路径历史；未无差别读取日志、依赖、外部副本或全部历史附件。"
+}

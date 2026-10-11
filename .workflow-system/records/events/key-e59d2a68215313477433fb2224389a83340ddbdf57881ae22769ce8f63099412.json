@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:09:10.940Z",
+  "payload_sha256": "035aa325d79a360dedebc147b9f530c85a361fb107717308639f0e6e6d316591",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-legacy-doc-87ea7576bc76f5782bea891f-4c19b6271a590aebc6c376e53a213ac442fd2dc9c8130a0ab08eb2b40ccb9138-lifecycle",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-2ff0eed124b29415d96c9447e6d68b226ea176b97ce1a822919274f716b83e59.json",
+      "idempotency_key": "legacy-task-import-20261011-legacy-doc-87ea7576bc76f5782bea891f-4c19b6271a590aebc6c376e53a213ac442fd2dc9c8130a0ab08eb2b40ccb9138-lifecycle",
+      "event": {
+        "action": "close",
+        "task_id": "legacy-doc-87ea7576bc76f5782bea891f",
+        "parents": [
+          ".workflow-system/records/events/key-cbe4bdca8e53b8cd416a74cdffb962a1d1b5bd15602c4fccb551026af3a2a26d.json"
+        ],
+        "data": {
+          "historical": true,
+          "completion_disposition": "historical-completion-declaration",
+          "remaining_work": [
+            "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+          ],
+          "gaps": [
+            "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+          ],
+          "decision_source": "TASKS/TASK-001-rust-issues-audit-worktree-rust-001-rust-009-gemini.md",
+          "decision_text": "导入原任务已发生的关闭/归档事实；本次未重新处置业务任务"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "legacy-doc-87ea7576bc76f5782bea891f",
+      "parents": [
+        ".workflow-system/records/events/key-36635f082cebcd68beb5e5e3a972d9cfbc35cb4cc9fc43c4cf4b1390bb8d9dc1.json",
+        ".workflow-system/records/events/key-cbe4bdca8e53b8cd416a74cdffb962a1d1b5bd15602c4fccb551026af3a2a26d.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-2ff0eed124b29415d96c9447e6d68b226ea176b97ce1a822919274f716b83e59.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "e8b4a2a3e2b43d1da76e2aaafedf384a8f2b536ed1aa019b1aa5be7f4d80601a",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

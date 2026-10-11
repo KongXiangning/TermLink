@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:14:22.340Z",
+  "payload_sha256": "f44ef4a733b50291c717cb9c0349251799ce5cbc3571c1755c6a8c25a84e8807",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260819-001-95b7acec050f03b9e69ae76d035682c67f67a8087d9fdb22a93164062d9a326e-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-1f3e96e3a943eed0fc504f8ea9de84d6c63f4364b031e0ee85cd8c482f366f8e.json",
+      "idempotency_key": "legacy-task-import-20261011-20260819-001-95b7acec050f03b9e69ae76d035682c67f67a8087d9fdb22a93164062d9a326e-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260819-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "Codex Rollout Collector 正式模块初始化与兼容层落地",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260819-001-codex-rollout-collector-formal-bootstrap.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260819-001-codex-rollout-collector-formal-bootstrap.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260819-001",
+      "parents": [
+        ".workflow-system/records/events/key-4363424b6c676a6c4847c9760c1066ff02382ae02130dbcf17ac3b9fed2ae1c6.json",
+        ".workflow-system/records/events/key-8452fc8811257a2403aa4682dc33d8219e7c7a7e5b7e8a1c1ce3a5b31f0c0cf1.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-1f3e96e3a943eed0fc504f8ea9de84d6c63f4364b031e0ee85cd8c482f366f8e.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "49ddb707a7ed2e0799c6aa3a9560cefa30fefc0a461894fb45c4a682e8225c38",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

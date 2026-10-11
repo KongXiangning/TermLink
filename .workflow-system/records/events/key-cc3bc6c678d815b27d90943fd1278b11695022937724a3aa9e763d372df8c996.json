@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:04:26.816Z",
+  "payload_sha256": "13b0259c9a60a223c305c6305268a19b114763713b7232bb9fcc0732087a25c7",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260513-001-4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-6160cefb8e1fdce1a9401735378929e579f3c0029f4293c4e2b8f6b4c0d521cf.json",
+      "idempotency_key": "legacy-task-import-20261011-20260513-001-4d6e41ea6a2957034277676804c32ca448925a976bd8a10d37a87701a22ce33a-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260513-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "提供跨平台发行安装脚本与一键 mTLS 证书工具",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260513-001",
+      "parents": [
+        ".workflow-system/records/events/key-a363c01e12b492bc42f6930667e8502807855a68430b96d3820fb2903eb9f731.json",
+        ".workflow-system/records/events/key-71618c36ee0c7d30c2ec5014df01d462f8612eb8b2b4059bc05381aead4227a9.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-6160cefb8e1fdce1a9401735378929e579f3c0029f4293c4e2b8f6b4c0d521cf.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "7d49573b900806574282840f95c9e9a99c5c04b134dec7bb5de915d50556e540",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

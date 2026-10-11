@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:04:58.233Z",
+  "payload_sha256": "494788a5d4610f6cef1b53cbba1b43bf730c83d3cde93322cd28e4c33417d5c8",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260511-001-ecb9946aae341302c6c40eb424bc6f8a19288b48520b9c3a2a992f95c414f98b-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-7cb80c5d3a8603363d00e2ecd7e58ad19a8336ba1ee2378bd71ed0ef55e0e73c.json",
+      "idempotency_key": "legacy-task-import-20261011-20260511-001-ecb9946aae341302c6c40eb424bc6f8a19288b48520b9c3a2a992f95c414f98b-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260511-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "隔离 `node --test` full suite 挂起点并判断 gate 处理方式",
+            "goal": "从 `20260510-001` 归档后的 clean handoff 入口继续推进候选 1，优先隔离 `node --test` full suite 挂起点并判断 gate 处理方式。",
+            "scope": [
+              "TASKS/TASK-20260511-001-isolate-node-test-full-suite-hang-and-classify-gate.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260511-001-isolate-node-test-full-suite-hang-and-classify-gate.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260511-001",
+      "parents": [
+        ".workflow-system/records/events/key-82d219dbf543c1734ef73d7f50e5aef155a44ccd096474c5e41c1c3e0ecb7864.json",
+        ".workflow-system/records/events/key-af08e01c920643c681cf8b546697d4595067d9584d212048956d87739f189cb9.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-7cb80c5d3a8603363d00e2ecd7e58ad19a8336ba1ee2378bd71ed0ef55e0e73c.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "2b3a03a0ad8c2b21b8dd3d743ed71c55b26d8e25920c6b6e19ce2779773e632a",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

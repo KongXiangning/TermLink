@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:05:37.650Z",
+  "payload_sha256": "b7ca0ba0f4da60597e129035edbb640d503a7526994c5bbe3ea7f1fc1d941a12",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "historical-task-lifecycle-source",
+    "idempotency_key": "legacy-task-import-20261011-20260510-001-6a5a265cc131759b4d54fa6ddaa19622644e0da469388bf93b5849609dd1211f-disposition-source",
+    "body": {
+      "original_task_id": "20260510-001",
+      "task_id": "20260510-001",
+      "source": "TASKS/TASK-20260510-001-complete-20260504-001-android-smoke-and-archive-decision.md",
+      "sha256": "6a5a265cc131759b4d54fa6ddaa19622644e0da469388bf93b5849609dd1211f",
+      "original_status": "completed_verified_archived",
+      "historical": true,
+      "read_scope": "任务身份、外层目标/原始要求/边界、归档或暂停结论、验证及保留事项；大型CURRENT_TASK内嵌历史未全文展开",
+      "completion_disposition": "historical-completion-declaration",
+      "qualification": "not-recertified",
+      "original_goal": "从 clean handoff 入口继续推进候选 1，补齐旧任务 `20260504-001` 的完整 Android 真机 smoke 与最终归档判断，同时把候选 2（`node --test` full suite 挂起点）和候选 3（Android release config 策略）保留为后续入口，不在本轮展开。",
+      "sections": [
+        {
+          "name": "任务元数据",
+          "text": "- 项目：termlink\r\n- 项目类型：application\r\n- 任务 ID：20260510-001\r\n- 任务标题：补任务 20260504-001 的完整 Android smoke 与归档判断\r\n- 任务 slug：complete-20260504-001-android-smoke-and-archive-decision\r\n- 最终状态：completed_verified_archived\r\n- 创建时间：2026-05-10\r\n- 归档时间：2026-05-11\r\n- 归档性质：完成归档；旧任务 `20260504-001` 的完整 Android smoke 与归档判断已补齐并完成转正"
+        },
+        {
+          "name": "实际改动摘要",
+          "text": "- workflow / archive：\r\n  - `docs/workflow/CURRENT_TASK.md`：推进 Step 1-4，补齐 blocked->passed 的执行链，并在收尾时清理为 clean handoff 入口。\r\n  - `docs/workflow/STATUS.md`：同步旧任务 `20260504-001` 进入稳定区，以及当前任务从 Step 2/3/4 到 `completed_ready_for_closeout` 的状态演进。\r\n  - `docs/workflow/LESSONS.md`：确认并保留两条可复用经验：allowed-path review target 隔离、busy session 下 Step 15 三段证据链复跑。\r\n  - `TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md`：把旧任务从条件交接收敛为 `completed_verified_archived`。\r\n- 证据补齐：\r\n  - `tmp\\20260510-001-step12-13\\*`：补齐步骤 12-13 的双 cwd / A-B 切换证据。\r\n  - `tmp\\20260510-001-step14-15\\*`：补齐步骤 14-15 的 same-session re-entry 与新任务 fresh thread 证据。\r\n- 范围控制：\r\n  - 审查固定使用 allowed-path working-tree diff source。\r\n  - 未把 `.workflow-system/**`、`docs/workflow/generated/**`、`templates/**` 的无关漂移并入本轮结论。\r\n  - 未触碰产品代码、测试代码、部署脚本或数据库面。"
+        },
+        {
+          "name": "契约与决策记录",
+          "text": "- 保持不变的关键边界：\r\n  - 不改 `CONTRACTS.md` 中锁定的 Sessions / Workspace API、`codex_state` 语义、`cwd` 作用域和 `lastCodexThreadId` 语义。\r\n  - 不改 `DECISIONS.md` 中既有 host-local skills、active docs truth-source、文档路径保留等决策。\r\n  - 不扩大到源码修复或新的 workflow 长期规则。\r\n- 已验证的兼容策略：\r\n  - 本轮结论为 `validation-only`，兼容策略保持 `backward-compatible`。\r\n  - 旧任务 `20260504-001` 的稳定化判断完全依赖真实 Android smoke，而不是旧文档或乐观推断。"
+        },
+        {
+          "name": "验证与交付证据",
+          "text": "- 关键真机 smoke：\r\n  - 步骤 12：passed。双 `cwd` 会话历史列表已确认隔离，证据见 `tmp\\20260510-001-step12-13\\session-panel-4.{xml,png}`、`b-main.{xml,png}`、`b-history.{xml,png}`、`a-history.xml`。\r\n  - 步骤 13：passed。A/B 切换后不残留旧 task / thread，回切 A 后可直接继续对话，证据见 `tmp\\20260510-001-step12-13\\a-returned.{xml,png}`、`a-enter-send.{xml,png}`。\r\n  - 步骤 14：passed。same-session re-entry 后 active thread 状态一致，且无需先打开历史列表即可直接发送，证据见 `tmp\\20260510-001-step14-15\\step3-after-retry.{xml,png}`、`step14-direct-send.{xml,png}`、`step14-sessions.json`、`step3-after-retry-logcat.txt`。\r\n  - 步骤 15：passed。点击 `新任务` 后消息区清空，fresh 对话已绑定新 thread `019e12b5-211a-7283-805b-a120127b2d80`，证据见 `tmp\\20260510-001-step14-15\\step15-retry-history-open.{xml,png}`、`step15-retry-new-task.{xml,png}`、`step15-retry-fresh-send.{xml,png}`、`step15-retry-sessions.json`、`step15-retry-logcat.txt`。\r\n- 审查与回归链：\r\n  - `/review-diff`：clean（allowed-path 审查面内无越界）\r\n  - `/review-implementation`：clean（归档判断与证据一致）\r\n  - `/verify-contracts`：clean（未破坏锁定契约）\r\n  - `/run-regression`：diff-aware pass（`/api/health=200`、Session A=`ACTIVE`、`codexThreadId=019e12b5-211a-7283-805b-a120127b2d80`、closeout 关键证据文件齐全）\r\n- 实际修改文件：\r\n  - `docs/workflow/CURRENT_TASK.md`\r\n  - `docs/workflow/STATUS.md`\r\n  - `docs/workflow/LESSONS.md`\r\n  - `TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md`"
+        },
+        {
+          "name": "发布后验证证据",
+          "text": "- Release mode: none\r\n- Deploy source: none\r\n- Target environment: local / Android debug\r\n- Health checks:\r\n  - `/api/health`\r\n  - `/api/sessions` 摘要核对\r\n  - Android 真机 smoke 步骤 12-15\r\n  - allowed-path review / contract / regression chain\r\n- Canary window: none\r\n- Performance baseline: none\r\n- Rollback / recovery:\r\n  - 若后续证明本轮归档判断错误，只回滚 `docs/workflow/CURRENT_TASK.md`、`docs/workflow/STATUS.md` 与相关 `TASKS/...` 归档结论段。\r\n- Release evidence:\r\n  - 旧任务 `20260504-001` 的步骤 12-15 已全部通过。\r\n  - Step 15 已确认 `codexThreadId` 从 `019e112a-be07-79d2-a793-2b9bc6902683` 切换到新 thread `019e12b5-211a-7283-805b-a120127b2d80`。\r\n  - Step 4 后的审查与回归链均为 clean。\r\n- canary result: not applicable\r\n- performance baseline result: not applicable\r\n- rollback status: not exercised\r\n- remaining observation:\r\n  - 后续若继续触碰 session / thread / task 状态逻辑，必须重新纳入同级 Android 真机 smoke。\r\n  - 项目级独立风险仍包括 `node --test` full suite 挂起点、Android release config 检查失败、以及 README 与代码默认端口漂移。"
+        },
+        {
+          "name": "Lessons 回写",
+          "text": "- 已复用并保留到 `docs/workflow/LESSONS.md`：\r\n  - working tree 混入 workflow-owned 漂移时，必须切到 allowed-path diff source，而不是继续用全量 `working-tree` 做 `/review-diff`。\r\n  - Step 15 在 busy session 下不能草率判定；应等 idle 后按 `history-open -> new-task -> fresh-send + /api/sessions` 的三段证据链复跑。"
+        },
+        {
+          "name": "后续关联",
+          "text": "- 推荐下一轮候选任务：\r\n  - 隔离 `node --test` full suite 挂起的具体测试点。\r\n  - 明确 Android release config 应通过环境覆写还是仓库默认值满足 `npm run android:check-release-config`。\r\n  - 清理 active docs 漂移，优先处理 README 默认端口与代码默认值冲突。\r\n- 相关归档入口：\r\n  - `TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md`\r\n  - `TASKS/TASK-20260508-001-codex-inline-multiple-skills-and-attachment-visible-history.md`"
+        }
+      ],
+      "state": "closed",
+      "source_record_ref": ".workflow-system/records/events/key-f59f05dcc171518de2d0e8c1229458e697008c5430e8e99157de8abdcb09e22f.json"
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,150 @@
+{
+  "at": "2026-10-11T08:08:34.966Z",
+  "root": "E:\\coding\\TermLink-rust-source-resolution-codex",
+  "head": "fe81bb1fda5678c5e4f51139879bb37c4c6e0689",
+  "unchangedReq": true,
+  "unchangedGoalsBody": true,
+  "preservedOldReports": true,
+  "codeBytes": true,
+  "selected_reports": [
+    {
+      "id": "AS-CODE-TERMLINK-01-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-01-20261011",
+      "conclusion": "partially-satisfied",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-02-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-02-20261011",
+      "conclusion": "undetermined",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-03-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-03-20261011",
+      "conclusion": "partially-satisfied",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-04-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-04-20261011",
+      "conclusion": "undetermined",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-05-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-05-20261011",
+      "conclusion": "undetermined",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-09-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-09-20261011",
+      "conclusion": "undetermined",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-10-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-10-20261011",
+      "conclusion": "partially-satisfied",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-11-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-11-20261011",
+      "conclusion": "undetermined",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-13-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-13-20261011",
+      "conclusion": "undetermined",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-15-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-15-20261011",
+      "conclusion": "partially-satisfied",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-18-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-18-20261011",
+      "conclusion": "undetermined",
+      "reasons": []
+    },
+    {
+      "id": "AS-CODE-TERMLINK-18-SAMPLES-20261011",
+      "assessment_id": "AS-CODE-TERMLINK-18-SAMPLES-20261011",
+      "conclusion": "satisfied",
+      "reasons": []
+    }
+  ],
+  "task_source_revision": "c126a6a4e52fee4c3a93d02e1d387a95b89f6c3649929e7a890f4866d58dd6b2",
+  "current_task_id": null,
+  "scope": "11张需求代码判读及18号已声明真实样本适用性；未创建或执行业务task、未改业务代码、未提交推送发布",
+  "saved_documents": [
+    {
+      "path": "docs/product/GOALS.md",
+      "sha256": "6609d1c3941b34e7fbd9daf9521086be7600f7b2037d64761d0ad7c320798e57"
+    },
+    {
+      "path": "docs/product/PROJECT.md",
+      "sha256": "7a621225e69a2a76d7b20da32fa6aadde3f7aa0a030116ab37afee291411426e"
+    },
+    {
+      "path": "docs/product/SCOPED_ASSESSMENTS.md",
+      "sha256": "943b05e05605eae03c7fd758e8783724828cedd1c9058a6573f8227f69f1d538"
+    }
+  ],
+  "reports": [
+    {
+      "id": "AS-CODE-TERMLINK-01-20261011",
+      "line": 392
+    },
+    {
+      "id": "AS-CODE-TERMLINK-02-20261011",
+      "line": 419
+    },
+    {
+      "id": "AS-CODE-TERMLINK-03-20261011",
+      "line": 449
+    },
+    {
+      "id": "AS-CODE-TERMLINK-04-20261011",
+      "line": 475
+    },
+    {
+      "id": "AS-CODE-TERMLINK-05-20261011",
+      "line": 503
+    },
+    {
+      "id": "AS-CODE-TERMLINK-09-20261011",
+      "line": 530
+    },
+    {
+      "id": "AS-CODE-TERMLINK-10-20261011",
+      "line": 558
+    },
+    {
+      "id": "AS-CODE-TERMLINK-11-20261011",
+      "line": 585
+    },
+    {
+      "id": "AS-CODE-TERMLINK-13-20261011",
+      "line": 616
+    },
+    {
+      "id": "AS-CODE-TERMLINK-15-20261011",
+      "line": 646
+    },
+    {
+      "id": "AS-CODE-TERMLINK-18-20261011",
+      "line": 673
+    },
+    {
+      "id": "AS-CODE-TERMLINK-18-SAMPLES-20261011",
+      "line": 701
+    }
+  ]
+}

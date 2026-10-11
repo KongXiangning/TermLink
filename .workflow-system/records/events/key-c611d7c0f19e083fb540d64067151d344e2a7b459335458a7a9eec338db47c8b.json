@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:15:39.928Z",
+  "payload_sha256": "9135a3cda2cca4a070bae03ba1a9ef7b3d4280fe1a8712b7a19d335bbf4b8a02",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260726-001-d26e314d468675ed57e1b845d4b3748e0ec8c50e608d8d72e67203be3432937b-identity",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-032fa2dc8fa19affe36f6552ebd2c25d6a3a8dc82c073a65d3f8b91dcfa10ee1.json",
+      "idempotency_key": "legacy-task-import-20261011-20260726-001-d26e314d468675ed57e1b845d4b3748e0ec8c50e608d8d72e67203be3432937b-identity",
+      "event": {
+        "action": "prepare",
+        "task_id": "20260726-001",
+        "data": {
+          "create": true,
+          "historical": true,
+          "plan": {
+            "title": "TASK-20260726-001 Android App 前台独立息屏时间",
+            "goal": "原始目标见历史来源正文",
+            "scope": [
+              "TASKS/TASK-20260726-001-android-foreground-screen-timeout.md；原任务范围、排除项及原文保留在固定附件"
+            ],
+            "exclusions": [
+              "本次仅导入历史资料，不执行或重新验收任务"
+            ],
+            "steps": []
+          },
+          "decision_source": "TASKS/TASK-20260726-001-android-foreground-screen-timeout.md"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260726-001",
+      "parents": [
+        ".workflow-system/records/events/key-684b1f5060b9b29d9aa7b707e3ef93ef000768c65fad5d230243b353415e61bd.json",
+        ".workflow-system/records/events/key-333db0dd7ee72f155e39b031026b128329d44a9722f0706ccd5a6cfe21b455e1.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-032fa2dc8fa19affe36f6552ebd2c25d6a3a8dc82c073a65d3f8b91dcfa10ee1.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "0cb894cc9c4b1499d2c76c732e954f9cc4cc2d15313361b4711a142aa61577ad",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

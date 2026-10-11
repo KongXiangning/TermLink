@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-11T10:09:46.097Z",
+  "payload_sha256": "ebe28f7e44dc4d86379ef82311f21e97a0e98f63fe33f50a5b77ed2701b7d8a8",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:legacy-task-import-20261011-20260828-001-4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d-lifecycle",
+    "request": {
+      "action": "link",
+      "record_ref": ".workflow-system/records/events/key-552c1c9f84f07949c71b70cff603157a86558e5774b288169deaa1b009c92dc2.json",
+      "idempotency_key": "legacy-task-import-20261011-20260828-001-4c9e112e9e008599696dbda58f037a0ca70d210db6da23d2b9a6ef393dbc106d-lifecycle",
+      "event": {
+        "action": "close",
+        "task_id": "20260828-001",
+        "parents": [
+          ".workflow-system/records/events/key-be8d1979ac16a25d5130c4018c805010174eb8571e4412a534e1a03498882422.json"
+        ],
+        "data": {
+          "historical": true,
+          "completion_disposition": "historical-completion-declaration",
+          "remaining_work": [
+            "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+          ],
+          "gaps": [
+            "原交付/验证结论仅适用于当时任务范围；保留原记录未验证、延期、环境阻碍及后续观察，不宣称整个需求完成"
+          ],
+          "decision_source": "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md",
+          "decision_text": "导入原任务已发生的关闭/归档事实；本次未重新处置业务任务"
+        }
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "link",
+      "task_id": "20260828-001",
+      "parents": [
+        ".workflow-system/records/events/key-05dffbfeb2ef6d12426b977903dc64d81fb7ddf940431ab2e68ded371b0a9955.json",
+        ".workflow-system/records/events/key-be8d1979ac16a25d5130c4018c805010174eb8571e4412a534e1a03498882422.json"
+      ],
+      "data": {
+        "record_ref": ".workflow-system/records/events/key-552c1c9f84f07949c71b70cff603157a86558e5774b288169deaa1b009c92dc2.json",
+        "event": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "bc15aba6d3108083f0a23b2f372d910372e4db55238d0e50bbee42e1ed21542d",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

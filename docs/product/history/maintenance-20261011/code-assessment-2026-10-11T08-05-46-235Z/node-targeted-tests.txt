@@ -1,0 +1,75 @@
+✔ AuditService writes structured JSON lines (3.1984ms)
+✔ AuditService does not write when disabled (0.2132ms)
+✔ AuditService rotates when file exceeds maxFileSize (24.8953ms)
+✔ AuditService respects maxRotatedFiles limit (35.3526ms)
+✔ normalizeIp strips IPv4-mapped IPv6 prefix (0.483ms)
+✔ isIpAllowed supports exact match (0.1201ms)
+✔ isIpAllowed supports IPv4 CIDR match (0.163ms)
+✔ isIpAllowed allows all when whitelist is empty (0.0693ms)
+✔ isIpAllowed supports exact IPv6 match (0.1769ms)
+✔ isIpAllowed supports IPv6 loopback and full form (0.5602ms)
+✔ isIpAllowed supports IPv6 CIDR match (0.2768ms)
+✔ isIpAllowed supports IPv6 /64 CIDR (0.1022ms)
+✔ isIpAllowed handles mixed IPv4 and IPv6 rules (0.0996ms)
+✔ isIpAllowed rejects malformed IPv6 addresses (0.1048ms)
+✔ parsePrivilegeConfig uses TERMLINK_* keys and defaults to standard mode (1.7278ms)
+✔ validateElevatedEnabled requires TERMLINK_ELEVATED_ENABLE when mode is elevated (0.2561ms)
+✔ runSecurityGates blocks elevated mode with default credentials (545.1419ms)
+✔ runSecurityGates blocks elevated mode when process lacks administrator privileges (407.3007ms)
+✔ runSecurityGates requires TLS enabled when TERMLINK_ELEVATED_REQUIRE_MTLS=true (430.0216ms)
+✔ runSecurityGates requires client cert policy when mTLS required (402.4078ms)
+✔ runSecurityGates rejects request policy when strict mTLS required (437.0332ms)
+✔ runSecurityGates requires readable client CA when strict mTLS required (424.4715ms)
+✔ runSecurityGates passes with strong credentials and readable strict TLS+mTLS config (405.696ms)
+✔ default modifier state is off (0.6844ms)
+✔ Ctrl single tap applies once then resets (0.5362ms)
+✔ Ctrl double tap enters locked mode until tapped again (0.1233ms)
+✔ Alt one-shot adds ESC prefix then resets (0.075ms)
+✔ Alt + Ctrl sends ESC + control character (0.0809ms)
+✔ Enter and Newline keep distinct payloads (0.0557ms)
+warning: in the working copy of 'tracked.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.deleted-hidden.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'deleted.txt', LF will be replaced by CRLF the next time Git touches it
+✔ workspace meta lazily initializes workspaceRoot from legacy cwd (63.6759ms)
+✔ workspace non-meta endpoints do not lazily initialize workspaceRoot from legacy cwd (2.8441ms)
+✔ workspace tree returns git status and respects hidden file toggle (706.1086ms)
+✔ workspace file endpoint supports full, truncated, segmented, and limited view modes (230.6002ms)
+warning: in the working copy of 'tracked.txt', LF will be replaced by CRLF the next time Git touches it
+✔ workspace file-content serves only workspace files and supports an explicit download disposition (121.6643ms)
+warning: in the working copy of 'docs/guide.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'other.md', LF will be replaced by CRLF the next time Git touches it
+✔ workspace diff returns unified diff for tracked changes and explicit feedback for untracked files (646.3992ms)
+✔ workspace search and structured comparison routes are additive and path-safe (646.5338ms)
+✔ workspace blocks path escape attempts outside workspace root (55.3945ms)
+✔ workspace picker tree lists directories and parent path (4.0643ms)
+✔ workspace picker tree defaults to allowed host root when path is omitted (2.408ms)
+✔ workspace picker tree rejects paths outside allowed host root (2.0176ms)
+✔ workspace picker tree lists multiple configured roots when path is omitted (2.2489ms)
+✔ workspace picker tree can go back to multi-root listing from a configured root (3.1204ms)
+✔ workspace picker tree fails when picker root is not configured (0.2493ms)
+✔ workspace picker tree fails when picker root is invalid (0.4571ms)
+✔ workspace tracks the visual viewport so mobile sheets stay above the IME (112.082ms)
+✔ workspace back closes an open picker before navigating the directory history (60.0936ms)
+✔ workspace page boots with meta then tree and keeps viewer in empty state (62.0428ms)
+✔ workspace restores the last saved file route after reopening (62.4749ms)
+✔ workspace page opens an explicitly requested initial file (61.7214ms)
+✔ workspace page drops stale file responses when user selects another file (153.7002ms)
+✔ workspace page keeps loaded content when diff request fails (246.3217ms)
+✔ workspace page appends truncated content when loading more (184.1583ms)
+✔ workspace page clears stale diff loading when switching to another file (231.4636ms)
+✔ workspace page clears stale more loading when switching to another file (149.432ms)
+✔ workspace page renders one structured comparison in unified and split layouts (159.3586ms)
+✔ workspace global search opens a relative-path result without leaking an absolute path (401.8435ms)
+✔ workspace Markdown preview disables raw HTML and dangerous link protocols (94.7101ms)
+✔ workspace Markdown mode buttons switch between rendered preview and source (217.6614ms)
+✔ workspace revokes an image Blob URL when another file is selected (140.4718ms)
+✔ workspace PDF loader pins the local worker and disables eval (0.2639ms)
+✔ workspace mobile reading layout uses compact type without page zoom (0.2415ms)
+ℹ tests 61
+ℹ suites 0
+ℹ pass 61
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3537.0604
