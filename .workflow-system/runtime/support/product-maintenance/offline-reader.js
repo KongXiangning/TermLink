@@ -15699,13 +15699,14 @@ var definitions = {
     sources
   }, ["id", "title", "outcome", "scope", "targets", "state", "origin"])
 };
+var subject = (version) => object({ kind: choice("working-copy", "commit", "release", "unknown"), value: nullable(string3), ...version === 3 ? { revision: string3, limitations: string3 } : {} }, ["kind", "value"]);
 function itemSchema(version) {
   const common = { id, links: array(ref("Link")), sources, extensions };
   const types2 = {
     project: { fields: { inventory: object({ state: choice("partial", "reconciled"), checked_sources: sources, unreviewed_sources: sources, note: string3 }, ["state", "checked_sources", "unreviewed_sources"]) }, required: ["inventory"] },
-    goal: { fields: { scope, ...version === 2 ? { task_bindings: array(ref("TaskBinding")) } : {} }, required: ["scope"] },
+    goal: { fields: { scope, ...version >= 2 ? { task_bindings: array(ref("TaskBinding")) } : {} }, required: ["scope"] },
     module: { fields: { scope }, required: ["scope"] },
-    requirement: { fields: { scope, assessment_id: nullable(id), ...version === 2 ? { task_bindings: array(ref("TaskBinding")) } : {} }, required: ["scope"] },
+    requirement: { fields: { scope, assessment_id: nullable(id), ...version >= 2 ? { task_bindings: array(ref("TaskBinding")) } : {} }, required: ["scope"] },
     design: { fields: { intent_state: intent }, required: ["intent_state"] },
     change: { fields: { recorded_at: string3, basis: object({ kind: choice("user", "delegated", "document-edit"), text: string3, sources }, ["kind", "text"]), deltas: array(object({ target: id, before: nullable(string3), after: nullable(string3), note: string3 }, ["target", "before", "after"]), 1) }, required: ["recorded_at", "basis", "deltas"] },
     assessment: {
@@ -15714,21 +15715,39 @@ function itemSchema(version) {
         target_basis: { ...ref("SourceRef") },
         target_definition_sha256: nullable(digest),
         checked_at: string3,
-        subject: object({ kind: choice("working-copy", "commit", "release", "unknown"), value: nullable(string3) }),
+        subject: subject(version),
         implementation: choice("unknown", "none-reported", "partial-reported", "delivered-reported"),
         verification: choice("unknown", "not-run-reported", "failure-reported", "pass-reported", "mixed-reported"),
-        ...version === 2 ? { pending_sources: sources } : {}
+        ...version >= 2 ? { pending_sources: sources } : {}
       },
       required: ["target", "target_basis", "target_definition_sha256", "checked_at", "subject", "implementation", "verification"]
     },
     discussion: { fields: { raw_ref: source, submitted_at: string3, origin: object({ channel: choice("chat", "codex", "other", "unknown"), locator: string3, occurred_at: nullable(string3) }, ["channel"]), record_state: choice("active", "archived") }, required: ["raw_ref", "submitted_at", "origin", "record_state"] }
   };
-  if (version === 2)
+  if (version >= 2)
     types2.plan = { fields: { intent_state: intent, targets: array(targetCoverage, 1), work_items: array(ref("WorkItem")) }, required: ["intent_state", "targets", "work_items"] };
+  if (version === 3) {
+    Object.assign(types2.project.fields, { root_goal_id: nullable(id), requirement_order: array(id) });
+    Object.assign(types2.goal.fields, { goal_kind: choice("outcome", "stage"), assessment_scopes: array(object({ target: id, scope_id: id, coverage: string3 })) });
+    Object.assign(types2.assessment.fields, {
+      applicability: object({ goal_id: id, scope_id: id, coverage: string3 }),
+      target_definition_algorithm: string3,
+      goal_basis: ref("SourceRef"),
+      goal_definition_algorithm: string3,
+      goal_definition_sha256: nullable(digest),
+      conclusion: choice("satisfied", "partially-satisfied", "not-satisfied", "undetermined"),
+      supersedes: array(id)
+    });
+    types2.assessment.required.push("applicability", "target_definition_algorithm", "goal_basis", "goal_definition_algorithm", "goal_definition_sha256", "conclusion");
+  }
   return { oneOf: Object.entries(types2).map(([type, spec]) => {
     const extra = [];
     if (type === "assessment")
       extra.push({ properties: { target_basis: { properties: { kind: { const: "file" } }, required: ["kind"] } } });
+    if (type === "assessment" && version === 3) {
+      extra.push({ properties: { target_basis: { required: ["item_id"] }, goal_basis: { properties: { kind: { const: "file" } }, required: ["kind", "item_id"] } } });
+      extra.push({ if: { properties: { conclusion: choice("satisfied", "partially-satisfied", "not-satisfied") }, required: ["conclusion"] }, then: { required: ["sources"], properties: { sources: array(source, 1) } } });
+    }
     if (type === "discussion")
       extra.push({ properties: { raw_ref: { properties: { kind: { const: "file" }, sha256: digest }, required: ["kind", "sha256"] } } });
     if (type === "project")
@@ -15757,7 +15776,7 @@ var fileOperation = object({
   content: { type: "string" },
   updates: array(object({ id, metadata: { type: "object" }, body: { type: "string" }, remove_fields: array(string3) }, ["id"])),
   append: array(object({ metadata: { type: "object" }, body: string3 })),
-  migrate: { const: "v2" },
+  migrate: choice("v2", "v3"),
   preimage_path: string3,
   remove_items: array(id),
   remove_relations: array(object({ item_id: id, field: choice("links", "task_bindings"), id }))
@@ -15779,6 +15798,7 @@ var requestSchema = {
     max_bytes: { type: "integer", minimum: 1, maximum: 1048576 },
     impact_ids: array(id),
     discussion_targets: array(id),
+    assessment_query: object({ target: id, goal_id: id, scope_id: id, subject: subject(3) }, ["target", "goal_id", "subject"]),
     files: array(fileOperation, 1),
     path: string3,
     text: { type: "string" },
@@ -15945,7 +15965,7 @@ function parseProduct(text3, file) {
   result.body_start = result.frontmatter_end + closing[0].length;
   const yaml = strictYaml(text3.slice(result.frontmatter_start, result.frontmatter_end), file);
   result.schema = yaml.value?.schema ?? null;
-  result.version = result.schema === "vnext-product-doc/v2" ? 2 : result.schema === "vnext-product-doc/v1" ? 1 : null;
+  result.version = result.schema === "vnext-product-doc/v3" ? 3 : result.schema === "vnext-product-doc/v2" ? 2 : result.schema === "vnext-product-doc/v1" ? 1 : null;
   if (!result.version) {
     result.diagnostics.push(diagnostic("UNSUPPORTED_VERSION", file, `Unsupported schema ${JSON.stringify(result.schema)}; raw content is retained`, { severity: "error" }), ...yaml.problems.map((p) => p.diagnostic));
     return result;
@@ -15973,6 +15993,19 @@ function parseProduct(text3, file) {
     const location = matches[0];
     const diagnostics = validate(metadata, itemSchema(result.version), rootSchema.$defs).map((e) => diagnostic("ITEM_METADATA", file, e.message, { severity: "error", item_id: metadata?.id, pointer: `/items/${index2}${e.pointer}` }));
     diagnostics.push(...yaml.problems.filter((p) => node2?.range && p.offset >= node2.range[0] && p.offset < node2.range[2]).map((p) => ({ ...p.diagnostic, item_id: metadata?.id })));
+    if (result.version === 3 && metadata?.type === "assessment") {
+      const problem = (message) => diagnostics.push(diagnostic("ASSESSMENT_METADATA", file, message, { severity: "error", item_id: metadata.id }));
+      if (metadata.target_basis?.item_id !== metadata.target || metadata.goal_basis?.item_id !== metadata.applicability?.goal_id)
+        problem("Definition basis item_id must match target and applicability.goal_id");
+      if (!/T.*(?:Z|[+-]\d{2}:\d{2})$/.test(metadata.checked_at ?? "") || !Number.isFinite(Date.parse(metadata.checked_at)))
+        problem("checked_at must be an actual ISO time with timezone");
+      if (metadata.subject?.kind === "working-copy" && !metadata.subject.revision && !metadata.subject.limitations)
+        problem("Unfixed working copy requires limitations");
+      if (metadata.target === metadata.applicability?.goal_id && (metadata.target_definition_algorithm !== metadata.goal_definition_algorithm || metadata.target_definition_sha256 !== metadata.goal_definition_sha256))
+        problem("Goal self-assessment requires equal target and goal algorithms/digests");
+      if (yaml.value.items.some((m) => ["requirement", "goal"].includes(m?.type)))
+        problem("Assessments must be stored separately from requirement and goal definitions");
+    }
     if (matches.length !== 1)
       diagnostics.push(diagnostic("ITEM_HEADING", file, `Expected exactly one root level ## [${metadata?.id}] heading; found ${matches.length}`, { severity: "error", item_id: metadata?.id }));
     if (yaml.value.items.filter((m) => m?.id === metadata?.id).length !== 1)
@@ -15997,6 +16030,7 @@ function parseProduct(text3, file) {
       id: metadata?.id,
       type: metadata?.type,
       metadata,
+      version: result.version,
       path: file,
       title: location?.title ?? "",
       body: location ? text3.slice(location.start, location.end) : "",
@@ -16019,11 +16053,18 @@ function parseProduct(text3, file) {
 function requirementDigest(item) {
   const relations = [...new Map((item.metadata.links ?? []).filter((l) => l.origin === "declared" && l.state === "active" && ["part_of", "supports", "depends_on", "replaces", "derived_from"].includes(l.relation)).map((l) => [[l.relation, l.target].join("\x00"), [l.relation, l.target]])).values()];
   relations.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
-  const definition2 = { type: item.type, id: item.id, scope: item.metadata.scope, relations, body: item.body.replace(/\r\n|\r/g, `
-`).replace(/\n+$/, "") };
+  const body = item.body.replace(/\r\n|\r/g, `
+`).replace(/\n+$/, "");
+  if (item.version === 3) {
+    const assessment_scopes = item.type === "goal" ? (item.metadata.assessment_scopes ?? []).map((s) => ({ target: s.target, scope_id: s.scope_id, coverage: s.coverage.replace(/\r\n|\r/g, `
+`) })).sort((a, b) => a.target < b.target ? -1 : a.target > b.target ? 1 : a.scope_id < b.scope_id ? -1 : a.scope_id > b.scope_id ? 1 : 0) : null;
+    return sha256(`vnext-product-definition/v1
+${JSON.stringify({ type: item.type, id: item.id, scope: item.metadata.scope, goal_kind: item.type === "goal" ? item.metadata.goal_kind ?? "outcome" : null, relations, assessment_scopes, body })}`);
+  }
   return sha256(`vnext-requirement-definition/v1
-${JSON.stringify(definition2)}`);
+${JSON.stringify({ type: item.type, id: item.id, scope: item.metadata.scope, relations, body })}`);
 }
+var definitionAlgorithm = (item) => item.version === 3 ? "vnext-product-definition/v1" : "vnext-requirement-definition/v1";
 
 // runtime/vnext/src/product-maintenance/paths.ts
 import * as fs from "node:fs";
@@ -16347,6 +16388,22 @@ function analyze(catalog) {
       } else if (source2.kind === "uri" && !/^(https?:|mailto:)/i.test(source2.uri))
         report("UNSAFE_URI", item, "URI is retained as text; unsafe/unknown protocol must not be navigated");
     }
+    if (item.type === "project" && item.version === 3) {
+      if (!m.root_goal_id)
+        report("ROOT_GOAL_UNSPECIFIED", item, "No overall goal is selected; do not infer one from file or graph order");
+      else {
+        const goal = expectTarget(item, m.root_goal_id, ["goal"], "Overall goal");
+        if (goal && (goal.type !== "goal" || goal.metadata.scope !== "current"))
+          report("ROOT_GOAL_INVALID", item, "Overall goal must be a current goal");
+      }
+      const order2 = new Set;
+      for (const id2 of m.requirement_order ?? []) {
+        if (order2.has(id2))
+          report("REQUIREMENT_ORDER_DUPLICATE", item, `Requirement ${id2} occurs more than once in registered order`);
+        order2.add(id2);
+        expectTarget(item, id2, ["requirement"], "Registered requirement order");
+      }
+    }
     const seenLinks = new Set;
     for (const link of m.links ?? []) {
       if (seenLinks.has(link.id))
@@ -16364,6 +16421,10 @@ function analyze(catalog) {
         derived_from: [["goal", "module", "requirement", "design", "plan"], [item.type]],
         references: [Object.keys({ project: 1, goal: 1, module: 1, requirement: 1, design: 1, change: 1, assessment: 1, discussion: 1, plan: 1 }), Object.keys({ project: 1, goal: 1, module: 1, requirement: 1, design: 1, change: 1, assessment: 1, discussion: 1, plan: 1 })]
       };
+      if (item.version === 3) {
+        rules.part_of = item.type === "goal" ? [["goal"], ["goal"]] : item.type === "requirement" ? [["requirement"], ["module", "requirement"]] : rules.part_of;
+        rules.supports = [["goal", "requirement", "module"], ["goal"]];
+      }
       const rule = rules[link.relation];
       if (rule && !rule[0].includes(item.type))
         report("LINK_DIRECTION", item, `${item.type} cannot originate ${link.relation}`);
@@ -16376,7 +16437,7 @@ function analyze(catalog) {
         report("ASSESSMENT_TARGET", item, "Selected assessment belongs to another requirement");
     }
     if (item.type === "assessment") {
-      const target = expectTarget(item, m.target, ["requirement"], "Assessment");
+      const target = expectTarget(item, m.target, item.version === 3 ? ["requirement", "goal"] : ["requirement"], "Assessment");
       if (target && m.target_definition_sha256 && m.target_definition_sha256 !== target.definition_sha256)
         report("DEFINITION_CHANGED", item, "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated");
       if (!m.target_definition_sha256)
@@ -16385,6 +16446,13 @@ function analyze(catalog) {
         report("REPORT_SOURCE_MISSING", item, "Reported implementation/verification requires actual sources and a coverage explanation");
       if (m.pending_sources?.length)
         report("PENDING_SOURCES", item, "New material is pending reconciliation; existing PASS is not a current completeness claim");
+      if (item.version === 3) {
+        const goal = expectTarget(item, m.applicability.goal_id, ["goal"], "Assessment goal");
+        if (target?.type === "goal" && target.id !== m.applicability.goal_id)
+          report("ASSESSMENT_GOAL", item, "A goal assessment must select that goal itself");
+        if (goal && m.goal_definition_sha256 !== goal.definition_sha256)
+          report("GOAL_DEFINITION_CHANGED", item, "Goal definition alignment requires checking; this is not business invalidation");
+      }
     }
     if (item.type === "change") {
       for (const delta of m.deltas)
@@ -16572,17 +16640,126 @@ function readCatalog(rootInput, input = {}) {
       catalog.diagnostics.push(diagnostic("AMBIGUOUS_ID", item.path, `ID ${item.id} has multiple current definitions; no newest-file selection`, { severity: "error", item_id: item.id }));
     }
     if (item.usable) {
-      if (item.type === "requirement")
+      if (item.type === "requirement" || item.type === "goal" && item.version === 3) {
         item.definition_sha256 = requirementDigest(item);
+        item.definition_algorithm = definitionAlgorithm(item);
+      }
       catalog.byId.set(item.id, item);
     }
   }
   const projects = catalog.items.filter((i) => i.usable && i.type === "project");
+  for (const goal of catalog.items.filter((i) => i.usable && i.type === "goal" && i.version === 3)) {
+    const seen = new Set;
+    for (const scope2 of goal.metadata.assessment_scopes ?? []) {
+      const key = JSON.stringify([scope2.target, scope2.scope_id]), target = catalog.byId.get(scope2.target);
+      if (seen.has(key) || !target || target.type !== "requirement" && target.id !== goal.id) {
+        delete goal.definition_sha256;
+        catalog.diagnostics.push(diagnostic("ASSESSMENT_SCOPE_CONFLICT", goal.path, "Duplicate or unresolved current scope declaration cannot supply a valid goal digest", { item_id: goal.id }));
+      }
+      seen.add(key);
+    }
+  }
   if (projects.length !== 1 || projects[0]?.path !== manifest.entry)
     catalog.diagnostics.push(diagnostic("PROJECT_ENTRY", manifestPath, "Expected a unique project entry in the manifest entry document"));
   analyze(catalog);
   catalog.coverage = { ...catalog.coverage, omitted: [...new Set(catalog.coverage.omitted)], complete: !enumeration.incomplete && !catalog.coverage.omitted.length, files_read: catalog.documents.length, bytes_read: bytesRead, max_files: maxFiles, max_file_bytes: maxFileBytes, max_total_bytes: maxTotalBytes, usable_count: catalog.items.filter((i) => i.usable).length, invalid_count: catalog.items.filter((i) => !i.usable).length };
   return catalog;
+}
+
+// runtime/vnext/support/record-storage.mjs
+var STORE = ".workflow-system/records";
+var ARCHIVES = `${STORE}/archives`;
+var STAGING = `${STORE}/.archive-staging`;
+var QUARANTINE = `${STORE}/archive-quarantine`;
+var LOCKS = `${STORE}/.record-store-locks`;
+var MAGIC = Buffer.from(`WFRPACK1
+`);
+var ARCHIVE_LIMITS = Object.freeze({
+  chunkBytes: 65536,
+  packRawBytes: 64 * 1024 * 1024,
+  indexBytes: 4 * 1024 * 1024,
+  recordsPerPack: 2048,
+  manifestBytes: 4 * 1024 * 1024,
+  catalogBytes: 16 * 1024 * 1024,
+  archiveCount: 4096,
+  readBytes: 16 * 1024 * 1024,
+  fileReadBytes: 64 * 1024 * 1024
+});
+var MAX_PACK_BYTES = 72 * 1024 * 1024;
+var metadataCache = new Map;
+var readContexts = new WeakMap;
+var activeReadContexts = new Map;
+
+// runtime/vnext/src/product-maintenance/references.ts
+var markdown = unified().use(remarkParse);
+
+// runtime/vnext/src/product-maintenance/scoped.ts
+function rootGoal(catalog, project) {
+  if (!project)
+    return { status: "conflict", id: null };
+  const id2 = project.metadata.root_goal_id;
+  if (!id2)
+    return { status: "unspecified", id: null };
+  const goal = catalog.byId.get(id2);
+  if (!goal)
+    return { status: "unresolved", id: id2 };
+  if (goal.type !== "goal" || goal.metadata.scope !== "current")
+    return { status: "invalid", id: id2 };
+  return { status: "resolved", id: id2 };
+}
+function scopes(catalog, goal) {
+  const declarations = goal.metadata.assessment_scopes ?? [];
+  const seen = new Set;
+  let conflict = false;
+  for (const s of declarations) {
+    const target = catalog.byId.get(s.target), key = JSON.stringify([s.target, s.scope_id]);
+    if (seen.has(key) || !target || target.type !== "requirement" && target.id !== goal.id)
+      conflict = true;
+    seen.add(key);
+  }
+  return { declarations, conflict };
+}
+function productView(catalog) {
+  const projects = catalog.items.filter((i) => i.type === "project");
+  const project = projects.length === 1 && projects[0].usable && projects[0].path === catalog.manifest?.entry ? projects[0] : undefined;
+  const registered = [], seen = new Set, diagnostics = [];
+  for (const id2 of project?.metadata.requirement_order ?? []) {
+    if (seen.has(id2))
+      diagnostics.push({ code: "REQUIREMENT_ORDER_DUPLICATE", id: id2 });
+    seen.add(id2);
+    const requirement = catalog.byId.get(id2);
+    if (requirement?.type !== "requirement")
+      diagnostics.push({ code: "REQUIREMENT_ORDER_UNRESOLVED", id: id2 });
+    else if (!registered.includes(id2))
+      registered.push(id2);
+  }
+  const unordered = catalog.items.filter((i) => i.usable && i.type === "requirement" && !registered.includes(i.id)).map((i) => i.id).sort();
+  const relations = catalog.items.filter((i) => i.usable).flatMap((owner) => (owner.metadata.links ?? []).filter((l) => l.origin === "declared" && l.state === "active" && ["part_of", "supports", "depends_on"].includes(l.relation)).map((l) => ({ owner: owner.id, ...l })));
+  const legal = relations.filter((r) => {
+    const owner = catalog.byId.get(r.owner), target = catalog.byId.get(r.target);
+    if (!target || r.owner === r.target)
+      return false;
+    if (r.relation === "supports")
+      return ["requirement", "module", ...owner.version === 3 ? ["goal"] : []].includes(owner.type) && target.type === "goal";
+    if (r.relation === "depends_on")
+      return ["requirement", "design"].includes(owner.type) && ["requirement", "design"].includes(target.type);
+    return owner.type === "module" && target.type === "module" || owner.type === "requirement" && (target.type === "module" || owner.version === 3 && target.type === "requirement") || owner.version === 3 && owner.type === "goal" && target.type === "goal";
+  });
+  const reaches = (from, to, relation, visited = new Set) => {
+    if (from === to)
+      return true;
+    if (visited.has(from))
+      return false;
+    visited.add(from);
+    return legal.some((r) => r.relation === relation && r.owner === from && reaches(r.target, to, relation, visited));
+  };
+  const current = legal.filter((r) => !reaches(r.target, r.owner, r.relation));
+  for (const r of relations.filter((r2) => !current.includes(r2)))
+    diagnostics.push({ code: "CURRENT_RELATION_INVALID", owner: r.owner, id: r.id });
+  for (const g of catalog.items.filter((i) => i.usable && i.type === "goal" && i.version === 3))
+    if (scopes(catalog, g).conflict)
+      diagnostics.push({ code: "ASSESSMENT_SCOPE_CONFLICT", goal_id: g.id });
+  return { project_id: project?.id ?? null, root_goal: rootGoal(catalog, project), requirement_order: registered, unordered_requirements: unordered, current_relations: current, diagnostics };
 }
 
 // runtime/vnext/src/product-maintenance/offline-reader.ts
@@ -16592,7 +16769,7 @@ if (!root) {
   process.exitCode = 1;
 } else {
   const catalog = readCatalog(root);
-  console.log(JSON.stringify({ contract: "vnext-product-doc/v2", project_id: catalog.manifest?.project_id ?? null, root: catalog.root, status: catalog.status, items: catalog.items.filter((i) => i.usable).map((i) => ({ id: i.id, type: i.type, title: i.title, metadata: i.metadata, body: i.body, path: i.path, line: i.line, definition_sha256: i.definition_sha256 ?? null })), reverse_relations: reverseRelations(catalog), plan_tasks: planTasks(catalog), diagnostics: catalog.diagnostics, coverage: catalog.coverage, task_states: "not-computed; document reports only" }, null, 2));
+  console.log(JSON.stringify({ contract: "vnext-product-doc/v3", supported_formats: ["vnext-product-doc/v1", "vnext-product-doc/v2", "vnext-product-doc/v3"], project_id: catalog.manifest?.project_id ?? null, root: catalog.root, status: catalog.status, items: catalog.items.filter((i) => i.usable).map((i) => ({ id: i.id, type: i.type, title: i.title, metadata: i.metadata, body: i.body, path: i.path, line: i.line, definition_sha256: i.definition_sha256 ?? null, definition_algorithm: i.definition_algorithm ?? null })), product_view: productView(catalog), reverse_relations: reverseRelations(catalog), plan_tasks: planTasks(catalog), diagnostics: catalog.diagnostics, coverage: catalog.coverage, task_states: "not-computed; document reports only" }, null, 2));
   if (catalog.status === "available" && catalog.coverage.complete === false || catalog.status === "unavailable" || catalog.status === "unsupported")
     process.exitCode = 1;
 }
