@@ -2,9 +2,9 @@
   "schema_version": 1,
   "kind": "vibe-governance-distribution-state",
   "distribution_state": "vnext",
-  "distribution_version": "0.24.6",
-  "manifest_digest": "8a847a8908d961e7953f6de3b638d301758e8aea70f7596012c48eb3488d0bd8",
-  "installed_at": "2026-10-11T03:39:02.742Z",
+  "distribution_version": "0.24.7",
+  "manifest_digest": "6a96aeb610f03c2e747cb72bad428442507a4f04b55de60a0801042a91eb8b80",
+  "installed_at": "2026-10-12T03:51:14.939Z",
   "managed_files": [
     {
       "path": ".agents/skills/bootstrap-project/SKILL.md",
@@ -18,7 +18,7 @@
     },
     {
       "path": ".agents/skills/close-task/SKILL.md",
-      "checksum": "1bdb0e6af9153a18890a29cdf2e4223963c9c43a39787ad214ed48dbfe29a610",
+      "checksum": "d70890ff38f35c53aa4a6e686d2a87c727f11262122c052fe9047be85c72d6b1",
       "category": "skill"
     },
     {
@@ -38,7 +38,7 @@
     },
     {
       "path": ".agents/skills/maintain-project/SKILL.md",
-      "checksum": "969a0cfbe2a15a4bb70ef2daf0e72f6215cfd825ec2570598377de15b9514fba",
+      "checksum": "53cba90a0bdcfb7c0eb7f7e9772513aae32ef3c926b97f750069072bf763cf57",
       "category": "skill"
     },
     {
@@ -73,7 +73,7 @@
     },
     {
       "path": ".workflow-system/runtime/dist/cli.js",
-      "checksum": "eab2da0a83025cf76af729bb4897064e03b84dee364a8be822c359048c6cacaf",
+      "checksum": "f04466abf560fd6d88d183f10915e77842095b265cf620071815e6f4a177bcbd",
       "category": "runtime"
     },
     {
@@ -83,12 +83,12 @@
     },
     {
       "path": ".workflow-system/runtime/package-lock.json",
-      "checksum": "60383a863f028284bbc6e2435f3f3afd7881fcb0226b2186cff1275e67e6e3b3",
+      "checksum": "0244f6d90e63e855e42bab348af73bfde9359f388475de991d85bd75fa28d418",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/package.json",
-      "checksum": "74e1d45b2634025b89063083137f6223edfb0f0ff41ca5611b970111cb85b897",
+      "checksum": "6300546de07e18f252cc7f84e86159a3b9c5d4e58262eb204040aaf7cdd30577",
       "category": "runtime"
     },
     {
@@ -158,7 +158,7 @@
     },
     {
       "path": ".workflow-system/runtime/src/kernel.ts",
-      "checksum": "fc51b7b333ee83820ef97f85671c541aeeedab45eca8b203c9efe943ed88bd4c",
+      "checksum": "7a46f305c9f81cf478fd84e6c6ed9bed6a7b3c29467a8001ca55752d80a05537",
       "category": "runtime"
     },
     {
@@ -268,7 +268,7 @@
     },
     {
       "path": ".workflow-system/runtime/support/product-maintenance/contract.md",
-      "checksum": "5b8913cfb8e6a55fe8c37f171f3092f1c9fb80b056c03f04180a39c00e973b43",
+      "checksum": "31402d2b886d88ef7fffbd2668f8a350035632f1301d50b86041c4db0f0c1542",
       "category": "runtime"
     },
     {
@@ -428,17 +428,17 @@
     },
     {
       "path": ".workflow-system/runtime/support/product-maintenance/references/inventory.md",
-      "checksum": "57eac3213904d312fe806bed20047a49bc870e8cee36d9cc2edee8c2bb16f17b",
+      "checksum": "124e60d7de643eeea51d73ebb859edecc9acc0e666d930023d1eefd6c4b7c0fc",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/support/product-maintenance/references/plan.md",
-      "checksum": "dae607026d4e21478adb5fe376857821933578c5f8e9dc447ecf6599ea2a2151",
+      "checksum": "274cd9cb9e74e736ebadb7e0169c3a7db398b81436005127c2d22e22be747368",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/support/product-maintenance/references/reconcile.md",
-      "checksum": "3410b688504f8a56d18788b790ff77b1b6616f0a7e34ce4c127dfb10af1b71bd",
+      "checksum": "388bd60524a5fa563995ddcd4de98adc978b05692bdf5940fb0c37070b77ad35",
       "category": "runtime"
     },
     {
@@ -453,7 +453,7 @@
     },
     {
       "path": ".workflow-system/runtime/support/product-maintenance/references/update.md",
-      "checksum": "a382d266bf0a17dee6f578681390393cc6a82f19e15d4ae4b2ea5d34f3a083b1",
+      "checksum": "22d6a2f869fdecac25f596253822551853f6c0c03ca5cf8d4408997dbd8b471f",
       "category": "runtime"
     },
     {
@@ -563,7 +563,7 @@
     },
     {
       "path": ".workflow-system/vnext/RUNTIME_CONTRACT.yaml",
-      "checksum": "24d060a82e5d6137b4e373d284b8a11d9383f7f5f2052e63eb1809e8a6c4b2d2",
+      "checksum": "6e750472fe63b1128d7ab433bdec5b8ede36c50fd56deb00af5d48cd4d32592e",
       "category": "protocol"
     },
     {
