@@ -1,0 +1,28 @@
+{
+  "order": 22,
+  "id": "REQ-TERMLINK-WEB-UX",
+  "conclusion": "undetermined",
+  "coverage": "Web登录/配置会话/终端主区及触控、共享视觉和主页Codex/IPC/配置数据原组合要求",
+  "achievements": [
+    "当前登录安全核心与55b97876忽略行尾完全一致；本轮认证9项、login7项通过",
+    "sessions及shared视觉/跨页多数断言通过；原60715-002有111/111及Edge150三尺寸操作证据",
+    "旧60616实现/归档Git证据有效，不以旧包active头误称未交付"
+  ],
+  "gaps": [
+    "当前terminal/session集成后继改变registration、复制粘贴/消息路由；缺当前全部主页创建/切换/Browse/实际终端焦点触控的行为回归，不将旧有限Playwright扩为完整当前UX证据"
+  ],
+  "evidence": [
+    "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md:18–30,49–65",
+    "docs/product/history/maintenance-20261011/evidence-supplement-20261012/git-history-evidence.md",
+    "public/terminal.js:1240–1450,1589–1710",
+    "public/sessions.js:29–45,255–280",
+    "public/terminal.html:9–12",
+    "web-workspace-release.tap及test-summary.md"
+  ],
+  "historical_applicability": "55b97876→当前login/basicAuth无语义变动；terminal/session有后继变动。两项本轮静态断言失败为旧640px硬编码与旧terminal.css?v=7，当前899px/420px和v8仍满足相应机制；不能把断言失败直接判UX缺陷，也不伪造视觉通过。",
+  "device_checks": [],
+  "unread": [
+    "60616原详细浏览器截图/逐条验收附件未取得",
+    "本轮未做真实浏览器视觉QA"
+  ]
+}

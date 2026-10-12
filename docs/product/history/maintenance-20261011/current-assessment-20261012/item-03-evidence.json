@@ -1,0 +1,47 @@
+{
+  "order": 3,
+  "id": "REQ-20260222-session-retention-reconnect",
+  "conclusion": "undetermined",
+  "coverage": "七功能：续接/无效ID、配置TTL、idle容量、连接活跃信息、显式删除；24h增量仅示例",
+  "achievements": [
+    "41–43均有当前实现在途与历史窄范围结果；46项当前定向测试含容量错误映射和metadata",
+    "SessionManager 5项现有断言通过，连接摘要保留status/lastActiveAt/activeConnections；其测试进程未正常结束"
+  ],
+  "gaps": [
+    "PTY长期续接、TTL清理、LRU实际运行证据仍不足；已知成果加未知项，未发现确定违反当前边界的功能反例",
+    "不能把6h非法/缺省回退判作24hCR漏交；不能把c82147c状态done当完整验收"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:154–220当前父项与24h边界",
+    "src/services/sessionManager.js:164–185连接；263–315TTL/LRU；452–475摘要；232–249删除",
+    "tests/sessionManager.codexConfig.test.js:97–152连接摘要断言；现5断言通过但30秒超时",
+    "docs/changes/records/CR-20260224-0115-session-retention-status-done-sync.md:17–26只同步状态",
+    "docs/changes/summaries/SUMMARY-REQ-20260222-session-retention-reconnect.md:22–52历史实现/关键路径报告"
+  ],
+  "historical_applicability": "67bc2c3仅语法/文档；f4ce64f报告6/6但明确未覆盖原REQ全场景；1899f6d只把.env.example设置86400000、不改代码；c82147c仅状态/CR回写。当前manager/gateway/routes与这些提交不同字节。现46项定向通过不含真实TTL/LRU或PTY断联持续性；WS测试旧帧数量/teardown夹具不匹配且30秒超时，不能据此判业务失败，也不能报当前WS套件通过。",
+  "device_checks": [
+    {
+      "function": "断联同会话续接",
+      "behavior": "Android临时断联后保留并续接同session/PTY",
+      "preconditions": "当前APK连接保持运行的测试服务；保留窗口内，不重启服务",
+      "steps": [
+        "记录sessionId和可识别shell上下文",
+        "短时断开网络，再恢复并进入原会话",
+        "确认sessionId/上下文相同；显式已删除或无效ID得到可识别失败"
+      ],
+      "expected": "原PTY续接而非静默创建；显式无效ID可识别",
+      "existing_evidence": "当前removeConnection不kill；原f4ce64f只验证WS参数；当前无真实设备断联证据",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    }
+  ],
+  "unread": [
+    "原2月task未定位",
+    "真实PTY/TTL/LRU全链未验；当前已读自动测试范围有限"
+  ]
+}

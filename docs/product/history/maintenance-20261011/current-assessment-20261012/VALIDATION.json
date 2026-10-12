@@ -1,0 +1,76 @@
+{
+  "kind": "assessment-validation-summary",
+  "code_commit": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+  "checked_at": "2026-10-12T15:15:31.599055+00:00",
+  "read_status": "available",
+  "check_status": "checked",
+  "managed_coverage": {
+    "complete": true,
+    "files_read": 13,
+    "bytes_read": 1349643,
+    "enumeration": "managed_paths only; sources are read only by explicit reference",
+    "omitted": [],
+    "paths": [
+      "docs/product/PROJECT.md",
+      "docs/product/GOALS.md",
+      "docs/product/MANAGED_REQUIREMENTS.md",
+      "docs/product/DESIGN_REGISTER.md",
+      "docs/product/DELIVERY_RECONCILIATION.md",
+      "docs/product/ARRANGEMENTS.md",
+      "docs/product/HISTORY_CHANGES.md",
+      "docs/product/SCOPED_ASSESSMENTS.md",
+      "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "docs/product/assessments/SCOPED-CURRENT-20261012.md"
+    ],
+    "excluded_paths": [],
+    "max_files": 1000,
+    "max_file_bytes": 4194304,
+    "max_total_bytes": 33554432,
+    "usable_count": 189,
+    "invalid_count": 0,
+    "selection": "all-enumerated-items",
+    "source_bodies": "not-read"
+  },
+  "new_v2_assessments": 66,
+  "new_v3_scoped_assessments": 2,
+  "conclusions": {
+    "satisfied": 13,
+    "partially-satisfied": 16,
+    "undetermined": 37,
+    "not-satisfied": 0
+  },
+  "registered_requirements": 69,
+  "current_requirements": 66,
+  "excluded_original_states": {
+    "7": "retired",
+    "14": "planned",
+    "25": "candidate"
+  },
+  "new_diagnostics": {
+    "DEFINITION_UNKNOWN": 66
+  },
+  "new_diagnostics_explanation": "v2无法表达当前v3 definition算法，因此null元数据诚实降级；人工四值正文不等于机器scope选择。64项无现存scope，18/24额外v3仅原声明。",
+  "unchanged_files_verified_against_head": [
+    "AGENTS.md",
+    "docs/product/PRODUCT_REQUIREMENTS.md",
+    "docs/product/PROJECT.md",
+    "docs/product/GOALS.md",
+    "docs/product/MANAGED_REQUIREMENTS.md",
+    "docs/product/DELIVERY_RECONCILIATION.md",
+    "docs/product/SCOPED_ASSESSMENTS.md",
+    "src/**",
+    "native/**",
+    "public/**",
+    "android/**",
+    "tests/**",
+    "scripts/**",
+    "package.json",
+    "package-lock.json"
+  ],
+  "no_commit_push_or_deployment": true,
+  "no_new_requirements_or_goal_scopes": true,
+  "byte_read_scope_not_product_validation": true
+}

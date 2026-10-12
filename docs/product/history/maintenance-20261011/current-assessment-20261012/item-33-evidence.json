@@ -1,0 +1,26 @@
+{
+  "order": 33,
+  "id": "REQ-TERMLINK-SERVER-HISTORY",
+  "conclusion": "partially-satisfied",
+  "coverage": "只读Rust来源、Node单例采集/持久投影/查询与原专项修复",
+  "achievements": [
+    "832真实三样本、833共享Rust/Node隔离和当前Node staging/产品事务/provider读回证据支持明确交付",
+    "历史字节与当前核验结果支持原适用范围，不重新执行或推翻已关闭任务"
+  ],
+  "gaps": [
+    "sessions_root候选symlink在canonical confinement前读取header/metadata的已知风险仍存在；DEFER-002保留且非自动修复授权",
+    "其他自然增长/older/大详情/在途全链未知仍在24/68列明，不以局部通过清除"
+  ],
+  "evidence": [
+    "native/codex-rollout-collector/src/protocol/target_source.rs:473–485",
+    "native/codex-rollout-collector/src/source/discovery.rs:851",
+    "docs/workflow/DECISIONS.md:543–555 DEFER-002",
+    "原832/833真实样本与共享隔离及本轮Node产品事务证据见18/19/67（固定原附件已保存）"
+  ],
+  "historical_applicability": "当前代码固定bb484969；本项为既有父组合范围独立人工判断。保留各明确实现路径及历史对象适用性，不把子项数量、历史关闭、父子链接或已有PASS算作达成。测试/代码及原范围详见实际引用的独立报告。",
+  "device_checks": [],
+  "unread": [
+    "父项不额外生成全端矩阵；需要的真机补验沿实际子项原范围单列",
+    "P1.11/P2未明行为（若属本项）继续未定义，不反推新功能或验收"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "order": 50,
+  "id": "REQ-TERMLINK-CODEX-PLAN",
+  "conclusion": "undetermined",
+  "coverage": "进入/取消计划、/plan文本单次发送、补充说明、执行确认后普通输入回default；按真实pending与owner回执解释，不要求特定增强plan事件。",
+  "achievements": [
+    "Android进入/取消plan及确认提交等待owner的实现、wire原测试可定位；gateway原测试通过外部/owner计划实施、default collaboration、live user-input requestId和answers",
+    "本轮JSDOM验证新plan替换旧prompt、delta合并、发送失败不清pending、后续snapshot移除pending；3月直接CLI对照和7/13真实owner记录保留"
+  ],
+  "gaps": [
+    "当前APK的完整规划→补充输入→确认执行→普通turn默认模式未实机完成；7/18明确active Plan动态视觉缺覆盖"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1988：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:6157-6163,6221-6305,6837-6873：plan模式与确认/follower路由",
+    "tests/terminalGateway.codexIpc.test.js:4988-5240：真实请求形态/default/answers路由原测试本轮通过",
+    "tests/codexSecondaryPanel.integration.test.js:1437-1508,2756-2955：本轮选定plan行为通过",
+    "docs/changes/records/CR-20260315-0139-codex-plan-validation.md:24-26,50-61：codex-cli 0.115.0-alpha.11默认/plan执行对照；docs/workflow/DECISIONS.md:94：7/13真实owner PLAN且等待snapshot",
+    "TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md:31：activePlan视觉未知"
+  ],
+  "historical_applicability": [
+    "3月CLI 0.115.0-alpha.11只证明当时plan语义，不证明当前宿主或手机UI；增强plan事件缺失不算失败",
+    "7/13 Approval/PLAN闭环未被7/31Goal纠正撤销；但当前单authority与default reset后续改变，仍需当前原链路补证"
+  ],
+  "device_checks": [
+    {
+      "function": "计划真实交互",
+      "behavior": "同任务规划、补充输入、执行及退出计划模式",
+      "prerequisites": "真实宿主能够自然生成plan/user-input请求；匹配APK/服务",
+      "steps": [
+        "输入/plan再取消；用/plan文本发起计划",
+        "出现补充说明时回答；在真实计划待确认时执行",
+        "完成后普通输入一次"
+      ],
+      "expected": [
+        "不发送原始slash；单次plan不持续；补充及确认属于同thread；收到owner后才收口pending；随后普通输入为default"
+      ],
+      "existing_evidence": [
+        "原REQ5.3；3月CLI对照、7月owner记录及本轮gateway/JSDOM通过"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

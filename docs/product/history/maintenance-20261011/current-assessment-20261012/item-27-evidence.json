@@ -1,0 +1,32 @@
+{
+  "order": 27,
+  "id": "REQ-TERMLINK-WEB",
+  "conclusion": "partially-satisfied",
+  "coverage": "Web独立终端/登录会话、触控及Codex/Workspace，保留已采用未细化主题",
+  "achievements": [
+    "当前登录行为16项验证通过，Workspace browse/preview/diff当前行为及适用历史证据支持明确局部",
+    "刷新复用sessionId原修复控制流与历史smoke适用"
+  ],
+  "gaps": [
+    "Web终端session_info未消费privilegeLevel，缺原风险提示；当前主页可达codex_client IPC发送丢失本次model/reasoning选择",
+    "其余终端实际渲染/触控、完整跨页动态态和未细化P1.11/P2.3仍未知，不增设备/可访问性认证"
+  ],
+  "evidence": [
+    "src/auth/basicAuth.js:116–140,232–275（当前Cookie/登录/撤销实际测试通过）",
+    "src/ws/terminalGateway.js:6574–6586,6652–6669,8995–9007（IP拒绝早于trace；连接起止有trace）",
+    "src/routes/sessions.js:193–273（CRUD无audit调用）",
+    "src/services/auditService.js:4–8,97–122（事件入口范围）",
+    "public/sessions.js:61 / public/terminal.js:1569（当前主页进入codex_client）",
+    "public/terminal_client.js:2341–2364,5923–5927,9352–9368（选择只写nextTurnOverrides，IPC普通发送无配置）",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt（手输slash路径，精确位置见51号）",
+    "本轮Codex定向160/160及组件17/17；原模式/测试局限详见8/16/49/51",
+    "public/terminal.js:1019–1036（权限提示缺口）",
+    "58–60/64/65号原范围证据"
+  ],
+  "historical_applicability": "当前代码固定bb484969；本项为既有父组合范围独立人工判断。保留各明确实现路径及历史对象适用性，不把子项数量、历史关闭、父子链接或已有PASS算作达成。测试/代码及原范围详见实际引用的独立报告。",
+  "device_checks": [],
+  "unread": [
+    "父项不额外生成全端矩阵；需要的真机补验沿实际子项原范围单列",
+    "P1.11/P2未明行为（若属本项）继续未定义，不反推新功能或验收"
+  ]
+}

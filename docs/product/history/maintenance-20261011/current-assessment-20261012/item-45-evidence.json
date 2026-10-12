@@ -1,0 +1,48 @@
+{
+  "order": 45,
+  "id": "REQ-TERMLINK-TOUCH-SCROLL",
+  "conclusion": "undetermined",
+  "coverage": "文字区/空白区一致纵向拖动，保留Android手势与本地滚动",
+  "achievements": [
+    "当前两客户端capture触控监听统一改变viewport.scrollTop，含惯性/聚焦抑制；PgUp/PgDn/Home/End在WS发送前被本地消费",
+    "原11767d3有指定Android设备本地滚动键验证",
+    "补读7月30日提交2d1c83ba实际Git说明：终端capture动量滚动、PTY快照/启动监听、Android旋转resize已实现；c5e73d01另加长按选择。未附该提交运行/设备验收结果，不能仅提交说明判满足"
+  ],
+  "gaps": [
+    "当前触控实现已变化，旧本地滚动键验证不能覆盖文字/空白触摸一致性；3/29原CR明确手势/IME待后续实测，无当前适用真机结果"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1896–1912当前触摸要求",
+    "public/terminal.js:1181–1213本地键；1285–1395 capture与scrollTop",
+    "public/terminal_client.js:8831–8906触摸目标/滚动及选择逻辑",
+    "docs/changes/records/CR-20260224-0257-shortcut-keyboard-local-scroll-keys-fix.md:51–58原设备本地键验证",
+    "docs/changes/records/CR-20260329-0155-android-terminal-keyboard-scroll-regression-fix.md:71–81明确实机手势仍待；93关注焦点/选择",
+    "Git 2d1c83bacc42345cc8827800eb478b53210389ee commit message+diff（2026-07-30）：14文件497行新增，capture/PTY/resize具体实施；c5e73d011027057176e0f2e9c9a59a2dd97a3c92：长按与滚动隔离实施",
+    "docs/ops/incidents/client-shortcut-keyboard-modifier-issue.md:17–42 原Android Ctrl/Alt与文字区滚动问题/复现；不是当前失败报告"
+  ],
+  "historical_applicability": "e975244共享模块和6项测试与HEAD原始blob不同；git diff --ignore-space-at-eol确认这两文件仅行尾不同，当前6/6实跑。11767d3记录设备da34332c本地滚动键行为；public/terminal_client.js、terminal.js当前已有实质变化。56739f1在当前Git对象中不能解析，CR明确Android手势/IME待后续安装实测，与SUMMARY笼统全量交付不能等同。 另核2d1c83ba→HEAD public/terminal.js及src/services/ptyService.js忽略行尾无差异，原始字节非相同；7月Git说明仅是实施证据，未读到对应行为测试结果。",
+  "device_checks": [
+    {
+      "function": "终端触摸滚动",
+      "behavior": "文字区/空白区同样纵向拖动，本地滚动键不发送远端输入",
+      "preconditions": "同一终端含足够scrollback；当前APK，浏览器同内容",
+      "steps": [
+        "分别在密集文字区和空白区上下拖动",
+        "按PgUp/PgDn/Home/End查看历史",
+        "滚动后点回输入，展开/收起快捷栏并输入普通字符"
+      ],
+      "expected": "两区都滚动；按键只移动本地视口；聚焦与输入保持可用",
+      "existing_evidence": "11767d3/CR-20260224-0257:57–58设备本地键验证；3/29 CR:81手势/IME仍待实机",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    }
+  ],
+  "unread": [
+    "未执行真实手指文字/空白区对比，非已知失败"
+  ]
+}

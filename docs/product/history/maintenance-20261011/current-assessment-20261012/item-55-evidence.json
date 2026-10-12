@@ -1,0 +1,50 @@
+{
+  "order": 55,
+  "id": "REQ-TERMLINK-CODEX-APPROVAL",
+  "conclusion": "undetermined",
+  "coverage": "真实command/patch/file审批与用户输入前置、允许/拒绝/回答回传原request；不引入真实权限提升/降权回滚义务。",
+  "achievements": [
+    "本轮gateway通过command decision、execpolicy amendment、permission/MCP decision、raw request目标匹配、owner pending等待后续进展及user-input answers",
+    "Web审批view纯测试和JSDOM阻塞弹窗/IPC审批/失败不submitted/后续snapshot清理通过；Android对话框/submit/merge有明确源链和原测试",
+    "7/13 AD-004明确真实owner Approval闭环以及numeric rawRequestId修复，未被后来的Goal纠正撤销"
+  ],
+  "gaps": [
+    "当前APK在真实owner自然产生command/file/用户输入时的允许/拒绝/回答与前置显示未复验；本轮服务端fake owner与Web DOM覆盖不等于Android真实请求完整通过"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:2078：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "tests/codexApprovalView.test.js:20-146：本轮通过；tests/codexSecondaryPanel.integration.test.js:2049,2661-2755,2845-2901：本轮对应选择通过",
+    "tests/terminalGateway.codexIpc.test.js:4678-4986,5135-5239：本轮通过真实协议形状和原pending匹配逻辑",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:5062-5200：审批/answers回传；android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt:1866-2072：前置命令/输入对话框；android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt:3886-3981：原Android测试未运行",
+    "docs/workflow/DECISIONS.md:94：真实owner Approval与原类型requestId；docs/product/history/maintenance-20261011/task-scope-correction/user-correction.md:7-9：不恢复已纠正的权限回滚义务"
+  ],
+  "historical_applicability": [
+    "3月审批基础与7月真实owner闭环是不同范围，均保留；7/31仅撤回external Goal声明，不能误抹Approval结果",
+    "后续gateway单authority ledger、selection与Androidpending清理有修改；当前实际设备链仍缺新证据"
+  ],
+  "device_checks": [
+    {
+      "function": "审批及用户输入原闭环",
+      "behavior": "前置提示与真实同request的批准/拒绝/答案",
+      "prerequisites": "自然产生审批和user-input的受控测试任务；匹配服务/APK；不执行超出用户授权的实际操作",
+      "steps": [
+        "打开真实command/file请求核对命令/变更内容并在安全测试中允许或拒绝",
+        "对真实补充问题填写答案",
+        "观察owner后续surface及宿主执行/停止结果"
+      ],
+      "expected": [
+        "原requestId对应正确请求；未决保持阻塞；ack不伪造完成；owner更新后清理提示并同步各端"
+      ],
+      "existing_evidence": [
+        "7/13真实Approval记录；本轮gateway与Web UI测试通过"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "order": 31,
+  "id": "REQ-TERMLINK-SERVER-CODEX",
+  "conclusion": "partially-satisfied",
+  "coverage": "服务端Codex接入与跨端共享交互契约、当前IPC follower/owner路径",
+  "achievements": [
+    "Gateway当前定向160项通过，follower/owner冻结实现及原恢复成果可定位",
+    "stored config/next-turn及当前对话身份隔离有明确实现与部分定向回归"
+  ],
+  "gaps": [
+    "已确认共享下一回合选择链未闭合：当前Web主页可达客户端picker只改本地值，follower普通发送未把model/reasoning带到服务端；此为本父共享交互范围缺口，不声称gateway收到配置后丢弃",
+    "真实当前host authority/pending action/重连动态闭环仍未知，不能由旧版本确认扩全当前"
+  ],
+  "evidence": [
+    "public/sessions.js:61 / public/terminal.js:1569（当前主页进入codex_client）",
+    "public/terminal_client.js:2341–2364,5923–5927,9352–9368（选择只写nextTurnOverrides，IPC普通发送无配置）",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt（手输slash路径，精确位置见51号）",
+    "本轮Codex定向160/160及组件17/17；原模式/测试局限详见8/16/49/51"
+  ],
+  "historical_applicability": "当前代码固定bb484969；本项为既有父组合范围独立人工判断。保留各明确实现路径及历史对象适用性，不把子项数量、历史关闭、父子链接或已有PASS算作达成。测试/代码及原范围详见实际引用的独立报告。",
+  "device_checks": [],
+  "unread": [
+    "父项不额外生成全端矩阵；需要的真机补验沿实际子项原范围单列",
+    "P1.11/P2未明行为（若属本项）继续未定义，不反推新功能或验收"
+  ]
+}

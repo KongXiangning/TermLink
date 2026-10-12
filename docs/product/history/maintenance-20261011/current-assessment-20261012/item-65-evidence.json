@@ -1,0 +1,24 @@
+{
+  "order": 65,
+  "id": "REQ-TERMLINK-BROWSER-LOGIN",
+  "conclusion": "satisfied",
+  "coverage": "独立登录表单校验/loading/error/safe-next；8h绝对/30min闲置server opaque session、HttpOnly/SameSite Strict/TLS Secure、登出撤销及不持久凭据",
+  "achievements": [
+    "当前basicAuth/login.js/login.html与55b97876忽略行尾完全一致；原Edge150登录交互QA可复用该范围",
+    "本轮9个browser-session测试和7个login JSDOM测试全通过，覆盖expiry/revoke/cookie/API兼容/single-use WS票据、安全跳转/错误/密码不入Storage"
+  ],
+  "gaps": [
+    "仅原网页登录范围满足，不替代Web全页UX、mTLS部署或完整安全认证"
+  ],
+  "evidence": [
+    "src/auth/basicAuth.js:4–8,46–85,108–140,232–275",
+    "public/login.js:24–43,104–158",
+    "tests/basicAuth.browserSession.test.js",
+    "tests/login.web.test.js",
+    "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md:18–30",
+    "web-workspace-release.tap"
+  ],
+  "historical_applicability": "55b97876原浏览器登录交付→bb484969当前相应auth/login文件无语义差异；新测试在当前代码执行。",
+  "device_checks": [],
+  "unread": []
+}

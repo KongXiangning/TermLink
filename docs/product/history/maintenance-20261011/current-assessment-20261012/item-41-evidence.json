@@ -1,0 +1,47 @@
+{
+  "order": 41,
+  "id": "REQ-TERMLINK-SESSION-CONTINUITY",
+  "conclusion": "undetermined",
+  "coverage": "断联保留PTY、有效ID原会话续接、显式空/不存在ID拒绝、缺ID默认新建",
+  "achievements": [
+    "removeConnection仅移除连接并设置IDLE/时间，未kill；addConnection对已初始化PTY复用",
+    "Gateway显式has(sessionId)分支getSession，不存在4404；无ID才create。重跑现有WS测试有效/空/不存在ID关键断言通过后在teardown失败，首项默认创建断言通过后因新增帧计数5≠2失败"
+  ],
+  "gaps": [
+    "尚无当前真实PTY断联/多端续接上下文证据；WS测试为mock SessionManager，不能证明进程上下文存活",
+    "重跑受影响套件30秒超时；8个WS测试受旧夹具影响，未得到完整通过报告；不是已知功能失败"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1819–1837 当前三行为",
+    "src/services/sessionManager.js:164–185 add/remove；424–449已初始化PTY不再spawn",
+    "src/ws/terminalGateway.js:6590–6614 显式ID/无ID分支；8995仅removeConnection",
+    "tests/terminalGateway.sessionid.test.js:72–162 新建/复用；288–360空/不存在ID；当前teardown src/ws/terminalGateway.js:9076 mock缺sessions",
+    "docs/changes/records/CR-20260224-0023-session-retention-reconnect-ws-param-fix.md:18–30 四参数路径；60–76 6/6与全场景未补齐",
+    "2026-10-12 native可用后执行 timeout 30s node --test tests/sessionManager.codexConfig.test.js tests/terminalGateway.sessionid.test.js：5断言通过，8WS失败（旧帧数量/after缺sessions夹具），2文件取消，exit124；不得写作整套PASS或PTY连续性业务失败。"
+  ],
+  "historical_applicability": "67bc2c3仅语法/文档；f4ce64f报告6/6但明确未覆盖原REQ全场景；1899f6d只把.env.example设置86400000、不改代码；c82147c仅状态/CR回写。当前manager/gateway/routes与这些提交不同字节。现46项定向通过不含真实TTL/LRU或PTY断联持续性；WS测试旧帧数量/teardown夹具不匹配且30秒超时，不能据此判业务失败，也不能报当前WS套件通过。",
+  "device_checks": [
+    {
+      "function": "断联同会话续接",
+      "behavior": "Android临时断联后保留并续接同session/PTY",
+      "preconditions": "当前APK连接保持运行的测试服务；保留窗口内，不重启服务",
+      "steps": [
+        "记录sessionId和可识别shell上下文",
+        "短时断开网络，再恢复并进入原会话",
+        "确认sessionId/上下文相同；显式已删除或无效ID得到可识别失败"
+      ],
+      "expected": "原PTY续接而非静默创建；显式无效ID可识别",
+      "existing_evidence": "当前removeConnection不kill；原f4ce64f只验证WS参数；当前无真实设备断联证据",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    }
+  ],
+  "unread": [
+    "未运行真实PTY连续性/长期断联；非跨服务重启PTY要求"
+  ]
+}

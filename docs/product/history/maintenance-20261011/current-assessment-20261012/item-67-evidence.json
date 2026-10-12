@@ -1,0 +1,44 @@
+{
+  "order": 67,
+  "id": "REQ-TERMLINK-HISTORY-PERSISTENCE",
+  "conclusion": "satisfied",
+  "coverage": "仅当前两项明确行为：batch durable staging后经validated complete在一个产品事务保存canonical正文/详情/coverage/checkpoint；鉴权只读provider/Gateway读持久投影，不让查询者直接调用Rust。",
+  "achievements": [
+    "当前SQLite原测试实际stage后重开、publish后重开、重复幂等、失败ROLLBACK保旧、业务path/JSON字段保持、内部checkpoint隔离均通过",
+    "当前Gateway原测试实际从provider服务initial/older/details、明确no source read、旧client/v2与DB-only miss保缓存；服务BasicAuth/WS upgrade入口保留",
+    "同版本832独立H1/H2/H3真实Rust/SQLite/provider5项与实际产品三样本保存可复用，原83343/43包含真实staging COMMIT→ACK→complete→产品COMMIT及重开顺序，未依靠手造batch作为唯一依据"
+  ],
+  "gaps": [
+    "原两项行为范围内未识别欠交；003旧stopped/acceptance=false不被重写，后续004及共享/专项实际证据独立覆盖此处两项",
+    "原target-v1已发布格式迁移排除事实保留，不能说技术finding已修；真实App更广E2E属于68/24，未据此新增67门槛",
+    "本次Node v24.19.0原有9个history/collector/diagnostics测试文件：过滤8个需cargo的顶层入口（含子测试10项）后237通过/1失败；原输出../history-node-tests-available.tap。唯一失败为70MiB例的错误码断言（期待history_envelope_too_large，实际history_payload_chunks_unsupported），不支持chunk客户端已显式失败且未发delta，现行契约未要求旧错误码，不能据此判功能失效。首次未成功过滤的运行还保留cargo ENOENT，不伪装通过。"
+  ],
+  "evidence": [
+    "src/services/codexHistoryProductStore.js:141–255 stage与事务publication、:259–302只读projection、:352–357 rollback、:572文件flush",
+    "src/services/codexRolloutCollector/analysisBatchImporter.js:1930–1949 ACK前product staging、:1952–2080 complete/receipt/checkpoint gate与产品publication",
+    "tests/codexHistoryProductFlow.test.js:643–695,1017,1526–1620,1657–1817 当前实测持久/rollback/details/no-source-read",
+    "src/server.js:183–195 鉴权；src/ws/terminalGateway.js:5 verifyWsUpgrade",
+    "docs/codex/codex-history-product-contract.md:89–126 原两行为契约",
+    "../history-evidence/833s5-report.md；../history-evidence/832review-node-audit.json samebyte真实进程5项",
+    "../history-node-tests-available.tap"
+  ],
+  "historical_applicability": {
+    "original": "833原隔离43/43后源改动由832同版本三类5/5及真产品读回复验；Store/importer/provider/Gateway/测试与当时审计SHA完全一致。",
+    "current": {
+      "assessed_head": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+      "historical_server_source_head": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "android_fix_commit": "0618cafc",
+      "rust_binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e",
+      "apk_sha256": "f148028b15fa3a8dffe63ca483bcda5a1ce9764bbde817e68a357598d25dfd6a",
+      "phone": "MQS7N19402011743",
+      "profile": "task005-s2-local",
+      "range_enabled": true,
+      "qualification": "这些是原832实测版本；23个源码/测试/规范/fixture历史哈希与当前逐字节相同，0618cafc至HEAD的src/native/android/public/tests/scripts零diff。原Windows Rust exe与APK未在本次机器物化，不声称当前真机或重新构建。"
+    }
+  },
+  "device_checks": [],
+  "unread": [
+    "当前真实Rust部分因无cargo未重跑，未虚构新ACK/complete端到端运行；原同源码过程证据已核",
+    "未将原Task004所有发布包/外部宿主上线资格纳入这两项或宣称全部已验证"
+  ]
+}

@@ -1,0 +1,684 @@
+✔ browser session uses opaque server-side tokens with expiry and revocation (4.566579ms)
+✔ login sets hardened host cookie and never returns the token (1.979136ms)
+✔ invalid login is JSON 401 without a Basic challenge or session cookie (0.574777ms)
+✔ middleware preserves Basic and API challenge while redirecting only HTML navigation (1.146279ms)
+✔ pre-auth allowlist is exact and cookie session authorizes protected requests (0.855801ms)
+✔ cookie-authenticated browser flow preserves single-use WebSocket tickets (0.784113ms)
+✔ logout revokes the current browser session and clears the cookie (1.248002ms)
+✔ safe next rejects external, protocol-relative, and login-loop targets (0.379012ms)
+✔ AUTH_ENABLED=false preserves bypass and login compatibility (0.448787ms)
+✔ standalone and embedded Codex IPC headers avoid inline layout and localize stable copy (152.4496ms)
+✔ Codex IPC shell restores focus visibility and mobile touch sizing (0.3384ms)
+✖ workspace narrow layout stacks pane controls and preserves readable paths (1.187942ms)
+✔ Codex client focus overrides remain visible after legacy focus resets (0.21233ms)
+✔ Codex IPC translations remain complete in English and Chinese (0.304579ms)
+✖ resolveDirectMtlsOptions stays disabled when direct-server mTLS is not selected (1.843461ms)
+✖ resolveDirectMtlsOptions rejects direct-server mTLS without direct TLS mode (1.317888ms)
+✖ resolveDirectMtlsOptions supports generated server and client artifacts for nginx (0.507266ms)
+✖ generateDirectMtlsArtifacts creates the expected direct mTLS files (0.74245ms)
+✔ Linux installer defaults use FHS paths and the invoking sudo user (1.870632ms)
+✔ non-interactive HTTP configuration requires BasicAuth (4.950978ms)
+✔ direct and nginx mTLS configurations validate (1.704401ms)
+✔ imported certificate mode requires PEM source paths (0.314103ms)
+✔ login shell exposes semantic, password-manager friendly controls (116.317067ms)
+✔ login stylesheet has desktop/mobile, focus, touch, and reduced-motion states (0.501257ms)
+✔ login submits credentials once, uses safe next, and stores no auth data in Web Storage (66.469599ms)
+✔ login rejects empty and invalid credentials with inline recovery state (55.161478ms)
+✔ login restores an existing session and prevents open redirects (54.668363ms)
+✔ password visibility control exposes pressed state and localized label (34.363711ms)
+✔ login translation keys remain complete in English and Chinese (0.541587ms)
+✔ resolveNginxMtlsOptions uses a dedicated nginx-mtls output path (2.200489ms)
+✔ generateNginxMtlsArtifacts creates the expected nginx-side mTLS files (2.050122ms)
+✔ generateNginxMtlsArtifacts creates a password automatically when none is provided (0.748088ms)
+✔ terminal configuration uses semantic dialogs, explicit labels and no inline form layout (123.271877ms)
+✔ server configuration code validates URLs, restores dialog focus and avoids HTML interpolation (0.68926ms)
+✔ server profile form shows inline errors and uses a named confirmation dialog (130.504838ms)
+✔ new-session dialog exposes accessible mode, folder and recovery controls (41.542443ms)
+✔ terminal session creation submits once and switches the live shell without reload (39.146265ms)
+✔ session APIs follow the active server profile when the terminal shell provides one (31.348907ms)
+✔ folder picker reports loading state and navigates directly into selected folders (38.416144ms)
+✔ folder picker explains missing server configuration and preserves manual cwd input (28.826192ms)
+✔ folder picker distinguishes an unavailable configured root from generic failures (23.827608ms)
+✔ standalone Codex drawer is hidden from focus until opened and closes with Escape (26.446839ms)
+✔ session UX stylesheet includes touch, focus, narrow-screen and reduced-motion rules (0.377199ms)
+✔ new session and drawer translations remain complete in English and Chinese (0.343698ms)
+✔ terminal workspace exposes persistent context, compact actions and an inert navigation drawer (27.353681ms)
+✔ terminal navigation drawer traps focus, closes with Escape and restores the menu trigger (53.733744ms)
+✔ terminal persistent status follows connect, session-info and reconnect transitions (46.263211ms)
+✔ fit action schedules terminal sizing and returns focus to xterm (35.673081ms)
+✔ reconnect and paste controls reuse the live transport without duplicating input (64.384028ms)
+✔ terminal resize and connection UI preserve the existing transport state machine (1.108312ms)
+✔ terminal workspace CSS keeps status visible and shortcuts touch-safe without motion dependency (0.512043ms)
+✔ terminal workspace translations remain complete in English and Chinese (0.208404ms)
+✔ shared foundation exposes the agreed visual and interaction tokens (0.978787ms)
+✔ shared primitives cover controls, fields, status, dialogs and empty states (0.295275ms)
+✖ foundation is loaded before page styles so existing shells retain ownership (136.182562ms)
+✔ login aliases its visual system to shared tokens without changing its shell contract (25.451041ms)
+✔ key workspace and terminal anchors remain present after foundation wiring (113.172939ms)
+✔ Windows runtime manifest pins official Node win-x64 archive and SHA-256 (1.368785ms)
+✔ Setup compiler manifest pins official Inno Setup release and checksum (0.184068ms)
+✔ Portable root launchers use bundled PowerShell tools and install-root-local paths (1.976221ms)
+✔ Windows staging sensitive scan accepts empty persistent layout and rejects runtime secrets (3.130412ms)
+✔ clean-host verifier covers zero-system-Node, GUI/CLI, autostart, mTLS, upgrade, and uninstall gates (0.35121ms)
+✖ Windows PowerShell 5.1 parses and imports the shared module and CLI (5.165673ms)
+✖ WinForms GUI launches in smoke mode, binds shared-core operations, and applies a port (2.860174ms)
+✔ mTLS generator creates and validates private artifacts without leaking secrets (644.43105ms)
+✖ config initialization is local, atomic, and redacts the generated password (1.851308ms)
+✖ port set validates before replacing config (9.971807ms)
+✖ status, autostart dry-run, and open dry-run do not mutate the host (2.587253ms)
+✖ embedded Node service can start, pass health, enable mTLS, restart, and stop (340.697554ms)
+✔ workspace file descriptors classify markdown, image, PDF, and binary files (25.746968ms)
+✔ workspace search is recursive, bounded, excludes generated directories, and returns relative paths (17.353727ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ two-file comparison returns paired structured rows and stable statistics (16.397695ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ HEAD comparison combines staged and unstaged changes (73.169221ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ HEAD comparison resolves paths when workspace root is a Git subdirectory (55.649824ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ HEAD comparison handles untracked, deleted, and repositories without HEAD (68.180986ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ comparison rejects binary, oversized, and out-of-range files (79.722175ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ workspace meta lazily initializes workspaceRoot from legacy cwd (34.906004ms)
+✔ workspace non-meta endpoints do not lazily initialize workspaceRoot from legacy cwd (2.730258ms)
+✔ workspace tree returns git status and respects hidden file toggle (81.401389ms)
+✔ workspace file endpoint supports full, truncated, segmented, and limited view modes (63.710268ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ workspace file-content serves only workspace files and supports an explicit download disposition (10.519368ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ workspace diff returns unified diff for tracked changes and explicit feedback for untracked files (52.603834ms)
+✔ workspace search and structured comparison routes are additive and path-safe (96.713445ms)
+✔ workspace blocks path escape attempts outside workspace root (11.043428ms)
+✔ workspace picker tree lists directories and parent path (3.152645ms)
+✔ workspace picker tree defaults to allowed host root when path is omitted (10.306877ms)
+✔ workspace picker tree rejects paths outside allowed host root (6.594277ms)
+✔ workspace picker tree lists multiple configured roots when path is omitted (4.722864ms)
+✔ workspace picker tree can go back to multi-root listing from a configured root (12.242467ms)
+✔ workspace picker tree fails when picker root is not configured (0.665684ms)
+✔ workspace picker tree fails when picker root is invalid (0.846847ms)
+✔ workspace tracks the visual viewport so mobile sheets stay above the IME (164.982675ms)
+✔ workspace back closes an open picker before navigating the directory history (57.895201ms)
+✔ workspace page boots with meta then tree and keeps viewer in empty state (48.882667ms)
+✔ workspace restores the last saved file route after reopening (47.029817ms)
+✔ workspace page opens an explicitly requested initial file (56.150064ms)
+✔ workspace page drops stale file responses when user selects another file (56.565029ms)
+✔ workspace page keeps loaded content when diff request fails (55.024421ms)
+✔ workspace page appends truncated content when loading more (44.186768ms)
+✔ workspace page clears stale diff loading when switching to another file (58.823917ms)
+✔ workspace page clears stale more loading when switching to another file (71.828312ms)
+✔ workspace page renders one structured comparison in unified and split layouts (46.875379ms)
+✔ workspace global search opens a relative-path result without leaking an absolute path (257.898797ms)
+✔ workspace Markdown preview disables raw HTML and dangerous link protocols (30.578496ms)
+✔ workspace Markdown mode buttons switch between rendered preview and source (44.702731ms)
+✔ workspace revokes an image Blob URL when another file is selected (43.554839ms)
+✔ workspace PDF loader pins the local worker and disables eval (0.330819ms)
+✔ workspace mobile reading layout uses compact type without page zoom (0.222836ms)
+ℹ tests 108
+ℹ suites 0
+ℹ pass 96
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1899.443304
+
+✖ failing tests:
+
+test at tests/crossPageCompatibility.web.test.js:40:1
+✖ workspace narrow layout stacks pane controls and preserves readable paths (1.187942ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /@media \(max-width: 640px\)/. Input:
+  
+  ':root {\n' +
+    '    color-scheme: dark;\r\n' +
+    '    --bg: #07111b;\r\n' +
+    '    --bg-deep: #050c14;\r\n' +
+    '    --surface: rgba(18, 31, 44, 0.92);\r\n' +
+    '    --surface-strong: #122131;\r\n' +
+    '    --surface-soft: rgba(25, 42, 58, 0.72);\r\n' +
+    '    --border: rgba(135, 164, 190, 0.18);\r\n' +
+    '    --border-strong: rgba(135, 164, 190, 0.3);\r\n' +
+    '    --text: #edf5ff;\r\n' +
+    '    --muted: #91a8bd;\r\n' +
+    '    --faint: #647b90;\r\n' +
+    '    --accent: #4f7cff;\r\n' +
+    '    --accent-soft: rgba(79, 124, 255, 0.17);\r\n' +
+    '    --green: #45d6a4;\r\n' +
+    '    --green-soft: rgba(69, 214, 164, 0.14);\r\n' +
+    '    --orange: #f2a531;\r\n' +
+    '    --red: #ff6b75;\r\n' +
+    '    --code-bg: #071019;\r\n' +
+    '    --radius-xl: 20px;\r\n' +
+    '    --radius-lg: 16px;\r\n' +
+    '    --radius-md: 12px;\r\n' +
+    '    --shadow: 0 18px 46px rgba(0, 0, 0, 0.28);\n' +
+    '}\n' +
+    '\n' +
+    ':root.theme-light {\n' +
+    '    color-scheme: light;\n' +
+    '    --bg: #F5F7FA;\n' +
+    '    --bg-deep: #EAF0F6;\n' +
+    '    --surface: rgba(255, 255, 255, 0.96);\n' +
+    '    --surface-strong: #FFFFFF;\n' +
+    '    --surface-soft: rgba(238, 242, 247, 0.92);\n' +
+    '    --border: rgba(92, 116, 140, 0.22);\n' +
+    '    --border-strong: rgba(72, 101, 129, 0.34);\n' +
+    '    --text: #17212B;\n' +
+    '    --muted: #526273;\n' +
+    '    --faint: #6B7785;\n' +
+    '    --accent: #2F6FEB;\n' +
+    '    --accent-soft: rgba(47, 111, 235, 0.12);\n' +
+    '    --green: #168A67;\n' +
+    '    --green-soft: rgba(22, 138, 103, 0.12);\n' +
+    '    --orange: #A66A00;\n' +
+    '    --red: #C73535;\n' +
+    '    --code-bg: #EEF2F7;\n' +
+    '    --shadow: 0 14px 34px rgba(42, 65, 88, 0.14);\n' +
+    '}\n' +
+    '\r\n' +
+    '[hidden] { display: none !important; }\r\n' +
+    '\r\n' +
+    '* { box-sizing: border-box; }\r\n' +
+    'html, body {\r\n' +
+    '    min-height: 100%;\r\n' +
+    '    -webkit-text-size-adjust: 100%;\r\n' +
+    '    text-size-adjust: 100%;\r\n' +
+    '}\r\n' +
+    'body {\n' +
+    '    margin: 0;\r\n' +
+    '    color: var(--text);\r\n' +
+    '    font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;\r\n' +
+    '    background:\r\n' +
+    '        radial-gradient(circle at 86% -8%, rgba(60, 117, 173, 0.28), transparent 34%),\r\n' +
+    '        radial-gradient(circle at -10% 34%, rgba(36, 153, 132, 0.1), transparent 30%),\r\n' +
+    '        linear-gradient(180deg, #0b1824 0%, var(--bg) 52%, var(--bg-deep) 100%);\r\n' +
+    '    overflow-x: hidden;\r\n' +
+    '}\n' +
+    '\n' +
+    'body.theme-light {\n' +
+    '    background:\n' +
+    '        radial-gradient(circle at 86% -8%, rgba(79, 124, 255, 0.12), transparent 34%),\n' +
+    '        radial-gradient(circle at -10% 34%, rgba(22, 138, 103, 0.07), transparent 30%),\n' +
+    '        linear-gradient(180deg, #FFFFFF 0%, var(--bg) 52%, var(--bg-deep) 100%);\n' +
+    '}\n' +
+    'button, input { font: inherit; }\r\n' +
+    'button { color: inherit; }\r\n' +
+    'button:focus-visible, input:focus-visible { outline: 2px solid #81a1ff; outline-offset: 2px; }\r\n' +
+    '\r\n' +
+    '.workspace-shell {\r\n' +
+    '    width: min(1600px, 100%);\r\n' +
+    '    min-height: 100vh;\r\n' +
+    '    margin: 0 auto;\r\n' +
+    '    padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'body.host-android .workspace-shell { padding-top: 10px; }\r\n' +
+    'body.host-android .workspace-header { display: none; }\r\n' +
+    '\r\n' +
+    '.workspace-header {\r\n' +
+    '    display: flex;\r\n' +
+    '    align-items: center;\r\n' +
+    '    justify-content: space-between;\r\n' +
+    '    gap: 18px;\r\n' +
+    '    padding: 18px 20px;\r\n' +
+    '    margin-bottom: 12px;\r\n' +
+    '    border: 1px solid var(--border);\r\n' +
+    '    border-radius: var(--radius-xl);\r\n' +
+    '    background: linear-gradient(135deg, rgba(19, 35, 51, 0.96), rgba(11, 24, 36, 0.9));\r\n' +
+    '    box-shadow: var(--shadow);\r\n' +
+    '}\r\n' +
+    '.workspace-kicker, .pane-eyebrow {\r\n' +
+    '    color: #75a0ff;\r\n' +
+    '    font-size: 11px;\r\n' +
+    '    font-weight: 700;\r\n' +
+    '    letter-spacing: .13em;\r\n' +
+    '    text-transform: uppercase;\r\n' +
+    '}\r\n' +
+    '.workspace-header h1 { margin: 3px 0 2px; font-size: 23px; }\r\n' +
+    '.workspace-header p, .pane-meta { margin: 0; color: var(--muted); }\r\n' +
+    '.workspace-header-status {\r\n' +
+    '    display: inline-flex; align-items: center; gap: 8px;\r\n' +
+    '    min-height: 36px; padding: 0 12px; border: 1px solid rgba(69,214,164,.22);\r\n' +
+    '    border-radius: 999px; background: var(--green-soft); color: #a7efd5; font-size: 13px;\r\n' +
+    '}\r\n' +
+    '.connection-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(69,214,164,.55); }\r\n' +
+    '\r\n' +
+    '.workspace-toolbar {\n' +
+    '    position: sticky; top: 0; z-index: 20;\r\n' +
+    '    display: flex; align-items: center; gap: 10px;\r\n' +
+    '    min-height: 54px; padding: 7px 8px 7px 12px;\r\n' +
+    '    border: 1px solid var(--border); border-radius: var(--radius-lg);\r\n' +
+    '    background: rgba(9, 21, 32, .88); backdrop-filter: blur(18px); box-shadow: 0 9px 26px rgba(0,0,0,.2);\r\n' +
+    '}\r\n' +
+    '.breadcrumbs { min-width: 0; flex: 1; display: flex; align-items: center; overflow-x: auto; scrollbar-width: none; }\r\n' +
+    '.breadcrumbs::-webkit-scrollbar { display: none; }\r\n' +
+    '.breadcrumb-button {\r\n' +
+    '    flex: 0 0 auto; min-width: 44px; min-height: 44px; padding: 0 9px;\r\n' +
+    '    border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer;\r\n' +
+    '}\r\n' +
+    '.breadcrumb-button:last-child { color: var(--text); font-weight: 650; }\r\n' +
+    '.breadcrumb-separator { color: var(--faint); }\r\n' +
+    '.toolbar-actions, .pane-actions, .viewer-actions, .media-toolbar, .diff-toolbar, .content-toolbar {\r\n' +
+    '    display: flex; align-items: center; gap: 7px;\r\n' +
+    '}\r\n' +
+    'button, .toggle {\r\n' +
+    '    min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius-md);\r\n' +
+    '    background: rgba(17, 31, 44, .84); cursor: pointer;\r\n' +
+    '    transition: background .14s ease, border-color .14s ease, transform .14s ease, opacity .14s ease;\r\n' +
+    '}\r\n' +
+    'button { padding: 0 13px; }\r\n' +
+    'button:hover:not(:disabled) { border-color: var(--border-strong); background: rgba(29, 49, 66, .9); }\r\n' +
+    'button:active:not(:disabled) { transform: translateY(1px); }\r\n' +
+    'button:disabled { opacity: .42; cursor: default; }\r\n' +
+    'button.active, .primary-button { border-color: rgba(79,124,255,.55); background: var(--accent-soft); color: #bcd0ff; }\r\n' +
+    '.icon-button { width: 44px; padding: 0; font-size: 21px; }\r\n' +
+    '.compact-button { min-height: 40px; padding: 0 10px; }\r\n' +
+    '.compact-toggle { min-height: 40px; padding: 0 10px; }\r\n' +
+    '.toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }\r\n' +
+    '.toggle input { accent-color: var(--accent); }\r\n' +
+    '\r\n' +
+    '.workspace-banner, .pane-status, .viewer-mode-note {\r\n' +
+    '    padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);\r\n' +
+    '    color: var(--muted); background: var(--surface-soft);\r\n' +
+    '}\r\n' +
+    '.workspace-banner { margin-top: 10px; color: #f7c56d; border-color: rgba(242,165,49,.25); }\r\n' +
+    '.pane-status.is-loading { color: #f7c56d; }\r\n' +
+    '.pane-status.is-error { color: #ff9ca3; border-color: rgba(255,107,117,.28); background: rgba(255,107,117,.08); }\r\n' +
+    '.viewer-mode-note {\n' +
+    '    display: inline-flex; width: fit-content; max-width: 100%;\n' +
+    '    margin: 4px 0; padding: 6px 10px;\n' +
+    '    color: #a8c0ff; border-color: rgba(79,124,255,.22); background: rgba(79,124,255,.08);\n' +
+    '    font-size: 12px; line-height: 1.3; cursor: default; user-select: text;\n' +
+    '}\n' +
+    '\r\n' +
+    '.workspace-main {\r\n' +
+    '    display: grid; grid-template-columns: minmax(270px, 330px) minmax(0, 1fr); gap: 12px;\r\n' +
+    '    min-height: calc(100vh - 104px); margin-top: 12px;\r\n' +
+    '}\r\n' +
+    'body:not(.host-android) .workspace-main { min-height: calc(100vh - 184px); }\r\n' +
+    '.workspace-pane {\r\n' +
+    '    min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-xl);\r\n' +
+    '    background: linear-gradient(180deg, rgba(18, 33, 47, .94), rgba(10, 22, 33, .94)); box-shadow: var(--shadow);\r\n' +
+    '}\r\n' +
+    '.workspace-browser { overflow: hidden; }\r\n' +
+    '.workspace-viewer { display: flex; flex-direction: column; min-height: 0; }\r\n' +
+    '.pane-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 3px 3px 13px; }\r\n' +
+    '.pane-title { margin-top: 4px; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }\n' +
+    '.viewer-meta-kind { color: #88aaff; font-weight: 700; }\n' +
+    '.viewer-heading { min-width: 0; }\n' +
+    '.viewer-header { border-bottom: 1px solid var(--border); }\r\n' +
+    '.viewer-primary-actions { flex-wrap: wrap; justify-content: flex-end; }\r\n' +
+    '.viewer-primary-actions button { min-height: 38px; }\r\n' +
+    '.count-pill { min-width: 32px; height: 30px; display: grid; place-items: center; padding: 0 9px; border-radius: 999px; background: var(--accent-soft); color: #aec3ff; font-size: 12px; }\r\n' +
+    '\r\n' +
+    '.browser-list, .picker-list { display: flex; flex-direction: column; gap: 6px; overflow: auto; }\r\n' +
+    '.browser-list { max-height: calc(100vh - 190px); padding-right: 2px; }\r\n' +
+    '.browser-item, .picker-item {\r\n' +
+    '    width: 100%; min-height: 56px; padding: 9px 10px; display: flex; align-items: center; gap: 10px;\r\n' +
+    '    text-align: left; border: 1px solid transparent; border-radius: 13px; background: transparent;\r\n' +
+    '}\r\n' +
+    '.browser-item:hover, .browser-item.is-selected, .picker-item:hover { background: rgba(75, 111, 143, .13); border-color: var(--border); }\r\n' +
+    '.file-icon { flex: 0 0 36px; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: rgba(111,142,169,.12); color: #a7bdd1; font-size: 17px; }\r\n' +
+    '.file-icon.directory { color: #8fb0ff; background: rgba(79,124,255,.15); }\r\n' +
+    '.browser-item-main { min-width: 0; flex: 1; }\r\n' +
+    '.browser-item-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 620; }\r\n' +
+    '.browser-item-path { display: block; margin-top: 3px; color: var(--faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\r\n' +
+    '.browser-badges { display: flex; align-items: center; gap: 5px; }\r\n' +
+    '.badge { min-width: 25px; height: 24px; padding: 0 7px; display: inline-grid; place-items: center; border-radius: 999px; font-size: 11px; font-weight: 750; }\r\n' +
+    '.badge-dir { color: #9db8ff; background: rgba(79,124,255,.15); }\r\n' +
+    '.badge-file { color: #a7bacb; background: rgba(126,153,176,.12); }\r\n' +
+    '.badge-git { color: #80e5c0; background: var(--green-soft); }\r\n' +
+    '.git-D { color: #ff9ca3; background: rgba(255,107,117,.12); }\r\n' +
+    '\r\n' +
+    '.empty-state {\r\n' +
+    '    min-height: 170px; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;\r\n' +
+    '    text-align: center; color: var(--muted); border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); background: rgba(5,14,22,.34);\r\n' +
+    '}\r\n' +
+    '.empty-icon { font-size: 34px; color: #6d8aa4; }\r\n' +
+    '.viewer-surface { min-height: 0; flex: 1; margin-top: 12px; }\r\n' +
+    '.content-toolbar { justify-content: flex-end; margin-bottom: 8px; }\r\n' +
+    '.content-toolbar button { min-height: 36px; }\r\n' +
+    '.segmented-control { display: inline-flex; padding'... 14468 more characters
+  
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/crossPageCompatibility.web.test.js:41:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: ':root {\n    color-scheme: dark;\r\n    --bg: #07111b;\r\n    --bg-deep: #050c14;\r\n    --surface: rgba(18, 31, 44, 0.92);\r\n    --surface-strong: #122131;\r\n    --surface-soft: rgba(25, 42, 58, 0.72);\r\n    --border: rgba(135, 164, 190, 0.18);\r\n    --border-strong: rgba(135, 164, 190, 0.3);\r\n    --text: #edf5ff;\r\n    --muted: #91a8bd;\r\n    --faint: #647b90;\r\n    --accent: #4f7cff;\r\n    --accent-soft: rgba(79, 124, 255, 0.17);\r\n    --green: #45d6a4;\r\n    --green-soft: rgba(69, 214, 164, 0.14);\r\n    --orange: #f2a531;\r\n    --red: #ff6b75;\r\n    --code-bg: #071019;\r\n    --radius-xl: 20px;\r\n    --radius-lg: 16px;\r\n    --radius-md: 12px;\r\n    --shadow: 0 18px 46px rgba(0, 0, 0, 0.28);\n}\n\n:root.theme-light {\n    color-scheme: light;\n    --bg: #F5F7FA;\n    --bg-deep: #EAF0F6;\n    --surface: rgba(255, 255, 255, 0.96);\n    --surface-strong: #FFFFFF;\n    --surface-soft: rgba(238, 242, 247, 0.92);\n    --border: rgba(92, 116, 140, 0.22);\n    --border-strong: rgba(72, 101, 129, 0.34);\n    --text: #17212B;\n    --muted: #526273;\n    --faint: #6B7785;\n    --accent: #2F6FEB;\n    --accent-soft: rgba(47, 111, 235, 0.12);\n    --green: #168A67;\n    --green-soft: rgba(22, 138, 103, 0.12);\n    --orange: #A66A00;\n    --red: #C73535;\n    --code-bg: #EEF2F7;\n    --shadow: 0 14px 34px rgba(42, 65, 88, 0.14);\n}\n\r\n[hidden] { display: none !important; }\r\n\r\n* { box-sizing: border-box; }\r\nhtml, body {\r\n    min-height: 100%;\r\n    -webkit-text-size-adjust: 100%;\r\n    text-size-adjust: 100%;\r\n}\r\nbody {\n    margin: 0;\r\n    color: var(--text);\r\n    font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;\r\n    background:\r\n        radial-gradient(circle at 86% -8%, rgba(60, 117, 173, 0.28), transparent 34%),\r\n        radial-gradient(circle at -10% 34%, rgba(36, 153, 132, 0.1), transparent 30%),\r\n        linear-gradient(180deg, #0b1824 0%, var(--bg) 52%, var(--bg-deep) 100%);\r\n    overflow-x: hidden;\r\n}\n\nbody.theme-light {\n    background:\n        radial-gradient(circle at 86% -8%, rgba(79, 124, 255, 0.12), transparent 34%),\n        radial-gradient(circle at -10% 34%, rgba(22, 138, 103, 0.07), transparent 30%),\n        linear-gradient(180deg, #FFFFFF 0%, var(--bg) 52%, var(--bg-deep) 100%);\n}\nbutton, input { font: inherit; }\r\nbutton { color: inherit; }\r\nbutton:focus-visible, input:focus-visible { outline: 2px solid #81a1ff; outline-offset: 2px; }\r\n\r\n.workspace-shell {\r\n    width: min(1600px, 100%);\r\n    min-height: 100vh;\r\n    margin: 0 auto;\r\n    padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));\r\n}\r\n\r\nbody.host-android .workspace-shell { padding-top: 10px; }\r\nbody.host-android .workspace-header { display: none; }\r\n\r\n.workspace-header {\r\n    display: flex;\r\n    align-items: center;\r\n    justify-content: space-between;\r\n    gap: 18px;\r\n    padding: 18px 20px;\r\n    margin-bottom: 12px;\r\n    border: 1px solid var(--border);\r\n    border-radius: var(--radius-xl);\r\n    background: linear-gradient(135deg, rgba(19, 35, 51, 0.96), rgba(11, 24, 36, 0.9));\r\n    box-shadow: var(--shadow);\r\n}\r\n.workspace-kicker, .pane-eyebrow {\r\n    color: #75a0ff;\r\n    font-size: 11px;\r\n    font-weight: 700;\r\n    letter-spacing: .13em;\r\n    text-transform: uppercase;\r\n}\r\n.workspace-header h1 { margin: 3px 0 2px; font-size: 23px; }\r\n.workspace-header p, .pane-meta { margin: 0; color: var(--muted); }\r\n.workspace-header-status {\r\n    display: inline-flex; align-items: center; gap: 8px;\r\n    min-height: 36px; padding: 0 12px; border: 1px solid rgba(69,214,164,.22);\r\n    border-radius: 999px; background: var(--green-soft); color: #a7efd5; font-size: 13px;\r\n}\r\n.connection-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(69,214,164,.55); }\r\n\r\n.workspace-toolbar {\n    position: sticky; top: 0; z-index: 20;\r\n    display: flex; align-items: center; gap: 10px;\r\n    min-height: 54px; padding: 7px 8px 7px 12px;\r\n    border: 1px solid var(--border); border-radius: var(--radius-lg);\r\n    background: rgba(9, 21, 32, .88); backdrop-filter: blur(18px); box-shadow: 0 9px 26px rgba(0,0,0,.2);\r\n}\r\n.breadcrumbs { min-width: 0; flex: 1; display: flex; align-items: center; overflow-x: auto; scrollbar-width: none; }\r\n.breadcrumbs::-webkit-scrollbar { display: none; }\r\n.breadcrumb-button {\r\n    flex: 0 0 auto; min-width: 44px; min-height: 44px; padding: 0 9px;\r\n    border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer;\r\n}\r\n.breadcrumb-button:last-child { color: var(--text); font-weight: 650; }\r\n.breadcrumb-separator { color: var(--faint); }\r\n.toolbar-actions, .pane-actions, .viewer-actions, .media-toolbar, .diff-toolbar, .content-toolbar {\r\n    display: flex; align-items: center; gap: 7px;\r\n}\r\nbutton, .toggle {\r\n    min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius-md);\r\n    background: rgba(17, 31, 44, .84); cursor: pointer;\r\n    transition: background .14s ease, border-color .14s ease, transform .14s ease, opacity .14s ease;\r\n}\r\nbutton { padding: 0 13px; }\r\nbutton:hover:not(:disabled) { border-color: var(--border-strong); background: rgba(29, 49, 66, .9); }\r\nbutton:active:not(:disabled) { transform: translateY(1px); }\r\nbutton:disabled { opacity: .42; cursor: default; }\r\nbutton.active, .primary-button { border-color: rgba(79,124,255,.55); background: var(--accent-soft); color: #bcd0ff; }\r\n.icon-button { width: 44px; padding: 0; font-size: 21px; }\r\n.compact-button { min-height: 40px; padding: 0 10px; }\r\n.compact-toggle { min-height: 40px; padding: 0 10px; }\r\n.toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }\r\n.toggle input { accent-color: var(--accent); }\r\n\r\n.workspace-banner, .pane-status, .viewer-mode-note {\r\n    padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);\r\n    color: var(--muted); background: var(--surface-soft);\r\n}\r\n.workspace-banner { margin-top: 10px; color: #f7c56d; border-color: rgba(242,165,49,.25); }\r\n.pane-status.is-loading { color: #f7c56d; }\r\n.pane-status.is-error { color: #ff9ca3; border-color: rgba(255,107,117,.28); background: rgba(255,107,117,.08); }\r\n.viewer-mode-note {\n    display: inline-flex; width: fit-content; max-width: 100%;\n    margin: 4px 0; padding: 6px 10px;\n    color: #a8c0ff; border-color: rgba(79,124,255,.22); background: rgba(79,124,255,.08);\n    font-size: 12px; line-height: 1.3; cursor: default; user-select: text;\n}\n\r\n.workspace-main {\r\n    display: grid; grid-template-columns: minmax(270px, 330px) minmax(0, 1fr); gap: 12px;\r\n    min-height: calc(100vh - 104px); margin-top: 12px;\r\n}\r\nbody:not(.host-android) .workspace-main { min-height: calc(100vh - 184px); }\r\n.workspace-pane {\r\n    min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-xl);\r\n    background: linear-gradient(180deg, rgba(18, 33, 47, .94), rgba(10, 22, 33, .94)); box-shadow: var(--shadow);\r\n}\r\n.workspace-browser { overflow: hidden; }\r\n.workspace-viewer { display: flex; flex-direction: column; min-height: 0; }\r\n.pane-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 3px 3px 13px; }\r\n.pane-title { margin-top: 4px; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }\n.viewer-meta-kind { color: #88aaff; font-weight: 700; }\n.viewer-heading { min-width: 0; }\n.viewer-header { border-bottom: 1px solid var(--border); }\r\n.viewer-primary-actions { flex-wrap: wrap; justify-content: flex-end; }\r\n.viewer-primary-actions button { min-height: 38px; }\r\n.count-pill { min-width: 32px; height: 30px; display: grid; place-items: center; padding: 0 9px; border-radius: 999px; background: var(--accent-soft); color: #aec3ff; font-size: 12px; }\r\n\r\n.browser-list, .picker-list { display: flex; flex-direction: column; gap: 6px; overflow: auto; }\r\n.browser-list { max-height: calc(100vh - 190px); padding-right: 2px; }\r\n.browser-item, .picker-item {\r\n    width: 100%; min-height: 56px; padding: 9px 10px; display: flex; align-items: center; gap: 10px;\r\n    text-align: left; border: 1px solid transparent; border-radius: 13px; background: transparent;\r\n}\r\n.browser-item:hover, .browser-item.is-selected, .picker-item:hover { background: rgba(75, 111, 143, .13); border-color: var(--border); }\r\n.file-icon { flex: 0 0 36px; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: rgba(111,142,169,.12); color: #a7bdd1; font-size: 17px; }\r\n.file-icon.directory { color: #8fb0ff; background: rgba(79,124,255,.15); }\r\n.browser-item-main { min-width: 0; flex: 1; }\r\n.browser-item-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 620; }\r\n.browser-item-path { display: block; margin-top: 3px; color: var(--faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\r\n.browser-badges { display: flex; align-items: center; gap: 5px; }\r\n.badge { min-width: 25px; height: 24px; padding: 0 7px; display: inline-grid; place-items: center; border-radius: 999px; font-size: 11px; font-weight: 750; }\r\n.badge-dir { color: #9db8ff; background: rgba(79,124,255,.15); }\r\n.badge-file { color: #a7bacb; background: rgba(126,153,176,.12); }\r\n.badge-git { color: #80e5c0; background: var(--green-soft); }\r\n.git-D { color: #ff9ca3; background: rgba(255,107,117,.12); }\r\n\r\n.empty-state {\r\n    min-height: 170px; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;\r\n    text-align: center; color: var(--muted); border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); background: rgba(5,14,22,.34);\r\n}\r\n.empty-icon { font-size: 34px; color: #6d8aa4; }\r\n.viewer-surface { min-height: 0; flex: 1; margin-top: 12px; }\r\n.content-toolbar { justify-content: flex-end; margin-bottom: 8px; }\r\n.content-toolbar button { min-height: 36px; }\r\n.segmented-control { display: inline-flex; padding'... 14468 more characters,
+    expected: /@media \(max-width: 640px\)/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests/directMtlsInstaller.test.js:62:1
+✖ resolveDirectMtlsOptions stays disabled when direct-server mTLS is not selected (1.843461ms)
+  SystemError [ERR_SYSTEM_ERROR]: A system error occurred: uv_interface_addresses returned Unknown system error 1 (Unknown system error 1)
+      at Object.networkInterfaces (node:os:218:16)
+      at buildServerAltNames (/workspace/shared/termlink-assessment-20261012/repo/scripts/certs/direct-mtls.js:58:27)
+      at resolveDirectMtlsOptions (/workspace/shared/termlink-assessment-20261012/repo/scripts/certs/direct-mtls.js:121:25)
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/directMtlsInstaller.test.js:64:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    code: 'ERR_SYSTEM_ERROR',
+    info: { errno: 1, code: 'Unknown system error 1', message: 'Unknown system error 1', syscall: 'uv_interface_addresses' },
+    errno: 1,
+    syscall: 'uv_interface_addresses'
+  }
+
+test at tests/directMtlsInstaller.test.js:82:1
+✖ resolveDirectMtlsOptions rejects direct-server mTLS without direct TLS mode (1.317888ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /tls\.mode="direct" or tls\.mode="nginx"/. Input:
+  
+  'SystemError [ERR_SYSTEM_ERROR]: A system error occurred: uv_interface_addresses returned Unknown system error 1 (Unknown system error 1)'
+  
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/directMtlsInstaller.test.js:84:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: SystemError [ERR_SYSTEM_ERROR]: A system error occurred: uv_interface_addresses returned Unknown system error 1 (Unknown system error 1)
+        at Object.networkInterfaces (node:os:218:16)
+        at buildServerAltNames (/workspace/shared/termlink-assessment-20261012/repo/scripts/certs/direct-mtls.js:58:27)
+        at resolveDirectMtlsOptions (/workspace/shared/termlink-assessment-20261012/repo/scripts/certs/direct-mtls.js:121:25)
+        at /workspace/shared/termlink-assessment-20261012/repo/tests/directMtlsInstaller.test.js:84:25
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/directMtlsInstaller.test.js:84:12)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1382:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:960:18),
+    expected: /tls\.mode="direct" or tls\.mode="nginx"/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/directMtlsInstaller.test.js:95:1
+✖ resolveDirectMtlsOptions supports generated server and client artifacts for nginx (0.507266ms)
+  SystemError [ERR_SYSTEM_ERROR]: A system error occurred: uv_interface_addresses returned Unknown system error 1 (Unknown system error 1)
+      at Object.networkInterfaces (node:os:218:16)
+      at buildServerAltNames (/workspace/shared/termlink-assessment-20261012/repo/scripts/certs/direct-mtls.js:58:27)
+      at resolveDirectMtlsOptions (/workspace/shared/termlink-assessment-20261012/repo/scripts/certs/direct-mtls.js:121:25)
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/directMtlsInstaller.test.js:97:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    code: 'ERR_SYSTEM_ERROR',
+    info: { errno: 1, code: 'Unknown system error 1', message: 'Unknown system error 1', syscall: 'uv_interface_addresses' },
+    errno: 1,
+    syscall: 'uv_interface_addresses'
+  }
+
+test at tests/directMtlsInstaller.test.js:118:1
+✖ generateDirectMtlsArtifacts creates the expected direct mTLS files (0.74245ms)
+  SystemError [ERR_SYSTEM_ERROR]: A system error occurred: uv_interface_addresses returned Unknown system error 1 (Unknown system error 1)
+      at Object.networkInterfaces (node:os:218:16)
+      at buildServerAltNames (/workspace/shared/termlink-assessment-20261012/repo/scripts/certs/direct-mtls.js:58:27)
+      at resolveDirectMtlsOptions (/workspace/shared/termlink-assessment-20261012/repo/scripts/certs/direct-mtls.js:121:25)
+      at generateDirectMtlsArtifacts (/workspace/shared/termlink-assessment-20261012/repo/scripts/certs/direct-mtls.js:181:21)
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/directMtlsInstaller.test.js:121:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12) {
+    code: 'ERR_SYSTEM_ERROR',
+    info: { errno: 1, code: 'Unknown system error 1', message: 'Unknown system error 1', syscall: 'uv_interface_addresses' },
+    errno: 1,
+    syscall: 'uv_interface_addresses'
+  }
+
+test at tests/uiFoundation.web.test.js:49:1
+✖ foundation is loaded before page styles so existing shells retain ownership (136.182562ms)
+  AssertionError [ERR_ASSERTION]: terminal.html page stylesheet must follow the foundation
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/uiFoundation.web.test.js:57:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/windows-release-config.test.js:40:1
+✖ Windows PowerShell 5.1 parses and imports the shared module and CLI (5.165673ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 0
+  
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:44:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/windows-release-config.test.js:52:1
+✖ WinForms GUI launches in smoke mode, binds shared-core operations, and applies a port (2.860174ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 0
+  
+      at parseJson (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:32:12)
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:57:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/windows-release-config.test.js:114:1
+✖ config initialization is local, atomic, and redacts the generated password (1.851308ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 0
+  
+      at parseJson (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:32:12)
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:118:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/windows-release-config.test.js:135:1
+✖ port set validates before replacing config (9.971807ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 0
+  
+      at parseJson (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:32:12)
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:139:21)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/windows-release-config.test.js:153:1
+✖ status, autostart dry-run, and open dry-run do not mutate the host (2.587253ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 0
+  
+      at parseJson (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:32:12)
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:157:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/windows-release-config.test.js:170:1
+✖ embedded Node service can start, pass health, enable mTLS, restart, and stop (340.697554ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 0
+  
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/windows-release-config.test.js:206:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

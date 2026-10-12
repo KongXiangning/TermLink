@@ -1,0 +1,41 @@
+{
+  "order": 61,
+  "id": "REQ-TERMLINK-WORKSPACE-DOWNLOAD",
+  "conclusion": "undetermined",
+  "coverage": "Android Basic/mTLS认证下载、25MiB与24h既有缓存边界及FileProvider只读系统打开",
+  "achievements": [
+    "WorkspaceActivity384–468实现双认证、字节限额、过期清理和只读grant；service file-content原边界本轮测试通过",
+    "60718原报告明确下载/缓存/FileProvider交付与原生宿主smoke，保留已有成果"
+  ],
+  "gaps": [
+    "当前新增registrationId header及Profile解析路径后，未取得同版本实际认证下载→外部查看器→缓存清理的完整结果；静态代码不单独证明全链满足"
+  ],
+  "evidence": [
+    "TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md:8–32",
+    "TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md:8–27",
+    "src/services/workspacePathUtils.js:16–158",
+    "src/routes/workspace.js:60–217",
+    "src/services/workspaceFileService.js:319–433,616–694",
+    "public/workspace.js:229–280,419–521,590–667",
+    "android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt:330–470",
+    "本轮原始输出：web-workspace-release.tap（108项96通过12失败；workspace三个测试文件无失败，失败归因见test-summary.md）"
+  ],
+  "historical_applicability": "原TASK60718-003（f0fd5f43）及60719-001（6c1d3d09）有47/47/152/152、14/14、134/134和Huawei/Playwright验收。当前对6c1d3d09逐文件忽略行尾diff：workspaceFileService/CompareService/PathUtils无语义差异；CSS字号/长token核心及renderText/Markdown/Image/PDF/structuredDiff主体保持。workspace.js导航/主题/注册headers、Activity入口/返回/registration有后继改动，不把全部旧真机结果直接升级为当前宿主验收。当前对应JSDOM/API/compare测试全部通过；未新增浏览器/手机实测。",
+  "device_checks": [
+    {
+      "功能点": "认证下载、缓存和系统只读打开",
+      "行为": "仅复核原工作区只读宿主路径",
+      "前置": "Android连接对应服务端与既有Basic/mTLS Profile，使用原正常docs样本；不增加格式/设备矩阵",
+      "步骤": [
+        "在原Basic/mTLS Profile中从Workspace打开一份既有可预览文件并选择系统打开",
+        "返回工作区，核对当前Profile/会话未串用；核查已有缓存限额和24h清理路径"
+      ],
+      "预期": "认证成功、FileProvider只读授权、缓存策略沿已有25MiB/24h；不授写权限",
+      "已有证据": "60718原交付；当前file-content/越界测试通过，Activity实现静态核对",
+      "服务端及APK版本": "服务端源码bb4849692fd600c3eb57866e28400fba612ee6aa；未部署。package.version=1.0.0/androidVersionCode=1仅仓库声明，本机未生成/安装APK，实际APK SHA/version待记录。"
+    }
+  ],
+  "unread": [
+    "没有本次真实APK及系统外部查看器调用结果"
+  ]
+}

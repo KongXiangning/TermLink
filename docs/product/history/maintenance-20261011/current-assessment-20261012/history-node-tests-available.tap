@@ -1,0 +1,1476 @@
+TAP version 13
+# Subtest: baseline provider canonicalizes upstream thread without exposing raw response
+ok 1 - baseline provider canonicalizes upstream thread without exposing raw response
+  ---
+  duration_ms: 4.116342
+  type: 'test'
+  ...
+# Subtest: baseline provider reports source read timing and full response size separately from the probe
+ok 2 - baseline provider reports source read timing and full response size separately from the probe
+  ---
+  duration_ms: 1.844518
+  type: 'test'
+  ...
+# Subtest: baseline provider fails closed when history mode is unknown without calling full read
+ok 3 - baseline provider fails closed when history mode is unknown without calling full read
+  ---
+  duration_ms: 0.732857
+  type: 'test'
+  ...
+# Subtest: paginated mode never falls back to thread/read
+ok 4 - paginated mode never falls back to thread/read
+  ---
+  duration_ms: 0.43702
+  type: 'test'
+  ...
+# Subtest: paginated reader returns a partial upsert-only page with exact identity
+ok 5 - paginated reader returns a partial upsert-only page with exact identity
+  ---
+  duration_ms: 0.729572
+  type: 'test'
+  ...
+# Subtest: paginated item pages normalize desc order and preserve an explicit older-cursor null
+ok 6 - paginated item pages normalize desc order and preserve an explicit older-cursor null
+  ---
+  duration_ms: 0.909665
+  type: 'test'
+  ...
+# Subtest: paginated turn pages reverse only turn order, not item order inside a turn
+ok 7 - paginated turn pages reverse only turn order, not item order inside a turn
+  ---
+  duration_ms: 0.669351
+  type: 'test'
+  ...
+# Subtest: complete paginated scan streams newest native page first and returns one chronological full snapshot
+ok 8 - complete paginated scan streams newest native page first and returns one chronological full snapshot
+  ---
+  duration_ms: 1.201426
+  type: 'test'
+  ...
+# Subtest: complete paginated scan rejects a non-advancing cursor before inventing an older page
+ok 9 - complete paginated scan rejects a non-advancing cursor before inventing an older page
+  ---
+  duration_ms: 1.571415
+  type: 'test'
+  ...
+# Subtest: complete legacy scan reuses its metadata probe before the full source read
+ok 10 - complete legacy scan reuses its metadata probe before the full source read
+  ---
+  duration_ms: 0.606837
+  type: 'test'
+  ...
+# Subtest: legacy range-tail request is failure evidence, not bounded canonical tail capability
+ok 11 - legacy range-tail request is failure evidence, not bounded canonical tail capability
+  ---
+  duration_ms: 9.2821
+  type: 'test'
+  ...
+# Subtest: tail validation fails closed as unsupported for legacy without any canonical source read
+ok 12 - tail validation fails closed as unsupported for legacy without any canonical source read
+  ---
+  duration_ms: 0.487427
+  type: 'test'
+  ...
+# Subtest: paginated tail validation compares only the durable newest anchor
+ok 13 - paginated tail validation compares only the durable newest anchor
+  ---
+  duration_ms: 1.155427
+  type: 'test'
+  ...
+# Subtest: tail validation fails closed before source read when anchor is absent and after an oversized paginated response
+ok 14 - tail validation fails closed before source read when anchor is absent and after an oversized paginated response
+  ---
+  duration_ms: 0.328646
+  type: 'test'
+  ...
+# Subtest: older range provider consumes only the explicit next cursor and returns one ascending segment
+ok 15 - older range provider consumes only the explicit next cursor and returns one ascending segment
+  ---
+  duration_ms: 1.340135
+  type: 'test'
+  ...
+# Subtest: older range provider fails closed when next cursor is missing or invalid
+ok 16 - older range provider fails closed when next cursor is missing or invalid
+  ---
+  duration_ms: 0.913862
+  type: 'test'
+  ...
+# Subtest: range provider stays on the legacy/full path for an invalid capability
+ok 17 - range provider stays on the legacy/full path for an invalid capability
+  ---
+  duration_ms: 3.701475
+  type: 'test'
+  ...
+# Subtest: ephemeral history is explicitly unsupported
+ok 18 - ephemeral history is explicitly unsupported
+  ---
+  duration_ms: 0.404161
+  type: 'test'
+  ...
+# Subtest: baseline provider rejects a response whose canonical thread id differs
+ok 19 - baseline provider rejects a response whose canonical thread id differs
+  ---
+  duration_ms: 0.233653
+  type: 'test'
+  ...
+# Subtest: baseline provider rejects a mismatching probe identity before the full read
+ok 20 - baseline provider rejects a mismatching probe identity before the full read
+  ---
+  duration_ms: 0.260003
+  type: 'test'
+  ...
+# Subtest: baseline provider rejects a payload mode that contradicts the probe
+ok 21 - baseline provider rejects a payload mode that contradicts the probe
+  ---
+  duration_ms: 0.150107
+  type: 'test'
+  ...
+# Subtest: baseline provider blocks a fixture larger than the recovery guard
+ok 22 - baseline provider blocks a fixture larger than the recovery guard
+  ---
+  duration_ms: 0.196077
+  type: 'test'
+  ...
+# Subtest: baseline provider externalizes embedded image data before canonical hashing
+ok 23 - baseline provider externalizes embedded image data before canonical hashing
+  ---
+  duration_ms: 55.799671
+  type: 'test'
+  ...
+# Subtest: completed legacy scan can reuse an already scoped metadata observation without a second probe
+ok 24 - completed legacy scan can reuse an already scoped metadata observation without a second probe
+  ---
+  duration_ms: 0.497382
+  type: 'test'
+  ...
+# Subtest: canonical JSON sorts object keys but preserves array order
+ok 25 - canonical JSON sorts object keys but preserves array order
+  ---
+  duration_ms: 1.085571
+  type: 'test'
+  ...
+# Subtest: canonical history chooses stable ids and maps client request id
+ok 26 - canonical history chooses stable ids and maps client request id
+  ---
+  duration_ms: 2.184141
+  type: 'test'
+  ...
+# Subtest: unstable running items are omitted and become stable on terminal baseline
+ok 27 - unstable running items are omitted and become stable on terminal baseline
+  ---
+  duration_ms: 0.323659
+  type: 'test'
+  ...
+# Subtest: conversation root is stable for equivalent item payloads
+ok 28 - conversation root is stable for equivalent item payloads
+  ---
+  duration_ms: 0.477031
+  type: 'test'
+  ...
+# Subtest: product-history-store durably stages, publishes, reopens, and ignores an exact duplicate delivery
+ok 29 - product-history-store durably stages, publishes, reopens, and ignores an exact duplicate delivery
+  ---
+  duration_ms: 104.379353
+  type: 'test'
+  ...
+# Subtest: product-history-read preserves __proto__ event fields through product-history-store reopen
+ok 30 - product-history-read preserves __proto__ event fields through product-history-store reopen
+  ---
+  duration_ms: 41.844532
+  type: 'test'
+  ...
+# Subtest: product-history-store rolls back a failed replacement and preserves the previous canonical data after reopen
+ok 31 - product-history-store rolls back a failed replacement and preserves the previous canonical data after reopen
+  ---
+  duration_ms: 26.757013
+  type: 'test'
+  ...
+# Subtest: product-history-read pages canonical rows and preserves product event fields
+ok 32 - product-history-read pages canonical rows and preserves product event fields
+  ---
+  duration_ms: 3.042449
+  type: 'test'
+  ...
+# Subtest: product-history-read refreshes a complete root and range cursor when only a detail changes
+ok 33 - product-history-read refreshes a complete root and range cursor when only a detail changes
+  ---
+  duration_ms: 4.901328
+  type: 'test'
+  ...
+# Subtest: product-history-read shares its actual detail DTO page hash with Android
+ok 34 - product-history-read shares its actual detail DTO page hash with Android
+  ---
+  duration_ms: 1.175457
+  type: 'test'
+  ...
+# Subtest: product-history-read preserves top-level and nested tool facts with collection-like field names
+ok 35 - product-history-read preserves top-level and nested tool facts with collection-like field names
+  ---
+  duration_ms: 0.77347
+  type: 'test'
+  ...
+# Subtest: product-history-read preserves every business JSON key in items and details
+ok 36 - product-history-read preserves every business JSON key in items and details
+  ---
+  duration_ms: 0.704374
+  type: 'test'
+  ...
+# Subtest: product-history-unattended keeps a newer terminal after failure and recovers durable intent
+ok 37 - product-history-unattended keeps a newer terminal after failure and recovers durable intent
+  ---
+  duration_ms: 58.331347
+  type: 'test'
+  ...
+# Subtest: product-history-unattended retains incomplete intent for replay, restart and newer terminal
+ok 38 - product-history-unattended retains incomplete intent for replay, restart and newer terminal
+  ---
+  duration_ms: 62.462382
+  type: 'test'
+  ...
+# Subtest: product-history-read omits parameterized and percent-encoded inline image data URLs
+ok 39 - product-history-read omits parameterized and percent-encoded inline image data URLs
+  ---
+  duration_ms: 0.757334
+  type: 'test'
+  ...
+# Subtest: product-history-read detail pages are authenticated-provider-ready, bounded, and path preserving
+ok 40 - product-history-read detail pages are authenticated-provider-ready, bounded, and path preserving
+  ---
+  duration_ms: 10.035058
+  type: 'test'
+  ...
+# Subtest: product-history-read uses bounded payload chunks and fails closed for clients without chunk support
+ok 41 - product-history-read uses bounded payload chunks and fails closed for clients without chunk support
+  ---
+  duration_ms: 2.22309
+  type: 'test'
+  ...
+# Subtest: product-history-read bounds detail references and range page estimates
+ok 42 - product-history-read bounds detail references and range page estimates
+  ---
+  duration_ms: 2.008296
+  type: 'test'
+  ...
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+# Subtest: product-history-read Gateway serves product baseline, older pages, and details without a source read
+ok 43 - product-history-read Gateway serves product baseline, older pages, and details without a source read
+  ---
+  duration_ms: 132.842639
+  type: 'test'
+  ...
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+# [gateway][ipc][set-active-conversation] {"conversationId":"missing-product-row","previousActiveConversationId":"conversation-product-read","sessionId":"session-product-read","sessionMode":"codex","previousThreadId":"conversation-product-read"}
+# Subtest: product-history-read keeps old clients on v2 and a DB-only miss keeps the cache
+ok 44 - product-history-read keeps old clients on v2 and a DB-only miss keeps the cache
+  ---
+  duration_ms: 97.09657
+  type: 'test'
+  ...
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+# Subtest: product-history-read replaces a complete snapshot with the entire bounded product tail
+ok 45 - product-history-read replaces a complete snapshot with the entire bounded product tail
+  ---
+  duration_ms: 58.757431
+  type: 'test'
+  ...
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+# Subtest: product-history-read refreshes a complete product range without v2 delete authority
+ok 46 - product-history-read refreshes a complete product range without v2 delete authority
+  ---
+  duration_ms: 54.773008
+  type: 'test'
+  ...
+# Subtest: product flow negative assertion rejects deliberate windows path leaks
+ok 47 - product flow negative assertion rejects deliberate windows path leaks
+  ---
+  duration_ms: 1.264271
+  type: 'test'
+  ...
+# Subtest: current snapshot store replaces one scope atomically and isolates profile scopes
+ok 48 - current snapshot store replaces one scope atomically and isolates profile scopes
+  ---
+  duration_ms: 13.919985
+  type: 'test'
+  ...
+# Subtest: current snapshot store fails closed for corrupted or mismatched data
+ok 49 - current snapshot store fails closed for corrupted or mismatched data
+  ---
+  duration_ms: 11.260089
+  type: 'test'
+  ...
+# Subtest: metadata freshness token is stable and ignores unavailable metadata
+ok 50 - metadata freshness token is stable and ignores unavailable metadata
+  ---
+  duration_ms: 1.732648
+  type: 'test'
+  ...
+# Subtest: changed canonical metadata invalidates only a recovery baseline
+ok 51 - changed canonical metadata invalidates only a recovery baseline
+  ---
+  duration_ms: 2.879392
+  type: 'test'
+  ...
+# Subtest: metadata observation retains only the bounded history-mode hint for tail validation
+ok 52 - metadata observation retains only the bounded history-mode hint for tail validation
+  ---
+  duration_ms: 2.83152
+  type: 'test'
+  ...
+# Subtest: complete manifest diff produces upserts, deletes and order only when needed
+ok 53 - complete manifest diff produces upserts, deletes and order only when needed
+  ---
+  duration_ms: 0.853941
+  type: 'test'
+  ...
+# Subtest: partial manifest diff never deletes or claims authoritative order
+ok 54 - partial manifest diff never deletes or claims authoritative order
+  ---
+  duration_ms: 0.640478
+  type: 'test'
+  ...
+# Subtest: partial manifest diff does not append an older or middle gap after a local tail
+ok 55 - partial manifest diff does not append an older or middle gap after a local tail
+  ---
+  duration_ms: 0.279933
+  type: 'test'
+  ...
+# Subtest: partial manifest diff does not append when the local tail has no canonical overlap
+ok 56 - partial manifest diff does not append when the local tail has no canonical overlap
+  ---
+  duration_ms: 0.325442
+  type: 'test'
+  ...
+# Subtest: partial manifest diff uses the newest canonical overlap, not the local array tail
+ok 57 - partial manifest diff uses the newest canonical overlap, not the local array tail
+  ---
+  duration_ms: 0.320445
+  type: 'test'
+  ...
+# Subtest: delta pages share sequence roots and have deterministic page hashes
+ok 58 - delta pages share sequence roots and have deterministic page hashes
+  ---
+  duration_ms: 2.298043
+  type: 'test'
+  ...
+# Subtest: range capability carries tail metadata without enabling delete or order
+ok 59 - range capability carries tail metadata without enabling delete or order
+  ---
+  duration_ms: 3.548223
+  type: 'test'
+  ...
+# Subtest: range tail no-op reconciliation emits an ACK-able metadata page
+ok 60 - range tail no-op reconciliation emits an ACK-able metadata page
+  ---
+  duration_ms: 1.4557
+  type: 'test'
+  ...
+# Subtest: range tail with the bounded 200-item baseline stays one atomic delta page
+ok 61 - range tail with the bounded 200-item baseline stays one atomic delta page
+  ---
+  duration_ms: 28.055666
+  type: 'test'
+  ...
+# Subtest: range tail adapts inline payloads to existing chunks before rejecting the atomic page
+ok 62 - range tail adapts inline payloads to existing chunks before rejecting the atomic page
+  ---
+  duration_ms: 486.378067
+  type: 'test'
+  ...
+# Subtest: one older page emits one upsert-only delta and settles PARTIAL without a follow-up request
+ok 63 - one older page emits one upsert-only delta and settles PARTIAL without a follow-up request
+  ---
+  duration_ms: 1.012721
+  type: 'test'
+  ...
+# Subtest: one older page rejects any coverage-complete authority claim
+ok 64 - one older page rejects any coverage-complete authority claim
+  ---
+  duration_ms: 0.288416
+  type: 'test'
+  ...
+# Subtest: schema v3 is capped to the legacy v2 path without a valid range capability
+ok 65 - schema v3 is capped to the legacy v2 path without a valid range capability
+  ---
+  duration_ms: 0.326523
+  type: 'test'
+  ...
+# Subtest: snapshot segment lane fragments payloads, commits one atomic range, then settles only after segment ACK
+ok 66 - snapshot segment lane fragments payloads, commits one atomic range, then settles only after segment ACK
+  ---
+  duration_ms: 3.441582
+  type: 'test'
+  ...
+# Subtest: snapshot segment lane preserves newest-first delivery and prepends later older segments
+ok 67 - snapshot segment lane preserves newest-first delivery and prepends later older segments
+  ---
+  duration_ms: 1.350472
+  type: 'test'
+  ...
+# Subtest: snapshot segment lane yields before its first frame while live/control work is pending
+ok 68 - snapshot segment lane yields before its first frame while live/control work is pending
+  ---
+  duration_ms: 0.473787
+  type: 'test'
+  ...
+# Subtest: snapshot segment lane pauses fragments and commit when live/control becomes pending mid-segment
+ok 69 - snapshot segment lane pauses fragments and commit when live/control becomes pending mid-segment
+  ---
+  duration_ms: 13.797625
+  type: 'test'
+  ...
+# Subtest: delta packing reserves the final history envelope wrapper
+ok 70 - delta packing reserves the final history envelope wrapper
+  ---
+  duration_ms: 17.324146
+  type: 'test'
+  ...
+# Subtest: sync service sends a near-limit history page without triggering envelope failure
+ok 71 - sync service sends a near-limit history page without triggering envelope failure
+  ---
+  duration_ms: 20.933881
+  type: 'test'
+  ...
+# Subtest: history text containing an incomplete data-url prefix is not rejected as inline media
+ok 72 - history text containing an incomplete data-url prefix is not rejected as inline media
+  ---
+  duration_ms: 0.194244
+  type: 'test'
+  ...
+# Subtest: Node page hash matches the shared golden fixture
+ok 73 - Node page hash matches the shared golden fixture
+  ---
+  duration_ms: 0.40348
+  type: 'test'
+  ...
+# Subtest: sync service asks for manifest and emits a delta after all pages arrive
+ok 74 - sync service asks for manifest and emits a delta after all pages arrive
+  ---
+  duration_ms: 0.914021
+  type: 'test'
+  ...
+# Subtest: history delta pump pauses above high water without closing the websocket
+ok 75 - history delta pump pauses above high water without closing the websocket
+  ---
+  duration_ms: 81.548024
+  type: 'test'
+  ...
+# Subtest: history pump yields to live/control priority before generating the next page
+ok 76 - history pump yields to live/control priority before generating the next page
+  ---
+  duration_ms: 71.229823
+  type: 'test'
+  ...
+# Subtest: history page is not consumed when the scheduler rejects the wire hand-off
+ok 77 - history page is not consumed when the scheduler rejects the wire hand-off
+  ---
+  duration_ms: 40.951277
+  type: 'test'
+  ...
+# Subtest: history pump drops a stale selection before a deferred page is emitted
+ok 78 - history pump drops a stale selection before a deferred page is emitted
+  ---
+  duration_ms: 26.341905
+  type: 'test'
+  ...
+# Subtest: history sync echoes client selection generation and rejects stale pages
+ok 79 - history sync echoes client selection generation and rejects stale pages
+  ---
+  duration_ms: 0.484362
+  type: 'test'
+  ...
+# Subtest: history sync fails closed before sending an oversized envelope
+ok 80 - history sync fails closed before sending an oversized envelope
+  ---
+  duration_ms: 0.697404
+  type: 'test'
+  ...
+# Subtest: 70 MiB history fixture never crosses the 256 KiB WebSocket envelope gate
+not ok 81 - 70 MiB history fixture never crosses the 256 KiB WebSocket envelope gate
+  ---
+  duration_ms: 420.926657
+  type: 'test'
+  location: '/workspace/shared/termlink-assessment-20261012/repo/tests/codexHistorySyncService.test.js:929:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'history_payload_chunks_unsupported'
+    - 'history_envelope_too_large'
+               ^
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'history_envelope_too_large'
+  actual: 'history_payload_chunks_unsupported'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/codexHistorySyncService.test.js:944:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: v2 payload chunks keep a large item below page and chunk envelope limits
+ok 82 - v2 payload chunks keep a large item below page and chunk envelope limits
+  ---
+  duration_ms: 11.112006
+  type: 'test'
+  ...
+# Subtest: delta packing prepares many large payloads once and keeps every item/chunk
+ok 83 - delta packing prepares many large payloads once and keeps every item/chunk
+  ---
+  duration_ms: 473.413197
+  type: 'test'
+  ...
+# Subtest: v2 sync waits for per-page ack before sending the next page
+ok 84 - v2 sync waits for per-page ack before sending the next page
+  ---
+  duration_ms: 81.602911
+  type: 'test'
+  ...
+# Subtest: final ACK closes a partial sync without a later sync timeout
+ok 85 - final ACK closes a partial sync without a later sync timeout
+  ---
+  duration_ms: 71.653593
+  type: 'test'
+  ...
+# Subtest: baselineComplete=false does not force PARTIAL when the requested range is fully synced
+ok 86 - baselineComplete=false does not force PARTIAL when the requested range is fully synced
+  ---
+  duration_ms: 61.57501
+  type: 'test'
+  ...
+# Subtest: a root/checkpoint hit settles directly as SYNCED and releases the baseline subscriber
+ok 87 - a root/checkpoint hit settles directly as SYNCED and releases the baseline subscriber
+  ---
+  duration_ms: 0.698546
+  type: 'test'
+  ...
+# Subtest: an already classified cache-only result is terminal and does not arm a manifest watchdog
+ok 88 - an already classified cache-only result is terminal and does not arm a manifest watchdog
+  ---
+  duration_ms: 0.218391
+  type: 'test'
+  ...
+# Subtest: an unresolved older or middle range forces PARTIAL even with an optimistic sync outcome
+ok 89 - an unresolved older or middle range forces PARTIAL even with an optimistic sync outcome
+  ---
+  duration_ms: 0.350149
+  type: 'test'
+  ...
+# Subtest: explicit SYNCED cannot override a known older range
+ok 90 - explicit SYNCED cannot override a known older range
+  ---
+  duration_ms: 0.271341
+  type: 'test'
+  ...
+# Subtest: recovery result coverage evidence forces PARTIAL over optimistic SYNCED
+ok 91 - recovery result coverage evidence forces PARTIAL over optimistic SYNCED
+  ---
+  duration_ms: 0.837115
+  type: 'test'
+  ...
+# Subtest: baseline TTL starts after the last subscriber leaves
+ok 92 - baseline TTL starts after the last subscriber leaves
+  ---
+  duration_ms: 0.366113
+  type: 'test'
+  ...
+# Subtest: baseline byte budget evicts the oldest unsubscribed baseline but never an active subscriber
+ok 93 - baseline byte budget evicts the oldest unsubscribed baseline but never an active subscriber
+  ---
+  duration_ms: 0.19242
+  type: 'test'
+  ...
+# Subtest: same recovery lane shares one producer and detaching one waiter keeps the producer alive
+ok 94 - same recovery lane shares one producer and detaching one waiter keeps the producer alive
+  ---
+  duration_ms: 0.692457
+  type: 'test'
+  ...
+# Subtest: last recovery waiter aborts the producer and discards a late result
+ok 95 - last recovery waiter aborts the producer and discards a late result
+  ---
+  duration_ms: 1.569062
+  type: 'test'
+  ...
+# Subtest: shouldShowHistoryPanel only enables history in codex mode with capability
+ok 96 - shouldShowHistoryPanel only enables history in codex mode with capability
+  ---
+  duration_ms: 1.714271
+  type: 'test'
+  ...
+# Subtest: buildHistoryEntries adds badges and thread actions for active, archived, and pending rows
+ok 97 - buildHistoryEntries adds badges and thread actions for active, archived, and pending rows
+  ---
+  duration_ms: 2.030268
+  type: 'test'
+  ...
+# Subtest: buildHistoryEntries disables non-active open actions while running
+ok 98 - buildHistoryEntries disables non-active open actions while running
+  ---
+  duration_ms: 0.268996
+  type: 'test'
+  ...
+# Subtest: buildHistoryEntries exposes timestamp metadata for recent activity and creation fallback
+ok 99 - buildHistoryEntries exposes timestamp metadata for recent activity and creation fallback
+  ---
+  duration_ms: 0.760479
+  type: 'test'
+  ...
+# Subtest: buildHistoryEntries falls back to thread id when title looks malformed
+ok 100 - buildHistoryEntries falls back to thread id when title looks malformed
+  ---
+  duration_ms: 0.758897
+  type: 'test'
+  ...
+# Subtest: interactive preemption waits for termination fence and resumes the same background job
+ok 101 - interactive preemption waits for termination fence and resumes the same background job
+  ---
+  duration_ms: 27.363379
+  type: 'test'
+  ...
+# Subtest: new interactive selection preempts the old selection and a same-conversation intent supersedes it
+ok 102 - new interactive selection preempts the old selection and a same-conversation intent supersedes it
+  ---
+  duration_ms: 15.92822
+  type: 'test'
+  ...
+# Subtest: Node restart recovers durable staging even when run ACK-pending update never happened
+ok 103 - Node restart recovers durable staging even when run ACK-pending update never happened
+  ---
+  duration_ms: 282.209174
+  type: 'test'
+  ...
+# Subtest: restart rejects expired, incompatible and exhausted jobs without analyze
+ok 104 - restart rejects expired, incompatible and exhausted jobs without analyze
+  ---
+  duration_ms: 1.829094
+  type: 'test'
+  ...
+# Subtest: latest interactive selection wins while cancellation is still draining
+ok 105 - latest interactive selection wins while cancellation is still draining
+  ---
+  duration_ms: 20.985709
+  type: 'test'
+  ...
+# Subtest: queued intent is durable before dispatch, and queue timeout does not kill another conversation
+ok 106 - queued intent is durable before dispatch, and queue timeout does not kill another conversation
+  ---
+  duration_ms: 32.227161
+  type: 'test'
+  ...
+# Subtest: queued never-attempted job with zero retry budget resumes once and preserves queue policy
+ok 107 - queued never-attempted job with zero retry budget resumes once and preserves queue policy
+  ---
+  duration_ms: 12.117435
+  type: 'test'
+  ...
+# Subtest: run recovery scan limit fails closed before dispatch and preserves every record
+ok 108 - run recovery scan limit fails closed before dispatch and preserves every record
+  ---
+  duration_ms: 1.110018
+  type: 'test'
+  ...
+# Subtest: restart executes the already reserved last retry without charging its budget twice
+ok 109 - restart executes the already reserved last retry without charging its budget twice
+  ---
+  duration_ms: 11.468289
+  type: 'test'
+  ...
+# Subtest: interactive intent does not preempt an accepted complete during checkpoint persistence
+ok 110 - interactive intent does not preempt an accepted complete during checkpoint persistence
+  ---
+  duration_ms: 11.616549
+  type: 'test'
+  ...
+# Subtest: one attempt accepts multiple batches and clears only its recovered delivery expectation
+ok 111 - one attempt accepts multiple batches and clears only its recovered delivery expectation
+  ---
+  duration_ms: 2.827734
+  type: 'test'
+  ...
+# Subtest: a recovered queue snapshot never replaces a newer live intent arriving during init
+ok 112 - a recovered queue snapshot never replaces a newer live intent arriving during init
+  ---
+  duration_ms: 20.524543
+  type: 'test'
+  ...
+# Subtest: terminal run history does not exhaust the bounded pending recovery capacity
+ok 113 - terminal run history does not exhaust the bounded pending recovery capacity
+  ---
+  duration_ms: 115.230659
+  type: 'test'
+  ...
+# Subtest: target protocol is JSONL and rejects legacy analyze fields
+ok 114 - target protocol is JSONL and rejects legacy analyze fields
+  ---
+  duration_ms: 4.656818
+  type: 'test'
+  ...
+# Subtest: target analyze recovery uses a complete opaque delivery pair
+ok 115 - target analyze recovery uses a complete opaque delivery pair
+  ---
+  duration_ms: 0.513146
+  type: 'test'
+  ...
+# Subtest: target hello advertises canonical capabilities and normalizes only the old analyze alias
+ok 116 - target hello advertises canonical capabilities and normalizes only the old analyze alias
+  ---
+  duration_ms: 0.504722
+  type: 'test'
+  ...
+# Subtest: target stdout UTF8 preserves every byte split through the actual JSONL receiver
+ok 117 - target stdout UTF8 preserves every byte split through the actual JSONL receiver
+  ---
+  duration_ms: 7.29744
+  type: 'test'
+  ...
+# Subtest: target stdout UTF8 keeps large multi-line deliveries intact across pipe chunks
+ok 118 - target stdout UTF8 keeps large multi-line deliveries intact across pipe chunks
+  ---
+  duration_ms: 7.981013
+  type: 'test'
+  ...
+# Subtest: target stdout UTF8 discards partial characters and late bytes across process restart
+ok 119 - target stdout UTF8 discards partial characters and late bytes across process restart
+  ---
+  duration_ms: 16.234368
+  type: 'test'
+  ...
+# Subtest: target startup resolves CODEX_HOME and builds the fixed sessions-root args
+ok 120 - target startup resolves CODEX_HOME and builds the fixed sessions-root args
+  ---
+  duration_ms: 4.212056
+  type: 'test'
+  ...
+# Subtest: target startup falls back to OS home/.codex/sessions without CODEX_HOME
+ok 121 - target startup falls back to OS home/.codex/sessions without CODEX_HOME
+  ---
+  duration_ms: 2.106414
+  type: 'test'
+  ...
+# Subtest: target process manager passes startup args and gates analyze behind echoed hello
+ok 122 - target process manager passes startup args and gates analyze behind echoed hello
+  ---
+  duration_ms: 114.343463
+  type: 'test'
+  ...
+# Subtest: target process manager rejects direct analyze sends until the current hello is ready
+ok 123 - target process manager rejects direct analyze sends until the current hello is ready
+  ---
+  duration_ms: 176.958255
+  type: 'test'
+  ...
+# Subtest: target process manager clears synchronous spawn failures before retrying startup
+ok 124 - target process manager clears synchronous spawn failures before retrying startup
+  ---
+  duration_ms: 2.427289
+  type: 'test'
+  ...
+# Subtest: target process manager clears start promise when default spawn throws synchronously
+ok 125 - target process manager clears start promise when default spawn throws synchronously
+  ---
+  duration_ms: 0.98558
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello mismatch_request
+ok 126 - target process manager rejects hello mismatch_request
+  ---
+  duration_ms: 63.733933
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello wrong_role
+ok 127 - target process manager rejects hello wrong_role
+  ---
+  duration_ms: 63.907375
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello missing_capability
+ok 128 - target process manager rejects hello missing_capability
+  ---
+  duration_ms: 66.210105
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello wrong_protocol
+ok 129 - target process manager rejects hello wrong_protocol
+  ---
+  duration_ms: 57.554693
+  type: 'test'
+  ...
+# Subtest: target process manager rejects hello timeout without sending analyze
+ok 130 - target process manager rejects hello timeout without sending analyze
+  ---
+  duration_ms: 23.849468
+  type: 'test'
+  ...
+# Subtest: target process manager fences startup failures until child exit is proven (returns false)
+ok 131 - target process manager fences startup failures until child exit is proven (returns false)
+  ---
+  duration_ms: 42.539758
+  type: 'test'
+  ...
+# Subtest: target process manager fences startup failures until child exit is proven (throws)
+ok 132 - target process manager fences startup failures until child exit is proven (throws)
+  ---
+  duration_ms: 44.817487
+  type: 'test'
+  ...
+# Subtest: target process manager bounds a request while hello startup is already in flight
+ok 133 - target process manager bounds a request while hello startup is already in flight
+  ---
+  duration_ms: 44.062389
+  type: 'test'
+  ...
+# Subtest: target request tracker binds attempt generation and phase deadlines
+ok 134 - target request tracker binds attempt generation and phase deadlines
+  ---
+  duration_ms: 0.927301
+  type: 'test'
+  ...
+# Subtest: target request tracker settles each normal terminal attempt once and releases it
+ok 135 - target request tracker settles each normal terminal attempt once and releases it
+  ---
+  duration_ms: 0.4431
+  type: 'test'
+  ...
+# Subtest: target request tracker keeps a cancelled attempt occupied until termination and rejects stale callbacks
+ok 136 - target request tracker keeps a cancelled attempt occupied until termination and rejects stale callbacks
+  ---
+  duration_ms: 0.303539
+  type: 'test'
+  ...
+# Subtest: target request tracker reports hello/analyze/complete timeout and retains the active slot
+ok 137 - target request tracker reports hello/analyze/complete timeout and retains the active slot
+  ---
+  duration_ms: 0.356909
+  type: 'test'
+  ...
+# Subtest: target process manager enforces one active request and drops an old generation message
+ok 138 - target process manager enforces one active request and drops an old generation message
+  ---
+  duration_ms: 237.638346
+  type: 'test'
+  ...
+# Subtest: process manager does not release a generation before worker exit
+ok 139 - process manager does not release a generation before worker exit
+  ---
+  duration_ms: 1086.057407
+  type: 'test'
+  ...
+# Subtest: process manager keeps a pre-registered idle waiter behind ACK invalidation
+ok 140 - process manager keeps a pre-registered idle waiter behind ACK invalidation
+  ---
+  duration_ms: 64.063553
+  type: 'test'
+  ...
+# Subtest: process manager fences child errors that do not prove worker exit
+ok 141 - process manager fences child errors that do not prove worker exit
+  ---
+  duration_ms: 64.118885
+  type: 'test'
+  ...
+# Subtest: process manager normalizes asynchronous stdin errors and fences the child until exit
+ok 142 - process manager normalizes asynchronous stdin errors and fences the child until exit
+  ---
+  duration_ms: 125.780385
+  type: 'test'
+  ...
+# Subtest: collector keeps one running intent and replaces only the same conversation pending intent
+ok 143 - collector keeps one running intent and replaces only the same conversation pending intent
+  ---
+  duration_ms: 517.408855
+  type: 'test'
+  ...
+# Subtest: collector closes a timed-out active slot before dispatching the next intent
+ok 144 - collector closes a timed-out active slot before dispatching the next intent
+  ---
+  duration_ms: 401.550692
+  type: 'test'
+  ...
+# Subtest: collector waits for explicit cancellation settlement before dispatching the next intent
+ok 145 - collector waits for explicit cancellation settlement before dispatching the next intent
+  ---
+  duration_ms: 378.859347
+  type: 'test'
+  ...
+# Subtest: collector settles cancel and timeout before a non-draining worker releases
+    # Subtest: cancel
+    ok 1 - cancel
+      ---
+      duration_ms: 22.27724
+      type: 'test'
+      ...
+    # Subtest: timeout
+    ok 2 - timeout
+      ---
+      duration_ms: 52.128304
+      type: 'test'
+      ...
+    1..2
+ok 146 - collector settles cancel and timeout before a non-draining worker releases
+  ---
+  duration_ms: 75.363122
+  type: 'test'
+  ...
+# Subtest: collector retries a crashed process with a new request id within the fixed budget
+ok 147 - collector retries a crashed process with a new request id within the fixed budget
+  ---
+  duration_ms: 125.554019
+  type: 'test'
+  ...
+# Subtest: collector stop fences delayed initialization without leaking an analyzer process
+ok 148 - collector stop fences delayed initialization without leaking an analyzer process
+  ---
+  duration_ms: 2.020864
+  type: 'test'
+  ...
+# Subtest: collector fences bounded analyze against an in-flight unbounded init
+ok 149 - collector fences bounded analyze against an in-flight unbounded init
+  ---
+  duration_ms: 53.185529
+  type: 'test'
+  ...
+# Subtest: collector does not restart after stop begins during the restart idle wait
+ok 150 - collector does not restart after stop begins during the restart idle wait
+  ---
+  duration_ms: 1.785699
+  type: 'test'
+  ...
+# Subtest: collector bounds initial hello startup by the intent deadline
+ok 151 - collector bounds initial hello startup by the intent deadline
+  ---
+  duration_ms: 41.874633
+  type: 'test'
+  ...
+# Subtest: collector bounds a delayed restart start by the intent deadline
+ok 152 - collector bounds a delayed restart start by the intent deadline
+  ---
+  duration_ms: 31.256838
+  type: 'test'
+  ...
+# Subtest: collector enforces one total deadline across batch and complete phases
+ok 153 - collector enforces one total deadline across batch and complete phases
+  ---
+  duration_ms: 389.448097
+  type: 'test'
+  ...
+# Subtest: collector replaces a ready child whose stdin becomes unavailable before exit
+ok 154 - collector replaces a ready child whose stdin becomes unavailable before exit
+  ---
+  duration_ms: 121.437526
+  type: 'test'
+  ...
+# Subtest: collector invalidates the current generation when batch ACK writing fails
+ok 155 - collector invalidates the current generation when batch ACK writing fails
+  ---
+  duration_ms: 115.919095
+  type: 'test'
+  ...
+# Subtest: process manager force-terminates workers that ignore cancel or timeout
+ok 156 - process manager force-terminates workers that ignore cancel or timeout
+  ---
+  duration_ms: 986.382154
+  type: 'test'
+  ...
+# Subtest: process manager keeps a live worker fenced after nonfatal cancel or timeout error
+ok 157 - process manager keeps a live worker fenced after nonfatal cancel or timeout error
+  ---
+  duration_ms: 223.204981
+  type: 'test'
+  ...
+# Subtest: target batch keeps delivery identity outside the payload
+ok 158 - target batch keeps delivery identity outside the payload
+  ---
+  duration_ms: 1.305689
+  type: 'test'
+  ...
+# Subtest: target batch validates Rust event variants and batch evidence fields
+ok 159 - target batch validates Rust event variants and batch evidence fields
+  ---
+  duration_ms: 1.473737
+  type: 'test'
+  ...
+# Subtest: target batch requires complete lineage evidence when history_base is present
+ok 160 - target batch requires complete lineage evidence when history_base is present
+  ---
+  duration_ms: 0.369579
+  type: 'test'
+  ...
+# Subtest: target lineage accepts multiple transitions and binds coverage/checkpoint evidence
+ok 161 - target lineage accepts multiple transitions and binds coverage/checkpoint evidence
+  ---
+  duration_ms: 1.76265
+  type: 'test'
+  ...
+# Subtest: target replacement evidence binds to exactly one matching lineage transition
+ok 162 - target replacement evidence binds to exactly one matching lineage transition
+  ---
+  duration_ms: 0.928844
+  type: 'test'
+  ...
+# Subtest: target cursor kind requires its declared capability
+ok 163 - target cursor kind requires its declared capability
+  ---
+  duration_ms: 0.380636
+  type: 'test'
+  ...
+# Subtest: target complete validates checkpoint and cursor consistency
+ok 164 - target complete validates checkpoint and cursor consistency
+  ---
+  duration_ms: 0.692506
+  type: 'test'
+  ...
+# Subtest: target ACK requires job, segment, batch and stable settlement pairs
+ok 165 - target ACK requires job, segment, batch and stable settlement pairs
+  ---
+  duration_ms: 0.200663
+  type: 'test'
+  ...
+# Subtest: target batch importer validates and durably stages the outer delivery identity
+ok 166 - target batch importer validates and durably stages the outer delivery identity
+  ---
+  duration_ms: 2.76563
+  type: 'test'
+  ...
+# Subtest: target complete binds its checkpoint watermark to the latest accepted delivery
+ok 167 - target complete binds its checkpoint watermark to the latest accepted delivery
+  ---
+  duration_ms: 21.869304
+  type: 'test'
+  ...
+# Subtest: complete checkpoint must match the durable ACKed batch evidence after restart
+    # Subtest: memory: rejects mismatched range
+    ok 1 - memory: rejects mismatched range
+      ---
+      duration_ms: 2.34179
+      type: 'test'
+      ...
+    # Subtest: memory: rejects mismatched completeness
+    ok 2 - memory: rejects mismatched completeness
+      ---
+      duration_ms: 3.914378
+      type: 'test'
+      ...
+    # Subtest: memory: rejects mismatched reducer
+    ok 3 - memory: rejects mismatched reducer
+      ---
+      duration_ms: 2.015417
+      type: 'test'
+      ...
+    # Subtest: memory: rejects mismatched provenance
+    ok 4 - memory: rejects mismatched provenance
+      ---
+      duration_ms: 1.97858
+      type: 'test'
+      ...
+    # Subtest: file: rejects mismatched range
+    ok 5 - file: rejects mismatched range
+      ---
+      duration_ms: 9.266737
+      type: 'test'
+      ...
+    # Subtest: file: rejects mismatched completeness
+    ok 6 - file: rejects mismatched completeness
+      ---
+      duration_ms: 6.396398
+      type: 'test'
+      ...
+    # Subtest: file: rejects mismatched reducer
+    ok 7 - file: rejects mismatched reducer
+      ---
+      duration_ms: 7.497462
+      type: 'test'
+      ...
+    # Subtest: file: rejects mismatched provenance
+    ok 8 - file: rejects mismatched provenance
+      ---
+      duration_ms: 8.842404
+      type: 'test'
+      ...
+    1..8
+ok 168 - complete checkpoint must match the durable ACKed batch evidence after restart
+  ---
+  duration_ms: 45.624721
+  type: 'test'
+  ...
+# Subtest: recovery delivery comes from the latest verified durable batch, not request or file order
+ok 169 - recovery delivery comes from the latest verified durable batch, not request or file order
+  ---
+  duration_ms: 7.989707
+  type: 'test'
+  ...
+# Subtest: file recovery fails closed on unreadable or corrupt durable analysis evidence
+ok 170 - file recovery fails closed on unreadable or corrupt durable analysis evidence
+  ---
+  duration_ms: 40.960171
+  type: 'test'
+  ...
+# Subtest: opaque Rust reducer payload round-trips unchanged through staging and complete
+ok 171 - opaque Rust reducer payload round-trips unchanged through staging and complete
+  ---
+  duration_ms: 7.275376
+  type: 'test'
+  ...
+# Subtest: target batch importer excludes nested generic revisions from semantic and durable payloads
+ok 172 - target batch importer excludes nested generic revisions from semantic and durable payloads
+  ---
+  duration_ms: 10.804561
+  type: 'test'
+  ...
+# Subtest: target batch importer recovers File staging receipts without replaying the batch
+ok 173 - target batch importer recovers File staging receipts without replaying the batch
+  ---
+  duration_ms: 6.40413
+  type: 'test'
+  ...
+# Subtest: target File importer serializes concurrent receipts and reindexes staging ranges
+ok 174 - target File importer serializes concurrent receipts and reindexes staging ranges
+  ---
+  duration_ms: 5.813998
+  type: 'test'
+  ...
+# Subtest: target batch importer keeps range index deterministic and deduplicates overlap
+ok 175 - target batch importer keeps range index deterministic and deduplicates overlap
+  ---
+  duration_ms: 2.857139
+  type: 'test'
+  ...
+# Subtest: target batch importer treats retry request changes as idempotent but keeps job scope strict
+ok 176 - target batch importer treats retry request changes as idempotent but keeps job scope strict
+  ---
+  duration_ms: 1.859621
+  type: 'test'
+  ...
+# Subtest: target batch importer rejects delivery content and scope conflicts before staging
+ok 177 - target batch importer rejects delivery content and scope conflicts before staging
+  ---
+  duration_ms: 1.725108
+  type: 'test'
+  ...
+# Subtest: target batch importer promotes partial to canonical without a late downgrade
+ok 178 - target batch importer promotes partial to canonical without a late downgrade
+  ---
+  duration_ms: 1.929156
+  type: 'test'
+  ...
+# Subtest: target batch importer validates checkpoint evidence before any receipt is written
+ok 179 - target batch importer validates checkpoint evidence before any receipt is written
+  ---
+  duration_ms: 1.104329
+  type: 'test'
+  ...
+# Subtest: target batch importer rejects malformed payload before the ACK precondition can be met
+ok 180 - target batch importer rejects malformed payload before the ACK precondition can be met
+  ---
+  duration_ms: 0.241225
+  type: 'test'
+  ...
+# Subtest: last-turn replacement is capability-advertised, validated, and idempotently imported
+ok 181 - last-turn replacement is capability-advertised, validated, and idempotently imported
+  ---
+  duration_ms: 4.830781
+  type: 'test'
+  ...
+# Subtest: replacement evidence binds source identities, cut positions, and child history base
+ok 182 - replacement evidence binds source identities, cut positions, and child history base
+  ---
+  duration_ms: 1.25073
+  type: 'test'
+  ...
+# Subtest: replacement evidence conflicts are rejected before Memory/File state mutation
+ok 183 - replacement evidence conflicts are rejected before Memory/File state mutation
+  ---
+  duration_ms: 12.737562
+  type: 'test'
+  ...
+# Subtest: partial and provisional top-level replacements fail closed before import
+ok 184 - partial and provisional top-level replacements fail closed before import
+  ---
+  duration_ms: 2.656906
+  type: 'test'
+  ...
+# Subtest: online last-turn replacement retains the parent history and commits the child head
+ok 185 - online last-turn replacement retains the parent history and commits the child head
+  ---
+  duration_ms: 17.468804
+  type: 'test'
+  ...
+# Subtest: malformed canonical batches fail closed before importer state changes
+ok 186 - malformed canonical batches fail closed before importer state changes
+  ---
+  duration_ms: 0.676773
+  type: 'test'
+  ...
+# Subtest: complete and checkpoint claims fail closed without recovery evidence
+ok 187 - complete and checkpoint claims fail closed without recovery evidence
+  ---
+  duration_ms: 0.394676
+  type: 'test'
+  ...
+# Subtest: complete cannot commit unless the same request imported a batch
+ok 188 - complete cannot commit unless the same request imported a batch
+  ---
+  duration_ms: 1.838439
+  type: 'test'
+  ...
+# Subtest: collector binds the first batch to the requested conversation before staging
+ok 189 - collector binds the first batch to the requested conversation before staging
+  ---
+  duration_ms: 3.204234
+  type: 'test'
+  ...
+# Subtest: collector retries the failed later batch and does not reuse the prior durable batch identity
+ok 190 - collector retries the failed later batch and does not reuse the prior durable batch identity
+  ---
+  duration_ms: 3.751931
+  type: 'test'
+  ...
+# Subtest: restart prefers an explicit pending later batch over an older durable receipt
+ok 191 - restart prefers an explicit pending later batch over an older durable receipt
+  ---
+  duration_ms: 7.02634
+  type: 'test'
+  ...
+# Subtest: mutation evidence is complete before importer state can be touched
+ok 192 - mutation evidence is complete before importer state can be touched
+  ---
+  duration_ms: 0.563952
+  type: 'test'
+  ...
+# Subtest: importer deduplicates overlap and promotes provisional data before checkpoint commit
+ok 193 - importer deduplicates overlap and promotes provisional data before checkpoint commit
+  ---
+  duration_ms: 2.17691
+  type: 'test'
+  ...
+# Subtest: importer never downgrades a canonical projection on a late incomplete overlap
+ok 194 - importer never downgrades a canonical projection on a late incomplete overlap
+  ---
+  duration_ms: 2.325756
+  type: 'test'
+  ...
+# Subtest: file checkpoint store replaces one validated scope atomically
+ok 195 - file checkpoint store replaces one validated scope atomically
+  ---
+  duration_ms: 3.518828
+  type: 'test'
+  ...
+# Subtest: memory and file checkpoint stores only advance monotonically
+ok 196 - memory and file checkpoint stores only advance monotonically
+  ---
+  duration_ms: 2.817879
+  type: 'test'
+  ...
+# Subtest: target checkpoint stores validate scope, preserve opaque metadata, and recover across attempts
+ok 197 - target checkpoint stores validate scope, preserve opaque metadata, and recover across attempts
+  ---
+  duration_ms: 6.016138
+  type: 'test'
+  ...
+# Subtest: target run stores persist attempts, retry state, receipt progress, and terminal result
+ok 198 - target run stores persist attempts, retry state, receipt progress, and terminal result
+  ---
+  duration_ms: 5.840818
+  type: 'test'
+  ...
+# Subtest: target run stores bind request identity to attempt and preserve monotonic batch IDs
+ok 199 - target run stores bind request identity to attempt and preserve monotonic batch IDs
+  ---
+  duration_ms: 11.929326
+  type: 'test'
+  ...
+# Subtest: target run stores keep completed and failed terminal states immutable
+ok 200 - target run stores keep completed and failed terminal states immutable
+  ---
+  duration_ms: 7.212271
+  type: 'test'
+  ...
+# Subtest: target run stores reject late terminal callbacks after a retry changes identity
+ok 201 - target run stores reject late terminal callbacks after a retry changes identity
+  ---
+  duration_ms: 4.693715
+  type: 'test'
+  ...
+# Subtest: target checkpoint stores serialize concurrent progress without rollback
+ok 202 - target checkpoint stores serialize concurrent progress without rollback
+  ---
+  duration_ms: 2.750297
+  type: 'test'
+  ...
+# Subtest: target run stores serialize concurrent progress and late failure updates
+ok 203 - target run stores serialize concurrent progress and late failure updates
+  ---
+  duration_ms: 8.076918
+  type: 'test'
+  ...
+# Subtest: collector starts an isolated analyzer process, ACKs imported batches, and persists completion checkpoint
+ok 204 - collector starts an isolated analyzer process, ACKs imported batches, and persists completion checkpoint
+  ---
+  duration_ms: 76.503023
+  type: 'test'
+  ...
+# Subtest: collector holds the single-flight slot until Rust confirms a negative batch ACK
+ok 205 - collector holds the single-flight slot until Rust confirms a negative batch ACK
+  ---
+  duration_ms: 185.209162
+  type: 'test'
+  ...
+# Subtest: collector retries a staging rejection with the same job and recovery delivery
+ok 206 - collector retries a staging rejection with the same job and recovery delivery
+  ---
+  duration_ms: 130.177254
+  type: 'test'
+  ...
+# Subtest: collector retries retryable fatal errors only after a new analyzer generation is ready
+ok 207 - collector retries retryable fatal errors only after a new analyzer generation is ready
+  ---
+  duration_ms: 146.26314
+  type: 'test'
+  ...
+# Subtest: collector does not retry a nonretryable fatal error but recycles before the next intent
+ok 208 - collector does not retry a nonretryable fatal error but recycles before the next intent
+  ---
+  duration_ms: 136.399896
+  type: 'test'
+  ...
+# Subtest: collector preserves typed nonfatal analyzer errors without flattening or restarting
+ok 209 - collector preserves typed nonfatal analyzer errors without flattening or restarting
+  ---
+  duration_ms: 80.281644
+  type: 'test'
+  ...
+# Subtest: collector timeout sends cancel and rejects the request without hanging the process
+ok 210 - collector timeout sends cancel and rejects the request without hanging the process
+  ---
+  duration_ms: 105.298904
+  type: 'test'
+  ...
+# Subtest: collector restarts the analyzer after a before_batch exit and retries the same job
+ok 211 - collector restarts the analyzer after a before_batch exit and retries the same job
+  ---
+  duration_ms: 134.39538
+  type: 'test'
+  ...
+# Subtest: collector restarts the analyzer after a after_batch exit and retries the same job
+ok 212 - collector restarts the analyzer after a after_batch exit and retries the same job
+  ---
+  duration_ms: 148.066209
+  type: 'test'
+  ...
+# Subtest: collector can restart against file stores without duplicating the persisted batch
+ok 213 - collector can restart against file stores without duplicating the persisted batch
+  ---
+  duration_ms: 185.670107
+  type: 'test'
+  ...
+# Subtest: fake analyzer quarantines stale output and deduplicates a repeated opaque delivery
+ok 214 - fake analyzer quarantines stale output and deduplicates a repeated opaque delivery
+  ---
+  duration_ms: 99.311413
+  type: 'test'
+  ...
+# Subtest: collector records a durable terminal run when late-begin compensation fail writer rejects
+    # Subtest: memory
+    ok 1 - memory
+      ---
+      duration_ms: 113.40186
+      type: 'test'
+      ...
+    # Subtest: file
+    ok 2 - file
+      ---
+      duration_ms: 125.343728
+      type: 'test'
+      ...
+    1..2
+ok 215 - collector records a durable terminal run when late-begin compensation fail writer rejects
+  ---
+  duration_ms: 242.260591
+  type: 'test'
+  ...
+# Subtest: collector compensates a delayed run begin after a deadline for memory and file stores
+    # Subtest: memory
+    ok 1 - memory
+      ---
+      duration_ms: 104.543334
+      type: 'test'
+      ...
+    # Subtest: file
+    ok 2 - file
+      ---
+      duration_ms: 108.656391
+      type: 'test'
+      ...
+    1..2
+ok 216 - collector compensates a delayed run begin after a deadline for memory and file stores
+  ---
+  duration_ms: 215.131798
+  type: 'test'
+  ...
+# Subtest: collector compensates a delayed run begin when cancellation wins for memory and file stores
+    # Subtest: memory
+    ok 1 - memory
+      ---
+      duration_ms: 59.342968
+      type: 'test'
+      ...
+    # Subtest: file
+    ok 2 - file
+      ---
+      duration_ms: 61.071226
+      type: 'test'
+      ...
+    1..2
+ok 217 - collector compensates a delayed run begin when cancellation wins for memory and file stores
+  ---
+  duration_ms: 123.899266
+  type: 'test'
+  ...
+# Subtest: collector preserves delayed run-store begin failures without a running artifact
+    # Subtest: memory
+    ok 1 - memory
+      ---
+      duration_ms: 67.258159
+      type: 'test'
+      ...
+    # Subtest: file
+    ok 2 - file
+      ---
+      duration_ms: 61.701631
+      type: 'test'
+      ...
+    1..2
+ok 218 - collector preserves delayed run-store begin failures without a running artifact
+  ---
+  duration_ms: 131.499902
+  type: 'test'
+  ...
+# Subtest: collector retries a failed staging attempt with the same opaque identity and only a new request id
+ok 219 - collector retries a failed staging attempt with the same opaque identity and only a new request id
+  ---
+  duration_ms: 62.786636
+  type: 'test'
+  ...
+# Subtest: diagnostic logger writes sanitized JSONL and rotates bounded files
+ok 220 - diagnostic logger writes sanitized JSONL and rotates bounded files
+  ---
+  duration_ms: 3.157542
+  type: 'test'
+  ...
+1..220
+# tests 238
+# suites 0
+# pass 237
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8436.86701

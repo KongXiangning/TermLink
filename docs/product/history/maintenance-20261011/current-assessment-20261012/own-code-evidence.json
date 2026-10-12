@@ -1,0 +1,25 @@
+{
+  "code_commit": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+  "files": {
+    "src/auth/basicAuth.js": "c86cf29176581d07966d2835c5eb1c940822101258ab212acb772db0c679efc2",
+    "public/login.js": "7d510b54a4f3ef8864dcf9a0f91dad0d1de7dcfc9f1707c2995f1253ae7643ce",
+    "public/login.html": "7cdc518e24e543a5bda9564e81b2538342a8c817a4c9bdae1fa1a709c2490fe2",
+    "public/workspace.js": "70ecf520c43f03b4e02df0732e391dc29adb239d565dcf62b81fba2fe1b271f1",
+    "public/workspace.css": "0773f99716f6aed9f7f479727690b824416442449409c3641d2313fe9e52dc3a",
+    "public/workspace.html": "39aec1f79137ee2a5a76fd61bd15345ee46548ac3b3ef6719aef55a86a8129f9",
+    "src/routes/workspace.js": "13e8fcf7fa8ef5573e1cfcd1765985f35d7b30740d615780938adb6557da29f5",
+    "src/services/workspaceFileService.js": "208b920c1613478ebf0746182f59574a29434fd2f3d2b12d0fef0d76c7eae5b5",
+    "src/services/workspaceCompareService.js": "b08f81cf995a691f9d4ab70a686c18ea4637e974f2a8166ee9b8037e9e4c91e8",
+    "src/services/workspacePathUtils.js": "de11da49973bc78175984e0b4621696ab637af8662072fe22c1f9380db89ddc0",
+    "android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt": "c1c09d74c2e23cf240647cbb3fe4389e5c39573f7240a728ebc00e70da5f22b8",
+    "install.sh": "70ce7856f314b4356adc7e4fef3602fb3845c9f478a0b23e7748ad085367cc69",
+    "scripts/install/linux/installer-config.js": "453d0e5174a7d2e9c02b0bcb06e4891053138b443bac95e8eb109611e1792434",
+    "scripts/install/linux/install-service.sh": "66661f43fae6da963341e54b1c19b3a3186935b4ae81f9252945aeaef0b0839a",
+    "scripts/release/windows-release.js": "0995ba53e2bfcfaca2376a59e3c96f8c6c8918fa8c8a65b31006f3572a0c9898"
+  },
+  "comparisons": {
+    "55b97876": "",
+    "6c1d3d09": " .../java/com/termlink/app/WorkspaceActivity.kt     |  72 +++++--\n public/workspace.css                               | 147 ++++++++++++-\n public/workspace.html                              |  80 ++++++-\n public/workspace.js                                | 230 +++++++++++++++++++--\n src/routes/workspace.js                            |  34 ++-\n 5 files changed, 516 insertions(+), 47 deletions(-)\n",
+    "20398215": " scripts/release/build-release.js   |  8 +++-\n scripts/release/release-layout.js  | 88 +++++++++++++++++++++++++++++++++++++-\n scripts/release/windows-release.js | 31 +++++++++++---\n 3 files changed, 119 insertions(+), 8 deletions(-)\n"
+  }
+}

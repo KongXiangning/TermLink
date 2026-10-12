@@ -1,0 +1,44 @@
+{
+  "order": 66,
+  "id": "REQ-TERMLINK-HISTORY-SOURCE",
+  "conclusion": "partially-satisfied",
+  "coverage": "四项原source能力：启动root与外部只读、明确SessionMeta/history_base/cut lineage及Branch独立身份、三mode有界读取/完整行/cursor、vendored facade/唯一Adapter诊断。",
+  "achievements": [
+    "Node不提供source path，target由startup root+conversation定位；TermLink只读外部源，已观察有效lineage/cut与Branch前缀规则",
+    "原阶段2 full/tail/backward/append、完整行pending tail、overlap/cursor/截断负向有行为验证；原235/235、后续832修复76/76target及同源码独立branch3/delegated6/v2 3分别限定复用",
+    "当前vendored re-export和Adapter自有事件边界、unknown/alias/ParseGap保留代码与已验fixture吻合；不把全Rust构建或隔离Task关闭当整体PASS"
+  ],
+  "gaps": [
+    "已知未满足：候选symlink指向sessions_root外时，discovery在target执行canonical confinement之前读取header/metadata/可能fingerprint。DEFER-002已明确接受暂缓且禁止宣称已解决；当前source/discovery.rs:851与protocol/target_source.rs:473–485仍保留相同顺序。此是原sessions_root边界已有缺口，不是本轮新增要求，不倒推旧target任务漏交，不自动授权修复或立项。",
+    "本次cargo不存在，未新跑Rust；这限制当前动态覆盖，不取消已核同字节旧证据。其他source hash interruptibility的deferred观察仍保留，未升为本项新增验收"
+  ],
+  "evidence": [
+    "native/codex-rollout-collector/src/protocol/target_source.rs:443–485 discovery在confinement之前",
+    "native/codex-rollout-collector/src/source/discovery.rs:843–864 候选header/metadata读取先发生",
+    "docs/workflow/DECISIONS.md:543–555 DEFER-002明确未解决且不许post-check冒充pre-I/O",
+    "TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md:49,67,98 原已接受风险",
+    "TASKS/TASK-20260820-001-codex-rollout-collector-stage-2-input-compat.md:119–138 原输入层有界/恢复/负向行为",
+    "TASKS/TASK-20260827-001-codex-target-delivery-identity-repair.md:63–73 原235/235",
+    "native/codex-rollout-collector/src/codex_wire/mod.rs:1–17；tests/stage4_target_protocol.rs:3456,3719,3928,4018,4058,4249",
+    "../history-evidence/832review-rust-audit.json 当前6源文件同SHA且12定向实际历史测试"
+  ],
+  "historical_applicability": {
+    "original": "早期各隔离任务仅在其锁定范围验收，DEFER-002不是旧任务漏交或重新打开理由；当前需求却仍明确root读取边界，暂缓不等于取消。",
+    "current": {
+      "assessed_head": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+      "historical_server_source_head": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "android_fix_commit": "0618cafc",
+      "rust_binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e",
+      "apk_sha256": "f148028b15fa3a8dffe63ca483bcda5a1ce9764bbde817e68a357598d25dfd6a",
+      "phone": "MQS7N19402011743",
+      "profile": "task005-s2-local",
+      "range_enabled": true,
+      "qualification": "这些是原832实测版本；23个源码/测试/规范/fixture历史哈希与当前逐字节相同，0618cafc至HEAD的src/native/android/public/tests/scripts零diff。原Windows Rust exe与APK未在本次机器物化，不声称当前真机或重新构建。"
+    }
+  },
+  "device_checks": [],
+  "unread": [
+    "本次没有cargo/原exe，因此不声称当前source suite动态复现或新symlink反例；已读旧明确finding并逐行确认同一控制顺序",
+    "未逐条读取所有native历史报告，未把旧235/235扩称当前完整Rust suite重新通过"
+  ]
+}

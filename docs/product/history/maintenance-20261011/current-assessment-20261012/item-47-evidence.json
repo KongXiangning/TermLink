@@ -1,0 +1,47 @@
+{
+  "order": 47,
+  "id": "REQ-TERMLINK-EXTERNAL-REFRESH",
+  "conclusion": "undetermined",
+  "coverage": "原地址/Basic变更后同会话重载；保存/删除更新列表目标",
+  "achievements": [
+    "签名含type/URL/authType/用户名/密码SHA256；External加载Authorization/预填Basic；提交后reload，删除清本地会话并调整目标",
+    "原resolver/JVM测试仅CRLF差异且有历史通过"
+  ],
+  "gaps": [
+    "缺实际WebView同URL只改密码、错误变正确、删除当前External后的整体设备结果；Settings4/4仅表单/回调",
+    "未因先upsert后密码写入的局部代码单独判失败，需包含重新打开/返回的整体加载行为"
+  ],
+  "evidence": [
+    "docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md:38,84–85,95–96,113–114原热更新",
+    "android/app/src/main/java/com/termlink/app/MainShellActivity.kt:658–688保存/删除；1302–1319resolver执行；1835–1906签名/URL；1973–1996 Basic与Authorization",
+    "android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt:724–741保存/凭据写入/刷新",
+    "android/app/src/main/java/com/termlink/app/ProfileCommitRefreshResolver.kt:13–22 External重载不需清client-cert；android/app/src/test/java/com/termlink/app/ProfileCommitRefreshResolverTest.kt:22–43终端重载/非终端不重载",
+    "docs/changes/records/CR-20260327-0100-external-web-profile-refresh-fix.md:24–33,70–86历史策略/JVM/Settings，实际WebView待验"
+  ],
+  "historical_applicability": "d675956的resolver/测试仅CRLF差异，Activity/Settings后续变动。该CR虽绑定REQ11，其External热更新实际范围可适用局部；不冒造原External task身份。mTLS3/3不覆盖此项。",
+  "device_checks": [
+    {
+      "function": "External地址凭据刷新",
+      "behavior": "同会话URL/Basic即时生效与删除刷新",
+      "preconditions": "可控External端点可观测URL和认证成败，不记秘密明文；A/B Profile与HEAD APK",
+      "steps": [
+        "A打开URL1，改URL2返回同会话",
+        "同URL只改密码；错误凭据失败后改正确",
+        "删除当前A，检查列表/active目标/B，再重进应用"
+      ],
+      "expected": "不用重启使用新URL/Basic，列表同步、无旧页面/A本地会话，B可用",
+      "existing_evidence": "历史决策测试+签名实现，无实际请求/WebView闭环",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "declared": "package.json:3–4 / VERSION为1.0.0、versionCode=1",
+        "required_record": "后续补验记录服务端commit/配置、APK commit/versionName/versionCode/SHA-256、Android/WebView版本；本轮未获绑定HEAD的APK或部署服务版本"
+      },
+      "nature": "原范围设备行为补验"
+    }
+  ],
+  "unread": [
+    "原External task/用户签收未定位",
+    "无WebView请求观测或设备测试产物"
+  ]
+}

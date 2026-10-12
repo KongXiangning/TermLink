@@ -1,0 +1,53 @@
+{
+  "order": 10,
+  "id": "REQ-20260324-session-list-local-cache",
+  "conclusion": "partially-satisfied",
+  "coverage": "cache-first/状态/成功写回/失败保留/CRUD与generation/External；不新增离线CRUD、多账号安全体系或弹窗摘要",
+  "achievements": [
+    "当前store按Profile与现有cache identity持久；store与历史最终收口同字节",
+    "先缓存后远端，CACHE/LOADING可见；全部失败时已有列表保留；成功/CRUD写回与旧请求隔离有历史设备测试及当前实现",
+    "External独立store参与首屏"
+  ],
+  "gaps": [
+    "确定原失败保留缺口：A已有缓存且请求失败，B成功时直接重绘nextGroups；A失败结果sessions=[]、错误卡计数0并隐藏会话容器，已有A缓存从UI消失。B即使External本地成功也能触发",
+    "磁盘缓存仍留，此问题是继续展示缓存义务不成立；未把3/28原夹具网络失败当本缺陷动态复现"
+  ],
+  "evidence": [
+    "docs/product/requirements/REQ-20260324-session-list-local-cache.md:37–42,55–59 失败继续缓存且External不隐藏",
+    "android/app/src/main/java/com/termlink/app/data/SessionListCacheStore.kt:9–26,30–53,123–145 持久化/现有身份",
+    "android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt:296–340 cache-first/门禁/写回；405–412全部失败保留；347–354部分成功直接重绘；466–469失败sessions为空；865–873重建视图；915–931计数0且隐藏缓存容器",
+    "android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt:742–768,787–805 generation/CRUD回写；368–389,515–523 External",
+    "android/app/src/main/java/com/termlink/app/ui/sessions/SessionCacheGroupBuilder.kt:27–46 External首屏",
+    "android/app/src/androidTest/java/com/termlink/app/ui/sessions/SessionsFragmentStatusTest.kt:54–99慢刷新/全失败保留；122–158只测另一Profile无缓存的部分失败",
+    "android/app/src/androidTest/java/com/termlink/app/ui/sessions/SessionsFragmentLifecycleTest.kt:234,465,578,631,688 CRUD/旧请求/view场景",
+    "docs/changes/records/CR-20260325-2219-sessions-closeout-validation.md:65–69 原34/34设备结果",
+    "docs/changes/records/CR-20260328-0205-session-refresh-and-elevated-gate.md:24–25局部错误呈现；54–65该次设备失败属夹具/网络"
+  ],
+  "historical_applicability": "6a0f06eccdb6f7cde0037da2f7041c5ce5b423ca的SessionListCacheStore/SessionCacheGroupBuilder严格同字节；Fragment与相关测试后续有实质变化。f43ff6f局部错误呈现未提供撤回已有失败缓存继续显示义务的用户依据。7月30日2d1c83ba又改超时、排序/离线和executor保护；历史34/34不等于HEAD全PASS。",
+  "device_checks": [
+    {
+      "function": "Sessions缓存",
+      "behavior": "原缓存首屏/混合失败保留/成功和变更回写",
+      "preconditions": "A/B两个原支持Profile均有成功快照，另有External本地组；可控制A延迟/500/断网；HEAD APK及对应服务",
+      "steps": [
+        "冷启进入Sessions，延迟远端先看缓存与刷新标记",
+        "全远端失败；再A失败+B成功；再A失败+External成功",
+        "恢复A后查UI与重启快照；CRUD期间延迟旧刷新、重建view和切服务地址"
+      ],
+      "expected": "已有失败组缓存保持可见并标旧/失败；成功组更新，External不隐藏；旧结果不覆盖，不伪装在线",
+      "existing_evidence": "原34/34+当前确定分支；混合失败有缓存未设备执行",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "declared": "package.json:3–4 / VERSION为1.0.0、versionCode=1",
+        "required_record": "后续补验记录服务端commit/配置、APK commit/versionName/versionCode/SHA-256、Android/WebView版本；本轮未获绑定HEAD的APK或部署服务版本"
+      },
+      "nature": "原范围设备行为补验"
+    }
+  ],
+  "unread": [
+    "原task/用户对话未定位",
+    "SUMMARY12个CR未逐篇全文读；已读最终收口、混合错误变更、当前实现测试",
+    "无原JUnit XML或本轮设备结果"
+  ]
+}

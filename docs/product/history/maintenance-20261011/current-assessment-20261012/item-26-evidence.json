@@ -1,0 +1,30 @@
+{
+  "order": 26,
+  "id": "REQ-TERMLINK-SERVER",
+  "conclusion": "partially-satisfied",
+  "coverage": "服务端会话/认证权限/Codex、安装发行、只读工作区与历史组合；不新增终局标准",
+  "achievements": [
+    "当前鉴权路由、会话元数据JSON恢复及Node产品持久事务有直接实现和当前/同字节证据",
+    "原832三类保存和833隔离兼容实际验证可按原范围复用"
+  ],
+  "gaps": [
+    "当前关联审计在IP拒绝和CRUD路径缺失；sessions_root候选symlink pre-I/O仍存在已确认暂缓风险。这些直接发生在本父范围的服务路径，不由任务计数推断",
+    "运行宿主安装、Android整链等仍有未知部分；不得从局部通过声称整个服务端满足"
+  ],
+  "evidence": [
+    "src/auth/basicAuth.js:116–140,232–275（当前Cookie/登录/撤销实际测试通过）",
+    "src/ws/terminalGateway.js:6574–6586,6652–6669,8995–9007（IP拒绝早于trace；连接起止有trace）",
+    "src/routes/sessions.js:193–273（CRUD无audit调用）",
+    "src/services/auditService.js:4–8,97–122（事件入口范围）",
+    "native/codex-rollout-collector/src/protocol/target_source.rs:473–485",
+    "native/codex-rollout-collector/src/source/discovery.rs:851",
+    "docs/workflow/DECISIONS.md:543–555 DEFER-002",
+    "原832/833真实样本与共享隔离及本轮Node产品事务证据见18/19/67（固定原附件已保存）"
+  ],
+  "historical_applicability": "当前代码固定bb484969；本项为既有父组合范围独立人工判断。保留各明确实现路径及历史对象适用性，不把子项数量、历史关闭、父子链接或已有PASS算作达成。测试/代码及原范围详见实际引用的独立报告。",
+  "device_checks": [],
+  "unread": [
+    "父项不额外生成全端矩阵；需要的真机补验沿实际子项原范围单列",
+    "P1.11/P2未明行为（若属本项）继续未定义，不反推新功能或验收"
+  ]
+}

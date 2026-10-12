@@ -1,0 +1,27 @@
+{
+  "order": 35,
+  "id": "REQ-TERMLINK-APP-CODEX",
+  "conclusion": "partially-satisfied",
+  "coverage": "原生Codex、共享交互、IPC跟随与静态历史；健康IPC唯一实时权威",
+  "achievements": [
+    "原生容器/共享wire/authority实现和当前Gateway测试有成果",
+    "832同字节三样本正文/选定详情/durable ACK/切换force-stop重开证据可原范围复用"
+  ],
+  "gaps": [
+    "当前Android手输已注册但关闭capability命令未过提交门禁，违反既有未开放命令不发送/给反馈规则（51号）；不以菜单过滤代替该路径",
+    "当前App其余plan/skills/files/attachments/通知与005/831更广历史真机剩余仍未知；不把这些未知当功能坏"
+  ],
+  "evidence": [
+    "public/sessions.js:61 / public/terminal.js:1569（当前主页进入codex_client）",
+    "public/terminal_client.js:2341–2364,5923–5927,9352–9368（选择只写nextTurnOverrides，IPC普通发送无配置）",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt（手输slash路径，精确位置见51号）",
+    "本轮Codex定向160/160及组件17/17；原模式/测试局限详见8/16/49/51",
+    "18/24/48–57/68号范围与原证据"
+  ],
+  "historical_applicability": "当前代码固定bb484969；本项为既有父组合范围独立人工判断。保留各明确实现路径及历史对象适用性，不把子项数量、历史关闭、父子链接或已有PASS算作达成。测试/代码及原范围详见实际引用的独立报告。",
+  "device_checks": [],
+  "unread": [
+    "父项不额外生成全端矩阵；需要的真机补验沿实际子项原范围单列",
+    "P1.11/P2未明行为（若属本项）继续未定义，不反推新功能或验收"
+  ]
+}

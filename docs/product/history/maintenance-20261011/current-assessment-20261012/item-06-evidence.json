@@ -1,0 +1,49 @@
+{
+  "order": 6,
+  "id": "REQ-20260224-screen-keep-awake",
+  "conclusion": "satisfied",
+  "coverage": "20260726-001原实际交付：系统/30秒至10分钟、四Activity、交互重计时、后台销毁清理；原确认仅长于系统值才延长，不强制缩短系统息屏",
+  "achievements": [
+    "原JDK21 JVM/build/diff通过；ScreenTimeoutController及对应JVM测试与交付提交严格同字节",
+    "UiPreferences后续只增无关媒体偏好，息屏函数未变；四Activity仍接visible/hidden/userInteraction/dispose；Settings保存后刷新",
+    "原task真实定时smoke明确为非阻断后续观察，不能据未做判欠交"
+  ],
+  "gaps": [
+    "无确定原交付欠交；尚无完整真实定时等待结果，保留观察限制，不新增完成门槛"
+  ],
+  "evidence": [
+    "TASKS/TASK-20260726-001-android-foreground-screen-timeout.md:5–17 原实际交付/JVM与构建/设备观察",
+    "Git 9697f221:docs/workflow/CURRENT_TASK.md:113–114 仅长于系统值/定时未执行；125–128用户确认仅长于系统值、不引入WRITE_SETTINGS",
+    "android/app/src/main/java/com/termlink/app/util/UiPreferences.kt:24–27,49–67,81–125 系统0/1–20档/保存/边界及configured≤system null",
+    "android/app/src/main/java/com/termlink/app/util/ScreenTimeoutController.kt:17–59 前台FLAG、重计时、超时清FLAG/移回调",
+    "android/app/src/test/java/com/termlink/app/util/UiPreferencesScreenTimeoutTest.kt:9–55 档位、上下界及仅长于系统",
+    "android/app/src/main/java/com/termlink/app/MainShellActivity.kt:178,291,300,313,382–388 生命周期；android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt:401,525,576,600,643 同控制器",
+    "android/app/src/main/java/com/termlink/app/SettingsActivity.kt:57,100,109,115–121,129；android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt:84,185,193,198–204 同控制器",
+    "android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt:137–149,197–223 持久化/回调/系统更长提示"
+  ],
+  "historical_applicability": "9697f221fb2d0fd464873da85e2a9088fa04a9b4的ScreenTimeoutController和UiPreferencesScreenTimeoutTest与HEAD严格同字节；UiPreferences实质差异仅媒体偏好，息屏函数未变。2月固定2分钟不代替当前档位；原作者测试报告不是用户实际定时签收。",
+  "device_checks": [
+    {
+      "function": "前台息屏",
+      "behavior": "原task非阻断定时观察",
+      "preconditions": "HEAD APK；记录系统息屏；关闭调试强制常亮；服务只帮助打开既有页面",
+      "steps": [
+        "测试系统档、30秒、10分钟；以系统值小于/等于/大于App值观察",
+        "中途触摸/按键/IME；切四页面、Home、旋转重入"
+      ],
+      "expected": "只有自定义长于系统才延长；到时清FLAG交回系统，不承诺强制精准灭屏；后台清FLAG，不改系统设置",
+      "existing_evidence": "历史JVM+严格同字节控制器，无定时设备结果",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "declared": "package.json:3–4 / VERSION为1.0.0、versionCode=1",
+        "required_record": "后续补验记录服务端commit/配置、APK commit/versionName/versionCode/SHA-256、Android/WebView版本；本轮未获绑定HEAD的APK或部署服务版本"
+      },
+      "nature": "原task非阻断观察"
+    }
+  ],
+  "unread": [
+    "原用户聊天未取得，但真实历史CURRENT_TASK有确认",
+    "无原Gradle XML/定时设备日志"
+  ]
+}

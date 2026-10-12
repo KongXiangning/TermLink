@@ -1,0 +1,45 @@
+{
+  "order": 2,
+  "id": "REQ-20260222-server-admin-privilege-mode",
+  "conclusion": "partially-satisfied",
+  "coverage": "六功能通过36–40逐范围独立核对：配置/启动门禁/身份/IP/审计/客户端显示",
+  "achievements": [
+    "当前配置开关/IP匹配/AuditService/health有已执行自动测试；配置+PTY身份边界与真实socket白名单满足限定行为",
+    "Android风险提示链、连接起止关联可静态定位并有原阶段交付"
+  ],
+  "gaps": [
+    "39已确认缺IP拒绝auditTraceId和会话操作关联审计；40已确认Web终端未消费权限字段/无风险提示；这些是当前定义的原范围内确定缺口",
+    "真实启动权限/证书门禁及Android当前提示仍有未知验证范围；不以真实提权/OS降权回滚作为欠交"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:99–153 当前父项内容、子项引用和边界",
+    "src/ws/terminalGateway.js:6577–6587、6652–6669、8995–9007 审计/握手实证",
+    "src/routes/sessions.js:193–273 CRUD缺关联审计",
+    "public/terminal.js:1019–1036 Web未消费privilegeLevel",
+    "tests/privilegeConfig.securityGates.test.js:51–225 当前9/9；tests/ipCheck.test.js:5–55 10/10；tests/auditService.test.js:20–105 4/4；tests/health.route.test.js当前2/2"
+  ],
+  "historical_applicability": "2月原REQ与SUMMARY/CR已读；a6ceeec/76e76f8历史提供范围与报告。git blob核对76e76f8与HEAD配置/门禁/IP及其测试均不同字节；privilegeConfig忽略行尾后无差异，其他门禁/IP已有实质变化。当前独立测试结果优先，旧父项全量交付不自动下发子项。",
+  "device_checks": [
+    {
+      "function": "客户端权限风险可见",
+      "behavior": "已配置elevated服务连接后显示风险提示",
+      "preconditions": "已授权可用测试服务和APK；无需App触发提权",
+      "steps": [
+        "打开一个TERMLINK_WS会话，记录session_info.privilegeLevel",
+        "观察Android提示；再用已有standard服务观察无高权限提示"
+      ],
+      "expected": "与收到的权限模式一致；普通模式不误报",
+      "existing_evidence": "Android MainShellActivity:581–599提示实现；原a6ceeec/76e76f8报告客户端透传，未定位当前APK提示实测",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    }
+  ],
+  "unread": [
+    "2月原实施task/原始用户对话未定位；已读原REQ/两CR/SUMMARY"
+  ]
+}

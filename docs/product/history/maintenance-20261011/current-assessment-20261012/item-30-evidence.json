@@ -1,0 +1,26 @@
+{
+  "order": 30,
+  "id": "REQ-TERMLINK-SERVER-SESSIONS",
+  "conclusion": "undetermined",
+  "coverage": "服务端终端I/O/resize、CRUD、断联保留及元数据重启；明确不要求PTY跨重启",
+  "achievements": [
+    "独立进程实际SessionManager create/rename/debounce写盘→新进程恢复成功；已有元数据恢复满足原定性范围",
+    "API与Web行为单测、IP和刷新复用等明确成果保留"
+  ],
+  "gaps": [
+    "原长时保留/真实断联续接与TTL/LRU动态路径证据不足，已知成果+未知余项，不判部分满足",
+    "当前WS测试受旧帧计数/夹具/挂起影响；缺完整真实PTY连接与客户端闭环，不将这些环境/测试缺陷当业务失败"
+  ],
+  "evidence": [
+    "src/services/sessionManager.js:95–130,317–345,478–528",
+    "metadata-roundtrip.cjs / metadata-result.log（本次临时独立进程探针）",
+    "src/ws/terminalGateway.js:6592–6622",
+    "3/20/41–43/62–64/69号明确范围证据"
+  ],
+  "historical_applicability": "当前代码固定bb484969；本项为既有父组合范围独立人工判断。保留各明确实现路径及历史对象适用性，不把子项数量、历史关闭、父子链接或已有PASS算作达成。测试/代码及原范围详见实际引用的独立报告。",
+  "device_checks": [],
+  "unread": [
+    "父项不额外生成全端矩阵；需要的真机补验沿实际子项原范围单列",
+    "P1.11/P2未明行为（若属本项）继续未定义，不反推新功能或验收"
+  ]
+}

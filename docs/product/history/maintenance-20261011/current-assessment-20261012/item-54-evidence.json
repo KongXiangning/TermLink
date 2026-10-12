@@ -1,0 +1,50 @@
+{
+  "order": 54,
+  "id": "REQ-TERMLINK-CODEX-ATTACHMENTS",
+  "conclusion": "undetermined",
+  "coverage": "本地图片/文件选择和发送后可见上下文，后续历史图片/文件提及/Markdown链接打开；保持原本地附件范围，不扩大为附件中心。",
+  "achievements": [
+    "60508有两端发送前/流式/完成后附件摘要及不露data URL行为记录；7/22-002有Huawei Markdown附件打开与任务切换具体报告",
+    "当前Android图片/文件picker区分、历史附件/Markdown解析、缓存/工作区/外部URI打开路径可定位；Node静态摘要/dedupe/换行测试与JSDOM图片chips本轮通过"
+  ],
+  "gaps": [
+    "当前媒体缓存/详情入口已在8—10月改变；匹配APK的选图/选文件→发送→重开→打开图片/文档未复验",
+    "本轮没有读取历史设备截图本体或获得当前APK，不把历史已归档等同当前全部附件闭环"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:2060：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "TASKS/TASK-20260508-001-codex-inline-multiple-skills-and-attachment-visible-history.md:17-22,58-76：原两端附件可见范围/结果",
+    "TASKS/TASK-20260722-002-android-codex-open-conversation-files.md:8-21：85e7dc6基线及Huawei历史打开记录",
+    "android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt:437-505,728-877,988-1067：pick/open路径；android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt:2656-2857：Markdown附件投影",
+    "tests/codexClient.shell.test.js:142-215,250-284：本轮图片源、opaque dedupe和Android摘要静态断言通过；tests/codexSecondaryPanel.integration.test.js:1408-1435：图片chips行为通过",
+    "android/app/src/test/java/com/termlink/app/codex/CodexMessageMarkdownLinkParserTest.kt；android/app/src/test/java/com/termlink/app/codex/CodexScreenMediaProgressTest.kt：原测试存在并读到关联，但本轮未运行"
+  ],
+  "historical_applicability": [
+    "7/22任务整体“完成”保留为原记录，cross-host长任务观察并不证明该子附件能力有失败",
+    "8/5 6a6c39f3增加bounded history/media缓存，10/2 241becbc加入历史详情；原7月打开路径证据不是当前APK证明"
+  ],
+  "device_checks": [
+    {
+      "function": "图片文件附件与历史打开",
+      "behavior": "选择分流、发送后持续摘要、历史图片/文件/Markdown点击打开",
+      "prerequisites": "匹配服务/APK；设备有图片与文本文件；conversation里有工作区文件和Markdown图片/文件链接",
+      "steps": [
+        "分别经图片和文件入口添加，发送后观察流式与完成",
+        "重开该conversation，点击图片、file mention、Markdown文件/图片链接"
+      ],
+      "expected": [
+        "两picker语义不混；摘要保留且不露data URL；点击打开对应原文件/图片，失败可解释不跳错任务"
+      ],
+      "existing_evidence": [
+        "60508及60722-002旧真机结果；当前解析/摘要自动测试部分通过"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

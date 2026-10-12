@@ -1,0 +1,442 @@
+✔ baseline provider canonicalizes upstream thread without exposing raw response (3.937391ms)
+✔ baseline provider reports source read timing and full response size separately from the probe (1.384158ms)
+✔ baseline provider fails closed when history mode is unknown without calling full read (0.690963ms)
+✔ paginated mode never falls back to thread/read (0.359553ms)
+✔ paginated reader returns a partial upsert-only page with exact identity (0.722641ms)
+✔ paginated item pages normalize desc order and preserve an explicit older-cursor null (0.862481ms)
+✔ paginated turn pages reverse only turn order, not item order inside a turn (0.660587ms)
+✔ complete paginated scan streams newest native page first and returns one chronological full snapshot (1.215484ms)
+✔ complete paginated scan rejects a non-advancing cursor before inventing an older page (0.673356ms)
+✔ complete legacy scan reuses its metadata probe before the full source read (1.533964ms)
+✔ legacy range-tail request is failure evidence, not bounded canonical tail capability (9.327273ms)
+✔ tail validation fails closed as unsupported for legacy without any canonical source read (0.420033ms)
+✔ paginated tail validation compares only the durable newest anchor (0.671543ms)
+✔ tail validation fails closed before source read when anchor is absent and after an oversized paginated response (0.247533ms)
+✔ older range provider consumes only the explicit next cursor and returns one ascending segment (0.812275ms)
+✔ older range provider fails closed when next cursor is missing or invalid (0.81544ms)
+✔ range provider stays on the legacy/full path for an invalid capability (4.152395ms)
+✔ ephemeral history is explicitly unsupported (0.355487ms)
+✔ baseline provider rejects a response whose canonical thread id differs (0.387544ms)
+✔ baseline provider rejects a mismatching probe identity before the full read (0.234053ms)
+✔ baseline provider rejects a payload mode that contradicts the probe (0.213743ms)
+✔ baseline provider blocks a fixture larger than the recovery guard (0.301745ms)
+✔ baseline provider externalizes embedded image data before canonical hashing (57.642739ms)
+✔ completed legacy scan can reuse an already scoped metadata observation without a second probe (0.334164ms)
+✔ canonical JSON sorts object keys but preserves array order (1.73015ms)
+✔ canonical history chooses stable ids and maps client request id (1.884473ms)
+✔ unstable running items are omitted and become stable on terminal baseline (0.288475ms)
+✔ conversation root is stable for equivalent item payloads (0.446153ms)
+▶ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen
+  ✖ backfill (18.137061ms)
+  ✖ append (5.825019ms)
+✖ history shared delivery H1 saves running-to-completed canonical history through SQLite and reopen (26.014465ms)
+✖ history branch delivery H2 saves inherited bodies and child tools without changing parent across restart and rejection (5.563916ms)
+✖ history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection (3.105735ms)
+✔ product-history-store durably stages, publishes, reopens, and ignores an exact duplicate delivery (101.113348ms)
+✖ product-history-real-rust stages before ACK, publishes validated canonical output, and reaches the history Gateway (3.599621ms)
+✖ product-history projection isolates SessionContext history_base while staging retains child lineage evidence (3.828236ms)
+✖ product-history-unattended wakes on cached terminal source-ready state and resumes from the product checkpoint after restart (3.070502ms)
+✔ product-history-read preserves __proto__ event fields through product-history-store reopen (15.789764ms)
+✔ product-history-store rolls back a failed replacement and preserves the previous canonical data after reopen (23.867953ms)
+✔ product-history-read pages canonical rows and preserves product event fields (3.991542ms)
+✔ product-history-read refreshes a complete root and range cursor when only a detail changes (7.568811ms)
+✔ product-history-read shares its actual detail DTO page hash with Android (1.479833ms)
+✔ product-history-read preserves top-level and nested tool facts with collection-like field names (0.936082ms)
+✔ product-history-read preserves every business JSON key in items and details (0.674968ms)
+✔ product-history-unattended keeps a newer terminal after failure and recovers durable intent (81.299032ms)
+✔ product-history-unattended retains incomplete intent for replay, restart and newer terminal (63.694014ms)
+✖ product-history-unattended actual server reopens a pending job and receipt before serving canonical history (4.589535ms)
+✔ product-history-read omits parameterized and percent-encoded inline image data URLs (0.781238ms)
+✔ product-history-read detail pages are authenticated-provider-ready, bounded, and path preserving (11.07452ms)
+✔ product-history-read uses bounded payload chunks and fails closed for clients without chunk support (3.542055ms)
+✔ product-history-read bounds detail references and range page estimates (1.67671ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-read Gateway serves product baseline, older pages, and details without a source read (129.685845ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"missing-product-row","previousActiveConversationId":"conversation-product-read","sessionId":"session-product-read","sessionMode":"codex","previousThreadId":"conversation-product-read"}
+✔ product-history-read keeps old clients on v2 and a DB-only miss keeps the cache (104.049674ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-read replaces a complete snapshot with the entire bounded product tail (59.305006ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conversation-product-read","previousActiveConversationId":null,"sessionId":"session-product-read","sessionMode":"codex","previousThreadId":null}
+✔ product-history-read refreshes a complete product range without v2 delete authority (57.172469ms)
+✔ product flow negative assertion rejects deliberate windows path leaks (2.005006ms)
+✔ current snapshot store replaces one scope atomically and isolates profile scopes (32.232874ms)
+✔ current snapshot store fails closed for corrupted or mismatched data (4.859813ms)
+✔ metadata freshness token is stable and ignores unavailable metadata (1.956853ms)
+✔ changed canonical metadata invalidates only a recovery baseline (2.224977ms)
+✔ metadata observation retains only the bounded history-mode hint for tail validation (1.232129ms)
+✔ complete manifest diff produces upserts, deletes and order only when needed (0.552934ms)
+✔ partial manifest diff never deletes or claims authoritative order (0.94725ms)
+✔ partial manifest diff does not append an older or middle gap after a local tail (0.330659ms)
+✔ partial manifest diff does not append when the local tail has no canonical overlap (0.324069ms)
+✔ partial manifest diff uses the newest canonical overlap, not the local array tail (0.335987ms)
+✔ delta pages share sequence roots and have deterministic page hashes (2.653323ms)
+✔ range capability carries tail metadata without enabling delete or order (3.176112ms)
+✔ range tail no-op reconciliation emits an ACK-able metadata page (1.189134ms)
+✔ range tail with the bounded 200-item baseline stays one atomic delta page (16.934151ms)
+✔ range tail adapts inline payloads to existing chunks before rejecting the atomic page (488.636212ms)
+✔ one older page emits one upsert-only delta and settles PARTIAL without a follow-up request (1.005838ms)
+✔ one older page rejects any coverage-complete authority claim (0.169626ms)
+✔ schema v3 is capped to the legacy v2 path without a valid range capability (0.422107ms)
+✔ snapshot segment lane fragments payloads, commits one atomic range, then settles only after segment ACK (3.047949ms)
+✔ snapshot segment lane preserves newest-first delivery and prepends later older segments (1.300472ms)
+✔ snapshot segment lane yields before its first frame while live/control work is pending (0.455968ms)
+✔ snapshot segment lane pauses fragments and commit when live/control becomes pending mid-segment (15.981734ms)
+✔ delta packing reserves the final history envelope wrapper (21.502023ms)
+✔ sync service sends a near-limit history page without triggering envelope failure (22.108609ms)
+✔ history text containing an incomplete data-url prefix is not rejected as inline media (0.287173ms)
+✔ Node page hash matches the shared golden fixture (0.545293ms)
+✔ sync service asks for manifest and emits a delta after all pages arrive (1.116315ms)
+✔ history delta pump pauses above high water without closing the websocket (80.89287ms)
+✔ history pump yields to live/control priority before generating the next page (71.297061ms)
+✔ history page is not consumed when the scheduler rejects the wire hand-off (41.902939ms)
+✔ history pump drops a stale selection before a deferred page is emitted (26.979053ms)
+✔ history sync echoes client selection generation and rejects stale pages (0.813577ms)
+✔ history sync fails closed before sending an oversized envelope (0.585013ms)
+✖ 70 MiB history fixture never crosses the 256 KiB WebSocket envelope gate (520.313794ms)
+✔ v2 payload chunks keep a large item below page and chunk envelope limits (18.803161ms)
+✔ delta packing prepares many large payloads once and keeps every item/chunk (547.600991ms)
+✔ v2 sync waits for per-page ack before sending the next page (81.992198ms)
+✔ final ACK closes a partial sync without a later sync timeout (70.719299ms)
+✔ baselineComplete=false does not force PARTIAL when the requested range is fully synced (61.942156ms)
+✔ a root/checkpoint hit settles directly as SYNCED and releases the baseline subscriber (0.670501ms)
+✔ an already classified cache-only result is terminal and does not arm a manifest watchdog (0.216737ms)
+✔ an unresolved older or middle range forces PARTIAL even with an optimistic sync outcome (0.606795ms)
+✔ explicit SYNCED cannot override a known older range (0.277488ms)
+✔ recovery result coverage evidence forces PARTIAL over optimistic SYNCED (0.850393ms)
+✔ baseline TTL starts after the last subscriber leaves (0.231459ms)
+✔ baseline byte budget evicts the oldest unsubscribed baseline but never an active subscriber (0.428035ms)
+✔ same recovery lane shares one producer and detaching one waiter keeps the producer alive (0.751824ms)
+✔ last recovery waiter aborts the producer and discards a late result (3.130053ms)
+✔ shouldShowHistoryPanel only enables history in codex mode with capability (1.048152ms)
+✔ buildHistoryEntries adds badges and thread actions for active, archived, and pending rows (1.539764ms)
+✔ buildHistoryEntries disables non-active open actions while running (0.264439ms)
+✔ buildHistoryEntries exposes timestamp metadata for recent activity and creation fallback (1.58354ms)
+✔ buildHistoryEntries falls back to thread id when title looks malformed (0.506174ms)
+✔ interactive preemption waits for termination fence and resumes the same background job (34.421977ms)
+✔ new interactive selection preempts the old selection and a same-conversation intent supersedes it (13.915391ms)
+✔ Node restart recovers durable staging even when run ACK-pending update never happened (353.962327ms)
+✔ restart rejects expired, incompatible and exhausted jobs without analyze (3.766624ms)
+✔ latest interactive selection wins while cancellation is still draining (28.018215ms)
+✔ queued intent is durable before dispatch, and queue timeout does not kill another conversation (31.7829ms)
+✔ queued never-attempted job with zero retry budget resumes once and preserves queue policy (11.694015ms)
+✔ run recovery scan limit fails closed before dispatch and preserves every record (1.215764ms)
+✔ restart executes the already reserved last retry without charging its budget twice (11.808647ms)
+✔ interactive intent does not preempt an accepted complete during checkpoint persistence (12.199937ms)
+✔ one attempt accepts multiple batches and clears only its recovered delivery expectation (6.319491ms)
+✔ a recovered queue snapshot never replaces a newer live intent arriving during init (17.863778ms)
+✔ terminal run history does not exhaust the bounded pending recovery capacity (187.235253ms)
+✔ target protocol is JSONL and rejects legacy analyze fields (6.095578ms)
+✔ target analyze recovery uses a complete opaque delivery pair (0.453935ms)
+✔ target hello advertises canonical capabilities and normalizes only the old analyze alias (0.535498ms)
+✔ target stdout UTF8 preserves every byte split through the actual JSONL receiver (6.220055ms)
+✔ target stdout UTF8 keeps large multi-line deliveries intact across pipe chunks (8.141904ms)
+✔ target stdout UTF8 discards partial characters and late bytes across process restart (20.952674ms)
+✔ target startup resolves CODEX_HOME and builds the fixed sessions-root args (2.229023ms)
+✔ target startup falls back to OS home/.codex/sessions without CODEX_HOME (1.310998ms)
+✔ target process manager passes startup args and gates analyze behind echoed hello (119.510557ms)
+✔ target process manager rejects direct analyze sends until the current hello is ready (179.503812ms)
+✔ target process manager clears synchronous spawn failures before retrying startup (2.305869ms)
+✔ target process manager clears start promise when default spawn throws synchronously (1.026199ms)
+✔ target process manager rejects hello mismatch_request (69.325481ms)
+✔ target process manager rejects hello wrong_role (62.196785ms)
+✔ target process manager rejects hello missing_capability (62.22714ms)
+✔ target process manager rejects hello wrong_protocol (72.690964ms)
+✔ target process manager rejects hello timeout without sending analyze (23.332224ms)
+✔ target process manager fences startup failures until child exit is proven (returns false) (44.447915ms)
+✔ target process manager fences startup failures until child exit is proven (throws) (42.699236ms)
+✔ target process manager bounds a request while hello startup is already in flight (46.011844ms)
+✔ target request tracker binds attempt generation and phase deadlines (1.46442ms)
+✔ target request tracker settles each normal terminal attempt once and releases it (0.610772ms)
+✔ target request tracker keeps a cancelled attempt occupied until termination and rejects stale callbacks (0.452964ms)
+✔ target request tracker reports hello/analyze/complete timeout and retains the active slot (0.368406ms)
+✔ target process manager enforces one active request and drops an old generation message (265.710734ms)
+✔ process manager does not release a generation before worker exit (1085.111867ms)
+✔ process manager keeps a pre-registered idle waiter behind ACK invalidation (66.776474ms)
+✔ process manager fences child errors that do not prove worker exit (63.613282ms)
+✔ process manager normalizes asynchronous stdin errors and fences the child until exit (125.168575ms)
+✔ collector keeps one running intent and replaces only the same conversation pending intent (534.500965ms)
+✔ collector closes a timed-out active slot before dispatching the next intent (418.654978ms)
+✔ collector waits for explicit cancellation settlement before dispatching the next intent (399.027414ms)
+▶ collector settles cancel and timeout before a non-draining worker releases
+  ✔ cancel (23.672682ms)
+  ✔ timeout (51.638294ms)
+✔ collector settles cancel and timeout before a non-draining worker releases (76.056681ms)
+✔ collector retries a crashed process with a new request id within the fixed budget (149.216225ms)
+✔ collector stop fences delayed initialization without leaking an analyzer process (2.135101ms)
+✔ collector fences bounded analyze against an in-flight unbounded init (53.771579ms)
+✔ collector does not restart after stop begins during the restart idle wait (2.751881ms)
+✔ collector bounds initial hello startup by the intent deadline (43.741828ms)
+✔ collector bounds a delayed restart start by the intent deadline (31.36681ms)
+✔ collector enforces one total deadline across batch and complete phases (402.535351ms)
+✔ collector replaces a ready child whose stdin becomes unavailable before exit (143.121404ms)
+✔ collector invalidates the current generation when batch ACK writing fails (142.468275ms)
+✔ process manager force-terminates workers that ignore cancel or timeout (998.882987ms)
+✔ process manager keeps a live worker fenced after nonfatal cancel or timeout error (216.073229ms)
+✔ target batch keeps delivery identity outside the payload (1.095152ms)
+✔ target batch validates Rust event variants and batch evidence fields (2.681515ms)
+✔ target batch requires complete lineage evidence when history_base is present (0.441506ms)
+✔ target lineage accepts multiple transitions and binds coverage/checkpoint evidence (1.222814ms)
+✔ target replacement evidence binds to exactly one matching lineage transition (1.013459ms)
+✔ target cursor kind requires its declared capability (0.447425ms)
+✔ target complete validates checkpoint and cursor consistency (0.769646ms)
+✔ target ACK requires job, segment, batch and stable settlement pairs (0.154123ms)
+✔ target batch importer validates and durably stages the outer delivery identity (1.421745ms)
+✔ target complete binds its checkpoint watermark to the latest accepted delivery (25.201303ms)
+▶ complete checkpoint must match the durable ACKed batch evidence after restart
+  ✔ memory: rejects mismatched range (1.859045ms)
+  ✔ memory: rejects mismatched completeness (1.148834ms)
+  ✔ memory: rejects mismatched reducer (1.947918ms)
+  ✔ memory: rejects mismatched provenance (2.303505ms)
+  ✔ file: rejects mismatched range (11.705438ms)
+  ✔ file: rejects mismatched completeness (8.874418ms)
+  ✔ file: rejects mismatched reducer (9.183424ms)
+  ✔ file: rejects mismatched provenance (6.198091ms)
+✔ complete checkpoint must match the durable ACKed batch evidence after restart (48.534248ms)
+✔ recovery delivery comes from the latest verified durable batch, not request or file order (10.766402ms)
+✔ file recovery fails closed on unreadable or corrupt durable analysis evidence (37.157556ms)
+✔ opaque Rust reducer payload round-trips unchanged through staging and complete (8.705483ms)
+✔ target batch importer excludes nested generic revisions from semantic and durable payloads (7.000772ms)
+✔ target batch importer recovers File staging receipts without replaying the batch (5.888193ms)
+✔ target File importer serializes concurrent receipts and reindexes staging ranges (4.985662ms)
+✔ target batch importer keeps range index deterministic and deduplicates overlap (2.813445ms)
+✔ target batch importer treats retry request changes as idempotent but keeps job scope strict (1.581455ms)
+✔ target batch importer rejects delivery content and scope conflicts before staging (1.703971ms)
+✔ target batch importer promotes partial to canonical without a late downgrade (2.816108ms)
+✔ target batch importer validates checkpoint evidence before any receipt is written (1.006208ms)
+✔ target batch importer rejects malformed payload before the ACK precondition can be met (0.197168ms)
+✔ last-turn replacement is capability-advertised, validated, and idempotently imported (3.616917ms)
+✔ replacement evidence binds source identities, cut positions, and child history base (1.163314ms)
+✔ replacement evidence conflicts are rejected before Memory/File state mutation (10.994446ms)
+✔ partial and provisional top-level replacements fail closed before import (2.549396ms)
+✔ online last-turn replacement retains the parent history and commits the child head (12.066673ms)
+✔ malformed canonical batches fail closed before importer state changes (0.617852ms)
+✔ complete and checkpoint claims fail closed without recovery evidence (0.302627ms)
+✔ complete cannot commit unless the same request imported a batch (1.571761ms)
+✔ collector binds the first batch to the requested conversation before staging (2.590237ms)
+✔ collector retries the failed later batch and does not reuse the prior durable batch identity (3.30745ms)
+✔ restart prefers an explicit pending later batch over an older durable receipt (5.503783ms)
+✔ mutation evidence is complete before importer state can be touched (0.366092ms)
+✔ importer deduplicates overlap and promotes provisional data before checkpoint commit (1.980788ms)
+✔ importer never downgrades a canonical projection on a late incomplete overlap (1.067741ms)
+✔ file checkpoint store replaces one validated scope atomically (5.818963ms)
+✔ memory and file checkpoint stores only advance monotonically (2.440461ms)
+✔ target checkpoint stores validate scope, preserve opaque metadata, and recover across attempts (5.17636ms)
+✔ target run stores persist attempts, retry state, receipt progress, and terminal result (4.740551ms)
+✔ target run stores bind request identity to attempt and preserve monotonic batch IDs (4.978706ms)
+✔ target run stores keep completed and failed terminal states immutable (6.90071ms)
+✔ target run stores reject late terminal callbacks after a retry changes identity (3.508453ms)
+✔ target checkpoint stores serialize concurrent progress without rollback (2.172107ms)
+✔ target run stores serialize concurrent progress and late failure updates (4.219786ms)
+✔ collector starts an isolated analyzer process, ACKs imported batches, and persists completion checkpoint (60.479588ms)
+✔ collector holds the single-flight slot until Rust confirms a negative batch ACK (183.07109ms)
+✔ collector retries a staging rejection with the same job and recovery delivery (123.062194ms)
+✔ collector retries retryable fatal errors only after a new analyzer generation is ready (130.553577ms)
+✔ collector does not retry a nonretryable fatal error but recycles before the next intent (114.998337ms)
+✔ collector preserves typed nonfatal analyzer errors without flattening or restarting (55.434644ms)
+✔ collector timeout sends cancel and rejects the request without hanging the process (103.936881ms)
+✔ collector restarts the analyzer after a before_batch exit and retries the same job (128.844768ms)
+✔ collector restarts the analyzer after a after_batch exit and retries the same job (142.711004ms)
+✔ collector can restart against file stores without duplicating the persisted batch (152.738021ms)
+✔ fake analyzer quarantines stale output and deduplicates a repeated opaque delivery (103.396285ms)
+▶ collector records a durable terminal run when late-begin compensation fail writer rejects
+  ✔ memory (105.502672ms)
+  ✔ file (102.753454ms)
+✔ collector records a durable terminal run when late-begin compensation fail writer rejects (210.720995ms)
+▶ collector compensates a delayed run begin after a deadline for memory and file stores
+  ✔ memory (103.195126ms)
+  ✔ file (104.921645ms)
+✔ collector compensates a delayed run begin after a deadline for memory and file stores (210.624865ms)
+▶ collector compensates a delayed run begin when cancellation wins for memory and file stores
+  ✔ memory (61.379908ms)
+  ✔ file (65.124383ms)
+✔ collector compensates a delayed run begin when cancellation wins for memory and file stores (128.490719ms)
+▶ collector preserves delayed run-store begin failures without a running artifact
+  ✔ memory (55.867437ms)
+  ✔ file (70.951174ms)
+✔ collector preserves delayed run-store begin failures without a running artifact (128.731558ms)
+✔ collector retries a failed staging attempt with the same opaque identity and only a new request id (66.599008ms)
+✖ collector completes and restarts against the real Rust target with checkpoint identity reuse (5.759048ms)
+✔ diagnostic logger writes sanitized JSONL and rotates bounded files (3.69214ms)
+ℹ tests 248
+ℹ suites 0
+ℹ pass 237
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8477.182454
+
+✖ failing tests:
+
+test at tests/codexHistoryProductFlow.test.js:351:56
+✖ backfill (18.137061ms)
+  Error: spawn cargo ENOENT
+      at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+      at onErrorNT (node:internal/child_process:525:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawn cargo',
+    path: 'cargo',
+    spawnargs: [ 'build', '--locked', '--manifest-path', '/workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml', '--bin', 'codex-rollout-collector' ],
+    cmd: 'cargo build --locked --manifest-path /workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector',
+    stdout: '',
+    stderr: ''
+  }
+
+test at tests/codexHistoryProductFlow.test.js:351:56
+✖ append (5.825019ms)
+  Error: spawn cargo ENOENT
+      at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+      at onErrorNT (node:internal/child_process:525:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawn cargo',
+    path: 'cargo',
+    spawnargs: [ 'build', '--locked', '--manifest-path', '/workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml', '--bin', 'codex-rollout-collector' ],
+    cmd: 'cargo build --locked --manifest-path /workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector',
+    stdout: '',
+    stderr: ''
+  }
+
+test at tests/codexHistoryProductFlow.test.js:393:1
+✖ history branch delivery H2 saves inherited bodies and child tools without changing parent across restart and rejection (5.563916ms)
+  Error: spawn cargo ENOENT
+      at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+      at onErrorNT (node:internal/child_process:525:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawn cargo',
+    path: 'cargo',
+    spawnargs: [ 'build', '--locked', '--manifest-path', '/workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml', '--bin', 'codex-rollout-collector' ],
+    cmd: 'cargo build --locked --manifest-path /workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector',
+    stdout: '',
+    stderr: ''
+  }
+
+test at tests/codexHistoryProductFlow.test.js:507:1
+✖ history shared delivery H3 preserves exact delegated bodies and tool details through SQLite restart and rejection (3.105735ms)
+  Error: spawn cargo ENOENT
+      at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+      at onErrorNT (node:internal/child_process:525:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawn cargo',
+    path: 'cargo',
+    spawnargs: [ 'build', '--locked', '--manifest-path', '/workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml', '--bin', 'codex-rollout-collector' ],
+    cmd: 'cargo build --locked --manifest-path /workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector',
+    stdout: '',
+    stderr: ''
+  }
+
+test at tests/codexHistoryProductFlow.test.js:697:1
+✖ product-history-real-rust stages before ACK, publishes validated canonical output, and reaches the history Gateway (3.599621ms)
+  Error: spawn cargo ENOENT
+      at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+      at onErrorNT (node:internal/child_process:525:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawn cargo',
+    path: 'cargo',
+    spawnargs: [ 'build', '--locked', '--manifest-path', '/workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml', '--bin', 'codex-rollout-collector' ],
+    cmd: 'cargo build --locked --manifest-path /workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector',
+    stdout: '',
+    stderr: ''
+  }
+
+test at tests/codexHistoryProductFlow.test.js:869:1
+✖ product-history projection isolates SessionContext history_base while staging retains child lineage evidence (3.828236ms)
+  Error: spawn cargo ENOENT
+      at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+      at onErrorNT (node:internal/child_process:525:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawn cargo',
+    path: 'cargo',
+    spawnargs: [ 'build', '--locked', '--manifest-path', '/workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml', '--bin', 'codex-rollout-collector' ],
+    cmd: 'cargo build --locked --manifest-path /workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector',
+    stdout: '',
+    stderr: ''
+  }
+
+test at tests/codexHistoryProductFlow.test.js:926:1
+✖ product-history-unattended wakes on cached terminal source-ready state and resumes from the product checkpoint after restart (3.070502ms)
+  Error: spawn cargo ENOENT
+      at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+      at onErrorNT (node:internal/child_process:525:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawn cargo',
+    path: 'cargo',
+    spawnargs: [ 'build', '--locked', '--manifest-path', '/workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml', '--bin', 'codex-rollout-collector' ],
+    cmd: 'cargo build --locked --manifest-path /workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector',
+    stdout: '',
+    stderr: ''
+  }
+
+test at tests/codexHistoryProductFlow.test.js:1415:1
+✖ product-history-unattended actual server reopens a pending job and receipt before serving canonical history (4.589535ms)
+  Error: spawn cargo ENOENT
+      at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+      at onErrorNT (node:internal/child_process:525:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawn cargo',
+    path: 'cargo',
+    spawnargs: [ 'build', '--locked', '--manifest-path', '/workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml', '--bin', 'codex-rollout-collector' ],
+    cmd: 'cargo build --locked --manifest-path /workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector',
+    stdout: '',
+    stderr: ''
+  }
+
+test at tests/codexHistorySyncService.test.js:929:1
+✖ 70 MiB history fixture never crosses the 256 KiB WebSocket envelope gate (520.313794ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'history_payload_chunks_unsupported'
+  - 'history_envelope_too_large'
+             ^
+  
+      at TestContext.<anonymous> (/workspace/shared/termlink-assessment-20261012/repo/tests/codexHistorySyncService.test.js:944:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'history_payload_chunks_unsupported',
+    expected: 'history_envelope_too_large',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/codexRolloutCollector.test.js:6835:1
+✖ collector completes and restarts against the real Rust target with checkpoint identity reuse (5.759048ms)
+  Error: spawn cargo ENOENT
+      at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+      at onErrorNT (node:internal/child_process:525:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'spawn cargo',
+    path: 'cargo',
+    spawnargs: [ 'build', '--locked', '--manifest-path', '/workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml', '--bin', 'codex-rollout-collector' ],
+    cmd: 'cargo build --locked --manifest-path /workspace/shared/termlink-assessment-20261012/repo/native/codex-rollout-collector/Cargo.toml --bin codex-rollout-collector',
+    stdout: '',
+    stderr: ''
+  }

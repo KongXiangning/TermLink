@@ -1,0 +1,26 @@
+{
+  "order": 43,
+  "id": "REQ-TERMLINK-SESSION-CAPACITY",
+  "conclusion": "undetermined",
+  "coverage": "可配置容量，满时回收最老无连接会话，无可回收则明确拒绝",
+  "achievements": [
+    "默认50；create先ensureCapacity；evict遍历跳过有连接会话，按lastActiveAt最小删一条",
+    "当前routes.sessions.capacity两项通过验证409+SESSION_CAPACITY_EXCEEDED及未知错误500"
+  ],
+  "gaps": [
+    "现有通过测试是错误映射夹具，不执行真实SessionManager LRU/满容量路径；未定位该逻辑当前动态验证，不能仅代码存在判满足"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1857–1873当前范围",
+    "src/services/sessionManager.js:8默认50；77–80配置；95–101建前容量；278–315 LRU与拒绝",
+    "src/routes/sessions.js:217–222容量映射409",
+    "tests/routes.sessions.capacity.test.js:30–81 两项当前通过，manager为抛错mock",
+    "docs/changes/records/CR-20260223-2114-session-retention-impl-phase1.md:22–36容量实现；55–65仅语法/文档验证",
+    "2026-10-12 Linux/Node v24.19.0，当前HEAD：node --test tests/privilegeConfig.securityGates.test.js tests/ipCheck.test.js tests/auditService.test.js tests/ptySpawnOptions.test.js tests/sessionStore.metadata.test.js tests/routes.sessions.capacity.test.js tests/routes.sessions.metadata.test.js tests/health.route.test.js；46/46、exit 0。按每项关联测试限定使用，不视为全部业务闭环。"
+  ],
+  "historical_applicability": "67bc2c3仅语法/文档；f4ce64f报告6/6但明确未覆盖原REQ全场景；1899f6d只把.env.example设置86400000、不改代码；c82147c仅状态/CR回写。当前manager/gateway/routes与这些提交不同字节。现46项定向通过不含真实TTL/LRU或PTY断联持续性；WS测试旧帧数量/teardown夹具不匹配且30秒超时，不能据此判业务失败，也不能报当前WS套件通过。",
+  "device_checks": [],
+  "unread": [
+    "未执行当前真实50边界/idle-LRU动态回归，不扩新容量规格"
+  ]
+}

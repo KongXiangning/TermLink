@@ -1,0 +1,50 @@
+{
+  "order": 56,
+  "id": "REQ-TERMLINK-CODEX-PERMISSION",
+  "conclusion": "undetermined",
+  "coverage": "7月明确Android增量：真实owner/catalog权限弹层、下一回合实际配置与snapshot一致。沿原任务端侧范围核对，不额外要求Web具备7月Android动态profile弹层。",
+  "achievements": [
+    "Android请求permissionProfile/list、动态profile选择和完整approval/reviewer/profile/sandbox互斥元组可定位；owner确认只有相关字段匹配才清pending",
+    "本轮gateway测试通过turnConfig profile/reviewer/effort转发及config reset；Weblegacy capsule测试只作为既有配置层证据，不冒充Android动态profile",
+    "77752f9e/60718任务明确Huawei权限/模型/推理弹层验证，后续60722-002记录配置恢复"
+  ],
+  "gaps": [
+    "当前APK下owner目录→真实下一回合配置→匹配snapshot收口（尤其config reset）未取证；原测试文件虽覆盖一致性，本轮Android未运行"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:2096：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:2244-2337,2388-2458,6370-6408,6837-6873,6914-6934,11895-11928：目录、元组、override与确认路径",
+    "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt:1389-1506,4543-4633：profile/reviewer/legacy/null-owner/跨conversation原测试未运行",
+    "tests/terminalGateway.codexIpc.test.js:5297-5353,5459-5497：本轮profile与reset测试通过",
+    "TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md:14-24：明确增量与Huawei证据；docs/workflow/CONTRACTS.md:238附近：当前owner配置确认/reset边界"
+  ],
+  "historical_applicability": [
+    "3月排除顶部权限UI已被7月明确任务扩展，不作为当前缺陷；stored配置层仍保留，不能恢复Session Defaults完整UI",
+    "7月旧设备视觉证据不充分证明当前后续修改过的记忆、owner确认与reset所有行为；只记录未知，不捏造“真实提权/降权回滚”新需求"
+  ],
+  "device_checks": [
+    {
+      "function": "真实权限选择器",
+      "behavior": "目录选择与实际下一turn配置/owner snapshot一致",
+      "prerequisites": "宿主提供真实permission profiles；匹配服务/APK；安全无敏感副作用测试任务",
+      "steps": [
+        "打开权限弹层核对owner/catalog当前值",
+        "选择一个真实profile发送；观察上游实际元组和后续snapshot",
+        "选择恢复配置默认并再次发送；切换conversation核对隔离"
+      ],
+      "expected": [
+        "选择对应真实有效配置；permissionProfile与sandbox不同时发送；ack不当生效证明；reset按现行owner确认边界持续表达"
+      ],
+      "existing_evidence": [
+        "7月Huawei选择器记录与本轮gateway config/reset通过；Android当前设备未知"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

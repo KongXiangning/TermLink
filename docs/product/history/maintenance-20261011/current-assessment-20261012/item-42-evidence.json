@@ -1,0 +1,26 @@
+{
+  "order": 42,
+  "id": "REQ-TERMLINK-SESSION-TTL",
+  "conclusion": "undetermined",
+  "coverage": "SESSION_IDLE_TTL_MS可配置、周期仅清无连接闲置；24h示例与6h代码回退分开",
+  "achievements": [
+    "当前.env.example=86400000；代码回退21600000，最低TTL60秒/清理间隔1秒；定时清理仅无连接且超过TTL",
+    "1899f6d原差异明确只有示例配置从6h改24h；不是漏改回退逻辑"
+  ],
+  "gaps": [
+    "未定位当前TTL边界/周期清理可执行自动测试或适用运行结果；源码清理路径明确但不足独自证明定时行为",
+    "原CR待验证及注释仍写6h是历史口径/证据限制；不新增改代码为24h义务"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1839–1855当前配置边界",
+    "src/services/sessionManager.js:6–10默认；23–35解析；67–91配置与interval；263–275无连接TTL清理",
+    ".env.example:36–42 86400000/50/60000，注释6h",
+    "docs/changes/records/CR-20260224-0000-session-ttl-24h.md:17–25只改配置与文档；44–47待验证",
+    "docs/product/history/maintenance-20261011/evidence-supplement-20261012/git-history-evidence.md:53–72 原提交配置差异"
+  ],
+  "historical_applicability": "67bc2c3仅语法/文档；f4ce64f报告6/6但明确未覆盖原REQ全场景；1899f6d只把.env.example设置86400000、不改代码；c82147c仅状态/CR回写。当前manager/gateway/routes与这些提交不同字节。现46项定向通过不含真实TTL/LRU或PTY断联持续性；WS测试旧帧数量/teardown夹具不匹配且30秒超时，不能据此判业务失败，也不能报当前WS套件通过。",
+  "device_checks": [],
+  "unread": [
+    "真实TTL/清理边界未执行；无需新增Android设备矩阵"
+  ]
+}

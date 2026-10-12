@@ -1,0 +1,54 @@
+{
+  "order": 13,
+  "id": "REQ-20260408-codex-native-android-migration",
+  "conclusion": "undetermined",
+  "coverage": "核对独立原生入口、启动/恢复、wire/连接、原生消息输入、阻塞面板、全局入口、安全区/IME、自动跟随、通知后台、adapter/capability边界十点；共享能力引用48—57，不复制独立端侧需求。",
+  "achievements": [
+    "MainShell的Codex路由、CodexActivity和native wire/domain/network/Compose层均可定位；终端WebView仍保留",
+    "4月CR实际记录原生消息往返、HOME恢复、断Wi-Fi后重试、通知tap intent、原生默认入口及后来旧Codex WebView移除",
+    "7月具体真机记录包含360dp/412dp会话抽屉、composer顶部起笔、IME不重叠、状态栏隐藏/恢复；当前相关源与纯静态测试仍覆盖这些结构"
+  ],
+  "gaps": [
+    "没有当前APK的容器冷/热启动、通知回跳、IME和带动态Plan/Skills状态验证，已知历史成果不足以判当前十点全满足",
+    "当前ViewModel直接消费Codex wire并映射domain；未取得独立provider-adapter架构验证。只把扩展边界保留为核对未知，不把Claude/Copilot真实接入新增为缺口"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:758：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "docs/product/requirements/REQ-20260408-codex-native-android-migration.md:37-75,108-163：原容器及扩展边界、验收",
+    "docs/changes/records/CR-20260409-2332-native-closeout.md:72-99：具体设备恢复/入口/通知检查；对应6aff0fb",
+    "docs/changes/records/CR-20260411-1714-codex-native-main-entry-removal.md:24-39,77-88：后续移除旧Codex可达入口的行为记录",
+    "android/app/src/main/java/com/termlink/app/MainShellActivity.kt:1177：转CodexActivity；android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt:82-107,437-505,698-728,1747-1840：启动、picker、drawer/设置/Docs与restore",
+    "android/app/src/main/java/com/termlink/app/codex/network/CodexConnectionManager.kt:30-125：transport/重连；android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt:13-61：UI消息领域模型；android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt:1171,1603,1866,1964：header、返回最新、审批及输入弹窗",
+    "TASKS/TASK-20260722-001-fix-android-codex-composer-layout.md:11-35：具体布局根因/原生真机结果；TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md:31：动态态缺证"
+  ],
+  "historical_applicability": [
+    "4月parallel灰度/旧WebView fallback为历史阶段，4/11后的当前范围已移除，不能要求重新保留",
+    "7/18移除header常驻Settings/Runtime入口与7/22恢复Sessions图标属于明确后续范围；设置仍可由drawer打开，不按旧header原文判新UI失败",
+    "4/9到当前Activity、ViewModel、selection已多次改变；当前代码不等同6aff0fb安装包"
+  ],
+  "device_checks": [
+    {
+      "function": "原生容器恢复和导航",
+      "behavior": "冷/热进入同一session、通知回跳、键盘/安全区和滚动跟随",
+      "prerequisites": "匹配APK；已授予本任务测试所需通知权限；同一已绑定conversation",
+      "steps": [
+        "从Sessions打开Codex；打开设置/Docs后返回",
+        "发起正常任务，HOME后从通知返回；再冷启动",
+        "开关键盘、上滑回看、手动回到底部"
+      ],
+      "expected": [
+        "返回原CodexActivity和原绑定；不出现旧Codex WebView回退；输入不被IME遮挡；回到底恢复跟随"
+      ],
+      "existing_evidence": [
+        "CR-20260409、CR-20260411与60722-001已有旧版本真机记录；本轮未复验"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

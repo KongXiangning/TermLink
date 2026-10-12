@@ -1,0 +1,29 @@
+{
+  "order": 64,
+  "id": "REQ-TERMLINK-TERMINAL-REFRESH",
+  "conclusion": "satisfied",
+  "coverage": "已有页刷新复用有效sessionId；真无可用session首次进入允许默认新建",
+  "achievements": [
+    "60618原task明确两类路径只读探针，修复后浏览器reload前后terminal数量10→10与2→2，URL/localStorage同ID",
+    "修复文件public/codex_ipc.js与1cd85c6忽略行尾后无差异：URL/lastSessionId初始化，embedded无ID不抢跑；当前terminal保存session_info至URL/localStorage",
+    "当前WS原有默认创建/有效/空/不存在ID相关业务断言可到达；套件未全过因旧2帧计数/teardown/挂起，未据此虚报PASS"
+  ],
+  "gaps": [
+    "保留原用户指示跳过embedded首连新增自动测试的限制；当前未另跑真实浏览器smoke，结论适用原刷新修复控制流及其明确历史证据，不扩终端全能力"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:2246–2263当前两行为",
+    "TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md:30–38验收；434–441探针与两轮浏览器smoke/未触发Android；440用户跳过新测试；446提交1cd85c6",
+    "public/codex_ipc.js:520–550 URL/localStorage初始化与embedded guard",
+    "public/terminal.js:199–204初始ID；1019–1027回写URL/localStorage",
+    "src/ws/terminalGateway.js:6592–6622 has(ID)复用/缺ID创建",
+    "git diff --ignore-space-at-eol 1cd85c6 HEAD -- public/codex_ipc.js：无差异；原blob 3ca8f451fa1860d794fd0f1c98728248ccd57f65，当前6ab4900d55b65237fcf443b8adf91777496213bc",
+    "2026-10-12 native可用后执行 timeout 30s node --test tests/sessionManager.codexConfig.test.js tests/terminalGateway.sessionid.test.js：5断言通过，8WS失败（旧帧数量/after缺sessions夹具），2文件取消，exit124；不得写作整套PASS或PTY连续性业务失败。"
+  ],
+  "historical_applicability": "PRODUCT_REQUIREMENTS/CURRENT_STATE提供原定性基线，不是E2E验收。60618原task:434–454记录有效ID/无ID探针、浏览器两轮count不增、用户跳过新增定向测试、Android条件未触发、12/12窄门禁；提交1cd85c6。public/codex_ipc.js原始blob与HEAD不同，但忽略行尾无差异，修复控制流可沿用；terminal.js、terminal_client.js、gateway及Android整体不同，不把该刷新验收扩到IO/CRUD/重启。",
+  "device_checks": [],
+  "unread": [
+    "60618明确未触碰Android条件路径，故不新增必须Android reload验收",
+    "历史未形成embedded首连自动化保护"
+  ]
+}

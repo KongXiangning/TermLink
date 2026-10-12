@@ -1,0 +1,27 @@
+{
+  "order": 36,
+  "id": "REQ-TERMLINK-PERMISSION-MODE",
+  "conclusion": "satisfied",
+  "coverage": "standard/elevated解析、显式启用、默认standard、PTY继承服务进程而不自行UAC/sudo提权",
+  "achievements": [
+    "当前配置与启用门禁2项断言通过；非法/缺省模式明确standard，elevated必须额外启用",
+    "PTY调用node-pty.spawn仅指定name/cols/rows/cwd/env，未以登录用户名替换运行身份；当前3项Windows PTY选项测试通过，符合不自动提权边界"
+  ],
+  "gaps": [
+    "本结论是配置模式与身份透传的实现范围，不宣称standard标签可强制降低已提权进程身份"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1728–1745 当前定义与排除OS提权/降权",
+    "src/config/privilegeConfig.js:35–90 默认/规范化/显式启用",
+    "src/services/ptyService.js:121–142 spawn继承env/cwd，不指定新用户或自动提权",
+    "tests/privilegeConfig.securityGates.test.js:51–79 默认及开关断言；2026-10-12独立运行通过",
+    "tests/ptySpawnOptions.test.js:5–31 3项当前测试通过",
+    "docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md:24–39 应用账号不等于OS身份及禁止运行时提权",
+    "2026-10-12 Linux/Node v24.19.0，当前HEAD：node --test tests/privilegeConfig.securityGates.test.js tests/ipCheck.test.js tests/auditService.test.js tests/ptySpawnOptions.test.js tests/sessionStore.metadata.test.js tests/routes.sessions.capacity.test.js tests/routes.sessions.metadata.test.js tests/health.route.test.js；46/46、exit 0。按每项关联测试限定使用，不视为全部业务闭环。"
+  ],
+  "historical_applicability": "2月原REQ与SUMMARY/CR已读；a6ceeec/76e76f8历史提供范围与报告。git blob核对76e76f8与HEAD配置/门禁/IP及其测试均不同字节；privilegeConfig忽略行尾后无差异，其他门禁/IP已有实质变化。当前独立测试结果优先，旧父项全量交付不自动下发子项。",
+  "device_checks": [],
+  "unread": [
+    "未启动真实管理员/root服务，不据此增加真实提权验收"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "order": 48,
+  "id": "REQ-TERMLINK-CODEX-THREADS",
+  "conclusion": "undetermined",
+  "coverage": "当前工作区历史、创建/read/resume及session↔conversation绑定；保留Web/Android同身份；不要求全局history.jsonl或新历史UI。",
+  "achievements": [
+    "Android thread/list携带cwd和selectionGeneration；Web携带当前cwd；gateway给legacy客户端注入cwd并保留显式值",
+    "本轮gateway thread/list注入/显式保留、连续普通turn复用通过；历史thread例已证明resume目标及零新建，最终断言因Windows固定cwd失败",
+    "60510有A/B不同cwd、返回A继续、same-session re-entry和新任务确切thread ID切换行为记录"
+  ],
+  "gaps": [
+    "当前APK的A/B/冷重入/canonical恢复确认未实测；当前缓存/history/IPC路径替换旧恢复策略，不能继承60510整个PASS"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1951：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:5731-5786：cwd与generation请求；public/terminal_client.js:3605-3613：同cwd参数",
+    "src/ws/terminalGateway.js:1198-1237：cwd兼容注入；tests/terminalGateway.codex.test.js:518,554,1667-1726,1964：本轮结果如上",
+    "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt:167-243,2074-2213：cwd列表、selection与绑定原测试已读未运行",
+    "TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md:91-98,121-127：四项真机证据；TASKS/TASK-20260510-001-complete-20260504-001-android-smoke-and-archive-decision.md:52-61：补验来源"
+  ],
+  "historical_applicability": [
+    "0700047及60510是5月snapshot；旧null codex_state清选择、stale自动新建语义已被AD-004取代，不应照旧执行",
+    "本轮gateway失败不代表thread复用产品失败：1722只因期望E:\\coding\\TermLink而实际为Linux快照cwd"
+  ],
+  "device_checks": [
+    {
+      "function": "工作区历史和绑定",
+      "behavior": "双cwd列表/选择/继续/重入/新建",
+      "prerequisites": "两个不同cwd的Codex session及各自有历史；匹配服务/APK",
+      "steps": [
+        "A看历史并选已有任务；切B再回A",
+        "不先打开列表直接继续A；退出重开再发送",
+        "idle时显式新建任务后发送"
+      ],
+      "expected": [
+        "列表不混cwd；续发保持canonical conversation；重入选择一致；显式新建才换新canonical id"
+      ],
+      "existing_evidence": [
+        "60504/60510已定义且旧版真机通过；本轮cwd/复用服务测试通过"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

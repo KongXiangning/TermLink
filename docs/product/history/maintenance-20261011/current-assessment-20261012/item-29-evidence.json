@@ -1,0 +1,26 @@
+{
+  "order": 29,
+  "id": "REQ-TERMLINK-SERVER-AUTH",
+  "conclusion": "partially-satisfied",
+  "coverage": "标准/受控模式、安全启动、认证/IP、审计与风险透传；不包含真实OS提权/降权",
+  "achievements": [
+    "模式规范化、显式开关、真实socket来源的IPv4/IPv6/CIDR有当前定向行为证据",
+    "连接开始/结束trace日志及Cookie/票据实现与测试已有成果"
+  ],
+  "gaps": [
+    "当前IP拒绝事件缺auditTraceId/会话关联；会话CRUD无原要求关联审计",
+    "实际Windows启动与证书握手/App运行时证书仍有未验证范围；P2更细粒度未明部分不自动填新要求"
+  ],
+  "evidence": [
+    "src/auth/basicAuth.js:116–140,232–275（当前Cookie/登录/撤销实际测试通过）",
+    "src/ws/terminalGateway.js:6574–6586,6652–6669,8995–9007（IP拒绝早于trace；连接起止有trace）",
+    "src/routes/sessions.js:193–273（CRUD无audit调用）",
+    "src/services/auditService.js:4–8,97–122（事件入口范围）"
+  ],
+  "historical_applicability": "当前代码固定bb484969；本项为既有父组合范围独立人工判断。保留各明确实现路径及历史对象适用性，不把子项数量、历史关闭、父子链接或已有PASS算作达成。测试/代码及原范围详见实际引用的独立报告。",
+  "device_checks": [],
+  "unread": [
+    "父项不额外生成全端矩阵；需要的真机补验沿实际子项原范围单列",
+    "P1.11/P2未明行为（若属本项）继续未定义，不反推新功能或验收"
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "order": 18,
+  "id": "REQ-20261005-codex-history-save-repair",
+  "conclusion": "satisfied",
+  "coverage": "按当前18的功能1–7及832采纳范围核对：H1/H3共享修复、H2明确父来源/cut/独立conversation及继承/新增、Node UTF8、三类产品保存、指定手机durable ACK/正文/选定工具详情/切换/force-stop重开和原错误保护。不是所有宿主/手机/831广范围认证。",
+  "achievements": [
+    "功能1/4复用833精确DelegatedInput/G1/G2及持久恢复证据；独立复核同版本13项v2和5项三类产品场景通过",
+    "功能2/3：当前branch_history三个进程测试与76项target历史回归，真实C继承N全部11项并含自身回合，原N不含C内容",
+    "功能5：当前StringDecoder跨chunk/generation UTF8路径及原3项实际回归；原真实N11/C22/A40项、2/4/9详情refs经产品库/Gateway读回",
+    "功能6：原S6安装后缓存/prefs hashes保持，三样本分别durable product_db完整范围、page/hash与同run/generation真实ACK；每类正常查看/切换/重开均操作一个选定详情",
+    "功能7：原source/ACK/identity/cursor/预算负向与本次Node定向保护测试。旧target-v1已发布格式迁移是明确排除，技术finding未修，不计本需求欠交"
+  ],
+  "gaps": [
+    "本需求约定三样本范围内未识别剩余欠交；手机未逐一点击全部9条委派详情，原验收只选每类一条，不新增此门槛",
+    "旧连接错误条、B/Q预算失败、registration候选、831深分页/大详情/竞态和发布资格均不被三样本结果认证；这不扩大18原范围",
+    "本次Node v24.19.0原有9个history/collector/diagnostics测试文件：过滤8个需cargo的顶层入口（含子测试10项）后237通过/1失败；原输出../history-node-tests-available.tap。唯一失败为70MiB例的错误码断言（期待history_envelope_too_large，实际history_payload_chunks_unsupported），不支持chunk客户端已显式失败且未发delta，现行契约未要求旧错误码，不能据此判功能失效。首次未成功过滤的运行还保留cargo ENOENT，不伪装通过。"
+  ],
+  "evidence": [
+    "docs/product/requirements/REQ-20261005-codex-history-save-repair.md:25–58 原范围及明确排除",
+    "docs/product/history/maintenance-20261011/TASK832-close-report.md:7–23 三样本业务证据与P2处置，未以closed作PASS",
+    "docs/changes/records/CR-20261008-0135-android-history-detail-alias.md:33–41 216JVM、实际APK与三类详情",
+    "git:0618cafc:.workflow-system/records/evidence-objects/1420cfc800a31826a6bebcafa17cbe84d3704601da65ccc3bf325be38a1767e6.blob 原S6报告，已按附件SHA核验，副本../history-evidence/report.md",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:2598–2611 同turn/native/tool:详情键兼容",
+    "src/services/codexRolloutCollector/analyzerProcessManager.js:346,422,785,804 UTF8 decoder代际隔离",
+    "native/codex-rollout-collector/tests/stage4_target_protocol.rs:3456,3719,3928 分支/cut/分段负向",
+    "../history-evidence/version-applicability.json 23/24历史对象同字节；唯一absent是原Windows exe"
+  ],
+  "historical_applicability": {
+    "original": {
+      "assessed_head": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+      "historical_server_source_head": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "android_fix_commit": "0618cafc",
+      "rust_binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e",
+      "apk_sha256": "f148028b15fa3a8dffe63ca483bcda5a1ce9764bbde817e68a357598d25dfd6a",
+      "phone": "MQS7N19402011743",
+      "profile": "task005-s2-local",
+      "range_enabled": true,
+      "qualification": "这些是原832实测版本；23个源码/测试/规范/fixture历史哈希与当前逐字节相同，0618cafc至HEAD的src/native/android/public/tests/scripts零diff。原Windows Rust exe与APK未在本次机器物化，不声称当前真机或重新构建。"
+    },
+    "current": "原832独立Rust审计6个源文件、Node审计13个可用文件及2规范、Android两文件逐SHA一致；0618cafc以来业务目录零diff。适用原三样本验收，明确不是当前机器真机重跑。",
+    "samples": [
+      {
+        "sample": "N",
+        "conversation_id": "01a114a2-a201-7f73-993f-9c956ae35713",
+        "items": 11,
+        "detail_refs": 2,
+        "selected_detail_bytes": 469,
+        "coverage_root": "4d9b29481737d301f86d1b137993a33bcf22008a28fbe99337e9924c464bd3f2"
+      },
+      {
+        "sample": "C",
+        "conversation_id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+        "items": 22,
+        "detail_refs": 4,
+        "selected_detail_bytes": 469,
+        "coverage_root": "48b75ca6922483a5c464d26abce577330a7ef6dd712f85b58695279c90fce480"
+      },
+      {
+        "sample": "A/D",
+        "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "items": 40,
+        "detail_refs": 9,
+        "selected_detail_bytes": 552,
+        "coverage_root": "23a3f13872a9eff71c1715c7f27884005ade1fd78acfda714cedaf2233a7e06b"
+      }
+    ]
+  },
+  "device_checks": [
+    {
+      "function": "832三类手机正文/选定工具详情/切换重开",
+      "behavior": "原样本验收已完成并同字节适用，无需仅为本次审计重复业务",
+      "prerequisites": "原指定MQS7N19402011743/profile task005-s2-local，既有真实N/C/A产品库",
+      "steps": [
+        "分别正常查看N/C/A与每类选定详情",
+        "按原A→N→C→N→C→A切换并各自force-stop正常重开",
+        "核全部refs与完整product_db范围及durable后真实ACK"
+      ],
+      "expected": "N11/2、C22/4、A40/9；选定469/469/552字节内容与产品一致",
+      "existing_evidence": "原S6报告、安装保留hash及独立60/60证据审计；60是证据谓词，不是新增E2E数量",
+      "server_apk_version": {
+        "assessed_head": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "historical_server_source_head": "488dc6c9e597ef096f617d17499fa8e048306c06",
+        "android_fix_commit": "0618cafc",
+        "rust_binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e",
+        "apk_sha256": "f148028b15fa3a8dffe63ca483bcda5a1ce9764bbde817e68a357598d25dfd6a",
+        "phone": "MQS7N19402011743",
+        "profile": "task005-s2-local",
+        "range_enabled": true,
+        "qualification": "这些是原832实测版本；23个源码/测试/规范/fixture历史哈希与当前逐字节相同，0618cafc至HEAD的src/native/android/public/tests/scripts零diff。原Windows Rust exe与APK未在本次机器物化，不声称当前真机或重新构建。"
+      },
+      "required_to_resolve_unknown": false
+    }
+  ],
+  "unread": [
+    "未在本环境取得原private全量SQLite/APK/UI截图或实际Android设备；原安全摘要、哈希、执行附件和独立审计已读，不声称重新检查所有原私密像素",
+    "Rust/Android本次未执行：无cargo及原JDK21/SDK/手机环境；不安装、不清库、不改业务"
+  ]
+}

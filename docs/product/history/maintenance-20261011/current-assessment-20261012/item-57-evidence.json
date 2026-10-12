@@ -1,0 +1,51 @@
+{
+  "order": 57,
+  "id": "REQ-TERMLINK-CODEX-BACKGROUND",
+  "conclusion": "undetermined",
+  "coverage": "活跃/等待状态保活、回连原任务与阻塞请求、完成/错误通知；按当前IPC authority与retention恢复，不增加OEM全机型保证。",
+  "achievements": [
+    "前台service当前active集合含running/reconnecting/waiting_approval/awaiting_user_input/plan_ready_for_confirmation，非active终止并撤通知",
+    "Activity具审批/用户输入/计划确认/后台错误/完成通知与回跳同任务参数；当前server retention在App离开后保留running订阅、healthy终态释放的原测试通过",
+    "4月原生closeout有HOME/弱网/通知tap记录；7/22-002有Huawei Doze保活/配置恢复/额度通知具体结果"
+  ],
+  "gaps": [
+    "当前APK+服务在后台真实pending产生、网络恢复、完成/错误收口及通知tap的全链路未跑；service代码/旧Doze记录不能单独证明当前后台连续性",
+    "7月交叉宿主长任务观察缺少本轮当前证据；不把它升级成新稳定时长或额外性能指标"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:2114：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "docs/product/requirements/REQ-20260309-codex-capability-mvp.md:300-310：原后台/重连/阻塞需求",
+    "android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt:35-45,97-140：当前active集合与停止；android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt:1226-1281,1439-1687：service/通知/完成/回跳逻辑",
+    "tests/codexIpcFeed.test.js:216-263；tests/terminalGateway.codexIpc.test.js:5381-5457：本轮retention/重连通过",
+    "TASKS/TASK-20260722-002-android-codex-open-conversation-files.md:13-21：Doze等实际报告但保留长任务观察；CR-20260409-2332-native-closeout.md:72-99：旧native恢复通知证据"
+  ],
+  "historical_applicability": [
+    "3月foreground service基线后来扩展等待态；4月旧回连thread/read方法受7月healthy IPC冻结约束",
+    "2eb6b2fc为7/24保活改进，后续8/14 server retention与history重连改动不等同该旧Huawei包"
+  ],
+  "device_checks": [
+    {
+      "function": "后台保活与恢复通知",
+      "behavior": "后台原turn持续、阻塞请求保留、终态通知和回跳",
+      "prerequisites": "匹配服务/APK、系统通知许可；可自然产生审批或补充输入的安全任务",
+      "steps": [
+        "任务运行后HOME；在后台期间出现pending并短暂断网",
+        "恢复网络由通知回到原任务处理请求",
+        "分别观察正常完成和可控错误的通知及service停止"
+      ],
+      "expected": [
+        "不因单WS断联中止turn；原conversation和pending不丢；运行/等待才保活；终态撤进行中并有对应完成/错误提醒"
+      ],
+      "existing_evidence": [
+        "4月HOME/网络恢复、7月Huawei Doze旧证据；当前retention自动测试通过"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

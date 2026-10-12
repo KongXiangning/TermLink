@@ -1,0 +1,960 @@
+{
+  "kind": "product-maintenance-result/v1",
+  "action": "check",
+  "development_gate": false,
+  "qualification": "not-evaluated",
+  "task_operations": "not-performed",
+  "status": "checked",
+  "diagnostics": [
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-01",
+      "line": 37
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-02",
+      "line": 89
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-02",
+      "line": 89
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-03",
+      "line": 134
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-03",
+      "line": 134
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-04",
+      "line": 193
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-04",
+      "line": 193
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-05",
+      "line": 237
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-06",
+      "line": 290
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-07",
+      "line": 343
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-07",
+      "line": 343
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-08",
+      "line": 387
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-08",
+      "line": 387
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-09",
+      "line": 444
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-09",
+      "line": 444
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-10",
+      "line": 491
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-10",
+      "line": 491
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-11",
+      "line": 535
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-11",
+      "line": 535
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-12",
+      "line": 579
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-12",
+      "line": 579
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-13",
+      "line": 623
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-13",
+      "line": 623
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-14",
+      "line": 671
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-14",
+      "line": 671
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-15",
+      "line": 715
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-15",
+      "line": 715
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-16",
+      "line": 762
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-16",
+      "line": 762
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-17",
+      "line": 816
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-18",
+      "line": 862
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-18",
+      "line": 862
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-19",
+      "line": 910
+    },
+    {
+      "code": "PENDING_SOURCES",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "New material is pending reconciliation; existing PASS is not a current completeness claim",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-19",
+      "line": 910
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-CORE-TERMINAL",
+      "line": 955
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-RELEASE-BASELINE",
+      "line": 1000
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-WEB-UX",
+      "line": 1053
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-DIAGNOSTICS",
+      "line": 1110
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-HISTORY-PIPELINE",
+      "line": 1153
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/DELIVERY_RECONCILIATION.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "ASMT-TERMLINK-HISTORY-BANNER",
+      "line": 1239
+    },
+    {
+      "code": "CHANGE_TARGET",
+      "path": "docs/product/HISTORY_CHANGES.md",
+      "message": "Changed target REQ-TERMLINK-ENHANCEMENT-CANDIDATES is unresolved; history is retained",
+      "severity": "warning",
+      "item_id": "CHANGE-TERMLINK-TASK-SCOPE-CORRECTION-20261011",
+      "line": 579
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-SCOPE-TERMLINK-RELEASE-BASELINE-20260715-001: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-TERMLINK-RELEASE-BASELINE",
+      "line": 1240
+    },
+    {
+      "code": "TASK_ID_UNCONFIRMED",
+      "path": "docs/product/MANAGED_REQUIREMENTS.md",
+      "message": "BIND-SCOPE-TERMLINK-WEB-UX-20260616-001: historical task identity is unconfirmed; use its exact source",
+      "severity": "warning",
+      "item_id": "REQ-TERMLINK-WEB-UX",
+      "line": 1306
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/SCOPED_ASSESSMENTS.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "AS-V3-TERMLINK-HISTORY-SAMPLES",
+      "line": 73
+    },
+    {
+      "code": "GOAL_DEFINITION_CHANGED",
+      "path": "docs/product/SCOPED_ASSESSMENTS.md",
+      "message": "Goal definition alignment requires checking; this is not business invalidation",
+      "severity": "warning",
+      "item_id": "AS-V3-TERMLINK-HISTORY-SAMPLES",
+      "line": 73
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/SCOPED_ASSESSMENTS.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "AS-V3-TERMLINK-HISTORY-PIPELINE",
+      "line": 92
+    },
+    {
+      "code": "GOAL_DEFINITION_CHANGED",
+      "path": "docs/product/SCOPED_ASSESSMENTS.md",
+      "message": "Goal definition alignment requires checking; this is not business invalidation",
+      "severity": "warning",
+      "item_id": "AS-V3-TERMLINK-HISTORY-PIPELINE",
+      "line": 92
+    },
+    {
+      "code": "DEFINITION_CHANGED",
+      "path": "docs/product/SCOPED_ASSESSMENTS.md",
+      "message": "Current requirement definition differs from the reported basis; semantic/current code applicability is not evaluated",
+      "severity": "warning",
+      "item_id": "AS-CODE-TERMLINK-18-SAMPLES-20261011",
+      "line": 115
+    },
+    {
+      "code": "GOAL_DEFINITION_CHANGED",
+      "path": "docs/product/SCOPED_ASSESSMENTS.md",
+      "message": "Goal definition alignment requires checking; this is not business invalidation",
+      "severity": "warning",
+      "item_id": "AS-CODE-TERMLINK-18-SAMPLES-20261011",
+      "line": 115
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-01",
+      "line": 38
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-02",
+      "line": 85
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-03",
+      "line": 127
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-04",
+      "line": 170
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-05",
+      "line": 214
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-06",
+      "line": 260
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-08",
+      "line": 308
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-09",
+      "line": 358
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-10",
+      "line": 403
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-11",
+      "line": 452
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-12",
+      "line": 505
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-13",
+      "line": 551
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-15",
+      "line": 600
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-16",
+      "line": 649
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-17",
+      "line": 702
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-18",
+      "line": 454
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-19",
+      "line": 532
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-20",
+      "line": 587
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-21",
+      "line": 636
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-22",
+      "line": 680
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-23",
+      "line": 725
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-24",
+      "line": 773
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-26",
+      "line": 833
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-27",
+      "line": 880
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-28",
+      "line": 929
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-29",
+      "line": 974
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-30",
+      "line": 1017
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-31",
+      "line": 1060
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-32",
+      "line": 1103
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-33",
+      "line": 1146
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-34",
+      "line": 1189
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-35",
+      "line": 1231
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-36",
+      "line": 454
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-37",
+      "line": 498
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-38",
+      "line": 541
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-39",
+      "line": 584
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-40",
+      "line": 630
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-41",
+      "line": 677
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-42",
+      "line": 721
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-43",
+      "line": 764
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-44",
+      "line": 807
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-45",
+      "line": 851
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-46",
+      "line": 896
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-47",
+      "line": 939
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-48",
+      "line": 983
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-49",
+      "line": 1029
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-50",
+      "line": 1079
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-51",
+      "line": 1125
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-52",
+      "line": 1175
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-53",
+      "line": 454
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-54",
+      "line": 501
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-55",
+      "line": 548
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-56",
+      "line": 594
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-57",
+      "line": 640
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-58",
+      "line": 687
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-59",
+      "line": 732
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-60",
+      "line": 778
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-61",
+      "line": 824
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-62",
+      "line": 869
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-63",
+      "line": 915
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-64",
+      "line": 961
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-65",
+      "line": 1007
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-66",
+      "line": 1050
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-67",
+      "line": 1107
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-68",
+      "line": 1164
+    },
+    {
+      "code": "DEFINITION_UNKNOWN",
+      "path": "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "message": "Requirement version alignment is unknown",
+      "severity": "warning",
+      "item_id": "AS-CURRENT-20261012-69",
+      "line": 1224
+    }
+  ],
+  "coverage": {
+    "complete": true,
+    "files_read": 13,
+    "bytes_read": 1349643,
+    "enumeration": "managed_paths only; sources are read only by explicit reference",
+    "omitted": [],
+    "paths": [
+      "docs/product/PROJECT.md",
+      "docs/product/GOALS.md",
+      "docs/product/MANAGED_REQUIREMENTS.md",
+      "docs/product/DESIGN_REGISTER.md",
+      "docs/product/DELIVERY_RECONCILIATION.md",
+      "docs/product/ARRANGEMENTS.md",
+      "docs/product/HISTORY_CHANGES.md",
+      "docs/product/SCOPED_ASSESSMENTS.md",
+      "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+      "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+      "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+      "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+      "docs/product/assessments/SCOPED-CURRENT-20261012.md"
+    ],
+    "excluded_paths": [],
+    "max_files": 1000,
+    "max_file_bytes": 4194304,
+    "max_total_bytes": 33554432,
+    "usable_count": 189,
+    "invalid_count": 0
+  },
+  "sources": [],
+  "business_validity": "not-evaluated"
+}

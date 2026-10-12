@@ -1,0 +1,25 @@
+{
+  "order": 34,
+  "id": "REQ-TERMLINK-APP-TERMINAL",
+  "conclusion": "undetermined",
+  "coverage": "Android终端输入/控制键/滚动、会话与断联续接",
+  "achievements": [
+    "服务/API/快捷输入模块及Android桥有具体实现，部分当前JSDOM/函数测试通过",
+    "元数据重启与刷新复用的原窄范围证据已核，不扩成PTY连续或全部App操作"
+  ],
+  "gaps": [
+    "原Android触控/IME/滚动与真实PTY续接完整当前证据未取得；已知成果加未知余项，不判部分满足",
+    "本次无新增全设备/时延指标，也未恢复原不要求的Android刷新测试"
+  ],
+  "evidence": [
+    "public/terminal_client.js",
+    "android/app/src/main/java/com/termlink/app/MainShellActivity.kt",
+    "3/4/20/41–45/62–64号明确路径与原证据"
+  ],
+  "historical_applicability": "当前代码固定bb484969；本项为既有父组合范围独立人工判断。保留各明确实现路径及历史对象适用性，不把子项数量、历史关闭、父子链接或已有PASS算作达成。测试/代码及原范围详见实际引用的独立报告。",
+  "device_checks": [],
+  "unread": [
+    "父项不额外生成全端矩阵；需要的真机补验沿实际子项原范围单列",
+    "P1.11/P2未明行为（若属本项）继续未定义，不反推新功能或验收"
+  ]
+}

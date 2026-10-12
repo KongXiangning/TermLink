@@ -1,0 +1,33 @@
+{
+  "order": 23,
+  "id": "REQ-TERMLINK-DIAGNOSTICS",
+  "conclusion": "satisfied",
+  "coverage": "60726-002原Android/WebView/Node持久滚动诊断、开关/容量/脱敏/fail-open、跨APK更新保留及采集manifest/raw/timeline；不要求修复原九个业务问题。",
+  "achievements": [
+    "原任务在e9f2a6e报告连续adb install-r私有日志/历史尾记录保留、采集smoke三类输出和Node/JVM定向通过",
+    "当前Node原诊断logger测试本次通过，实际检查脱敏、JSONL写入、轮转文件数和历史记录；Android目录files/diagnostics、2MiB×5与Debug/Release开关保持",
+    "对e9f2a6e到HEAD逐diff：新增非可逆关联hash、允许计数字段、异常前500ms有限flush与显式ADB serial；未改变原持久目录/轮转上限/普通更新保留/原采集输出边界，原对应行为证据仍适用"
+  ],
+  "gaps": [
+    "原全量npm test在124秒超时，仍保留，不能将窄门禁报告写成全仓通过；当前未重跑Android/ADB采集，不把当前静态对照称新真机验证",
+    "历史源报告没有可用的原APK SHA/具体设备字段，不能补造；当前源码差异已核对，不宣称所有设备认证"
+  ],
+  "evidence": [
+    "TASKS/TASK-20260726-002-persistent-diagnostics-for-known-issues.md:14–37 原范围、实际upgrade/采集smoke与timeout",
+    "src/services/diagnosticLog.js:5–11,70–95,139–167 容量/开关/脱敏/fail-open",
+    "tests/diagnosticLog.test.js:8–35 本次实际通过",
+    "android/app/src/main/java/com/termlink/app/util/PersistentDiagnosticLog.kt:23–79,177–237 私有持久/轮转/异常flush",
+    "android/app/build.gradle:76–84 Debug默认与Release开关",
+    "scripts/diagnostics/collect-known-issue-logs.ps1:19–71 manifest、原始采集和timeline",
+    "git diff e9f2a6e HEAD -- src/services/diagnosticLog.js android/app/src/main/java/com/termlink/app/util/PersistentDiagnosticLog.kt scripts/diagnostics/collect-known-issue-logs.ps1 已逐段检查"
+  ],
+  "historical_applicability": {
+    "original": "原提交e9f2a6e3，task报告为行为实测，不仅构建/关闭；后续52fa9b53相关diff如上",
+    "current": "bb4849692fd600c3eb57866e28400fba612ee6aa；原已测持久路径/容量/升级不删文件语义保持，当前Node轮转脱敏重新验证；设备与APK未新测"
+  },
+  "device_checks": [],
+  "unread": [
+    "未取得原ADB完整日志/旧APK哈希，只读到原任务行为报告；没有将未知设备标识补成832手机",
+    "未重跑全仓npm/JDK21/手机，本项结论限定原日志取证行为，非所有异常或全部九问题已修复"
+  ]
+}

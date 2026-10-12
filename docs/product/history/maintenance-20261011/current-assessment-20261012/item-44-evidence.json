@@ -1,0 +1,47 @@
+{
+  "order": 44,
+  "id": "REQ-TERMLINK-CONTROL-INPUT",
+  "conclusion": "undetermined",
+  "coverage": "Ctrl A–Z控制码、Alt ESC前缀、off/armed/locked可见状态、Enter CR/换行LF",
+  "achievements": [
+    "当前共享状态机6/6测试通过，Ctrl一次性/锁定、Alt一次性、Alt+Ctrl、CR/LF均有断言",
+    "两客户端消费共享模块并render mod-armed/mod-locked；虚拟输入/普通输入两入口衔接"
+  ],
+  "gaps": [
+    "自动化验证模块语义，未覆盖Android触控点击节奏/按钮视觉/焦点的完整真实链；原REQ明确Android与浏览器各一轮且未定位该范围适用报告"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1875–1894当前四行为",
+    "public/terminal_shortcut_input.js:47–78控制映射；81–157三态与消费",
+    "public/terminal.js:1128–1178按钮态/普通输入；1780–1815触控键调用",
+    "public/terminal_client.js:7503–7549同共享状态；8209–8255虚拟键监听",
+    "tests/terminal_shortcut_input.test.js:5–74 当前6/6",
+    "docs/product/requirements/REQ-20260223-shortcut-keyboard-modifier-newline.md:60–85验收与至少1设备/浏览器",
+    "2026-10-12 当前HEAD：node --test tests/sessions.web.test.js tests/terminal_shortcut_input.test.js；26/26（20 Web UI/6共享控制输入）、正常结束。"
+  ],
+  "historical_applicability": "e975244共享模块和6项测试与HEAD原始blob不同；git diff --ignore-space-at-eol确认这两文件仅行尾不同，当前6/6实跑。11767d3记录设备da34332c本地滚动键行为；public/terminal_client.js、terminal.js当前已有实质变化。56739f1在当前Git对象中不能解析，CR明确Android手势/IME待后续安装实测，与SUMMARY笼统全量交付不能等同。",
+  "device_checks": [
+    {
+      "function": "终端控制输入",
+      "behavior": "Ctrl/Alt三态、CR/LF、普通字符与快捷栏焦点",
+      "preconditions": "一台Android原范围设备及浏览器；当前APK/服务器可观察原始输入",
+      "steps": [
+        "普通字符、Ctrl+C/Ctrl+L、Alt+F/Alt+B依次操作",
+        "单击一次、双击锁定并连续输入、再次解除，核对按钮态",
+        "Enter与换行核对CR/LF；展开/收起快捷栏后重复焦点和普通输入"
+      ],
+      "expected": "终端控制语义正确，三态可见且普通输入/焦点不回退",
+      "existing_evidence": "当前共享模块6/6；原REQ第7节明确至少1台Android+浏览器，未定位控制输入完整设备结果",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    }
+  ],
+  "unread": [
+    "原控制输入完整Android/浏览器设备证据未定位；无新增OEM矩阵"
+  ]
+}

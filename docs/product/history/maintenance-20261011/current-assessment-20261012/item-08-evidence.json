@@ -1,0 +1,54 @@
+{
+  "order": 8,
+  "id": "REQ-20260309-codex-capability-mvp",
+  "conclusion": "partially-satisfied",
+  "coverage": "原15功能按当前父正文及48—57共享子项逐一核对；本项另核对对话主界面、stored/next-turn/interaction分层、背景用量和7月原生交互。Web、服务端、Android保留同一REQ；不恢复Session Defaults完整UI或旧顶部权限禁令。",
+  "achievements": [
+    "当前Node原测试：7文件160项中159通过；IPC gateway/app-server/纯组件8文件160/160通过；JSDOM选定17/17通过。各组有重复测试，不合成独立覆盖数",
+    "当前基础消息、线程cwd、计划/审批payload、目录模型与推理选项、权限配置传送、IPC跟随和owner fallback均有相应实现及定向测试行为证据",
+    "历史60508有Web与Android多skill/附件发送前、流式、完成后及A/B smoke；60718-002、60722-001/002有明确Huawei布局/选择器/附件/Doze行为记录"
+  ],
+  "gaps": [
+    "已知未满足：Web IPC普通文本路径没有把已选择的model/reasoning nextTurnOverrides带入follower_send_message，见49；该路径不能满足“发送前选择进入下一回合”",
+    "已知未满足：Android手动输入已登记但capability关闭的命令不经过capability提交门禁，见51",
+    "未知：当前APK下动态Plan/Skills、通知恢复及当前authority路由的真机闭环；未把代码存在或历史归档推成整项满足"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:454：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "docs/product/requirements/REQ-20260309-codex-capability-mvp.md:149-310,478-541：原当前期功能和验收；其中相互冲突旧UI项由当前定义/后续task限定",
+    "docs/changes/summaries/SUMMARY-REQ-20260309-codex-capability-mvp.md:37-63：历史总括声明，不能覆盖后续改造；其中文件提及CR实际只是设计登记",
+    "public/terminal_client.js:2341-2364,5920-5928,9352-9368：本地override与IPC发送payload脱节的完整调用链",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:4882-4900,6116-6165：手动slash直接查registry/dispatch，缺capability提交校验",
+    "../codex-pure-test.log：159/160；唯一失败为tests/codexClient.shell.test.js:439旧4404 regex，与当前7144的4404/4403分支不一致，不证明模型/skills失败",
+    "../codex-targeted-test.log:820-827：160/160；../codex-integration-test.log：17/17；../codex-gateway-scoped-test.log：6/7，失败仅Windows cwd字面量断言"
+  ],
+  "historical_applicability": [
+    "3月SUMMARY的WebView时期全量交付仅为当时范围；后续原生迁移、IPC owner authority、7月选择器、8—10月历史路径均已变化",
+    "60504曾允许stale id自动新建，60418曾turn结束即thread/read；当前AD-004禁止静默新建、healthy IPC下普通canonical轮询，旧方法不能作为当前验收做法",
+    "60718明确active Goal/Plan/Skills动态视觉未覆盖；不把它说成已知未实现，也不让旧完成状态消除未知"
+  ],
+  "device_checks": [
+    {
+      "function": "父项剩余原生交互",
+      "behavior": "同一conversation中的背景/用量与消息视图随切换更新",
+      "prerequisites": "与本快照匹配的Android、服务、可正常产生使用量的Codex宿主；A/B不同任务",
+      "steps": [
+        "打开A并产生一次正常回复，打开背景信息；切B再回A",
+        "新建任务后看背景空态；A执行时手动上滑再滚底"
+      ],
+      "expected": [
+        "背景/用量与当前任务对应，无A/B残留；新任务不冒用旧统计；消息跟随按用户滚动恢复"
+      ],
+      "existing_evidence": [
+        "原REQ功能13及原生迁移验收；当前runtime/history纯组件通过，当前设备行为未复验"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

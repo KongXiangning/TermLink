@@ -1,0 +1,31 @@
+{
+  "order": 1,
+  "id": "REQ-20260222-doc-governance",
+  "conclusion": "undetermined",
+  "coverage": "按当前正文6功能核对分层导航、需求身份/范围、REQ-PLAN-CR追踪、变更证据、PRODUCT维护入口与查询/已读边界；沿用vNext，不把旧强制状态机重新作为验收",
+  "achievements": [
+    "当前PRODUCT登记8份受管文档，正文与历史资料分开；本轮helper read完整且121条结构可用",
+    "16967402交付说明支持分层、唯一主需求、归档及旧入口跳转；c805842记录PLAN+CR+收尾回写及真实缓存计划示例；ff36174记录双语README与4张截图及当时校验",
+    "60511原task记录99/99窄门禁及3个挂起文件，关闭不表示挂起已修复"
+  ],
+  "gaps": [
+    "原PLAN回写CR验证栏仍待回填；未定位全治理义务的原始对话/整体验收",
+    "本轮未逐条验证全部导航、唯一active或执行新增需求/PLAN-CR-收尾演练；这是证据缺口，不新增要求"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:37–97",
+    ".workflow-system/PRODUCT.yaml:1–35",
+    "docs/README.md:26–78",
+    "docs/product/history/maintenance-20261011/evidence-supplement-20261012/git-history-evidence.md:5–49",
+    "docs/changes/records/CR-20260325-0000-docs-requirement-sync-plan-coverage.md:18–26,53–58,68–69",
+    "docs/changes/records/CR-20260326-0033-root-readme-refresh.md:24–26,48–57",
+    "TASKS/TASK-20260511-001-isolate-node-test-full-suite-hang-and-classify-gate.md:56–73,99–102"
+  ],
+  "historical_applicability": "当前bb484969。16967402→HEAD的README/原REQ、c805842→HEAD缓存PLAN、ff36174→HEAD双语README均已变化，历史报告仅证明原版本/批次；当前结构可直接静态核实，不替代完整演练。",
+  "device_checks": [],
+  "unread": [
+    "原始实施task/用户对话未定位",
+    "全量旧导航、镜像及全部CR未逐条重核",
+    "README截图不是当前APK证据"
+  ]
+}

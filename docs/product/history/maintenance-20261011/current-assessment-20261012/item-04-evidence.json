@@ -1,0 +1,66 @@
+{
+  "order": 4,
+  "id": "REQ-20260223-shortcut-keyboard-modifier-newline",
+  "conclusion": "undetermined",
+  "coverage": "控制输入、CR/LF、触摸/本地滚动、快捷栏展开/收起及焦点普通输入",
+  "achievements": [
+    "共享模块当前6/6；Web sessions交互20/20含fit/输入/重连/焦点，通过范围具体可追溯",
+    "原本地滚动键有设备验证；两客户端输入与触摸路径存在"
+  ],
+  "gaps": [
+    "44/45的原Android/浏览器完整输入/滚动验收未知，不能由SUMMARY全量交付或构建推满足",
+    "3/29 CR与SUMMARY确认层级不同，保留原CR待实机限制；没有已知不满足则不标partial"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:222–276当前父项与范围",
+    "tests/terminal_shortcut_input.test.js:5–74 当前6/6",
+    "tests/sessions.web.test.js:486–550状态/fit/粘贴/重连/resize当前通过",
+    "docs/changes/summaries/SUMMARY-REQ-20260223-shortcut-keyboard-modifier-newline.md:42–55笼统交付说法",
+    "docs/changes/records/CR-20260329-0155-android-terminal-keyboard-scroll-regression-fix.md:71–81原始待实机限制"
+  ],
+  "historical_applicability": "e975244共享模块和6项测试与HEAD原始blob不同；git diff --ignore-space-at-eol确认这两文件仅行尾不同，当前6/6实跑。11767d3记录设备da34332c本地滚动键行为；public/terminal_client.js、terminal.js当前已有实质变化。56739f1在当前Git对象中不能解析，CR明确Android手势/IME待后续安装实测，与SUMMARY笼统全量交付不能等同。",
+  "device_checks": [
+    {
+      "function": "终端控制输入",
+      "behavior": "Ctrl/Alt三态、CR/LF、普通字符与快捷栏焦点",
+      "preconditions": "一台Android原范围设备及浏览器；当前APK/服务器可观察原始输入",
+      "steps": [
+        "普通字符、Ctrl+C/Ctrl+L、Alt+F/Alt+B依次操作",
+        "单击一次、双击锁定并连续输入、再次解除，核对按钮态",
+        "Enter与换行核对CR/LF；展开/收起快捷栏后重复焦点和普通输入"
+      ],
+      "expected": "终端控制语义正确，三态可见且普通输入/焦点不回退",
+      "existing_evidence": "当前共享模块6/6；原REQ第7节明确至少1台Android+浏览器，未定位控制输入完整设备结果",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    },
+    {
+      "function": "终端触摸滚动",
+      "behavior": "文字区/空白区同样纵向拖动，本地滚动键不发送远端输入",
+      "preconditions": "同一终端含足够scrollback；当前APK，浏览器同内容",
+      "steps": [
+        "分别在密集文字区和空白区上下拖动",
+        "按PgUp/PgDn/Home/End查看历史",
+        "滚动后点回输入，展开/收起快捷栏并输入普通字符"
+      ],
+      "expected": "两区都滚动；按键只移动本地视口；聚焦与输入保持可用",
+      "existing_evidence": "11767d3/CR-20260224-0257:57–58设备本地键验证；3/29 CR:81手势/IME仍待实机",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    }
+  ],
+  "unread": [
+    "未定位原实施task",
+    "未做当前APK输入/手势实测"
+  ]
+}

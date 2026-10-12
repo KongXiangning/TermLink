@@ -1,0 +1,59 @@
+{
+  "order": 16,
+  "id": "REQ-20260516-codex-mobile-realtime-sync",
+  "conclusion": "undetermined",
+  "coverage": "按当前11点和60615双端、60617 Web、60629 server/Android、60727单权威各自真实范围核对；包括follower acquire/replay、normalized surface、canonical绑定、A/B隔离、同线程动作、Owner/Goal分级、bounded恢复、retention；后续history暂停范围只记未证明。",
+  "achievements": [
+    "当前feed引用计数/retention/重连desired replay、threadStream snapshot/patch/desync、owner follower登记与pending snapshot均有本轮原测试通过",
+    "完整terminalGateway.codexIpc原套件本轮通过，包含普通/Plan/图片/Skill同authority、错误不fallback、owner接管、writer冲突不新建、真实Goal分级、配置路由、A/B订阅及retention",
+    "60615-002记录真实Web IPC 4 conversations/87 items；60629记录149/149与真实手机exact conversation、Approval/PLAN；这些保留为其当时实际范围"
+  ],
+  "gaps": [
+    "当前真实Desktop/VSCode与APK长期运行、重连、A→B→A、owner接管/回入和最终transcript一致性未取证；mock IPC测试不能代替真实host协议",
+    "60727暂停包明示corrected B4R安装后A→B→A和B5/P0-C/P1尚待；本轮未用其包头证明现在仍无实现，也未获得后续全部闭环，故这些是未确定",
+    "Web既有60617路径只对普通无Plan/附件/Skill文本优先follower，特殊输入仍legacy；Android单权威测试不得扩大成Web全部输入路径同样通过"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:936：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "docs/workflow/CONTRACTS.md:216-249：已读冻结链路、authority、owner/Goal、retention等现行边界；docs/workflow/DECISIONS.md:78-108：AD-004变更时间线",
+    "src/services/codexIpcFeed.js:275-385,624,668：follow/retain/release/replay；tests/codexIpcFeed.test.js:193-389：对应本轮通过",
+    "tests/codexIpcThreadStream.test.js:62-175：patch/desync/identity测试通过；tests/codexOwnerSurfaceTracker.test.js:269-426：pending/通知/follower测试通过",
+    "tests/terminalGateway.codexIpc.test.js:4049-4459,4988-5297,5381-5699,6150,6391：本轮通过；未包含真实宿主接入",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:639-660,1209-1225,6830-6873：IPC authority门禁与完整follower输入；android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt:1873-2025,2074-2213：当前Android原测试已读未运行",
+    "TASKS/paused/TASK-20260727-002-codex-single-authority-owner-control-plane.md:9-29,49-100：暂停状态、剩余接受项及原范围",
+    "public/terminal_client.js:5895-5941,9330-9368：Web当前实际IPC发送范围；docs/workflow/TASKS/20260617-002-web-codex-session-ipc-first-data-routing.md:31-55,745-758,825后：原范围及修复记录"
+  ],
+  "historical_applicability": [
+    "60615最初缺IPC环境后来60615-002部分补Web真实读取，不能把最初blocked永远当当前失败；也不能从87 items读取推广到全部写入动作",
+    "60629“external Goal启动/继续”旧结论被AD-004 7/31撤回：当前external只观察/turn中断；TermLink Owner真Goal需取得writer/runtime。未将撤回能力列为欠交付",
+    "7月stable core与8—10月history/cache/retention是不同版本和范围；本轮不承诺paused包全完成，也不重开已撤回目标"
+  ],
+  "device_checks": [
+    {
+      "function": "IPC原实时同步闭环",
+      "behavior": "同conversation实时跟随、短断联和A/B隔离；实际owner支持的同线程控制",
+      "prerequisites": "匹配服务/APK；同一后端账号/profile；真实Desktop或VSCode宿主及一条外部owner任务、可接管任务",
+      "steps": [
+        "外部宿主运行时手机中途打开同conversation并观察增长",
+        "A→B→A与一次短断网后继续观察",
+        "在真实pending审批/计划时手机操作并在宿主核对；外部owner离线场景确认同thread恢复",
+        "若已有TermLink Owner真实Goal，用原暂停/继续入口检查状态；external Goal只核对不可伪造启动"
+      ],
+      "expected": [
+        "绑定不变、无串流/第二writer；healthy IPC保持唯一实时源；请求结果由owner surface收敛；最终正文与宿主一致"
+      ],
+      "existing_evidence": [
+        "本輪mock targeted通过；60629旧手机记录；AD-004已明确原回归行为和Goal边界"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先",
+    "60615/60617/60629大型包已读目标、验收、关键实施/结论，未逐字通读全部旧workflow过程；60727只读暂停及原验收等相关段，未以未读正文推任何完成",
+    "REQ16后半段历史外部协议研究与Codex rollout collector architecture未作为本次结论依据；未核对完整B4R/B5/P0-C/P1实施及其后续独立Task，需历史组的证据"
+  ]
+}

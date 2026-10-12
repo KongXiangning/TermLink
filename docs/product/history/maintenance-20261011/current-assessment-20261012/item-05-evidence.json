@@ -1,0 +1,50 @@
+{
+  "order": 5,
+  "id": "REQ-20260224-android-external-web-terminal-profile-sessions",
+  "conclusion": "undetermined",
+  "coverage": "原9项POC及当前父功能1/3/4/6/7/8/9；本地会话/刷新详见46/47；不扩跨设备或任意站点协议",
+  "achievements": [
+    "类型选择/旧Profile默认、本地远端分流、WebView分流、空地址错误、删除清理、隐藏快捷栏、通用深色注入均可定位",
+    "原编译构建及后续刷新决策JVM/Settings设备局部交付保留"
+  ],
+  "gaps": [
+    "原POC实际页面打开/重启持久化/混合切换等完整设备运行证据不足；无确定功能反例，不能以partial替代未知",
+    "mTLS独立debug宿主公共靶场结果不涵盖External POC"
+  ],
+  "evidence": [
+    "docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md:76–96 原9验收/场景；109至少1台设备实际页面/持久化",
+    "docs/changes/records/CR-20260224-1636-android-external-web-terminal-poc.md:24–36 9实施；67–81仅构建/当前无在线真机",
+    "android/app/src/main/java/com/termlink/app/data/ServerProfile.kt:20–30,60–72 类型和缺字段默认",
+    "android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt:490–532,660,712–721 类型保存",
+    "android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt:515–523 External本地来源",
+    "android/app/src/main/java/com/termlink/app/MainShellActivity.kt:1835–1886 TermLink/External分流、空地址错误；668–688删除清理；1451–1457隐藏快捷栏；1942–1970通用深色不写站点专用键",
+    "docs/changes/records/CR-20260327-0100-external-web-profile-refresh-fix.md:70–86 JVM/Settings4/4而整体WebView仍需实测",
+    "docs/changes/records/CR-20260327-0148-phase5-real-device-mtls-validation.md:24–37,84–85 独立宿主/badssl限制"
+  ],
+  "historical_applicability": "ab47cb8baff99c0d7ef324f729b969c297e64958的ExternalSessionStore/ExternalSession与HEAD非同字节，但仅CRLF差异；MainShell/Sessions/Profile有实质变化。d675956cbef54305f7f229abb2990c020580c1d2刷新resolver和测试仅CRLF差异。原POC未做真机；后续独立debug宿主badssl mTLS 3/3不能扩为External POC。",
+  "device_checks": [
+    {
+      "function": "External POC",
+      "behavior": "原9项POC综合行为",
+      "preconditions": "同一台Android、HEAD APK、可用TermLink测试服务与一个可控普通External网页（支持Basic并可看请求日志）、旧格式Profile夹具",
+      "steps": [
+        "新建External，重启，创建/重命名/打开本地会话",
+        "切TermLink再切回；空地址夹具；删除Profile并重建同名",
+        "观察键盘隐藏、状态及通用深色注入"
+      ],
+      "expected": "本地持久、无/api/sessions远端CRUD；正确URL/状态；空地址不误开TermLink；删除不复现旧会话；不写站点专用键",
+      "existing_evidence": "当前实现+原构建/局部测试，缺POC真机完整结果",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "declared": "package.json:3–4 / VERSION为1.0.0、versionCode=1",
+        "required_record": "后续补验记录服务端commit/配置、APK commit/versionName/versionCode/SHA-256、Android/WebView版本；本轮未获绑定HEAD的APK或部署服务版本"
+      },
+      "nature": "原范围设备行为补验"
+    }
+  ],
+  "unread": [
+    "原External task/用户对话未定位",
+    "无原始完整真机日志/APK散列"
+  ]
+}

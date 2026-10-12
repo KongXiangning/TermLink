@@ -1,0 +1,50 @@
+{
+  "order": 52,
+  "id": "REQ-TERMLINK-CODEX-SKILLS",
+  "conclusion": "undetermined",
+  "coverage": "按会话cwd发现skills；多个内联token选择/移除/发送、发送后历史可见及窄屏换行；不增加远程skills管理。",
+  "achievements": [
+    "Android/Web显式skills/list cwds，gateway为legacy注入且保留显式cwds，本轮两类gateway原测试通过",
+    "Web/Kotlin的多token构建提取去重/移除及消息skills展示源可定位；本轮token原测试及跨端源码断言通过",
+    "60508具体记录Web pre-send/streaming/completed与Android post-send以及A/B不同任务smoke"
+  ],
+  "gaps": [
+    "当前IPC follower输入、owner projection及当前APK的多skill动态UI/历史恢复尚未获得完整实际验证；7/18也明示Skills动态视觉未覆盖"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:2024：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "src/ws/terminalGateway.js:1198-1237；tests/terminalGateway.codex.test.js:675-760：本轮cwd注入/无cwd兼容通过",
+    "public/terminal_client.js:293-317,721,3605-3653：token和cwd目录；android/app/src/main/java/com/termlink/app/codex/data/CodexSlashRegistry.kt:94-158：token多项处理",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:6463-6484,6609-6634,11930-11957：composer派生skills、发送metadata、目录请求",
+    "tests/codexSlashCommands.test.js:143；tests/codexClient.shell.test.js:229-284：本轮通过token、post-send换行/路径隐藏静态断言",
+    "TASKS/TASK-20260508-001-codex-inline-multiple-skills-and-attachment-visible-history.md:17-22,55-76：原范围及具体设备证据；TASKS/TASK-20260503-001-clarify-codex-app-skill-cwd-scope.md:35-44：原cwd调查"
+  ],
+  "historical_applicability": [
+    "60503只是cwd发现的文档调查，不独立证明实现；b31fd38d后网关已实现，当前测试重新核对",
+    "6789fb3e/0a5fbb52时期多skill已具端到端记录，后来follower发送和历史缓存变动；不用历史31/31替代当前APK"
+  ],
+  "device_checks": [
+    {
+      "function": "多个Skills的原输入路径",
+      "behavior": "不同cwd目录与多token在发送/流式/历史中保持",
+      "prerequisites": "A/B两个cwd各有已可发现的skills；匹配服务/APK及可发送conversation",
+      "steps": [
+        "A选择两个skill，移除一个再加回；切B核对目录",
+        "在A发送含两skill的消息，等待流式和完成；重开该历史任务"
+      ],
+      "expected": [
+        "目录属于当前cwd；每个skill可独立移除；历史保留skill摘要；窄屏换行且不露SKILL.md绝对路径"
+      ],
+      "existing_evidence": [
+        "60508原场景与旧设备结果；本轮cwds/token测试通过"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

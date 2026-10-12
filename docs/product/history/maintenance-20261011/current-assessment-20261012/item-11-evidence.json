@@ -1,0 +1,57 @@
+{
+  "order": 11,
+  "id": "REQ-20260326-android-profile-mtls-runtime-certificate",
+  "conclusion": "undetermined",
+  "coverage": "Profile导入/替换/移除、私有证书与加密口令、旧pending、共享解析/清理、直连TLS/mTLS及已有模式；排除Relay/全厂商矩阵",
+  "achievements": [
+    "证书store/policy/form/shared resolver/WebView/HTTP/Codex链均可定位，无构建assets回退；缺项拒绝/正常移除关mTLS/删除清理",
+    "原Settings真机4/4、公共靶场3/3、Android原生HTTPS自管服务、PC WSS正确/错误证书允许拒绝有结果",
+    "本轮connectionSecurity+health 6/6及TLS纯解析13/13通过"
+  ],
+  "gaps": [
+    "当前凭据解析新增显式TrustManager；原生Codex OkHttp与主要Activity/API/gateway在原真机交付后变化；无HEAD联合结果，不能把历史范围扩成当前全链满足",
+    "原Android foreground terminal WSS附加观察是当时非阻断，不把它改写成原欠交"
+  ],
+  "evidence": [
+    "docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md:38–64,139–150原管理/兼容/直连验收",
+    "android/app/src/main/java/com/termlink/app/data/MtlsCertificateStore.kt:64–76,89–134,137–175 私有目录/EncryptedSharedPreferences/替换清理",
+    "android/app/src/main/java/com/termlink/app/data/MtlsCredentialRepository.kt:26–82 profile+mtime+fingerprint；85–119 PKCS12+显式TrustManager",
+    "android/app/src/main/java/com/termlink/app/data/MtlsPolicyResolver.kt:21–72缺证书/口令不启用且无assets fallback",
+    "android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt:678–743,829–848管理；android/app/src/main/java/com/termlink/app/ui/settings/MtlsProfileFormResolver.kt:43–81新缺项/旧pending/替换密码",
+    "android/app/src/main/java/com/termlink/app/data/ServerConfigStore.kt:71–75删Profile清证书",
+    "android/app/src/main/java/com/termlink/app/web/MtlsWebViewClient.kt:28–76当前Profile凭据到ClientCertRequest；android/app/src/main/java/com/termlink/app/data/MtlsHttpSupport.kt:10–61与SessionApiClient.kt:407原生HTTP",
+    "android/app/src/main/java/com/termlink/app/data/MtlsOkHttpSupport.kt:10–48；android/app/src/main/java/com/termlink/app/codex/network/CodexConnectionManager.kt:146 Codex同凭据",
+    "src/config/tlsConfig.js:144–166 require/rejectUnauthorized；src/server.js:166–182同一HTTP/WS服务；src/ws/terminalGateway.js:6565同连接安全",
+    "docs/changes/records/CR-20260327-0148-phase5-real-device-mtls-validation.md:63–85 LYA-TL00 Android10 3/3仅badssl",
+    "docs/changes/records/CR-20260327-1610-phase9-real-device-direct-ip-validation.md:40–54,95–99 HTTP/WSS放行拒绝、备用Android原生API、Android WSS非阻断",
+    "android/app/src/androidTest/java/com/termlink/app/mtls/LocalServerMtlsValidationTest.kt:43–98仅list/create Session API非Android WS",
+    "docs/changes/records/CR-20260327-1525-server-unified-mtls-integration.md:83–84当时97/97"
+  ],
+  "historical_applicability": "d675956的Store/Policy/WebViewClient/FormResolver及若干设备测试与HEAD仅CRLF差异，但CredentialRepository实质新增TrustManager。f43ff6f6422e10bde6a24dcffd7bf887bfd26943的HttpSupport/LocalServer测试/tlsConfig/connectionSecurity仅CRLF差异，OkHttpSupport当时不存在且server/gateway不同。原成功保留，HEAD整体适用未知。",
+  "device_checks": [
+    {
+      "function": "Profile mTLS",
+      "behavior": "原管理/隔离/替换失效/缺证书拒绝及同安全边界",
+      "preconditions": "受控直接IP:port TLS/mTLS服务、受信服务器身份、有效A/B及错误/非受信客户端测试证书、HEAD APK；不扩大生产信任面",
+      "steps": [
+        "新建缺项保存→正确导入并重启→旧pending编辑",
+        "A/B切换、替换、关闭/移除/删Profile",
+        "原生Sessions与WebView访问同目标；当前Codex既有链同凭据检查；无/错/非受信证书拒绝"
+      ],
+      "expected": "缺项拒绝或原pending兼容；不回退assets/串证书；替换用新凭据并清理；HTTP/WS同边界",
+      "existing_evidence": "原设备/直连证据+当前19项Node；无当前APK联合结果",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "declared": "package.json:3–4 / VERSION为1.0.0、versionCode=1",
+        "required_record": "后续补验记录服务端commit/配置、APK commit/versionName/versionCode/SHA-256、Android/WebView版本；本轮未获绑定HEAD的APK或部署服务版本"
+      },
+      "nature": "原范围设备行为补验"
+    }
+  ],
+  "unread": [
+    "原task/独立用户签收未定位",
+    "SUMMARY23条CR未全文读，已读关键Settings/刷新/公共mTLS/统一服务端/直连IP/后续状态",
+    "未获原握手日志/设备产物，未跑Gradle/Android"
+  ]
+}

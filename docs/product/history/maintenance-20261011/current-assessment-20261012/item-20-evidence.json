@@ -1,0 +1,70 @@
+{
+  "order": 20,
+  "id": "REQ-TERMLINK-CORE-TERMINAL",
+  "conclusion": "undetermined",
+  "coverage": "终端IO/resize、会话CRUD/选择、刷新复用/首次创建、连接状态/认证以及原元数据恢复",
+  "achievements": [
+    "64原刷新两路径有适用历史证据；Web状态/fit/粘贴/重连/创建20/20当前通过",
+    "当前API metadata12/12、Store 4/4；Basic/browser-session/ws ticket架构保持冻结边界",
+    "补读7月30日提交2d1c83ba实际Git说明：终端capture动量滚动、PTY快照/启动监听、Android旋转resize已实现；c5e73d01另加长按选择。未附该提交运行/设备验收结果，不能仅提交说明判满足",
+    "69本轮真实SessionManager进程间元数据恢复probe已通过，原P0.3定性义务满足；仍不等于PTY跨服务重启"
+  ],
+  "gaps": [
+    "62/63的真实PTY端到端、Android CRUD仍未取得充分当前适用证据；已知成果+未知余项，非partial",
+    "60618只修public/codex_ipc.js，不能据该task关闭/12条窄门禁认定全终端基线满足"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1180–1238当前核心与元数据子项",
+    "docs/product/PRODUCT_REQUIREMENTS.md:19–35原终端/元数据基线",
+    "tests/sessions.web.test.js:272–292、486–550当前创建/状态/输入/尺寸断言通过",
+    "docs/workflow/CONTRACTS.md:73–106 Basic/browser session/ticket及metadata冻结",
+    "TASKS/TASK-20260618-001-fix-refresh-creates-terminal-session.md:434–454刷新实际范围和限制",
+    "Git 2d1c83bacc42345cc8827800eb478b53210389ee commit message+diff（2026-07-30）：14文件497行新增，capture/PTY/resize具体实施；c5e73d011027057176e0f2e9c9a59a2dd97a3c92：长按与滚动隔离实施",
+    "2026-10-12 当前HEAD：node --test tests/sessions.web.test.js tests/terminal_shortcut_input.test.js；26/26（20 Web UI/6共享控制输入）、正常结束。"
+  ],
+  "historical_applicability": "PRODUCT_REQUIREMENTS/CURRENT_STATE提供原定性基线，不是E2E验收。60618原task:434–454记录有效ID/无ID探针、浏览器两轮count不增、用户跳过新增定向测试、Android条件未触发、12/12窄门禁；提交1cd85c6。public/codex_ipc.js原始blob与HEAD不同，但忽略行尾无差异，修复控制流可沿用；terminal.js、terminal_client.js、gateway及Android整体不同，不把该刷新验收扩到IO/CRUD/重启。 另核2d1c83ba→HEAD public/terminal.js及src/services/ptyService.js忽略行尾无差异，原始字节非相同；7月Git说明仅是实施证据，未读到对应行为测试结果。",
+  "device_checks": [
+    {
+      "function": "终端输入输出与尺寸",
+      "behavior": "Android终端输入→PTY→输出；窗口/IME变化传行列",
+      "preconditions": "当前APK和可用TERMLINK_WS测试会话",
+      "steps": [
+        "输入一条可识别无副作用命令，观察服务PTY输出与Android显示",
+        "展开/关闭IME或改变窗口尺寸，观察客户端resize行列与PTY尺寸",
+        "重复输入确认输出仍位于当前会话"
+      ],
+      "expected": "输入输出对应同session，fit后行列生效且输出可读",
+      "existing_evidence": "当前Web harness输入/fit通过；网关write/resize与广播明确；未定位当前Android实际闭环",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    },
+    {
+      "function": "终端会话管理",
+      "behavior": "Android创建/列表/选择/重命名/删除及模式名称路径保留",
+      "preconditions": "隔离测试服务、当前APK，允许只对新建测试会话操作",
+      "steps": [
+        "新建Terminal测试会话并确认列表",
+        "重命名、选择后返回列表核对同ID/名称/模式",
+        "删除该测试会话确认列表消失且原ID不可再连"
+      ],
+      "expected": "CRUD与选择一致，元数据保留，删除释放资源",
+      "existing_evidence": "当前API metadata12项与Web创建切换通过；缺当前Android实际CRUD全链",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    }
+  ],
+  "unread": [
+    "原终端基线task未完整定位",
+    "本轮未实测当前APK/完整真实PTY客户端闭环；已补进程间元数据恢复"
+  ]
+}

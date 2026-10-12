@@ -1,0 +1,26 @@
+{
+  "order": 37,
+  "id": "REQ-TERMLINK-STARTUP-SAFETY",
+  "conclusion": "undetermined",
+  "coverage": "启动时认证/非默认凭据/强度、进程身份、可写审计及条件mTLS门禁",
+  "achievements": [
+    "当前9项privilegeConfig.securityGates测试全过，覆盖默认/启用、默认凭据、缺进程权限、TLS关、非require策略、缺CA、满足文件配置",
+    "server在elevated启动路径遇失败process.exit(1)，审计可写/可选mTLS失败均有诊断"
+  ],
+  "gaps": [
+    "测试hasRequiredPrivileges由夹具注入，TLS用FAKE_CERT/FAKE_KEY；本轮未覆盖真实Windows管理员令牌探测/服务进程启动与实际证书握手。已知逻辑通过+未验证运行链，不能把单测提升为整项安全门禁满足"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1747–1763 当前门禁范围",
+    "src/server.js:120–148 门禁失败退出及审计初始化",
+    "src/config/securityGates.js:66–130 可写/磁盘与mTLS配置检查；133–172真实身份检测；174–230 gate组合",
+    "tests/privilegeConfig.securityGates.test.js:31–47 FAKE证书夹具；81–225身份/认证/mTLS路径；当前9/9通过",
+    "docs/changes/records/CR-20260224-1602-server-admin-mode-enable-fix.md:58–75 历史启动校验命令及当时仅mTLS开关限制",
+    "2026-10-12 Linux/Node v24.19.0，当前HEAD：node --test tests/privilegeConfig.securityGates.test.js tests/ipCheck.test.js tests/auditService.test.js tests/ptySpawnOptions.test.js tests/sessionStore.metadata.test.js tests/routes.sessions.capacity.test.js tests/routes.sessions.metadata.test.js tests/health.route.test.js；46/46、exit 0。按每项关联测试限定使用，不视为全部业务闭环。"
+  ],
+  "historical_applicability": "2月原REQ与SUMMARY/CR已读；a6ceeec/76e76f8历史提供范围与报告。git blob核对76e76f8与HEAD配置/门禁/IP及其测试均不同字节；privilegeConfig忽略行尾后无差异，其他门禁/IP已有实质变化。当前独立测试结果优先，旧父项全量交付不自动下发子项。",
+  "device_checks": [],
+  "unread": [
+    "未运行真实Windows进程令牌与TLS启动；不要求Android新增门禁设备矩阵"
+  ]
+}

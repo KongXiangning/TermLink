@@ -1,0 +1,27 @@
+{
+  "order": 60,
+  "id": "REQ-TERMLINK-WORKSPACE-DIFF",
+  "conclusion": "satisfied",
+  "coverage": "原Git HEAD合并staged/unstaged、未跟踪/删除/无HEAD/无变更，以及双文本paired hunks unified/split",
+  "achievements": [
+    "CompareService真实临时Git仓库/文件测试通过；完整行与大小限制按原值保持",
+    "JSDOM当前同一structured payload unified/split通过，错误不清已有内容和过期diff响应受控",
+    "核心CompareService/structuredDiff主体与原7月行为验收语义相同"
+  ],
+  "gaps": [
+    "不覆盖写文件/编辑；无新增全格式比较要求"
+  ],
+  "evidence": [
+    "TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md:8–32",
+    "TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md:8–27",
+    "src/services/workspacePathUtils.js:16–158",
+    "src/routes/workspace.js:60–217",
+    "src/services/workspaceFileService.js:319–433,616–694",
+    "public/workspace.js:229–280,419–521,590–667",
+    "android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt:330–470",
+    "本轮原始输出：web-workspace-release.tap（108项96通过12失败；workspace三个测试文件无失败，失败归因见test-summary.md）"
+  ],
+  "historical_applicability": "原TASK60718-003（f0fd5f43）及60719-001（6c1d3d09）有47/47/152/152、14/14、134/134和Huawei/Playwright验收。当前对6c1d3d09逐文件忽略行尾diff：workspaceFileService/CompareService/PathUtils无语义差异；CSS字号/长token核心及renderText/Markdown/Image/PDF/structuredDiff主体保持。workspace.js导航/主题/注册headers、Activity入口/返回/registration有后继改动，不把全部旧真机结果直接升级为当前宿主验收。当前对应JSDOM/API/compare测试全部通过；未新增浏览器/手机实测。",
+  "device_checks": [],
+  "unread": []
+}

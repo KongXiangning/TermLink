@@ -1,0 +1,53 @@
+{
+  "order": 49,
+  "id": "REQ-TERMLINK-CODEX-MODEL",
+  "conclusion": "partially-satisfied",
+  "coverage": "当前Web codex_client.html的模型/推理快捷入口与Android原生owner/catalog选择器：选择应进入下一回合，取消不产生选择；不恢复Session Defaults，也不把Android已移除WebView路径当现用入口。",
+  "achievements": [
+    "本轮JSDOM实际模拟model/list目录，验证medium默认、max/ultra及有限模型选项与切模型清理不兼容effort",
+    "Android选择器读取model/list、真实默认和支持effort；owner快照、pending override与follower turnConfig具备对应原代码/单测",
+    "gateway本轮验证turnConfig将effort/model协作设置传owner；7/18有Huawei模型/推理选择器记录"
+  ],
+  "gaps": [
+    "已知未满足：当前Web codex_client.html的IPC普通文本路径忽略本地model/reasoning override。点击只更新local nextTurnOverrides；handleCodexComposerSubmit进入follower后直接返回，而follower payload仅含type/conversationId/input，未向owner发送选择",
+    "未知：当前APK实际模型/effort选择→真实下一turn→owner快照确认；旧设备只记录7月版本，不能证明当前全部动态目录"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1970：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "public/terminal_client.js:2341-2364,5917-5941,9352-9368：证明Web丢失override的调用链；不是仅凭文件存在",
+    "tests/codexSecondaryPanel.integration.test.js:1913-2017：目录/effort切换行为本轮通过；:2452：仅普通follower消息例，不覆盖已选override",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:6355-6369,6412-6449,6837-6873：原生选择与follower config；android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt:1509-1690：目录/default/pending原测试",
+    "tests/terminalGateway.codexIpc.test.js:5297-5353：带turnConfig时gateway正确转发，本轮通过",
+    "TASKS/TASK-20260718-002-android-codex-conversation-visual-refresh.md:8-24：实际Android7月目标/验证",
+    "public/terminal.js:1555-1570,1588-1593：当前sessionMode=codex的会话入口创建/codex_client.html iframe；public/sessions.js:46-62,127,337,481：会话选择和创建均可进入该页；public/codex_client.html:284：加载terminal_client.js。该路径当前可达",
+    "public/terminal_client.js:2699-2701,2713-2731,2330-2364,2120-2123：picker点击只更新本地override/localStorage与本地effective config，无独立settings RPC；随后普通IPC发送不消费该override"
+  ],
+  "historical_applicability": [
+    "77752f9e为7/18权限目录增量提交，当前选择/记忆/authority后来变化；不能拿该设备图当当前安装包证明",
+    "3月/model正式可执行与7月Web slash精简存在版本差异；本缺口只针对仍存在且已验证可选择的快捷入口，不要求复活已删Web /model入口"
+  ],
+  "device_checks": [
+    {
+      "function": "Android模型与推理选择",
+      "behavior": "当前目录选择到同conversation真实下一回合与快照",
+      "prerequisites": "宿主提供实际model/list；匹配服务/APK与一条可发送的bound conversation",
+      "steps": [
+        "打开并取消选择器；再选真实目录模型和其支持effort",
+        "发送普通消息，观察宿主有效配置与随后owner snapshot；切B再回A"
+      ],
+      "expected": [
+        "取消不产生选择；选择与真实下一回合一致；快照确认前pending不会误清；B状态不污染A"
+      ],
+      "existing_evidence": [
+        "本轮Web目录和gateway配置原测试已通过；7月旧Huawei选择器行为已记录"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

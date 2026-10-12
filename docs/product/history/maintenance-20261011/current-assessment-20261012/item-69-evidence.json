@@ -1,0 +1,29 @@
+{
+  "order": 69,
+  "id": "REQ-TERMLINK-SESSION-METADATA-RECOVERY",
+  "conclusion": "satisfied",
+  "coverage": "服务重启后恢复已持久会话元数据，明确不保证PTY上下文跨重启",
+  "achievements": [
+    "原P0.3与AD-001明确JSON元数据载体；当前有save/load、500ms debounce、shutdown同步写与constructor恢复",
+    "SessionStore 4/4仅证实字段规范化；恢复将记录建为IDLE且懒创建PTY，符合元数据/PTY边界",
+    "本轮独立metadata-probe使用真实SessionManager创建Terminal/真实PTY、rename，等待900ms通过原500ms debounce写JSON；新Node进程constructor读取恢复同id/name和所比对保存字段，IDLE且ptyInitialized=false；两进程exit0"
+  ],
+  "gaps": [
+    "原定性元数据恢复已取得当前进程间运行证据；probe逐字段比较排除status和lastActiveAt，另断言status=IDLE，不声称所有字段无例外比对、HTTP部署或PTY跨进程连续"
+  ],
+  "evidence": [
+    "docs/product/PRODUCT_REQUIREMENTS.md:31 原P0.3",
+    "docs/workflow/DECISIONS.md:42–51 AD-001 JSON元数据正式载体",
+    "src/repositories/sessionStore.js:126–147读取；150–193原子写/序列化",
+    "src/services/sessionManager.js:82–92启动恢复；317–345重建；478–528持久化；531起shutdown hooks",
+    "tests/sessionStore.metadata.test.js:5–102当前4/4只是规范化",
+    "/workspace/shared/termlink-assessment-20261012/metadata-probe/roundtrip.cjs:5–13真实create/rename/debounce落盘；15–20第二进程恢复并断言（17排除status/lastActiveAt）",
+    "/workspace/shared/termlink-assessment-20261012/metadata-probe/result.log:1–3 debounced_file_saved=true、Restored 1、persisted_metadata_restored=true、pty_initialized=false、IDLE",
+    "2026-10-12 Linux/Node v24.19.0，当前HEAD：node --test tests/privilegeConfig.securityGates.test.js tests/ipCheck.test.js tests/auditService.test.js tests/ptySpawnOptions.test.js tests/sessionStore.metadata.test.js tests/routes.sessions.capacity.test.js tests/routes.sessions.metadata.test.js tests/health.route.test.js；46/46、exit 0。按每项关联测试限定使用，不视为全部业务闭环。"
+  ],
+  "historical_applicability": "当前HEAD bb4849692fd600c3eb57866e28400fba612ee6aa。原CURRENT_STATE:24–27仅架构现状，不是服务重启结果报告；未定位可与当前同字节实现绑定的历史重启验收。 2026-10-12当前HEAD独立实际进程间probe补齐原定性恢复，不依赖旧报告冒当前PASS。",
+  "device_checks": [],
+  "unread": [
+    "原独立Task/字段逐项验收资料仍未定位，不由此添加字段或HTTP部署新义务"
+  ]
+}

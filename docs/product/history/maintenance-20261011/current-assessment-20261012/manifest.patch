@@ -1,0 +1,18 @@
+diff --git a/.workflow-system/PRODUCT.yaml b/.workflow-system/PRODUCT.yaml
+index 86d844e6..2415cec2 100644
+--- a/.workflow-system/PRODUCT.yaml
++++ b/.workflow-system/PRODUCT.yaml
+@@ -10,7 +10,12 @@
+     "docs/product/DELIVERY_RECONCILIATION.md",
+     "docs/product/ARRANGEMENTS.md",
+     "docs/product/HISTORY_CHANGES.md",
+-    "docs/product/SCOPED_ASSESSMENTS.md"
++    "docs/product/SCOPED_ASSESSMENTS.md",
++    "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
++    "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
++    "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
++    "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
++    "docs/product/assessments/SCOPED-CURRENT-20261012.md"
+   ],
+   "source_paths": [
+     "docs/**/*.md",

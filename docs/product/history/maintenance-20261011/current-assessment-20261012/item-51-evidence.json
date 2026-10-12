@@ -1,0 +1,53 @@
+{
+  "order": 51,
+  "id": "REQ-TERMLINK-CODEX-SLASH",
+  "conclusion": "partially-satisfied",
+  "coverage": "现有registry、capability和dispatcher解析/分发；未知或未开放命令明确反馈且不作为普通prompt污染线程；不把历史预留命令自动要求全部开放。",
+  "achievements": [
+    "Web parse/registry/capability过滤8原测试通过；JSDOMcompact=false及无匹配skill行为通过；Web提交先resolveExecutable命令，不支持时显示error并返回",
+    "Android存在独立registry/parser、menu capability过滤和unknown→SYSTEM反馈return路径"
+  ],
+  "gaps": [
+    "已知未满足：Android handleComposerSubmit手输命令直接调用dispatchSlashCommand；dispatcher只检查registry存在性、不查询capabilityKey。以slashPlan=false且planModeSupported=false的兼容状态手输/plan为例仍togglePlanMode或sendTurnWithOverrides，没有未开放反馈。菜单不显示不能代替提交门禁",
+    "本轮未在设备注入/取得关闭capability场景；上述为当前完整静态调用链证明的逻辑缺口，不冒称真机复现"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:2006：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "public/lib/codex_slash_commands.js；tests/codexSlashCommands.test.js:20-141：本轮8/8通过",
+    "public/terminal_client.js:4701-4720,5946-5960：Web可执行能力检查与未知返回；tests/codexSecondaryPanel.integration.test.js:956-1008：关闭compact/skill空态本轮通过",
+    "android/app/src/main/java/com/termlink/app/codex/data/CodexSlashRegistry.kt:20-31,161-191：registry和仅用于菜单的capability过滤",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:4882-4900,6116-6165：手动提交不走capability过滤，/plan分支直接状态修改/发送",
+    "android/app/src/test/java/com/termlink/app/codex/data/CodexSlashRegistryTest.kt:20-73：已读测试仅菜单/别名/token；未覆盖手输capability关闭拒绝",
+    "docs/product/requirements/REQ-20260309-codex-capability-mvp.md:94-100：when明确定义为可见/可执行前置条件；当前MANAGED_REQUIREMENTS:2006以后保留registry/capability/dispatcher与未开放反馈，未新加需求",
+    "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt:431-436,5535-5538,5569-5595：菜单过滤与发送分开，local shortcut只处理/mention，其余允许connected非streaming提交；CodexActivity.kt:442-445把onSendMessage接到handleComposerSubmit，无capability提交防护",
+    "android/app/src/main/java/com/termlink/app/codex/data/CodexSlashRegistry.kt:196-205：slashPlan菜单能力为slashPlan或planModeSupported，缺口前置明确为两者均false，未把一个false误写成菜单一定隐藏"
+  ],
+  "historical_applicability": [
+    "3月/skill冻结未开放后来已由实际多Skills任务打开，不能恢复为当前禁用要求",
+    "7月Web与原生可见slash集合已不同；本结论不要求所有命令在两端数量相等，只要求当前注册命令遵守自己的capability"
+  ],
+  "device_checks": [
+    {
+      "function": "原生未开放slash反馈",
+      "behavior": "关闭capability时手动输入命令不执行",
+      "prerequisites": "已有兼容测试服务能明确声明slashPlan=false且planModeSupported=false；不要求为本次评估修改生产服务；匹配APK",
+      "steps": [
+        "确认/菜单不提供plan；手输/plan及/plan文本",
+        "再输入未知/does-not-exist"
+      ],
+      "expected": [
+        "显示明确不可用/未知反馈；不写planMode、不发送turn、不建thread；未知内容不成为普通用户prompt"
+      ],
+      "existing_evidence": [
+        "菜单过滤已有原测试；当前dispatcher源码显示门禁缺口，设备未复验"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

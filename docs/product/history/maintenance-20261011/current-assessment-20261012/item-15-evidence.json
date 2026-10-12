@@ -1,0 +1,54 @@
+{
+  "order": 15,
+  "id": "REQ-20260415-codex-android-runtime-interaction-fixes",
+  "conclusion": "undetermined",
+  "coverage": "原11问题逐一定位：中断、进行中/完成通知、两行header、手动到底、slash写入、历史继续、弱网恢复、reopen复用、即时transcript、图片/文件picker分流；按后来IPC冻结约束解释恢复。",
+  "achievements": [
+    "当前中断无legacy active turn即返回；前台服务active状态集合及idle收口、完成/审批/用户输入/计划/错误通知分支可定位",
+    "历史4月有逐项真机信息：同thread续发、断网从第5行补至第60行、restore与shell元数据一致、当前页Reply with OK→OK、图片/文件sheet",
+    "当前IPC定向套件验证selection、同canonical thread、healthy surface停止晚到canonical覆盖；gateway窄测thread复用相关主要断言通过"
+  ],
+  "gaps": [
+    "当前权威恢复已改造，4月“idle/turn完成自动full thread/read”方法不可直接沿用；当前APK断流/回前台后的完整结果与通知收口未知",
+    "follower发送不写legacy optimistic消息（ViewModel:6777），由owner surface显示用户正文；未用真实宿主验证是否满足当前发送后即时可见，不能仅因legacy optimistic测试通过就覆盖此路径"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:874：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md:27-67,102-128,148-161：原11问题与历史各批具体行为",
+    "docs/changes/records/CR-20260418-0048-codex-reopen-transcript-attachment-fix.md:24-30,61-73：527bad77范围与真机结果",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:4907-4950,1209-1225,6601-6817：中断、有界恢复、发送/optimistic权威边界",
+    "android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt:35-45,97-125：活跃集合及非活跃停止；android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt:1439-1467,1490-1637：通知与完成判定",
+    "tests/terminalGateway.codex.test.js:1667-1726：本次唯一该例失败为1722硬编码Windows cwd；canonical resume、零thread/start、threadId回写断言此前已通过",
+    "tests/terminalGateway.codexIpc.test.js:2271,2451,3161：当前healthy/desynced/canonical晚到测试通过"
+  ],
+  "historical_applicability": [
+    "527bad77等旧验证证明4月修复当时有效；不把文档in_progress当未实现，也不把CR补commit视为新运行成果",
+    "AD-004的healthy IPC唯一权威和恢复确认取代4月旧恢复实现；当前重开/断流需按这个现行范围补证",
+    "7月布局/附件打开只覆盖相应行为，不能扩大为11问题整组PASS"
+  ],
+  "device_checks": [
+    {
+      "function": "原11问题的恢复与通知部分",
+      "behavior": "原任务断流后正文收敛且不误建线程，通知随执行状态收口",
+      "prerequisites": "匹配服务/APK、已绑定任务；可正常运行较长回复并在执行期切后台",
+      "steps": [
+        "在历史任务发送消息，核对同conversation",
+        "输出中短暂断网再恢复，前后台切换",
+        "完成后看当前页全文、进行中通知和完成提醒；idle尝试终止入口"
+      ],
+      "expected": [
+        "原thread不改变；正文最终完整且不重复；没有stale进行中通知；完成提醒可回原任务；无active turn不弹CODEX_NO_ACTIVE_TURN"
+      ],
+      "existing_evidence": [
+        "4月Huawei分批行为已记录；当前自动测试覆盖服务端有界恢复，设备执行未做"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

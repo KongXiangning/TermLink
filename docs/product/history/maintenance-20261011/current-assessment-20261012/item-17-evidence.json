@@ -1,0 +1,31 @@
+{
+  "order": 17,
+  "id": "REQ-20260715-linux-interactive-release-installer",
+  "conclusion": "undetermined",
+  "coverage": "原P1–P5 Debian/Ubuntu systemd amd64/arm64的交互/非交互/dry-run、版本目录/回滚、HTTP/direct/Nginx mTLS与tag release",
+  "achievements": [
+    "原20398215 CR保留P1–P4实现、33/33、OpenSSL/包/checksum/dry-run报告；当前install.sh、installer-config、versioned service和release workflow逐项定位",
+    "本轮Linux配置4项及Nginx测试通过；未执行任何系统安装/服务变更"
+  ],
+  "gaps": [
+    "原P5外部systemd/Nginx、arm64和实际tag smoke明确未完成；本次无替代外部验收",
+    "本轮direct-mTLS 4项被os.networkInterfaces的uv_interface_addresses环境限制打断；不是已证业务失败",
+    "git ls-remote --tags origin当前空输出（exit0）；不能据此证明GitHub所有历史Release从未存在"
+  ],
+  "evidence": [
+    "docs/product/requirements/REQ-20260715-linux-interactive-release-installer.md:24–76",
+    "docs/product/plans/PLAN-20260715-linux-interactive-release-installer.md:7–29",
+    "docs/changes/records/CR-20260715-1635-linux-interactive-installer.md:18–68",
+    "install.sh:1–93",
+    "scripts/install/linux/install-service.sh",
+    "scripts/install/linux/installer-config.js",
+    ".github/workflows/release-linux.yml",
+    "web-workspace-release.tap及test-summary.md"
+  ],
+  "historical_applicability": "20398215b7e1586f48e47d9e527a7bb7e5b13ead→当前，忽略行尾后install.sh/scripts/install/linux/scripts/certs无语义diff；release build/layout后继有版本与配置清单变更。原本地证据沿原范围保留，不能代替当前外部host/tag。",
+  "device_checks": [],
+  "unread": [
+    "独立Linux实施task包未定位",
+    "未检查GitHub Release页面/Actions运行附件；未建立arm64/systemd/Nginx外部环境"
+  ]
+}

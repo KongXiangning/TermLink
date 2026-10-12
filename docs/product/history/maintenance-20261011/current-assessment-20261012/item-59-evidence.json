@@ -1,0 +1,29 @@
+{
+  "order": 59,
+  "id": "REQ-TERMLINK-WORKSPACE-PREVIEW",
+  "conclusion": "satisfied",
+  "coverage": "只读文本/代码分级、高亮、Markdown安全资源、图片自然比例、离线PDF及不支持类型状态",
+  "achievements": [
+    "FileService当前字节归一后与7月基线相同；真实fixture覆盖full/truncated/segmented/limited和非文本反馈",
+    "当前JSDOM通过Markdown禁raw HTML/危险协议、rendered/source切换、图片Blob回收及PDF pinned offline worker",
+    "renderText/Markdown/Image/PDF主体与原浏览器/真机交付版本保持；13px Markdown、12px wrap与长token规则仍在"
+  ],
+  "gaps": [
+    "不要求新增PDF/大图/编码/OEM样本；当前测试未声称枚举所有格式/设备"
+  ],
+  "evidence": [
+    "TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md:8–32",
+    "TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md:8–27",
+    "src/services/workspacePathUtils.js:16–158",
+    "src/routes/workspace.js:60–217",
+    "src/services/workspaceFileService.js:319–433,616–694",
+    "public/workspace.js:229–280,419–521,590–667",
+    "android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt:330–470",
+    "本轮原始输出：web-workspace-release.tap（108项96通过12失败；workspace三个测试文件无失败，失败归因见test-summary.md）"
+  ],
+  "historical_applicability": "原TASK60718-003（f0fd5f43）及60719-001（6c1d3d09）有47/47/152/152、14/14、134/134和Huawei/Playwright验收。当前对6c1d3d09逐文件忽略行尾diff：workspaceFileService/CompareService/PathUtils无语义差异；CSS字号/长token核心及renderText/Markdown/Image/PDF/structuredDiff主体保持。workspace.js导航/主题/注册headers、Activity入口/返回/registration有后继改动，不把全部旧真机结果直接升级为当前宿主验收。当前对应JSDOM/API/compare测试全部通过；未新增浏览器/手机实测。",
+  "device_checks": [],
+  "unread": [
+    "原Huawei/Playwright截图未取得；PDF当前测试覆盖loader/控制逻辑而非新浏览器视觉截图"
+  ]
+}

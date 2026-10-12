@@ -1,0 +1,42 @@
+{
+  "order": 19,
+  "id": "REQ-20261005-codex-history-shared-compat",
+  "conclusion": "satisfied",
+  "coverage": "仅833八项共享隔离兼容：Spike→formal来源、DelegatedInput身份/turn/正文/双载体、G1/G2 full/delta证明、能力交集/旧状态保护及实际Rust→SQLite/provider重开，不纳入分支或真机。",
+  "achievements": [
+    "原S5实际43/43输出逐项可读，包含H1 backfill/append、H3三组委派、SQL staging COMMIT→实际正ACK→Rust complete→产品COMMIT/provider重开、负ACK与ROLLBACK旧canonical保护",
+    "原当前版本独立复核：Rust delegated6、history_v2 3、Node history_v2 13、三类产品5通过；相关6 Rust源、Node模块/测试和fixture当前逐字节一致",
+    "当前Node定向测试验证schema、delivery、内容冲突、旧attempt、canonical降级/恢复保护；实际production DelegatedInput设置system role，工具详情不由委派虚构"
+  ],
+  "gaps": [
+    "原功能范围内未识别欠交；旧发布target-v1产品自动迁移失败由832明确排除，与833原新job四空恢复参数/未结算原交付保护不同，不混为“已修复”",
+    "本次Node v24.19.0原有9个history/collector/diagnostics测试文件：过滤8个需cargo的顶层入口（含子测试10项）后237通过/1失败；原输出../history-node-tests-available.tap。唯一失败为70MiB例的错误码断言（期待history_envelope_too_large，实际history_payload_chunks_unsupported），不支持chunk客户端已显式失败且未发delta，现行契约未要求旧错误码，不能据此判功能失效。首次未成功过滤的运行还保留cargo ENOENT，不伪装通过。"
+  ],
+  "evidence": [
+    "docs/codex/codex-history-shared-compat-contract.md:19–139 精确两载体/G1/G2/能力/恢复契约",
+    "git:0618cafc:.workflow-system/records/evidence-objects/04b7fff55add0bc00188f938b7546eacc7cd85df32ba9a961c105e2e65125e11.blob 原S5执行报告（副本../history-evidence/833s5-report.md）",
+    "git:0618cafc:.workflow-system/records/evidence-objects/8dac84cabb352745ff0ddac315c8c476cee8d86740451d05d145266abe30d4ec.blob 原43/43 stdout（已核哈希）",
+    "tests/codexRolloutCollector.realRust.test.js:64,122,195,223,296,331 当前保留原场景",
+    "src/services/codexRolloutCollector/analysisBatchImporter.js:921–998,1813 精确证明更新与system role",
+    "native/codex-rollout-collector/src/codex_adapter/mod.rs:1436 DelegatedInput；codex_wire/mod.rs:13–17 vendored re-export"
+  ],
+  "historical_applicability": {
+    "original": "833 S5源f2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8、Rust exe 16d5a6857192710514fa3e6fdd4029ff3ea83a1ba29970b4e121d31d8b91b06f，仅隔离。后续832 488dc6c9/Rust f0cd1b37…3ec2e重新检查对应v2与产品场景。",
+    "current": {
+      "assessed_head": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+      "historical_server_source_head": "488dc6c9e597ef096f617d17499fa8e048306c06",
+      "android_fix_commit": "0618cafc",
+      "rust_binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e",
+      "apk_sha256": "f148028b15fa3a8dffe63ca483bcda5a1ce9764bbde817e68a357598d25dfd6a",
+      "phone": "MQS7N19402011743",
+      "profile": "task005-s2-local",
+      "range_enabled": true,
+      "qualification": "这些是原832实测版本；23个源码/测试/规范/fixture历史哈希与当前逐字节相同，0618cafc至HEAD的src/native/android/public/tests/scripts零diff。原Windows Rust exe与APK未在本次机器物化，不声称当前真机或重新构建。"
+    }
+  },
+  "device_checks": [],
+  "unread": [
+    "本次未运行cargo；原43/43与后续同源码独立定向测试作为历史适用证据，不声称本次新43/43",
+    "未把尚待/closed旧PLAN文字当最终验证依据，已读实际stdout和后续samebyte报告"
+  ]
+}

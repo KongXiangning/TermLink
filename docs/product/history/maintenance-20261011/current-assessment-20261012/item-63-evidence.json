@@ -1,0 +1,49 @@
+{
+  "order": 63,
+  "id": "REQ-TERMLINK-SESSION-MANAGEMENT",
+  "conclusion": "undetermined",
+  "coverage": "创建/列表/重命名/删除/选择会话及模式/名称/路径元数据",
+  "achievements": [
+    "当前API metadata12/12，含传递模式/cwd、name PATCH；SessionStore 4/4元数据规范化；Web创建一次并切换同ID等20/20",
+    "Manager CRUD调度持久化，删除kill PTY；连接摘要元数据字段保留"
+  ],
+  "gaps": [
+    "自动化主要mock manager或Web DOM，未定位当前真实服务+Android CRUD完整独立验收；DELETE资源释放与选择完整链仍未知，不因代码存在判满足"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:2228–2244当前基本管理",
+    "src/services/sessionManager.js:95–151创建列表；188–249更新删除；452–475摘要",
+    "src/routes/sessions.js:185–273 REST CRUD",
+    "tests/routes.sessions.metadata.test.js:现12项通过，manager为mock",
+    "tests/sessions.web.test.js:272–292仅提交一次并switch session-new",
+    "tests/sessionStore.metadata.test.js:5–102 当前4/4字段测试",
+    "2026-10-12 Linux/Node v24.19.0，当前HEAD：node --test tests/privilegeConfig.securityGates.test.js tests/ipCheck.test.js tests/auditService.test.js tests/ptySpawnOptions.test.js tests/sessionStore.metadata.test.js tests/routes.sessions.capacity.test.js tests/routes.sessions.metadata.test.js tests/health.route.test.js；46/46、exit 0。按每项关联测试限定使用，不视为全部业务闭环。",
+    "2026-10-12 当前HEAD：node --test tests/sessions.web.test.js tests/terminal_shortcut_input.test.js；26/26（20 Web UI/6共享控制输入）、正常结束。"
+  ],
+  "historical_applicability": "PRODUCT_REQUIREMENTS/CURRENT_STATE提供原定性基线，不是E2E验收。60618原task:434–454记录有效ID/无ID探针、浏览器两轮count不增、用户跳过新增定向测试、Android条件未触发、12/12窄门禁；提交1cd85c6。public/codex_ipc.js原始blob与HEAD不同，但忽略行尾无差异，修复控制流可沿用；terminal.js、terminal_client.js、gateway及Android整体不同，不把该刷新验收扩到IO/CRUD/重启。",
+  "device_checks": [
+    {
+      "function": "终端会话管理",
+      "behavior": "Android创建/列表/选择/重命名/删除及模式名称路径保留",
+      "preconditions": "隔离测试服务、当前APK，允许只对新建测试会话操作",
+      "steps": [
+        "新建Terminal测试会话并确认列表",
+        "重命名、选择后返回列表核对同ID/名称/模式",
+        "删除该测试会话确认列表消失且原ID不可再连"
+      ],
+      "expected": "CRUD与选择一致，元数据保留，删除释放资源",
+      "existing_evidence": "当前API metadata12项与Web创建切换通过；缺当前Android实际CRUD全链",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    }
+  ],
+  "unread": [
+    "原基线实施task未完整定位",
+    "Android当前CRUD/选择未实测"
+  ]
+}

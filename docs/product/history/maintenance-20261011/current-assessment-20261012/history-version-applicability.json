@@ -1,0 +1,217 @@
+{
+  "current_head": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+  "tested_source_head": "488dc6c9e597ef096f617d17499fa8e048306c06",
+  "android_following_commit": "0618cafc",
+  "source_diff_0618_to_current": [],
+  "subjects": [
+    {
+      "path": "native/codex-rollout-collector/src/analysis.rs",
+      "historical_sha256": "3f35ef604287e5167739a83ae1c50e840e3d2ccabcce45cbdc3009b2eddbaffa",
+      "current_sha256": "3f35ef604287e5167739a83ae1c50e840e3d2ccabcce45cbdc3009b2eddbaffa",
+      "byte_equal": true,
+      "historical_evidence": "832review-rust-audit.json"
+    },
+    {
+      "path": "native/codex-rollout-collector/src/codex_adapter/mod.rs",
+      "historical_sha256": "7d594abcc56bf632ac04b0dd0d904e24317c298e3ffddccd75d42338adda35bc",
+      "current_sha256": "7d594abcc56bf632ac04b0dd0d904e24317c298e3ffddccd75d42338adda35bc",
+      "byte_equal": true,
+      "historical_evidence": "832review-rust-audit.json"
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_runtime.rs",
+      "historical_sha256": "07df197d668c5c7f3731680f83ffe77daa271eafd73bc0f2c4ac4fa991ddf8f7",
+      "current_sha256": "07df197d668c5c7f3731680f83ffe77daa271eafd73bc0f2c4ac4fa991ddf8f7",
+      "byte_equal": true,
+      "historical_evidence": "832review-rust-audit.json"
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_mapping.rs",
+      "historical_sha256": "ac7ab8ff4c0c0d3cfa97fb029d9379612e888b30aeb0b573568a9adec91fc9e4",
+      "current_sha256": "ac7ab8ff4c0c0d3cfa97fb029d9379612e888b30aeb0b573568a9adec91fc9e4",
+      "byte_equal": true,
+      "historical_evidence": "832review-rust-audit.json"
+    },
+    {
+      "path": "native/codex-rollout-collector/src/protocol/target_source.rs",
+      "historical_sha256": "c398fdb5da553e053db7d3ff55f588903ad9222ca2cbcf8804335523bdabc1f7",
+      "current_sha256": "c398fdb5da553e053db7d3ff55f588903ad9222ca2cbcf8804335523bdabc1f7",
+      "byte_equal": true,
+      "historical_evidence": "832review-rust-audit.json"
+    },
+    {
+      "path": "native/codex-rollout-collector/src/source/discovery.rs",
+      "historical_sha256": "13b9092a2653c4555035fb1767cc0ebac2dc1b2314042145f3a52692540a2d6e",
+      "current_sha256": "13b9092a2653c4555035fb1767cc0ebac2dc1b2314042145f3a52692540a2d6e",
+      "byte_equal": true,
+      "historical_evidence": "832review-rust-audit.json"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/index.js",
+      "historical_sha256": "f394444946bdd69e9a7effd5679fc46343f7052dc16c6db148b34fef98265c19",
+      "current_sha256": "f394444946bdd69e9a7effd5679fc46343f7052dc16c6db148b34fef98265c19",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+      "historical_sha256": "fa2792daab5591d4b2e83e1a5c085a27090f9a95907b7abec613e6302695c85d",
+      "current_sha256": "fa2792daab5591d4b2e83e1a5c085a27090f9a95907b7abec613e6302695c85d",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "historical_sha256": "49a11e48535002e97ca2c1e8bc5f095e1d36bb24c7612b498492fbb3b971e091",
+      "current_sha256": "49a11e48535002e97ca2c1e8bc5f095e1d36bb24c7612b498492fbb3b971e091",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "historical_sha256": "c5cd7c8fbd89a3b3df2d15542ff34ab91be49e4ec3ac3bb205a83d8bb9e7f49c",
+      "current_sha256": "c5cd7c8fbd89a3b3df2d15542ff34ab91be49e4ec3ac3bb205a83d8bb9e7f49c",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+      "historical_sha256": "495286171b5ad11ff13e5a3ce52e36bf7c055940630ade9c60d5430f525ee167",
+      "current_sha256": "495286171b5ad11ff13e5a3ce52e36bf7c055940630ade9c60d5430f525ee167",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "src/services/codexHistoryReconciliationScheduler.js",
+      "historical_sha256": "90884a77cedee0802f367dcdf6bf25da65c4a2f5d3da8483d8d291bb106a9f6d",
+      "current_sha256": "90884a77cedee0802f367dcdf6bf25da65c4a2f5d3da8483d8d291bb106a9f6d",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "src/services/codexHistoryProductStore.js",
+      "historical_sha256": "f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16",
+      "current_sha256": "f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "src/services/codexHistoryProductProvider.js",
+      "historical_sha256": "00b4da43488098bcb67bc35879cbfe9ddb3676dd0f83c23216023c71393201de",
+      "current_sha256": "00b4da43488098bcb67bc35879cbfe9ddb3676dd0f83c23216023c71393201de",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "src/ws/terminalGateway.js",
+      "historical_sha256": "5072477e3c49fc664e1a2ef9b884c6f517bc2bc9608c2b4b5f927423e22c5cdf",
+      "current_sha256": "5072477e3c49fc664e1a2ef9b884c6f517bc2bc9608c2b4b5f927423e22c5cdf",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "tests/codexRolloutCollector.test.js",
+      "historical_sha256": "e04056d95b1875f83a1af6f7118b4126331942346421d3b2fdfeae956b00bcf8",
+      "current_sha256": "e04056d95b1875f83a1af6f7118b4126331942346421d3b2fdfeae956b00bcf8",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "tests/codexRolloutCollector.realRust.test.js",
+      "historical_sha256": "2c525c0605ae25017a8eeb037d5f795b5c6e3b2e54dd9687a2163d5a07e153b7",
+      "current_sha256": "2c525c0605ae25017a8eeb037d5f795b5c6e3b2e54dd9687a2163d5a07e153b7",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "tests/codexHistoryProductFlow.test.js",
+      "historical_sha256": "b8e3645dfcc0bf7e7a70a39273901fac11bb6ed00b587ccbc48c9280fe51f34e",
+      "current_sha256": "b8e3645dfcc0bf7e7a70a39273901fac11bb6ed00b587ccbc48c9280fe51f34e",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+      "historical_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e",
+      "current_sha256": null,
+      "byte_equal": false,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+      "historical_sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c",
+      "current_sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "docs/codex/codex-history-shared-compat-contract.md",
+      "historical_sha256": "d1f3ba55d88d41e3946933b9a2c6ecd10f6b3db7b3c40f76def254d8c05d3a05",
+      "current_sha256": "d1f3ba55d88d41e3946933b9a2c6ecd10f6b3db7b3c40f76def254d8c05d3a05",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "docs/codex/codex-rollout-collector-architecture.md",
+      "historical_sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d",
+      "current_sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d",
+      "byte_equal": true,
+      "historical_evidence": "832review-node-audit.json"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "historical_sha256": "aac5ced2b1b6c689c1fbfa57b80a19679d6f9d8fa6bb7b7bf5793c6962c00f78",
+      "current_sha256": "aac5ced2b1b6c689c1fbfa57b80a19679d6f9d8fa6bb7b7bf5793c6962c00f78",
+      "byte_equal": true,
+      "historical_evidence": "git:0618cafc:.workflow-system/records/attachments/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json"
+    },
+    {
+      "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt",
+      "historical_sha256": "91a9e0f622f96fa2bb8c556fce9568708e848dd82e695d496b9bd03a10cf566e",
+      "current_sha256": "91a9e0f622f96fa2bb8c556fce9568708e848dd82e695d496b9bd03a10cf566e",
+      "byte_equal": true,
+      "historical_evidence": "git:0618cafc:.workflow-system/records/attachments/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json"
+    }
+  ],
+  "windows_rust_binary_sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e",
+  "installed_and_built_apk_sha256": "f148028b15fa3a8dffe63ca483bcda5a1ce9764bbde817e68a357598d25dfd6a",
+  "phone_serial": "MQS7N19402011743",
+  "profile": "task005-s2-local",
+  "range_enabled": true,
+  "history_semantics": "history_semantics_v2/target-v2",
+  "current_rerun": {
+    "node": "v24.19.0",
+    "passed": 237,
+    "failed": 1,
+    "filtered_top_level": 8,
+    "cargo_dependent_count_including_subtests": 10,
+    "failure": "70 MiB test expects history_envelope_too_large but actual history_payload_chunks_unsupported; delta absent assertion passed",
+    "artifact": "../history-node-tests-available.tap"
+  },
+  "samples": [
+    {
+      "sample": "N",
+      "conversation_id": "01a114a2-a201-7f73-993f-9c956ae35713",
+      "items": 11,
+      "detail_refs": 2,
+      "selected_detail_bytes": 469,
+      "coverage_root": "4d9b29481737d301f86d1b137993a33bcf22008a28fbe99337e9924c464bd3f2"
+    },
+    {
+      "sample": "C",
+      "conversation_id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+      "items": 22,
+      "detail_refs": 4,
+      "selected_detail_bytes": 469,
+      "coverage_root": "48b75ca6922483a5c464d26abce577330a7ef6dd712f85b58695279c90fce480"
+    },
+    {
+      "sample": "A/D",
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "items": 40,
+      "detail_refs": 9,
+      "selected_detail_bytes": 552,
+      "coverage_root": "23a3f13872a9eff71c1715c7f27884005ade1fd78acfda714cedaf2233a7e06b"
+    }
+  ]
+}

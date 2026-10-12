@@ -1,0 +1,493 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-10-08",
+  "provenance": {
+    "kind": "independent-review",
+    "reviewer": "Node-scoped child reviewer; not implementation agent",
+    "business_mutations": false,
+    "journal_mutations": false,
+    "workspace": "E:/coding/TermLink-rust-source-resolution-codex",
+    "baseline": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+    "head": "488dc6c9e597ef096f617d17499fa8e048306c06",
+    "scope": "Node cumulative H1/importer/manager/checkpoint/profile compatibility and product publication/provider boundary; no Rust/Android implementation audit"
+  },
+  "findings": [
+    {
+      "id": "NODE-R1",
+      "priority": 2,
+      "title": "Select a fresh v2 backfill before reconciling an existing v1 product checkpoint",
+      "file": "src/services/codexRolloutCollector/index.js",
+      "start": 626,
+      "end": 628,
+      "related_locations": [
+        {
+          "file": "src/services/codexHistoryReconciliationScheduler.js",
+          "start": 167,
+          "end": 191
+        },
+        {
+          "file": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+          "start": 615,
+          "end": 619
+        }
+      ],
+      "affected_steps": [
+        "TASK-20260832/S4",
+        "TASK-20260832/S5"
+      ],
+      "execution_refs": [
+        ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+        ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json"
+      ],
+      "prerequisite": "TASK-20260833 Node profile/request bridge",
+      "trigger": "A previously published canonical target-v1 product checkpoint with nonempty cursor is followed by normal terminal reconciliation after upgrade to the default history_semantics_v2 analyzer.",
+      "observed": {
+        "test": "production scheduler with genuine SQLite canonical v1 checkpoint plus source growth",
+        "originalProfile": "target-v1",
+        "originalCompleteness": "canonical",
+        "originalCursor": true,
+        "checkpointUnchanged": true,
+        "oldCanonicalUnchanged": true,
+        "beforeItems": 2,
+        "afterItems": 2,
+        "completionEventPublished": false,
+        "outgoing": [
+          {
+            "type": "hello",
+            "hasV2": true,
+            "cursorPresent": false,
+            "recoveryPresent": false
+          },
+          {
+            "type": "analyze",
+            "mode": "append",
+            "anchor": "target-v1",
+            "cursorPresent": true,
+            "recoveryPresent": false
+          }
+        ],
+        "result": {
+          "failureCode": "checkpoint_incompatible",
+          "message": "persisted reducer profile is incompatible with negotiated read semantics",
+          "retryable": false
+        }
+      },
+      "impact": "Scheduler always chooses append for that checkpoint. The new manager selects v2, while the collector only clears old recovery fields for a caller-selected backfill. Rust correctly rejects cross-profile append. Normal reconciliation retains its intent and the old canonical but cannot save subsequent content; later terminal observations repeat the same failure.",
+      "minimal_followup": "Choose a distinct ordinary backfill job with cursor/persisted_anchor/known_complete_range/recovery empty for a settled v1 product checkpoint when v2 is negotiated. Preserve original unsettled job/profile/delivery recovery and strict cross-profile append rejection. Add a regression through the actual scheduler with a durably published v1 product checkpoint."
+    }
+  ],
+  "new_test_runs": [
+    {
+      "command": "node --test --test-reporter=tap --test-name-pattern='target stdout UTF8' tests/codexRolloutCollector.test.js",
+      "selector": "target stdout UTF8",
+      "files": [
+        "tests/codexRolloutCollector.test.js"
+      ],
+      "exit_code": 0,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skip": 0,
+      "duration_ms": 206.3992,
+      "report_ref": "node-audit.json#/new_test_runs/0",
+      "actual_output_summary": "TAP tests3 pass3 fail0 cancelled0 skipped0 todo0"
+    },
+    {
+      "command": "$env:CARGO_NET_OFFLINE='true'; node --test --test-reporter=tap --test-name-pattern='history v2' tests/codexRolloutCollector.realRust.test.js",
+      "selector": "history v2",
+      "files": [
+        "tests/codexRolloutCollector.realRust.test.js"
+      ],
+      "exit_code": 0,
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skip": 0,
+      "duration_ms": 2929.4801,
+      "report_ref": "node-audit.json#/new_test_runs/1",
+      "actual_output_summary": "TAP 6 top-level tests,13 including subtests; pass13 fail0 cancelled0 skipped0 todo0; helper actual offline cargo build --locked against current native sources"
+    },
+    {
+      "command": "$env:CARGO_NET_OFFLINE='true'; node --test --test-reporter=tap --test-name-pattern='history shared delivery H1|history branch delivery H2|history shared delivery H3' tests/codexHistoryProductFlow.test.js",
+      "selector": "history shared delivery H1|history branch delivery H2|history shared delivery H3",
+      "files": [
+        "tests/codexHistoryProductFlow.test.js"
+      ],
+      "exit_code": 0,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skip": 0,
+      "duration_ms": 2398.6568,
+      "report_ref": "node-audit.json#/new_test_runs/2",
+      "actual_output_summary": "TAP 3 top-level tests,5 including subtests; pass5 fail0 cancelled0 skipped0 todo0; isolated real Rust/Node/SQLite/provider,reopen and rejection/rollback checks"
+    }
+  ],
+  "new_reproducer": {
+    "command": "PowerShell literal JavaScript here-string piped to node (isolated SQLite genuine v1 publication, source growth, actual CodexHistoryReconciliationScheduler._reconcile)",
+    "exit_code": 0,
+    "wall_time_seconds": 0.4989607,
+    "fixture": "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+    "setup": "Copy byte-preserved first2 fixture rows to a fresh temporary CODEX_HOME; create FileAnalysisStore/FileCheckpointStore/FileAnalysisRunStore plus real CodexHistoryProductStore/AnalysisBatchImporter; use AnalyzerProcessManager.request with historyProfile target-v1 to publish prefix via ordinary batch/ACK/complete; stop child; append fixture's first task_complete row; call actual scheduler._reconcile with same collector and productStore; record error/publication hashes; stop and remove verified temp root.",
+    "actual_stdout": "{\"test\":\"production scheduler with genuine SQLite canonical v1 checkpoint plus source growth\",\"originalProfile\":\"target-v1\",\"originalCompleteness\":\"canonical\",\"originalCursor\":true,\"checkpointUnchanged\":true,\"oldCanonicalUnchanged\":true,\"beforeItems\":2,\"afterItems\":2,\"completionEventPublished\":false,\"outgoing\":[{\"type\":\"hello\",\"hasV2\":true,\"cursorPresent\":false,\"recoveryPresent\":false},{\"type\":\"analyze\",\"mode\":\"append\",\"anchor\":\"target-v1\",\"cursorPresent\":true,\"recoveryPresent\":false}],\"result\":{\"failureCode\":\"checkpoint_incompatible\",\"message\":\"persisted reducer profile is incompatible with negotiated read semantics\",\"retryable\":false}}\n",
+    "report_ref": "node-audit.json#/new_reproducer",
+    "qualification": "Exit0 means harness successfully observed retained failure, not product PASS. No server/phone/model/external source operations.",
+    "source_file": "logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs",
+    "source_sha256": "6d3d6f50a264eb68a7fec0440ef6cfd4cb37920a9611f82f1ea0a941bb036e70",
+    "source_persistence_qualification": "Exact previously executed inline JavaScript saved afterward; the saved filename was not separately executed. It keeps original relative imports for stdin execution from repository root.",
+    "reproduction_command": "Get-Content -Raw logs/history-save-repair-20261005/independent-review-20261008/node-upgrade-repro.cjs | node"
+  },
+  "exploratory_setup_probe": {
+    "qualification": "Initial minimal-rollout fixture unexpectedly produced partial checkpoint; not used as upgrade proof",
+    "command": "Inline Node stdin isolated scheduler setup using minimal-rollout.jsonl",
+    "exit_code": 0,
+    "observed": {
+      "profile": "target-v1",
+      "completeness": "partial",
+      "failure_code": "CODEX_HISTORY_CHECKPOINT_INVALID",
+      "outgoing": []
+    },
+    "retained": true
+  },
+  "status": {
+    "source": "fresh task-status read-only query plus parent saved fresh status",
+    "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+    "lifecycle": "active",
+    "adopted_plan_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+    "steps": [
+      {
+        "id": "S1",
+        "state": "finished",
+        "execution_ref": ".workflow-system/records/events/key-248acd0c7d34961431c8c987339c07919fbf316b12d5d8bcca70cb2061cf37d2.json",
+        "source_revision": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f"
+      },
+      {
+        "id": "S2",
+        "state": "finished",
+        "execution_ref": ".workflow-system/records/events/key-56e67631043abd0af05fa6ce1c8852e2df1e9564c7e919d6233879194db06cd0.json",
+        "source_revision": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71"
+      },
+      {
+        "id": "S3",
+        "state": "finished",
+        "execution_ref": ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json",
+        "source_revision": "589a62a78c6214fea13e7c5eecac5466d64d7a5d"
+      },
+      {
+        "id": "S4",
+        "state": "finished",
+        "execution_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+        "source_revision": "714379dafa7eedb3517d5d0550518faca969966c"
+      },
+      {
+        "id": "S5",
+        "state": "finished",
+        "execution_ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+        "source_revision": "32c6b66179ac314321540fab3b0a82b56050e317"
+      },
+      {
+        "id": "S6",
+        "state": "finished",
+        "execution_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+        "source_revision": "488dc6c9e597ef096f617d17499fa8e048306c06"
+      }
+    ],
+    "unassociated_records": [
+      {
+        "code": "UNASSOCIATED_RECORD",
+        "ref": ".workflow-system/records/events/key-500dd9dfe2b72bcdac7abb9439594959bbdae51cb31b185c9bd85dba799c494f.json"
+      },
+      {
+        "code": "UNASSOCIATED_RECORD",
+        "ref": ".workflow-system/records/events/key-8c1ece7bec2b5ca22c81d8b8eec4ecc1e6fd74d2fa19f65d914954ebfec206b5.json"
+      },
+      {
+        "code": "UNASSOCIATED_RECORD",
+        "ref": ".workflow-system/records/events/key-0728bd5323f8d7bc4cb558a93e521c95067db62cf2a8a17933b41abae5a7cfe6.json"
+      }
+    ]
+  },
+  "file_hashes": [
+    {
+      "path": "src/services/codexRolloutCollector/index.js",
+      "bytes": 66623,
+      "sha256": "f394444946bdd69e9a7effd5679fc46343f7052dc16c6db148b34fef98265c19"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProtocol.js",
+      "bytes": 75479,
+      "sha256": "fa2792daab5591d4b2e83e1a5c085a27090f9a95907b7abec613e6302695c85d"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analyzerProcessManager.js",
+      "bytes": 49232,
+      "sha256": "49a11e48535002e97ca2c1e8bc5f095e1d36bb24c7612b498492fbb3b971e091"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisBatchImporter.js",
+      "bytes": 89094,
+      "sha256": "c5cd7c8fbd89a3b3df2d15542ff34ab91be49e4ec3ac3bb205a83d8bb9e7f49c"
+    },
+    {
+      "path": "src/services/codexRolloutCollector/analysisCheckpointStore.js",
+      "bytes": 16143,
+      "sha256": "495286171b5ad11ff13e5a3ce52e36bf7c055940630ade9c60d5430f525ee167"
+    },
+    {
+      "path": "src/services/codexHistoryReconciliationScheduler.js",
+      "bytes": 8912,
+      "sha256": "90884a77cedee0802f367dcdf6bf25da65c4a2f5d3da8483d8d291bb106a9f6d"
+    },
+    {
+      "path": "src/services/codexHistoryProductStore.js",
+      "bytes": 27529,
+      "sha256": "f58d3751756e26e6c207f3aa13e8b603c92d2327af333194a0dac79f0cd5fd16"
+    },
+    {
+      "path": "src/services/codexHistoryProductProvider.js",
+      "bytes": 19964,
+      "sha256": "00b4da43488098bcb67bc35879cbfe9ddb3676dd0f83c23216023c71393201de"
+    },
+    {
+      "path": "src/ws/terminalGateway.js",
+      "bytes": 462277,
+      "sha256": "5072477e3c49fc664e1a2ef9b884c6f517bc2bc9608c2b4b5f927423e22c5cdf"
+    },
+    {
+      "path": "tests/codexRolloutCollector.test.js",
+      "bytes": 271831,
+      "sha256": "e04056d95b1875f83a1af6f7118b4126331942346421d3b2fdfeae956b00bcf8"
+    },
+    {
+      "path": "tests/codexRolloutCollector.realRust.test.js",
+      "bytes": 29623,
+      "sha256": "2c525c0605ae25017a8eeb037d5f795b5c6e3b2e54dd9687a2163d5a07e153b7"
+    },
+    {
+      "path": "tests/codexHistoryProductFlow.test.js",
+      "bytes": 112979,
+      "sha256": "b8e3645dfcc0bf7e7a70a39273901fac11bb6ed00b587ccbc48c9280fe51f34e"
+    },
+    {
+      "path": "native/codex-rollout-collector/target/debug/codex-rollout-collector.exe",
+      "bytes": 639272263,
+      "sha256": "f0cd1b37ff02d0a023ff77d96b9e4be103507965afde20c4e3207b6dfcd3ec2e"
+    },
+    {
+      "path": "native/codex-rollout-collector/tests/fixtures/current/delegated-context.jsonl",
+      "bytes": 5542,
+      "sha256": "597d928d296b14af7eff33047caf2f292bbc51efe87ae6a7fdda2749e0ee1a7c"
+    },
+    {
+      "path": "docs/codex/codex-history-shared-compat-contract.md",
+      "bytes": 20281,
+      "sha256": "d1f3ba55d88d41e3946933b9a2c6ecd10f6b3db7b3c40f76def254d8c05d3a05"
+    },
+    {
+      "path": "docs/codex/codex-rollout-collector-architecture.md",
+      "bytes": 123055,
+      "sha256": "3daca8e585adb14d84b02e2886e65850a5a446599637ec73aa3249824a66354d"
+    }
+  ],
+  "originalH1": {
+    "path": "logs/task005-s2-repair-runtime-2/data/codex-rollout-analysis/7ebafbd2d3b406ee0596cf79203a66a04e36581d7a6ff20ef2ff14a6b4a88406.json",
+    "oldPartialStagingCount": 5,
+    "oldStart": {
+      "event_type": "TurnStarted",
+      "source_ref": {
+        "source_identity": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+        "byte_start": 405497,
+        "byte_end": 405797,
+        "physical_line_ordinal": 35,
+        "rollout_ordinal": 34,
+        "timestamp": "2026-10-03T18:27:50.512Z",
+        "item_type": "event_msg/task_started"
+      },
+      "sha256": "0454c519348bb676e83153da0f303fc66765d04c63eb8befe61c3eba91d55294"
+    },
+    "newObservations": [
+      {
+        "batch_id": "batch-32d510724207aa19275a229bd2c78a7e",
+        "profile": "target-v2",
+        "startUnchanged": true,
+        "completion": [
+          {
+            "status": "completed",
+            "source_ref": {
+              "source_identity": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+              "byte_start": 469574,
+              "byte_end": 469882,
+              "physical_line_ordinal": 60,
+              "rollout_ordinal": 59,
+              "timestamp": "2026-10-03T18:28:46.760Z",
+              "item_type": "event_msg/task_complete"
+            },
+            "sha256": "97fe6c20493d9b6deafb7256110d4631fb9483775959d5650e552ca5cac9cb2e"
+          }
+        ]
+      },
+      {
+        "batch_id": "batch-d114787afa32050155f129c191e70beb",
+        "profile": "target-v2",
+        "startUnchanged": true,
+        "completion": [
+          {
+            "status": "completed",
+            "source_ref": {
+              "source_identity": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+              "byte_start": 469574,
+              "byte_end": 469882,
+              "physical_line_ordinal": 60,
+              "rollout_ordinal": 59,
+              "timestamp": "2026-10-03T18:28:46.760Z",
+              "item_type": "event_msg/task_complete"
+            },
+            "sha256": "97fe6c20493d9b6deafb7256110d4631fb9483775959d5650e552ca5cac9cb2e"
+          }
+        ]
+      },
+      {
+        "batch_id": "batch-44b27aa490af20523515e721bddcf107",
+        "profile": "target-v2",
+        "startUnchanged": true,
+        "completion": [
+          {
+            "status": "completed",
+            "source_ref": {
+              "source_identity": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+              "byte_start": 469574,
+              "byte_end": 469882,
+              "physical_line_ordinal": 60,
+              "rollout_ordinal": 59,
+              "timestamp": "2026-10-03T18:28:46.760Z",
+              "item_type": "event_msg/task_complete"
+            },
+            "sha256": "97fe6c20493d9b6deafb7256110d4631fb9483775959d5650e552ca5cac9cb2e"
+          }
+        ]
+      },
+      {
+        "batch_id": "batch-66916c79f24487d32c63316d33b6116e",
+        "profile": "target-v2",
+        "startUnchanged": true,
+        "completion": [
+          {
+            "status": "completed",
+            "source_ref": {
+              "source_identity": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+              "byte_start": 469574,
+              "byte_end": 469882,
+              "physical_line_ordinal": 60,
+              "rollout_ordinal": 59,
+              "timestamp": "2026-10-03T18:28:46.760Z",
+              "item_type": "event_msg/task_complete"
+            },
+            "sha256": "97fe6c20493d9b6deafb7256110d4631fb9483775959d5650e552ca5cac9cb2e"
+          }
+        ]
+      }
+    ],
+    "retainedOriginalFailures": [
+      {
+        "file": "391b3d5200015fc40f9897b35937e17ceef09c7ba9263fabd312ba9e6153bcba.json",
+        "sha256": "f998f752dfeb0083b684a8a88a68bd3acac65f7341cdb9d4838a31d99c582ccb",
+        "status": "failed",
+        "error_code": "batch_rejected",
+        "rejection_code": "batch_scope_conflict"
+      },
+      {
+        "file": "549caabd78394b841ba9ae946cf2b369e7914ab2546157146b0f349b9d78cb49.json",
+        "sha256": "8de0f3ee2edcd374a51d194bd7636fc2d8e807be8dabb52133497ad15f35b956",
+        "status": "failed",
+        "error_code": "batch_rejected",
+        "rejection_code": "batch_scope_conflict"
+      },
+      {
+        "file": "925c8a2140ba3cf2478027e62d77403cd2875f7f7b10fe5945ee386aaed6e62e.json",
+        "sha256": "a9dabef5263b2893076239be49b0ec0beee2b7c4e985409e453479cc5a1e4a6f",
+        "status": "failed",
+        "error_code": "batch_rejected",
+        "rejection_code": "batch_scope_conflict"
+      },
+      {
+        "file": "af6f0552c3b390717276d1c721997d633cdd1f1d7fc192c37105642176359812.json",
+        "sha256": "0511daa99e64b5c222b96c509ecb891d62a2af4eac78bff1394ee010be8b1c85",
+        "status": "failed",
+        "error_code": "batch_rejected",
+        "rejection_code": "batch_scope_conflict"
+      },
+      {
+        "file": "d0c2d14455efa0261636aac5412b9a2b6c80cd22632af3fbcc149e8a5d9ffda2.json",
+        "sha256": "c570bf7b00e9d3ec65a425424552744c06507b160571dd6a3a98043be98e5c42",
+        "status": "failed",
+        "error_code": "batch_rejected",
+        "rejection_code": "batch_scope_conflict"
+      },
+      {
+        "file": "d6fe251a6d0b35fb0078ec5ceb219eadc7b5663d26f814a8e8a5032dcb807d81.json",
+        "sha256": "d7d5353ad1a2f8014e7e47192c8803cf10acdfab4710dc82b0706baa3d412f67",
+        "status": "failed",
+        "error_code": "batch_rejected",
+        "rejection_code": "batch_scope_conflict"
+      },
+      {
+        "file": "e5d85ce191af80dc2fc6ddfa1a176a64c74a4114f2639e32de347fe885dafcc0.json",
+        "sha256": "3a2352a17c5109058dc56366c2d2b0b0381a449fff6f2e0cdae549fa52c4ca17",
+        "status": "failed",
+        "error_code": "batch_rejected",
+        "rejection_code": "batch_scope_conflict"
+      },
+      {
+        "file": "ee9a7954a4a1c8c778ce311e5a6b0b4575a04c733264bb92a75d3797237012ec.json",
+        "sha256": "4015a147a973cfcc66b1799139d020d662eef47133a45bffd2416ad1e3bcfebc",
+        "status": "failed",
+        "error_code": "batch_rejected",
+        "rejection_code": "batch_scope_conflict"
+      }
+    ]
+  },
+  "productProfiles": [
+    {
+      "conversation_id": "01a0ee04-a775-72b3-bd07-04aac804a3b4",
+      "checkpoint_sha256": "fc91b4024979e4425e4233fc5946b72c5dd12470c1db6512a0e9b3576f3ced87",
+      "profile": "target-v1",
+      "completeness": "canonical",
+      "nonempty_cursor": true
+    },
+    {
+      "conversation_id": "01a10643-ae9b-7cb1-b99b-f19f59acba6c",
+      "checkpoint_sha256": "772c413a38f0f625a0dab06e68980b5dc2e1252d3de5f019bb233a1af06f98bf",
+      "profile": "target-v2",
+      "completeness": "canonical",
+      "nonempty_cursor": true
+    },
+    {
+      "conversation_id": "01a114a2-a201-7f73-993f-9c956ae35713",
+      "checkpoint_sha256": "016be016511513425cb29dcb55cbaa232904053036ca772e3e77599ad772729b",
+      "profile": "target-v2",
+      "completeness": "canonical",
+      "nonempty_cursor": true
+    },
+    {
+      "conversation_id": "01a114a4-e693-7be1-aafb-b9a3cb580e1d",
+      "checkpoint_sha256": "af0d7b9c13025611867ed5648ac0b394ffb800d5ec0e154fe7e0c348e746ed68",
+      "profile": "target-v2",
+      "completeness": "canonical",
+      "nonempty_cursor": true
+    },
+    {
+      "conversation_id": "01a0fe25-56a2-7910-ba22-61e8016e8ad9",
+      "checkpoint_sha256": "cf9d526b7a44ce901f1a9df64ac9bf4a85de1693054e9efc68d9106b3d1c101f",
+      "profile": "target-v2",
+      "completeness": "canonical",
+      "nonempty_cursor": true
+    }
+  ],
+  "coverage_limits": [
+    "Eight original batch-rejection runs not individually replayed; raw run files retained and read; one original mechanism plus sanctioned reduced fixture regressions and exact A state/event hashes corroborated.",
+    "Natural-host N/C/A server save/read evidence inspected, not rerun in this independent review.",
+    "All Android implementation/device/durable ACK and UI evidence delegated to parent reviewer; no phone operation performed here.",
+    "No blanket Node4.5 migration/release assertion; B/Q budget failures and three management association gaps retained.",
+    "No new permanent tests, business code/docs edits, Git writes, service startup, model turns or task/journal mutations."
+  ]
+}

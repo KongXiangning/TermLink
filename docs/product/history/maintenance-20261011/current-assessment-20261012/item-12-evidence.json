@@ -1,0 +1,50 @@
+{
+  "order": 12,
+  "id": "REQ-20260329-language-normalization",
+  "conclusion": "undetermined",
+  "coverage": "原系统映射、当期Web文案/包、Android资源与locale桥接、fallback及注册扩展；不纳手动选择/终端输出翻译/永久零硬编码义务",
+  "achievements": [
+    "真实i18n核心内存探针通过zh-CN/zh-TW/zh-HK→zh-CN，en/ja/ko→en；包加载/缺键非空fallback/registerLocale ja扩展均验证",
+    "当前Web559/559键与Android571/571名称对称；原列Web静态引用未发现缺键；现有6个Web测试46/46通过",
+    "LocaleHelper原映射及Terminal/Workspace URL语言桥保留"
+  ],
+  "gaps": [
+    "原Android阶段明确真机一致性待执行；收口只补包/资源/扩展检查，没有原设备语言结果",
+    "当前页面/Activity较历史改变；workspace测试i18n为stub，不证明真实包加载/原生一致；源码COPY入口差异不自动认作旧迁移欠交"
+  ],
+  "evidence": [
+    "docs/product/requirements/REQ-20260329-language-normalization.md:33–51,96–105,159–165原系统/原生一致/扩展",
+    "public/i18n/i18n.js:32–48映射；110–137加载；147–154,170–185fallback；199–215registerLocale",
+    "android/app/src/main/java/com/termlink/app/util/LocaleHelper.kt:12–23原生映射/URL；android/app/src/main/java/com/termlink/app/MainShellActivity.kt:335–341,1840–1844语言变化；android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt:161,174–179桥接",
+    "public/workspace.js:69–84,864–873当前COPY入口；tests/workspace.web.test.js:70–77 i18n stub",
+    "docs/changes/records/CR-20260330-0300-language-normalization-phase3-android.md:46–51真机未执行",
+    "docs/changes/records/CR-20260330-0500-language-normalization-closeout.md:55–62 26/26、398包/159资源与注册扩展非设备"
+  ],
+  "historical_applicability": "最终32e39b48e73c38b887fd2f5a93f26c7ee0c71d41；LocaleHelper仅CRLF差异，i18n.js由绝对fetch变相对XHR且新增失败fallback，语言包/Activity/页面实质变化。已重算当前键数；历史sandbox测试失败不作为本项欠交。",
+  "device_checks": [
+    {
+      "function": "系统语言一致",
+      "behavior": "原Android与WebView系统映射/变化",
+      "preconditions": "HEAD APK，默认跟随系统且无后来手动覆盖，系统可选简中/繁中/英文/一种非中文；可用服务",
+      "steps": [
+        "依次切原语言范围，冷启Sessions/Settings并打开Terminal/Workspace",
+        "前台切系统语言后重入，检查原生/WebView一致",
+        "观察加载失败/缺键非空fallback"
+      ],
+      "expected": "中文族简中，其他原默认英文；UI可用且原生/WebView一致，不翻译远端shell输出",
+      "existing_evidence": "核心内存探针/键对称/46现有Web测试；缺Android原语言验收",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "declared": "package.json:3–4 / VERSION为1.0.0、versionCode=1",
+        "required_record": "后续补验记录服务端commit/配置、APK commit/versionName/versionCode/SHA-256、Android/WebView版本；本轮未获绑定HEAD的APK或部署服务版本"
+      },
+      "nature": "原范围设备行为补验"
+    }
+  ],
+  "unread": [
+    "原task/用户对话未定位",
+    "原Android语言切换结果/独立签收未取得",
+    "未全面逐字核读后来所有新增页，不把它变永久义务"
+  ]
+}

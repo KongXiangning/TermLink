@@ -1,0 +1,49 @@
+{
+  "order": 40,
+  "id": "REQ-TERMLINK-CLIENT-RISK",
+  "conclusion": "partially-satisfied",
+  "coverage": "原跨端客户端权限信息与风险提示；不包含操作系统提权/降权",
+  "achievements": [
+    "网关发送privilegeLevel；Android terminal_client转桥，MainShellActivity遇ELEVATED显示明确Toast",
+    "历史SUMMARY记载客户端透传和提示交付；当前health测试2/2通过，但不是UI验收"
+  ],
+  "gaps": [
+    "确定未满足Web部分：public/terminal.js的session_info分支仅保存id/name，未消费privilegeLevel或显示风险；其native通知也只有id/name。对public/terminal.js/html、sessions.js搜索未找到权限提示路径",
+    "Android当前APK行为仍未现场验证，作为未知项另列，不把此未知当额外确定缺陷",
+    "权限级别字段来自配置isElevated，不据此声称关闭开关会使真实OS降权；沿既有模式/OS身份边界"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:99–153 父项明确Web/App；1801–1817客户端风险可见",
+    "src/ws/terminalGateway.js:6585–6587 模式字段；6664–6669握手携带",
+    "public/terminal_client.js:1197–1198 三字段桥；7733传privilegeLevel",
+    "android/app/src/main/java/com/termlink/app/MainShellActivity.kt:581–599 ELEVATED Toast",
+    "public/terminal.js:100–101通知仅id/name；1019–1036 session_info完整分支不消费权限字段",
+    "docs/changes/summaries/SUMMARY-REQ-20260222-server-admin-privilege-mode.md:24–34、46–51历史客户端交付报告",
+    "2026-10-12 Linux/Node v24.19.0，当前HEAD：node --test tests/privilegeConfig.securityGates.test.js tests/ipCheck.test.js tests/auditService.test.js tests/ptySpawnOptions.test.js tests/sessionStore.metadata.test.js tests/routes.sessions.capacity.test.js tests/routes.sessions.metadata.test.js tests/health.route.test.js；46/46、exit 0。按每项关联测试限定使用，不视为全部业务闭环。"
+  ],
+  "historical_applicability": "2月原REQ与SUMMARY/CR已读；a6ceeec/76e76f8历史提供范围与报告。git blob核对76e76f8与HEAD配置/门禁/IP及其测试均不同字节；privilegeConfig忽略行尾后无差异，其他门禁/IP已有实质变化。当前独立测试结果优先，旧父项全量交付不自动下发子项。",
+  "device_checks": [
+    {
+      "function": "客户端权限风险可见",
+      "behavior": "已配置elevated服务连接后显示风险提示",
+      "preconditions": "已授权可用测试服务和APK；无需App触发提权",
+      "steps": [
+        "打开一个TERMLINK_WS会话，记录session_info.privilegeLevel",
+        "观察Android提示；再用已有standard服务观察无高权限提示"
+      ],
+      "expected": "与收到的权限模式一致；普通模式不误报",
+      "existing_evidence": "Android MainShellActivity:581–599提示实现；原a6ceeec/76e76f8报告客户端透传，未定位当前APK提示实测",
+      "versions": {
+        "server_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "server_running_version": "未验证部署/运行服务",
+        "apk_source": "bb4849692fd600c3eb57866e28400fba612ee6aa",
+        "apk_declared": "package.json 1.0.0 / androidVersionCode=1；android/app/build.gradle:8–21,63–69引用",
+        "apk_installed": "本轮未安装/读取APK，不能据源码版号认定设备版本"
+      }
+    }
+  ],
+  "unread": [
+    "未定位浏览器曾有风险提示的验收证据",
+    "未运行当前APK风险显示"
+  ]
+}

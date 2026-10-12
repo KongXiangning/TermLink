@@ -1,0 +1,29 @@
+{
+  "order": 39,
+  "id": "REQ-TERMLINK-AUDIT-TRACE",
+  "conclusion": "partially-satisfied",
+  "coverage": "连接、拒绝、会话操作及结束以会话身份/来源/auditTraceId关联",
+  "achievements": [
+    "连接起止记录使用同一闭包auditTraceId/sessionId/clientIp，结束含code/reason/duration；当前AuditService 4/4测试验证JSON行、禁用与轮转",
+    "开始连接元数据与Android握手字段有明确实现"
+  ],
+  "gaps": [
+    "确定未满足：IP拒绝日志在auditTraceId生成前仅传{clientIp}，不能按本项要求关联auditTraceId/会话身份",
+    "确定未满足：sessions create/update/delete无AuditService操作记录；diagnosticLog仅sessionIdPresent布尔和count/success，缺会话身份/来源/auditTraceId，不能充作本项关联审计"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1783–1799 当前审计关联定义",
+    "src/ws/terminalGateway.js:6577–6586 拒绝只clientIp，之后才生成auditTraceId",
+    "src/ws/terminalGateway.js:6652–6661 连接开始关联；8995–9007结束关联",
+    "src/services/auditService.js:4–8 仅三事件；97–122写入与三个入口",
+    "src/services/sessionManager.js:95–130 创建诊断；188–229更新；232–249删除只有诊断",
+    "src/routes/sessions.js:193–255 创建/更新、258–273删除，无audit调用",
+    "tests/auditService.test.js:20–105 当前4/4通过只覆盖日志写入/禁用/轮转",
+    "2026-10-12 Linux/Node v24.19.0，当前HEAD：node --test tests/privilegeConfig.securityGates.test.js tests/ipCheck.test.js tests/auditService.test.js tests/ptySpawnOptions.test.js tests/sessionStore.metadata.test.js tests/routes.sessions.capacity.test.js tests/routes.sessions.metadata.test.js tests/health.route.test.js；46/46、exit 0。按每项关联测试限定使用，不视为全部业务闭环。"
+  ],
+  "historical_applicability": "2月原REQ与SUMMARY/CR已读；a6ceeec/76e76f8历史提供范围与报告。git blob核对76e76f8与HEAD配置/门禁/IP及其测试均不同字节；privilegeConfig忽略行尾后无差异，其他门禁/IP已有实质变化。当前独立测试结果优先，旧父项全量交付不自动下发子项。",
+  "device_checks": [],
+  "unread": [
+    "无真实关联日志样本；确定缺口来自完整已读调用路径，不由测试缺失推定"
+  ]
+}

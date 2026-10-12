@@ -1,0 +1,50 @@
+{
+  "order": 53,
+  "id": "REQ-TERMLINK-CODEX-FILES",
+  "conclusion": "undetermined",
+  "coverage": "原REQ5.11的当前cwd文件候选/筛选、明确可移除选中态、发送消费、无有效cwd降级；不扩大到任意二进制上传。",
+  "achievements": [
+    "当前端到端源链存在且已读：Android session API搜索→带generation的结果→FileMention→移除/发送@path；Web相同session搜索和内联选择；服务端从当前session workspaceRoot受控搜索",
+    "独立4/9 CR有真实设备@候选、选README、移除chip和mention-only回复基于文件内容的记录；不同于3月纯设计CR"
+  ],
+  "gaps": [
+    "当前Android/Web实际cwd筛选、异步切换与IPC发送消费没有本轮行为测试；旧4月legacy发送结果不能覆盖当前authority",
+    "3月SUMMARY把设计CR概括成实现，不能单凭SUMMARY判本项已满足"
+  ],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:2042：已读该对象当前完整定义；按同一身份核对其实际跨端范围",
+    "docs/product/requirements/REQ-20260309-codex-capability-mvp.md:281-298：原@范围",
+    "docs/changes/records/CR-20260319-1532-codex-file-mention-input.md:18-20,37,69：明确只文档、未实现；SUMMARY:39-41与63的总括不能用于本项PASS",
+    "docs/changes/records/CR-20260409-1419-phase2-file-mention.md:26-28,60-67：真实Android候选/chip/mention-only记录，CR commit_ref仍TBD",
+    "src/routes/sessions.js:276-296：当前受控workspace搜索；public/terminal_client.js:3050-3105：候选选择/搜索路径",
+    "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:6504-6520,6939-7005,6617-6626：generation、已选态、@path消费"
+  ],
+  "historical_applicability": [
+    "3月e6dfd1e只定义计划；4月CR是实际实现/真机证据但未填commit；183e9f3只修本地Uri保留，不证明远端能读任意Android content URI",
+    "当前workspaceRoot与session cwd治理及follower传送已有变化；不将旧文件mention单场景泛化成当前跨端全范围"
+  ],
+  "device_checks": [
+    {
+      "function": "工作区文件提及",
+      "behavior": "当前cwd搜索/筛选、独立移除和只发mention",
+      "prerequisites": "A/B不同cwd各有可区分文本文件；有效session workspace绑定；匹配服务/APK",
+      "steps": [
+        "在A输入@及文件名/相对路径查询，选文件后移除再选",
+        "只发送该文件mention并核对宿主实际输入；切B重试搜索"
+      ],
+      "expected": [
+        "候选不跨workspace；选中态可移除；发送消费正确@path并保留摘要；B不展示A旧结果"
+      ],
+      "existing_evidence": [
+        "4/9有README mention-only真机行为；本轮当前源链核对，设备未复验"
+      ],
+      "server_version": "待核验运行服务来自 bb4849692fd600c3eb57866e28400fba612ee6aa；Codex app-server/Desktop/VS Code实际版本须现场记录，不以历史版本代替",
+      "apk_version": "待核验APK构建源为 bb4849692fd600c3eb57866e28400fba612ee6aa；package.json为1.0.0/androidVersionCode=1，版本号不能证明设备包对应本快照。本轮未取得APK或安装状态"
+    }
+  ],
+  "unread": [
+    "当前匹配APK的Android JVM结果与真机运行：本轮未执行。已确认JDK21存在，但无已配置Android SDK/Gradle缓存/adb；未下载、安装或构建",
+    "历史tmp/output中的截图、logcat、设备安装包未随本快照逐件取得；引用的是任务/CR内具体行为记录，未冒称重新观看原始设备证据",
+    "structure-repair-20261012/MANAGED_REQUIREMENTS.before.md为来源快照，未逐字通读；当前inputs正文与原REQ/相关task实际范围优先"
+  ]
+}

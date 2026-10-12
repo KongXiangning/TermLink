@@ -1,0 +1,27 @@
+{
+  "order": 21,
+  "id": "REQ-TERMLINK-RELEASE-BASELINE",
+  "conclusion": "undetermined",
+  "coverage": "五月Windows/Linux发行安装/自启/证书三项原要求，以及七月Windows x64 Setup/Portable/CLI/GUI/persistent明确增量；不新增发行矩阵",
+  "achievements": [
+    "60513原task保留30/30、99/99及5月17日用户Windows PM2/Linux systemd host确认",
+    "当前Windows共享PowerShell配置核心/WinForms/Setup和Portable构建及persistent布局存在；构建manifest/config静态测试有通过结果"
+  ],
+  "gaps": [
+    "七月clean Windows x64无系统Node/npm host原验收仍未完成；本轮6个Windows执行测试因无Windows PowerShell或宿主条件失败，不是Windows功能已证失败"
+  ],
+  "evidence": [
+    "TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md:18–75及host确认段",
+    "TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md:35–47 旧715-001边界",
+    "docs/workflow/TECHNICAL_DETAILS-20260715-001-windows-x64-installer-and-config-tool.md",
+    "scripts/release/windows-release.js",
+    "tools/windows/TermLink.Windows.psm1",
+    "web-workspace-release.tap及test-summary.md"
+  ],
+  "historical_applicability": "60513是五月PM2/systemd原对象；7月a88d971b自包含Windows发行不是同一产品包，不能继承旧host PASS。当前release scripts后继有版本/打包差异，真实发布包身份未取。",
+  "device_checks": [],
+  "unread": [
+    "旧715-001独立完整验收包未定位",
+    "当前Windows Setup/Portable未构建、未安装或执行clean-host验收"
+  ]
+}

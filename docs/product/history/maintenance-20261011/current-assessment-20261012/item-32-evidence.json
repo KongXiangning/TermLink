@@ -1,0 +1,26 @@
+{
+  "order": 32,
+  "id": "REQ-TERMLINK-SERVER-RELEASE",
+  "conclusion": "undetermined",
+  "coverage": "既有跨平台发行安装/配置/证书与Linux原增量，保留原host限制",
+  "achievements": [
+    "五月用户Windows PM2/Linux systemd host确认保留原版本效力",
+    "七月自包含Windows及Linux版本目录/回滚/证书/tag workflow已实现且有本地验证证据"
+  ],
+  "gaps": [
+    "Linux P5真实systemd/Nginx/arm64/tag与Windows clean-host仍缺验收；旧主机PASS不适用于七月新版包",
+    "没有确认功能坏的当前反例；本机证书网卡权限和Windows测试环境失败不当产品失败"
+  ],
+  "evidence": [
+    "docs/product/plans/PLAN-20260715-linux-interactive-release-installer.md:7–29",
+    "docs/workflow/TECHNICAL_DETAILS-20260715-001-windows-x64-installer-and-config-tool.md",
+    "17/21号原范围证据",
+    "web-workspace-release.tap / test-summary.md"
+  ],
+  "historical_applicability": "当前代码固定bb484969；本项为既有父组合范围独立人工判断。保留各明确实现路径及历史对象适用性，不把子项数量、历史关闭、父子链接或已有PASS算作达成。测试/代码及原范围详见实际引用的独立报告。",
+  "device_checks": [],
+  "unread": [
+    "父项不额外生成全端矩阵；需要的真机补验沿实际子项原范围单列",
+    "P1.11/P2未明行为（若属本项）继续未定义，不反推新功能或验收"
+  ]
+}

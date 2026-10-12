@@ -1,0 +1,24 @@
+{
+  "order": 38,
+  "id": "REQ-TERMLINK-SOURCE-IP",
+  "conclusion": "satisfied",
+  "coverage": "配置非空白名单时支持单IP/CIDR、用真实socket对端地址而非客户端转发头",
+  "achievements": [
+    "当前10项IP单元测试通过：IPv4映射、单IP、IPv4/IPv6 CIDR、完整IPv6/混合规则及畸形IPv6",
+    "网关getClientIp只取req.socket.remoteAddress，elevated非空白名单不匹配时4403拒绝；空列表按原配置允许全部"
+  ],
+  "gaps": [],
+  "evidence": [
+    "docs/product/MANAGED_REQUIREMENTS.md:1765–1781 原功能4当前定义",
+    "src/utils/ipCheck.js:1–47 IPv4；50–169 IPv6及匹配",
+    "src/ws/terminalGateway.js:63–65 只读socket.remoteAddress；6574–6582 白名单拒绝",
+    "tests/ipCheck.test.js:5–55 当前10项边界断言全部通过",
+    "docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md:63–71 原单IP/CIDR与不信任X-Forwarded-For规则",
+    "2026-10-12 Linux/Node v24.19.0，当前HEAD：node --test tests/privilegeConfig.securityGates.test.js tests/ipCheck.test.js tests/auditService.test.js tests/ptySpawnOptions.test.js tests/sessionStore.metadata.test.js tests/routes.sessions.capacity.test.js tests/routes.sessions.metadata.test.js tests/health.route.test.js；46/46、exit 0。按每项关联测试限定使用，不视为全部业务闭环。"
+  ],
+  "historical_applicability": "2月原REQ与SUMMARY/CR已读；a6ceeec/76e76f8历史提供范围与报告。git blob核对76e76f8与HEAD配置/门禁/IP及其测试均不同字节；privilegeConfig忽略行尾后无差异，其他门禁/IP已有实质变化。当前独立测试结果优先，旧父项全量交付不自动下发子项。",
+  "device_checks": [],
+  "unread": [
+    "未检查具体部署白名单，这是部署观察界限，不是功能欠交"
+  ]
+}
