@@ -1,0 +1,8 @@
+{
+  "observed_at": "2026-10-12T04:47:45.9263678Z",
+  "path": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+  "original_path_read": "ENOENT",
+  "archive_manifest_lookup": "no matching manifest found by targeted name search",
+  "task_status": "available/consistent; 38 closed, 2 paused",
+  "disposition": "原有SourceRef及TaskBinding保持原样；本轮未以不可读事件证明新的业务结论，也未据此改写任务身份或生命周期。历史来源未全部重核。"
+}

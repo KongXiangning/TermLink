@@ -40,6 +40,20 @@
 
 维护项目文档导航、需求/计划/变更与实际交付的追踪，保留原始历史。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **分层文档与导航**：按产品、架构、指南、运维、变更和历史资料分层，保留旧位置到当前文档的可追溯入口。
+2. **需求正文与范围**：记录稳定需求身份、需求内容、范围边界和验收要求；保留已交付、当前、后续、候选和退出范围。
+3. **实施追踪**：按实际实施批次连接REQ、适用PLAN、CR与收尾说明，明确具体交付覆盖，而非只记录任务标题。
+4. **变更证据**：CR保存实际改动、验证和回滚信息；active CR使用真实提交引用，历史报告保持其原对象和限制。
+5. **当前维护入口**：PRODUCT登记受管正文、引用资料和历史保存位置；PROJECT、GOALS、需求、设计、安排及交付报告各承担已有职责。
+6. **任务与材料查询**：现有assistance查询实际任务事实，文档盘点登记已读及未读范围；关闭事实、资料保存和业务满足分别表达。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 沿用当前AGENTS/vNext辅助管理规则；旧强制入口、审批和状态机不作为本次新增产品需求。
@@ -75,6 +89,20 @@
 
 以standard/elevated配置标识服务端运行模式；启用配置时校验认证、凭据、IP白名单、审计路径及按配置要求的mTLS，并将权限/风险信息传给客户端。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **权限模式配置**：显式配置standard/elevated及启用开关，默认standard；模式声明不能自行提升操作系统权限。
+2. **启动安全门禁**：受控模式校验认证、非默认凭据、服务进程权限及可写审计路径；配置要求mTLS时校验其可用性，条件不足明确失败。
+3. **进程权限透传**：PTY继承服务进程实际身份，应用登录账号与操作系统权限分开说明。
+4. **来源IP限制**：可配置单IP/CIDR白名单，以实际对端地址判定，不以客户端伪造的转发头获得授权。
+5. **审计关联**：连接、拒绝、会话操作及结束记录通过会话身份、来源与auditTraceId关联。
+6. **客户端风险可见**：会话/连接信息携带实际权限级别，客户端显示对应风险提示；不新增App提权或操作系统降权回滚功能。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 PTY继承启动账户身份。配置模式不负责改变操作系统令牌；本需求不包含App触发真实提权、自动UAC/sudo或保证关开关后操作系统降权。
@@ -102,6 +130,21 @@ PTY继承启动账户身份。配置模式不负责改变操作系统令牌；�
 ### 需求内容
 
 临时断联后保留PTY，在配置保留窗口内按原sessionId续接；失效ID明确拒绝；容量满时只回收idle LRU，默认容量50。2月24日增量将示例TTL配置由6小时改为24小时。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **断联保留**：客户端断开后保留有效会话和PTY，不因一次连接关闭立即销毁上下文。
+2. **同会话续接**：携带有效sessionId重新连接原会话，继续原上下文，而非静默创建另一会话。
+3. **无效ID反馈**：不存在或过期的显式sessionId返回可识别错误；只有未提供ID时沿用原默认创建行为。
+4. **可配置闲置保留**：以SESSION_IDLE_TTL_MS控制保留窗口，按清理间隔检查无连接闲置会话；24h示例配置与6h代码回退的口径差异沿用原对账。
+5. **容量与闲置回收**：最大会话数受配置控制，达到容量时优先回收最久闲置会话；无可回收会话则明确拒绝新建。
+6. **连接与活跃信息**：会话列表保留状态、lastActiveAt和activeConnections，支持多个连接共享原会话。
+7. **显式删除**：用户删除会话时清理PTY和记录；服务进程重启后的PTY连续性不在原保证内。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -143,6 +186,20 @@ PTY继承启动账户身份。配置模式不负责改变操作系统令牌；�
 
 快捷键盘Ctrl/Alt支持关闭、一次与锁定；Enter与换行区分CR/LF；文本区触摸和PgUp/PgDn/Home/End用于本地滚动。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **Ctrl组合输入**：Ctrl与字母组合发送终端控制字符，包含Ctrl+C等既有高频操作。
+2. **Alt组合输入**：Alt组合发送Meta/ESC前缀语义，而非普通字母标签。
+3. **修饰键状态**：支持一次性生效、持续锁定及解除，并以按钮状态显示区别。
+4. **回车与换行**：Enter发送CR，独立换行按钮发送LF，保持两类输入语义。
+5. **终端触摸滚动**：文字区和空白区的纵向拖动使用一致策略，保留本地滚动与Android手势兼容。
+6. **键盘展开与焦点**：快捷键盘展开/收起及输入焦点继续可用，普通字符输入不改变。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 保持原终端协议和键盘入口，不扩成新自定义键盘或任意终端/OEM通用适配。
@@ -169,6 +226,24 @@ PTY继承启动账户身份。配置模式不负责改变操作系统令牌；�
 ### 需求内容
 
 Android Profile支持TERMLINK_WS/EXTERNAL_WEB分流；External使用本地session管理，URL/凭据变更重载，删除Profile清理对应本地数据。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **Profile终端类型**：新建/编辑Profile可选择TERMLINK_WS或EXTERNAL_WEB，旧Profile沿用TermLink类型。
+2. **External本地会话**：本地创建、列出、重命名、删除和更新最近访问的External会话，应用重启后保留。
+3. **列表数据源分流**：TermLink会话使用远端sessions API，External会话使用ExternalSessionStore。
+4. **打开页面分流**：TermLink加载终端客户端并注入配置，External直接加载当前Profile的baseUrl。
+5. **地址与凭据更新**：修改External地址或Basic凭据后，重新打开同会话按更新后的加载签名刷新页面，无需重启App。
+6. **空地址提示**：External地址为空时显示可读错误并停留空白页，不误加载TermLink终端。
+7. **Profile删除清理**：删除Profile同时清理所属External本地会话。
+8. **External界面状态**：隐藏不适用的快捷键盘入口，并显示External打开态。
+9. **通用深色提示**：按通用color-scheme/DOM提示适配深色，不写入站点专有存储键。
+10. **保存与删除刷新**：Profile变更和删除后刷新本地列表及重载目标，沿用后续刷新修复的既有行为。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -206,6 +281,19 @@ Android POC；不扩跨设备同步或外部站点协议适配。按原POC保留
 
 Android设置提供跟随系统、30秒至10分钟的前台息屏档位；MainShell、Codex、Settings、Workspace共用本地控制器。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **前台息屏偏好**：设置提供跟随系统和30秒至10分钟档位，本地保存所选值。
+2. **四页面统一接入**：MainShell、Codex、Settings、Workspace使用同一本地前台息屏控制器。
+3. **用户交互重计时**：可见Activity内用户交互重新计算自定义档位计时。
+4. **计时结束交还系统**：自定义等待结束后清除窗口常亮标志；跟随系统直接采用系统行为。
+5. **后台与销毁清理**：页面隐藏或销毁立即清除常亮及回调，不修改全局系统息屏设置。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 仅前台自定义档位保持窗口亮屏，后台清FLAG_KEEP_SCREEN_ON，不修改全局OS策略。2月MainShell固定2分钟仅为旧阶段。
@@ -242,6 +330,20 @@ Android设置提供跟随系统、30秒至10分钟的前台息屏档位；MainSh
 
 保留3月初sessionMode/cwd持久化、模式入口、独立聊天窗、审批桥接与IME布局修复的历史范围。
 
+
+### 功能点清单
+
+以下仅展开已退出需求的历史功能，当前对应能力查后继需求，不恢复旧方案。
+
+1. **历史会话模式**：旧阶段区分terminal/codex会话及对应入口。
+2. **历史cwd配置**：会话级保存与发送时透传cwd，显示实际工作目录。
+3. **历史独立聊天页**：旧阶段从终端混排中分离Codex聊天视图。
+4. **历史审批桥接**：审批请求显示、用户选择和响应回传由当时链路承接。
+5. **历史状态与错误**：显示usage、rate limit和provider/fatal错误。
+6. **历史IME适配**：键盘弹起时保持消息区滚动和输入区可见。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 原修复计划已被Codex MVP接管，仍为retired；不恢复为当前待执行需求。
@@ -268,6 +370,29 @@ Android设置提供跟随系统、30秒至10分钟的前台息屏档位；MainSh
 ### 需求内容
 
 Codex移动聊天、模型/推理与下一回合配置、计划/审批、线程历史和附件上下文。后续明确增量包括按cwd过滤历史、多个skill内联输入、发送后附件可见、真实owner/catalog选择器、会话入口/composer修复、历史图片/文档打开。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **对话主界面**：消息流、输入区、状态/PATH和阻塞请求构成主路径；线程、运行态及辅助信息按既有二级入口打开。
+2. **线程创建与恢复**：创建新线程、查看当前工作区历史、读取/恢复已有线程，并保持会话与conversation绑定。
+3. **工作区历史筛选**：历史任务列表按当前会话cwd筛选，切换项目不沿用其他cwd结果。
+4. **模型与推理选择**：slash/快捷入口及后续原生选择器使用真实catalog/owner信息；发送前选择写入下一回合配置。
+5. **配置分层**：区分会话存储配置、下一回合override、当前生效配置和interaction state；不恢复未采用的完整Session Defaults UI。
+6. **计划模式**：进入、取消计划模式，计划文本发送、补充说明和执行确认沿用原真实交互；确认后普通输入回到正常模式。
+7. **Slash解析与分发**：命令通过现有registry、capability和dispatcher处理；未知或未开放命令显示明确反馈，不作为普通文本污染线程。
+8. **Skills输入**：按cwd发现skills，支持多skill内联选择/移除与发送；具体可执行入口依现有能力，不把旧预留声明当作全部已开放。
+9. **工作区文件提及**：按当前cwd提示和筛选文件，选择后显示可移除的文件上下文，并随发送消费。
+10. **图片与文件附件**：选择本地图片/文件，发送后保留可见附件上下文；历史图片、文件提及及Markdown文件链接沿后续任务支持打开。
+11. **审批与用户输入**：命令/补丁等阻塞审批和用户输入前置展示，允许/拒绝/回答回传真实请求。
+12. **真实权限选择器**：7月明确增量提供基于owner/catalog的权限弹层，与下一回合实际配置及快照反馈一致。
+13. **背景信息与额度**：显示当前线程上下文、任务usage、rate limit和辅助运行信息，切换线程刷新并清除旧残留。
+14. **后台任务与恢复**：活跃/等待状态保活，回连恢复当前任务及阻塞请求；任务完成和错误通知沿用原范围。
+15. **原生会话交互细化**：7月Header、Goal/Plan、Skills、Slash、选择器和composer布局沿对应UI任务，具体原生容器见原生迁移需求。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -309,6 +434,26 @@ Codex移动聊天、模型/推理与下一回合配置、计划/审批、线程�
 
 在只读workspace边界内浏览目录、打开文件、搜索、Git HEAD/双文本比较，并适配Android/Web；7月包含文本/代码/Markdown/图片/PDF预览、认证下载/受控缓存/系统打开与自然比例阅读。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **固定工作区访问**：会话创建时固化workspaceRoot，文件访问经过现有session认证和根目录边界校验。
+2. **文档入口与目录导航**：默认进入docs/DOCS，可返回根目录；移动端钻取、宽屏懒加载目录树，提供面包屑、刷新和隐藏文件切换。
+3. **受限文件搜索**：按工作区相对路径搜索，排除.git、依赖和生成缓存，并保持已有扫描/结果预算。
+4. **文本与代码阅读**：按编码、语言和文件类型只读展示内容，保留大文件分级提示和代码高亮。
+5. **Markdown阅读**：只读渲染Markdown与其受控链接/资源，移动端字号和长路径换行沿后续修复。
+6. **图片与PDF预览**：使用已有只读预览入口，图片按自然比例阅读，PDF使用仓库内离线资产。
+7. **二进制及不可预览反馈**：不支持的文件类型、非Git工作区及无内容等场景给出可识别状态。
+8. **Git HEAD比较**：合并staged和unstaged差异，处理未跟踪、删除、无HEAD和无变更场景。
+9. **双文本文件比较**：选择两份文本生成配对hunks，支持unified和side-by-side查看。
+10. **Android认证下载与打开**：原生宿主使用Basic/mTLS下载，按已有缓存预算与清理策略保存，再经FileProvider只读交给系统打开。
+11. **Android返回与IME**：宿主接管目录/文件/浮层返回栈，键盘弹起时使用剩余可视空间。
+12. **小屏阅读与滚动**：Markdown/代码字号、长路径、局部横向滚动和返回入口保持移动端可用；不增加编辑、上传或写文件能力。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 保持workspace访问安全和只读。3月非文本预览/下载/side-by-side排除被7月明确任务扩展；编辑/上传没有被采用。
@@ -339,6 +484,21 @@ Codex移动聊天、模型/推理与下一回合配置、计划/审批、线程�
 
 Sessions首屏先显示最近可得快照，再刷新远端；失败保留缓存并标明状态；External沿用本地store。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **最近远端列表保存**：按Profile及已有缓存身份保存最近成功获取的sessions及必要元数据。
+2. **缓存首屏**：进入会话管理先展示可得缓存，再异步刷新远端。
+3. **缓存状态可见**：区分缓存、刷新中和刷新失败，不以本地记录伪装实时在线状态。
+4. **成功刷新回写**：远端成功结果同时更新界面与本地快照。
+5. **失败保留**：网络失败或超时仍保留已有缓存列表，不清空用户已知会话。
+6. **变更与生命周期回写**：成功的会话CRUD及view重建沿既有回写逻辑更新列表；旧generation结果不覆盖新请求。
+7. **External沿用本地来源**：External列表由已有ExternalSessionStore保留，与远端缓存分组展示兼容；不新增离线远端CRUD。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 缓存不代表在线运行态，不扩离线CRUD或创建弹窗。原摘要的server/auth隔离按其实际记录理解；不能从本轮代码观察新增多账号安全体系需求。
@@ -365,6 +525,23 @@ Sessions首屏先显示最近可得快照，再刷新远端；失败保留缓存
 ### 需求内容
 
 Android按Profile导入/替换/移除.p12/.pfx，私有保存并管理口令，WebView与原生API共用运行时证书。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **按Profile选择证书**：系统选择器导入.p12/.pfx到该Profile私有目录，不使用打包assets作为运行时回退。
+2. **证书与口令管理**：查看绑定名称/状态、选择、替换和移除证书，保存/读取/删除本地口令。
+3. **新配置校验**：新建或正常编辑启用mTLS时校验证书和口令，缺失项明确提示。
+4. **旧Profile待补齐**：升级遗留开关可保留为待补齐，允许修改其他字段；缺证书不产生有效mTLS连接。
+5. **主动移除语义**：正常有效配置主动移除证书同时关闭mTLS；原挂起配置按原兼容规则保留。
+6. **共享凭据解析**：WebView与原生HTTP/API链路使用当前Profile证书及共享解析缓存。
+7. **变更清理与失效**：替换、关闭或删除Profile时清理相应证书副本、口令和解析缓存。
+8. **服务端直接TLS/mTLS**：服务端可按IP:port承载TLS/mTLS，HTTP API与WebSocket使用同一客户端证书校验边界。
+9. **模式兼容**：终端、External相关原生请求和Codex连接沿现有Profile证书模型；透明Relay只是另行planned范围。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -393,6 +570,19 @@ Android按Profile导入/替换/移除.p12/.pfx，私有保存并管理口令，W
 
 Web语言包及Android资源跟随系统语言，中文族简中、其他英文；原生/WebView语言一致并支持注册扩展。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **系统语言映射**：原采用范围按系统语言选择客户端UI：中文族映射简中，其余采用英文。
+2. **Web语言包与替换**：终端、配置、Workspace和Codex页面使用现有语言包及文案替换入口。
+3. **原生语言资源**：Android原生页面使用语言资源，WebView与原生语言按既有locale桥接一致。
+4. **缺失键回退**：语言包加载或文案缺失时采用既有fallback，不将错误显示为空白标签。
+5. **语言注册扩展**：新增语言包及映射可复用现有注册机制；手动语言UI属于另列源码观察，不据此改变本需求原排除项。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 不含手动切换UI、终端输出翻译、服务端错误翻译及RTL/格式化。
@@ -419,6 +609,24 @@ Web语言包及Android资源跟随系统语言，中文族简中、其他英文�
 ### 需求内容
 
 将Codex会话主链迁移到独立原生CodexActivity，保留聊天、slash/mention、审批/计划、历史/工具/用量/图片及恢复通知交互；7月采用原生视觉与弹层改进。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **独立原生入口**：CodexActivity作为当前原生会话入口；旧可达Codex WebView入口/回退按后续记录已移除，终端WebView继续使用。
+2. **启动与恢复**：传入session、conversation和cwd等既有参数，恢复选择及返回行为。
+3. **原生连接层**：wire/DTO、WebSocket连接、重连和ViewModel按既有服务端协议承接。
+4. **原生消息与输入**：在原生消息流和composer内使用已有对话、流式、slash、mention、附件和配置能力，细目复用Codex MVP功能定义。
+5. **阻塞交互与面板**：原生显示审批、用户输入、计划确认、历史线程、工具/运行态与背景信息。
+6. **全局入口**：Header提供会话列表、设置、文档入口，文档关联当前工作区。
+7. **安全区与IME**：以运行时insets/cutout避开前摄和系统遮挡，键盘弹起时输入区可见。
+8. **自动跟随与返回最新**：默认跟随新消息，手动上滑停止跟随，返回底部恢复跟随。
+9. **通知与后台容器**：执行及审批/补充说明/计划确认等待态使用既有保活与通知回跳，结束态收口通知。
+10. **提供方适配边界**：保留adapter/capability边界以隔离Codex私有字段；Claude/Copilot真实接入不是本次已交付功能。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -451,6 +659,25 @@ Web语言包及Android资源跟随系统语言，中文族简中、其他英文�
 
 保留已冻结Relay首期：私网connector出站，Console/管理身份与MFA、app_client槽位认领、inventory与短时ticket；透明承载sessions API和terminal WS。
 
+
+### 功能点清单
+
+以下为已规划的功能范围，未作为当前已实现能力。
+
+1. **控制台管理**：规划单组织单管理员登录/MFA、接入指引、健康状态和审计查看。
+2. **Connector接入**：规划注册、出站WSS/TLS、心跳与断线恢复，不要求App管理私网主机。
+3. **服务Inventory**：规划稳定item身份、能力、目标身份与健康信息，由connector报告。
+4. **服务发布**：规划将published_service绑定单个inventory item，支持发布/下线和目标身份漂移保护。
+5. **App槽位认领**：规划一次性注册码认领app_client，长期绑定安装实例，失效或重装按原规则重配对。
+6. **访问策略与Ticket**：规划主体/service/目标身份/版本绑定、短时票据签发消费及重放拒绝。
+7. **Sessions透明访问**：规划仅转发既有list/create/delete/rename API。
+8. **Terminal透明中转**：规划既有terminal WebSocket及connector到目标桥接，不终止目标TLS。
+9. **App寻址与缓存**：规划分开ingress和target identity，缓存不能绕过当前授权与兼容判断。
+10. **错误与主体审计**：规划区分授权、票据、服务不可用、接入、目标握手和版本错误，按admin_user/app_client/connector记录。
+11. **独立边界与兼容**：规划控制面状态、版本化协议和将来独立部署/发布边界；不包含Codex、Workspace或External Web中转。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 原REQ/PLAN明确单组织单管理员、relay ingress与target identity分离、不终止目标TLS；不含Codex/workspace/external web。
@@ -477,6 +704,25 @@ Web语言包及Android资源跟随系统语言，中文族简中、其他英文�
 ### 需求内容
 
 修复原11组运行态/通知/关键交互问题，包括中断、通知、header/返回最新/slash、历史继续发送、弱网回补、session复用、完整transcript和附件picker分流。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **可中断状态**：只有真实活跃turn提供中断动作，无活跃turn不以CODEX_NO_ACTIVE_TURN打扰用户。
+2. **进行中通知收口**：通知随真实执行/等待状态更新，idle及stale状态不残留进行中提示。
+3. **完成提醒**：成功完成后沿既有任务完成提醒路径通知用户。
+4. **Header布局**：状态/PATH两行、安全区和会话/文档按钮命中区按原修复范围显示。
+5. **手动到底恢复**：用户滚回底部自动隐藏返回最新入口并恢复跟随。
+6. **Slash按钮同步**：工具栏斜杠实际写入composer，建议列表由输入内容驱动。
+7. **历史线程继续**：继续当前选择的conversation，不误建新线程。
+8. **弱网恢复**：丢流后沿当前IPC authority允许的有界恢复补齐结果，不把旧恢复轮询变为第二实时来源。
+9. **重开复用**：重新打开时优先复用有效session/thread/cwd。
+10. **当前页正文收敛**：发送后用户消息立即可见，流式和最终回复在当前页面收敛。
+11. **附件入口分流**：先选择图片或文件，再进入对应picker；后续历史附件打开能力复用Codex MVP对应定义。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -507,6 +753,25 @@ Web语言包及Android资源跟随系统语言，中文族简中、其他英文�
 ### 需求内容
 
 服务端接入Codex IPC，App/Web经服务端接收Desktop/VSCode同conversation正文/运行态、审批与PLAN，并按实际owner/follower能力发送动作。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **当前会话跟随**：选择active conversation后经gateway获取目标follower订阅，以已绑定conversationId跟随同一任务。
+2. **定向Surface接收**：CodexIpcFeed保留desired subscription并在重连后重放，接收host定向snapshot/patch。
+3. **唯一实时权威**：healthy IPC surface提供正文、operation、当前turn及运行态；Android不按缓存丰富度、idle或静默时长替换权威。
+4. **绑定持久与恢复**：conversationId回写session并在列表、启动和恢复入口继续使用，不按cwd/latest猜已绑定身份。
+5. **跨会话隔离**：A/B选择、旧响应和旧事件按当前conversation/generation仲裁，避免串线。
+6. **同线程动作**：消息、计划、审批、用户输入及附件上下文沿已有authority router进入同一conversation。
+7. **Owner容错**：外部Owner缺失时按既有仲裁接管同一thread；writer冲突不强占或静默新建。
+8. **分级Goal控制**：TermLink Owner可启动及pause/resume真实Goal；external Owner只观察并支持既有turn中断，未知follower动作不伪造。
+9. **静态与有界恢复**：明确offline/desynced或当前订阅周期缺目标surface时才恢复canonical；healthy到达后停止正文恢复。
+10. **运行会话Retention**：App跟随生命周期与已采用的服务端运行期retention分开，复用同一feed和重连，不向无订阅App推送或新增轮询。
+11. **后续历史范围**：暂停包的B4R/B5、P0-C/P1及静态range/replay继续以各自原记录判断，不因上述核心交付而整体标完成。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -545,6 +810,23 @@ Web语言包及Android资源跟随系统语言，中文族简中、其他英文�
 
 Linux交互/非交互/dry-run Release安装、版本目录/升级恢复、HTTP/direct/Nginx mTLS配置与证书交付。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **根安装入口**：Release解包后的install.sh检查平台、root、systemd和依赖并分发安装。
+2. **交互安装向导**：按transport选择收集端口、认证、路径和证书配置，校验条件必填项。
+3. **非交互与预览**：使用兼容install config执行非交互安装，dry-run展示安装动作。
+4. **版本目录与外置数据**：安装到既有版本目录，以current链接选择运行版，配置和数据外置。
+5. **升级与失败恢复**：升级前后健康检查，失败回退旧版本与配置。
+6. **HTTP及Direct mTLS**：按选择生成本地CA/证书或导入服务端PEM，并交付客户端凭据。
+7. **Nginx mTLS**：配置已有loopback后端、WebSocket、mTLS和trusted-proxy边界。
+8. **证书包交付**：输出P12/PEM/公共CA及配置、unit、日志、URL和健康结果。
+9. **Release构建与版本门禁**：构建跨平台tar、校验v-semver标签并生成checksum和上传工作流；外部host/arm64/实际tag结果仍按P5证据判断。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 按原REQ/PLAN Debian/Ubuntu systemd amd64/arm64；不扩非systemd、容器、自动root或Windows重构。
@@ -573,6 +855,21 @@ Linux交互/非交互/dry-run Release安装、版本目录/升级恢复、HTTP/d
 ### 需求内容
 
 修复新对话保存被拒绝、原生Branch找不到原对话及特定委派消息解析失败；三类历史分别保存，手机切换/重开可看正文与应保留的工具详情。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **新对话正常增长**：新对话及同轮开始到完成的合法历史增长复用共享兼容规则，不将合法变化误判为冲突。
+2. **Branch父来源定位**：按明确history_base与物理cut校验所需父历史，Branch保持独立conversation身份。
+3. **继承与新增保存**：保存分支继承内容和自身新回合，不改写原对话。
+4. **委派正文保存**：特定create_thread/send_message输入复用共享DelegatedInput映射，保留正确正文、业务身份和turn归属。
+5. **产品交付与UTF8**：通过既有Rust/Node staging、ACK、complete和产品事务保存；Node stdout分块解码兼容UTF8字符边界。
+6. **手机正文与详情**：按既有工具ID/详情ref兼容展示三类正文与应保留的工具详情，durable ACK、切换和force-stop重开按原样本范围取证。
+7. **错误保护**：来源缺失、歧义、循环、压缩不支持、伪造身份/ACK继续拒绝；旧已发布格式迁移排除与当前版本数据保护保持原边界。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -605,6 +902,22 @@ H1/H3复用833；H2及最小UTF8/Android工具详情兼容按832明确追加范�
 
 真实create_thread/send_message委派正文按正确业务身份保存；同轮正常开始→完成更新可处理，真正冲突/unknown/partial和旧canonical保护保持。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **最小Wire兼容**：仓库内Spike验证后将相同最小Codex源码闭包提升到formal，不复制整套外部runtime。
+2. **委派输入模型**：将实际create_thread/send_message载体映射为TermLink-owned DelegatedInput，保留真实身份、正文及turn。
+3. **等价双载体去重**：同一输入的单载体、配对、overlap、retry和restart按稳定身份幂等；同ID正文/归属冲突保持partial。
+4. **正常观察增长**：G1依据证据允许同轮开始到完成观察更新，包括canonical到canonical；G2仅规范化等价来源载体。
+5. **Full与Delta证明**：全量重见旧开始与durable prefix加连续delta分别验证，不以turn终态代替snapshot完整性。
+6. **能力与旧状态兼容**：协商history_semantics_v2/target-v2；旧consumer、能力缺失、checkpoint/ParseGap和未结算delivery保持明确恢复或失败边界。
+7. **原状态保护**：物理篡改、完成倒退、错误scope、旧attempt、canonical降级或append跨profile恢复继续拒绝，不删旧job/receipt。
+8. **隔离持久验收**：真实Rust进程、Node consumer和临时SQLite/provider可保存并重开读回；自然Branch与手机三类结果由修复需求承接。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 只做Rust先行、Node最小consumer与隔离持久化兼容；分支定位和真实宿主/手机三场景由832承接。
@@ -633,6 +946,21 @@ H1/H3复用833；H2及最小UTF8/Android工具详情兼容按832明确追加范�
 
 保留原产品终端input/output/resize及会话基本操作；明确后续任务要求刷新已有页面复用有效TERMINAL session，无session首次进入才按既有行为创建。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **终端输入与输出**：浏览器及Android终端通过既有WebSocket将用户输入交给PTY并显示远端输出。
+2. **尺寸适配**：客户端fit/resize传递终端行列，窗口变化后沿原尺寸协商使用。
+3. **会话基本管理**：创建、列出、重命名、删除和选择终端会话，保留会话模式、名称和路径等已有元数据。
+4. **已有页面刷新复用**：刷新已有终端页使用有效sessionId继续原会话，不无谓新增会话。
+5. **首次进入创建**：没有sessionId的首次进入按既有规则创建，不混同无效显式ID的错误。
+6. **连接与状态反馈**：显示连接、等待、断开及错误，并支持用户重连/断开操作。
+7. **访问认证**：沿已有Basic/browser session及WebSocket ticket边界访问；保留与会话续接、快捷输入需求的共享功能，不承诺PTY跨服务重启连续。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 终端既有访问/认证边界沿用；不承诺进程重启后PTY连续。只把60618原要求补入本基线，不从代码追加通用安全或性能认证。
@@ -660,6 +988,23 @@ H1/H3复用833；H2及最小UTF8/Android工具详情兼容按832明确追加范�
 ### 需求内容
 
 Windows/Linux Release压缩包解压后用脚本安装，配置是否自启；README说明配置及源码打包；提供direct-server/Nginx两类mTLS证书工具，OpenSSL缺失明确失败。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **源码发行打包**：按allowlist生成Windows/Linux可解包发行布局及构建说明。
+2. **安装配置**：使用安装配置控制端口、认证、目录、transport和是否自启。
+3. **Windows服务基线**：五月发行通过PM2 fork启动及管理，开机自启沿当时安装脚本。
+4. **Linux服务基线**：systemd安装、启动、停止、移除和健康检查沿五月基线。
+5. **自启开关**：显式启用/关闭自启，配置用法和运行入口在README/部署指南说明。
+6. **Direct证书工具**：服务端自管mTLS生成/配置CA、server和client凭据，并执行对应健康检查。
+7. **Nginx证书工具**：为Nginx侧mTLS生成所需凭据与部署说明，OpenSSL缺失明确失败。
+8. **Windows x64发行增量**：七月Setup/Portable内置Node，提供共享PowerShell配置核心、CLI/GUI、进程身份校验与当前用户Scheduled Task自启；区别于五月PM2基线。
+9. **Windows本地配置与证书**：七月配置、日志、数据和证书位于persistent，提供启停/重启/健康检查与本地mTLS生成；clean-host结果仍按原未完成验收保留。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -696,6 +1041,24 @@ Windows/Linux Release压缩包解压后用脚本安装，配置是否自启；RE
 ### 需求内容
 
 优化Web登录、配置、布局与终端交互；保留接口/会话/终端能力。六月明确的Web增量为主页Codex入口/创建浏览跳转、Codex IPC页、对齐Android设计及模型推理/权限数据与单一PATH。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **浏览器登录**：独立登录表单显示校验、loading/error，并在成功后安全返回原目标页。
+2. **浏览器会话与登出**：短期HttpOnly/SameSite=Strict Cookie，TLS下带Secure；登出撤销会话，密码/token不写入URL或localStorage。
+3. **配置与会话反馈**：配置按任务分组，保存/校验/危险操作反馈明确，支持原会话管理操作。
+4. **终端为主的工作区**：终端占主要区域，连接状态、会话、重连/断开、全屏/fit和辅助输入按已有入口展示。
+5. **焦点与高频输入**：进入页面、复制粘贴、快捷键、窗口fit及触摸输入协调，保留原terminal协议。
+6. **共享视觉与可访问操作**：页面颜色、表单、按钮、状态、焦点、空/错误态及reduced-motion按七月交付统一，并适配窄屏。
+7. **主页Codex导航**：六月主页支持Codex入口及创建、浏览、跳转，沿已有会话参数进入对应页面。
+8. **Web Codex Surface**：已有IPC feed经gateway显示正文、状态、审批/PLAN，并以follower提交对应动作。
+9. **配置数据与单一路径**：模型、推理、权限读真实配置/catalog，头部显示一份实际PATH，避免硬编码选项和重复路径。
+10. **既有能力兼容**：Basic/API认证、single-use WS ticket、session/workspace和IPC权威继续使用原契约；原样本验证不扩为全产品UX认证。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -737,6 +1100,21 @@ Windows/Linux Release压缩包解压后用脚本安装，配置是否自启；RE
 
 增加Android/WebView/Node跨APK更新保留的结构化持久日志，并以ADB/服务端脚本采集manifest、原始log及合并timeline，服务于当时九类问题取证。
 
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **Android持久日志**：在私有diagnostics目录保存结构化JSONL滚动日志，更新APK后保留；Debug默认启用、Release按开关启用。
+2. **服务端持久日志**：开发服务保存受容量限制的JSONL日志，生产由环境配置显式启用。
+3. **WebView关联事件**：WebView与Android/Node生命周期及连接事件沿现有诊断链路关联。
+4. **异常与状态观察**：记录未捕获异常、主线程watchdog、Activity/WS/Service、Sessions、IPC/owner和通知等既有入口。
+5. **隐私与容量**：不记录prompt、命令正文、终端输出、附件或认证/证书密码，保留脱敏、滚动和容量策略。
+6. **采集与Timeline**：ADB/服务端脚本输出manifest、原始日志和合并timeline供原九类问题取证。
+7. **失败不阻断**：日志失败fail-open，诊断功能不改变业务或IPC authority；取证能力不等于九类问题已修复。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
+
 ### 范围边界
 
 日志失败fail-open、不改业务逻辑或IPC authority；隐私/容量/开关沿用task内实际方案。九类问题取证不等于九项业务修复。
@@ -762,6 +1140,30 @@ Windows/Linux Release压缩包解压后用脚本安装，配置是否自启；RE
 ### 需求内容
 
 按历史阶段任务分别交付：隔离Rust读取/解析/自有事件与协议，Node隔离consumer，再保留真实path/内容并接入Node产品历史库/API，最后Android只读正文/工具详情、缓存/older/ACK/重开与IPC并存。
+
+
+### 功能点清单
+
+以下细化既有功能范围；具体实现/验证覆盖仍读本项交付对账，不将current或列出功能等同于全部完成。
+
+1. **只读历史输入**：Rust在启动级sessions_root内读取外部Codex rollout，Node提供conversation与读取意图，不写外部文件。
+2. **会话来源与Lineage**：以SessionMeta/history_base及cut验证来源和父子关系，重建root到active head；Branch不能按内容/文件名猜父关系。
+3. **有界读取**：preview/backfill/append分别采用尾部、向前补全和安全增量，保持完整行边界、分段预算及不同cursor语义。
+4. **原生类型适配**：仓库内wire facade及唯一Adapter输出TermLink-owned事件，unknown/alias/ParseGap保留诊断及不完整状态。
+5. **历史投影**：生成用户/助手正文、真实工具摘要/详情、计划交互、usage/outcome及来源；稳定item身份支持重读去重。
+6. **进程与交付协议**：Node先hello，在单Rust进程/单in-flight请求上串行调度；batch ACK后完整校验complete与checkpoint。
+7. **恢复与错误保护**：Node保留job/checkpoint和delivery身份，以新request重试普通mode；取消/超时/重启不伪造提交或降低旧canonical。
+8. **Node产品事务**：batch先durable staging，再经complete gate在产品事务内保存canonical正文、详情、覆盖及checkpoint。
+9. **产品只读查询**：鉴权provider/API/既有history通道读取Node已持久投影，不让App或其他worker直接调用Rust。
+10. **Android静态缓存**：以endpoint/profile和conversation隔离正文、详情及checkpoint，提供冷启动/离线首屏。
+11. **History传输与ACK**：沿协商能力使用manifest、受限page/delta和payload chunk；先本地durable提交再ACK，并保留hash/数量校验。
+12. **Older与范围续读**：静态更早历史按既有cursor/range/coverage接入，history调度让位实时与control；缺口和未闭合范围保留原诊断。
+13. **工具详情与媒体**：按详情ref分块读取/显示，保留实际工具身份；媒体原图/缩略图、手动打开与下载进度按现有独立静态边界。
+14. **本地统计与清理**：已有设置入口按服务/任务查看存储及手动清理，遵守共享引用安全，不影响凭据或远端任务。
+15. **切换重开与权威隔离**：旧conversation/generation结果不得改写当前UI或分区；静态缓存与history/replay不覆盖healthy IPC实时权威。
+16. **专项修复关联**：三类保存与DelegatedInput/正常增长的具体规则复用两项专项需求；上述分层功能有各自交付，完整自然链路仍按原005/831及全链报告判断。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 
@@ -831,6 +1233,17 @@ Rust/Node基础层不等于产品集成；审计001和E2E831是核查任务。so
 ### 需求内容
 
 原用户INBOX记录：减少打开历史任务时短暂“服务端历史校验并修复中”的干扰。
+
+
+### 功能点清单
+
+以下为候选问题与未选择的方案，未作为已采用或已实现能力。
+
+1. **已捕获的用户问题**：用户希望减少打开历史任务时短暂历史校验/修复提示的干扰。
+2. **待选展示方案**：延迟显示、弱提示或隐藏等具体方式尚未采用，也没有已确定阈值。
+3. **保留原恢复功能**：候选只讨论提示展示，不取消后台校验、缺口修复或既有IPC恢复语义。
+
+依据：沿用本项原始要求、后续任务与交付来源；本轮[盘点依据](history/maintenance-20261011/feature-inventory-20261012/reading-basis.md)记录静态定位和未核对范围。
 
 ### 范围边界
 

@@ -26,6 +26,16 @@
 
 来源见元数据、[任务总账](history/maintenance-20261011/legacy-task-import/TASK_HISTORY.md)、[需求正文](MANAGED_REQUIREMENTS.md)和[交付对账](DELIVERY_RECONCILIATION.md)。本次修正文档来源及范围，不重跑业务验证，不按task数量计算目标完成率。
 
+
+
+### 功能范围入口
+
+仅导航现有移动/浏览器访问能力，不新增目标结果或设备矩阵。
+
+- [终端](MANAGED_REQUIREMENTS.md#REQ-TERMLINK-CORE-TERMINAL)、[续接](MANAGED_REQUIREMENTS.md#REQ-20260222-session-retention-reconnect)及[输入与滚动](MANAGED_REQUIREMENTS.md#REQ-20260223-shortcut-keyboard-modifier-newline)。
+- [External本地会话](MANAGED_REQUIREMENTS.md#REQ-20260224-android-external-web-terminal-profile-sessions)、[缓存首屏](MANAGED_REQUIREMENTS.md#REQ-20260324-session-list-local-cache)与[前台息屏偏好](MANAGED_REQUIREMENTS.md#REQ-20260224-screen-keep-awake)。
+- [Profile运行时证书](MANAGED_REQUIREMENTS.md#REQ-20260326-android-profile-mtls-runtime-certificate)、[语言](MANAGED_REQUIREMENTS.md#REQ-20260329-language-normalization)、[Web交互](MANAGED_REQUIREMENTS.md#REQ-TERMLINK-WEB-UX)和[只读文档工作区](MANAGED_REQUIREMENTS.md#REQ-20260318-ws-0001-docs-exp)。
+
 ## [GOAL-TERMLINK-CODEX-CONTINUITY] 移动Codex对话与同一会话连续性
 
 ### 目标说明
@@ -39,6 +49,17 @@
 ### 依据与结果材料
 
 来源见元数据、[任务总账](history/maintenance-20261011/legacy-task-import/TASK_HISTORY.md)、[需求正文](MANAGED_REQUIREMENTS.md)和[交付对账](DELIVERY_RECONCILIATION.md)。本次修正文档来源及范围，不重跑业务验证，不按task数量计算目标完成率。
+
+
+
+### 功能范围入口
+
+沿现有Codex任务方向导航；实时、静态历史、隔离基础层和产品验收范围保持分层。
+
+- [对话能力](MANAGED_REQUIREMENTS.md#REQ-20260309-codex-capability-mvp)与[原生页面](MANAGED_REQUIREMENTS.md#REQ-20260408-codex-native-android-migration)：线程、输入、模型/推理/权限、plan、skills/文件、审批、附件和辅助信息。
+- [状态与恢复交互](MANAGED_REQUIREMENTS.md#REQ-20260415-codex-android-runtime-interaction-fixes)：中断、通知、当前线程续发、复用、正文收敛和附件分流。
+- [同conversation实时跟随](MANAGED_REQUIREMENTS.md#REQ-20260516-codex-mobile-realtime-sync)：follower、绑定、重连、owner容错、A/B隔离和分级控制。
+- [只读持久历史](MANAGED_REQUIREMENTS.md#REQ-TERMLINK-HISTORY-PIPELINE)与两项[保存修复](MANAGED_REQUIREMENTS.md#REQ-20261005-codex-history-save-repair)/[共享兼容](MANAGED_REQUIREMENTS.md#REQ-20261005-codex-history-shared-compat)：正文/详情、传输ACK、缓存、older、切换与重开。
 
 ## [GOAL-TERMLINK-RELAY-ACCESS] 私网服务的受控透明访问
 
@@ -54,6 +75,14 @@
 
 来源见元数据、[任务总账](history/maintenance-20261011/legacy-task-import/TASK_HISTORY.md)、[需求正文](MANAGED_REQUIREMENTS.md)和[交付对账](DELIVERY_RECONCILIATION.md)。本次修正文档来源及范围，不重跑业务验证，不按task数量计算目标完成率。
 
+
+
+### 功能范围入口
+
+全部仍为planned阅读入口，不表达当前已经实现。
+
+- [Relay首期](MANAGED_REQUIREMENTS.md#REQ-20260413-relay-control-plane-and-transparent-transit)：控制台/管理员MFA、connector注册心跳、inventory/service发布、App认领、策略/ticket、sessions与terminal透明中转、身份/版本/错误审计。
+
 ## [GOAL-TERMLINK] 移动优先的远程终端与Codex连续体验
 
 ### 目标说明
@@ -67,3 +96,17 @@
 ### 依据与结果材料
 
 来源见元数据、[任务总账](history/maintenance-20261011/legacy-task-import/TASK_HISTORY.md)、[需求正文](MANAGED_REQUIREMENTS.md)和[交付对账](DELIVERY_RECONCILIATION.md)。本次修正文档来源及范围，不重跑业务验证，不按task数量计算目标完成率。
+
+
+### 功能范围入口
+
+总目标沿用现有表述；以下是现有功能面的阅读入口，沿既有inferred归纳，不新增正式组成/依赖关系，也不新增目标验收。
+
+- [远程终端与会话](MANAGED_REQUIREMENTS.md#REQ-TERMLINK-CORE-TERMINAL)：输入输出、resize、创建/管理、刷新复用；[断联保留](MANAGED_REQUIREMENTS.md#REQ-20260222-session-retention-reconnect)和[快捷输入](MANAGED_REQUIREMENTS.md#REQ-20260223-shortcut-keyboard-modifier-newline)细目各自维护。
+- 移动访问：[External终端](MANAGED_REQUIREMENTS.md#REQ-20260224-android-external-web-terminal-profile-sessions)、[会话列表缓存](MANAGED_REQUIREMENTS.md#REQ-20260324-session-list-local-cache)、[前台息屏](MANAGED_REQUIREMENTS.md#REQ-20260224-screen-keep-awake)和[语言适配](MANAGED_REQUIREMENTS.md#REQ-20260329-language-normalization)。
+- Codex对话：[聊天/计划/skills/附件/配置](MANAGED_REQUIREMENTS.md#REQ-20260309-codex-capability-mvp)、[原生容器](MANAGED_REQUIREMENTS.md#REQ-20260408-codex-native-android-migration)与[运行态交互修复](MANAGED_REQUIREMENTS.md#REQ-20260415-codex-android-runtime-interaction-fixes)。
+- Codex连续体验：[IPC实时跟随](MANAGED_REQUIREMENTS.md#REQ-20260516-codex-mobile-realtime-sync)、[静态历史和详情](MANAGED_REQUIREMENTS.md#REQ-TERMLINK-HISTORY-PIPELINE)、[三类保存修复](MANAGED_REQUIREMENTS.md#REQ-20261005-codex-history-save-repair)及[共享兼容](MANAGED_REQUIREMENTS.md#REQ-20261005-codex-history-shared-compat)；各项交付边界分开。
+- 工作区与浏览器：[只读目录/搜索/预览/比较](MANAGED_REQUIREMENTS.md#REQ-20260318-ws-0001-docs-exp)和[浏览器登录与终端/Codex交互](MANAGED_REQUIREMENTS.md#REQ-TERMLINK-WEB-UX)。
+- 访问与发行支持：[服务端权限门禁](MANAGED_REQUIREMENTS.md#REQ-20260222-server-admin-privilege-mode)、[Profile证书](MANAGED_REQUIREMENTS.md#REQ-20260326-android-profile-mtls-runtime-certificate)、[跨平台发行](MANAGED_REQUIREMENTS.md#REQ-TERMLINK-RELEASE-BASELINE)及[Linux安装器](MANAGED_REQUIREMENTS.md#REQ-20260715-linux-interactive-release-installer)。
+- 维护与取证：[文档流程](MANAGED_REQUIREMENTS.md#REQ-20260222-doc-governance)和[持久诊断日志/采集](MANAGED_REQUIREMENTS.md#REQ-TERMLINK-DIAGNOSTICS)支撑已有工作，不据此增加业务认证。
+- 另列状态：[Relay](MANAGED_REQUIREMENTS.md#REQ-20260413-relay-control-plane-and-transparent-transit)仍planned，[校验提示](MANAGED_REQUIREMENTS.md#REQ-TERMLINK-HISTORY-BANNER)仍candidate，[旧App修复方案](MANAGED_REQUIREMENTS.md#REQ-20260306-codex-app-repair-plan)仍retired。

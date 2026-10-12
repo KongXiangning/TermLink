@@ -1,0 +1,42 @@
+{
+  "at": "2026-10-12T04:46:27.603Z",
+  "status": "checked",
+  "coverage": {
+    "complete": true,
+    "files_read": 8,
+    "bytes_read": 674453,
+    "enumeration": "managed_paths only; sources are read only by explicit reference",
+    "omitted": [],
+    "paths": [
+      "docs/product/PROJECT.md",
+      "docs/product/GOALS.md",
+      "docs/product/MANAGED_REQUIREMENTS.md",
+      "docs/product/DESIGN_REGISTER.md",
+      "docs/product/DELIVERY_RECONCILIATION.md",
+      "docs/product/ARRANGEMENTS.md",
+      "docs/product/HISTORY_CHANGES.md",
+      "docs/product/SCOPED_ASSESSMENTS.md"
+    ],
+    "excluded_paths": [],
+    "max_files": 1000,
+    "max_file_bytes": 4194304,
+    "max_total_bytes": 33554432,
+    "usable_count": 76,
+    "invalid_count": 0
+  },
+  "preserved_existing_item_ids": 76,
+  "expected_bodies_match": true,
+  "body_separator_exception": "helper inserts one newline before the next root heading in three goal items; all other bytes match",
+  "unchanged_other_metadata": true,
+  "unchanged_requirement_boundaries_acceptance_sources": true,
+  "feature_points": 213,
+  "current_scope_feature_points": 193,
+  "diagnostics": {
+    "DEFINITION_CHANGED": 28,
+    "PENDING_SOURCES": 15,
+    "CHANGE_TARGET": 1,
+    "TASK_ID_UNCONFIRMED": 2,
+    "GOAL_DEFINITION_CHANGED": 3
+  },
+  "business_verification": "not-run; no new delivery conclusions"
+}
