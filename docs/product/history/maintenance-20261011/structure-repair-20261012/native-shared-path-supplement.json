@@ -1,0 +1,15 @@
+{
+  "original_requirement": "REQ-20260408-codex-native-android-migration",
+  "original_numbers": [
+    4,
+    5
+  ],
+  "shared_identities": [
+    "REQ-TERMLINK-CODEX-THREADS",
+    "REQ-TERMLINK-CODEX-MODEL"
+  ],
+  "change": "restore explicit history-thread body reference and two original-native composition edges; no new identity/Task/report",
+  "existing_parent": "REQ-20260309-codex-capability-mvp",
+  "new_shared_parent": "REQ-20260408-codex-native-android-migration",
+  "notice": "migration evidence only, not a second current authority"
+}

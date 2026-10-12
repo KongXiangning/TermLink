@@ -1,0 +1,12 @@
+{
+  "original_requirement": "REQ-20260222-server-admin-privilege-mode",
+  "original_number": 6,
+  "current_identity": "REQ-TERMLINK-CLIENT-RISK",
+  "definition": "same body, unchanged",
+  "formal_parent_paths": [
+    "REQ-20260222-server-admin-privilege-mode",
+    "REQ-TERMLINK-WEB",
+    "REQ-TERMLINK-APP"
+  ],
+  "reason": "original Web/App risk scope made explicit; migration supplement only, not a parallel current list"
+}

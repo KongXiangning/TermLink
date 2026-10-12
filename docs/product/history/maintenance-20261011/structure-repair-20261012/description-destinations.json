@@ -1,0 +1,2132 @@
+[
+  {
+    "original_requirement": "REQ-20260222-doc-governance",
+    "original_number": 1,
+    "description_sha256": "dd09aa74feb8585d2d3f7e6355ba4b269ee60ff0afa5343e551f745a784c66d5",
+    "original_title": "分层文档与导航",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260222-doc-governance",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-doc-governance",
+    "original_number": 2,
+    "description_sha256": "1784956e9c71eeef79c191fffda09344ea9ed015be3726fe1edcb815babb9096",
+    "original_title": "需求正文与范围",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260222-doc-governance",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-doc-governance",
+    "original_number": 3,
+    "description_sha256": "db1257ea5bed237312b891c7b73a80632cd801c1b2655234e833cab41b784a74",
+    "original_title": "实施追踪",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260222-doc-governance",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-doc-governance",
+    "original_number": 4,
+    "description_sha256": "996949cdd43d66c4068f582d3791a2a90ac3c31e6de8dd22b500a9bf64965d4e",
+    "original_title": "变更证据",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260222-doc-governance",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-doc-governance",
+    "original_number": 5,
+    "description_sha256": "5207f6902ebc5371d3b9b709b0dbed4279463dec065a8fd5a431887ef3ae4cbf",
+    "original_title": "当前维护入口",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260222-doc-governance",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-doc-governance",
+    "original_number": 6,
+    "description_sha256": "f28c811e01487d63fe7632e0954f429f9e62a5c117d38be730f9c13623720499",
+    "original_title": "任务与材料查询",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260222-doc-governance",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-server-admin-privilege-mode",
+    "original_number": 1,
+    "description_sha256": "fb28319f09920f87e0c3110dfa105424b45d1bfdc6951cff84232773912d61bc",
+    "original_title": "权限模式配置",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-PERMISSION-MODE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-server-admin-privilege-mode",
+    "original_number": 2,
+    "description_sha256": "7427e05af5580db95d305f71fd0b6d6aa4e71bedb5c83bd69d14d95ffe59cc5b",
+    "original_title": "启动安全门禁",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-STARTUP-SAFETY",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-server-admin-privilege-mode",
+    "original_number": 3,
+    "description_sha256": "f1aef635a8b590394b7c01700e5130ae7de1a645c306c45a5364fbeadee07e0f",
+    "original_title": "进程权限透传",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-PERMISSION-MODE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-server-admin-privilege-mode",
+    "original_number": 4,
+    "description_sha256": "5d5e0cb7ca1039dd9a9106142b9288a918e8a4d57a0c9607131503807a730005",
+    "original_title": "来源IP限制",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-SOURCE-IP",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-server-admin-privilege-mode",
+    "original_number": 5,
+    "description_sha256": "481d262d233a8b76f7bc3f5c6c4c1b95b544075e95a2ca3727583b6d213edddc",
+    "original_title": "审计关联",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-AUDIT-TRACE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-server-admin-privilege-mode",
+    "original_number": 6,
+    "description_sha256": "efee4eb3a9ce4e18e500cf6463d73f48ab3bf86a1722db303881c4057452cd8d",
+    "original_title": "客户端风险可见",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CLIENT-RISK",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-session-retention-reconnect",
+    "original_number": 1,
+    "description_sha256": "f1ac9b490cae8bf191665f1c024c20d95a49819784b2e23eff4e8100d0160865",
+    "original_title": "断联保留",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-SESSION-CONTINUITY",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-session-retention-reconnect",
+    "original_number": 2,
+    "description_sha256": "9858bf154ba23d6b2f96901a302dc64add59ef3bd8dac45c8881760b889e9a09",
+    "original_title": "同会话续接",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-SESSION-CONTINUITY",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-session-retention-reconnect",
+    "original_number": 3,
+    "description_sha256": "b26928d113b58583d6daa68e4ec334aba345e8dc52ba663aa471012c69f817a2",
+    "original_title": "无效ID反馈",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-SESSION-CONTINUITY",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-session-retention-reconnect",
+    "original_number": 4,
+    "description_sha256": "aaf4d0a4631e84ad8df95f21d56feea245cf0f25603ee1df76e332992901432f",
+    "original_title": "可配置闲置保留",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-SESSION-TTL",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-session-retention-reconnect",
+    "original_number": 5,
+    "description_sha256": "15b44ab59240a779fcf3c6bed8265e1a23399b842d78a8631749f12b0e2e3e5f",
+    "original_title": "容量与闲置回收",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-SESSION-CAPACITY",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-session-retention-reconnect",
+    "original_number": 6,
+    "description_sha256": "ea4764d582d22015d87e1bf7cba779a519475873e041c30e55481ac78b411029",
+    "original_title": "连接与活跃信息",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260222-session-retention-reconnect",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260222-session-retention-reconnect",
+    "original_number": 7,
+    "description_sha256": "ab9bb62409da85e67287e51f4d35dcc7885992e878769aaa921b538f1b235eaf",
+    "original_title": "显式删除",
+    "disposition": "共用引用",
+    "current_target": "REQ-TERMLINK-SESSION-MANAGEMENT",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260223-shortcut-keyboard-modifier-newline",
+    "original_number": 1,
+    "description_sha256": "d432fd5c1e5f4af5ffcd208dade11386efc1009b2decc84832ff7c37978dd169",
+    "original_title": "Ctrl组合输入",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CONTROL-INPUT",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260223-shortcut-keyboard-modifier-newline",
+    "original_number": 2,
+    "description_sha256": "9ce45ad11f4ad939f2d500c8ea4f2cf2fcb4b0991f6956def6b93bc6c523ac55",
+    "original_title": "Alt组合输入",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CONTROL-INPUT",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260223-shortcut-keyboard-modifier-newline",
+    "original_number": 3,
+    "description_sha256": "d074467217767948d0dfb1a0ad284ffb0a581eb99cc4f0c96e40c1e68a999da1",
+    "original_title": "修饰键状态",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CONTROL-INPUT",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260223-shortcut-keyboard-modifier-newline",
+    "original_number": 4,
+    "description_sha256": "3595e36be0427daf6df3f2f39dc4f354b78e2f67980dcf333a3ba23f81d984e3",
+    "original_title": "回车与换行",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CONTROL-INPUT",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260223-shortcut-keyboard-modifier-newline",
+    "original_number": 5,
+    "description_sha256": "8bc2f89f37d94f93a703e7ebf18d57969ca4f6674812c58056daf4f44e22b2e9",
+    "original_title": "终端触摸滚动",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-TOUCH-SCROLL",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260223-shortcut-keyboard-modifier-newline",
+    "original_number": 6,
+    "description_sha256": "c8f20e674c3f3d58fb7d2fa2e2fb2a0c8602cf47312fdd267e721ef1689491d9",
+    "original_title": "键盘展开与焦点",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260223-shortcut-keyboard-modifier-newline",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 1,
+    "description_sha256": "4ff482aba2b270430e54da74ff24b487388991185b9c840a98b1938d76ab717a",
+    "original_title": "Profile终端类型",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 2,
+    "description_sha256": "5220142721d58a3a6ea11873fcf774b56d08951f5799de22900b2031f5d22706",
+    "original_title": "External本地会话",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-EXTERNAL-SESSIONS",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 3,
+    "description_sha256": "dd80bf04dfeb625b69ff7b8ce71d317215e8503c3be6479928ac3821fa13109f",
+    "original_title": "列表数据源分流",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 4,
+    "description_sha256": "11acf6be1fe07e46ef75429aa3deeb76317fa7f1ead49cd6baa2be340c03ddaa",
+    "original_title": "打开页面分流",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 5,
+    "description_sha256": "a832ea1a681c283630855017177489c337f7dff75d16e6d1ff2c1ffbd9574baf",
+    "original_title": "地址与凭据更新",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-EXTERNAL-REFRESH",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 6,
+    "description_sha256": "e0735f158c22920a9a4f63d45b90d72375ecaff77cfbf71fdcdc64c919374782",
+    "original_title": "空地址提示",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 7,
+    "description_sha256": "3b07e8df4b81c876afb185266aec12ec51ca5ae4e51e1c50137faa48f90a4215",
+    "original_title": "Profile删除清理",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 8,
+    "description_sha256": "3d08952cb02c503bed5cd1b699ded01bcc9435412965ddd439fe08c56a43bde5",
+    "original_title": "External界面状态",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 9,
+    "description_sha256": "a8dbb456f4f710be53d3e50e52b0e7a9e677a584864ed3680709d92821103139",
+    "original_title": "通用深色提示",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-android-external-web-terminal-profile-sessions",
+    "original_number": 10,
+    "description_sha256": "d82f997565a6aa8cb9b66457c7b4b78d428dbb0fbe9e799304578d867e17855d",
+    "original_title": "保存与删除刷新",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-EXTERNAL-REFRESH",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-screen-keep-awake",
+    "original_number": 1,
+    "description_sha256": "c91d7eee44fb7ab0ca913242a230e9a74ebb859b3cbdab738221a39bb00964e3",
+    "original_title": "前台息屏偏好",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-screen-keep-awake",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-screen-keep-awake",
+    "original_number": 2,
+    "description_sha256": "24f7023c586daec049a37e2060061074adf9f09d52f73cc3eaa7240c838d443c",
+    "original_title": "四页面统一接入",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-screen-keep-awake",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-screen-keep-awake",
+    "original_number": 3,
+    "description_sha256": "d8656d1df684d50207378e2f4da64245944be17e0eb7cb2f13c2621ba274c3c6",
+    "original_title": "用户交互重计时",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-screen-keep-awake",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-screen-keep-awake",
+    "original_number": 4,
+    "description_sha256": "5f54ec85d9d6158d580d31003d0858a496e5cbf5ce8a389cfe1fff740fe4f169",
+    "original_title": "计时结束交还系统",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-screen-keep-awake",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260224-screen-keep-awake",
+    "original_number": 5,
+    "description_sha256": "723eeb26feb738678139e0a799d01cb4ae6a9c5ac37d53b9347406b57f7d9f59",
+    "original_title": "后台与销毁清理",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260224-screen-keep-awake",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260306-codex-app-repair-plan",
+    "original_number": 1,
+    "description_sha256": "55746265ec0ecbf21b63ff6c3f785edbd49665cf7e404237564615c96b9e7b9d",
+    "original_title": "历史会话模式",
+    "disposition": "保留历史退出正文",
+    "current_target": "REQ-20260306-codex-app-repair-plan",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "retired"
+  },
+  {
+    "original_requirement": "REQ-20260306-codex-app-repair-plan",
+    "original_number": 2,
+    "description_sha256": "2d7f8ca5f4b4a20c664676d3086fb0640fc3a8c2cfa15f79e65d7db75983e69f",
+    "original_title": "历史cwd配置",
+    "disposition": "保留历史退出正文",
+    "current_target": "REQ-20260306-codex-app-repair-plan",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "retired"
+  },
+  {
+    "original_requirement": "REQ-20260306-codex-app-repair-plan",
+    "original_number": 3,
+    "description_sha256": "01842b804770419c033c45aabbadd1598e4f89e8719106ca34a0b32009b53a0e",
+    "original_title": "历史独立聊天页",
+    "disposition": "保留历史退出正文",
+    "current_target": "REQ-20260306-codex-app-repair-plan",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "retired"
+  },
+  {
+    "original_requirement": "REQ-20260306-codex-app-repair-plan",
+    "original_number": 4,
+    "description_sha256": "2b510a4c24e22cb4786021106e3cd4191b494aabb0dbbc572182c1f7e12c6ce1",
+    "original_title": "历史审批桥接",
+    "disposition": "保留历史退出正文",
+    "current_target": "REQ-20260306-codex-app-repair-plan",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "retired"
+  },
+  {
+    "original_requirement": "REQ-20260306-codex-app-repair-plan",
+    "original_number": 5,
+    "description_sha256": "8ccf5d7c08bc8c99cd777edce259a13253f852505e1ad85110b260ae13986a57",
+    "original_title": "历史状态与错误",
+    "disposition": "保留历史退出正文",
+    "current_target": "REQ-20260306-codex-app-repair-plan",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "retired"
+  },
+  {
+    "original_requirement": "REQ-20260306-codex-app-repair-plan",
+    "original_number": 6,
+    "description_sha256": "67d4feb8c70adc61e6db8f95233253d04634469e587a74da5f48e1c4918205ba",
+    "original_title": "历史IME适配",
+    "disposition": "保留历史退出正文",
+    "current_target": "REQ-20260306-codex-app-repair-plan",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "retired"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 1,
+    "description_sha256": "df7e25aafbdf01842a7b1691b0c48f92f7dfe6cf118696e80f91d69877b37608",
+    "original_title": "对话主界面",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260309-codex-capability-mvp",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 2,
+    "description_sha256": "d26dcbd42bf5d7aede57fec0e8e2a5fa4544750f27b47a232009ef5802fe86ed",
+    "original_title": "线程创建与恢复",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-THREADS",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 3,
+    "description_sha256": "69fe4f510b7398c425814fc77fc86227543ce932b4f7c553e231a6553a95d83a",
+    "original_title": "工作区历史筛选",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-THREADS",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 4,
+    "description_sha256": "5c090d58c8ab5aa7f7e43292a2aa8e6c165e7be47dc873750184277ac3b9f979",
+    "original_title": "模型与推理选择",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-MODEL",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 5,
+    "description_sha256": "5ae0a807663c1dc4c97af18cbdf457c94b5913cec9e44cb0239ba964c41f229f",
+    "original_title": "配置分层",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260309-codex-capability-mvp",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 6,
+    "description_sha256": "a7e90d990ea1edbeb2a13d714a6d10f60139c8c61d76cd52d73a2415258c30d8",
+    "original_title": "计划模式",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-PLAN",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 7,
+    "description_sha256": "35be7731dcaaae4cdf0d4ee958b169020d7ccdf693b04b76db675bb6196e6c82",
+    "original_title": "Slash解析与分发",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-SLASH",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 8,
+    "description_sha256": "07ec79935cbdad7220501ab6c67f13d865d4c7f88fbb0a7b351b213c1503c69d",
+    "original_title": "Skills输入",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-SKILLS",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 9,
+    "description_sha256": "e0d618aa89589fe87cf36a97244496af51cceac4ea4f896278bc17637bc69bba",
+    "original_title": "工作区文件提及",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-FILES",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 10,
+    "description_sha256": "645bb8a9287cd2017fe988f421f92e972917d4d82c023f258e70cb638442c11f",
+    "original_title": "图片与文件附件",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-ATTACHMENTS",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 11,
+    "description_sha256": "c7f26497e758f003b7363c4b10352af1cea9d53ec9f9410bfe988b2505b7aa18",
+    "original_title": "审批与用户输入",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-APPROVAL",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 12,
+    "description_sha256": "dc01d38ef29c1858a1e1f38ecbe6f41602e6261f67baa5422ce7358a0978d18c",
+    "original_title": "真实权限选择器",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-PERMISSION",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 13,
+    "description_sha256": "01e14ec808ad5360b83fce1544ff463dace20ad25c62ebca0d7226834351e8b4",
+    "original_title": "背景信息与额度",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260309-codex-capability-mvp",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 14,
+    "description_sha256": "e2b947dd6064f4b5e53e1ac608aaddd46911fc86ba7c85f1f5240cf0045f833f",
+    "original_title": "后台任务与恢复",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-CODEX-BACKGROUND",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260309-codex-capability-mvp",
+    "original_number": 15,
+    "description_sha256": "e432ed680096e7fddc868edc1debc96a57db07d2316baefe733315937a45d671",
+    "original_title": "原生会话交互细化",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260309-codex-capability-mvp",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 1,
+    "description_sha256": "07f569a2cf82c46c266b13be09432f537a53471eeaaed7a4d0c5a3b8d403f5fd",
+    "original_title": "固定工作区访问",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260318-ws-0001-docs-exp",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 2,
+    "description_sha256": "ce61772722f8b9ac8f4e9865a4c5d2ff1f82973fe1cff57ce89649bc08316f0f",
+    "original_title": "文档入口与目录导航",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-WORKSPACE-BROWSE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 3,
+    "description_sha256": "b554220cce6640440624bb645abb1302b1242900938a07a67d74065e71ba0b22",
+    "original_title": "受限文件搜索",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-WORKSPACE-BROWSE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 4,
+    "description_sha256": "cbe911f974232173683ccfd42fddd5c772c9707b01cb68a280c02270bab97faf",
+    "original_title": "文本与代码阅读",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-WORKSPACE-PREVIEW",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 5,
+    "description_sha256": "3b6b0c4570815b666eeded57431b4f365326a5edb65a3d9882a1e299088f8743",
+    "original_title": "Markdown阅读",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-WORKSPACE-PREVIEW",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 6,
+    "description_sha256": "f7585449c0c9069f512fe74bdb9a4ed598879545dd5ba1ac9d65b374f2065ad6",
+    "original_title": "图片与PDF预览",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-WORKSPACE-PREVIEW",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 7,
+    "description_sha256": "1494cc111adc0027e78a69777229580d86a219fed72f8967ac47e0098b6cda4b",
+    "original_title": "二进制及不可预览反馈",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-WORKSPACE-PREVIEW",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 8,
+    "description_sha256": "bd7ff5da850dc8756ebfd964ef7094bf901177b80ebf0a2e21e1fe226e6a7549",
+    "original_title": "Git HEAD比较",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-WORKSPACE-DIFF",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 9,
+    "description_sha256": "de171a5fb1621e19e28aa6e3bd154a4f316d4d8b932b9124b4dcf0abd2140606",
+    "original_title": "双文本文件比较",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-WORKSPACE-DIFF",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 10,
+    "description_sha256": "fd1b4839959a9bc916cd5ac850a64594abb7f719970c80e8f5f9b2e1b6364735",
+    "original_title": "Android认证下载与打开",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-WORKSPACE-DOWNLOAD",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 11,
+    "description_sha256": "b220ac331d230dee47211df226477a4b191c7ce4b516482354191546fccd0b8a",
+    "original_title": "Android返回与IME",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260318-ws-0001-docs-exp",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260318-ws-0001-docs-exp",
+    "original_number": 12,
+    "description_sha256": "b87920b359741fc38826096cbf44256fe7009217a3d8aab3a1ed7877c4e4b3cb",
+    "original_title": "小屏阅读与滚动",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260318-ws-0001-docs-exp",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260324-session-list-local-cache",
+    "original_number": 1,
+    "description_sha256": "a5419a55506e6a6febe3dc0b649b253bc9aadc12b9712f80fe8b5c1cec63a7c2",
+    "original_title": "最近远端列表保存",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260324-session-list-local-cache",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260324-session-list-local-cache",
+    "original_number": 2,
+    "description_sha256": "df3d6cc283d4f1355d95dcbc755916b0f574864aeb006151ba94a9a11d0aa033",
+    "original_title": "缓存首屏",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260324-session-list-local-cache",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260324-session-list-local-cache",
+    "original_number": 3,
+    "description_sha256": "77006f2a94c8aff53826729f51630a079c2e3ca4338d2f0cadf5f4295bed96e7",
+    "original_title": "缓存状态可见",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260324-session-list-local-cache",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260324-session-list-local-cache",
+    "original_number": 4,
+    "description_sha256": "616c9b9fc0f0dd47e35ed0d897aafbbd77c028aa762b3ae856cf1853112f0b75",
+    "original_title": "成功刷新回写",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260324-session-list-local-cache",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260324-session-list-local-cache",
+    "original_number": 5,
+    "description_sha256": "d5c6c7b7934a75b3b0638b0890433a5bf9bc141ce0cadcc2504531a87b5f49f9",
+    "original_title": "失败保留",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260324-session-list-local-cache",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260324-session-list-local-cache",
+    "original_number": 6,
+    "description_sha256": "457b3735ecb6ac07b5feaeb5189ed6eb6d1f2a1baf17bf6cd0e5e9751f80f3d4",
+    "original_title": "变更与生命周期回写",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260324-session-list-local-cache",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260324-session-list-local-cache",
+    "original_number": 7,
+    "description_sha256": "41bc1d5debf97963af14ccdba07142f0ce207e132446b70cd994344a8be9ae39",
+    "original_title": "External沿用本地来源",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260324-session-list-local-cache",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "original_number": 1,
+    "description_sha256": "22527d7db811acbbb19a2fd08fba5bd071cc245ab4be0889944445b5d06ec075",
+    "original_title": "按Profile选择证书",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "original_number": 2,
+    "description_sha256": "d2cb88640bd60755ffb09de63d6ea2c218f1270ba155fa65c486f6b3c7128447",
+    "original_title": "证书与口令管理",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "original_number": 3,
+    "description_sha256": "9664058b6d27401ab1745d5103aaa91ae8541cc83ce400f2da91746828339070",
+    "original_title": "新配置校验",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "original_number": 4,
+    "description_sha256": "5dd99fd4f6022f2e288c8a05f4ae08da2242533ac1bd82b90255f199f896e092",
+    "original_title": "旧Profile待补齐",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "original_number": 5,
+    "description_sha256": "649d2137755f573b330186c69bae187967e3d9abae4999b8bb20368953288d8e",
+    "original_title": "主动移除语义",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "original_number": 6,
+    "description_sha256": "d7505a6d2e60ec64d0d9a61f2a4955edc1f6cc78c75f209aadced291e65e5706",
+    "original_title": "共享凭据解析",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "original_number": 7,
+    "description_sha256": "2a73cd66bd31fc040c6e97ebffd109a3ae7feea522bfe17ba343f7d9a2220b2a",
+    "original_title": "变更清理与失效",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "original_number": 8,
+    "description_sha256": "0c4441f154f11d07027973d5cfefa59ce4d0483c3976745111ce3fb61c16fca1",
+    "original_title": "服务端直接TLS/mTLS",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "original_number": 9,
+    "description_sha256": "f4caf5d30887d79198ba61a1906d5e1eea2db066e438614572e24a3c0e246901",
+    "original_title": "模式兼容",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260329-language-normalization",
+    "original_number": 1,
+    "description_sha256": "e46ecacc249f1f01fbac61bc67973f12ca249ca545a458bb324b0af742ad5789",
+    "original_title": "系统语言映射",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260329-language-normalization",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260329-language-normalization",
+    "original_number": 2,
+    "description_sha256": "f33315c11aa76468ed5d47302ed351aa012058be1565742733867321601b7e2d",
+    "original_title": "Web语言包与替换",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260329-language-normalization",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260329-language-normalization",
+    "original_number": 3,
+    "description_sha256": "e9d82b47c870bcdc05d620115f5c79312ec3a8a70c980b1fce99462252c61a70",
+    "original_title": "原生语言资源",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260329-language-normalization",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260329-language-normalization",
+    "original_number": 4,
+    "description_sha256": "3663145f193a6498d795875e6e0797a7f03183482896d9b7f796a9376c81746b",
+    "original_title": "缺失键回退",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260329-language-normalization",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260329-language-normalization",
+    "original_number": 5,
+    "description_sha256": "631596c44131cf68f1b0462fb7e96b665152dec50fe879796dd269de9d4e9d9f",
+    "original_title": "语言注册扩展",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260329-language-normalization",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 1,
+    "description_sha256": "e0091a9325a5993c9ac34895b48f51bb3022fa5959e700503f040c70fb4997c3",
+    "original_title": "独立原生入口",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 2,
+    "description_sha256": "bb697b536d14b9cb92e4475944a1954294658ba14c656b204b90ad1e585e0982",
+    "original_title": "启动与恢复",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 3,
+    "description_sha256": "ee031cb208132f862f91a4fd4bf09b49410d3409dfb7344b51dd1f6589dc58c4",
+    "original_title": "原生连接层",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 4,
+    "description_sha256": "0712bff90f6c952ae4e8c4a493f6b522acfd01db9ddf8ad1f3a7918bbe3a36db",
+    "original_title": "原生消息与输入",
+    "disposition": "共用引用及原生容器边界",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 5,
+    "description_sha256": "33a63e9a17b20b7811500abf8153c5f0dc8efd7f3ddff482e098a566c462e31a",
+    "original_title": "阻塞交互与面板",
+    "disposition": "共用引用及原生容器边界",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 6,
+    "description_sha256": "422b3d605e2ebe3af7b16dd0809fe2c604d878b0054d633a89f66ab2b9efe6c8",
+    "original_title": "全局入口",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 7,
+    "description_sha256": "5de9add7e67c7a5338b5322fedc05949372154f3dd55667ad0535de4465487af",
+    "original_title": "安全区与IME",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 8,
+    "description_sha256": "e9556201fcd4f9179da81fda9df84df042537a2ab3ce3720085e985bc322a40a",
+    "original_title": "自动跟随与返回最新",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 9,
+    "description_sha256": "a6179fde420db76ddb12cc8b68c0f2b784fb272bf516dd694a3200ba808c7a51",
+    "original_title": "通知与后台容器",
+    "disposition": "共用引用及原生容器边界",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260408-codex-native-android-migration",
+    "original_number": 10,
+    "description_sha256": "193ff840257e8ed45e13bfcc7f0bcc8b6206449fe01a327999e1c41fefd0420e",
+    "original_title": "提供方适配边界",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260408-codex-native-android-migration",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 1,
+    "description_sha256": "1aec8752d51bccb493b3067d97650e0244fb6c5d4c9ffadf9057104218813ef0",
+    "original_title": "控制台管理",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 2,
+    "description_sha256": "cf85b4cae56ef677bceee9114c2ab8fc30474cebe2b4dc85a6ab58f747194641",
+    "original_title": "Connector接入",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 3,
+    "description_sha256": "d6469a4aca2cd97ee20d70f81167602a03b59e4b631e42605190164ea122a9ac",
+    "original_title": "服务Inventory",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 4,
+    "description_sha256": "79e267de198a4d636f07723853280e283c11cc811e48de23bec86c5da17a0229",
+    "original_title": "服务发布",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 5,
+    "description_sha256": "e110fb8b051451eb1eb09a29ac83eb7e922116f95c19e95ffc6e738b6e4db1de",
+    "original_title": "App槽位认领",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 6,
+    "description_sha256": "2c740f7f6ce7152a9f856efc4323ad772c8d0ba1b58e33f1e72d71406cbb8004",
+    "original_title": "访问策略与Ticket",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 7,
+    "description_sha256": "b54ac93ee614a7668a43e24f3fe3c4610624e34467d289dbb1df149f16794b78",
+    "original_title": "Sessions透明访问",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 8,
+    "description_sha256": "33382f9ebe69d89260f7bed62f29a1f96a06342be81787fc15461b83c09291c6",
+    "original_title": "Terminal透明中转",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 9,
+    "description_sha256": "a0f95235a98408a90a853e67366b26041c09b25b082f4e7e75e08756aed4c4d0",
+    "original_title": "App寻址与缓存",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 10,
+    "description_sha256": "58923d6a0bec64e7412eef8ba265c6698b04f6ce17224d27a8e7e3ba1ca7de78",
+    "original_title": "错误与主体审计",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "original_number": 11,
+    "description_sha256": "71569b1f121d65616c5737e78b55cd8ce0edcde0bd7a7bb10ad883e92d3718a7",
+    "original_title": "独立边界与兼容",
+    "disposition": "保留原planned正文",
+    "current_target": "REQ-20260413-relay-control-plane-and-transparent-transit",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "planned"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 1,
+    "description_sha256": "f057af6d7e5420f67e6933f1d28ecd5999358331d2d82aa13fbe8125d485ac83",
+    "original_title": "可中断状态",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 2,
+    "description_sha256": "fa5ce6dbdde30e4bb35f4c5dafa2eec080d3ed274b683b7cc2f0647e159fb1ac",
+    "original_title": "进行中通知收口",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 3,
+    "description_sha256": "52bbc9a7f6a695689ba4a8a6d05ff259316697dcecdeb3c2ca8238cf8f40ba4c",
+    "original_title": "完成提醒",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 4,
+    "description_sha256": "e5272d83f586eff474a4eae4ac8e6322a70d3d021a3a24ecb1b184d0be78bee6",
+    "original_title": "Header布局",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 5,
+    "description_sha256": "516fe140786256c74c4c19498cd13097f040a8d306b02f9532ae651a6c125629",
+    "original_title": "手动到底恢复",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 6,
+    "description_sha256": "8433cd1251094c9c4a38388cc3de6dbce659fe4c5bb876c2af251e384e372ab2",
+    "original_title": "Slash按钮同步",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 7,
+    "description_sha256": "a4bddb646703ddd523e6b464e7cb9e76b7d0fbcba5ad6fac79d30e178d797d90",
+    "original_title": "历史线程继续",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 8,
+    "description_sha256": "8453b97a668b7dfeb79b652a6dff058bf99951a25628071ac523c183a23d27ea",
+    "original_title": "弱网恢复",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 9,
+    "description_sha256": "c77d0a7e696c8e57cd2f2d20408a3ce458cb431f91306ba42382c3dcc1ffb2cb",
+    "original_title": "重开复用",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 10,
+    "description_sha256": "8e20e50be320796f029f829caeb3900e516c0c2feb4c4735fef872c8bca817bb",
+    "original_title": "当前页正文收敛",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "original_number": 11,
+    "description_sha256": "925a8939c28ce279141be6966ee83f0f890ed47cd45cefcb647b1fc6fe546587",
+    "original_title": "附件入口分流",
+    "disposition": "共用引用及专项picker边界",
+    "current_target": "REQ-20260415-codex-android-runtime-interaction-fixes",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 1,
+    "description_sha256": "011b3ad7ecd62b448ff29079745c580f2d09fc1b13e07ddffbcd4dab1d5078a8",
+    "original_title": "当前会话跟随",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 2,
+    "description_sha256": "fcff6aaf44fb2905cf0f06b497522831e7e5b9529ecb3170f49e668cd8939674",
+    "original_title": "定向Surface接收",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 3,
+    "description_sha256": "dc1fbba1d40f69c2957228e1a77075ad486de9d47705de7cbf74d80d5c365f08",
+    "original_title": "唯一实时权威",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 4,
+    "description_sha256": "ea3760b77e106a31edbd258bffac8fa934541009cd467a2b4368c1ad75750f7f",
+    "original_title": "绑定持久与恢复",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 5,
+    "description_sha256": "b64ebef0b0ed556ef60b396bab35165a7d82aee16dfb050dd0f8f40617912e65",
+    "original_title": "跨会话隔离",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 6,
+    "description_sha256": "d63500e1d71e624e5fc5f4745603c557856bf32a1344d926bc21b03113848aee",
+    "original_title": "同线程动作",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 7,
+    "description_sha256": "005e75f321350eb6ddef106d4957e78deaba929e52424e55d4c7a996520ac3da",
+    "original_title": "Owner容错",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 8,
+    "description_sha256": "b7247cd3d11c0b1415350c25682e1bfb4c6f1566c95af095771107a662e00eb6",
+    "original_title": "分级Goal控制",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 9,
+    "description_sha256": "c58dd50ba969732baa68fabd298f8acbad0c3d2cee6bed50cc05d5ae7f69cfbd",
+    "original_title": "静态与有界恢复",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 10,
+    "description_sha256": "4529cf8da397323286d7fce69ad8939608d51589af40fafd353b7e6cde5c316d",
+    "original_title": "运行会话Retention",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260516-codex-mobile-realtime-sync",
+    "original_number": 11,
+    "description_sha256": "90b9f2011ac4f4100cde825dc263cb9d6e66d7a27f87367101d9a65a58c48660",
+    "original_title": "后续历史范围",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260516-codex-mobile-realtime-sync",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260715-linux-interactive-release-installer",
+    "original_number": 1,
+    "description_sha256": "db7590f70f672ec01f7d388059019a1dc64a20e13b91e44eac4bc00eacce677c",
+    "original_title": "根安装入口",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260715-linux-interactive-release-installer",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260715-linux-interactive-release-installer",
+    "original_number": 2,
+    "description_sha256": "5c0b485fe40dc93f0f9890c409a37bcd02b1f187237b060fa22cb69daf8ed4ab",
+    "original_title": "交互安装向导",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260715-linux-interactive-release-installer",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260715-linux-interactive-release-installer",
+    "original_number": 3,
+    "description_sha256": "135fdc67f694d111c3d370047629f1502379943ae03ca6e6e0421817e650a759",
+    "original_title": "非交互与预览",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260715-linux-interactive-release-installer",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260715-linux-interactive-release-installer",
+    "original_number": 4,
+    "description_sha256": "9402b04fa5d353b4ec0b4a265ac4e5939e0b8692ef509e41514c402316f34752",
+    "original_title": "版本目录与外置数据",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260715-linux-interactive-release-installer",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260715-linux-interactive-release-installer",
+    "original_number": 5,
+    "description_sha256": "03a37dde93d24bc527f34b5011288038caa210c2bb98d4d2fdc8cf57f0bd4bb2",
+    "original_title": "升级与失败恢复",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260715-linux-interactive-release-installer",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260715-linux-interactive-release-installer",
+    "original_number": 6,
+    "description_sha256": "01577b6479d877eb835c66e073d61d1450a83d1cfc1ad960de6cd3936f157abe",
+    "original_title": "HTTP及Direct mTLS",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260715-linux-interactive-release-installer",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260715-linux-interactive-release-installer",
+    "original_number": 7,
+    "description_sha256": "794033e73aa55a1e7a3813cc03eaae2286eac57e949c4297c2cf9b68b1cdd170",
+    "original_title": "Nginx mTLS",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260715-linux-interactive-release-installer",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260715-linux-interactive-release-installer",
+    "original_number": 8,
+    "description_sha256": "9944ac94657b9f0e023abc346e63dfcb2ea127485f2143e64b75368215d0a8de",
+    "original_title": "证书包交付",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260715-linux-interactive-release-installer",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20260715-linux-interactive-release-installer",
+    "original_number": 9,
+    "description_sha256": "9ce8cd5cc4dcdb7bb63bb2e2a605120be9600ed6ee7a4d8adb1ddee3d165726e",
+    "original_title": "Release构建与版本门禁",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20260715-linux-interactive-release-installer",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-save-repair",
+    "original_number": 1,
+    "description_sha256": "bc4b421f1ed4b15dc9bebd49b2a545066bd9302bbf729226bac5a4bae76038b7",
+    "original_title": "新对话正常增长",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-save-repair",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-save-repair",
+    "original_number": 2,
+    "description_sha256": "614f270645de48ba2206a66839d66bab70eedce9f54c3a1f3f97e0f2fd97b85b",
+    "original_title": "Branch父来源定位",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-save-repair",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-save-repair",
+    "original_number": 3,
+    "description_sha256": "9153cb2ecaed6848781fddd85a523377cdaf3592d1fc392a319800e4afb3154a",
+    "original_title": "继承与新增保存",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-save-repair",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-save-repair",
+    "original_number": 4,
+    "description_sha256": "c148ad47a78314ddf7f90e6c7df591b971abeea2ce7b50ed6af1bc2335652801",
+    "original_title": "委派正文保存",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-save-repair",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-save-repair",
+    "original_number": 5,
+    "description_sha256": "0d2f5a607368d58d6bb4442c6d5c51c6f6e579ec4237752b49b4f8bddb05b913",
+    "original_title": "产品交付与UTF8",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-save-repair",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-save-repair",
+    "original_number": 6,
+    "description_sha256": "ffe81aba311f63f21a4df1974e0c3ea96a71f12fca7d093fbab6f45053b4ce43",
+    "original_title": "手机正文与详情",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-save-repair",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-save-repair",
+    "original_number": 7,
+    "description_sha256": "a807ae9e981ab7a41fe868df54685fb5e1860182bc13cd06e89fbfc0e8d419a5",
+    "original_title": "错误保护",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-save-repair",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-shared-compat",
+    "original_number": 1,
+    "description_sha256": "0e465fa245eec9443ea17c790d124f0a0f37266cb378e3d9ee0b9e1d47886341",
+    "original_title": "最小Wire兼容",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-shared-compat",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-shared-compat",
+    "original_number": 2,
+    "description_sha256": "392e345ac6a3506da592935d110938e6daee3b68f16d2f4d8e0dc2695bb212f3",
+    "original_title": "委派输入模型",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-shared-compat",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-shared-compat",
+    "original_number": 3,
+    "description_sha256": "ca44063d97028928444f8d904546b2381b234f93d9fdda11bf1900b216347700",
+    "original_title": "等价双载体去重",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-shared-compat",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-shared-compat",
+    "original_number": 4,
+    "description_sha256": "8f41ef04933f3926df167602745ce74afda1ddfab9194acf63374dc60c816584",
+    "original_title": "正常观察增长",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-shared-compat",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-shared-compat",
+    "original_number": 5,
+    "description_sha256": "25aa842bd69075a2e30bc79990274c1061183938690d594991c053c863788722",
+    "original_title": "Full与Delta证明",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-shared-compat",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-shared-compat",
+    "original_number": 6,
+    "description_sha256": "ae853812a107308eb2a77c0e07c109ccc45c3e58b9c61c9e21bda522b63b2491",
+    "original_title": "能力与旧状态兼容",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-shared-compat",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-shared-compat",
+    "original_number": 7,
+    "description_sha256": "688988b7e7eff5a29900732746c1012ac80d491d8008e158abf685a703ca9361",
+    "original_title": "原状态保护",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-shared-compat",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-20261005-codex-history-shared-compat",
+    "original_number": 8,
+    "description_sha256": "842b62750223f484ea1156f67c67e321ec397c3f8f224488f29208cf271df92f",
+    "original_title": "隔离持久验收",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-20261005-codex-history-shared-compat",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-CORE-TERMINAL",
+    "original_number": 1,
+    "description_sha256": "3fb484715a67c28590b4e2f57feb0992b4d56b3e9edd4cc129287e3f1156f05e",
+    "original_title": "终端输入与输出",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-TERMINAL-IO",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-CORE-TERMINAL",
+    "original_number": 2,
+    "description_sha256": "78b3fa049d64de2bcb4f69d4bfc68926e565b8b7e315e0edf5ef6d1abf800183",
+    "original_title": "尺寸适配",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-TERMINAL-IO",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-CORE-TERMINAL",
+    "original_number": 3,
+    "description_sha256": "86e293b53366bcd11a1f1804df0c59b93abd7147193bb7a999ea14815c3b7a92",
+    "original_title": "会话基本管理",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-SESSION-MANAGEMENT",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-CORE-TERMINAL",
+    "original_number": 4,
+    "description_sha256": "5e96c6c3b95cd43dbb446eac2a689cbf5f0d0b4fe2fd399161000af8d47ddb67",
+    "original_title": "已有页面刷新复用",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-TERMINAL-REFRESH",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-CORE-TERMINAL",
+    "original_number": 5,
+    "description_sha256": "ca296197f92aeed5bbcd10744c3d5dfcc75e5b938239458e85250539d1dfb93b",
+    "original_title": "首次进入创建",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-TERMINAL-REFRESH",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-CORE-TERMINAL",
+    "original_number": 6,
+    "description_sha256": "ce23614b1b428f9743d1836259d143fa958f7a3dd56fdc30aa1794088609ec3e",
+    "original_title": "连接与状态反馈",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-CORE-TERMINAL",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-CORE-TERMINAL",
+    "original_number": 7,
+    "description_sha256": "2d1afa4da7ab2e681d7354b7f1dafec96469be962d52a9e689eff5336d82aa58",
+    "original_title": "访问认证",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-CORE-TERMINAL",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+    "original_number": 1,
+    "description_sha256": "37ba1490a0fa8b5fe29cc1ea2799824a222a516b9e8b00287d187f69df64eedf",
+    "original_title": "源码发行打包",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-RELEASE-BASELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+    "original_number": 2,
+    "description_sha256": "d8b51c4430c813d4b113b73869c38edbe94ec7df86ec7647f9907090d96c8463",
+    "original_title": "安装配置",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-RELEASE-BASELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+    "original_number": 3,
+    "description_sha256": "69d962cdf110738a82fdc10497bc22d2abfcfa275920a1bd711677a7a503f4d0",
+    "original_title": "Windows服务基线",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-RELEASE-BASELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+    "original_number": 4,
+    "description_sha256": "085c112df607865d9a215f82fca0d17ee0a653422679ffb1b07c233dd923e10b",
+    "original_title": "Linux服务基线",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-RELEASE-BASELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+    "original_number": 5,
+    "description_sha256": "542305637131a1382e37492bce2d825f1f448424b39f9f5c4fa12f4e9373ed34",
+    "original_title": "自启开关",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-RELEASE-BASELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+    "original_number": 6,
+    "description_sha256": "850ff341096caef8b069b639d29dc4db733c75c14e819559651c7d2c6eef0236",
+    "original_title": "Direct证书工具",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-RELEASE-BASELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+    "original_number": 7,
+    "description_sha256": "243bf15ef7f2e5e87435489add5ad38b4cd770d13dd6089c31d45544fefe973f",
+    "original_title": "Nginx证书工具",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-RELEASE-BASELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+    "original_number": 8,
+    "description_sha256": "90bc60d51350be592284cc734aa37ec4301d2f1af222d4f5deca0faa7b8fe2ca",
+    "original_title": "Windows x64发行增量",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-RELEASE-BASELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-RELEASE-BASELINE",
+    "original_number": 9,
+    "description_sha256": "08a6c1fe344a73c6d1eed7f0f4732444b8206e8999b3bba5680a138ddbe546f6",
+    "original_title": "Windows本地配置与证书",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-RELEASE-BASELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 1,
+    "description_sha256": "e9c9bccaf67dcd0b097418d77382e5697b2d2dbeed3b7961793d17726fae273d",
+    "original_title": "浏览器登录",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-BROWSER-LOGIN",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 2,
+    "description_sha256": "f2e3566e7ed97d8e3e343bd433188dd47990e39255ba6af408a1a18399b235a0",
+    "original_title": "浏览器会话与登出",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-BROWSER-LOGIN",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 3,
+    "description_sha256": "cc22873c5231b6d2bbf418104d1ee43c60ca04f513d04509bacb5d9349f0442a",
+    "original_title": "配置与会话反馈",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-WEB-UX",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 4,
+    "description_sha256": "b5c3881d7cd1e6923ef4d5a1de433d0fabab08cd9fc412753e11206860d01b3a",
+    "original_title": "终端为主的工作区",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-WEB-UX",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 5,
+    "description_sha256": "5292bdc5ef94173c542cac34b5d06a326238ca41d6136d0fae5566d79a48764e",
+    "original_title": "焦点与高频输入",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-WEB-UX",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 6,
+    "description_sha256": "dc9d039b20f5c96cf0cb5d6d1919861fe5e24e4295064333ac7c61567a1f27e2",
+    "original_title": "共享视觉与可访问操作",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-WEB-UX",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 7,
+    "description_sha256": "2ab53ede307dd1336fc1c6ba6f2ca923232725c1afdfbdb65bc42098efdad5ba",
+    "original_title": "主页Codex导航",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-WEB-UX",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 8,
+    "description_sha256": "52a4b2e934322f8c7c889af75a582f95d56a2bce6d72007ea1f1b6a36503e1e0",
+    "original_title": "Web Codex Surface",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-WEB-UX",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 9,
+    "description_sha256": "6b09cbea8d814599b3d93ea334b8600432a919d7c75a41cc13e7eaf9eeebef8b",
+    "original_title": "配置数据与单一路径",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-WEB-UX",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-WEB-UX",
+    "original_number": 10,
+    "description_sha256": "6ade93a8eec85c8f981351776ae519a724668c879eb57135db8efcf0011576fa",
+    "original_title": "既有能力兼容",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-WEB-UX",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-DIAGNOSTICS",
+    "original_number": 1,
+    "description_sha256": "7db2fb726b20ae52f26e7eaf0fc43c8b688546d51710825f01c444c590ccfc16",
+    "original_title": "Android持久日志",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-DIAGNOSTICS",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-DIAGNOSTICS",
+    "original_number": 2,
+    "description_sha256": "13edb37379691d64bb54667c4a428f2b58e52029f2391ecbbbc65d32a824d223",
+    "original_title": "服务端持久日志",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-DIAGNOSTICS",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-DIAGNOSTICS",
+    "original_number": 3,
+    "description_sha256": "586d886fc91ac9242afa8ab44aed312dffbd8bf45bd8d8609d02100f0adf9fc4",
+    "original_title": "WebView关联事件",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-DIAGNOSTICS",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-DIAGNOSTICS",
+    "original_number": 4,
+    "description_sha256": "04706696b2b062a915fc67d06d487a503e697642e21887a8b8b62f2a37588bbf",
+    "original_title": "异常与状态观察",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-DIAGNOSTICS",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-DIAGNOSTICS",
+    "original_number": 5,
+    "description_sha256": "afc01b198a5c840cc7eb08b9f6b7659b26e5c89420538e8b5af9157883d4d5a4",
+    "original_title": "隐私与容量",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-DIAGNOSTICS",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-DIAGNOSTICS",
+    "original_number": 6,
+    "description_sha256": "bf297ec4aa3df96e0da86dc3774cc2ab09d1dea710101afdb24de6c58a1122e1",
+    "original_title": "采集与Timeline",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-DIAGNOSTICS",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-DIAGNOSTICS",
+    "original_number": 7,
+    "description_sha256": "f3e5090066ab32b038397a3ff828b9f0ba25aa5af1d5ed92ed92d84136c058e6",
+    "original_title": "失败不阻断",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-DIAGNOSTICS",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 1,
+    "description_sha256": "52763de68c787855309417963f2a91d1bea1de5aafd593df7c0a9b3314f3b2e3",
+    "original_title": "只读历史输入",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-SOURCE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 2,
+    "description_sha256": "cf6563190d313f8a583b5c4dc5689ef6fa9483a2bdf75f4779caabd354d8bc16",
+    "original_title": "会话来源与Lineage",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-SOURCE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 3,
+    "description_sha256": "702364213184c8c3b05d9de78069e6ecc405ef9f7c919a98c919402ca54e2aa7",
+    "original_title": "有界读取",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-SOURCE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 4,
+    "description_sha256": "35aa8d6d922277fce570668bc4227d40636b7293f0ca45e7560c903124a0be5a",
+    "original_title": "原生类型适配",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-SOURCE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 5,
+    "description_sha256": "77b192e6e069946c47f1089297f2531c565e92d5b7b40d350ede6e5cfa196b79",
+    "original_title": "历史投影",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 6,
+    "description_sha256": "be0eefe6919ed7f572fff4a49fef0540a9e1b27cab8ba612b05a022a8633f4cd",
+    "original_title": "进程与交付协议",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 7,
+    "description_sha256": "52887399725dd2a892124890219a07756dde8c992ed22c542cbc66170f66b4e3",
+    "original_title": "恢复与错误保护",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 8,
+    "description_sha256": "75bee1018099e539b0d7e9284758a4e33065d50019702add3ef803c169eccb58",
+    "original_title": "Node产品事务",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-PERSISTENCE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 9,
+    "description_sha256": "6fad4f804a55afdc821561614071f7e62bff4fd89c756931a0d9fccd8ba4ccb8",
+    "original_title": "产品只读查询",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-PERSISTENCE",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 10,
+    "description_sha256": "977dd1c15c9e36da56efa0a041dbc27acbc8c10a567c1e72acda5cb0863d5731",
+    "original_title": "Android静态缓存",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-ANDROID",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 11,
+    "description_sha256": "05a2b487b3f8afcbbbcc15ee3db87729972b6373b1575a2ff286a90dc0e7ddee",
+    "original_title": "History传输与ACK",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-ANDROID",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 12,
+    "description_sha256": "7c5bf34a9c30ac7cf839eac92dee3d5b2b3febe7cd3301811cfc45dcad187924",
+    "original_title": "Older与范围续读",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-ANDROID",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 13,
+    "description_sha256": "d459057fbe1ddf45e95007f8ac5de5fa45fd3e98a9c889f18bd4da068539a56f",
+    "original_title": "工具详情与媒体",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-ANDROID",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 14,
+    "description_sha256": "63e52efc722d813fb4083485e48f1c39bee10264b1a05d6c3749609ce6be8eab",
+    "original_title": "本地统计与清理",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-ANDROID",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 15,
+    "description_sha256": "7ea9b2e9ca52b2dbd294d66c05dce6742ef4cec3409c0aa19374e19572138ebc",
+    "original_title": "切换重开与权威隔离",
+    "disposition": "独立子要求",
+    "current_target": "REQ-TERMLINK-HISTORY-ANDROID",
+    "reason": "独立可核对业务行为组，详文移出保留身份/来源。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "original_number": 16,
+    "description_sha256": "cc77da6b88cd3201da692f061ff6f689a09517f28eff8fa9f069ba18c3f0d909",
+    "original_title": "专项修复关联",
+    "disposition": "保留所属正文",
+    "current_target": "REQ-TERMLINK-HISTORY-PIPELINE",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "current"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-BANNER",
+    "original_number": 1,
+    "description_sha256": "65e5488d64a9e42d5ed27ebd52eb87466ede726f960cca054917aa389b155fec",
+    "original_title": "已捕获的用户问题",
+    "disposition": "候选问题/未选方案正文",
+    "current_target": "REQ-TERMLINK-HISTORY-BANNER",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "candidate"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-BANNER",
+    "original_number": 2,
+    "description_sha256": "fdbf32b762059981bafdb437fe9a8e19418cb9f6594d29552570802e72fc8034",
+    "original_title": "待选展示方案",
+    "disposition": "候选问题/未选方案正文",
+    "current_target": "REQ-TERMLINK-HISTORY-BANNER",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "candidate"
+  },
+  {
+    "original_requirement": "REQ-TERMLINK-HISTORY-BANNER",
+    "original_number": 3,
+    "description_sha256": "1caa808c3e7a08c4f0bb8a4c5d62ab52640a056f739de3a3a0a0b032ead2a96e",
+    "original_title": "保留原恢复功能",
+    "disposition": "候选问题/未选方案正文",
+    "current_target": "REQ-TERMLINK-HISTORY-BANNER",
+    "reason": "原要求的共性约束、参数/例子、实现接入或局部验收细节；不机械一编号一对象。",
+    "original_scope": "candidate"
+  }
+]
