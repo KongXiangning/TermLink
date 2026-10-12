@@ -2,9 +2,9 @@
   "schema_version": 1,
   "kind": "vibe-governance-distribution-state",
   "distribution_state": "vnext",
-  "distribution_version": "0.24.7",
-  "manifest_digest": "6a96aeb610f03c2e747cb72bad428442507a4f04b55de60a0801042a91eb8b80",
-  "installed_at": "2026-10-12T03:51:14.939Z",
+  "distribution_version": "0.24.8",
+  "manifest_digest": "e1c8795497656675270f3592e8d4a206499cfd63edbbd27b36b342bb5331498e",
+  "installed_at": "2026-10-12T16:18:39.049Z",
   "managed_files": [
     {
       "path": ".agents/skills/bootstrap-project/SKILL.md",
@@ -38,7 +38,7 @@
     },
     {
       "path": ".agents/skills/maintain-project/SKILL.md",
-      "checksum": "53cba90a0bdcfb7c0eb7f7e9772513aae32ef3c926b97f750069072bf763cf57",
+      "checksum": "730f97acaf9a4ea1509db21b2353f4411cdc41d2daaf89572ac81af3ddc71e1a",
       "category": "skill"
     },
     {
@@ -73,7 +73,7 @@
     },
     {
       "path": ".workflow-system/runtime/dist/cli.js",
-      "checksum": "f04466abf560fd6d88d183f10915e77842095b265cf620071815e6f4a177bcbd",
+      "checksum": "08894a67815ead233cc5cea6a118cfd56d546e30224d6efe90f5355fcaa08298",
       "category": "runtime"
     },
     {
@@ -83,12 +83,12 @@
     },
     {
       "path": ".workflow-system/runtime/package-lock.json",
-      "checksum": "0244f6d90e63e855e42bab348af73bfde9359f388475de991d85bd75fa28d418",
+      "checksum": "770881ec60ea8ccc264625340f36a23263a2c3877235c9e49da806df39d39a74",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/package.json",
-      "checksum": "6300546de07e18f252cc7f84e86159a3b9c5d4e58262eb204040aaf7cdd30577",
+      "checksum": "6e9370102d0dbc1dfb45b98e599d08ef636be79a1b91c5522b4a56869fc38b94",
       "category": "runtime"
     },
     {
@@ -158,7 +158,7 @@
     },
     {
       "path": ".workflow-system/runtime/src/kernel.ts",
-      "checksum": "7a46f305c9f81cf478fd84e6c6ed9bed6a7b3c29467a8001ca55752d80a05537",
+      "checksum": "7ef3ad3dac657a3618e6d50286243f7538ea33763618eddd8b98abbf69715faa",
       "category": "runtime"
     },
     {
@@ -268,7 +268,7 @@
     },
     {
       "path": ".workflow-system/runtime/support/product-maintenance/contract.md",
-      "checksum": "31402d2b886d88ef7fffbd2668f8a350035632f1301d50b86041c4db0f0c1542",
+      "checksum": "db523b2c508c79190bbe2717c678ca4800852c7dd6ae3f16b05c5779c3b0ae4c",
       "category": "runtime"
     },
     {
@@ -417,18 +417,23 @@
       "category": "runtime"
     },
     {
+      "path": ".workflow-system/runtime/support/product-maintenance/examples/structure/README.md",
+      "checksum": "1e1ad7549956f1cbd509d250c87cf2beffa812fb77371fdc733201872a0b0a84",
+      "category": "runtime"
+    },
+    {
       "path": ".workflow-system/runtime/support/product-maintenance/offline-reader.js",
       "checksum": "70e74f9e50d4eb71805994e045f55105a486c6c8e7dc809dd009060a35919f20",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/support/product-maintenance/references/discussion.md",
-      "checksum": "29cb52937bc8948f83c584971afd46338880127290a954520c0319d219b195b8",
+      "checksum": "2a7da87bee92135710c3735e54f904964c6521c1cdc9bc7c92314368ab571b69",
       "category": "runtime"
     },
     {
       "path": ".workflow-system/runtime/support/product-maintenance/references/inventory.md",
-      "checksum": "124e60d7de643eeea51d73ebb859edecc9acc0e666d930023d1eefd6c4b7c0fc",
+      "checksum": "5478ad5c75ab2ed575541d1eb6e81d83aff6ad2e6eb0e21337b5b84c08d3adca",
       "category": "runtime"
     },
     {
@@ -453,7 +458,7 @@
     },
     {
       "path": ".workflow-system/runtime/support/product-maintenance/references/update.md",
-      "checksum": "22d6a2f869fdecac25f596253822551853f6c0c03ca5cf8d4408997dbd8b471f",
+      "checksum": "f4ad7c6bf5bd388d7361545a868f0f0abca97a139cbff83f98429abf77aab2bd",
       "category": "runtime"
     },
     {
@@ -563,7 +568,7 @@
     },
     {
       "path": ".workflow-system/vnext/RUNTIME_CONTRACT.yaml",
-      "checksum": "6e750472fe63b1128d7ab433bdec5b8ede36c50fd56deb00af5d48cd4d32592e",
+      "checksum": "9b6a63d1920736c4c810ffe6f7fc4d90d80b6e4fe1921a224a10b4dcf088c80b",
       "category": "protocol"
     },
     {
