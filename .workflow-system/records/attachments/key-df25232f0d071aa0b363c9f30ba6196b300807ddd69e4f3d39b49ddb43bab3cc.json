@@ -1,0 +1,39 @@
+{
+  "event_ref": ".workflow-system/records/events/key-df25232f0d071aa0b363c9f30ba6196b300807ddd69e4f3d39b49ddb43bab3cc.json",
+  "captured_at": "2026-10-13T04:02:15.294Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fcb6ac1a40ba818e1d3de03706b5f3090e812f626ef140c0088573d686df8359.blob",
+      "sha256": "fcb6ac1a40ba818e1d3de03706b5f3090e812f626ef140c0088573d686df8359",
+      "size": 6452,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/android-tests.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba.blob",
+      "sha256": "88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba",
+      "size": 933,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/android-test-summary.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412.blob",
+      "sha256": "0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412",
+      "size": 2655,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/android-connection-tests.xml",
+      "issues": []
+    }
+  ]
+}

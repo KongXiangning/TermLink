@@ -1,0 +1,6 @@
+{
+  "base_head": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+  "node_version": "v24.12.0",
+  "test_cwd": "C:\\Users\\kongx\\AppData\\Local\\Temp\\termlink-task20260868-s2-8f0dd3ef966b4e1da06db3cb4d2edeb3",
+  "reason": "isolate default singleton registration store/shutdown writes from repository data"
+}

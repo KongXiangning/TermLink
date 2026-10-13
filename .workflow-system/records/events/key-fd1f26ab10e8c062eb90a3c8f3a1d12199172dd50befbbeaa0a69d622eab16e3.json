@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:46:14.327Z",
+  "payload_sha256": "44e37875a6066804df78ac6c1eaa45c656d17d8674878308db5930375c9f7a0a",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s2-20261013-baseline-24",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "step_id": "S2",
+      "selector": "tests/clientRegistrations.test.js; tests/routes.sessions.metadata.test.js; tests/terminalGateway.sessionid.test.js",
+      "action": "test",
+      "summary": "46 tests22 pass24 fail; unknown defect plus fixture hook/messaging issues;0 cancel/skip",
+      "command": "node --test --test-force-exit --test-reporter=tap three selectors",
+      "idempotency_key": "task20260868-s2-20261013-baseline-24",
+      "result": "failed",
+      "cwd": "OS temporary isolation, exact path in execution run-environment attachment",
+      "source_revision": "before manager and initial test fixtures",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-tests.txt"
+      ],
+      "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-tests.txt"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-73884da27cc87c94e937af666fbfd7cf794a861efd04283a2ac35b42cdced365.json"
+      ],
+      "data": {
+        "step_id": "S2",
+        "selector": "tests/clientRegistrations.test.js; tests/routes.sessions.metadata.test.js; tests/terminalGateway.sessionid.test.js",
+        "summary": "46 tests22 pass24 fail; unknown defect plus fixture hook/messaging issues;0 cancel/skip",
+        "command": "node --test --test-force-exit --test-reporter=tap three selectors",
+        "result": "failed",
+        "cwd": "OS temporary isolation, exact path in execution run-environment attachment",
+        "source_revision": "before manager and initial test fixtures",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s2/baseline-tests.txt"
+        ],
+        "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      }
+    }
+  },
+  "issues": []
+}

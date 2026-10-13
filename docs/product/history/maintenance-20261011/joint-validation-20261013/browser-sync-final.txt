@@ -1,0 +1,104 @@
+- button "菜单": ☰
+- generic: TermLink
+- generic "V20-LAN-Codex"
+- button "管理服务器": ⚙️
+- button "新建会话": +
+- complementary:
+  - heading [level=2]: 服务器与会话
+  - button: ×
+  - heading [level=3]: 服务器
+  - list:
+    - generic: ●
+    - generic: Localhost
+  - button: + 添加服务器
+  - heading [level=3]: 会话
+  - list:
+    - button:
+      - generic: codex
+      - generic: V20-LAN-Codex
+    - button: ×
+    - button:
+      - generic: terminal
+      - generic: V17-Browser-Terminal
+    - button: ×
+    - button:
+      - generic: terminal
+      - generic: V17-Phone-Terminal
+    - button: ×
+    - button:
+      - generic: codex
+      - generic: Codex Native
+    - button: ×
+- iframe [active]:
+  - generic: ⬢
+  - generic: Codex
+  - button "Docs": 📄
+  - button "任务历史"
+  - button "中断"
+  - generic: Codex 执行中：开始发送
+  - generic: PATH
+  - generic: E:\coding\TermLink-rust-source-resolution-codex\output\validation\20261013-android-20\workspace
+  - generic: 额度：一周 43% 10/18 11:59
+  - text: ▸ ▸ ▸
+  - generic: you
+  - generic: "Disposable background recovery acceptance. Run exec_command in this workspace: Start-Sleep -Seconds 20; Write-Output V20-BACKGROUND-FINISH. Then reply exactly V20-BACKGROUND-FINISH. Do not write files or access network."
+  - generic: commentary
+  - generic: I’ll run the command in this workspace and wait for it to finish.
+  - generic: final_answer
+  - generic: V20-BACKGROUND-FINISH
+  - generic: you
+  - generic: Disposable notification-return acceptance. Run Start-Sleep -Seconds 35; Write-Output V20-NOTIFICATION-RETURN in this workspace, then reply exactly V20-NOTIFICATION-RETURN. No file writes or network.
+  - generic: commentary
+  - generic: I’ll run the command in this workspace and wait for it to finish.
+  - generic: final_answer
+  - generic: V20-NOTIFICATION-RETURN
+  - generic: you
+  - button "🖼 f61f6ac59dd8ba6936e2f535910304ed57a8e355410aadb553fc76a8fca30f81.png"
+  - generic: Disposable attachment acceptance. Read the attached text and describe the attached image briefly.
+  - generic: commentary
+  - generic: I’ll inspect the attached image. I don’t see a text attachment in the message.
+  - generic: final_answer
+  - generic: I don’t see an attached text file, and the image couldn’t be opened because its data is invalid or unsupported. Please reattach the text and image so I can read and describe them.
+  - generic: you
+  - button "🖼 639a224b1898c9c2c6379ca25de28801b04baa5372025cafca7440e24f44adbb.png"
+  - generic: Disposable attachment acceptance. Describe the image and read the selected V20-proof.txt. It should contain V20 DOCS baseline and V20 DOCS added diff. Explain if the selected document cannot be accessed.
+  - generic: commentary
+  - generic: The image shows a blue square beside “V20” on a white background. I’ll check whether the selected V20-proof.txt is accessible.
+  - generic: final_answer
+  - generic: "The image shows a solid blue square on the left and black “V20” text on a white background. I couldn’t access the selected **V20-proof.txt**: it wasn’t found in the workspace, and no connected document session is available. I therefore can’t verify that it contains “V20 DOCS baseline” and “V20 DOCS added diff.”"
+  - generic: you
+  - generic: Disposable large history acceptance. Run exec_command Get-Content history-large.txt in this workspace with max_output_tokens 40000. Preserve the tool output, then reply exactly V20-HISTORY-COMPLETE. Do not write anything or access the network.
+  - generic: commentary
+  - generic: I’ll read history-large.txt with the requested output limit.
+  - generic: final_answer
+  - generic: V20-HISTORY-COMPLETE
+  - generic: you
+  - generic: Disposable V17 file mention acceptance. Read the selected docs/proof.txt from the file context and reply with its first line. Do not write files or access network.
+  - generic: commentary
+  - generic: I’ll read the first line of docs/proof.txt.
+  - generic: final_answer
+  - generic: V20 DOCS baseline
+  - generic: you
+  - button "📎 proof.txt"
+  - generic: Disposable V17 actual file context acceptance. Read the selected file through the supplied context, do not guess a path. Reply with its first line. Do not write files or access network.
+  - generic: commentary
+  - generic: I’ll read the first line from the supplied file path.
+  - generic: final_answer
+  - generic: V20 DOCS baseline
+  - textbox [active]: 随便问点什么...
+  - button "发送":
+    - generic: ↑
+  - button "Attach": +
+  - button "模型 gpt-6.1-sol":
+    - generic: 模型
+    - generic: gpt-6.1-sol
+  - button "推理 低":
+    - generic: 推理
+    - generic: 低
+  - button "权限 请求批准":
+    - generic: 权限
+    - generic: 请求批准
+  - button "查看上下文窗口调试信息":
+    - generic: 10%
+- generic: "99999999999999999999999999999999"
+- generic "flow-ai-assistant"

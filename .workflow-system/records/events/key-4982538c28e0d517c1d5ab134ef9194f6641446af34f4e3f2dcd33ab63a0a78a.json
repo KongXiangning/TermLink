@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:00:13.956Z",
+  "payload_sha256": "7707036cb0333ced6439b4015fefbd528b877edb58c62f356bc4b1f2b49ea186",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-repair-r-s1-001-20261013-v1",
+    "request": {
+      "mode": "repair",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898",
+      "finding_ids": [
+        "R-S1-001"
+      ],
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/report.md",
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/source-manifest.json",
+        "docs/changes/records/CR-20261013-1153-codex-ipc-operation-hint-scope.md",
+        "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+        "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+        "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+        "android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt"
+      ],
+      "review_ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+      "step_id": "S1",
+      "summary": "R-S1-001代码repair完成：IPC操作提示与传输提示分开、绑定原conversation，按匹配恢复/成功发送/离开清理。Android288/288、Node139/139通过；待重审，不判clean或finish。",
+      "repair_of_execution_ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+      "result": "implemented",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "remaining_work": [
+        "原R-S1-001 finding保留，待review-change对新对象重审；本批为implementation self-check",
+        "S1未finish，S2/S3未执行",
+        "S3必须补同机A→B→A与同连接IPC恢复提示真机验证，当前未运行",
+        "没有完整ViewModel协程/socket/真机闭环证据，无Git提交，draft CR/TBD，原历史管理缺口保留"
+      ],
+      "idempotency_key": "task20260868-s1-repair-r-s1-001-20261013-v1",
+      "commands": [
+        "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModel*Test --tests com.termlink.app.codex.data.CodexIpcWireModelTest --tests com.termlink.app.codex.data.CodexHistoryWireTest --console=plain",
+        "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js"
+      ],
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "action": "execution",
+      "provenance": {
+        "formal_review": false,
+        "kind": "implementation-self-check"
+      },
+      "evidence_refs": [
+        {
+          "ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+          "sha256": "102a48371c215b75d5d158a39c08f1758d815f77345ccc02e195f1b96c61529d",
+          "role": "original-finding"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+          "sha256": "e71bddf124e82e4ca94de5ac19ee5089ad5684844491adbf3a351bf934eeae9d",
+          "role": "base-execution"
+        }
+      ]
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/report.md",
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/source-manifest.json",
+      "docs/changes/records/CR-20261013-1153-codex-ipc-operation-hint-scope.md",
+      "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+      "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt"
+    ],
+    "evidence_refs": [
+      {
+        "ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+        "sha256": "102a48371c215b75d5d158a39c08f1758d815f77345ccc02e195f1b96c61529d",
+        "role": "original-finding"
+      },
+      {
+        "ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+        "sha256": "e71bddf124e82e4ca94de5ac19ee5089ad5684844491adbf3a351bf934eeae9d",
+        "role": "base-execution"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "execution",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json"
+      ],
+      "data": {
+        "mode": "repair",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898",
+        "finding_ids": [
+          "R-S1-001"
+        ],
+        "files": null,
+        "review_ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+        "step_id": "S1",
+        "summary": "R-S1-001代码repair完成：IPC操作提示与传输提示分开、绑定原conversation，按匹配恢复/成功发送/离开清理。Android288/288、Node139/139通过；待重审，不判clean或finish。",
+        "repair_of_execution_ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+        "result": "implemented",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "remaining_work": null,
+        "commands": null,
+        "provenance": {
+          "formal_review": false,
+          "kind": "implementation-self-check"
+        },
+        "evidence_refs": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "e98820388a8b85aa0bd400c917d641a243c278f0b31a127716ad7b1b77fd4e09",
+        "references": [
+          {
+            "data_pointer": "/commands",
+            "request_pointer": "/commands"
+          },
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          },
+          {
+            "data_pointer": "/remaining_work",
+            "request_pointer": "/remaining_work"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

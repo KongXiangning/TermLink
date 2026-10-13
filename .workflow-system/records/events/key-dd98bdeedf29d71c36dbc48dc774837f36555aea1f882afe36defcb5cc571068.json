@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T07:25:17.601Z",
+  "payload_sha256": "f24162c42176448e362a86cbf734c045ac7f3574c19083545d310a30a714e071",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-close-20261013",
+    "request": {
+      "action": "close",
+      "gaps": [
+        "self-review is not independent review",
+        "no automatic Git commit or release",
+        "no matching task-specific goal assessment scope for two repair targets; retain pending localization"
+      ],
+      "decision_source": "current user close-task invocation, 2026-10-13",
+      "summary": "按用户close-task关闭TASK-20260868；S1/S2/S3均finished/clean自审，两项局部修复与原自动化/真机证据已记录。源码仍为未提交对象，CR draft/TBD，不把关闭当整REQ/目标/发布验收。",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+      "evidence_refs": [
+        {
+          "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+          "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+          "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+        },
+        {
+          "sha256": "3076c5018f881a2164ef0cdfd09a389aa45ccdecb9958b62518a5f4577f0a877",
+          "ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+          "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+        },
+        {
+          "sha256": "2c8f0a388e654c3845ef329411fbc45cfda3a9f44a2e5ed3e71ece919f02bf07",
+          "ref": ".workflow-system/records/events/key-df630f31fe0492b9861c72f857d496640df9d4237d307aabf62834cc6c2fdaab.json",
+          "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+        },
+        {
+          "sha256": "143900a1893d4a7b4e5129a44d4a3845dc88e0603cba6ee18ba56aae49d69d3d",
+          "ref": ".workflow-system/records/events/key-b31468df5c6f964ca7e184af4655638cc03e81334e4bb91c543fcce6eba4c5bd.json",
+          "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+        },
+        {
+          "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+          "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+          "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+        }
+      ],
+      "decision_text": "[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\close-task\\SKILL.md)",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-close/closure-20261013.md"
+      ],
+      "idempotency_key": "task20260868-close-20261013",
+      "review_ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "remaining_work": [
+        "代码、draft CR和管理资料未Git提交，staged为空；本次close不自动commit/push/deploy或删除/回滚。",
+        "受控IPC额外关闭active-send門禁；外部审批、直接IPC catalog自动改选、TLS/mTLS/发布及完整运行态矩阵未独立验证。",
+        "网络前后只观察id/name/activeConnectionCount；内部零副作用限S2原回归，A/B只限可见画面/当时可访问性树，非完整transcript/DB认证。",
+        "旧失败版preload原字节缺口、三次UI失败、空白C no rollout found和test registration API tombstone保留。",
+        "旧CR managedID strict失败、registration原子ownership未定位/inferred父项关联及两条旧无关管理关联缺口保留。",
+        "局部交付对账需保持当前scope声明/新APK对象边界，不升级旧Android或服务端认证父项整体结论。"
+      ]
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-close/closure-20261013.md"
+    ],
+    "evidence_refs": [
+      {
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      },
+      {
+        "sha256": "3076c5018f881a2164ef0cdfd09a389aa45ccdecb9958b62518a5f4577f0a877",
+        "ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      },
+      {
+        "sha256": "2c8f0a388e654c3845ef329411fbc45cfda3a9f44a2e5ed3e71ece919f02bf07",
+        "ref": ".workflow-system/records/events/key-df630f31fe0492b9861c72f857d496640df9d4237d307aabf62834cc6c2fdaab.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      },
+      {
+        "sha256": "143900a1893d4a7b4e5129a44d4a3845dc88e0603cba6ee18ba56aae49d69d3d",
+        "ref": ".workflow-system/records/events/key-b31468df5c6f964ca7e184af4655638cc03e81334e4bb91c543fcce6eba4c5bd.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      },
+      {
+        "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+        "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "close",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-b31468df5c6f964ca7e184af4655638cc03e81334e4bb91c543fcce6eba4c5bd.json"
+      ],
+      "data": {
+        "gaps": [
+          "self-review is not independent review",
+          "no automatic Git commit or release",
+          "no matching task-specific goal assessment scope for two repair targets; retain pending localization"
+        ],
+        "decision_source": "current user close-task invocation, 2026-10-13",
+        "summary": "按用户close-task关闭TASK-20260868；S1/S2/S3均finished/clean自审，两项局部修复与原自动化/真机证据已记录。源码仍为未提交对象，CR draft/TBD，不把关闭当整REQ/目标/发布验收。",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+        "evidence_refs": null,
+        "decision_text": "[$close-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\close-task\\SKILL.md)",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-close/closure-20261013.md"
+        ],
+        "review_ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "remaining_work": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "5f647ecaaee473e4a53d77ddb8f1233c3af01ed5d34e3e137e368dd23fd521c4",
+        "references": [
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/remaining_work",
+            "request_pointer": "/remaining_work"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,32 @@
+// Read-only verification of already retained evidence; no service/device/test execution.
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
+const root=path.resolve(__dirname,'../..'),dir=path.join(root,'docs/product/history/maintenance-20261011/task20260868-s3');
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(path.join(root,p))).digest('hex');
+const json=p=>JSON.parse(fs.readFileSync(path.join(root,p),'utf8').replace(/^\uFEFF/,''));
+const refs=['.workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json','.workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json'];
+const result={kind:'read-only-review-evidence-check',refs:refs.map(ref=>({ref,sha256:hash(ref)})),attachments:[],sourceChecks:[],binaryChecks:[],uiRuns:[]};
+for(const ref of refs){const m=json(ref.replace('/events/','/attachments/'));for(const a of m.attachments){
+ result.attachments.push({event:ref,status:a.status,source:a.source_path||null,ref:a.ref,casMatches:hash(a.ref)===a.sha256,sizeMatches:fs.statSync(path.join(root,a.ref)).size===a.size,liveMatches:a.source_path?hash(a.source_path)===a.sha256:null});
+}}
+const manifest=json(path.relative(root,path.join(dir,'source-manifest.json')));
+result.manifestSha256=hash(path.relative(root,path.join(dir,'source-manifest.json')));
+result.headMatches=cp.execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim()===manifest.base_head;
+for(const f of [...manifest.files,manifest.server_wiring])result.sourceChecks.push({path:f.path,sha256:f.sha256,matches:hash(f.path)===f.sha256});
+for(const f of [manifest.apk,manifest.driver_apk,manifest.driver_source])result.binaryChecks.push({path:f.path,matches:fs.existsSync(path.join(root,f.path))?hash(f.path)===f.sha256:null});
+for(const file of fs.readdirSync(dir).filter(x=>x.endsWith('.log'))){const raw=fs.readFileSync(path.join(dir,file),'utf8').replace(/\0/g,'');result.uiRuns.push({file,ok:raw.includes('OK (1 test)'),failed:raw.includes('FAILURES!!!')});}
+const network=json(path.relative(root,path.join(dir,'network-result.json')));
+result.network={passed:network.passed,checks:network.checks.length,errors:network.errors,cleanupBaselineRestored:network.cleanupBaselineRestored,observableFields:Object.keys(network.before[0]),rejections:network.checks.filter(x=>/unknown|revoked/.test(x.case)).map(x=>({case:x.case,status:x.status,code:x.code,frames:x.frames,equal:x.equal}))};
+const diag=json(path.relative(root,path.join(dir,'phone-selected-diagnostics.json')));
+const ipcRun='ab7d5c78-5c90-4bd7-858b-83a314684522';
+const slice=diag.events.filter(x=>x.runId===ipcRun&&x.ts>='2026-10-13T06:37:52.000Z'&&x.ts<'2026-10-13T06:38:16.000Z');
+result.ipcSameConnection={runId:ipcRun,events:slice,noConnectionTransition:slice.every(x=>x.event!=='android.codex.connection.state_changed'),failureObserved:slice.some(x=>x.event==='android.codex.goal.intent.failed'&&x.fields.reason==='follower_transport_unavailable'),onlineObserved:slice.some(x=>x.event==='android.codex.ipc.status'&&x.fields.online)};
+const tree=name=>fs.readFileSync(path.join(dir,name),'utf8');
+const hint='Codex 正在重连，请等待连接恢复后再重试。';
+result.uiObservations={ipcBeforeConnectedAndHint:tree('ipc-recovery-v3-6.txt').includes('Codex · 已连接')&&tree('ipc-recovery-v3-6.txt').includes(hint),ipcAfterNoHint:!tree('ipc-recovery-v3-10.txt').includes(hint),bIsolated:tree('switch-and-new-14.txt').includes('S3-MARKER-B')&&!tree('switch-and-new-14.txt').includes('S3-MARKER-A')&&!tree('switch-and-new-14.txt').includes(hint),aIsolated:tree('switch-and-new-23.txt').includes('S3-MARKER-A')&&!tree('switch-and-new-23.txt').includes('S3-MARKER-B')&&!tree('switch-and-new-23.txt').includes(hint),newNoHint:!tree('switch-and-new-30.txt').includes(hint),wsBeforeHint:tree('ws-recovery-v2-6.txt').includes(hint),wsAfterConnectedAWithoutHint:tree('ws-recovery-v2-11.txt').includes('Codex · 已连接')&&tree('ws-recovery-v2-11.txt').includes('S3-MARKER-A')&&!tree('ws-recovery-v2-11.txt').includes(hint)};
+result.uiObservations.bMarkerVisibleInRetainedSnapshot=tree('switch-and-new-14.txt').includes('S3-MARKER-B');
+result.uiObservations.bIsolated=!tree('switch-and-new-14.txt').includes('S3-MARKER-A')&&!tree('switch-and-new-14.txt').includes(hint);
+const switchEvents=diag.events.filter(x=>x.runId==='71827832-b6a7-4038-b6c0-312ff4c4fb64');
+result.switchIdentity={resumeB:switchEvents.some(x=>x.event==='android.codex.history.selection_generation_advanced'&&x.fields.reason==='resume:01a133f6-ac63-7811-87ad-fda0bb7ec70e'),resumeA:switchEvents.some(x=>x.event==='android.codex.history.selection_generation_advanced'&&x.fields.reason==='resume:01a133f5-c1ee-7872-9cdb-35fb08c08f00'),failedIntentKeys:switchEvents.filter(x=>x.event==='android.codex.goal.intent.failed').map(x=>x.fields.conversationKey),note:'B marker was asserted at step11; subsequent captured viewport shows newer Goal messages. Do not require old marker visible in later viewport or claim complete transcript/DB isolation.'};
+result.allCheckedBytesMatch=result.headMatches&&result.attachments.every(x=>x.casMatches&&x.sizeMatches&&x.liveMatches!==false)&&result.sourceChecks.every(x=>x.matches)&&result.binaryChecks.every(x=>x.matches!==false);
+fs.writeFileSync(path.join(dir,'review-checks-20261013.json'),JSON.stringify(result,null,2));
+console.log(JSON.stringify({allCheckedBytesMatch:result.allCheckedBytesMatch,savedEvidenceFiles:result.attachments.filter(x=>x.status==='saved').length,sourceFiles:result.sourceChecks.length,uiPass:result.uiRuns.filter(x=>x.ok).length,uiFail:result.uiRuns.filter(x=>x.failed).length,networkChecks:result.network.checks,networkObservableFields:result.network.observableFields,ipcSameConnection:result.ipcSameConnection.noConnectionTransition,uiObservations:result.uiObservations}));

@@ -1,0 +1,12 @@
+[
+ {"op":"launch","activity":"com.termlink.app.MainShellActivity"},
+ {"op":"shell","command":"am start -n com.termlink.app/.codex.CodexActivity --es codex_profile_id task005-s2-local --es codex_session_id ca6c2b30-1df6-4120-a21e-59b0f3846fd6 --es codex_session_mode codex --es codex_launch_source sessions"},
+ {"op":"clickDesc","text":"暂停 Goal"},
+ {"op":"wait","ms":1500},
+ {"op":"snapshot"},
+ {"op":"clickDesc","text":"任务历史"},
+ {"op":"clickRowText","text":"Disposable S3 connectivity check. Reply exactly S3-MARKER-A. No tools, file changes, or network.","action":"打开"},
+ {"op":"wait","ms":1000},
+ {"op":"assertText","text":"S3-MARKER-A"},
+ {"op":"snapshot"}
+]

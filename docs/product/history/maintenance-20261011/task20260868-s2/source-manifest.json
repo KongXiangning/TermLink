@@ -1,0 +1,63 @@
+{
+  "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+  "changed": [
+    "src/services/clientRegistrationManager.js",
+    "tests/clientRegistrations.test.js",
+    "tests/routes.sessions.metadata.test.js",
+    "tests/terminalGateway.sessionid.test.js"
+  ],
+  "step_id": "S2",
+  "base_head": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+  "files": [
+    {
+      "sha256": "a0ec66b61e689d029819cdd5cd3403bb2031f2cc2d1bda3f4abb8a6c9dd2dea0",
+      "path": "src/services/clientRegistrationManager.js"
+    },
+    {
+      "sha256": "47a991ddf1c6c43b99e319445278517812259cf825097fe186221985503325e7",
+      "path": "tests/clientRegistrations.test.js"
+    },
+    {
+      "sha256": "c2aae15941ba4cff581593a89b0957be0e72730862e60122f24ebe066bd69c10",
+      "path": "tests/routes.sessions.metadata.test.js"
+    },
+    {
+      "sha256": "6829c2020667f913d8eca78bffad0c16608b337930988b53926d335660104823",
+      "path": "tests/terminalGateway.sessionid.test.js"
+    },
+    {
+      "sha256": "d646071995865a382f7f789ddb54e8239b8ec48c779cfe351b84601041332607",
+      "path": "src/routes/sessions.js"
+    },
+    {
+      "sha256": "5072477e3c49fc664e1a2ef9b884c6f517bc2bc9608c2b4b5f927423e22c5cdf",
+      "path": "src/ws/terminalGateway.js"
+    },
+    {
+      "sha256": "50ed54565116e4f9a1fd34dd040432a53896c50c53f08e8aaf01d9ee217e22e0",
+      "path": "src/repositories/clientRegistrationStore.js"
+    },
+    {
+      "sha256": "dd95fb681fb92736a5d09fe969173f3b9efe380260c537e2e53af5864ccaba94",
+      "path": "src/services/sessionManager.js"
+    }
+  ],
+  "node_version": "v24.12.0",
+  "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+  "before_manager_sha256": "fa056474f7ded416b6bab55d9787ef3ac962779d44fb59558814e28f0031b083",
+  "note": "S2 final uncommitted source; production change only registration manager; isolated test cwd; HTTP/WS handlers exercised with actual registration manager and session/socket doubles",
+  "baseline_final_test_sources": [
+    {
+      "sha256": "47a991ddf1c6c43b99e319445278517812259cf825097fe186221985503325e7",
+      "path": "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-clientRegistrations.test.js"
+    },
+    {
+      "sha256": "c2aae15941ba4cff581593a89b0957be0e72730862e60122f24ebe066bd69c10",
+      "path": "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-routes.sessions.metadata.test.js"
+    },
+    {
+      "sha256": "6829c2020667f913d8eca78bffad0c16608b337930988b53926d335660104823",
+      "path": "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-terminalGateway.sessionid.test.js"
+    }
+  ]
+}

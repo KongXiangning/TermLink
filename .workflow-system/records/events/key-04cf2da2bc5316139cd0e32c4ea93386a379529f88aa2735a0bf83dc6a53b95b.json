@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T06:52:50.691Z",
+  "payload_sha256": "f5e633645c845675bcea732fbf704f12fbecc1ca80c57dfa571cdd4700ab7274",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s3-test-ipc-recovery-20261013",
+    "request": {
+      "selector": "ipc-recovery",
+      "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "command": "run-ui.ps1 -Case ipc-recovery",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+      "step_id": "S3",
+      "summary": "冻结配置使门禁变更未生效，测试Goal实际启动，未出现预期hint；后续UI暂停、B归档；失败版preload原字节未保留。",
+      "evidence_refs": [
+        {
+          "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+          "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+          "role": "exact-execution-and-retained-run-files"
+        }
+      ],
+      "idempotency_key": "task20260868-s3-test-ipc-recovery-20261013",
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "report_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "result": "failed"
+    },
+    "evidence_refs": [
+      {
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "role": "exact-execution-and-retained-run-files"
+      }
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-8561193173d29ad7d9fc59c0703ebf545a9a44ef56c9f4033611699fa617f136.json"
+      ],
+      "data": {
+        "selector": "ipc-recovery",
+        "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "command": "run-ui.ps1 -Case ipc-recovery",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+        "step_id": "S3",
+        "summary": "冻结配置使门禁变更未生效，测试Goal实际启动，未出现预期hint；后续UI暂停、B归档；失败版preload原字节未保留。",
+        "evidence_refs": [
+          {
+            "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+            "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+            "role": "exact-execution-and-retained-run-files"
+          }
+        ],
+        "report_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "result": "failed"
+      }
+    }
+  },
+  "issues": []
+}

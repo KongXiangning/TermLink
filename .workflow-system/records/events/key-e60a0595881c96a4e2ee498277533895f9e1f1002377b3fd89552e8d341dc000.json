@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T02:26:59.392Z",
+  "payload_sha256": "1941a946b25264ce04f537d6fc056a3f894f6a0a607c68885477c3e25c9485fd",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "decision",
+    "idempotency_key": "joint-validation-20261013-defer-clean-windows",
+    "body": {
+      "authority": "human-user",
+      "user_quote": "没有，对于需要这种“未安装 Node/npm 的  ”环境的需求，先不进行判定",
+      "targets": [
+        "REQ-TERMLINK-RELEASE-BASELINE",
+        "REQ-TERMLINK-SERVER-RELEASE"
+      ],
+      "action": "defer-assessment-for-this-batch",
+      "outcome": "21/32未生成本轮scope/assessment，未做实际安装判定"
+    }
+  },
+  "issues": []
+}

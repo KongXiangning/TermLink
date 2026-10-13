@@ -1,0 +1,23 @@
+{
+  "event_ref": ".workflow-system/records/events/key-9c46c18e2b3986e56d9c7ec52ad1d50bd1480bc524dd929ec2f28018070f463b.json",
+  "captured_at": "2026-10-13T06:52:03.538Z",
+  "attachments": [
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+      "size": 13155,
+      "request": {
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "role": "exact-execution-and-retained-run-files"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

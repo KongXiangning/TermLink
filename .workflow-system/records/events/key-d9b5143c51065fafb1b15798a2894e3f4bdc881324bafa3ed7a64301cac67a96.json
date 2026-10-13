@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T06:17:32.757Z",
+  "payload_sha256": "c416394ec349b588eeaa6a790b326c5ec9dbe04d0871c110211e5648448c2b4b",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s2-finish-user-decision-20261013",
+    "request": {
+      "decision_source": "current user execute-step invocation after S2 clean review",
+      "summary": "当前步骤S2；用户选择办理finish，保留已披露的CR旧ID工具缺口和S3真实网络/真机待验，不执行S3或Git/任务关闭。",
+      "review_ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+      "action": "review-decision",
+      "idempotency_key": "task20260868-s2-finish-user-decision-20261013",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "decision_text": "finish",
+      "choice": "finish"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review-decision",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json"
+      ],
+      "data": {
+        "decision_source": "current user execute-step invocation after S2 clean review",
+        "summary": "当前步骤S2；用户选择办理finish，保留已披露的CR旧ID工具缺口和S3真实网络/真机待验，不执行S3或Git/任务关闭。",
+        "review_ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+        "decision_text": "finish",
+        "choice": "finish"
+      }
+    }
+  },
+  "issues": []
+}

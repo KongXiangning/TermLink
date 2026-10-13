@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T03:40:38.239Z",
+  "payload_sha256": "579359b7a9c41f71c92a2f709c3a197d6716db91574edbda6ad1de9cb0c711f2",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-20261013-baseline-extraction-compile-failed",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "selector": "initial helper compilation",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "step_id": "S1",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.txt"
+      ],
+      "action": "test",
+      "result": "failed",
+      "idempotency_key": "task20260868-s1-20261013-baseline-extraction-compile-failed",
+      "summary": "初次提取helper误调用private方法，Kotlin编译失败，未执行测试；修正为同义CodexPlanWorkflowState后另次运行。",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;temporary-extracted-state-helper;intermediate-bytes-not-captured",
+      "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.txt"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json"
+      ],
+      "data": {
+        "selector": "initial helper compilation",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "step_id": "S1",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.txt"
+        ],
+        "result": "failed",
+        "summary": "初次提取helper误调用private方法，Kotlin编译失败，未执行测试；修正为同义CodexPlanWorkflowState后另次运行。",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;temporary-extracted-state-helper;intermediate-bytes-not-captured",
+        "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain"
+      }
+    }
+  },
+  "issues": []
+}

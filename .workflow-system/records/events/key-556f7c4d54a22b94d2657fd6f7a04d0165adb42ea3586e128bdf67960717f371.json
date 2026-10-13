@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T06:50:18.671Z",
+  "payload_sha256": "89d711b93c0ebe8a3f9be1d3d916bacc8d769c60b6051b088992c66df9df8491",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s3-execution-20261013",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "summary": "S3已执行：真实HTTP/WS23检查通过；核心真机IPC受控恢复、任务历史A→B→A/新任务清理、真实WS中断恢复3个最终UI用例通过；失败尝试及测试门禁控制边界独立保留，非全需求验收。",
+      "step_id": "S3",
+      "action": "execution",
+      "idempotency_key": "task20260868-s3-execution-20261013",
+      "result": "completed-with-validation-limits",
+      "remaining_work": [
+        "S3待review-change，未finish；实施自检不是独立审查。",
+        "IPC stop/start另关闭active-send门禁，Goal入口同源提示受控验证；真实外部审批点击、直接IPC catalog自动改选分支、TLS/mTLS与发布矩阵未独立真机验证。",
+        "失败版preload未保存原字节；失败事件/完整stdout/对应用例保留。",
+        "空白测试C归档返回no rollout found，保留清理限制；原existing sessions定义未变；测试registration API tombstone保留。",
+        "CR旧校验器managed需求ID兼容strict失败、ownership inferred父项及两条旧管理关联缺口保留；无Git提交、未整体认证需求完成。"
+      ],
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+      "evidence_refs": [
+        {
+          "role": "fixed-adopted-plan-or-prior-clean-self-review",
+          "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+          "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+        },
+        {
+          "role": "fixed-adopted-plan-or-prior-clean-self-review",
+          "sha256": "a804df582237b33d18c5b067f7d20de90f66934483cc8cf70f719fe1471b38c6",
+          "ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json"
+        },
+        {
+          "role": "fixed-adopted-plan-or-prior-clean-self-review",
+          "sha256": "a9c7eb05aed57a523947154e3e27fc7523def1d1c4dfacf7f1d0d0a23d410e7a",
+          "ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json"
+        }
+      ],
+      "commands": [
+        "project local-dev-server-control status/start/restart/stop, explicit ProjectRoot, port3010",
+        "JDK21 build-debug-apk.ps1 and :app:assembleDebugAndroidTest; adb -s MQS7N19402011743 install/reverse",
+        "node logs/task20260868-s3/network-smoke.cjs",
+        "adb am instrument LiveAcceptanceDriverTest with create-a, create-a-local, create-b, ipc-recovery, pause-fixture-goal, ipc-recovery-v3, switch-and-new, ws-recovery, ws-recovery-v2 via run-ui.ps1",
+        "node logs/task20260868-s3/cleanup-and-diagnostics.cjs; restore existing session; uninstall test package",
+        "git -c core.whitespace=cr-at-eol diff --check"
+      ],
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2-6.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2-11.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-4.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new-30.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new-23.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new-14.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/source-manifest.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/setup-phone.cjs",
+        "docs/product/history/maintenance-20261011/task20260868-s3/service-normal-v2-restored.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/run-ui.ps1",
+        "docs/product/history/maintenance-20261011/task20260868-s3/report.md",
+        "docs/product/history/maintenance-20261011/task20260868-s3/phone-session.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/phone-selected-diagnostics.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/phone-cleanup.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal-4.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/network-smoke.cjs",
+        "docs/product/history/maintenance-20261011/task20260868-s3/network-result.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/LiveAcceptanceDriverTest.kt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3-6.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3-10.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovered.png",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-hint.png",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-control-preload.cjs",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-control-events.jsonl",
+        "docs/product/history/maintenance-20261011/task20260868-s3/install.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/driver-build.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/diff-check.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/create-b.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/create-b-11.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/create-a.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local.json",
+        "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local-6.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s3/cleanup-and-diagnostics.cjs",
+        "docs/product/history/maintenance-20261011/task20260868-s3/apk-build.txt"
+      ]
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2-6.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2-11.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-4.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new-30.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new-23.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new-14.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/source-manifest.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/setup-phone.cjs",
+      "docs/product/history/maintenance-20261011/task20260868-s3/service-normal-v2-restored.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/run-ui.ps1",
+      "docs/product/history/maintenance-20261011/task20260868-s3/report.md",
+      "docs/product/history/maintenance-20261011/task20260868-s3/phone-session.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/phone-selected-diagnostics.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/phone-cleanup.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal-4.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/network-smoke.cjs",
+      "docs/product/history/maintenance-20261011/task20260868-s3/network-result.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/LiveAcceptanceDriverTest.kt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3-6.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3-10.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovered.png",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-hint.png",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-control-preload.cjs",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-control-events.jsonl",
+      "docs/product/history/maintenance-20261011/task20260868-s3/install.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/driver-build.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/diff-check.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/create-b.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/create-b-11.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/create-a.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local.json",
+      "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local-6.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s3/cleanup-and-diagnostics.cjs",
+      "docs/product/history/maintenance-20261011/task20260868-s3/apk-build.txt"
+    ],
+    "evidence_refs": [
+      {
+        "role": "fixed-adopted-plan-or-prior-clean-self-review",
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      },
+      {
+        "role": "fixed-adopted-plan-or-prior-clean-self-review",
+        "sha256": "a804df582237b33d18c5b067f7d20de90f66934483cc8cf70f719fe1471b38c6",
+        "ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json"
+      },
+      {
+        "role": "fixed-adopted-plan-or-prior-clean-self-review",
+        "sha256": "a9c7eb05aed57a523947154e3e27fc7523def1d1c4dfacf7f1d0d0a23d410e7a",
+        "ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "execution",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-df630f31fe0492b9861c72f857d496640df9d4237d307aabf62834cc6c2fdaab.json"
+      ],
+      "data": {
+        "summary": "S3已执行：真实HTTP/WS23检查通过；核心真机IPC受控恢复、任务历史A→B→A/新任务清理、真实WS中断恢复3个最终UI用例通过；失败尝试及测试门禁控制边界独立保留，非全需求验收。",
+        "step_id": "S3",
+        "result": "completed-with-validation-limits",
+        "remaining_work": null,
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+        "evidence_refs": null,
+        "commands": null,
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "files": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "408bd499cbf024bec865d000c6c9968cda9cd837d684ce44c7f2ef9a2de24176",
+        "references": [
+          {
+            "data_pointer": "/commands",
+            "request_pointer": "/commands"
+          },
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          },
+          {
+            "data_pointer": "/remaining_work",
+            "request_pointer": "/remaining_work"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

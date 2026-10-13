@@ -1,0 +1,44 @@
+{
+  "sessionId": "28e7677f-ddf1-4ee9-b84f-e169359f9548",
+  "conversationId": "01a13186-8f3c-7e82-959f-da5cc738bc82",
+  "cycles": [
+    {
+      "generation": 1,
+      "types": [
+        "session_info",
+        "codex_capabilities",
+        "codex_ipc_status",
+        "codex_ipc_conversations",
+        "follower_mode_changed",
+        "codex_state",
+        "conversation_surface_snapshot"
+      ],
+      "targetSnapshots": [
+        {
+          "conversationId": "01a13186-8f3c-7e82-959f-da5cc738bc82",
+          "containsOwnFileContext": true,
+          "containsBrowserSentMarker": false
+        }
+      ]
+    },
+    {
+      "generation": 2,
+      "types": [
+        "session_info",
+        "codex_capabilities",
+        "codex_ipc_status",
+        "codex_ipc_conversations",
+        "follower_mode_changed",
+        "codex_state",
+        "conversation_surface_snapshot"
+      ],
+      "targetSnapshots": [
+        {
+          "conversationId": "01a13186-8f3c-7e82-959f-da5cc738bc82",
+          "containsOwnFileContext": true,
+          "containsBrowserSentMarker": false
+        }
+      ]
+    }
+  ]
+}

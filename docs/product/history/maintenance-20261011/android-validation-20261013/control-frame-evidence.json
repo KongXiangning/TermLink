@@ -1,0 +1,93 @@
+[
+  {
+    "at": "2026-10-12T18:46:35.315Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u001b[?1;2c",
+    "hex": "1b5b3f313b3263"
+  },
+  {
+    "at": "2026-10-12T18:46:35.316Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u001b[O",
+    "hex": "1b5b4f"
+  },
+  {
+    "at": "2026-10-12T18:46:36.034Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u001b[I",
+    "hex": "1b5b49"
+  },
+  {
+    "at": "2026-10-12T18:46:36.894Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "c",
+    "hex": "63"
+  },
+  {
+    "at": "2026-10-12T18:46:38.474Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u0003",
+    "hex": "03"
+  },
+  {
+    "at": "2026-10-12T18:46:38.492Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u0003",
+    "hex": "03"
+  },
+  {
+    "at": "2026-10-12T18:46:40.604Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u001bb",
+    "hex": "1b62"
+  },
+  {
+    "at": "2026-10-12T18:46:42.147Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u001bf",
+    "hex": "1b66"
+  },
+  {
+    "at": "2026-10-12T18:46:42.153Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u001bb",
+    "hex": "1b62"
+  },
+  {
+    "at": "2026-10-12T18:46:43.387Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u0003",
+    "hex": "03"
+  },
+  {
+    "at": "2026-10-12T18:46:44.043Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\n",
+    "hex": "0a"
+  },
+  {
+    "at": "2026-10-12T18:46:44.696Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\r",
+    "hex": "0d"
+  },
+  {
+    "at": "2026-10-12T18:46:45.988Z",
+    "id": "b6929391-110e-4db0-955a-49caf33904b7",
+    "name": "V20-Phone-Terminal",
+    "data": "\u001b[O",
+    "hex": "1b5b4f"
+  }
+]

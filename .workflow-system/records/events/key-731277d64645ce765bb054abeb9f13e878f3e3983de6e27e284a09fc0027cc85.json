@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T03:43:17.732Z",
+  "payload_sha256": "a6561c5094bf780bb55651c5a98d77a2abcb7008e1a4adeadcc78cb076ea6eac",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-20261013-android-green-evidence-paths",
+    "request": {
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/android-final-tests.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s1/android-test-summary.json",
+        "docs/product/history/maintenance-20261011/task20260868-s1/android-connection-tests.xml"
+      ],
+      "action": "correct",
+      "reason": "错误把多个路径拼成单一路径，原附件capture报ENOENT；现按真实独立路径补证，不覆写原事实，不重新执行测试。",
+      "event": {
+        "action": "test",
+        "data": {
+          "files": [
+            "docs/product/history/maintenance-20261011/task20260868-s1/android-final-tests.txt",
+            "docs/product/history/maintenance-20261011/task20260868-s1/android-test-summary.json",
+            "docs/product/history/maintenance-20261011/task20260868-s1/android-connection-tests.xml"
+          ],
+          "attachment_correction": "仅纠正PowerShell数组拼接造成的附件路径错误并补存既有原始输出；原result/command/source_revision/运行身份保持，不是新测试运行。"
+        },
+        "task_id": "task-d211a98b3f7889123b22ace1f99dfacb"
+      },
+      "idempotency_key": "task20260868-s1-20261013-android-green-evidence-paths",
+      "record_ref": ".workflow-system/records/events/key-b7f72954b9ef42d8111d646edca2c9fdf4a322a10c29ebb1038f989768ca4010.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/android-final-tests.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s1/android-test-summary.json",
+      "docs/product/history/maintenance-20261011/task20260868-s1/android-connection-tests.xml"
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "correct",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-7e12ad3d498a3454c1a4661bb01ef1da9b54143795e3f4bef0c490337e89ef52.json"
+      ],
+      "data": {
+        "files": null,
+        "reason": "错误把多个路径拼成单一路径，原附件capture报ENOENT；现按真实独立路径补证，不覆写原事实，不重新执行测试。",
+        "event": null,
+        "record_ref": ".workflow-system/records/events/key-b7f72954b9ef42d8111d646edca2c9fdf4a322a10c29ebb1038f989768ca4010.json"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "dfb21aceceb249822b7bc058c9db184db8f59df73596476f84e714881a3e6a7e",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          },
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/event/data/files"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

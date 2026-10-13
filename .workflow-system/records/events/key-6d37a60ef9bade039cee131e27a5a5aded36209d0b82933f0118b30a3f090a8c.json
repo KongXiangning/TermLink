@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T03:41:03.429Z",
+  "payload_sha256": "01a5a0f4899542b1d20ecb170bf62b952d0f46fbbc632ba09a8efee1db032500",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-20261013-baseline-timeout-red",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "selector": "CodexViewModelConnectionFailureTest",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "step_id": "S1",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests-repaired.txt docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.xml"
+      ],
+      "action": "test",
+      "result": "failed",
+      "idempotency_key": "task20260868-s1-20261013-baseline-timeout-red",
+      "summary": "原状态逻辑隔离复现：3 tests, 1 failed，恢复后expected null but was timeout。不是新真机测试。",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;original-state-semantics-extracted-before-fix;intermediate-bytes-not-captured",
+      "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests-repaired.txt docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.xml"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-a8315796fb2f2e1357138758c659501e744cef2b0eca5f6e5f07bf9cdbc4713c.json"
+      ],
+      "data": {
+        "selector": "CodexViewModelConnectionFailureTest",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "step_id": "S1",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests-repaired.txt docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.xml"
+        ],
+        "result": "failed",
+        "summary": "原状态逻辑隔离复现：3 tests, 1 failed，恢复后expected null but was timeout。不是新真机测试。",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;original-state-semantics-extracted-before-fix;intermediate-bytes-not-captured",
+        "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain"
+      }
+    }
+  },
+  "issues": []
+}

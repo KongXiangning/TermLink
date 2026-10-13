@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:45:40.680Z",
+  "payload_sha256": "65a69cab7ce81af014f923472ace81e3fbf893f5363c48d4d22d5d6e46e91f98",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s2-registration-execution-20261013",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "remaining_work": [
+        "S2本批待review-change，未finish",
+        "S3真实HTTP/WS smoke及Android真机未运行",
+        "CR strict validator managed ID兼容缺口；不改写失败为PASS",
+        "无Git提交/部署；S1finished及旧失败保留",
+        "registration原子ownership未定位，父项inferred关联不扩大范围"
+      ],
+      "step_id": "S2",
+      "evidence_refs": [
+        {
+          "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+          "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+          "role": "fixed-task-plan-and-S1-position"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+          "sha256": "3076c5018f881a2164ef0cdfd09a389aa45ccdecb9958b62518a5f4577f0a877",
+          "role": "fixed-task-plan-and-S1-position"
+        }
+      ],
+      "action": "execution",
+      "summary": "registration manager显式存在性+撤销判定，HTTP/WS生产门禁未改。新增24定向回归，最终夹具修复前46/8失败，产品修复后46/46通过；保留挂起、夹具24/10失败和CR旧ID校验缺口。S2待review未finish，S3未执行。",
+      "idempotency_key": "task20260868-s2-registration-execution-20261013",
+      "result": "implemented-and-targeted-tests-passed",
+      "changed_files": [
+        "src/services/clientRegistrationManager.js",
+        "tests/clientRegistrations.test.js",
+        "tests/routes.sessions.metadata.test.js",
+        "tests/terminalGateway.sessionid.test.js"
+      ],
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S2-source-manifest:eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s2/report.md",
+        "docs/product/history/maintenance-20261011/task20260868-s2/source-manifest.json",
+        "docs/product/history/maintenance-20261011/task20260868-s2/run-environment.json",
+        "docs/product/history/maintenance-20261011/task20260868-s2/before-clientRegistrationManager.js",
+        "docs/changes/records/CR-20261013-1237-registration-validity-gates.md",
+        "src/services/clientRegistrationManager.js",
+        "tests/clientRegistrations.test.js",
+        "tests/routes.sessions.metadata.test.js",
+        "tests/terminalGateway.sessionid.test.js",
+        "docs/product/history/maintenance-20261011/task20260868-s2/cr-validation.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s2/cr-validation-pwsh.txt"
+      ],
+      "requirements": {
+        "plan_coverage": "journal adopted plan S2; no separate legacy server PLAN; Android REQ/PLAN untouched",
+        "association": "existing inferred parent repair binding preserved",
+        "req_id": "REQ-TERMLINK-SERVER-AUTH"
+      },
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "commands": [
+        "isolated cwd node --test --test-reporter=tap three selectors (interrupted hang)",
+        "isolated cwd node --test --test-force-exit --test-reporter=tap tests/clientRegistrations.test.js tests/routes.sessions.metadata.test.js tests/terminalGateway.sessionid.test.js (three baseline attempts and final46/46)",
+        "git -c core.whitespace=cr-at-eol diff --check",
+        "legacy validate-change-record.ps1 strict rejects managed REQ ID"
+      ],
+      "documentation": {
+        "gap": "dated-ID-only legacy CR validator incompatible with managed ID; no strict PASS",
+        "updated": [
+          "draft CR and INDEX",
+          "REQ-TERMLINK-SERVER-AUTH local progress",
+          "PROJECT S2 progress"
+        ]
+      }
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s2/report.md",
+      "docs/product/history/maintenance-20261011/task20260868-s2/source-manifest.json",
+      "docs/product/history/maintenance-20261011/task20260868-s2/run-environment.json",
+      "docs/product/history/maintenance-20261011/task20260868-s2/before-clientRegistrationManager.js",
+      "docs/changes/records/CR-20261013-1237-registration-validity-gates.md",
+      "src/services/clientRegistrationManager.js",
+      "tests/clientRegistrations.test.js",
+      "tests/routes.sessions.metadata.test.js",
+      "tests/terminalGateway.sessionid.test.js",
+      "docs/product/history/maintenance-20261011/task20260868-s2/cr-validation.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s2/cr-validation-pwsh.txt"
+    ],
+    "evidence_refs": [
+      {
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "role": "fixed-task-plan-and-S1-position"
+      },
+      {
+        "ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+        "sha256": "3076c5018f881a2164ef0cdfd09a389aa45ccdecb9958b62518a5f4577f0a877",
+        "role": "fixed-task-plan-and-S1-position"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "execution",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json"
+      ],
+      "data": {
+        "remaining_work": null,
+        "step_id": "S2",
+        "evidence_refs": null,
+        "summary": null,
+        "result": "implemented-and-targeted-tests-passed",
+        "changed_files": [
+          "src/services/clientRegistrationManager.js",
+          "tests/clientRegistrations.test.js",
+          "tests/routes.sessions.metadata.test.js",
+          "tests/terminalGateway.sessionid.test.js"
+        ],
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S2-source-manifest:eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b",
+        "files": null,
+        "requirements": {
+          "plan_coverage": "journal adopted plan S2; no separate legacy server PLAN; Android REQ/PLAN untouched",
+          "association": "existing inferred parent repair binding preserved",
+          "req_id": "REQ-TERMLINK-SERVER-AUTH"
+        },
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "commands": null,
+        "documentation": {
+          "gap": "dated-ID-only legacy CR validator incompatible with managed ID; no strict PASS",
+          "updated": [
+            "draft CR and INDEX",
+            "REQ-TERMLINK-SERVER-AUTH local progress",
+            "PROJECT S2 progress"
+          ]
+        }
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "9232d2bff9c7642b948e3a0cda752e1230662b8151b471f736366d0f97d7a9af",
+        "references": [
+          {
+            "data_pointer": "/commands",
+            "request_pointer": "/commands"
+          },
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          },
+          {
+            "data_pointer": "/remaining_work",
+            "request_pointer": "/remaining_work"
+          },
+          {
+            "data_pointer": "/summary",
+            "request_pointer": "/summary"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

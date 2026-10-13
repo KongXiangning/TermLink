@@ -1,0 +1,40 @@
+{
+  "session": {
+    "id": "28e7677f-ddf1-4ee9-b84f-e169359f9548",
+    "name": "V20-LAN-Codex",
+    "status": "ACTIVE",
+    "activeConnections": 1,
+    "activeConnectionCount": 1,
+    "allTls": false,
+    "allMtlsAuthorized": false,
+    "createdAt": 1791832238016,
+    "lastActiveAt": 1791857370060,
+    "sessionMode": "codex",
+    "cwd": "E:\\coding\\TermLink-rust-source-resolution-codex\\output\\validation\\20261013-android-20\\workspace",
+    "workspaceRoot": "E:\\coding\\TermLink-rust-source-resolution-codex\\output\\validation\\20261013-android-20\\workspace",
+    "workspaceRootSource": "session_cwd",
+    "lastCodexThreadId": "01a13186-8f3c-7e82-959f-da5cc738bc82",
+    "codexConfig": null,
+    "codexThreadId": "01a13186-8f3c-7e82-959f-da5cc738bc82"
+  },
+  "files": {
+    "status": 200,
+    "data": {
+      "files": [
+        {
+          "label": "proof.txt",
+          "path": "E:\\coding\\TermLink-rust-source-resolution-codex\\output\\validation\\20261013-android-20\\workspace\\docs\\proof.txt",
+          "relativePathWithoutFileName": "docs",
+          "fsPath": "E:\\coding\\TermLink-rust-source-resolution-codex\\output\\validation\\20261013-android-20\\workspace\\docs\\proof.txt"
+        }
+      ]
+    }
+  },
+  "absent": {
+    "status": 200,
+    "data": {
+      "files": []
+    }
+  },
+  "outsideCwdPackageExcluded": true
+}

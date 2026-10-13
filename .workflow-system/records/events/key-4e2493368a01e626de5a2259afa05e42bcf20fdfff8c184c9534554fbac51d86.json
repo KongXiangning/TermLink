@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:01:50.549Z",
+  "payload_sha256": "b82e9f9547f588e9426b0c33ff34dd64e4133d3bb857281a075a711dbe51cf16",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-r-s1-001-20261013-baseline-two-failures",
+    "request": {
+      "step_id": "S1",
+      "result": "failed",
+      "source_revision": "original S1 source object plus corrected new regression fixture; intermediate fixture bytes not captured",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests-repaired.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests.xml"
+      ],
+      "summary": "10 tests, 2 failed，复现R-S1-001的同连接IPC恢复与A→B提示残留；不是完整ViewModel或真机复现。",
+      "action": "test",
+      "idempotency_key": "task20260868-s1-r-s1-001-20261013-baseline-two-failures",
+      "selector": "repair baseline same-connection IPC recovery and A-to-B",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests-repaired.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests.xml"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-16df088f3995be7a8da66b003ad5f33f8c7e6e6faba9fe951c1a4fd8969c7d54.json"
+      ],
+      "data": {
+        "step_id": "S1",
+        "result": "failed",
+        "source_revision": "original S1 source object plus corrected new regression fixture; intermediate fixture bytes not captured",
+        "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests-repaired.txt",
+          "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests.xml"
+        ],
+        "summary": "10 tests, 2 failed，复现R-S1-001的同连接IPC恢复与A→B提示残留；不是完整ViewModel或真机复现。",
+        "selector": "repair baseline same-connection IPC recovery and A-to-B",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      }
+    }
+  },
+  "issues": []
+}

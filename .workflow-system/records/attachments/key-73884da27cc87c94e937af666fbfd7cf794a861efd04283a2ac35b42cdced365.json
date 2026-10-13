@@ -1,0 +1,50 @@
+{
+  "event_ref": ".workflow-system/records/events/key-73884da27cc87c94e937af666fbfd7cf794a861efd04283a2ac35b42cdced365.json",
+  "captured_at": "2026-10-13T04:45:59.428Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/0169b78e48e46a2a28e570847e6e710f729fc95ea0fc4223987e0ee54947374a.blob",
+      "sha256": "0169b78e48e46a2a28e570847e6e710f729fc95ea0fc4223987e0ee54947374a",
+      "size": 11281,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/baseline-hung-tests.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/47a991ddf1c6c43b99e319445278517812259cf825097fe186221985503325e7.blob",
+      "sha256": "47a991ddf1c6c43b99e319445278517812259cf825097fe186221985503325e7",
+      "size": 2772,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/baseline-clientRegistrations.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/40ff46d0735bac270b575871fef9cdce989a313dfefbbeb2043aa3a0c352cc18.blob",
+      "sha256": "40ff46d0735bac270b575871fef9cdce989a313dfefbbeb2043aa3a0c352cc18",
+      "size": 20983,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/baseline-routes.sessions.metadata.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c0e6eb4f5abdba056a46ab12514a2bec964f5a65dff6920504748593cc7031b5.blob",
+      "sha256": "c0e6eb4f5abdba056a46ab12514a2bec964f5a65dff6920504748593cc7031b5",
+      "size": 20712,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/baseline-terminalGateway.sessionid.test.js",
+      "issues": []
+    }
+  ]
+}

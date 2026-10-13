@@ -1,0 +1,13 @@
+{
+  "isolatedRoot": "E:\\coding\\TermLink-rust-source-resolution-codex\\output\\validation\\20261013-joint-17\\workflow-drill",
+  "taskId": "task-23cccdc7-7661-4378-888f-4de260828630",
+  "planRef": ".workflow-system/records/events/1791856617796-0e8ff718-38c8-4b60-9803-7e5fa3f74e15.json",
+  "commit": "4f8cf14d417b61d1d7e1476072decbf84b04a5a8",
+  "requirementRegistered": true,
+  "planCrCloseoutCoverage": [
+    "S1"
+  ],
+  "uniqueCurrentTaskDuringRun": true,
+  "currentTaskAfterClose": null,
+  "productCheck": "checked"
+}

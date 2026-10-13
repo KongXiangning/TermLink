@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:56:39.661Z",
+  "payload_sha256": "c94aeb4756c82af0f3b424d700c99b25bd5041af5523819f0b449a5466372e33",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s2-review-20261013-clean",
+    "request": {
+      "findings": [],
+      "action": "review",
+      "next_mode": "finish",
+      "idempotency_key": "task20260868-s2-review-20261013-clean",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "stage": "change",
+      "remaining_work": [
+        "S2executed未finish，clean仅适用于本次审查对象与范围",
+        "S3真实网络/完整认证与真机未执行",
+        "CR draft/TBD，无Git提交；旧validator兼容缺口保留",
+        "产品文档待追加clean自审及边界，具体locators见报告"
+      ],
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "provenance": {
+        "kind": "self-review",
+        "independent": false,
+        "method": "static full diff/call-chain review plus retained outputs and live source/attachment hash verification",
+        "reviewer": "同一Codex单代理，此前实施S2"
+      },
+      "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+      "step_id": "S2",
+      "retained_gaps": [
+        "legacy CR validator rejects managed REQ ID, strict failed retained",
+        "registration具体原子ownership未定位；原父项inferred binding保留",
+        "两个历史管理关联缺口保留"
+      ],
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s2/review-20261013.md"
+      ],
+      "next_route": "execute-step",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S2-source-manifest:eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b",
+      "summary": "S2产品/定向回归范围静态自审clean，无新增finding。存在性与撤销判定正确，server实际注入manager，HTTP/WS拒绝在session前；46/46证据适用。CR旧managed ID校验兼容缺口及S3真实网络/真机未验保持，未finish。",
+      "evidence_refs": [
+        {
+          "ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+          "role": "fixed-reviewed-S2-evidence",
+          "sha256": "cc05792e2680b820a8a8d9ad65ae77de3233ead74efc6b22634d1d8e873bbb55"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-73884da27cc87c94e937af666fbfd7cf794a861efd04283a2ac35b42cdced365.json",
+          "role": "fixed-reviewed-S2-evidence",
+          "sha256": "df9b9c60daaf260ab7cf1a90230d1e007b55919fc9dffc58d1c3bea358a0d730"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-fd1f26ab10e8c062eb90a3c8f3a1d12199172dd50befbbeaa0a69d622eab16e3.json",
+          "role": "fixed-reviewed-S2-evidence",
+          "sha256": "40d5d2d4c1e9b64b86b1d8efbac585ee5a6cb1f26269df8563fc953294f0dec8"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-1888c74db1d55c7352bcc61e4f9e5f137e6e641c81e68ca04998efb8ad43f129.json",
+          "role": "fixed-reviewed-S2-evidence",
+          "sha256": "adb62efece61d20502b9b219e979d4da0071ce57c92556fe5d64e9557b3923b1"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-164df9832a9fce867f480429f07fd73f472a9e8bad7f851b6f1b0c18f88ea7db.json",
+          "role": "fixed-reviewed-S2-evidence",
+          "sha256": "4264a72315398730035aef1329daebc6f86d5ed45eb083341a78de265daea54d"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json",
+          "role": "fixed-reviewed-S2-evidence",
+          "sha256": "b1a213b8b03661b69a60066510c912d06ec2a919122e4722436d44a29e0002c9"
+        },
+        {
+          "ref": ".workflow-system/records/evidence-objects/eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b.blob",
+          "role": "fixed-reviewed-S2-evidence",
+          "sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b"
+        }
+      ],
+      "verdict": "clean",
+      "coverage": {
+        "reused_tests": [
+          "Node定向46/46，0 cancel/skip",
+          "最终fixture修复前46/8失败检出unknown manager1HTTP5WS2",
+          "此前挂起及fixture24/10失败作为历史保留"
+        ],
+        "not_run": [
+          "本轮无新产品测试/构建",
+          "S3真实HTTP/WS/完整认证链smoke",
+          "Android同机A→B→A及IPC恢复/新任务提示真机"
+        ],
+        "excluded": [
+          "主动断开撤销前既有连接、新认证体系",
+          "其他安全审计、Relay、IPC/Owner/Rust/Android修改"
+        ],
+        "reviewed": [
+          "四文件完整diff、manager/store/HTTP routes/WS gate及session ownership",
+          "server.js manager实际接线，未改，SHA ad0f206de6eb7b03c5a1f78a56345641c640c4bcd48c56dcdbb97c70c039d5d6",
+          "S2计划/排除、CONTRACTS/AD-004、REQ父项TaskBinding、CR及执行报告",
+          "8个source/HEAD匹配，25附件hash核验，baseline-final测试同最终字节"
+        ]
+      }
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s2/review-20261013.md"
+    ],
+    "evidence_refs": [
+      {
+        "ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "cc05792e2680b820a8a8d9ad65ae77de3233ead74efc6b22634d1d8e873bbb55"
+      },
+      {
+        "ref": ".workflow-system/records/events/key-73884da27cc87c94e937af666fbfd7cf794a861efd04283a2ac35b42cdced365.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "df9b9c60daaf260ab7cf1a90230d1e007b55919fc9dffc58d1c3bea358a0d730"
+      },
+      {
+        "ref": ".workflow-system/records/events/key-fd1f26ab10e8c062eb90a3c8f3a1d12199172dd50befbbeaa0a69d622eab16e3.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "40d5d2d4c1e9b64b86b1d8efbac585ee5a6cb1f26269df8563fc953294f0dec8"
+      },
+      {
+        "ref": ".workflow-system/records/events/key-1888c74db1d55c7352bcc61e4f9e5f137e6e641c81e68ca04998efb8ad43f129.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "adb62efece61d20502b9b219e979d4da0071ce57c92556fe5d64e9557b3923b1"
+      },
+      {
+        "ref": ".workflow-system/records/events/key-164df9832a9fce867f480429f07fd73f472a9e8bad7f851b6f1b0c18f88ea7db.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "4264a72315398730035aef1329daebc6f86d5ed45eb083341a78de265daea54d"
+      },
+      {
+        "ref": ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "b1a213b8b03661b69a60066510c912d06ec2a919122e4722436d44a29e0002c9"
+      },
+      {
+        "ref": ".workflow-system/records/evidence-objects/eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b.blob",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "review",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json"
+      ],
+      "data": {
+        "findings": [],
+        "next_mode": "finish",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "stage": "change",
+        "remaining_work": [
+          "S2executed未finish，clean仅适用于本次审查对象与范围",
+          "S3真实网络/完整认证与真机未执行",
+          "CR draft/TBD，无Git提交；旧validator兼容缺口保留",
+          "产品文档待追加clean自审及边界，具体locators见报告"
+        ],
+        "provenance": {
+          "kind": "self-review",
+          "independent": false,
+          "method": "static full diff/call-chain review plus retained outputs and live source/attachment hash verification",
+          "reviewer": "同一Codex单代理，此前实施S2"
+        },
+        "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "step_id": "S2",
+        "retained_gaps": [
+          "legacy CR validator rejects managed REQ ID, strict failed retained",
+          "registration具体原子ownership未定位；原父项inferred binding保留",
+          "两个历史管理关联缺口保留"
+        ],
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s2/review-20261013.md"
+        ],
+        "next_route": "execute-step",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S2-source-manifest:eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b",
+        "summary": null,
+        "evidence_refs": null,
+        "verdict": "clean",
+        "coverage": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "c79e9403ee71a87776b96b8aa0d915e197f058f5421f307e0198b66e01af12b0",
+        "references": [
+          {
+            "data_pointer": "/coverage",
+            "request_pointer": "/coverage"
+          },
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/summary",
+            "request_pointer": "/summary"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

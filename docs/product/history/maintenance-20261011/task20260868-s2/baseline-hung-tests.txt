@@ -1,0 +1,319 @@
+TAP version 13
+# Subtest: client registration rejects missing records and invalid IDs
+not ok 1 - client registration rejects missing records and invalid IDs
+  ---
+  duration_ms: 0.8395
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\clientRegistrations.test.js:15:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\clientRegistrations.test.js:18:16)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.start (node:internal/test_runner/test:1003:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17)
+  ...
+# Subtest: client registration normalizes active IDs and rejects revoked records including timestamp zero
+ok 2 - client registration normalizes active IDs and rejects revoked records including timestamp zero
+  ---
+  duration_ms: 2.0775
+  type: 'test'
+  ...
+# Subtest: client registration creates opaque ids and revokes them
+ok 3 - client registration creates opaque ids and revokes them
+  ---
+  duration_ms: 0.7701
+  type: 'test'
+  ...
+# Subtest: client registration routes revoke owned sessions without touching history cache
+ok 4 - client registration routes revoke owned sessions without touching history cache
+  ---
+  duration_ms: 1.4527
+  type: 'test'
+  ...
+# Subtest: GET /sessions rejects unknown registration before session access
+not ok 5 - GET /sessions rejects unknown registration before session access
+  ---
+  duration_ms: 2.3324
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    200 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 200
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: POST /sessions rejects unknown registration before session access
+not ok 6 - POST /sessions rejects unknown registration before session access
+  ---
+  duration_ms: 0.8444
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    200 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 200
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: PATCH /sessions/:id rejects unknown registration before session access
+not ok 7 - PATCH /sessions/:id rejects unknown registration before session access
+  ---
+  duration_ms: 0.2707
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    404 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 404
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: DELETE /sessions/:id rejects unknown registration before session access
+not ok 8 - DELETE /sessions/:id rejects unknown registration before session access
+  ---
+  duration_ms: 0.5014
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    404 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 404
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: GET /sessions/:id/workspace/files rejects unknown registration before session access
+not ok 9 - GET /sessions/:id/workspace/files rejects unknown registration before session access
+  ---
+  duration_ms: 0.2463
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    404 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 404
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: GET /sessions rejects revoked registration before session access
+ok 10 - GET /sessions rejects revoked registration before session access
+  ---
+  duration_ms: 0.463
+  type: 'test'
+  ...
+# Subtest: POST /sessions rejects revoked registration before session access
+ok 11 - POST /sessions rejects revoked registration before session access
+  ---
+  duration_ms: 0.1591
+  type: 'test'
+  ...
+# Subtest: PATCH /sessions/:id rejects revoked registration before session access
+ok 12 - PATCH /sessions/:id rejects revoked registration before session access
+  ---
+  duration_ms: 0.1396
+  type: 'test'
+  ...
+# Subtest: DELETE /sessions/:id rejects revoked registration before session access
+ok 13 - DELETE /sessions/:id rejects revoked registration before session access
+  ---
+  duration_ms: 0.1677
+  type: 'test'
+  ...
+# Subtest: GET /sessions/:id/workspace/files rejects revoked registration before session access
+ok 14 - GET /sessions/:id/workspace/files rejects revoked registration before session access
+  ---
+  duration_ms: 0.1924
+  type: 'test'
+  ...
+# Subtest: session routes preserve active registration list/create/update/delete paths
+not ok 15 - session routes preserve active registration list/create/update/delete paths
+  ---
+  duration_ms: 1.8863
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:77:5'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    ... Skipped lines
+    
+      [
+        [
+          'owned-session',
+          'f39c0d2f-9664-4ec4-a993-4f41a6ad4786'
+        ],
+    ...
+        ],
+    +   [
+    +     'owned-session',
+    +     'f39c0d2f-9664-4ec4-a993-4f41a6ad4786'
+    +   ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'owned-session'
+      1: 'f39c0d2f-9664-4ec4-a993-4f41a6ad4786'
+    1: <Circular>
+    2: <Circular>
+  actual:
+    0:
+      0: 'owned-session'
+      1: 'f39c0d2f-9664-4ec4-a993-4f41a6ad4786'
+    1:
+      0: 'owned-session'
+      1: 'f39c0d2f-9664-4ec4-a993-4f41a6ad4786'
+    2:
+      0: 'owned-session'
+      1: 'f39c0d2f-9664-4ec4-a993-4f41a6ad4786'
+    3:
+      0: 'owned-session'
+      1: 'f39c0d2f-9664-4ec4-a993-4f41a6ad4786'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:89:16)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: session routes preserve legacy registration list/create/update/delete paths
+ok 16 - session routes preserve legacy registration list/create/update/delete paths
+  ---
+  duration_ms: 1.2062
+  type: 'test'
+  ...
+# Subtest: active registration cannot access or mutate another registration session over HTTP
+ok 17 - active registration cannot access or mutate another registration session over HTTP
+  ---
+  duration_ms: 1.0117
+  type: 'test'
+  ...
+# Subtest: GET /sessions exposes aggregate TLS summary fields from sessionManager
+ok 18 - GET /sessions exposes aggregate TLS summary fields from sessionManager
+  ---
+  duration_ms: 0.4982
+  type: 'test'
+  ...
+# Subtest: POST /sessions passes sessionMode and cwd through to sessionManager
+ok 19 - POST /sessions passes sessionMode and cwd through to sessionManager
+  ---
+  duration_ms: 5.3548
+  type: 'test'
+  ...
+# Subtest: POST /sessions defaults codexConfig when creating codex session
+ok 20 - POST /sessions defaults codexConfig when creating codex session
+  ---
+  duration_ms: 1.1464
+  type: 'test'
+  ...
+# Subtest: POST /sessions allows explicit null codexConfig for codex session
+ok 21 - POST /sessions allows explicit null codexConfig for codex session
+  ---
+  duration_ms: 0.6491
+  type: 'test'
+  ...
+# Subtest: POST /sessions rejects invalid sessionMode
+ok 22 - POST /sessions rejects invalid sessionMode
+  ---
+  duration_ms: 0.1531
+  type: 'test'
+  ...
+# Subtest: POST /sessions requires cwd for codex mode
+ok 23 - POST /sessions requires cwd for codex mode
+  ---
+  duration_ms: 0.1007
+  type: 'test'
+  ...
+# Subtest: POST /sessions rejects invalid codexConfig for codex mode
+ok 24 - POST /sessions rejects invalid codexConfig for codex mode
+  ---
+  duration_ms: 0.0946
+  type: 'test'
+  ...
+# Subtest: PATCH /sessions/:id updates name and codexConfig
+ok 25 - PATCH /sessions/:id updates name and codexConfig
+  ---
+  duration_ms: 0.1725
+  type: 'test'
+  ...
+# Subtest: PATCH /sessions/:id allows clearing codexConfig with null
+ok 26 - PATCH /sessions/:id allows clearing codexConfig with null
+  ---
+  duration_ms: 0.1677
+  type: 'test'
+  ...
+# Subtest: POST /sessions rejects missing cwd directories
+ok 27 - POST /sessions rejects missing cwd directories
+  ---
+  duration_ms: 0.8743
+  type: 'test'
+  ...
+# Subtest: GET /sessions/:id/workspace/files returns empty list for terminal sessions
+ok 28 - GET /sessions/:id/workspace/files returns empty list for terminal sessions
+  ---
+  duration_ms: 0.257
+  type: 'test'
+  ...
+# Subtest: GET /sessions/:id/workspace/files returns empty list for legacy codex sessions without workspaceRoot
+ok 29 - GET /sessions/:id/workspace/files returns empty list for legacy codex sessions without workspaceRoot
+  ---
+  duration_ms: 0.193
+  type: 'test'
+  ...

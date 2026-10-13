@@ -1,0 +1,97 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.FrameLayout
+com.termlink.app:id/action_bar_root | null | null | android.widget.LinearLayout
+android:id/content | null | null | android.widget.FrameLayout
+com.termlink.app:id/codex_root_drawer | null | null | androidx.drawerlayout.widget.DrawerLayout
+null | null | null | android.widget.FrameLayout
+com.termlink.app:id/codex_compose_container | null | null | androidx.compose.ui.platform.ComposeView
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | 会话 | android.view.View
+null | null | 会话 | android.view.View
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | Codex · 已连接 | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | 查看完整工作目录路径 | android.view.View
+null | PATH · | null | android.widget.TextView
+null | E:\…\workspace | null | android.widget.TextView
+null | › | null | android.widget.TextView
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | null | 任务历史 | android.view.View
+null | null | 任务历史 | android.view.View
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | null | 文档 | android.view.View
+null | null | 文档 | android.view.View
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | 工具执行 | null | android.widget.TextView
+null | 03:19 | null | android.widget.TextView
+null | ▸ | null | android.widget.TextView
+null | 已运行命令 | null | android.widget.TextView
+null | $ "C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'Start-Sleep -Seconds 35; Write-Output V20-NOTIFICATION-RETURN' | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | Codex | null | android.widget.TextView
+null | 03:19 | null | android.widget.TextView
+null | null | null | androidx.compose.ui.viewinterop.ViewFactoryHolder
+null | V20-NOTIFICATION-RETURN | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | 用户 | null | android.widget.TextView
+null | 03:19 | null | android.widget.TextView
+null | null | null | androidx.compose.ui.viewinterop.ViewFactoryHolder
+null | Disposable attachment acceptance. Read the attached text and describe the attached image briefly. | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | Codex | null | android.widget.TextView
+null | 03:19 | null | android.widget.TextView
+null | null | null | androidx.compose.ui.viewinterop.ViewFactoryHolder
+null | I’ll inspect the attached image. I don’t see a text attachment in the message. | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | Codex | null | android.widget.TextView
+null | 03:19 | null | android.widget.TextView
+null | null | null | androidx.compose.ui.viewinterop.ViewFactoryHolder
+null | I don’t see an attached text file, and the image couldn’t be opened because its data is invalid or unsupported. Please reattach the text and image so I can read and describe them. | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | null | android.widget.HorizontalScrollView
+null | null | null | android.view.View
+null | 本地图片：V20-valid-image.png | null | android.widget.TextView
+null | × | null | android.widget.TextView
+null | null | null | android.widget.HorizontalScrollView
+null | null | null | android.view.View
+null | @V20-proof.txt | null | android.widget.TextView
+null | × | null | android.widget.TextView
+null | null | null | android.view.View
+null |  | null | android.widget.EditText
+null | 问任何问题... | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | 打开添加菜单 | android.view.View
+null | + | null | android.widget.TextView
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | null | 打开斜杠命令 | android.view.View
+null | / | null | android.widget.TextView
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | null | 自定义 (config.toml) | android.view.View
+null | ◈ | null | android.widget.TextView
+null | 自定义 | null | android.widget.TextView
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | 6.1 Sol 低 | null | android.widget.TextView
+null | ⌄ | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | 发送 | android.view.View
+null | null | null | android.view.View
+null | ↑ | null | android.widget.TextView
+null | null | null | android.widget.Button

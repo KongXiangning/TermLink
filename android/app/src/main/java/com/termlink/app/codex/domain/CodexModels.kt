@@ -305,6 +305,10 @@ data class CodexUiState(
     val permissionProfilesRequested: Boolean = false,
     val messages: List<ChatMessage> = emptyList(),
     val errorMessage: String? = null,
+    // Transport notices expire on reconnect; business errors have a separate lifetime.
+    val connectionErrorMessage: String? = null,
+    val ipcOperationErrorMessage: String? = null,
+    val ipcOperationErrorConversationId: String? = null,
     val interactionState: CodexInteractionState? = null,
     val cwd: String? = null,
     val serverNextTurnConfigBase: CodexEffectiveConfig? = null,

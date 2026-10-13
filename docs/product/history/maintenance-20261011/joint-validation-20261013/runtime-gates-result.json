@@ -1,0 +1,37 @@
+{
+  "actualAdmin": false,
+  "tests": [
+    {
+      "name": "gate-ordinary-elevated",
+      "exit": 1,
+      "signal": null,
+      "privilegeRefusal": true,
+      "tlsRefusal": false,
+      "listenStarted": false
+    },
+    {
+      "name": "gate-valid-cert-elevated",
+      "exit": 1,
+      "signal": null,
+      "privilegeRefusal": true,
+      "tlsRefusal": false,
+      "listenStarted": false
+    },
+    {
+      "name": "gate-unreadable-cert",
+      "exit": 1,
+      "signal": null,
+      "privilegeRefusal": false,
+      "tlsRefusal": true,
+      "listenStarted": false
+    },
+    {
+      "name": "gate-invalid-pem",
+      "exit": 1,
+      "signal": null,
+      "privilegeRefusal": false,
+      "tlsRefusal": false,
+      "listenStarted": false
+    }
+  ]
+}

@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:28:44.566Z",
+  "payload_sha256": "8dd129b2e89cf8ffe1ed2dc62fa5264ff65a87d9cdcdc66bdb36f8263be2f005",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-second-repair-review-20261013-clean",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "remaining_work": [
+        "S1 executed未finish；clean只适用于所审对象/范围",
+        "S2/S3未执行，S3真机门禁未验",
+        "无Git提交；CR draft/TBD",
+        "产品文档pending locators见报告；两个历史管理缺口保留"
+      ],
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/review-second-repair-20261013.md"
+      ],
+      "next_mode": "finish",
+      "idempotency_key": "task20260868-s1-second-repair-review-20261013-clean",
+      "stage": "change",
+      "summary": "S1第二次repair静态自审clean，无新增finding；R-S1-002已修复且局部回归充分。代码与292/139证据对象一致，真机与完整协程闭环未验，不finish、不执行S2/S3。",
+      "execution_ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+      "next_route": "execute-step",
+      "step_id": "S1",
+      "original_review_ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+      "finding_reassessment": [
+        {
+          "original_review_ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+          "id": "R-S1-002",
+          "result": "resolved-in-current-target",
+          "status": "resolved",
+          "summary": "newThread有/无active分支在发送前清IPC提示；直接catalog在身份更新后reconcile作用域；4新回归baseline3失败，final全过；网络/业务保留、同ID不可用不误清。旧review事实不改写。"
+        }
+      ],
+      "findings": [],
+      "verdict": "clean",
+      "coverage": {
+        "not_run": [
+          "本轮未重跑测试或构建",
+          "完整ViewModel协程/socket竞态与真实Compose画面",
+          "S3同机A→B→A、同连接IPC恢复及新任务提示真机"
+        ],
+        "reused_tests": [
+          "baseline连接18/3失败及当时测试源码；final连接18/18",
+          "Android ViewModel/wire292/292，0失败/errors/skips",
+          "Node Owner/IPC139/139，0失败/cancelled/skips"
+        ],
+        "excluded": [
+          "S2 registration实施",
+          "Rust/rollout/历史协议/数据库及其他维护资产"
+        ],
+        "reviewed": [
+          "第二次repair两文件完整CAS前后差异",
+          "Activity/newThread/helper早返回及直接catalog/config调用链，提示reconcile与Compose读取",
+          "S1/S3计划、CONTRACTS实时核心、AD-004、原review/报告及REQ/PLAN/CR增量",
+          "5 Android和4 Node源文件hash全部匹配，15 retained attachments hash核验"
+        ]
+      },
+      "evidence_refs": [
+        {
+          "role": "fixed-reviewed-evidence",
+          "ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+          "sha256": "a4cf18b36b1a24c54dcb155be2875895d567ab39c5a92645eb6eaa205d098a07"
+        },
+        {
+          "role": "fixed-reviewed-evidence",
+          "ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+          "sha256": "a359678c114dfb411a9807b7beb804653fee12a9fdebc1143febbe248fab5eb0"
+        },
+        {
+          "role": "fixed-reviewed-evidence",
+          "ref": ".workflow-system/records/events/key-791415204d53541902a0ee664a8f1373829a1a61512d59f8ddf65ecbd289e503.json",
+          "sha256": "ffdaa2cb80015126f603d153b81905c10365004e48a5079d3b647e78db0cec27"
+        },
+        {
+          "role": "fixed-reviewed-evidence",
+          "ref": ".workflow-system/records/events/key-08268097697e917a023d7c83b4658978ba1d44defd5c1fe4068ced469538867d.json",
+          "sha256": "02784245d09cf3cdb8922fbbcc245984c1905066c3cede50a383781a2d6f7129"
+        },
+        {
+          "role": "fixed-reviewed-evidence",
+          "ref": ".workflow-system/records/events/key-4d3b29bad72ea2718398696148267c2e1fe64c0525950e023683128845c7793f.json",
+          "sha256": "9b84e57a89e22ef6003c4a58cbf8ba96655e6d8c043ee34b80484750064e67e4"
+        },
+        {
+          "role": "fixed-reviewed-evidence",
+          "ref": ".workflow-system/records/evidence-objects/2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb.blob",
+          "sha256": "2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb"
+        }
+      ],
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "provenance": {
+        "independent": false,
+        "reviewer": "同一Codex单代理，此前实施本次repair",
+        "kind": "self-review",
+        "method": "retained CAS diff, live caller/field inspection, XML/output and current source/attachment hash checks"
+      },
+      "action": "review"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/review-second-repair-20261013.md"
+    ],
+    "evidence_refs": [
+      {
+        "role": "fixed-reviewed-evidence",
+        "ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+        "sha256": "a4cf18b36b1a24c54dcb155be2875895d567ab39c5a92645eb6eaa205d098a07"
+      },
+      {
+        "role": "fixed-reviewed-evidence",
+        "ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+        "sha256": "a359678c114dfb411a9807b7beb804653fee12a9fdebc1143febbe248fab5eb0"
+      },
+      {
+        "role": "fixed-reviewed-evidence",
+        "ref": ".workflow-system/records/events/key-791415204d53541902a0ee664a8f1373829a1a61512d59f8ddf65ecbd289e503.json",
+        "sha256": "ffdaa2cb80015126f603d153b81905c10365004e48a5079d3b647e78db0cec27"
+      },
+      {
+        "role": "fixed-reviewed-evidence",
+        "ref": ".workflow-system/records/events/key-08268097697e917a023d7c83b4658978ba1d44defd5c1fe4068ced469538867d.json",
+        "sha256": "02784245d09cf3cdb8922fbbcc245984c1905066c3cede50a383781a2d6f7129"
+      },
+      {
+        "role": "fixed-reviewed-evidence",
+        "ref": ".workflow-system/records/events/key-4d3b29bad72ea2718398696148267c2e1fe64c0525950e023683128845c7793f.json",
+        "sha256": "9b84e57a89e22ef6003c4a58cbf8ba96655e6d8c043ee34b80484750064e67e4"
+      },
+      {
+        "role": "fixed-reviewed-evidence",
+        "ref": ".workflow-system/records/evidence-objects/2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb.blob",
+        "sha256": "2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "review",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-4d3b29bad72ea2718398696148267c2e1fe64c0525950e023683128845c7793f.json"
+      ],
+      "data": {
+        "remaining_work": [
+          "S1 executed未finish；clean只适用于所审对象/范围",
+          "S2/S3未执行，S3真机门禁未验",
+          "无Git提交；CR draft/TBD",
+          "产品文档pending locators见报告；两个历史管理缺口保留"
+        ],
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s1/review-second-repair-20261013.md"
+        ],
+        "next_mode": "finish",
+        "stage": "change",
+        "summary": "S1第二次repair静态自审clean，无新增finding；R-S1-002已修复且局部回归充分。代码与292/139证据对象一致，真机与完整协程闭环未验，不finish、不执行S2/S3。",
+        "execution_ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+        "next_route": "execute-step",
+        "step_id": "S1",
+        "original_review_ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+        "finding_reassessment": null,
+        "findings": [],
+        "verdict": "clean",
+        "coverage": null,
+        "evidence_refs": null,
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "provenance": {
+          "independent": false,
+          "reviewer": "同一Codex单代理，此前实施本次repair",
+          "kind": "self-review",
+          "method": "retained CAS diff, live caller/field inspection, XML/output and current source/attachment hash checks"
+        }
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "67aa6e52a03419f1e677d061867d05f744e48cbc256f1118944496027ce2b830",
+        "references": [
+          {
+            "data_pointer": "/coverage",
+            "request_pointer": "/coverage"
+          },
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/finding_reassessment",
+            "request_pointer": "/finding_reassessment"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,20 @@
+[
+ {"op":"launch","activity":"com.termlink.app.MainShellActivity"},
+ {"op":"clickDesc","text":"会话"},
+ {"op":"assertText","text":"V20-Web-One"},
+ {"op":"clickRow","text":"V20-Web-One","id":"btn_rename_session"},
+ {"op":"setText","id":"input_session_name","text":"V20-Web-Renamed"},
+ {"op":"clickText","text":"确定"},
+ {"op":"assertText","text":"V20-Web-Renamed"},
+ {"op":"clickId","id":"btn_create_session"},
+ {"op":"setText","id":"input_create_session_name","text":"V20-Web-Two"},
+ {"op":"clickId","id":"spinner_create_session_profile"},
+ {"op":"clickText","text":"V20-External-A (http://127.0.0.1:3010/api/health)"},
+ {"op":"clickText","text":"确定"},
+ {"op":"assertText","text":"\"status\":\"ok\""},
+ {"op":"clickDesc","text":"会话"},
+ {"op":"assertText","text":"V20-Web-Two"},
+ {"op":"assertText","text":"V20-Web-Renamed"},
+ {"op":"clickRow","text":"V20-Web-Two","id":"btn_delete_session"},
+ {"op":"snapshot"}
+]

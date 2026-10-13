@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:24:46.448Z",
+  "payload_sha256": "12cfb12dd535f38e462e8229d4dfa0257d374426a0473944e79d7e68262196a0",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-r-s1-002-20261013-baseline",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "source_revision": "R-S1-001 product source plus added four tests; product before CAS retained in base execution",
+      "summary": "18 tests,3 failures,0 errors/skipped; newThread active/missing-active and direct catalog switch fail; original14 and same-id regression pass",
+      "selector": "pre-fix connection regressions",
+      "step_id": "S1",
+      "result": "failed",
+      "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/baseline-tests.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/baseline-tests.xml",
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/baseline-test-source.kt"
+      ],
+      "idempotency_key": "task20260868-s1-r-s1-002-20261013-baseline",
+      "execution_ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "action": "test"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/baseline-tests.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/baseline-tests.xml",
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/baseline-test-source.kt"
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json"
+      ],
+      "data": {
+        "source_revision": "R-S1-001 product source plus added four tests; product before CAS retained in base execution",
+        "summary": "18 tests,3 failures,0 errors/skipped; newThread active/missing-active and direct catalog switch fail; original14 and same-id regression pass",
+        "selector": "pre-fix connection regressions",
+        "step_id": "S1",
+        "result": "failed",
+        "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain",
+        "files": null,
+        "execution_ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "ccb66fbc243c3c7c41dba2204a7a97a452da40c85f7af8918b2e8faef72ed03d",
+        "references": [
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

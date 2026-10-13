@@ -1,0 +1,46 @@
+{
+  "step_id": "S1",
+  "files": [
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "sha256": "ea3dd11596bf80a438c84b644f90d47aefd27cadac84456f41b030448ef1b4c7"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+      "sha256": "ff3a42f75cf346db68fce739474aed9ddc02cdc74696002d751ac78bea2d7e2c"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt",
+      "sha256": "9b415cb6c01ceace61924858113d684ba647c14a4cec8e2860905b7a9ab08147"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "sha256": "31184d997b48afd87657cd44a4266caf10b00601298a5a1cda36ee321e8600b6"
+    },
+    {
+      "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt",
+      "sha256": "2eccb20fccd7dcb43d314a358c2c2cd0e96b8c4cb2d51681d4d2e9cdc8aa9d4c"
+    }
+  ],
+  "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+  "node_sources": [
+    {
+      "path": "src/ws/terminalGateway.js",
+      "sha256": "5072477e3c49fc664e1a2ef9b884c6f517bc2bc9608c2b4b5f927423e22c5cdf"
+    },
+    {
+      "path": "src/services/codexOwnerSurfaceTracker.js",
+      "sha256": "805174b4150550aba20f8c5a85f32a873dd67b330fda7bbc726212f0470fda98"
+    },
+    {
+      "path": "tests/codexOwnerSurfaceTracker.test.js",
+      "sha256": "9a70eae44463a76fa31897b003aedaaa92e8d37091ae0028db3b0bb2e49ef01b"
+    },
+    {
+      "path": "tests/terminalGateway.codexIpc.test.js",
+      "sha256": "c31832c777baf23926b0ae526dbbbe2684af095368a6c571f643c8321192cfbd"
+    }
+  ],
+  "base_head": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+  "note": "S1 uncommitted final source bytes. Node files unchanged by S1. Earlier extracted baseline source bytes were not independently captured."
+}

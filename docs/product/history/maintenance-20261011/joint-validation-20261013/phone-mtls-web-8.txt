@@ -1,0 +1,21 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.FrameLayout
+com.termlink.app:id/action_bar_root | null | null | android.widget.LinearLayout
+android:id/content | null | null | android.widget.FrameLayout
+com.termlink.app:id/shell_root_drawer | null | null | androidx.drawerlayout.widget.DrawerLayout
+com.termlink.app:id/shell_main_content | null | null | android.widget.LinearLayout
+com.termlink.app:id/shell_top_bar | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_sessions_drawer | null | 会话 | android.widget.ImageButton
+com.termlink.app:id/shell_status_text | 外部网页: V17-MTLS-UI | null | android.widget.TextView
+com.termlink.app:id/shell_fragment_container | null | null | android.widget.FrameLayout
+com.termlink.app:id/terminal_webview_container | null | null | android.widget.FrameLayout
+null | null | null | android.webkit.WebView
+null | client.badssl.com | null | android.webkit.WebView
+content |  | null | android.view.View
+null | client. badssl.com | null | android.widget.TextView
+footer |  | null | android.view.View
+null | This site requires a  | null | android.widget.TextView
+null | null | client-authenticated | android.view.View
+null | client-authenticated | null | android.widget.TextView
+null |  TLS handshake. | null | android.widget.TextView

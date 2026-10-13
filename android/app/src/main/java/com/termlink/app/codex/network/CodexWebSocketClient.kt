@@ -19,12 +19,16 @@ import java.util.concurrent.TimeUnit
  * Raw event emitted by [CodexWebSocketClient].
  */
 sealed class WsEvent {
-    data class Opened(val protocol: String) : WsEvent()
-    data class Message(val envelope: CodexWsEnvelope) : WsEvent()
-    data class Closing(val code: Int, val reason: String) : WsEvent()
-    data class Closed(val code: Int, val reason: String) : WsEvent()
-    data class Failure(val throwable: Throwable, val code: Int?) : WsEvent()
+    abstract val generation: Long
+    data class Opened(val protocol: String, override val generation: Long) : WsEvent()
+    data class Message(val envelope: CodexWsEnvelope, override val generation: Long) : WsEvent()
+    data class Closing(val code: Int, val reason: String, override val generation: Long) : WsEvent()
+    data class Closed(val code: Int, val reason: String, override val generation: Long) : WsEvent()
+    data class Failure(val throwable: Throwable, val code: Int?, override val generation: Long) : WsEvent()
 }
+
+internal fun isCurrentWebSocketEvent(event: WsEvent, generation: Long): Boolean =
+    event.generation == generation
 
 /**
  * Thin wrapper around OkHttp WebSocket.
@@ -63,6 +67,9 @@ class CodexWebSocketClient {
 
     val isConnected: Boolean
         get() = webSocket != null
+
+    // The listener guard runs before enqueueing. Recheck after queueing too.
+    fun isCurrentEvent(event: WsEvent): Boolean = isCurrentWebSocketEvent(event, generation)
 
     fun connect(
         url: String,
@@ -114,14 +121,14 @@ class CodexWebSocketClient {
             // Surface the failure through the normal reconnect path, then use
             // RFC 6455 1009 so OkHttp does not continue accepting more frames
             // from a peer that violated the bounded protocol.
-            _events.tryEmit(WsEvent.Failure(error, 1009))
+            _events.tryEmit(WsEvent.Failure(error, 1009, gen))
             webSocket.close(1009, "Codex message too large")
         }
 
         override fun onOpen(webSocket: WebSocket, response: Response) {
             if (isStale()) return
             Log.i(TAG, "WebSocket opened (protocol=${response.protocol})")
-            _events.tryEmit(WsEvent.Opened(response.protocol.toString()))
+            _events.tryEmit(WsEvent.Opened(response.protocol.toString(), gen))
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
@@ -132,7 +139,7 @@ class CodexWebSocketClient {
             }
             val envelope = CodexWsEnvelope.parse(text)
             if (envelope != null) {
-                val event = WsEvent.Message(envelope)
+                val event = WsEvent.Message(envelope, gen)
                 if (isHistoryEnvelope(envelope.type)) {
                     _historyEvents.trySend(event)
                 } else {
@@ -146,7 +153,7 @@ class CodexWebSocketClient {
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
             if (isStale()) return
             Log.i(TAG, "WebSocket closing: $code $reason")
-            _events.tryEmit(WsEvent.Closing(code, reason))
+            _events.tryEmit(WsEvent.Closing(code, reason, gen))
             webSocket.close(code, reason)
         }
 
@@ -154,14 +161,14 @@ class CodexWebSocketClient {
             if (isStale()) return
             Log.i(TAG, "WebSocket closed: $code $reason")
             this@CodexWebSocketClient.webSocket = null
-            _events.tryEmit(WsEvent.Closed(code, reason))
+            _events.tryEmit(WsEvent.Closed(code, reason, gen))
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             if (isStale()) return
             Log.e(TAG, "WebSocket failure: ${t.message}", t)
             this@CodexWebSocketClient.webSocket = null
-            _events.tryEmit(WsEvent.Failure(t, response?.code))
+            _events.tryEmit(WsEvent.Failure(t, response?.code, gen))
         }
     }
 

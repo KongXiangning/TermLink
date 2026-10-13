@@ -1,0 +1,56 @@
+[
+  {
+    "op": "launch",
+    "activity": "com.termlink.app.MainShellActivity"
+  },
+  {
+    "op": "clickDesc",
+    "text": "会话"
+  },
+  {
+    "text": "V20-Codex",
+    "op": "clickRow",
+    "id": "btn_open_session"
+  },
+  {
+    "op": "wait",
+    "ms": 1000
+  },
+  {
+    "op": "clickText",
+    "text": "批准"
+  },
+  {
+    "op": "wait",
+    "ms": 10000
+  },
+  {
+    "op": "snapshot"
+  },
+  {
+    "op": "setComposer",
+    "text": "Disposable rejection acceptance. Call exec_command with sandbox_permissions require_escalated and justification Rejection acceptance to run only Write-Output V20-APPROVAL-DENY. Do not access files or network."
+  },
+  {
+    "op": "clickDesc",
+    "text": "发送"
+  },
+  {
+    "op": "wait",
+    "ms": 8000
+  },
+  {
+    "op": "snapshot"
+  },
+  {
+    "op": "clickText",
+    "text": "拒绝"
+  },
+  {
+    "op": "wait",
+    "ms": 8000
+  },
+  {
+    "op": "snapshot"
+  }
+]

@@ -1,0 +1,105 @@
+{
+  "counts": {
+    "pass": 6,
+    "fail": 3,
+    "unknown": 6,
+    "deferred": 2
+  },
+  "reportsSaved": 15,
+  "selectableReports": [
+    {
+      "number": "01",
+      "id": "AS-JOINT-20261013-01",
+      "conclusion": "undetermined"
+    },
+    {
+      "number": "03",
+      "id": "AS-JOINT-20261013-03",
+      "conclusion": "satisfied"
+    },
+    {
+      "number": "11",
+      "id": "AS-JOINT-20261013-11",
+      "conclusion": "undetermined"
+    },
+    {
+      "number": "16",
+      "id": "AS-JOINT-20261013-16",
+      "conclusion": "undetermined"
+    },
+    {
+      "number": "17",
+      "id": "AS-JOINT-20261013-17",
+      "conclusion": "undetermined"
+    },
+    {
+      "number": "20",
+      "id": "AS-JOINT-20261013-20",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "number": "22",
+      "id": "AS-JOINT-20261013-22",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "number": "30",
+      "id": "AS-JOINT-20261013-30",
+      "conclusion": "satisfied"
+    },
+    {
+      "number": "37",
+      "id": "AS-JOINT-20261013-37",
+      "conclusion": "undetermined"
+    },
+    {
+      "number": "41",
+      "id": "AS-JOINT-20261013-41",
+      "conclusion": "satisfied"
+    },
+    {
+      "number": "42",
+      "id": "AS-JOINT-20261013-42",
+      "conclusion": "satisfied"
+    },
+    {
+      "number": "43",
+      "id": "AS-JOINT-20261013-43",
+      "conclusion": "satisfied"
+    },
+    {
+      "number": "53",
+      "id": "AS-JOINT-20261013-53",
+      "conclusion": "undetermined"
+    },
+    {
+      "number": "62",
+      "id": "AS-JOINT-20261013-62",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "number": "63",
+      "id": "AS-JOINT-20261013-63",
+      "conclusion": "satisfied"
+    }
+  ],
+  "deferredWithoutAssessment": [
+    {
+      "number": "21",
+      "target": "REQ-TERMLINK-RELEASE-BASELINE",
+      "title": "跨平台发行基线"
+    },
+    {
+      "number": "32",
+      "target": "REQ-TERMLINK-SERVER-RELEASE",
+      "title": "服务端安装发行"
+    }
+  ],
+  "requirementsUnchanged": 17,
+  "evidenceFiles": 43,
+  "checkStatus": "checked",
+  "baselineDiagnosticCount": 115,
+  "finalDiagnosticCount": 115,
+  "newDiagnostics": [],
+  "existingAndroidReportsAlignedWithoutRejudgment": 20
+}

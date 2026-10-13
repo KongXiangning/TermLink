@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T06:56:27.075Z",
+  "payload_sha256": "55f0beec10d3c61b0f1bbd47e0a0561c5c7ee282e050f3f7319ea829b7530ca8",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s3-stdout-capture-supplement-20261013",
+    "request": {
+      "report_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "summary": "补存同一批9次完整UI stdout：6次OK、3次失败。默认rg忽略.log导致原execution附件漏选，现按no-ignore确切保存；未重跑业务、未合并或改写各次通过/失败。",
+      "result": "mixed",
+      "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+      "action": "test",
+      "selector": "S3 retained nine UI stdout files",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery.log",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2.log",
+        "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new.log",
+        "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal.log",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery.log",
+        "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3.log",
+        "docs/product/history/maintenance-20261011/task20260868-s3/create-b.log",
+        "docs/product/history/maintenance-20261011/task20260868-s3/create-a.log",
+        "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local.log"
+      ],
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "step_id": "S3",
+      "idempotency_key": "task20260868-s3-stdout-capture-supplement-20261013",
+      "evidence_refs": [
+        {
+          "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+          "role": "same-execution-new-capture-of-previously-produced-stdout",
+          "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83"
+        }
+      ],
+      "command": "Previously executed run-ui.ps1 cases; evidence capture only, no commands rerun",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery.log",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2.log",
+      "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new.log",
+      "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal.log",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery.log",
+      "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3.log",
+      "docs/product/history/maintenance-20261011/task20260868-s3/create-b.log",
+      "docs/product/history/maintenance-20261011/task20260868-s3/create-a.log",
+      "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local.log"
+    ],
+    "evidence_refs": [
+      {
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "role": "same-execution-new-capture-of-previously-produced-stdout",
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-05fa60a94f17a2f713520a78df8b8c871ee07f419e348d0c51b6221f4b898c34.json"
+      ],
+      "data": {
+        "report_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "summary": "补存同一批9次完整UI stdout：6次OK、3次失败。默认rg忽略.log导致原execution附件漏选，现按no-ignore确切保存；未重跑业务、未合并或改写各次通过/失败。",
+        "result": "mixed",
+        "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+        "selector": "S3 retained nine UI stdout files",
+        "files": null,
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "step_id": "S3",
+        "evidence_refs": null,
+        "command": "Previously executed run-ui.ps1 cases; evidence capture only, no commands rerun"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "d27bf4e8eaeb1672bf7f5c7235cf1fc11a13e78d71d0830be744b0bd0f4e77b4",
+        "references": [
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

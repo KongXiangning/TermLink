@@ -1,0 +1,6 @@
+CR: E:\coding\TermLink-rust-source-resolution-codex\docs\changes\records\CR-20261013-1237-registration-validity-gates.md
+WARNINGS:
+  - rollback section has no obvious git command (revert/checkout)
+FAILED:
+  - Missing front matter field: status
+  - req_id format invalid: REQ-TERMLINK-SERVER-AUTH

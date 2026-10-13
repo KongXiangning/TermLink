@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T03:42:57.075Z",
+  "payload_sha256": "ae90b478350223e7c38110a2d50e0e5a7fcaf6e05f66088b4bdb20b6688f74de",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-20261013-baseline-timeout-evidence-paths",
+    "request": {
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests-repaired.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.xml"
+      ],
+      "action": "correct",
+      "reason": "错误把多个路径拼成单一路径，原附件capture报ENOENT；现按真实独立路径补证，不覆写原事实，不重新执行测试。",
+      "event": {
+        "action": "test",
+        "data": {
+          "files": [
+            "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests-repaired.txt",
+            "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.xml"
+          ],
+          "attachment_correction": "仅纠正PowerShell数组拼接造成的附件路径错误并补存既有原始输出；原result/command/source_revision/运行身份保持，不是新测试运行。"
+        },
+        "task_id": "task-d211a98b3f7889123b22ace1f99dfacb"
+      },
+      "idempotency_key": "task20260868-s1-20261013-baseline-timeout-evidence-paths",
+      "record_ref": ".workflow-system/records/events/key-6d37a60ef9bade039cee131e27a5a5aded36209d0b82933f0118b30a3f090a8c.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests-repaired.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.xml"
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "correct",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-a80b31677be2d506d33e5ad3c64d8bcd1ba2a018548ea764cc477da62c2306e1.json"
+      ],
+      "data": {
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests-repaired.txt",
+          "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.xml"
+        ],
+        "reason": "错误把多个路径拼成单一路径，原附件capture报ENOENT；现按真实独立路径补证，不覆写原事实，不重新执行测试。",
+        "event": null,
+        "record_ref": ".workflow-system/records/events/key-6d37a60ef9bade039cee131e27a5a5aded36209d0b82933f0118b30a3f090a8c.json"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "0422a75b378e360e3c23d772e6deeb68f84aff3298dcc436c5831bec9e316a57",
+        "references": [
+          {
+            "data_pointer": "/event",
+            "request_pointer": "/event"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

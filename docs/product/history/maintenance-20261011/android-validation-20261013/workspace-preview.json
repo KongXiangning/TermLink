@@ -1,0 +1,8 @@
+[
+ {"op":"launch","activity":"com.termlink.app.MainShellActivity"},
+ {"op":"clickDesc","text":"文档"},
+ {"op":"clickText","text":"docs 目录","contains":true},
+ {"op":"clickText","text":"proof.txt","contains":true},
+ {"op":"wait","ms":1500},
+ {"op":"snapshot"}
+]

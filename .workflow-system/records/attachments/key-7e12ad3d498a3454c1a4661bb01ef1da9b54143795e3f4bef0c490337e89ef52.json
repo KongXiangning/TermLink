@@ -1,0 +1,28 @@
+{
+  "event_ref": ".workflow-system/records/events/key-7e12ad3d498a3454c1a4661bb01ef1da9b54143795e3f4bef0c490337e89ef52.json",
+  "captured_at": "2026-10-13T03:42:57.149Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f52250ef324d15cb88cd9ff5dd78df9a718cfd61b503045493ae0b2578c99df3.blob",
+      "sha256": "f52250ef324d15cb88cd9ff5dd78df9a718cfd61b503045493ae0b2578c99df3",
+      "size": 5865,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests-repaired.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1adb0675fb8d2c8f125956fb6697f9113ba248bcaca2c825791589daa33ba8b0.blob",
+      "sha256": "1adb0675fb8d2c8f125956fb6697f9113ba248bcaca2c825791589daa33ba8b0",
+      "size": 4961,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.xml",
+      "issues": []
+    }
+  ]
+}

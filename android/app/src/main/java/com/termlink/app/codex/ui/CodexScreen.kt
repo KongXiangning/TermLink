@@ -534,6 +534,8 @@ fun CodexScreen(
         state.planWorkflow.phase,
         state.connectionState,
         state.errorMessage,
+        state.connectionErrorMessage,
+        state.ipcOperationErrorMessage,
         isStreaming,
         stallNowMillis
     ) {
@@ -582,7 +584,7 @@ fun CodexScreen(
                 onShowDebugInjector = { debugInjectorVisible = true }
             )
 
-            state.errorMessage?.let { message ->
+            (state.errorMessage ?: state.ipcOperationErrorMessage ?: state.connectionErrorMessage)?.let { message ->
                 ErrorBanner(
                     message = message,
                     onRetry = onRetry,
@@ -3044,7 +3046,8 @@ private fun buildRuntimeStallInfo(
     nowMillis: Long
 ): RuntimeStallInfo? {
     val watch = state.executionWatch
-    if (!watch.active || state.errorMessage != null) {
+    if (!watch.active || state.errorMessage != null || state.connectionErrorMessage != null ||
+        state.ipcOperationErrorMessage != null) {
         return null
     }
     if (

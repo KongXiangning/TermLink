@@ -1,0 +1,25 @@
+{
+  "testedDate": "2026-10-13",
+  "commit": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+  "apkSha256": "F148028B15FA3A8DFFE63CA483BCDA5A1CE9764BBDE817E68A357598D25DFD6A",
+  "phone": {
+    "serial": "MQS7N19402011743",
+    "model": "VOG-AL00",
+    "android": "10"
+  },
+  "browser": "Edge真实浏览器",
+  "windowsAdmin": false,
+  "linux": {
+    "debianArchitecture": "x86_64",
+    "debianInit": "systemd",
+    "ubuntuArchitecture": "x86_64"
+  },
+  "unavailable": [
+    "arm64 Linux专用环境",
+    "clean Windows x64 without Node/npm",
+    "Windows administrator validation environment",
+    "actual Linux release with analyzer and Nginx"
+  ],
+  "productionChanges": "",
+  "limitations": "真机与真实宿主服务可访问；Desktop/VSCode原生窗口未被实际操作完成联合接管矩阵。21/32按用户明确要求暂缓，不创建新assessment。"
+}

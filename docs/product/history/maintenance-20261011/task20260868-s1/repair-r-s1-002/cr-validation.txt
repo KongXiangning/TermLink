@@ -1,0 +1,2 @@
+CR: E:\coding\TermLink-rust-source-resolution-codex\docs\changes\records\CR-20261013-1219-codex-selection-hint-cleanup.md
+PASS: Change record validation succeeded.

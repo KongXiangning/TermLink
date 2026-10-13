@@ -1,0 +1,12 @@
+{
+  "event_ref": ".workflow-system/records/events/key-b7f72954b9ef42d8111d646edca2c9fdf4a322a10c29ebb1038f989768ca4010.json",
+  "captured_at": "2026-10-13T03:41:29.316Z",
+  "attachments": [
+    {
+      "status": "unavailable",
+      "request": "docs/product/history/maintenance-20261011/task20260868-s1/android-final-tests.txt docs/product/history/maintenance-20261011/task20260868-s1/android-test-summary.json docs/product/history/maintenance-20261011/task20260868-s1/android-connection-tests.xml",
+      "code": "ENOENT",
+      "message": "ENOENT: no such file or directory, open 'E:\\coding\\TermLink-rust-source-resolution-codex\\docs\\product\\history\\maintenance-20261011\\task20260868-s1\\android-final-tests.txt docs\\product\\history\\maintenance-20261011\\task20260868-s1\\android-test-summary.json docs\\product\\history\\maintenance-20261011\\task20260868-s1\\android-connection-tests.xml'"
+    }
+  ]
+}

@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T07:11:56.326Z",
+  "payload_sha256": "7c34d3b57a0db6228a290b33ff4189c056d83e9ff6c7c712d5f0a4c3554c9654",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s3-review-20261013",
+    "request": {
+      "evidence_refs": [
+        {
+          "role": "fixed-execution-stdout-plan-or-prior-self-review",
+          "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+          "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83"
+        },
+        {
+          "role": "fixed-execution-stdout-plan-or-prior-self-review",
+          "ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+          "sha256": "22a3cb52b00546536b27ae2f14168d9ef877a0e186524ecf9809c703cae147e2"
+        },
+        {
+          "role": "fixed-execution-stdout-plan-or-prior-self-review",
+          "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+          "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb"
+        },
+        {
+          "role": "fixed-execution-stdout-plan-or-prior-self-review",
+          "ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+          "sha256": "a804df582237b33d18c5b067f7d20de90f66934483cc8cf70f719fe1471b38c6"
+        },
+        {
+          "role": "fixed-execution-stdout-plan-or-prior-self-review",
+          "ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+          "sha256": "a9c7eb05aed57a523947154e3e27fc7523def1d1c4dfacf7f1d0d0a23d410e7a"
+        }
+      ],
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "provenance": {
+        "kind": "self-review",
+        "tests_rerun": false,
+        "device_or_service_actions": false,
+        "independent": false,
+        "reviewer": "Codex same implementer",
+        "method": "static code/call-chain review and retained evidence hash/assertion verification"
+      },
+      "stage": "change",
+      "coverage": [
+        "已采纳S3计划、当前13文件及server.js接线、构建/安装对象哈希",
+        "49份保存材料与4固定引用的CAS长度/哈希及live source；9完整UI stdout6OK/3失败保持",
+        "真实HTTP/WS23拒绝/active/legacy及可观察id/name/activeConnectionCount前后投影；registrationId未由列表输出、零内部副作用仍限S2原回归",
+        "真实feed/gate受控恢复同连接；Goal同源hint、task history A→B→A可见内容隔离/new清理、实际WS断线恢复",
+        "三失败尝试、Goal处置、A/B归档及C未归档限制；当前REQ/PLAN/CR及assessment pending范围，只读"
+      ],
+      "verdict": "clean",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s3/review-20261013.md",
+        "docs/product/history/maintenance-20261011/task20260868-s3/review-checks-20261013.json",
+        "logs/task20260868-s3/review-checks.cjs",
+        "logs/task20260868-s3/review-checks-initial-20261013.json"
+      ],
+      "action": "review",
+      "remaining_work": [
+        "S3未finish，任务未关闭；后续步骤处置保留限制，自审非独立审查。",
+        "受控IPC额外关闭active-send门禁；外部审批点击、直接IPC catalog自动改选、TLS/mTLS及全需求矩阵未独立验证。",
+        "HTTP可观察字段仅id/name/activeConnectionCount，不能从undefined registrationId或最终连接数证明归属不变/瞬时零attach；B viewport marker缺席不能扩大为完整transcript/DB隔离。",
+        "旧失败、冻结配置失败版源码未单独保存、空白C no rollout found清理限制、CR managedID strict失败、inferred ownership、两条旧管理缺口、无Git提交保留。",
+        "PROJECT/SERVER-AUTH进度、ASMT15 pending_sources、legacyREQ/PLAN及draftCR可在后续授权维护关联本review，本轮未修改。"
+      ],
+      "idempotency_key": "task20260868-s3-review-20261013",
+      "summary": "S3局部联合验证clean自审，无新增产品/验证阻断项；49份证据及源码/接线/APK字节一致，核心受控IPC、任务历史A→B→A/new与真实WS恢复及HTTP/WS23结果支持已披露范围。补充实际HTTP观察字段及viewport限制，非全需求/外部审批/直接catalog验收。",
+      "findings": [],
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+      "step_id": "S3"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s3/review-20261013.md",
+      "docs/product/history/maintenance-20261011/task20260868-s3/review-checks-20261013.json",
+      "logs/task20260868-s3/review-checks.cjs",
+      "logs/task20260868-s3/review-checks-initial-20261013.json"
+    ],
+    "evidence_refs": [
+      {
+        "role": "fixed-execution-stdout-plan-or-prior-self-review",
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83"
+      },
+      {
+        "role": "fixed-execution-stdout-plan-or-prior-self-review",
+        "ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+        "sha256": "22a3cb52b00546536b27ae2f14168d9ef877a0e186524ecf9809c703cae147e2"
+      },
+      {
+        "role": "fixed-execution-stdout-plan-or-prior-self-review",
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb"
+      },
+      {
+        "role": "fixed-execution-stdout-plan-or-prior-self-review",
+        "ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+        "sha256": "a804df582237b33d18c5b067f7d20de90f66934483cc8cf70f719fe1471b38c6"
+      },
+      {
+        "role": "fixed-execution-stdout-plan-or-prior-self-review",
+        "ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+        "sha256": "a9c7eb05aed57a523947154e3e27fc7523def1d1c4dfacf7f1d0d0a23d410e7a"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "review",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json"
+      ],
+      "data": {
+        "evidence_refs": null,
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "provenance": {
+          "kind": "self-review",
+          "tests_rerun": false,
+          "device_or_service_actions": false,
+          "independent": false,
+          "reviewer": "Codex same implementer",
+          "method": "static code/call-chain review and retained evidence hash/assertion verification"
+        },
+        "stage": "change",
+        "coverage": null,
+        "verdict": "clean",
+        "files": null,
+        "remaining_work": null,
+        "summary": null,
+        "findings": [],
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+        "step_id": "S3"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "8f4bacd5501080826ceab4577a91a125add310e3341f98dc6e52b499d18aea10",
+        "references": [
+          {
+            "data_pointer": "/coverage",
+            "request_pointer": "/coverage"
+          },
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          },
+          {
+            "data_pointer": "/remaining_work",
+            "request_pointer": "/remaining_work"
+          },
+          {
+            "data_pointer": "/summary",
+            "request_pointer": "/summary"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

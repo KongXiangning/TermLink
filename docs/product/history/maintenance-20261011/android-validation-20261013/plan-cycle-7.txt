@@ -1,0 +1,13 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.FrameLayout
+android:id/content | null | null | android.widget.FrameLayout
+null | null | null | android.view.ViewGroup
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | 补充信息请求 | null | android.widget.TextView
+null | null | null | android.widget.ScrollView
+null | Which content should plan-proof.txt contain? | null | android.widget.TextView
+null | 当前客户端只支持选项式问题；请取消本次计划或改用普通对话补充信息。 | null | android.widget.TextView
+null | null | null | android.view.View
+null | 取消 | null | android.widget.TextView

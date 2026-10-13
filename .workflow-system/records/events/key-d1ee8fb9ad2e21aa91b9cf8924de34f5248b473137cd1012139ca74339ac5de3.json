@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T03:23:30.705Z",
+  "payload_sha256": "aa536a935dfe04142b69d1d4078cd66e35cf040a205e017938664feb2c5ebf44",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:adopt-20261013-task20260868-plan1-confirm",
+    "request": {
+      "focus": true,
+      "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+      "idempotency_key": "adopt-20261013-task20260868-plan1-confirm",
+      "conditions": [],
+      "review_ref": ".workflow-system/records/events/key-efca4f5a4190ebd7d9e6a979fb19f9f1042a9c0ced89304a8b00c63aea351124.json",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "decision_source": "当前对话用户消息：prepare-task confirm，承接 TASK-20260868 唯一候选计划及其 clean 自审",
+      "action": "adopt"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "adopt",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-efca4f5a4190ebd7d9e6a979fb19f9f1042a9c0ced89304a8b00c63aea351124.json"
+      ],
+      "data": {
+        "focus": true,
+        "decision_text": "[$prepare-task](E:\\coding\\TermLink-rust-source-resolution-codex\\.agents\\skills\\prepare-task\\SKILL.md) confirm",
+        "conditions": [],
+        "review_ref": ".workflow-system/records/events/key-efca4f5a4190ebd7d9e6a979fb19f9f1042a9c0ced89304a8b00c63aea351124.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "decision_source": "当前对话用户消息：prepare-task confirm，承接 TASK-20260868 唯一候选计划及其 clean 自审",
+        "activate": true
+      }
+    }
+  },
+  "issues": []
+}

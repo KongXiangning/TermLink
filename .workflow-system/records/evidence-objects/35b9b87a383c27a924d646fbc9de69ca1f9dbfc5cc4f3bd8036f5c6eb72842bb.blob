@@ -1,0 +1,55 @@
+{
+  "archivedOwnedTestThreads": [
+    {
+      "threadId": "01a133f5-c1ee-7872-9cdb-35fb08c08f00",
+      "response": {
+        "type": "codex_response",
+        "requestId": "s3-cleanup-01a133f5-c1ee-7872-9cdb-35fb08c08f00",
+        "method": "thread/archive",
+        "result": {}
+      }
+    },
+    {
+      "threadId": "01a133f6-ac63-7811-87ad-fda0bb7ec70e",
+      "response": {
+        "type": "codex_response",
+        "requestId": "s3-cleanup-01a133f6-ac63-7811-87ad-fda0bb7ec70e",
+        "method": "thread/archive",
+        "result": {}
+      }
+    },
+    {
+      "threadId": "01a133fd-6e2b-7c20-b868-41058aa0f0e4",
+      "response": {
+        "type": "codex_response",
+        "requestId": "s3-cleanup-01a133fd-6e2b-7c20-b868-41058aa0f0e4",
+        "method": "thread/archive",
+        "error": {
+          "code": -32600,
+          "message": "no rollout found for thread id 01a133fd-6e2b-7c20-b868-41058aa0f0e4",
+          "data": null
+        }
+      }
+    }
+  ],
+  "deletedOwnedSession": {
+    "status": 200,
+    "body": {
+      "status": "ok"
+    }
+  },
+  "existingSessionDefinitionsUnchanged": true,
+  "remainingSessionIds": [
+    "28e7677f-ddf1-4ee9-b84f-e169359f9548",
+    "47c66c06-22b8-4967-9cac-614b91f8d576",
+    "66c37856-b674-4c02-a2d7-ba20f99ec40e",
+    "29f10973-57cf-40f7-8080-c0d9066439cf",
+    "79354b6b-1fae-4f83-abe7-89d51da851a1"
+  ],
+  "restoreExistingSession": {
+    "id": "29f10973-57cf-40f7-8080-c0d9066439cf",
+    "profileId": "task005-s2-local",
+    "lastCodexThreadId": "01a13186-8f3c-7e82-959f-da5cc738bc82"
+  },
+  "registrationNote": "HTTP test registration stays revoked as an API tombstone; existing phone registration was not revoked."
+}

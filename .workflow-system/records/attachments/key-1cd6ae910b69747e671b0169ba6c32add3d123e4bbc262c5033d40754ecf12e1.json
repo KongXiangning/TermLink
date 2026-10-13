@@ -1,0 +1,108 @@
+{
+  "event_ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+  "captured_at": "2026-10-13T04:32:09.453Z",
+  "attachments": [
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+      "sha256": "a4cf18b36b1a24c54dcb155be2875895d567ab39c5a92645eb6eaa205d098a07",
+      "size": 7968,
+      "request": {
+        "sha256": "a4cf18b36b1a24c54dcb155be2875895d567ab39c5a92645eb6eaa205d098a07",
+        "ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+      "sha256": "a804df582237b33d18c5b067f7d20de90f66934483cc8cf70f719fe1471b38c6",
+      "size": 9899,
+      "request": {
+        "sha256": "a804df582237b33d18c5b067f7d20de90f66934483cc8cf70f719fe1471b38c6",
+        "ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-1fb0ee71a1c8524e17a16728ea57349b11d8bad288ca3f5ea5d5462004fb4195.json",
+      "sha256": "c9ccc0a9eb67eec5bb8c645fedbf9d5928dca85bc3dba6488b93fa60c68e52a7",
+      "size": 1862,
+      "request": {
+        "sha256": "c9ccc0a9eb67eec5bb8c645fedbf9d5928dca85bc3dba6488b93fa60c68e52a7",
+        "ref": ".workflow-system/records/events/key-1fb0ee71a1c8524e17a16728ea57349b11d8bad288ca3f5ea5d5462004fb4195.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-08268097697e917a023d7c83b4658978ba1d44defd5c1fe4068ced469538867d.json",
+      "sha256": "02784245d09cf3cdb8922fbbcc245984c1905066c3cede50a383781a2d6f7129",
+      "size": 3666,
+      "request": {
+        "sha256": "02784245d09cf3cdb8922fbbcc245984c1905066c3cede50a383781a2d6f7129",
+        "ref": ".workflow-system/records/events/key-08268097697e917a023d7c83b4658978ba1d44defd5c1fe4068ced469538867d.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-4d3b29bad72ea2718398696148267c2e1fe64c0525950e023683128845c7793f.json",
+      "sha256": "9b84e57a89e22ef6003c4a58cbf8ba96655e6d8c043ee34b80484750064e67e4",
+      "size": 2641,
+      "request": {
+        "sha256": "9b84e57a89e22ef6003c4a58cbf8ba96655e6d8c043ee34b80484750064e67e4",
+        "ref": ".workflow-system/records/events/key-4d3b29bad72ea2718398696148267c2e1fe64c0525950e023683128845c7793f.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/evidence-objects/2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb.blob",
+      "sha256": "2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+      "size": 2297,
+      "request": {
+        "sha256": "2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+        "ref": ".workflow-system/records/evidence-objects/2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb.blob",
+        "role": "fixed-S1-finish-basis"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

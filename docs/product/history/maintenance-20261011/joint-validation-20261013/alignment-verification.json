@@ -1,0 +1,91 @@
+{
+  "previousReportsRetained": 20,
+  "oldEvidenceUnchanged": 58,
+  "previousScopeDeclarationsUnchanged": 21,
+  "goalBusinessBodyUnchanged": true,
+  "previousReportsSelectable": [
+    {
+      "id": "AS-ANDROID-20261013-04",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-05",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-09",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-12",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-13",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-15",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-34",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-44",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-45",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-46",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-47",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-48",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-50",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-52",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-54",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-55",
+      "conclusion": "partially-satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-56",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-57",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-61",
+      "conclusion": "satisfied"
+    },
+    {
+      "id": "AS-ANDROID-20261013-68",
+      "conclusion": "partially-satisfied"
+    }
+  ],
+  "baselineDiagnosticCount": 115,
+  "finalDiagnosticCount": 115,
+  "newDiagnostics": []
+}

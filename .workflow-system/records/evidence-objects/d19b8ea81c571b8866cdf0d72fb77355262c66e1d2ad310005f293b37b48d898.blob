@@ -1,0 +1,31 @@
+{
+  "step_id": "S1",
+  "finding_id": "R-S1-001",
+  "review_ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+  "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+  "base_execution_ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+  "base_head": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+  "files": [
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "sha256": "bdb2d551f794019dba79c5d82c65a14df5496657c7aaf693007e84e7e02ae439"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+      "sha256": "cfe02bb3c1141c11e103af41ae441642dbdf646bf3ca5313cbe6e5b2abe6a9e7"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt",
+      "sha256": "9b415cb6c01ceace61924858113d684ba647c14a4cec8e2860905b7a9ab08147"
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "sha256": "7ac3b6380b59c433c3a649e05a08479fefd28e0f7ea9689098c42b4ce8ba6b64"
+    },
+    {
+      "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt",
+      "sha256": "98866643f160be7dbb8b26ae05587589d58ba4628bb69815d6e77a97e583be78"
+    }
+  ],
+  "note": "repair after R-S1-001; final uncommitted source bytes; old source-manifest and review unchanged"
+}

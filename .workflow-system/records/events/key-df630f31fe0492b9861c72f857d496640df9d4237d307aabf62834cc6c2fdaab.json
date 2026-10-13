@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T06:17:58.784Z",
+  "payload_sha256": "46bfbd4618000b43239f0c53877d32f9139370c9e077e6ef168b88c20bf3b656",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s2-finished-20261013",
+    "request": {
+      "step_id": "S2",
+      "remaining_work": [
+        "S3联合验证未执行：真实HTTP/WS unknown/revoked/active smoke、完整认证/网络链未验",
+        "S3 Android同机A→B→A、同连接IPC恢复及新任务提示真机验证未执行",
+        "旧CR validator不支持managed REQ ID，strict失败保持，非产品测试PASS",
+        "registration具体原子ownership仍未定位，父项inferred关联不扩范围",
+        "无Git提交；CR draft/TBD；S1保持finished/clean；旧finding/失败及两条历史管理缺口保留"
+      ],
+      "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+      "idempotency_key": "task20260868-s2-finished-20261013",
+      "decision_source": "current user execute-step invocation",
+      "review_ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S2-source-manifest:eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b",
+      "action": "step",
+      "evidence_refs": [
+        {
+          "role": "fixed-S2-finish-basis",
+          "ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+          "sha256": "cc05792e2680b820a8a8d9ad65ae77de3233ead74efc6b22634d1d8e873bbb55"
+        },
+        {
+          "role": "fixed-S2-finish-basis",
+          "ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+          "sha256": "a9c7eb05aed57a523947154e3e27fc7523def1d1c4dfacf7f1d0d0a23d410e7a"
+        },
+        {
+          "role": "fixed-S2-finish-basis",
+          "ref": ".workflow-system/records/events/key-d9b5143c51065fafb1b15798a2894e3f4bdc881324bafa3ed7a64301cac67a96.json",
+          "sha256": "368c682e3ae06949a2e3b46292b78f041f1b4bf84803ceb679567d72026b35e1"
+        },
+        {
+          "role": "fixed-S2-finish-basis",
+          "ref": ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json",
+          "sha256": "b1a213b8b03661b69a60066510c912d06ec2a919122e4722436d44a29e0002c9"
+        },
+        {
+          "role": "fixed-S2-finish-basis",
+          "ref": ".workflow-system/records/evidence-objects/eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b.blob",
+          "sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b"
+        }
+      ],
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "decision_ref": ".workflow-system/records/events/key-d9b5143c51065fafb1b15798a2894e3f4bdc881324bafa3ed7a64301cac67a96.json",
+      "decision_text": "finish",
+      "state": "finished",
+      "summary": "依据适用的clean静态自审及46/46定向回归，当前8源码/HEAD及server接线无漂移，按用户请求完成S2步骤处置。保留全部失败、旧CR工具兼容缺口与S3未验，不将finish当作完整任务/REQ验收。",
+      "validation": {
+        "server_wiring_sha256": "ad0f206de6eb7b03c5a1f78a56345641c640c4bcd48c56dcdbb97c70c039d5d6",
+        "head_matches": true,
+        "reused": "Node定向46/46；本轮不重复实施/测试",
+        "review": "clean self-review, independent=false",
+        "source_matches": 8,
+        "manifest_sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b"
+      }
+    },
+    "evidence_refs": [
+      {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "sha256": "cc05792e2680b820a8a8d9ad65ae77de3233ead74efc6b22634d1d8e873bbb55"
+      },
+      {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+        "sha256": "a9c7eb05aed57a523947154e3e27fc7523def1d1c4dfacf7f1d0d0a23d410e7a"
+      },
+      {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/events/key-d9b5143c51065fafb1b15798a2894e3f4bdc881324bafa3ed7a64301cac67a96.json",
+        "sha256": "368c682e3ae06949a2e3b46292b78f041f1b4bf84803ceb679567d72026b35e1"
+      },
+      {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json",
+        "sha256": "b1a213b8b03661b69a60066510c912d06ec2a919122e4722436d44a29e0002c9"
+      },
+      {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/evidence-objects/eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b.blob",
+        "sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "step",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-d9b5143c51065fafb1b15798a2894e3f4bdc881324bafa3ed7a64301cac67a96.json"
+      ],
+      "data": {
+        "step_id": "S2",
+        "remaining_work": null,
+        "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "decision_source": "current user execute-step invocation",
+        "review_ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S2-source-manifest:eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b",
+        "evidence_refs": null,
+        "decision_ref": ".workflow-system/records/events/key-d9b5143c51065fafb1b15798a2894e3f4bdc881324bafa3ed7a64301cac67a96.json",
+        "decision_text": "finish",
+        "state": "finished",
+        "summary": "依据适用的clean静态自审及46/46定向回归，当前8源码/HEAD及server接线无漂移，按用户请求完成S2步骤处置。保留全部失败、旧CR工具兼容缺口与S3未验，不将finish当作完整任务/REQ验收。",
+        "validation": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "837060371a443f52ebb27d2a735ca6920dfdb65678a7cdc313c5c24a450f1872",
+        "references": [
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/remaining_work",
+            "request_pointer": "/remaining_work"
+          },
+          {
+            "data_pointer": "/validation",
+            "request_pointer": "/validation"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

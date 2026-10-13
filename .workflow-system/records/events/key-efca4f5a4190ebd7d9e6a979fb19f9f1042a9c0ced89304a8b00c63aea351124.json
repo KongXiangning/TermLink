@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T03:21:48.981Z",
+  "payload_sha256": "98ea95cebdab6c7c447b606b76efc9bf6861d82919780a917e5fc4dc8e3adbcf",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:review-draft-20261013-task20260868-plan1-self-v1",
+    "request": {
+      "action": "review",
+      "idempotency_key": "review-draft-20261013-task20260868-plan1-self-v1",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "stage": "draft",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "verdict": "clean",
+      "findings": [],
+      "conditions": [],
+      "summary": "草案自审未发现要求重规划的实质问题；可以进入用户计划确认。clean仅评估此候选计划的范围、可行性和验证设计，不代表修复实现、测试通过或用户采纳。",
+      "coverage": {
+        "reviewed": [
+          "用户两项目标原文与唯一候选计划的目标、验收、scope/exclusions、S1–S3实施/环境/验证及关联建议。",
+          "连接提示产生和显示链：CodexWebSocketClient WsEvent/generation、CodexConnectionManager 状态收敛、CodexViewModel observeConnectionState/observeWsEvents、CodexScreen ErrorBanner/runtimePanel.warning。",
+          "ClientRegistrationManager create/isActive/revoke；sessions ensureRegistration、terminalGateway handleConnection 既有拒绝入口；相关现有测试的缺口。",
+          "CONTRACTS.md Codex 原生会话实时同步核心与 AD-004 既有有效边界；test-admission-policy 对新增/复用测试价值的要求。",
+          "旧任务关闭报告对旧连接错误条/registration候选的保留；20261013 Android/联合原验收报告相关文字，仅用作范围定位，不冒充本轮验证。"
+        ],
+        "not_reviewed": [
+          "没有执行产品测试、构建、设备或服务操作，没有验证环境可用性。",
+          "未审查无关产品模块、完整历史同步实现、Rust或数据库协议。"
+        ],
+        "assessment": [
+          "目标与用户原文一致；Android连接提示为既有旧错误条的局部修复入口，未把无恢复成功证据的终端连接失败自动纳入本任务。",
+          "S1明确先定位错误来源，允许必要来源/过期判断，覆盖恢复后清理、有效错误保留和旧错误迟到；不要求将全部业务错误清空。runtimePanel.warning已在unknowns保留，实施时核对同源展示不需要新业务范围。",
+          "S2静态缺陷成立：对未知非空ID，Map.get返回undefined，optional chaining结果undefined与null宽松相等导致isActive为true；已撤销记录拒绝和有效身份兼容仍需入口验证。",
+          "HTTP/WS测试使用真实manager而非mock isActive返回值，并检查创建/接入副作用，能检出判定缺陷及入口绕过；现有create/revoke测试没有unknown-ID保护。",
+          "现有Android连接失败测试仅验证文本分类；计划要求状态转换行为回归，能检出恢复清理和错误误删，不将增加分类字符串断言视为充分证据。",
+          "核心文件契约所要求的Owner/IPC和Android ViewModel/wire回归保留；A→B→A按实际selection/restore影响触发。没有无依据全仓库测试或全历史E2E扩张。",
+          "S3一台真机断连恢复及隔离HTTP/WS smoke与两项目标直接相关；缺设备/证书时保留未运行结论，不能宣称验收通过。S1/S2→S3顺序可行。",
+          "身份校验不扩成mandatory registration或主动踢掉已建立连接，保持既有缺省行为；不动IPC权威、follower、Owner、canonical恢复、Rust/历史协议边界。",
+          "任务关联仅为建议；registration具体原子ownership尚未定位不阻碍清晰修复范围，未误绑CLIENT-RISK权限提示需求。"
+        ]
+      },
+      "implementation_notes": [
+        "S1实施时复用已有WS generation防旧回调，不另建订阅或恢复链；检查已排队事件与当前UI状态，但先由实际复现确定必要修改。",
+        "恢复成功必须有当前有效连接事件证明；保持仍有效的认证/协议/业务错误。核实临时ErrorBanner与同源runtime warning的实际消退，保留历史诊断。",
+        "持久化registration测试与真实smoke仅使用临时/隔离身份，不撤销或覆盖用户registration。",
+        "测试结果绑定最终实际代码对象；后续新改动影响已测行为时重跑对应测试，不复用过期证据。"
+      ],
+      "provenance": {
+        "kind": "self-review",
+        "reviewer": "当前Codex助手，也是原候选计划起草者",
+        "independent": false,
+        "method": "静态草案审查与相关代码/已有测试读取，无新测试运行"
+      },
+      "remaining_work": [
+        "用户确认/采纳此确切候选计划。",
+        "采纳后执行S1–S3并记录真实结果；此审查没有开始实施。",
+        "两条已有历史管理关联缺口原样保留，不影响本次审查记录的实际关联。"
+      ],
+      "next_route": "prepare-task",
+      "next_action": "confirm-plan",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+      "evidence_refs": [
+        {
+          "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+          "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+          "role": "reviewed-candidate-plan"
+        }
+      ]
+    },
+    "evidence_refs": [
+      {
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "role": "reviewed-candidate-plan"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "review",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      ],
+      "data": {
+        "stage": "draft",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "verdict": "clean",
+        "findings": [],
+        "conditions": [],
+        "summary": "草案自审未发现要求重规划的实质问题；可以进入用户计划确认。clean仅评估此候选计划的范围、可行性和验证设计，不代表修复实现、测试通过或用户采纳。",
+        "coverage": null,
+        "implementation_notes": null,
+        "provenance": {
+          "kind": "self-review",
+          "reviewer": "当前Codex助手，也是原候选计划起草者",
+          "independent": false,
+          "method": "静态草案审查与相关代码/已有测试读取，无新测试运行"
+        },
+        "remaining_work": [
+          "用户确认/采纳此确切候选计划。",
+          "采纳后执行S1–S3并记录真实结果；此审查没有开始实施。",
+          "两条已有历史管理关联缺口原样保留，不影响本次审查记录的实际关联。"
+        ],
+        "next_route": "prepare-task",
+        "next_action": "confirm-plan",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+        "evidence_refs": [
+          {
+            "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+            "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+            "role": "reviewed-candidate-plan"
+          }
+        ]
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "03fc64fa521d10fc3879491559f39cb68508b85126b6cfdab8fcaf3b00e51b2b",
+        "references": [
+          {
+            "data_pointer": "/coverage",
+            "request_pointer": "/coverage"
+          },
+          {
+            "data_pointer": "/implementation_notes",
+            "request_pointer": "/implementation_notes"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

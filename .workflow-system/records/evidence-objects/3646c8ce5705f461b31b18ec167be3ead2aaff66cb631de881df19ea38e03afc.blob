@@ -1,0 +1,14 @@
+{"time":"2026-10-13T06:29:24.411Z","pid":41148,"event":"start","online":true,"desiredFollowing":0}
+{"time":"2026-10-13T06:35:27.172Z","pid":37908,"event":"start","online":true,"desiredFollowing":0}
+{"time":"2026-10-13T06:35:28.797Z","pid":37908,"event":"stop","id":"recovery-off","online":false,"activeSendAllowed":true,"controlledSendGate":true,"desiredFollowing":0}
+{"time":"2026-10-13T06:35:40.816Z","pid":37908,"event":"start","online":true,"desiredFollowing":1}
+{"time":"2026-10-13T06:35:40.817Z","pid":37908,"event":"start","id":"recovery-on","online":true,"activeSendAllowed":true,"controlledSendGate":true,"desiredFollowing":1}
+{"time":"2026-10-13T06:37:37.376Z","pid":64296,"event":"start","online":true,"desiredFollowing":0}
+{"time":"2026-10-13T06:37:37.455Z","pid":64296,"event":"start","online":true,"desiredFollowing":0}
+{"time":"2026-10-13T06:37:37.455Z","pid":64296,"event":"start","id":"recovery-on","online":true,"activeSendAllowed":true,"controlledSendGate":true,"desiredFollowing":0}
+{"time":"2026-10-13T06:37:39.799Z","pid":64296,"event":"stop","id":"recovery-v3-off","online":false,"activeSendAllowed":false,"controlledSendGate":true,"desiredFollowing":0}
+{"time":"2026-10-13T06:37:52.558Z","pid":64296,"event":"start","online":true,"desiredFollowing":1}
+{"time":"2026-10-13T06:37:52.559Z","pid":64296,"event":"start","id":"recovery-v3-on","online":true,"activeSendAllowed":true,"controlledSendGate":true,"desiredFollowing":1}
+{"time":"2026-10-13T06:39:42.956Z","pid":64296,"event":"stop","id":"switch-off","online":false,"activeSendAllowed":false,"controlledSendGate":true,"desiredFollowing":0}
+{"time":"2026-10-13T06:40:43.312Z","pid":64296,"event":"start","online":true,"desiredFollowing":0}
+{"time":"2026-10-13T06:40:43.312Z","pid":64296,"event":"start","id":"pre-ws-restore","online":true,"activeSendAllowed":true,"controlledSendGate":true,"desiredFollowing":0}

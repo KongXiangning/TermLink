@@ -1,0 +1,36 @@
+# TASK-20260868 S1 变更审查（2026-10-13）
+
+结论：`findings`，1 项 P2，未给出 clean。此次为 Codex 单代理静态代码审查及既有证据核验，不是独立人工/第二代理审查；没有修改产品代码、运行新的产品测试、提交、finish 或执行 S2/S3。
+
+## 审查对象与证据
+
+- Base HEAD：`4d586e0f2dab1fef9d2c273b770796b63a7d873d`，加 S1 未提交工作区差异。
+- 已采纳计划：`key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a`；execution：`key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac`。
+- `source-manifest.json` SHA256：`134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967`。其中全部 5 个 Android 源码/测试文件及 4 个 Node 源码/测试文件与当前字节匹配；HEAD 相同。既有 Android 282/282、Node 139/139 输出和 Android 汇总已读取，本轮复用原结果，没有重跑。
+- 审查了五文件完整 diff、连接管理器、事件生产/消费、错误显示/清理、IPC 可用性判断、任务切换时的提示重置调用链，以及 REQ/PLAN 的本批增量、draft CR 和执行报告。
+- 已读取 CONTRACTS.md“Codex 原生会话实时同步核心”与 DECISIONS.md AD-004。未发现本批另建实时权威、canonical 轮询、替换 follower/Owner 或变更 wire JSON；下述提示生命周期问题仍需局部修正。
+- 工作区其他维护文档与历史证据不属于本次 S1 产品差异审查对象。
+
+## R-S1-001 / P2：IPC 操作提示迁移后丢失同连接恢复与任务切换的清理
+
+定位：`android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:5138-5142`（同类入口还包括 5255、6739）。
+
+`submitApproval` 在 `shouldUseIpcFollowerTransport` 为 false 时也写入新增 `connectionErrorMessage`。该判断可以仅因 `ipcOnline=false`、follower 发送能力或当前 conversation 条件不满足而失败，此时 Android→Gateway WebSocket 仍为 CONNECTED。该字段自动清理仅发生在 `applyConnectionStateToUiState(..., CONNECTED)`，普通 Message 在状态已 CONNECTED 时不会调用它。
+
+可达序列：当前 external IPC conversation A 有待审批操作 → IPC 暂时离线但 Gateway WebSocket 保持在线 → 点击审批产生临时提示 → IPC 恢复、正常 surface/消息到达，或者用户在同一连接切到正常任务 B。`applyIpcStatusToUiState` 和成功发送/审批 ACK 不清理此字段；任务切换经过 `preparePendingHistorySelectionUiState`（2216）及 cache commit（6024）时仍只清 `errorMessage`。于是新提示可以留在已恢复的 A，并继续显示在正常 B 上，直到手动关闭或额外 WebSocket 重连。
+
+其中 A→B 的提示泄漏是本批字段迁移引入的可证明回归：原提示写入 `errorMessage`，上述既有切换路径会将其清空；新字段不会被清空。入口 `resumeThread` 由 Activity 直接绑定，切换没有隐含 `clearError()`。
+
+建议：区分 WebSocket 传输失败与 conversation/IPC 操作不可用提示的作用域，为后者保留匹配恢复证据、成功重试或离开原任务时的清理。不要无条件清空业务/认证/TLS/协议错误，也不要为清除提示改变 IPC authority 或恢复架构。回归应覆盖 WebSocket 持续 CONNECTED 时 IPC 不可用→恢复，以及 A 上操作不可用提示→切到正常 B。
+
+证据性质：当前源码完整赋值点及调用链的静态证明；没有实例化完整 ViewModel 或真机重现。新增 6 项测试仅覆盖异常转换、CONNECTED 清理及 generation 比较，没有覆盖该同连接序列，282/282 不否定此 finding。
+
+## 其余审查结果及边界
+
+- 临时网络 IOException 与有效业务错误分开存储；SSLException、ProtocolException 和拒绝 code 保留持久错误路径。恢复不再按业务错误文本猜测来源。
+- Opened 与状态恢复 Message 同步更新 UI，普通/可靠 history 事件入口都检查现有连接 generation；检查的是消费入口，现有测试不证明完整协程/socket 竞态。
+- 原编译失败与 baseline 3 项/1 失败保留；不将其改写为 PASS。S3 真机断开/恢复未运行，S2 未开始，没有 Git 提交，CR 保持 draft/TBD。
+- 本审查只追加报告与 review 管理事实。待后续授权维护的文档位置：REQ-20260415-codex-android-runtime-interaction-fixes.md 开头的 S1 状态段、同名 PLAN 第 0 节、CR-20261013-1130-codex-recovered-connection-hints.md 第 6/7 节及 S1 report.md 后续段，应引用本次 finding 和后续修复/重审结果；本次不暗改这些文档或旧执行事实。
+- 两条既有历史管理关联缺口继续保留，不扩为本次修复范围。
+
+建议 `next_route: execute-step`，先局部修复 R-S1-001、补足对应验证并保存新 execution，再重审；当前 S1 仍为 executed，未 finish。此建议不构成自动修复或跳过审查的授权。

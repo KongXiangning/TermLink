@@ -1,0 +1,804 @@
+{
+  "kind": "read-only-review-evidence-check",
+  "refs": [
+    {
+      "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83"
+    },
+    {
+      "ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "sha256": "22a3cb52b00546536b27ae2f14168d9ef877a0e186524ecf9809c703cae147e2"
+    }
+  ],
+  "attachments": [
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery.json",
+      "ref": ".workflow-system/records/evidence-objects/b2068d984b18e14e4eefc43758eefd0c45e99247a049b9741b671a8d4fcc11d9.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2.json",
+      "ref": ".workflow-system/records/evidence-objects/354872d24c8facbaddd82221c3cb1771617697beabdd9d659f96e04461dcd343.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2-6.txt",
+      "ref": ".workflow-system/records/evidence-objects/67f8c006a403ffcc532728e6474ec1305fddf14973d18264c7a9d567b3197796.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2-11.txt",
+      "ref": ".workflow-system/records/evidence-objects/238bf43c9ec81ac5024a54de4debc95874d2879474e341dce8cbfba4b5487325.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-4.txt",
+      "ref": ".workflow-system/records/evidence-objects/a3f2dca8490968a8c261619781bff50e863fb16946718891962ca0833827d136.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new.json",
+      "ref": ".workflow-system/records/evidence-objects/2d6746d1108622afd6aed176a84d8ef0a6d3eacb432796722e7cac8f1e6291af.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new-30.txt",
+      "ref": ".workflow-system/records/evidence-objects/6f9de50428853d4f1878089167c6b06b2fc8cfeca0895494be428e68404ef83b.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new-23.txt",
+      "ref": ".workflow-system/records/evidence-objects/ee177cc806e36b188a40ab55bc6014e925cc4494c23c0bd84f8a6c7488db80df.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new-14.txt",
+      "ref": ".workflow-system/records/evidence-objects/dca65524611cd3e52f3a7e1ea2116d2c3d3e31d6f47b0e557e7472ca2ded6065.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/source-manifest.json",
+      "ref": ".workflow-system/records/evidence-objects/28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/setup-phone.cjs",
+      "ref": ".workflow-system/records/evidence-objects/10d876fce9d2c2808a5db70fe77135cd70e7cfda1962fc52e1ded54d6b9ffebe.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/service-normal-v2-restored.txt",
+      "ref": ".workflow-system/records/evidence-objects/e0efe12bd8a5a49a9360bc87cfec6e71d65964eade29eef76e0c86698bfc2139.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/run-ui.ps1",
+      "ref": ".workflow-system/records/evidence-objects/1059794ce6344bbf81c115879b184441f1ed6fb0aa29f77a34d80e652558c004.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/report.md",
+      "ref": ".workflow-system/records/evidence-objects/7ab9147c9191c759680a5173862362c0bd7e1dd6c85fbf412940d25815735560.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/phone-session.json",
+      "ref": ".workflow-system/records/evidence-objects/44ca7cb33559f9287e7ef0d137598d125d4e43f1ce1f95ed3d49d3f4c15a4f2e.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/phone-selected-diagnostics.json",
+      "ref": ".workflow-system/records/evidence-objects/8996837dd4ea73d09335c32870a482b38ba8d8306fb322e194abd951f54d5c8b.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/phone-cleanup.json",
+      "ref": ".workflow-system/records/evidence-objects/35b9b87a383c27a924d646fbc9de69ca1f9dbfc5cc4f3bd8036f5c6eb72842bb.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal.json",
+      "ref": ".workflow-system/records/evidence-objects/4480e2515616d8ecf9aca3b2d329d1490bafa22f64af99088b6b05a1d4faad68.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal-4.txt",
+      "ref": ".workflow-system/records/evidence-objects/4edfde99d59dba60e078cd013d3b6244a7cfa06f45bd3c556009061fe98cd215.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/network-smoke.cjs",
+      "ref": ".workflow-system/records/evidence-objects/aa35972f439f25945c114253ffbeb0529ec1d83de4181b289403093ba620179f.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/network-result.json",
+      "ref": ".workflow-system/records/evidence-objects/ae50020be6b5967e17caa297734acc06e05b83395f52e928219f2b3f9d5967ab.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/LiveAcceptanceDriverTest.kt",
+      "ref": ".workflow-system/records/evidence-objects/332abe7015d081e881e21a2b9b7482e5052143270da0354415a798083c969292.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery.json",
+      "ref": ".workflow-system/records/evidence-objects/b0012c857e45cdc0a9cb1996cea0a16c5e5de3909ecf27d6be43ef76b4596255.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3.json",
+      "ref": ".workflow-system/records/evidence-objects/b0012c857e45cdc0a9cb1996cea0a16c5e5de3909ecf27d6be43ef76b4596255.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3-6.txt",
+      "ref": ".workflow-system/records/evidence-objects/bbabf67e44ae530bbc440dd01ddc676d7f6667f1a198b0e49b70bc32edae5e45.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3-10.txt",
+      "ref": ".workflow-system/records/evidence-objects/35340b10f6e9ad0c7f25ed342162bf7de7d665fa48726f8dd192b81d9b15e26d.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovered.png",
+      "ref": ".workflow-system/records/evidence-objects/f7f92b849ed1dbe1db288488547c50c8db4ba4d5cde1922890c4f037ba112cab.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-hint.png",
+      "ref": ".workflow-system/records/evidence-objects/f505a56820ded166838912e6f7e11dbce6fb4e5a0a685dfd1deac469ba91d8e9.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-control-preload.cjs",
+      "ref": ".workflow-system/records/evidence-objects/dad2ff27db7c1c01fe58427c88745ad4de28903a158409f685e7384908c8906a.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-control-events.jsonl",
+      "ref": ".workflow-system/records/evidence-objects/3646c8ce5705f461b31b18ec167be3ead2aaff66cb631de881df19ea38e03afc.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/install.txt",
+      "ref": ".workflow-system/records/evidence-objects/e8066dd1b03e8655fb57cbdc4c29e3d5028495fba889a8e43a40ea1bcf4cbeb9.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/driver-build.txt",
+      "ref": ".workflow-system/records/evidence-objects/b2aa09365c18b7ebc41836257007d443829dede449307bde5d00fa548a682558.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/diff-check.txt",
+      "ref": ".workflow-system/records/evidence-objects/be744296df85d314ee95164b2157e64fc006119ba4a4baf3ad55f1c211311b1b.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/create-b.json",
+      "ref": ".workflow-system/records/evidence-objects/885f77ee8c2b140cda2ff83545230f177b69c5275fcedb5ae5ec71e8d099f591.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/create-b-11.txt",
+      "ref": ".workflow-system/records/evidence-objects/0732545439b29882cdc122d208ae3fe480c4345c0f0bfa1951b23c5c9e9e5f6d.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/create-a.json",
+      "ref": ".workflow-system/records/evidence-objects/3af4d85cdaa665cf4f969e2aa7d236b7d41f4cf35d345c242b9191f2adeca6f9.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local.json",
+      "ref": ".workflow-system/records/evidence-objects/f84eb42c1f6c339b8777ce559aa480bf7c4cdeda30073d71c9ed723c0888217f.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local-6.txt",
+      "ref": ".workflow-system/records/evidence-objects/894a11519ae327ee933d87d6f95c5e72d5908a5c80c68e7c9f7b2fc6d25a2fcb.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/cleanup-and-diagnostics.cjs",
+      "ref": ".workflow-system/records/evidence-objects/d18ea9d2886fe1c73a52148095ebce8c75cefc67ea02cff6effdb7332113f060.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/apk-build.txt",
+      "ref": ".workflow-system/records/evidence-objects/2890129f02982b6444b2cedc1cafbc4bf4aeacec7a6c514fe8a0372bfdd1fd34.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "referenced",
+      "source": null,
+      "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": null
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "referenced",
+      "source": null,
+      "ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": null
+    },
+    {
+      "event": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "status": "referenced",
+      "source": null,
+      "ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": null
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery.log",
+      "ref": ".workflow-system/records/evidence-objects/7295306be3d4cb4a69b264fe257da2d48059939b60931adf64573526c7dbb950.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2.log",
+      "ref": ".workflow-system/records/evidence-objects/1a91dc50f3df1685aff1e1d30f172bfbb60a6ec994258b883f3fb585b2764ce1.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new.log",
+      "ref": ".workflow-system/records/evidence-objects/9491ee9aeba34843e5035d90ecb95b4523852573e1acb18ac650708908b3e3a5.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal.log",
+      "ref": ".workflow-system/records/evidence-objects/b6d45f3d3178e777a78b394156f578628dc6c3a77fba7af74ffa024fea8f7a9d.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery.log",
+      "ref": ".workflow-system/records/evidence-objects/fa0747e62baa42782e834b90e3f0addea62fea42a833de9a6a2cae31a510c0bb.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3.log",
+      "ref": ".workflow-system/records/evidence-objects/188f96611a2195d000636a6868bf19624c8083e87fdfe3b73bf7ddcf31a008e2.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/create-b.log",
+      "ref": ".workflow-system/records/evidence-objects/dede1bc2fc9b25577b2bf1e0c00f4f6e50e1afd91b4768ca2c0d9280b099c315.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/create-a.log",
+      "ref": ".workflow-system/records/evidence-objects/63412d1071aa91a4aa37acce25ce046f5ccfb3a83d48efce799e7db2c9d8d4c3.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "saved",
+      "source": "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local.log",
+      "ref": ".workflow-system/records/evidence-objects/9865da91710821430a0959b127b5f9602fd114ade80d11a0d210fcdfe3f19930.blob",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": true
+    },
+    {
+      "event": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "status": "referenced",
+      "source": null,
+      "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "casMatches": true,
+      "sizeMatches": true,
+      "liveMatches": null
+    }
+  ],
+  "sourceChecks": [
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "sha256": "1321f7ced1dc7fdfbca8d92d506435459820336860bb04a36ce83528a68e3401",
+      "matches": true
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+      "sha256": "cfe02bb3c1141c11e103af41ae441642dbdf646bf3ca5313cbe6e5b2abe6a9e7",
+      "matches": true
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt",
+      "sha256": "9b415cb6c01ceace61924858113d684ba647c14a4cec8e2860905b7a9ab08147",
+      "matches": true
+    },
+    {
+      "path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "sha256": "7ac3b6380b59c433c3a649e05a08479fefd28e0f7ea9689098c42b4ce8ba6b64",
+      "matches": true
+    },
+    {
+      "path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt",
+      "sha256": "44ae5ccb74784e67bb4fea47d3c223746a8d3cd0529368f98b1905e0d6df048f",
+      "matches": true
+    },
+    {
+      "path": "src/services/clientRegistrationManager.js",
+      "sha256": "a0ec66b61e689d029819cdd5cd3403bb2031f2cc2d1bda3f4abb8a6c9dd2dea0",
+      "matches": true
+    },
+    {
+      "path": "tests/clientRegistrations.test.js",
+      "sha256": "47a991ddf1c6c43b99e319445278517812259cf825097fe186221985503325e7",
+      "matches": true
+    },
+    {
+      "path": "tests/routes.sessions.metadata.test.js",
+      "sha256": "c2aae15941ba4cff581593a89b0957be0e72730862e60122f24ebe066bd69c10",
+      "matches": true
+    },
+    {
+      "path": "tests/terminalGateway.sessionid.test.js",
+      "sha256": "6829c2020667f913d8eca78bffad0c16608b337930988b53926d335660104823",
+      "matches": true
+    },
+    {
+      "path": "src/routes/sessions.js",
+      "sha256": "d646071995865a382f7f789ddb54e8239b8ec48c779cfe351b84601041332607",
+      "matches": true
+    },
+    {
+      "path": "src/ws/terminalGateway.js",
+      "sha256": "5072477e3c49fc664e1a2ef9b884c6f517bc2bc9608c2b4b5f927423e22c5cdf",
+      "matches": true
+    },
+    {
+      "path": "src/repositories/clientRegistrationStore.js",
+      "sha256": "50ed54565116e4f9a1fd34dd040432a53896c50c53f08e8aaf01d9ee217e22e0",
+      "matches": true
+    },
+    {
+      "path": "src/services/sessionManager.js",
+      "sha256": "dd95fb681fb92736a5d09fe969173f3b9efe380260c537e2e53af5864ccaba94",
+      "matches": true
+    },
+    {
+      "path": "src/server.js",
+      "sha256": "ad0f206de6eb7b03c5a1f78a56345641c640c4bcd48c56dcdbb97c70c039d5d6",
+      "matches": true
+    }
+  ],
+  "binaryChecks": [
+    {
+      "path": "android/app/build/outputs/apk/debug/app-debug.apk",
+      "matches": true
+    },
+    {
+      "path": "android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk",
+      "matches": true
+    },
+    {
+      "path": "output/validation/20261013-android-20/LiveAcceptanceDriverTest.kt",
+      "matches": true
+    }
+  ],
+  "uiRuns": [
+    {
+      "file": "create-a-local.log",
+      "ok": true,
+      "failed": false
+    },
+    {
+      "file": "create-a.log",
+      "ok": false,
+      "failed": true
+    },
+    {
+      "file": "create-b.log",
+      "ok": true,
+      "failed": false
+    },
+    {
+      "file": "ipc-recovery-v3.log",
+      "ok": true,
+      "failed": false
+    },
+    {
+      "file": "ipc-recovery.log",
+      "ok": false,
+      "failed": true
+    },
+    {
+      "file": "pause-fixture-goal.log",
+      "ok": true,
+      "failed": false
+    },
+    {
+      "file": "switch-and-new.log",
+      "ok": true,
+      "failed": false
+    },
+    {
+      "file": "ws-recovery-v2.log",
+      "ok": true,
+      "failed": false
+    },
+    {
+      "file": "ws-recovery.log",
+      "ok": false,
+      "failed": true
+    }
+  ],
+  "manifestSha256": "28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+  "headMatches": true,
+  "network": {
+    "passed": true,
+    "checks": 23,
+    "errors": [],
+    "cleanupBaselineRestored": true,
+    "observableFields": [
+      "id",
+      "name",
+      "activeConnectionCount"
+    ],
+    "rejections": [
+      {
+        "case": "unknown HTTP GET /sessions",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "unknown HTTP POST /sessions",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "unknown HTTP PATCH /sessions/b2b1c151-e495-408f-b939-22590ce64ecb",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "unknown HTTP DELETE /sessions/b2b1c151-e495-408f-b939-22590ce64ecb",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "unknown HTTP GET /sessions/b2b1c151-e495-408f-b939-22590ce64ecb/workspace/files?q=package",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "unknown WS reuse",
+        "code": 4403,
+        "frames": []
+      },
+      {
+        "case": "unknown WS create",
+        "code": 4403,
+        "frames": []
+      },
+      {
+        "case": "unknown no observable session create/rename/delete/attach",
+        "equal": true
+      },
+      {
+        "case": "revoked HTTP GET /sessions",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "revoked HTTP POST /sessions",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "revoked HTTP PATCH /sessions/b2b1c151-e495-408f-b939-22590ce64ecb",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "revoked HTTP DELETE /sessions/b2b1c151-e495-408f-b939-22590ce64ecb",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "revoked HTTP GET /sessions/b2b1c151-e495-408f-b939-22590ce64ecb/workspace/files?q=package",
+        "status": 403,
+        "code": "REGISTRATION_INVALID"
+      },
+      {
+        "case": "revoked WS reuse",
+        "code": 4403,
+        "frames": []
+      },
+      {
+        "case": "revoked WS create",
+        "code": 4403,
+        "frames": []
+      },
+      {
+        "case": "revoked no observable session create/rename/delete/attach",
+        "equal": true
+      }
+    ]
+  },
+  "ipcSameConnection": {
+    "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+    "events": [
+      {
+        "ts": "2026-10-13T06:37:52.132Z",
+        "elapsedMs": 8995,
+        "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+        "seq": 55,
+        "level": "warn",
+        "component": "codex",
+        "event": "android.codex.goal.intent.failed",
+        "fields": {
+          "conversationKey": "87c85ca08cc6ea77",
+          "goalKey": "f3cc02cd20c94115",
+          "objectiveLength": 18,
+          "reason": "follower_transport_unavailable",
+          "followerModeEnabled": false,
+          "activeSendAllowed": false
+        }
+      },
+      {
+        "ts": "2026-10-13T06:37:54.356Z",
+        "elapsedMs": 11219,
+        "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+        "seq": 56,
+        "level": "warn",
+        "component": "codex",
+        "event": "android.codex.ipc.status",
+        "fields": {
+          "online": false,
+          "hadObservedStatus": true,
+          "wasOnline": false,
+          "clientIdPresent": false,
+          "historyCapabilityVersion": 1,
+          "historyStatusVersion": 1
+        }
+      },
+      {
+        "ts": "2026-10-13T06:37:54.386Z",
+        "elapsedMs": 11249,
+        "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+        "seq": 59,
+        "level": "info",
+        "component": "codex",
+        "event": "android.codex.ipc.status",
+        "fields": {
+          "online": true,
+          "hadObservedStatus": true,
+          "wasOnline": false,
+          "clientIdPresent": true,
+          "historyCapabilityVersion": 1,
+          "historyStatusVersion": 1
+        }
+      },
+      {
+        "ts": "2026-10-13T06:37:54.396Z",
+        "elapsedMs": 11259,
+        "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+        "seq": 61,
+        "level": "info",
+        "component": "codex",
+        "event": "android.codex.ipc.status",
+        "fields": {
+          "online": true,
+          "hadObservedStatus": true,
+          "wasOnline": true,
+          "clientIdPresent": true,
+          "historyCapabilityVersion": 1,
+          "historyStatusVersion": 1
+        }
+      }
+    ],
+    "noConnectionTransition": true,
+    "failureObserved": true,
+    "onlineObserved": true
+  },
+  "uiObservations": {
+    "ipcBeforeConnectedAndHint": true,
+    "ipcAfterNoHint": true,
+    "bIsolated": false,
+    "aIsolated": true,
+    "newNoHint": true,
+    "wsBeforeHint": true,
+    "wsAfterConnectedAWithoutHint": true
+  },
+  "allCheckedBytesMatch": true
+}

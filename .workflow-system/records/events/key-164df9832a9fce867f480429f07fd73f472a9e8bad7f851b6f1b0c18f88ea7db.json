@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:46:44.234Z",
+  "payload_sha256": "e93f961290d33ff19ed10c4383df6d97f33a36ba21c8c60344a3b5fef2697d41",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s2-20261013-baseline-final-8",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "step_id": "S2",
+      "selector": "tests/clientRegistrations.test.js; tests/routes.sessions.metadata.test.js; tests/terminalGateway.sessionid.test.js",
+      "action": "test",
+      "summary": "46 tests38 pass8 fail; onlyunknown defects1manager5HTTP2WS;0 cancel/skip",
+      "command": "node --test --test-force-exit --test-reporter=tap three selectors",
+      "idempotency_key": "task20260868-s2-20261013-baseline-final-8",
+      "result": "failed",
+      "cwd": "OS temporary isolation, exact path in execution run-environment attachment",
+      "source_revision": "before manager and final test sources from S2 manifest",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-tests.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-clientRegistrations.test.js",
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-routes.sessions.metadata.test.js",
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-terminalGateway.sessionid.test.js"
+      ],
+      "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-tests.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-clientRegistrations.test.js",
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-routes.sessions.metadata.test.js",
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-final-terminalGateway.sessionid.test.js"
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-1888c74db1d55c7352bcc61e4f9e5f137e6e641c81e68ca04998efb8ad43f129.json"
+      ],
+      "data": {
+        "step_id": "S2",
+        "selector": "tests/clientRegistrations.test.js; tests/routes.sessions.metadata.test.js; tests/terminalGateway.sessionid.test.js",
+        "summary": "46 tests38 pass8 fail; onlyunknown defects1manager5HTTP2WS;0 cancel/skip",
+        "command": "node --test --test-force-exit --test-reporter=tap three selectors",
+        "result": "failed",
+        "cwd": "OS temporary isolation, exact path in execution run-environment attachment",
+        "source_revision": "before manager and final test sources from S2 manifest",
+        "files": null,
+        "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "028d6e799cf0d5b9003df381a28b117b39cf350adf8a68244a03de181df49941",
+        "references": [
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

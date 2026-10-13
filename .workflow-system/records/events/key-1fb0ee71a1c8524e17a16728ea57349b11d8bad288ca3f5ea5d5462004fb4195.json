@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:31:53.923Z",
+  "payload_sha256": "dd28f6b9bdc64bf3daf94b25fbb8e575728e19b51c82e22f719817f49cf590b6",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-finish-user-decision-20261013",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "choice": "finish",
+      "review_ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+      "decision_source": "current user execute-step invocation",
+      "summary": "用户明确选择依据当前clean自审办理S1 finish，保留S3真机待执行；不授权新测试、S2/S3实施、Git或任务关闭。",
+      "decision_text": "finish，完成 TASK-20260868 的 S1 步骤处置，保留 S3 真机验证待执行。",
+      "idempotency_key": "task20260868-s1-finish-user-decision-20261013",
+      "action": "review-decision"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review-decision",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json"
+      ],
+      "data": {
+        "choice": "finish",
+        "review_ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+        "decision_source": "current user execute-step invocation",
+        "summary": "用户明确选择依据当前clean自审办理S1 finish，保留S3真机待执行；不授权新测试、S2/S3实施、Git或任务关闭。",
+        "decision_text": "finish，完成 TASK-20260868 的 S1 步骤处置，保留 S3 真机验证待执行。"
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,89 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.FrameLayout
+com.termlink.app:id/action_bar_root | null | null | android.widget.LinearLayout
+android:id/content | null | null | android.widget.FrameLayout
+com.termlink.app:id/settings_root | null | null | android.widget.LinearLayout
+com.termlink.app:id/settings_top_bar | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_settings_back | null | 返回终端 | android.widget.ImageButton
+com.termlink.app:id/settings_top_bar_title | 设置 | null | android.widget.TextView
+com.termlink.app:id/settings_fragment_container | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/settings_title | 服务器配置 | null | android.widget.TextView
+null | 集中管理服务器地址、认证方式和证书访问权限。 | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+null | 应用偏好 | null | android.widget.TextView
+com.termlink.app:id/settings_theme_row | null | null | android.widget.LinearLayout
+null | ☼ | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+null | 外观模式 | null | android.widget.TextView
+com.termlink.app:id/settings_theme_value | 跟随系统 | null | android.widget.TextView
+null | › | null | android.widget.TextView
+com.termlink.app:id/settings_language_row | null | null | android.widget.LinearLayout
+null | 文 | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+null | 语言 | null | android.widget.TextView
+com.termlink.app:id/settings_language_value | 跟随系统 | null | android.widget.TextView
+null | › | null | android.widget.TextView
+com.termlink.app:id/settings_screen_timeout_container | null | null | android.widget.LinearLayout
+null | null | null | android.widget.LinearLayout
+null | ◷ | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+null | 息屏时间 | null | android.widget.TextView
+com.termlink.app:id/settings_screen_timeout_value | 跟随系统 | null | android.widget.TextView
+com.termlink.app:id/settings_screen_timeout_seekbar | null | 息屏时间 | android.widget.SeekBar
+null | 只有长于系统设置的值才能延长前台亮屏；后台始终按系统设置。 | null | android.widget.TextView
+com.termlink.app:id/settings_auto_originals_wifi_row | null | null | android.widget.LinearLayout
+null | ▣ | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+null | 仅 Wi‑Fi 自动下载原图 | null | android.widget.TextView
+null | 缩略图可在任意网络下载；原图默认不自动下载。 | null | android.widget.TextView
+com.termlink.app:id/settings_auto_originals_wifi_switch | 关闭 | 仅 Wi‑Fi 自动下载原图 | android.widget.Switch
+null | null | null | android.widget.LinearLayout
+null | 安全状态 | null | android.widget.TextView
+com.termlink.app:id/settings_mtls_status | mTLS 按配置独立设置。每行配置显示当前证书状态：已配置或仍缺失证书/密码材料。 | null | android.widget.TextView
+com.termlink.app:id/settings_insecure_transport_warning | 警告: 活跃配置使用不安全传输: http://192.168.50.12:3010 | null | android.widget.TextView
+null | 已配置的端点 | null | android.widget.TextView
+com.termlink.app:id/settings_codex_storage_row | null | null | android.widget.LinearLayout
+null | ▤ | null | android.widget.TextView
+null | Codex 存储管理 | null | android.widget.TextView
+null | › | null | android.widget.TextView
+com.termlink.app:id/btn_add_profile | 添加配置 | null | android.widget.Button
+null | null | null | android.widget.ScrollView
+com.termlink.app:id/profiles_container | null | null | android.widget.LinearLayout
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/profile_name | Default（默认） | null | android.widget.TextView
+com.termlink.app:id/profile_base_url | http://192.168.50.12:3010 | null | android.widget.TextView
+com.termlink.app:id/profile_meta | 类型=TERMLINK_WS | 认证=BASIC | 用户=admin | mTLS=已禁用 | 主机=- | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_edit_profile | 编辑 | null | android.widget.Button
+com.termlink.app:id/btn_delete_profile | 删除 | null | android.widget.Button
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/profile_name | Task005 S2 Local | null | android.widget.TextView
+com.termlink.app:id/profile_base_url | http://127.0.0.1:3010 | null | android.widget.TextView
+com.termlink.app:id/profile_meta | 类型=TERMLINK_WS | 认证=BASIC | 用户=admin | mTLS=已禁用 | 主机=- | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_edit_profile | 编辑 | null | android.widget.Button
+com.termlink.app:id/btn_delete_profile | 删除 | null | android.widget.Button
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/profile_name | V20-External-A | null | android.widget.TextView
+com.termlink.app:id/profile_base_url | http://127.0.0.1:3010/api/health | null | android.widget.TextView
+com.termlink.app:id/profile_meta | 类型=EXTERNAL_WEB | 认证=BASIC | 用户=admin | mTLS=已禁用 | 主机=- | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_edit_profile | 编辑 | null | android.widget.Button
+com.termlink.app:id/btn_delete_profile | 删除 | null | android.widget.Button
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/profile_name | V20-LAN | null | android.widget.TextView
+com.termlink.app:id/profile_base_url | http://192.168.50.13:3010 | null | android.widget.TextView
+com.termlink.app:id/profile_meta | 类型=TERMLINK_WS | 认证=BASIC | 用户=admin | mTLS=已禁用 | 主机=- | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_edit_profile | 编辑 | null | android.widget.Button
+com.termlink.app:id/btn_delete_profile | 删除 | null | android.widget.Button
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/profile_name | V17-MTLS-UI | null | android.widget.TextView
+com.termlink.app:id/profile_base_url | https://client.badssl.com | null | android.widget.TextView
+com.termlink.app:id/profile_meta | 类型=EXTERNAL_WEB | 认证=NONE | 用户=- | mTLS=已禁用 | 主机=client.badssl.com | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_edit_profile | 编辑 | null | android.widget.Button
+com.termlink.app:id/btn_delete_profile | 删除 | null | android.widget.Button
+com.termlink.app:id/settings_app_version | TermLink 1.0.0（版本号 1） | null | android.widget.TextView

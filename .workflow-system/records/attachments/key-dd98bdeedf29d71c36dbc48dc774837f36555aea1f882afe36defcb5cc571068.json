@@ -1,0 +1,102 @@
+{
+  "event_ref": ".workflow-system/records/events/key-dd98bdeedf29d71c36dbc48dc774837f36555aea1f882afe36defcb5cc571068.json",
+  "captured_at": "2026-10-13T07:25:17.736Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9eeddb0b93750863ac44aaa424cbe92bbae17b464c5d58f584e73ecb4a79cffd.blob",
+      "sha256": "9eeddb0b93750863ac44aaa424cbe92bbae17b464c5d58f584e73ecb4a79cffd",
+      "size": 5068,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-close/closure-20261013.md",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+      "size": 11674,
+      "request": {
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+      "sha256": "3076c5018f881a2164ef0cdfd09a389aa45ccdecb9958b62518a5f4577f0a877",
+      "size": 8126,
+      "request": {
+        "sha256": "3076c5018f881a2164ef0cdfd09a389aa45ccdecb9958b62518a5f4577f0a877",
+        "ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-df630f31fe0492b9861c72f857d496640df9d4237d307aabf62834cc6c2fdaab.json",
+      "sha256": "2c8f0a388e654c3845ef329411fbc45cfda3a9f44a2e5ed3e71ece919f02bf07",
+      "size": 7412,
+      "request": {
+        "sha256": "2c8f0a388e654c3845ef329411fbc45cfda3a9f44a2e5ed3e71ece919f02bf07",
+        "ref": ".workflow-system/records/events/key-df630f31fe0492b9861c72f857d496640df9d4237d307aabf62834cc6c2fdaab.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-b31468df5c6f964ca7e184af4655638cc03e81334e4bb91c543fcce6eba4c5bd.json",
+      "sha256": "143900a1893d4a7b4e5129a44d4a3845dc88e0603cba6ee18ba56aae49d69d3d",
+      "size": 7389,
+      "request": {
+        "sha256": "143900a1893d4a7b4e5129a44d4a3845dc88e0603cba6ee18ba56aae49d69d3d",
+        "ref": ".workflow-system/records/events/key-b31468df5c6f964ca7e184af4655638cc03e81334e4bb91c543fcce6eba4c5bd.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+      "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+      "size": 8952,
+      "request": {
+        "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+        "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+        "role": "fixed-adopted-plan-finished-disposition-and-final-self-review"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-a8315796fb2f2e1357138758c659501e744cef2b0eca5f6e5f07bf9cdbc4713c.json",
+  "captured_at": "2026-10-13T03:40:38.310Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/544bc76bb4aa2b2976e20ce5eebcada64e63b0daeaa7de1c8ef67db0fc612b6b.blob",
+      "sha256": "544bc76bb4aa2b2976e20ce5eebcada64e63b0daeaa7de1c8ef67db0fc612b6b",
+      "size": 5231,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.txt",
+      "issues": []
+    }
+  ]
+}

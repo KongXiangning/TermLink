@@ -10,7 +10,21 @@ related_docs: [docs/product/requirements/REQ-20260415-codex-android-runtime-inte
 
 # PLAN-20260415-codex-android-runtime-interaction-fixes
 
+2026-10-13 任务关闭：已按用户close-task完成[TASK-20260868 closed处置](../../../.workflow-system/records/events/key-dd98bdeedf29d71c36dbc48dc774837f36555aea1f882afe36defcb5cc571068.json)，S1/S2/S3均finished/clean自审，未切换到新task。仅[局部交付对账](../history/maintenance-20261011/task20260868-close/local-evaluation-20261013.md)记录两项repair及验证/清理/兼容限制，不改原计划整体验收或服务端ownership；旧goal范围与本次新APK不同，正式整REQ评价仍未判定。代码未Git提交，CR draft/TBD；以下原阶段进度保持历史记录。
+
+2026-10-13 S3步骤处置：TASK-20260868的S1/S2/S3均finished，S3按用户finish及[clean局部自审](../history/maintenance-20261011/task20260868-s3/review-20261013.md)完成[步骤处置](../../../.workflow-system/records/events/key-b31468df5c6f964ca7e184af4655638cc03e81334e4bb91c543fcce6eba4c5bd.json)，任务仍active待close-task。复用原真机/网络证据，没有产品代码修改或重跑测试；受控IPC/active-send门禁、A/B可见画面限制、直接catalog/外部审批/TLS矩阵未验、失败与清理限制均保留。CR仍draft/TBD，无Git提交，不改原计划验收口径或整体完成状态；registration ownership仍由既有journal计划/服务端认证父项承接。以下是各批历史进度。
+
+2026-10-13 当前局部进度：TASK-20260868/S1、S2已finished，S3联合验证已执行、待review-change、未finish。Huawei修复版APK的受控IPC/active-send门禁恢复、实际WebSocket中断恢复、任务历史A→B→A隔离与/new提示清理通过本次断言，证据及失败尝试见 [S3报告](../history/maintenance-20261011/task20260868-s3/report.md)。外部审批点击、直接IPC catalog自动改选与TLS/mTLS矩阵未独立真机验证；本次不改原计划验收口径或整体完成状态。registration真实网络23检查归既有journal计划S3/服务端认证父项，本Android PLAN不承接其ownership。以下段落保留各批历史进度。
+
 ## 0. 当前实施进度
+
+2026-10-13 TASK-20260868/S1：`finished`。最新第二次repair对象经 [clean静态自审](../history/maintenance-20261011/task20260868-s1/review-second-repair-20261013.md)，源码/HEAD仍与Android292/292、Node139/139证据一致，按用户finish请求保存 [步骤处置](../../../.workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json)。本次仅处置及文档同步，未重复实施/测试。S2 registration为下一待执行步骤（not-started）；S3联合验证及同机A→B→A、同连接IPC恢复/新任务提示真机验证保持pending，不能以finish或clean自审记作PASS。无Git提交，CR保持draft/TBD，原finding与失败保留。
+
+2026-10-13 S1 第二次repair：按重审R-S1-002/P2补齐newThread两个分支与直接catalog选择的IPC提示清理，同任务仍不可操作时保留，真实网络提示与有效业务错误保持。新增4项回归在修复前18项/3失败，最终Android292/292、Node139/139通过。当前新源码对象待review-change重审，不判clean、不finish；S2/S3未执行，S3同机A→B→A、IPC恢复和新任务界面真机验证仍未运行。见 [本批报告](../history/maintenance-20261011/task20260868-s1/repair-r-s1-002/report.md)、[重审报告](../history/maintenance-20261011/task20260868-s1/review-repair-20261013.md)及 [draft CR](../../changes/records/CR-20261013-1219-codex-selection-hint-cleanup.md)。以下288/139及282/139为各自历史源码对象的结果，保留原finding和失败。
+
+2026-10-13 S1 repair：静态审查R-S1-001/P2指出IPC操作提示在同连接IPC恢复和A→B切换时残留，本批已按提示来源与conversation作用域补齐恢复/成功发送/离开清理。新代码Android288/288、Node139/139通过，原10项/2失败及原review findings保留，尚待重审，不判clean、不finish。因涉及selection提示清理，S3同机A→B→A真机smoke现为必做且未运行；S2/S3仍未执行。见 [repair报告](../history/maintenance-20261011/task20260868-s1/repair-r-s1-001/report.md)及 [本批draft CR](../../changes/records/CR-20261013-1153-codex-ipc-operation-hint-scope.md)。以下上一批282/139为原源码对象的历史验证。
+
+2026-10-13 局部后续修复：TASK-20260868 的已采纳 journal 计划/S1 已实施连接恢复提示清理，并完成 Android ViewModel/wire 282/282、Node Owner/IPC 139/139 定向自动化。临时连接提示独立于业务错误，仅当前连接恢复成功时清除；WebSocket 事件消费复用连接 generation 拒绝已排队旧事件。此次仅覆盖 S1，不重开下列历史问题组，不改变 IPC 权威、绑定、follower 或恢复架构。正式变更审查、S1 finish、S2 registration 修复及 S3 真机断连恢复尚未执行。详见 [本批执行报告](../history/maintenance-20261011/task20260868-s1/report.md)与 [draft CR](../../changes/records/CR-20261013-1130-codex-recovered-connection-hints.md)。原历史进度和未验证范围保留。
 
 状态口径：`done` = 当前文档批已完成冻结或对应代码批已完成，`in_progress` = 当前正在实施，`pending` = 已记录但尚未开始。
 

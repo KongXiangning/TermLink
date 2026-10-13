@@ -1,0 +1,2 @@
+REQ: E:\coding\TermLink-rust-source-resolution-codex\docs\product\requirements\REQ-20260415-codex-android-runtime-interaction-fixes.md
+PASS: REQ validation succeeded.

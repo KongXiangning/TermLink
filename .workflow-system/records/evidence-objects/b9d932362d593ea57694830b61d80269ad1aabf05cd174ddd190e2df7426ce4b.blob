@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.termlink.app.codex.CodexViewModelConnectionFailureTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-13T03:35:34.162Z" hostname="K-PC" time="0.026">
+  <properties/>
+  <testcase name="recoveryPreservesBusinessErrorsEvenWhenTheyContainTransportWords" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.012"/>
+  <testcase name="recoveredTimeoutClearsItsConnectionHintWithoutLeavingRuntimeWarning" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="queuedOldConnectionEventsCannotReintroduceErrorsAfterReconnect" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.007"/>
+  <testcase name="failuresWithoutAnExceptionMessageAreStillScopedToTheConnection" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <testcase name="serverAndProtocolErrorsRemainVisible" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.004"/>
+  <testcase name="offlineConnectFailuresAreTransient" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="retryingDoesNotClearTheHintBeforeRecoverySucceeds" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="authenticationTlsAndProtocolFailuresRemainVisibleAfterReconnect" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

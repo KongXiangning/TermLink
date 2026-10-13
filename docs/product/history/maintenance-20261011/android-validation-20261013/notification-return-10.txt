@@ -1,0 +1,136 @@
+null | null | null | android.widget.FrameLayout
+com.android.systemui:id/scrim_behind | null | null | android.view.View
+com.android.systemui:id/blur | null | null | android.widget.ImageView
+com.android.systemui:id/scrim_in_front | null | null | android.view.View
+com.android.systemui:id/panel_view_pager | null | null | android.widget.FrameLayout
+com.android.systemui:id/notification_panel | null | null | android.widget.FrameLayout
+com.android.systemui:id/notification_container_parent | null | null | android.widget.FrameLayout
+com.android.systemui:id/colume_container | null | null | android.widget.FrameLayout
+com.android.systemui:id/qs_frame | null | null | android.widget.FrameLayout
+com.android.systemui:id/quick_settings_container | null | null | android.widget.FrameLayout
+com.android.systemui:id/header | null | null | android.widget.RelativeLayout
+com.android.systemui:id/notch_status_bar_container | null | null | android.widget.FrameLayout
+com.android.systemui:id/notch_status_bar_header | null | null | android.widget.LinearLayout
+com.android.systemui:id/status_bar_contents | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar_start | null | null | android.widget.LinearLayout
+com.android.systemui:id/operator_name_container | null | null | android.widget.LinearLayout
+com.android.systemui:id/msim_status_bar_operators_card_one_id | null | null | android.widget.LinearLayout
+com.android.systemui:id/operator_name | 仅限紧急呼叫 | null | android.widget.TextView
+com.android.systemui:id/operator_cust_container | null | null | android.widget.FrameLayout
+com.android.systemui:id/capsule_root | null | null | android.widget.FrameLayout
+null | null | null | android.widget.FrameLayout
+com.android.systemui:id/notification_icon_area | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar_end | null | null | android.widget.LinearLayout
+null | null | 开启护眼模式 | android.widget.ImageView
+null | null | 蓝牙开启。 | android.widget.ImageView
+com.android.systemui:id/signal_cluster_container | null | null | android.widget.FrameLayout
+com.android.systemui:id/signal_cluster | null | null | android.widget.LinearLayout
+com.android.systemui:id/signal_cluster_container | null | null | android.widget.LinearLayout
+com.android.systemui:id/wifi_combo | null | WLAN 信号强度满格。 | android.widget.FrameLayout
+com.android.systemui:id/wifi_signal | null | null | android.widget.ImageView
+com.android.systemui:id/wifi_signal_dark | null | null | android.widget.ImageView
+com.android.systemui:id/wifi_inout | null | null | android.widget.ImageView
+null | null | null | android.widget.FrameLayout
+com.android.systemui:id/mobile_combo | null | null | android.widget.LinearLayout
+null | null | 4G 没有手机信号。 | android.widget.LinearLayout
+com.android.systemui:id/mobile_group | null | null | android.widget.FrameLayout
+com.android.systemui:id/mobile_data | null | null | android.widget.FrameLayout
+null | null | null | android.widget.FrameLayout
+com.android.systemui:id/mobile_type_slave | null | null | android.widget.ImageView
+com.android.systemui:id/mobile_signal_slave | null | null | android.widget.ImageView
+com.android.systemui:id/mobile_signal | null | null | android.widget.ImageView
+com.android.systemui:id/mobile_signal_group | null | null | android.widget.LinearLayout
+com.android.systemui:id/battery | null | null | android.widget.LinearLayout
+com.android.systemui:id/battery_inside | null | null | android.widget.FrameLayout
+com.android.systemui:id/battery_border | null | 正在充电，已完成百分之76。 | android.widget.ImageView
+com.android.systemui:id/battery_inside_percent | 76 | null | android.widget.TextView
+null | null | null | android.widget.FrameLayout
+com.android.systemui:id/battery_outside_charge | null | null | android.widget.ImageView
+com.android.systemui:id/header_no_statusbar | null | null | android.widget.RelativeLayout
+com.android.systemui:id/data_traffic_container | null | null | android.widget.RelativeLayout
+com.android.systemui:id/header_time | null | null | android.widget.LinearLayout
+com.android.systemui:id/header_clock | 3:15 | null | android.widget.TextView
+com.android.systemui:id/header_date | 10月13日星期二 | null | android.widget.TextView
+com.android.systemui:id/notification_manager | null | 通知管理 | android.widget.ImageView
+null | null | null | android.widget.FrameLayout
+com.android.systemui:id/notification_stack_scroller | null | null | android.widget.ScrollView
+com.android.systemui:id/status_bar_notification_row_layout | null | null | android.widget.FrameLayout
+com.android.systemui:id/veto | null | null | android.widget.Button
+com.android.systemui:id/backgroundNormal | null | null | android.view.View
+com.android.systemui:id/expanded | null | null | android.widget.FrameLayout
+com.android.systemui:id/row_ntf_base | null | null | android.widget.RelativeLayout
+com.android.systemui:id/divider_title | null | null | android.view.View
+com.android.systemui:id/iv_ntf_left_icon | null | null | android.widget.ImageView
+com.android.systemui:id/tv_ntf_title | Codex 任务进行中 | null | android.widget.TextView
+com.android.systemui:id/btn_expand_touch_area | null | null | android.view.View
+com.android.systemui:id/tv_ntf_time | 刚刚 | null | android.widget.TextView
+com.android.systemui:id/tv_ntf_content | Codex 正在执行任务… | null | android.widget.TextView
+com.android.systemui:id/divider_content | null | null | android.view.View
+com.android.systemui:id/fake_shadow | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar_notification_row_layout | null | null | android.widget.FrameLayout
+com.android.systemui:id/veto | null | null | android.widget.Button
+com.android.systemui:id/backgroundNormal | null | null | android.view.View
+com.android.systemui:id/expanded | null | null | android.widget.FrameLayout
+com.android.systemui:id/row_ntf_base | null | null | android.widget.RelativeLayout
+com.android.systemui:id/divider_title | null | null | android.view.View
+com.android.systemui:id/iv_ntf_left_icon | null | null | android.widget.ImageView
+com.android.systemui:id/tv_ntf_title | Codex 额度 | null | android.widget.TextView
+com.android.systemui:id/tv_ntf_time | 刚刚 | null | android.widget.TextView
+com.android.systemui:id/tv_ntf_content | 一周 73% 剩余 · 重置 10/18 11:59 | null | android.widget.TextView
+com.android.systemui:id/divider_content | null | null | android.view.View
+com.android.systemui:id/btn_expand_touch_area | null | null | android.view.View
+com.android.systemui:id/fake_shadow | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar_notification_row_layout | null | null | android.widget.FrameLayout
+com.android.systemui:id/veto | null | null | android.widget.Button
+com.android.systemui:id/expandedPublic | null | null | android.widget.FrameLayout
+com.android.systemui:id/backgroundNormal | null | null | android.view.View
+com.android.systemui:id/expanded | null | null | android.widget.FrameLayout
+com.android.systemui:id/row_ntf_base | null | null | android.widget.RelativeLayout
+com.android.systemui:id/divider_title | null | null | android.view.View
+com.android.systemui:id/iv_ntf_left_icon | null | null | android.widget.ImageView
+com.android.systemui:id/tv_ntf_title | 已连接 USB 调试 | null | android.widget.TextView
+com.android.systemui:id/tv_ntf_time | 19 分钟前 | null | android.widget.TextView
+com.android.systemui:id/tv_ntf_content | 点击可停用 USB 调试 | null | android.widget.TextView
+com.android.systemui:id/divider_content | null | null | android.view.View
+com.android.systemui:id/btn_expand_touch_area | null | null | android.view.View
+com.android.systemui:id/fake_shadow | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar_notification_row_layout | null | null | android.widget.FrameLayout
+com.android.systemui:id/veto | null | null | android.widget.Button
+com.android.systemui:id/backgroundNormal | null | null | android.view.View
+com.android.systemui:id/expanded | null | null | android.widget.FrameLayout
+com.android.systemui:id/row_ntf_base | null | null | android.widget.RelativeLayout
+com.android.systemui:id/divider_title | null | null | android.view.View
+com.android.systemui:id/iv_ntf_left_icon | null | null | android.widget.ImageView
+com.android.systemui:id/tv_ntf_title | 正在通过 USB 充电 | null | android.widget.TextView
+com.android.systemui:id/tv_ntf_time | 1 小时前 | null | android.widget.TextView
+com.android.systemui:id/tv_ntf_content | 点击查看更多选项 | null | android.widget.TextView
+com.android.systemui:id/divider_content | null | null | android.view.View
+com.android.systemui:id/btn_expand_touch_area | null | null | android.view.View
+com.android.systemui:id/fake_shadow | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar_notification_row_layout | null | null | android.widget.FrameLayout
+com.android.systemui:id/veto | null | null | android.widget.Button
+com.android.systemui:id/backgroundNormal | null | null | android.view.View
+com.android.systemui:id/expanded | null | null | android.widget.FrameLayout
+com.android.systemui:id/row_ntf_base | null | null | android.widget.RelativeLayout
+com.android.systemui:id/divider_title | null | null | android.view.View
+com.android.systemui:id/iv_ntf_left_icon | null | null | android.widget.ImageView
+com.android.systemui:id/tv_ntf_title | 已安装证书授权中心 | null | android.widget.TextView
+com.android.systemui:id/tv_ntf_time | 4 天前 | null | android.widget.TextView
+com.android.systemui:id/tv_ntf_content | 受到不明第三方的监控 | null | android.widget.TextView
+com.android.systemui:id/divider_content | null | null | android.view.View
+com.android.systemui:id/btn_expand_touch_area | null | null | android.view.View
+com.android.systemui:id/fake_shadow | null | null | android.widget.FrameLayout
+null | null | null | android.widget.FrameLayout
+com.android.systemui:id/fake_shadow | null | null | android.widget.FrameLayout
+com.android.systemui:id/content | null | null | android.widget.FrameLayout
+com.android.systemui:id/notification_manager_btn | null | null | android.widget.Button
+com.android.systemui:id/delete | null | 清除所有通知 | android.widget.ImageView
+com.android.systemui:id/overlay_status_bar | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar_container | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar_contents | null | null | android.widget.FrameLayout
+com.android.systemui:id/status_bar_start | null | null | android.widget.LinearLayout
+com.android.systemui:id/notification_icon_area | null | null | android.widget.FrameLayout
+com.android.systemui:id/notification_icon_area_inner | null | null | android.widget.LinearLayout
+com.android.systemui:id/notificationIcons | null | null | android.widget.FrameLayout
+null | null | TermLink通知：Codex 任务进行中 | android.widget.ImageView

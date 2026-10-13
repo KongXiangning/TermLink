@@ -1,0 +1,9 @@
+{
+  "stayOn": "0",
+  "authenticatedStatus": 200,
+  "downloadSha256": "65151B17A393341D10C9D00CFBDDC864F57CA54C4F2259BD1F41C67E926B22F7",
+  "unauthenticatedStatus": 401,
+  "locale": "zh-Hans-CN",
+  "fixtureSha256": "65151B17A393341D10C9D00CFBDDC864F57CA54C4F2259BD1F41C67E926B22F7",
+  "expiredProbeAbsent": true
+}

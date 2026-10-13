@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:02:40.038Z",
+  "payload_sha256": "d4699bac303310f7af200b117627a989c04c27494643882fe35e36e5f60828ac",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-r-s1-001-20261013-node-green",
+    "request": {
+      "step_id": "S1",
+      "result": "passed",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/node-ipc-tests.txt"
+      ],
+      "summary": "139 tests, 0 failed/skipped；本批Node源未修改。",
+      "action": "test",
+      "idempotency_key": "task20260868-s1-r-s1-001-20261013-node-green",
+      "selector": "repair Owner and IPC regression",
+      "execution_ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/node-ipc-tests.txt"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-df25232f0d071aa0b363c9f30ba6196b300807ddd69e4f3d39b49ddb43bab3cc.json"
+      ],
+      "data": {
+        "step_id": "S1",
+        "result": "passed",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898",
+        "command": "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/node-ipc-tests.txt"
+        ],
+        "summary": "139 tests, 0 failed/skipped；本批Node源未修改。",
+        "selector": "repair Owner and IPC regression",
+        "execution_ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      }
+    }
+  },
+  "issues": []
+}

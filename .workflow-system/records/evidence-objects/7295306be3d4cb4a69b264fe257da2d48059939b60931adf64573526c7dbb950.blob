@@ -1,0 +1,35 @@
+INSTRUMENTATION_STATUS: class=com.termlink.app.LiveAcceptanceDriverTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+com.termlink.app.LiveAcceptanceDriverTest:
+INSTRUMENTATION_STATUS: test=executeObservedUiSteps
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.termlink.app.LiveAcceptanceDriverTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stack=java.lang.IllegalStateException: setText rejected
+	at com.termlink.app.LiveAcceptanceDriverTest.executeObservedUiSteps(LiveAcceptanceDriverTest.kt:36)
+
+INSTRUMENTATION_STATUS: stream=
+Error in executeObservedUiSteps(com.termlink.app.LiveAcceptanceDriverTest):
+java.lang.IllegalStateException: setText rejected
+	at com.termlink.app.LiveAcceptanceDriverTest.executeObservedUiSteps(LiveAcceptanceDriverTest.kt:36)
+
+INSTRUMENTATION_STATUS: test=executeObservedUiSteps
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: stream=
+
+Time: 21.091
+There was 1 failure:
+1) executeObservedUiSteps(com.termlink.app.LiveAcceptanceDriverTest)
+java.lang.IllegalStateException: setText rejected
+	at com.termlink.app.LiveAcceptanceDriverTest.executeObservedUiSteps(LiveAcceptanceDriverTest.kt:36)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1
+
+
+INSTRUMENTATION_CODE: -1

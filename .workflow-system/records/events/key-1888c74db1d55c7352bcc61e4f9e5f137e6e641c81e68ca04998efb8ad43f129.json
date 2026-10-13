@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:46:29.294Z",
+  "payload_sha256": "300389b4a59717bd768843d280d6c1d8932f05e7b86831a23310184b98a3dbc5",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s2-20261013-baseline-10",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "step_id": "S2",
+      "selector": "tests/clientRegistrations.test.js; tests/routes.sessions.metadata.test.js; tests/terminalGateway.sessionid.test.js",
+      "action": "test",
+      "summary": "46 tests36 pass10 fail; remaining fixture assertions plus unknown;0 cancel/skip",
+      "command": "node --test --test-force-exit --test-reporter=tap three selectors",
+      "idempotency_key": "task20260868-s2-20261013-baseline-10",
+      "result": "failed",
+      "cwd": "OS temporary isolation, exact path in execution run-environment attachment",
+      "source_revision": "before manager and first repaired WS fixture; original HTTP fixture",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-repaired-tests.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-repaired-terminalGateway.sessionid.test.js"
+      ],
+      "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-repaired-tests.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-repaired-terminalGateway.sessionid.test.js"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-fd1f26ab10e8c062eb90a3c8f3a1d12199172dd50befbbeaa0a69d622eab16e3.json"
+      ],
+      "data": {
+        "step_id": "S2",
+        "selector": "tests/clientRegistrations.test.js; tests/routes.sessions.metadata.test.js; tests/terminalGateway.sessionid.test.js",
+        "summary": "46 tests36 pass10 fail; remaining fixture assertions plus unknown;0 cancel/skip",
+        "command": "node --test --test-force-exit --test-reporter=tap three selectors",
+        "result": "failed",
+        "cwd": "OS temporary isolation, exact path in execution run-environment attachment",
+        "source_revision": "before manager and first repaired WS fixture; original HTTP fixture",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s2/baseline-repaired-tests.txt",
+          "docs/product/history/maintenance-20261011/task20260868-s2/baseline-repaired-terminalGateway.sessionid.test.js"
+        ],
+        "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,26 @@
+{
+  "childPid": 56436,
+  "validServerCertificateVerified": true,
+  "httpStatus": 200,
+  "body": {
+    "status": "ok",
+    "uptimeSec": 0,
+    "version": "1.0.0",
+    "now": "2026-10-13T02:13:32.549Z",
+    "privilegeMode": "standard",
+    "tls": true,
+    "mtls": false,
+    "listenerTls": true,
+    "listenerMtls": false,
+    "clientCertPolicy": "none",
+    "requestSecurity": {
+      "transport": "https",
+      "tls": true,
+      "clientCertPolicy": "none",
+      "clientCertPresented": false,
+      "clientCertAuthorized": false,
+      "clientCertError": null
+    }
+  },
+  "ordinaryPermission": true
+}

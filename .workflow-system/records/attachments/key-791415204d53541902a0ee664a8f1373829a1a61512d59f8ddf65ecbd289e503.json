@@ -1,0 +1,39 @@
+{
+  "event_ref": ".workflow-system/records/events/key-791415204d53541902a0ee664a8f1373829a1a61512d59f8ddf65ecbd289e503.json",
+  "captured_at": "2026-10-13T04:24:46.550Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a716d67de117cc488db0251908ef27676716b8465a6c478772663296ea19d25a.blob",
+      "sha256": "a716d67de117cc488db0251908ef27676716b8465a6c478772663296ea19d25a",
+      "size": 5716,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/baseline-tests.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/66d2ceac1c5175f4b8389439e41f4a92ec7baac8f819c596d2d24604b46d592c.blob",
+      "sha256": "66d2ceac1c5175f4b8389439e41f4a92ec7baac8f819c596d2d24604b46d592c",
+      "size": 15961,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/baseline-tests.xml",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/44ae5ccb74784e67bb4fea47d3c223746a8d3cd0529368f98b1905e0d6df048f.blob",
+      "sha256": "44ae5ccb74784e67bb4fea47d3c223746a8d3cd0529368f98b1905e0d6df048f",
+      "size": 14416,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/baseline-test-source.kt",
+      "issues": []
+    }
+  ]
+}

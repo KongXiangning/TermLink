@@ -1,0 +1,291 @@
+{
+  "rows": [
+    {
+      "number": "01",
+      "title": "文档与需求流程",
+      "target": "REQ-20260222-doc-governance",
+      "verdict": "unknown",
+      "conclusion": "undetermined",
+      "detail": "隔离项目完成需求登记、计划采用、实际实施、真实提交的active CR、S1计划/CR/收尾覆盖、唯一活动任务及关闭；10条导航路径抽查均存在。原REQ/CR已读取，原CR仍有待回填的验证栏，docs/README未直接登记当前PROJECT入口。",
+      "remaining": "原验收资料中的待回填结果不能补造；全库导航可达性、所有主题唯一active及旧跳转完整性尚未证实。抽查与隔离演练通过不能替代这些范围。",
+      "evidence": [
+        "workflow-drill-result.json",
+        "workflow-drill.log",
+        "document-navigation-audit.json"
+      ],
+      "coverage": "原资料核对、10条路径抽查及隔离REQ/PLAN/CR/实际提交/关闭流程演练；原全库导航和主题唯一性保留待核对。"
+    },
+    {
+      "number": "03",
+      "title": "长时保留与断联续接",
+      "target": "REQ-20260222-session-retention-reconnect",
+      "verdict": "pass",
+      "conclusion": "satisfied",
+      "detail": "真实PowerShell进程在客户端断开后继续执行；原sessionId接回获得断开期间输出、同PID与变量。真实SessionManager的TTL边界、定时清理、活跃保留和容量回收5/5通过。",
+      "remaining": "TTL边界以受控时钟/lastActive条件验证，清理计时器及PTY均真实；未做默认6/24小时墙钟浸泡、全部平台和进程重启后PTY连续性验证。",
+      "evidence": [
+        "live-terminal-result.json",
+        "retention-completed.tap",
+        "retention.test.cjs",
+        "browser-resume.png"
+      ],
+      "coverage": "真实PTY的断联继续运行、同ID/同PID/上下文续接，以及真实会话管理器的可配置TTL和容量边界；不包含6/24小时墙钟浸泡。"
+    },
+    {
+      "number": "11",
+      "title": "Android mTLS证书选择",
+      "target": "REQ-20260326-android-profile-mtls-runtime-certificate",
+      "verdict": "unknown",
+      "conclusion": "undetermined",
+      "detail": "真机系统选择器导入.p12到专用Profile并保存；实际External Web打开受保护HTTPS页面；主动移除证书后该Profile mTLS关闭。独立真机测试验证错误口令失败、正确凭据加载、原生HTTPS 200、WebView客户端证书请求及专用凭据/缓存清理。",
+      "remaining": "专用Profile选择和HTTP/WebView已通过；TermLink按IP:port直连API与WSS联合认证、证书替换、遗留待补齐Profile和全模式组合仍未完成，因此不判整项通过。",
+      "evidence": [
+        "mtls-native-webview.log",
+        "V17ScopedMtlsValidationTest.kt",
+        "mtls-service-probe.json",
+        "phone-mtls-import-touch-16.txt",
+        "phone-mtls-web-8.txt",
+        "phone-mtls-web.png",
+        "phone-mtls-remove-6.txt"
+      ],
+      "coverage": "真机Profile证书导入/保存/移除，真实mTLS服务的原生HTTPS与External WebView握手；直接TermLink API/WSS及其余原验收组合保留待核对。"
+    },
+    {
+      "number": "16",
+      "title": "手机与桌面实时同步",
+      "target": "REQ-20260516-codex-mobile-realtime-sync",
+      "verdict": "unknown",
+      "conclusion": "undetermined",
+      "detail": "真实Codex宿主接受手机follower消息，工作区文件上下文及最终答复可在Web端看到；gateway两次定向订阅同conversation均得到包含本轮消息的conversation_surface_snapshot。沿用当前代码49/49 IPC边界测试作为静态/自动化补证。",
+      "remaining": "尚未实际操作Desktop/VSCode原生owner窗口完成双向变化、A/B切换、控制权接管与两端最终记录逐条核对。浏览器同步不能替代桌面原生联合验收；浏览器发送观察另保留待核对。没有改变IPC权威架构。 浏览器输入内容经UI确认并发送后未出现在目标记录，页面持续显示“开始发送”；该现象已保留，尚未完成服务端发送结果核对，不算双向通过。",
+      "evidence": [
+        "file-send-diagnostic.json",
+        "phone-mention-context-11.txt",
+        "browser-sync-final.txt",
+        "ipc-reconnect-summary.json",
+        "ipc-boundary-tests.tap"
+      ],
+      "coverage": "真实宿主手机follower发送、Web观察、同conversation的gateway定向订阅及断开重放；Desktop/VSCode owner操作、接管与最终记录一致性保留待核对。"
+    },
+    {
+      "number": "17",
+      "title": "Linux安装器",
+      "target": "REQ-20260715-linux-interactive-release-installer",
+      "verdict": "unknown",
+      "conclusion": "undetermined",
+      "detail": "当前WSL Debian/Ubuntu为x86_64，systemd可运行；安装器配置/证书工具的已有测试通过。实际Linux发行构建尝试因缺少Linux Rust analyzer产物而停止。",
+      "remaining": "没有arm64、实际Release包及已配置Nginx的专用部署环境；不能把配置测试或WSL存在推定为实际安装发行通过。用户已说明没有专用环境。",
+      "evidence": [
+        "linux-package-build.log",
+        "focused-settled.tap",
+        "environment.json"
+      ],
+      "coverage": "当前安装器/发行配置自动化证据、WSL能力检查与实际Linux发行构建尝试；实际systemd/Nginx部署、arm64和Release安装尚未验证。"
+    },
+    {
+      "number": "20",
+      "title": "远程终端核心基线",
+      "target": "REQ-TERMLINK-CORE-TERMINAL",
+      "verdict": "fail",
+      "conclusion": "partially-satisfied",
+      "detail": "浏览器真实终端输入输出、刷新后同PID/变量以及服务端续接通过；Android真实终端连接、创建/管理可用，但合法Write-Output首次输入被前缀[?1;2c污染，PowerShell产生ParserError。",
+      "remaining": "Android首次输入缺陷阻止核心基线通过；其他shell、Android尺寸/网络恢复及全端组合未完整覆盖。",
+      "evidence": [
+        "browser-input.png",
+        "browser-resume.png",
+        "phone-stable-io.png",
+        "phone-stable-io.log",
+        "phone-delete-resource-result.json",
+        "live-terminal-result.json"
+      ],
+      "coverage": "浏览器和Android真实PowerShell输入输出、会话管理与服务端断联续接；以首次有效命令输入作为必要行为。"
+    },
+    {
+      "number": "22",
+      "title": "Web交互体验",
+      "target": "REQ-TERMLINK-WEB-UX",
+      "verdict": "fail",
+      "conclusion": "partially-satisfied",
+      "detail": "真实Edge完成会话创建、切换、终端输入焦点与刷新续接；可进入Codex会话且PATH/config来自实际宿主。Codex头部Docs按钮打开/docs/workflow/STATUS.md，返回Cannot GET。",
+      "remaining": "该Docs入口失败；窄屏虽已观察，不作为物理触控通过证据；全部触控/无障碍/状态反馈矩阵仍未完整覆盖。浏览器自动化输入或阻止/api/health导航的环境问题不另算产品失败。",
+      "evidence": [
+        "browser-input.png",
+        "browser-resume.png",
+        "browser-sync-final.txt",
+        "browser-docs-entry-error.png"
+      ],
+      "coverage": "真实浏览器会话创建/切换、Codex浏览入口、Docs按钮、终端焦点输入及响应式观察；物理触控与完整无障碍组合保留待核对。"
+    },
+    {
+      "number": "30",
+      "title": "服务端终端与会话",
+      "target": "REQ-TERMLINK-SERVER-SESSIONS",
+      "verdict": "pass",
+      "conclusion": "satisfied",
+      "detail": "真实HTTP/WS服务确认同sessionId断联保留、同PID/上下文续接、断开期间输出快照、97x29 resize、双客户端连接计数、失效ID关闭4404、改名删除和PTY释放。真实SessionManager TTL/容量5项通过。",
+      "remaining": "已有聚焦测试82项中74通过、8失败；8项位于gateway旧夹具（新增帧数量断言及缺失sessions Map的teardown），真实服务另有通过证据，不能宣称82/82或全部gateway回归通过。其他平台/全部协议矩阵未覆盖。",
+      "evidence": [
+        "live-terminal-result.json",
+        "live-terminal-frames.json",
+        "retention-completed.tap",
+        "focused-settled.tap"
+      ],
+      "coverage": "当前真实HTTP/WS服务的PTY保留、续接、删除释放，以及真实管理器的TTL/清理/容量边界；不是全协议/全平台验收。"
+    },
+    {
+      "number": "37",
+      "title": "启动安全门禁",
+      "target": "REQ-TERMLINK-STARTUP-SAFETY",
+      "verdict": "unknown",
+      "conclusion": "undetermined",
+      "detail": "当前Windows普通权限实际启动探针：elevated拒绝PROCESS_PRIVILEGE_REQUIRED；有效PEM在elevated路径仍正确拒绝普通权限；不可读证书拒绝启动，非法PEM进程退出且未监听。有效证书在standard模式启动真实HTTPS，客户端校验证书后health 200。",
+      "remaining": "无管理员正向启动环境；管理员安全配置、真实mTLS elevated联合门禁及审计完整路径未验证。不以注入hasRequiredPrivileges=true的单测替代管理员实测。",
+      "evidence": [
+        "runtime-gates-result.json",
+        "gate-ordinary-elevated.log",
+        "gate-valid-cert-elevated.log",
+        "gate-unreadable-cert.log",
+        "gate-invalid-pem.log",
+        "valid-tls-start-result.json",
+        "focused-settled.tap"
+      ],
+      "coverage": "Windows普通权限进程的真实启动拒绝、有效/不可读/非法证书及standard HTTPS正向启动；管理员正向环境保留待核对。"
+    },
+    {
+      "number": "41",
+      "title": "同会话续接",
+      "target": "REQ-TERMLINK-SESSION-CONTINUITY",
+      "verdict": "pass",
+      "conclusion": "satisfied",
+      "detail": "显式断开客户端后确认activeConnections=0且PTY仍存在；新客户端接回同sessionId、PID与变量，收到断开后任务输出。浏览器刷新同PID33120/变量V17-CONTEXT另有实测。",
+      "remaining": "客户端断联续接通过；不承诺服务端进程重启后同一PTY，不扩为所有设备网络组合。",
+      "evidence": [
+        "live-terminal-result.json",
+        "live-terminal-frames.json",
+        "browser-resume.png"
+      ],
+      "coverage": "真实PTY断开后存活、同ID原/新客户端接回及浏览器刷新复用；不包含服务端重启后PTY连续。"
+    },
+    {
+      "number": "42",
+      "title": "会话闲置保留",
+      "target": "REQ-TERMLINK-SESSION-TTL",
+      "verdict": "pass",
+      "conclusion": "satisfied",
+      "detail": "真实SessionManager/真实PTY验证TTL恰好60,000ms保留、+1ms回收并释放进程；真实1秒清理计时器自动回收；活跃连接不因闲置TTL被删除。",
+      "remaining": "边界采用受控时钟和显式lastActive条件，计时器/管理器/PTY真实；不是长时间墙钟浸泡，默认值和多平台全组合不由此认证。",
+      "evidence": [
+        "retention.test.cjs",
+        "retention-completed.tap"
+      ],
+      "coverage": "真实SessionManager到期边界、实际定时清理和活跃排除，使用真实PTY及可配置最短TTL。"
+    },
+    {
+      "number": "43",
+      "title": "会话容量回收",
+      "target": "REQ-TERMLINK-SESSION-CAPACITY",
+      "verdict": "pass",
+      "conclusion": "satisfied",
+      "detail": "真实SessionManager满容量时回收最久未使用的idle会话并杀死PTY，保留active和较新idle；全为active时拒绝SESSION_CAPACITY_EXCEEDED且不杀活动进程。",
+      "remaining": "覆盖容量3边界和当前实现；不扩为默认容量100压力浸泡或全部并发竞争。5项测试另有MaxListenersExceededWarning，保留原输出。",
+      "evidence": [
+        "retention.test.cjs",
+        "retention-completed.tap"
+      ],
+      "coverage": "真实管理器满容量LRU闲置回收、PTY释放与全active拒绝；不包含大规模压力和全并发矩阵。"
+    },
+    {
+      "number": "53",
+      "title": "Codex文件提及",
+      "target": "REQ-TERMLINK-CODEX-FILES",
+      "verdict": "unknown",
+      "conclusion": "undetermined",
+      "detail": "实际工作区API筛选proof.txt返回cwd内docs/proof.txt，仓库外层package.json未出现在当前cwd结果；真机选择后保留@token并发送，follower诊断fileMentionCount=1，宿主按供应的绝对路径读取且答复首行，Web端显示文件上下文。",
+      "remaining": "实际筛选/选择/IPC发送已通过；受控异步切换、延迟响应与旧generation隔离、全部移除/消费组合仍缺充分证据，不能判原请求全部通过。首次脚本替换整个composer导致token被清除的结果已排除。",
+      "evidence": [
+        "file-api-result.json",
+        "file-send-diagnostic.json",
+        "phone-mention-context-7.txt",
+        "phone-mention-context-11.txt",
+        "phone-mention-context.png",
+        "browser-sync-final.txt"
+      ],
+      "coverage": "当前cwd过滤、Android文件上下文选择及实际follower IPC发送/宿主读取；受控异步切换和迟到响应保留待核对。"
+    },
+    {
+      "number": "62",
+      "title": "终端输入输出与尺寸",
+      "target": "REQ-TERMLINK-TERMINAL-IO",
+      "verdict": "fail",
+      "conclusion": "partially-satisfied",
+      "detail": "真实服务端97x29 resize回读及浏览器265x45终端显示通过；Android实际连接渲染，但正确Write-Output首次输入被设备应答[?1;2c污染并产生ParserError。",
+      "remaining": "输入失败阻止通过；Android横竖屏/IME引起的全部尺寸变化未验证，不以服务端resize通过替代真机尺寸行为。",
+      "evidence": [
+        "live-terminal-result.json",
+        "browser-input.png",
+        "phone-stable-io.png",
+        "phone-stable-io.log"
+      ],
+      "coverage": "浏览器和Android的真实终端显示与命令输入，服务端实际resize回读；Android全尺寸变化组合保留待核对。"
+    },
+    {
+      "number": "63",
+      "title": "会话基本管理",
+      "target": "REQ-TERMLINK-SESSION-MANAGEMENT",
+      "verdict": "pass",
+      "conclusion": "satisfied",
+      "detail": "真机创建V17-Phone-Terminal，能从列表选择；改名V17-Phone-Renamed后服务端同ID记录保留；真机确认删除后列表和服务端均消失，真实PowerShell PID54996释放。",
+      "remaining": "仅操作本轮专用终端测试会话，既有用户会话保持；全部离线缓存、跨注册边界与并发操作不由此认证。",
+      "evidence": [
+        "phone-create-10.txt",
+        "phone-rename-6.txt",
+        "phone-delete-confirm.log",
+        "phone-delete-resource-result.json"
+      ],
+      "coverage": "Android真实服务端终端会话创建/列表选择/改名/删除与PTY释放；范围限定本轮专用会话。"
+    }
+  ],
+  "deferred": [
+    {
+      "number": "21",
+      "target": "REQ-TERMLINK-RELEASE-BASELINE",
+      "title": "跨平台发行基线"
+    },
+    {
+      "number": "32",
+      "target": "REQ-TERMLINK-SERVER-RELEASE",
+      "title": "服务端安装发行"
+    }
+  ],
+  "counts": {
+    "pass": 6,
+    "fail": 3,
+    "unknown": 6,
+    "deferred": 2
+  },
+  "environment": {
+    "testedDate": "2026-10-13",
+    "commit": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+    "apkSha256": "F148028B15FA3A8DFFE63CA483BCDA5A1CE9764BBDE817E68A357598D25DFD6A",
+    "phone": {
+      "serial": "MQS7N19402011743",
+      "model": "VOG-AL00",
+      "android": "10"
+    },
+    "browser": "Edge真实浏览器",
+    "windowsAdmin": false,
+    "linux": {
+      "debianArchitecture": "x86_64",
+      "debianInit": "systemd",
+      "ubuntuArchitecture": "x86_64"
+    },
+    "unavailable": [
+      "arm64 Linux专用环境",
+      "clean Windows x64 without Node/npm",
+      "Windows administrator validation environment",
+      "actual Linux release with analyzer and Nginx"
+    ],
+    "productionChanges": "",
+    "limitations": "真机与真实宿主服务可访问；Desktop/VSCode原生窗口未被实际操作完成联合接管矩阵。21/32按用户明确要求暂缓，不创建新assessment。"
+  }
+}

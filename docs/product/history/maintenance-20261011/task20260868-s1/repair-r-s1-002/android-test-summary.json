@@ -1,0 +1,44 @@
+[
+  {
+    "class": "com.termlink.app.codex.CodexViewModelConnectionFailureTest",
+    "tests": 18,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "class": "com.termlink.app.codex.CodexViewModelFastModeTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "class": "com.termlink.app.codex.CodexViewModelHydrateFollowTest",
+    "tests": 31,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "class": "com.termlink.app.codex.CodexViewModelThreadReadyTest",
+    "tests": 169,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "class": "com.termlink.app.codex.data.CodexHistoryWireTest",
+    "tests": 34,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "class": "com.termlink.app.codex.data.CodexIpcWireModelTest",
+    "tests": 34,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+]

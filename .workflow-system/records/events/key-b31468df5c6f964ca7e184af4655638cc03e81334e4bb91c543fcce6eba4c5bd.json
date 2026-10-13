@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T07:15:08.295Z",
+  "payload_sha256": "c9f6be5170bef8dd212f8a17e7f99e66673f91222e7769962f43543cb27e863c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s3-finished-20261013",
+    "request": {
+      "review_ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+      "decision_ref": ".workflow-system/records/events/key-12e88aa7e46b9d93b62c4b281ed02331c72fecb3785543939130eace9b36d347.json",
+      "decision_source": "current user execute-step finish invocation, 2026-10-13",
+      "action": "step",
+      "idempotency_key": "task20260868-s3-finished-20261013",
+      "evidence_refs": [
+        {
+          "role": "fixed-reviewed-S3-subject-and-validation",
+          "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+          "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json"
+        },
+        {
+          "role": "fixed-reviewed-S3-subject-and-validation",
+          "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+          "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json"
+        },
+        {
+          "role": "fixed-reviewed-S3-subject-and-validation",
+          "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+          "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+        },
+        {
+          "role": "fixed-reviewed-S3-subject-and-validation",
+          "sha256": "22a3cb52b00546536b27ae2f14168d9ef877a0e186524ecf9809c703cae147e2",
+          "ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json"
+        },
+        {
+          "role": "actual-user-finish-decision",
+          "sha256": "fd9a67c7cd70722ee4344040d3831e40f60982094eb8237934ac2d6e72d66dcf",
+          "ref": ".workflow-system/records/events/key-12e88aa7e46b9d93b62c4b281ed02331c72fecb3785543939130eace9b36d347.json"
+        }
+      ],
+      "remaining_work": [
+        "Task仍active，步骤处置不等于整REQ验收/发布通过；S3自审不是独立审查，closure另行授权。",
+        "受控IPC另关闭active-send门禁，经Goal入口触发同源提示；真实外部审批、直接IPC catalog自动改选、TLS/mTLS及完整认证/运行态矩阵未独立验证。",
+        "HTTP只观察id/name/activeConnectionCount，不从undefined registrationId或最终计数证明归属未变/瞬时零attach；A/B隔离限可见画面/当时可访问性树，非完整transcript/DB隔离认证。",
+        "旧三次UI失败、冻结配置失败版preload字节未单独保存、空白测试C no rollout found及撤销API tombstone保留。",
+        "旧CR managedID strict失败、父项inferred ownership/具体原子归属未定位及两条旧无关管理关联缺口保留；无Git提交，CR仍draft/TBD。"
+      ],
+      "decision_text": "finish",
+      "state": "finished",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+      "step_id": "S3",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "summary": "S3按用户finish完成步骤处置，clean自审对象/源码/接线/构建及保存审查字节仍一致；复用真实HTTP/WS23及最终三个真机用例，未重跑测试或改产品代码。S1/S2 finished不变，task尚未关闭。"
+    },
+    "evidence_refs": [
+      {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json"
+      },
+      {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+        "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json"
+      },
+      {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      },
+      {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "22a3cb52b00546536b27ae2f14168d9ef877a0e186524ecf9809c703cae147e2",
+        "ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json"
+      },
+      {
+        "role": "actual-user-finish-decision",
+        "sha256": "fd9a67c7cd70722ee4344040d3831e40f60982094eb8237934ac2d6e72d66dcf",
+        "ref": ".workflow-system/records/events/key-12e88aa7e46b9d93b62c4b281ed02331c72fecb3785543939130eace9b36d347.json"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "step",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-12e88aa7e46b9d93b62c4b281ed02331c72fecb3785543939130eace9b36d347.json"
+      ],
+      "data": {
+        "review_ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+        "decision_ref": ".workflow-system/records/events/key-12e88aa7e46b9d93b62c4b281ed02331c72fecb3785543939130eace9b36d347.json",
+        "decision_source": "current user execute-step finish invocation, 2026-10-13",
+        "evidence_refs": null,
+        "remaining_work": null,
+        "decision_text": "finish",
+        "state": "finished",
+        "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+        "step_id": "S3",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "summary": "S3按用户finish完成步骤处置，clean自审对象/源码/接线/构建及保存审查字节仍一致；复用真实HTTP/WS23及最终三个真机用例，未重跑测试或改产品代码。S1/S2 finished不变，task尚未关闭。"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "f6bd330703f83ee30326530e2e4b79ab7c900242d09c8bba6729d5669db6b559",
+        "references": [
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/remaining_work",
+            "request_pointer": "/remaining_work"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

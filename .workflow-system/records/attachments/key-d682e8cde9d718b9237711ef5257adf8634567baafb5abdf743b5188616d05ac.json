@@ -1,0 +1,111 @@
+{
+  "event_ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+  "captured_at": "2026-10-13T03:39:31.963Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b8983f981f7769d31de80942a97aeaa1f3e74c07e7824db5aa40d864e1086715.blob",
+      "sha256": "b8983f981f7769d31de80942a97aeaa1f3e74c07e7824db5aa40d864e1086715",
+      "size": 4762,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/report.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967.blob",
+      "sha256": "134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967",
+      "size": 1907,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/source-manifest.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f1c8477a8f69b3732082fefae566e2a3b525507d420f4fc06742e38da932ee0c.blob",
+      "sha256": "f1c8477a8f69b3732082fefae566e2a3b525507d420f4fc06742e38da932ee0c",
+      "size": 3965,
+      "source_path": "docs/changes/records/CR-20261013-1130-codex-recovered-connection-hints.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ea3dd11596bf80a438c84b644f90d47aefd27cadac84456f41b030448ef1b4c7.blob",
+      "sha256": "ea3dd11596bf80a438c84b644f90d47aefd27cadac84456f41b030448ef1b4c7",
+      "size": 697765,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/ff3a42f75cf346db68fce739474aed9ddc02cdc74696002d751ac78bea2d7e2c.blob",
+      "sha256": "ff3a42f75cf346db68fce739474aed9ddc02cdc74696002d751ac78bea2d7e2c",
+      "size": 13137,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9b415cb6c01ceace61924858113d684ba647c14a4cec8e2860905b7a9ab08147.blob",
+      "sha256": "9b415cb6c01ceace61924858113d684ba647c14a4cec8e2860905b7a9ab08147",
+      "size": 7483,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/31184d997b48afd87657cd44a4266caf10b00601298a5a1cda36ee321e8600b6.blob",
+      "sha256": "31184d997b48afd87657cd44a4266caf10b00601298a5a1cda36ee321e8600b6",
+      "size": 285815,
+      "source_path": "android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/2eccb20fccd7dcb43d314a358c2c2cd0e96b8c4cb2d51681d4d2e9cdc8aa9d4c.blob",
+      "sha256": "2eccb20fccd7dcb43d314a358c2c2cd0e96b8c4cb2d51681d4d2e9cdc8aa9d4c",
+      "size": 5413,
+      "source_path": "android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+      "size": 11674,
+      "request": {
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "role": "adopted-plan",
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

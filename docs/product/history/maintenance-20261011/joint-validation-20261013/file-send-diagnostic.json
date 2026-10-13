@@ -1,0 +1,32 @@
+[
+  {
+    "ts": "2026-10-13T02:13:09.981Z",
+    "elapsedMs": 13977,
+    "runId": "a3a16ea4-9650-4a12-b28b-f28f5421ed0b",
+    "seq": 102,
+    "level": "info",
+    "component": "codex",
+    "event": "android.codex.turn.send.requested",
+    "fields": {
+      "clientRequestKey": "b77ff4b80b8f9c30",
+      "conversationKey": "f796fa91c48263d0",
+      "threadKey": "f796fa91c48263d0",
+      "transportCandidate": "follower",
+      "ipcOnline": true,
+      "surfaceStatus": "completed",
+      "surfaceRevision": 32,
+      "attachmentCount": 0,
+      "attachmentTypes": "[]",
+      "fileMentionCount": 1,
+      "textLength": 196,
+      "intentKind": "message",
+      "planMode": false,
+      "modelPresent": true,
+      "reasoningPresent": true,
+      "effectiveApprovalPolicy": "on-request",
+      "effectiveSandboxMode": "workspace-write",
+      "usesConfigPermissions": false,
+      "overrideUsesConfigPermissions": false
+    }
+  }
+]

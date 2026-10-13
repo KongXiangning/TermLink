@@ -1,0 +1,58 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.FrameLayout
+com.termlink.app:id/action_bar_root | null | null | android.widget.LinearLayout
+android:id/content | null | null | android.widget.FrameLayout
+com.termlink.app:id/codex_root_drawer | null | null | androidx.drawerlayout.widget.DrawerLayout
+null | null | null | android.widget.FrameLayout
+com.termlink.app:id/codex_compose_container | null | null | androidx.compose.ui.platform.ComposeView
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | 会话 | android.view.View
+null | null | 会话 | android.view.View
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | Codex · 已连接 | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | 查看完整工作目录路径 | android.view.View
+null | PATH · | null | android.widget.TextView
+null | E:\…\workspace | null | android.widget.TextView
+null | › | null | android.widget.TextView
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | null | 任务历史 | android.view.View
+null | null | 任务历史 | android.view.View
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | null | 文档 | android.view.View
+null | null | 文档 | android.view.View
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | CODEX | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | null | android.view.View
+null |  | null | android.widget.EditText
+null | 问任何问题... | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | 打开添加菜单 | android.view.View
+null | + | null | android.widget.TextView
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | null | 打开斜杠命令 | android.view.View
+null | / | null | android.widget.TextView
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | null | 自定义 (config.toml) | android.view.View
+null | ◈ | null | android.widget.TextView
+null | 自定义 | null | android.widget.TextView
+null | null | null | android.widget.Button
+null | null | null | android.view.View
+null | 6.1 Sol 低 | null | android.widget.TextView
+null | ⌄ | null | android.widget.TextView
+null | null | null | android.view.View
+null | null | 发送 | android.view.View
+null | null | null | android.view.View
+null | ↑ | null | android.widget.TextView
+null | null | null | android.widget.Button

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T02:27:05.969Z",
+  "payload_sha256": "8355b8c226111f19484cec20b0434a5e4fa2f8614ad602063b149d340f7c7c31",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "test-run",
+    "idempotency_key": "joint-validation-20261013-final-15",
+    "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+    "body": {
+      "observer": "Codex self-test",
+      "result": "mixed",
+      "counts": {
+        "passWithinScope": 6,
+        "fail": 3,
+        "undetermined": 6,
+        "deferredByUser": 2
+      },
+      "passedNumbers": [
+        "03",
+        "30",
+        "41",
+        "42",
+        "43",
+        "63"
+      ],
+      "failedNumbers": [
+        "20",
+        "22",
+        "62"
+      ],
+      "undeterminedNumbers": [
+        "01",
+        "11",
+        "16",
+        "17",
+        "37",
+        "53"
+      ],
+      "mainRepositoryCommit": false,
+      "productCodeModified": false,
+      "newAssessmentsSavedAndSelectable": 15,
+      "previousAndroidAssessmentsBasisAlignedWithoutRejudgment": 20,
+      "oldRequirementsDefinitionsUnchanged": 17,
+      "maintenanceNewDiagnostics": 0,
+      "notFullProductOrReleaseCertification": true,
+      "report": "docs/product/assessments/JOINT-20261013.md",
+      "decisionRef": ".workflow-system/records/events/key-e60a0595881c96a4e2ee498277533895f9e1f1002377b3fd89552e8d341dc000.json"
+    },
+    "files": [
+      "docs/product/assessments/JOINT-20261013.md",
+      "docs/product/history/maintenance-20261011/joint-validation-20261013/验收报告.md",
+      "docs/product/history/maintenance-20261011/joint-validation-20261013/maintenance-verification.json",
+      "docs/product/history/maintenance-20261011/joint-validation-20261013/alignment-verification.json"
+    ]
+  },
+  "issues": []
+}

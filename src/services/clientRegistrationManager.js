@@ -31,8 +31,9 @@ class ClientRegistrationManager {
     }
 
     isActive(id) {
-        return typeof id === 'string' && id.trim().length > 0 &&
-            this.registrations.get(id.trim())?.revokedAt == null;
+        if (typeof id !== 'string' || id.trim().length === 0) return false;
+        const registration = this.registrations.get(id.trim());
+        return Boolean(registration) && registration.revokedAt == null;
     }
 
     get(id) {

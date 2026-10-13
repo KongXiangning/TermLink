@@ -1,0 +1,13 @@
+[
+ {"op":"launch","activity":"com.termlink.app.MainShellActivity"},
+ {"op":"shell","command":"am start -n com.termlink.app/.codex.CodexActivity --es codex_profile_id task005-s2-local --es codex_session_id ca6c2b30-1df6-4120-a21e-59b0f3846fd6 --es codex_session_mode codex --es codex_launch_source sessions"},
+ {"op":"assertText","text":"Codex · 已连接"},
+ {"op":"setComposer","text":"/goal S3-NO-SEND-CONTROL"},
+ {"op":"clickDesc","text":"发送"},
+ {"op":"assertText","text":"Codex 正在重连，请等待连接恢复后再重试。"},
+ {"op":"assertText","text":"Codex · 已连接"},
+ {"op":"wait","ms":20000},
+ {"op":"assertAbsent","text":"Codex 正在重连，请等待连接恢复后再重试。"},
+ {"op":"assertText","text":"Codex · 已连接"},
+ {"op":"snapshot"}
+]

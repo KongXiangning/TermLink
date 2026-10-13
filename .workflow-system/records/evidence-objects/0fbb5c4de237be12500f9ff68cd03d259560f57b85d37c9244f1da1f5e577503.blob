@@ -1,0 +1,806 @@
+✔ owner tracker keeps seeded external surface and appends owner turn surface (3.1993ms)
+✔ owner tracker leaves missing titles to Codex default naming and preserves real thread names (0.4491ms)
+✔ owner tracker restores required turn params when turn/start omits them (0.8201ms)
+✔ owner tracker preserves turn input when a later notification omits params (0.5186ms)
+✔ owner raw snapshot restores Desktop turn params from a real user item (0.5939ms)
+✔ owner Goal snapshot keeps the real Goal state without fabricating a user message (0.3877ms)
+✔ owner raw snapshot prunes only terminal Goal empty in-progress placeholders (0.323ms)
+✔ owner completed Goal projects its objective into the real terminal turn (0.4374ms)
+✔ owner tracker projects pending approval request and resolves it (0.52ms)
+✔ owner tracker consumes app-server turn notifications and message deltas (0.3957ms)
+✔ owner tracker keeps responded approval pending until owner progress arrives (0.3851ms)
+✔ owner tracker does not restore authoritative pending actions from the external seed (0.2058ms)
+✔ owner tracker projects active goal and keeps completed goal from reviving from seed (0.1979ms)
+✔ owner tracker releases only the requested conversation (0.1371ms)
+✔ owner tracker registers and clears follower client ids per conversation (0.2115ms)
+✔ owner tracker clears stale followers without releasing owner conversations (0.1254ms)
+✔ metadata-only history projection strips turns and inline media from the mobile response (19.8218ms)
+✔ metadata-only Android thread list strips turns and attachments (2.0697ms)
+✔ Android WebSocket envelopes are rejected before an oversized response is sent (2.8203ms)
+[gateway][ipc][snapshot-push] {"conversationId":"conv-live-replay","status":"running","itemCount":2,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-live-replay","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-live-replay","currentlySubscribedIds":[]}
+✔ Gateway projection queue serializes work and keeps only the newest pending revision (6.7775ms)
+✔ completed terminal epoch remains stable across IPC surface revisions of the same turn (2.7658ms)
+✔ Route 3 can build a bounded canonical tail without starting a source read (3.2741ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-live-replay"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-live-replay","previousActiveConversationId":null,"sessionId":"54c9a04d-963d-4bee-bef7-61f35ce16503","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-live-replay","status":"running","itemCount":2,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-live-replay","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-live-replay-gap","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-live-replay-gap","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-live-replay-gap","currentlySubscribedIds":[]}
+✔ Route 3 reports a continuous live-surface replay and keeps it provisional (122.0849ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-live-replay-gap"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-live-replay-gap","previousActiveConversationId":null,"sessionId":"a7bd0aef-e77b-4dd4-8239-08f208f6a789","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-live-replay-gap","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-live-replay-gap","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ Route 3 reports an explicit source gap when a bounded surface cannot prove the local anchor (90.959ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+✔ IPC status is sent on WebSocket connect when feed is online (218.7477ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+✔ history range capability is deployment-gated and remains additive (217.745ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+✔ server snapshot history capability is independently deployment-gated (186.3825ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-snapshot","previousActiveConversationId":null,"sessionId":"a34523ed-9289-4b12-a3e7-efb9c76071f6","sessionMode":"codex","previousThreadId":null}
+✔ snapshot history bypasses an unavailable Desktop IPC surface and commits through segment ACK (188.5865ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+✔ history-only snapshot recovery works without an active IPC conversation (155.2847ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+✔ history-only recovery drops a late A result after a newer B selection (78.4426ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-cache-hit","previousActiveConversationId":null,"sessionId":"8e1fac64-0ea2-4fb0-95ad-ea83d5a7e48e","sessionMode":"codex","previousThreadId":null}
+✔ server snapshot cache hit streams without another Codex history read (185.9099ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-cache-fallback","previousActiveConversationId":null,"sessionId":"ced23509-c99e-4f6f-8dab-f2f4f58e38aa","sessionMode":"codex","previousThreadId":null}
+✔ server snapshot cache failures fall back to Codex without failing the current transfer (186.6296ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-snapshot-paginated","previousActiveConversationId":null,"sessionId":"5e45981f-12c8-4170-93a9-1af7ba6af08a","sessionMode":"codex","previousThreadId":null}
+✔ server snapshot streams a paginated newest page before older pages and settles only after every segment ACK (267.7091ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-a","previousActiveConversationId":null,"sessionId":"59b9159a-84a5-4b44-8c4f-76a6e8cfe8e9","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-b","previousActiveConversationId":"conv-a","sessionId":"59b9159a-84a5-4b44-8c4f-76a6e8cfe8e9","sessionMode":"codex","previousThreadId":"conv-a"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-a","previousActiveConversationId":"conv-b","sessionId":"59b9159a-84a5-4b44-8c4f-76a6e8cfe8e9","sessionMode":"codex","previousThreadId":"conv-b"}
+✔ late server snapshot source from A cannot write after A-to-B-to-A selection change (325.0542ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+✔ Android legacy full thread/read is refused without touching the app-server response (202.1685ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][tokenUsage][thread/read] {"sessionId":"0b481fc3-afb7-4b06-8f1b-6d66dac6b9e5","threadId":"thread-history-only","nextTokenUsage":null}
+✔ Android metadata thread/resume is read-only upstream but keeps the legacy response method (109.7602ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-tail-legacy","previousActiveConversationId":null,"sessionId":"99c3f9cb-6af8-4e43-ba70-9818de813c16","sessionMode":"codex","previousThreadId":null}
+[gateway][tokenUsage][thread/read] {"sessionId":"99c3f9cb-6af8-4e43-ba70-9818de813c16","threadId":"conv-tail-legacy","nextTokenUsage":null}
+✔ legacy tail validation returns UNSUPPORTED without a full read, turns read, or history transport (142.1407ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-tail-paginated","previousActiveConversationId":null,"sessionId":"d3402000-0fb5-47d3-a370-75dad6082db7","sessionMode":"codex","previousThreadId":null}
+[gateway][tokenUsage][thread/read] {"sessionId":"d3402000-0fb5-47d3-a370-75dad6082db7","threadId":"conv-tail-paginated","nextTokenUsage":null}
+✔ paginated tail validation compares one page and leaves normal history sync untouched (137.3829ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-tail-a","previousActiveConversationId":null,"sessionId":"ebb2b34d-a137-4b37-829a-60bd3352d4bd","sessionMode":"codex","previousThreadId":null}
+[gateway][tokenUsage][thread/read] {"sessionId":"ebb2b34d-a137-4b37-829a-60bd3352d4bd","threadId":"conv-tail-a","nextTokenUsage":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-tail-b","previousActiveConversationId":"conv-tail-a","sessionId":"ebb2b34d-a137-4b37-829a-60bd3352d4bd","sessionMode":"codex","previousThreadId":"conv-tail-a"}
+✔ tail validation fails without current metadata and drops a late A→B result (277.4595ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-terminal-a","previousActiveConversationId":null,"sessionId":"3ea590d7-2217-4ef9-9425-0b218e20aa7f","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-terminal-a","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-terminal-a","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][tokenUsage][thread/read] {"sessionId":"3ea590d7-2217-4ef9-9425-0b218e20aa7f","threadId":"conv-terminal-a","nextTokenUsage":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-terminal-b","previousActiveConversationId":"conv-terminal-a","sessionId":"3ea590d7-2217-4ef9-9425-0b218e20aa7f","sessionMode":"codex","previousThreadId":"conv-terminal-a"}
+✔ legacy completed reconciliation survives A→B after start and uses only the durable manifest/delta lane (217.4918ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-terminal-stale","previousActiveConversationId":null,"sessionId":"830812e2-f523-49be-8f4e-d9d5ae41e5c6","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-terminal-stale","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-terminal-stale","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][tokenUsage][thread/read] {"sessionId":"830812e2-f523-49be-8f4e-d9d5ae41e5c6","threadId":"conv-terminal-stale","nextTokenUsage":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-terminal-stale","status":"running","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-terminal-stale","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ terminal reconciliation fails closed when the completed source epoch changes during the full read (154.2986ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-terminal-live-stale","previousActiveConversationId":null,"sessionId":"115a0729-a293-493c-b104-9d304b4aae5c","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-terminal-live-stale","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-terminal-live-stale","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][tokenUsage][thread/read] {"sessionId":"115a0729-a293-493c-b104-9d304b4aae5c","threadId":"conv-terminal-live-stale","nextTokenUsage":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-terminal-live-stale","status":"running","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-terminal-live-stale","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ terminal reconciliation stops immediately when the source leaves its completed epoch after manifest start (215.3147ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][tokenUsage][thread/resume] {"sessionId":"96e33433-84eb-4931-9745-f537e9f132cd","threadId":"thread-owner-resume","tokenUsage":null}
+✔ non-Android metadata thread/resume remains a real upstream resume (110.2208ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-recovery","previousActiveConversationId":null,"sessionId":"d4847e2c-627a-4668-8f6f-0e63e40454b3","sessionMode":"codex","previousThreadId":null}
+✔ history recovery builds a canonical baseline inside the Gateway (283.7332ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-race","previousActiveConversationId":null,"sessionId":"aa6729c0-d67c-4419-8c9c-ac030b08d071","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-race","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-race","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ history sync waits for an in-flight media projection baseline (327.6157ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-live-projection-gate","previousActiveConversationId":null,"sessionId":"bd0578ac-10ff-45ca-8465-603ceaaa130e","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-live-projection-gate","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-live-projection-gate","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ Android history yields while live surface projection is still pending (296.3149ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-deadline-projection-history-gate","previousActiveConversationId":null,"sessionId":"da9e1463-dbcc-4350-b33e-ef3895ef54fc","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-deadline-projection-history-gate","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-deadline-projection-history-gate","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ Android deadline projection releases history while full media projection is pending (323.9564ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-bounded-recovery","previousActiveConversationId":null,"sessionId":"9f2c65cd-bd34-4ca6-8086-b8fb6792bccd","sessionMode":"codex","previousThreadId":null}
+✔ Gateway gates one legacy full recovery behind the surface grace and uses one upstream read (200.2205ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-surface-wins","previousActiveConversationId":null,"sessionId":"be2cd6b0-c652-4ea3-89b4-d3078b9e202f","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-surface-wins","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-surface-wins","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ healthy surface arriving during grace skips canonical full recovery (217.0956ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-healthy-cycle","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-healthy-cycle","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-healthy-cycle","currentlySubscribedIds":[]}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-healthy-cycle","previousActiveConversationId":null,"sessionId":"11ea0904-6a3f-4c01-88be-569345c0ac97","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-healthy-cycle","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-healthy-cycle","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ healthy surface settles the selection deadline without poisoning a later recovery request (184.2788ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-snapshot-recovery","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-snapshot-recovery","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-snapshot-recovery","currentlySubscribedIds":[]}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-snapshot-recovery","previousActiveConversationId":null,"sessionId":"98dc09e2-a79a-4971-8c8b-081c54d14c32","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-snapshot-recovery","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-snapshot-recovery","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ server snapshot lane settles healthy recovery without waiting for full live baseline projection (235.0777ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-baseline-once","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-baseline-once","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-baseline-once","currentlySubscribedIds":[]}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-baseline-once","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-baseline-once","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-baseline-once","currentlySubscribedIds":[]}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-baseline-once","previousActiveConversationId":null,"sessionId":"7f9b010e-bc3d-4438-bc57-03de6cd1fe8c","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-baseline-once","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-baseline-once","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ legacy live baseline projection is attempted only once per conversation (203.5901ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-desynced-surface","previousActiveConversationId":null,"sessionId":"8e2cc22f-e177-4cc2-8004-a6917cbd7b74","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-desynced-surface","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-desynced-surface","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-desynced-surface","status":"desynced","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-desynced-surface","status":"desynced","previousStatus":"completed","statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":1}
+✔ desynced surface invalidates the cycle and escalates to canonical recovery (158.2756ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-offline-surface","previousActiveConversationId":null,"sessionId":"7ebbaac3-4216-4d97-a67c-c9ac1489350f","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-offline-surface","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-offline-surface","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][status-broadcast] {"online":false,"clientId":null,"sentToClients":1}
+[gateway][ipc][status-conversations] {"conversationCount":1,"conversationIds":["conv-offline-surface"],"sentToClients":1,"online":false}
+✔ offline status invalidates a previously healthy surface before recovery (157.8078ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-surface-quota","previousActiveConversationId":null,"sessionId":"ab3cdfa6-db35-4c54-9391-c2a361166b81","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-surface-quota","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-surface-quota","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][status-broadcast] {"online":false,"clientId":null,"sentToClients":1}
+[gateway][ipc][status-conversations] {"conversationCount":1,"conversationIds":["conv-surface-quota"],"sentToClients":1,"online":false}
+✔ a healthy surface winning grace does not consume the full recovery quota (140.4976ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-stale-sync","previousActiveConversationId":null,"sessionId":"5643e370-2eb6-4e9a-afb5-2ee5699aebb1","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-other-selection","previousActiveConversationId":"conv-stale-sync","sessionId":"5643e370-2eb6-4e9a-afb5-2ee5699aebb1","sessionMode":"codex","previousThreadId":"conv-stale-sync"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-stale-sync","previousActiveConversationId":"conv-other-selection","sessionId":"5643e370-2eb6-4e9a-afb5-2ee5699aebb1","sessionMode":"codex","previousThreadId":"conv-other-selection"}
+✔ stale history sync failure preserves the original client selection generation (125.9353ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-reconnect-generation","previousActiveConversationId":null,"sessionId":"3244621a-a42e-4eb1-b641-2d3acea87605","sessionMode":"codex","previousThreadId":null}
+✔ client selection generation is re-established after a Gateway generation reset (94.8821ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-same-selection","previousActiveConversationId":null,"sessionId":"c4af7990-a615-4fb1-a03b-71d3aa9f18d1","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-same-selection","previousActiveConversationId":"conv-same-selection","sessionId":"c4af7990-a615-4fb1-a03b-71d3aa9f18d1","sessionMode":"codex","previousThreadId":"conv-same-selection"}
+✔ same-conversation reannounce refreshes the client selection generation (92.4578ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-client-a","previousActiveConversationId":null,"sessionId":"a6c9cd45-ecee-484e-8914-f62aa3b10578","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-client-b","previousActiveConversationId":"conv-client-a","sessionId":"a6c9cd45-ecee-484e-8914-f62aa3b10578","sessionMode":"codex","previousThreadId":"conv-client-a"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-client-a","previousActiveConversationId":"conv-client-b","sessionId":"a6c9cd45-ecee-484e-8914-f62aa3b10578","sessionMode":"codex","previousThreadId":"conv-client-b"}
+✔ client selection generation still fences A→B→A requests (110.6156ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-reuse-a","previousActiveConversationId":null,"sessionId":"d8bdfd8d-69dc-40f2-9f77-cb878858b3cc","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-reuse-b","previousActiveConversationId":"conv-reuse-a","sessionId":"d8bdfd8d-69dc-40f2-9f77-cb878858b3cc","sessionMode":"codex","previousThreadId":"conv-reuse-a"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-reuse-a","previousActiveConversationId":"conv-reuse-b","sessionId":"d8bdfd8d-69dc-40f2-9f77-cb878858b3cc","sessionMode":"codex","previousThreadId":"conv-reuse-b"}
+✔ verified recovery baseline is reused after switching away and back (108.9195ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-freshness-a","previousActiveConversationId":null,"sessionId":"59503c3c-1151-43e1-a920-0f94d2c69c60","sessionMode":"codex","previousThreadId":null}
+[gateway][codex_request][thread/list] Missing session cwd; forwarding request without cwd scope. {"sessionId":"59503c3c-1151-43e1-a920-0f94d2c69c60"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-freshness-b","previousActiveConversationId":"conv-freshness-a","sessionId":"59503c3c-1151-43e1-a920-0f94d2c69c60","sessionMode":"codex","previousThreadId":"conv-freshness-a"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-freshness-a","previousActiveConversationId":"conv-freshness-b","sessionId":"59503c3c-1151-43e1-a920-0f94d2c69c60","sessionMode":"codex","previousThreadId":"conv-freshness-b"}
+[gateway][codex_request][thread/list] Missing session cwd; forwarding request without cwd scope. {"sessionId":"59503c3c-1151-43e1-a920-0f94d2c69c60"}
+✔ changed metadata invalidates a reused no-owner recovery baseline (140.9523ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-paginated","previousActiveConversationId":null,"sessionId":"530f93ae-5683-4811-8e4b-cecdbb4fae18","sessionMode":"codex","previousThreadId":null}
+✔ paginated recovery uses thread/turns/list after metadata mode probing (95.5267ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-older-page","previousActiveConversationId":null,"sessionId":"9c64940c-803f-482a-8e8a-39fee398fce4","sessionMode":"codex","previousThreadId":null}
+✔ one older request uses the persisted cursor once and settles through the shared delta path (108.6726ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-older-repeat","previousActiveConversationId":null,"sessionId":"5be3e549-db3a-40d1-8328-99a4000b3a54","sessionMode":"codex","previousThreadId":null}
+✔ one older request fails closed when the provider repeats the requested cursor (91.6161ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-range-legacy","previousActiveConversationId":null,"sessionId":"a32948ba-fc14-4e24-af84-6503b8bfbd10","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-range-other","previousActiveConversationId":"conv-range-legacy","sessionId":"a32948ba-fc14-4e24-af84-6503b8bfbd10","sessionMode":"codex","previousThreadId":"conv-range-legacy"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-range-legacy","previousActiveConversationId":"conv-range-other","sessionId":"a32948ba-fc14-4e24-af84-6503b8bfbd10","sessionMode":"codex","previousThreadId":"conv-range-other"}
+✔ enabled range recovery preserves the full legacy baseline (107.9688ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-surface-supersedes","previousActiveConversationId":null,"sessionId":"1d74c08d-b050-4919-99be-ae82bad8fdf1","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-surface-supersedes","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-surface-supersedes","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ healthy surface supersedes an in-flight full recovery and discards its late canonical result (233.5711ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-one-attempt","previousActiveConversationId":null,"sessionId":"2f707553-2538-4c05-8365-3c099eda1d2f","sessionMode":"codex","previousThreadId":null}
+✔ duplicate recovery requests in one selection generation do not start a second full read (204.6712ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-recovery-deadline","previousActiveConversationId":null,"sessionId":"00283a6e-476b-4f2c-bb3b-7d6dfb066ed1","sessionMode":"codex","previousThreadId":null}
+✔ selection hard deadline closes a hanging recovery with an explicit timeout (188.3667ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-surface-baseline-deadline","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-surface-baseline-deadline","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-surface-baseline-deadline","currentlySubscribedIds":[]}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-surface-baseline-deadline","previousActiveConversationId":null,"sessionId":"a4b930d3-aea0-4ef9-8cf0-231075cf33aa","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-surface-baseline-deadline","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-surface-baseline-deadline","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ surface baseline recovery deadline emits an explicit timeout (156.1263ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-sync-deadline","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-sync-deadline","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-sync-deadline","currentlySubscribedIds":[]}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-sync-deadline","previousActiveConversationId":null,"sessionId":"64fe03cb-03fa-491c-aa39-672345df0775","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-sync-deadline","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-sync-deadline","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ bounded projection budget closes a sync blocked behind a pending surface projection (204.5363ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-a-isolation","previousActiveConversationId":null,"sessionId":"51dae305-3b6b-4189-bf81-a12b5ca1e872","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-b-isolation","previousActiveConversationId":"conv-a-isolation","sessionId":"51dae305-3b6b-4189-bf81-a12b5ca1e872","sessionMode":"codex","previousThreadId":"conv-a-isolation"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-a-isolation","previousActiveConversationId":"conv-b-isolation","sessionId":"51dae305-3b6b-4189-bf81-a12b5ca1e872","sessionMode":"codex","previousThreadId":"conv-b-isolation"}
+✔ A→B→A rejects the first recovery result and accepts only the new selection generation (283.0388ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+✔ gateway works without ipcFeed — session_info is sent (216.1116ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"73416314-8b77-428e-aa6a-85922206dc57","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-other","status":"running","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-other","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-other","currentlySubscribedIds":["conv-1"]}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ set_active_conversation succeeds and snapshot is pushed to matching client (294.846ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-large-tail","previousActiveConversationId":null,"sessionId":"59c0b4bb-2f06-477e-98f5-4cc963912238","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-large-tail","status":"running","itemCount":1500,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-large-tail","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ Android IPC surface delivery sends only a bounded live tail (266.559ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-generation","previousActiveConversationId":null,"sessionId":"1e258e7c-2e74-4767-8f09-0d852f8de118","sessionMode":"codex","previousThreadId":null}
+✔ set_active_conversation echoes a valid client selection generation on the binding receipt (169.7527ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-monotonic","previousActiveConversationId":null,"sessionId":"939b113b-3cda-437e-b23e-103e77b0286b","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-monotonic","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-monotonic","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-monotonic","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-monotonic","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-monotonic","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-monotonic","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ Android projection drops an active stale revision when a newer revision is pending (297.5159ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-deadline","previousActiveConversationId":null,"sessionId":"b6ec106b-3436-46da-aa96-6a94ed2fb5d2","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-deadline","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-deadline","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-deadline","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-deadline","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-cached","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-cached","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-cached","currentlySubscribedIds":[]}
+✔ Android deadline fallback publishes a redacted IPC surface while full projection is blocked (372.01ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-cached"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-cached","previousActiveConversationId":null,"sessionId":"dfe57f30-1108-48b5-990e-59c2962c2dc2","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-cached","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-cached","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ latest snapshot is replayed on set_active_conversation (172.0799ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-shared-current-cycle-provisional","previousActiveConversationId":null,"sessionId":"750a36cf-3a30-4f45-9cea-03dee64071db","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-shared-current-cycle-provisional","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-shared-current-cycle-provisional","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-shared-current-cycle-provisional"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-shared-current-cycle-provisional","previousActiveConversationId":null,"sessionId":"750a36cf-3a30-4f45-9cea-03dee64071db","sessionMode":"codex","previousThreadId":"conv-shared-current-cycle-provisional"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-shared-current-cycle-provisional","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-shared-current-cycle-provisional","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":2}
+✔ Android treats a preselection shared current-cycle IPC surface as provisional (140.3204ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-cached-desynced-fast-path"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-cached-desynced-fast-path","previousActiveConversationId":null,"sessionId":"508e2fa1-aec4-42b3-a68d-2baa74643e99","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-cached-desynced-fast-path","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-cached-desynced-fast-path","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ Android publishes cached desynced surface before a fresh healthy surface supersedes its full projection (296.5581ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-late-cached-desynced-fast-path"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-late-cached-desynced-fast-path","previousActiveConversationId":null,"sessionId":"92c83b00-b68e-4448-884a-06cba5e7f5b0","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-late-cached-desynced-fast-path","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-late-cached-desynced-fast-path","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-summary","status":"running","itemCount":1,"hasActiveGoal":true,"hasPendingApproval":true,"hasPendingPlanAction":true,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-summary","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-summary","currentlySubscribedIds":[]}
+✔ Android drops a late cached desynced projection after the healthy surface is published (280.269ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-summary"],"ipcOnline":true}
+✔ IPC conversations list includes surface summary fields for Android bootstrap (109.3787ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"1ad24ae3-2ea5-47e5-a0f3-e85b4ea0f5e1","sessionMode":"codex","previousThreadId":null}
+✔ set_active_conversation without feed — gateway stays up (172.8968ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][status-broadcast] {"online":false,"clientId":null,"sentToClients":2}
+[gateway][ipc][status-conversations] {"conversationCount":0,"conversationIds":[],"sentToClients":2,"online":false}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-recovered","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-recovered","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-recovered","currentlySubscribedIds":[]}
+✔ IPC status broadcast reaches all connected clients (170.3502ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-recovered"],"ipcOnline":false}
+[gateway][ipc][status-broadcast] {"online":true,"clientId":"recovered-client","sentToClients":1}
+[gateway][ipc][status-conversations] {"conversationCount":1,"conversationIds":["conv-recovered"],"sentToClients":1,"online":true}
+✔ IPC recovery broadcasts the refreshed conversation list to connected clients (171.4788ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"cc65063f-844f-47e2-8bf2-198922681899","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"running","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ client disconnect does not crash on subsequent snapshot push (234.6343ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"e88c2775-9892-4342-8448-0c5dfd8027e1","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_send_message succeeds when conversation is idle (342.9378ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"13e91d39-2d3e-47ed-969a-c4ee2eb43da1","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"running","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_send_message is blocked until follower mode is explicitly enabled (279.9502ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"8fc0cbe5-23e6-4547-8e60-111431569bc9","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"running","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ follower_send_message blocked when conversation is running (343.4407ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"a2e6d7bd-402f-4493-8d74-e063d84802f8","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ follower_send_message falls back to owner when IPC is offline without a surface (389.5908ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-missing","previousActiveConversationId":null,"sessionId":"f2c00032-6214-49c6-bb1c-e82e0f23e06b","sessionMode":"codex","previousThreadId":null}
+✔ follower_send_message tries IPC after the current-cycle surface grace expires (296.9208ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-delayed","previousActiveConversationId":null,"sessionId":"d8d69c42-d67a-4277-939b-dcb213ed649b","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-delayed","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-delayed","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ follower_send_message uses a surface that arrives inside the current-cycle grace (309.9425ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-desynced","previousActiveConversationId":null,"sessionId":"049ef25a-6c73-4e8d-be8b-71c71c41bfc8","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-desynced","status":"running","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-desynced","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-desynced","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-desynced","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ desynced current-cycle surface stays display-only until a healthy surface arrives (328.9747ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-ipc-error","previousActiveConversationId":null,"sessionId":"622b717e-9724-4cea-b03e-ab1802826bf7","sessionMode":"codex","previousThreadId":null}
+✔ follower_send_message does not owner-fallback for an arbitrary IPC error (309.7206ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-serialized","previousActiveConversationId":null,"sessionId":"05a77855-4ec0-44e2-8a38-b016e6430395","sessionMode":"codex","previousThreadId":null}
+✔ follower_send_message serializes routing per conversation (341.2297ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-close-during-grace","previousActiveConversationId":null,"sessionId":"6849f35f-4c2a-434d-9b1a-172b45c1565a","sessionMode":"codex","previousThreadId":null}
+✔ follower_send_message stops routing when WebSocket closes during surface grace (419.6115ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-a-during-grace","previousActiveConversationId":null,"sessionId":"90ee4841-bad4-4a4b-92b9-5c79a261521b","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-b-during-grace","previousActiveConversationId":"conv-a-during-grace","sessionId":"90ee4841-bad4-4a4b-92b9-5c79a261521b","sessionMode":"codex","previousThreadId":"conv-a-during-grace"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-orphan","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-orphan","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-orphan","currentlySubscribedIds":[]}
+✔ follower_send_message stops routing when active conversation changes during surface grace (453.5145ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-orphan"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-orphan","previousActiveConversationId":null,"sessionId":"18b358c8-0b48-4764-a76a-c70a5b8b43d7","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-orphan","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-orphan","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-orphan","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-orphan","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-offline-cached","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-offline-cached","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-offline-cached","currentlySubscribedIds":[]}
+✔ follower_send_message falls back to owner runtime when IPC owner is gone (481.3383ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-offline-cached"],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-offline-cached","previousActiveConversationId":null,"sessionId":"aa8f9a0b-3699-466c-a30c-ae7dfbd0c881","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-offline-cached","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-offline-cached","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-offline","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-offline","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-owner-offline","currentlySubscribedIds":[]}
+✔ follower_send_message resumes owner runtime when IPC is offline but snapshot is cached (389.6188ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-owner-offline"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-offline","previousActiveConversationId":null,"sessionId":"610e7836-1d08-496f-8ed5-338d232b16e3","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-offline","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-offline","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-offline","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-offline","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-offline","status":"completed","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-offline","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-sticky","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-sticky","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-owner-sticky","currentlySubscribedIds":[]}
+✔ owner-owned conversation sends through app-server while IPC is offline (542.9954ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-owner-sticky"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-sticky","previousActiveConversationId":null,"sessionId":"1498c5f9-978b-4a94-a106-136b1e11773c","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-sticky","status":"completed","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-sticky","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-sticky","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-sticky","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-sticky","status":"completed","itemCount":20,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-other-sticky","previousActiveConversationId":"conv-owner-sticky","sessionId":"1498c5f9-978b-4a94-a106-136b1e11773c","sessionMode":"codex","previousThreadId":"conv-owner-sticky"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-sticky","previousActiveConversationId":"conv-other-sticky","sessionId":"1498c5f9-978b-4a94-a106-136b1e11773c","sessionMode":"codex","previousThreadId":"conv-other-sticky"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-sticky","status":"completed","itemCount":20,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":true}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-sticky","status":"completed","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-other-sticky","previousActiveConversationId":"conv-owner-sticky","sessionId":"1498c5f9-978b-4a94-a106-136b1e11773c","sessionMode":"codex","previousThreadId":"conv-owner-sticky"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-sticky","previousActiveConversationId":"conv-other-sticky","sessionId":"1498c5f9-978b-4a94-a106-136b1e11773c","sessionMode":"codex","previousThreadId":"conv-other-sticky"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-sticky","status":"completed","itemCount":20,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-sticky","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ owner remains authoritative while running and is released only after terminal re-entry (809.9533ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-retained","previousActiveConversationId":null,"sessionId":"ba606b2d-292f-447e-8474-93f2ff76af03","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-retained","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-retained","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-retained","status":"completed","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-other-retained","previousActiveConversationId":"conv-owner-retained","sessionId":"ba606b2d-292f-447e-8474-93f2ff76af03","sessionMode":"codex","previousThreadId":"conv-owner-retained"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-retained","previousActiveConversationId":"conv-other-retained","sessionId":"ba606b2d-292f-447e-8474-93f2ff76af03","sessionMode":"codex","previousThreadId":"conv-other-retained"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-approval","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-approval","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-owner-approval","currentlySubscribedIds":[]}
+✔ terminal owner remains available on re-entry when no external surface exists (431.7571ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-owner-approval"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-approval","previousActiveConversationId":null,"sessionId":"cd098e93-0884-4e38-a80c-86df943bfd14","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-approval","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-approval","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-approval","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-approval","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-approval","status":"waiting_for_approval","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-approval","status":"running","previousStatus":"waiting_for_approval","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-permissions","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-permissions","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-owner-permissions","currentlySubscribedIds":[]}
+✔ owner pending approval response is resolved through app-server instead of IPC (622.3532ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-owner-permissions"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-permissions","previousActiveConversationId":null,"sessionId":"39ab9acd-360a-4171-be03-901cd655d54d","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-permissions","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-permissions","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-permissions","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-permissions","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-permissions","status":"waiting_for_approval","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ owner permissions approval returns requested permissions and waits for owner progress (514.1656ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"0517de24-78b7-48af-97e6-0d54e9ab1166","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][approval-response-send] {"conversationId":"conv-1","requestId":"42","rawRequestId":42,"requestKind":"command","method":"thread-follower-command-approval-decision","decision":"accept"}
+[gateway][ipc][approval-response-result] {"conversationId":"conv-1","requestId":"42","rawRequestId":42,"method":"thread-follower-command-approval-decision","responseType":"response","resultType":"success"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_approval_response sends command-approval-decision (342.2764ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"dc261639-8f6a-4d38-b9ad-145a13d2df9c","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][approval-response-send] {"conversationId":"conv-1","requestId":"req-remember","rawRequestId":"raw-remember","requestKind":"command","method":"thread-follower-command-approval-decision","decision":"structured"}
+[gateway][ipc][approval-response-result] {"conversationId":"conv-1","requestId":"req-remember","rawRequestId":"raw-remember","method":"thread-follower-command-approval-decision","responseType":"response","resultType":"success"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_approval_response forwards execpolicy amendment decision shape (341.4386ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"43897bb1-a6e5-4080-bb47-8707973cc72a","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][approval-response-send] {"conversationId":"conv-1","requestId":"req-derived","rawRequestId":"raw-derived","requestKind":"command","method":"thread-follower-command-approval-decision","decision":"structured"}
+[gateway][ipc][approval-response-result] {"conversationId":"conv-1","requestId":"req-derived","rawRequestId":"raw-derived","method":"thread-follower-command-approval-decision","responseType":"response","resultType":"success"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_approval_response derives remember amendment from pending approval params (342.8897ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"6be14519-a634-4907-8be5-14942049379d","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][approval-response-send] {"conversationId":"conv-1","requestId":"req-perm","rawRequestId":77,"requestKind":"permissions","method":"thread-follower-permissions-request-approval-response","decision":"accept"}
+[gateway][ipc][approval-response-result] {"conversationId":"conv-1","requestId":"req-perm","rawRequestId":77,"method":"thread-follower-permissions-request-approval-response","responseType":"response","resultType":"success"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_approval_response sends permissions approval response for MCP tool approvals (344.6015ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"39c474ba-6d85-4a72-992d-18065e2be221","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_approval","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_approval","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_input","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":true,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_input","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_approval_response rejects unmatched request ids without sending a command decision (342.6816ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"273cab45-3a08-4865-9982-5ea7cae7c8fc","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_input","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":true,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_input","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][plan-response-send] {"conversationId":"conv-1","requestId":"r-plan","rawRequestId":"r-plan","requestMethod":"item/plan/requestImplementation","action":"implement"}
+[gateway][ipc][plan-response-result] {"conversationId":"conv-1","requestId":"r-plan","action":"implement","resultType":"success"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-plan","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-plan","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-owner-plan","currentlySubscribedIds":[]}
+✔ follower_plan_response triggers plan implementation path without invented collaboration mode (343.7792ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-owner-plan"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-plan","previousActiveConversationId":null,"sessionId":"e19bba32-b3ca-41d1-b77d-cdf90841d559","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-plan","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-plan","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-plan","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-plan","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-plan","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][plan-response-send] {"conversationId":"conv-owner-plan","requestId":"owner-plan-raw-1","rawRequestId":"owner-plan-raw-1","requestMethod":"item/plan/requestImplementation","action":"implement"}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-plan","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_input","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":true,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_input","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ owner plan implementation waits for owner snapshot before clearing pending action (607.9611ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"1ad7e220-765d-43cb-8be6-8d89fcc480d5","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_input","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":true,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_input","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][plan-response-send] {"conversationId":"conv-1","requestId":"r-plan","rawRequestId":"r-plan","requestMethod":"item/plan/requestImplementation","action":"implement"}
+[gateway][ipc][plan-response-result] {"conversationId":"conv-1","requestId":"r-plan","action":"implement","resultType":"success"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_input","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_input","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_plan_response derives default collaboration mode from latest mode settings (341.7451ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"7bcc825e-c71b-4edc-8269-0c8e26c94fb6","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_input","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_input","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][plan-response-send] {"conversationId":"conv-1","requestId":"73","rawRequestId":73,"requestMethod":null,"action":"submit-user-input"}
+[gateway][ipc][plan-response-result] {"conversationId":"conv-1","requestId":"73","rawRequestId":73,"action":"submit-user-input","resultType":"success"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_input","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_input","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_plan_response forwards explicit user input response payload (342.5639ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][plan-response-send] {"conversationId":"conv-1","requestId":null,"rawRequestId":"","requestMethod":null,"action":"submit-user-input"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_input","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_input","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_plan_response rejects explicit user input response without live request id (280.6057ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][plan-response-send] {"conversationId":"conv-1","requestId":"req-key","rawRequestId":"req-key","requestMethod":null,"action":"feedback"}
+[gateway][ipc][plan-response-result] {"conversationId":"conv-1","requestId":"req-key","rawRequestId":"req-key","action":"submit-user-input","resultType":"success"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_plan_response builds answers payload with question id (281.1872ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"37dbf11b-efdd-48b0-9eb1-f055fef7786f","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-override","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-override","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-override","currentlySubscribedIds":[]}
+✔ follower_send_message includes desktop-compatible turn context (342.1539ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-override"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-override","previousActiveConversationId":null,"sessionId":"afa9f6ed-dc71-437e-8027-15b21f4f23f8","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-override","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-override","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ follower_send_message turnConfig overrides owner reasoning and permission for the next turn (343.3038ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-a","previousActiveConversationId":null,"sessionId":"abbd842c-8fcc-4821-aeac-35db50ac6406","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-a","previousActiveConversationId":"conv-a","sessionId":"abbd842c-8fcc-4821-aeac-35db50ac6406","sessionMode":"codex","previousThreadId":"conv-a"}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-b","previousActiveConversationId":"conv-a","sessionId":"abbd842c-8fcc-4821-aeac-35db50ac6406","sessionMode":"codex","previousThreadId":"conv-a"}
+✔ active conversation lifecycle avoids duplicate follow and switches A to B atomically (231.8713ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-retained-running","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-retained-running","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-retained-running","currentlySubscribedIds":[]}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-retained-running","previousActiveConversationId":null,"sessionId":"637146ca-9461-48ad-b4c0-21e00fc2b6f0","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-retained-running","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-retained-running","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-other","previousActiveConversationId":"conv-retained-running","sessionId":"637146ca-9461-48ad-b4c0-21e00fc2b6f0","sessionMode":"codex","previousThreadId":"conv-retained-running"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-retained-running","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-retained-running","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-retained-running","currentlySubscribedIds":["conv-other"]}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-retained-running","previousActiveConversationId":"conv-other","sessionId":"637146ca-9461-48ad-b4c0-21e00fc2b6f0","sessionMode":"codex","previousThreadId":"conv-other"}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-retained-running","status":"running","itemCount":1,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-retained-running","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-retained-running","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-retained-running","status":"completed","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ server retention keeps a running conversation followed after App leaves and releases on healthy terminal (344.4713ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-shared","previousActiveConversationId":null,"sessionId":"f884566d-84c9-4e66-ae22-297f0ebcbfb5","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-shared","previousActiveConversationId":null,"sessionId":"46965e98-40e5-4875-886f-1fb0f535b123","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-config-permissions","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-config-permissions","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-config-permissions","currentlySubscribedIds":[]}
+✔ each WebSocket acquires and releases its own shared conversation reference (232.69ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-config-permissions"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-config-permissions","previousActiveConversationId":null,"sessionId":"7d7013bd-a4b0-4354-8ae6-340c50245a73","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-config-permissions","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-config-permissions","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ follower_send_message can reset sticky permission settings to config (345.4859ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"f2d74a9d-8c6a-457d-8e4c-b3e25e78bb62","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-plain-goal","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-plain-goal","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-plain-goal","currentlySubscribedIds":[]}
+✔ semantic follower goal is rejected for a healthy external owner without starting a turn (345.2848ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-plain-goal"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-plain-goal","previousActiveConversationId":null,"sessionId":"41fdb2d2-a09f-44df-bd47-48cae87af784","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-plain-goal","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-plain-goal","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-goal","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-owner-goal","currentlySubscribedIds":[]}
+✔ plain /goal text without goalObjective remains an ordinary follower message (339.8842ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-owner-goal"],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-goal","previousActiveConversationId":null,"sessionId":"9bdd48a5-ef14-44fa-8e36-c6c1d3fc94c1","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal","status":"completed","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-writer-conflict","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-writer-conflict","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-writer-conflict","currentlySubscribedIds":[]}
+✔ owner fallback goal waits for owner goal snapshots before updating Android surface (716.7897ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-writer-conflict"],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-writer-conflict","previousActiveConversationId":null,"sessionId":"87a92247-43f5-451f-8fc7-dbc72c743144","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-owner-goal-control","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal-control","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-owner-goal-control","currentlySubscribedIds":[]}
+✔ offline Goal fallback stops on writer conflict without starting or replacing a thread (341.9299ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-owner-goal-control"],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-owner-goal-control","previousActiveConversationId":null,"sessionId":"6871eaaa-6355-4ed9-a4a3-4b63d93cf1b6","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal-control","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal-control","status":"completed","previousStatus":"completed","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-owner-goal-control","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-external-goal-control","status":"completed","itemCount":0,"hasActiveGoal":true,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-external-goal-control","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-external-goal-control","currentlySubscribedIds":[]}
+✔ TermLink owner Goal pause sets paused before interrupt and resume only sets active (670.1653ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-external-goal-control"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-external-goal-control","previousActiveConversationId":null,"sessionId":"6d10764b-d581-459c-9a5a-42ff77537f43","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-external-goal-control","status":"completed","itemCount":0,"hasActiveGoal":true,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-external-goal-control","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"running","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ external owner Goal control is rejected without IPC or local Goal mutation (343.8315ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"2bef6b92-d427-4b60-bf22-7904b43f5d1c","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"running","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"running","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ follower_interrupt_turn sends thread-follower-interrupt-turn with latest turn id (342.5584ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-1","previousActiveConversationId":null,"sessionId":"c7168979-e6d9-4f40-8b0a-76411dc46310","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"waiting_for_input","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":true,"hasPendingPlanAction":true,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"waiting_for_input","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ conversation snapshot emits action required for approval plan user input and goal (281.5938ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-1","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":false,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":false,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"conv-1","currentlySubscribedIds":[]}
+✔ set_active_follower_mode false blocks active follower actions (278.972ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-1"],"ipcOnline":true}
+✔ set_active_follower_mode true is rejected when active send is not configured (283.2993ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][codex][thread-reuse-check] {"sessionId":"9e3b9ad7-9eb5-421c-ae62-381c2220f169","existingThreadId":null,"preferredThreadId":null,"forceNewThread":true,"requireExactExecutionContext":false,"requestedCwd":"E:\\coding\\TermLink","effectiveCodexConfig":{"defaultModel":null,"defaultReasoningEffort":null,"defaultPersonality":null,"approvalPolicy":"on-request","sandboxMode":"workspace-write"},"currentExecutionContextSignature":null,"nextExecutionContextSignature":"{\"cwd\":\"E:\\\\coding\\\\TermLink\",\"approvalPolicy\":\"on-request\",\"sandboxMode\":\"workspace-write\"}","executionContextMatches":false,"shouldReuseExistingThread":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][tokenUsage][thread/start] {"sessionId":"9e3b9ad7-9eb5-421c-ae62-381c2220f169","threadId":"thread-new-1","tokenUsage":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][notification-bridge] {"method":"turn/started","threadId":"thread-new-1","turnId":"turn-discovery-1","itemId":null,"actorSessionId":"9e3b9ad7-9eb5-421c-ae62-381c2220f169","followerSessionIds":[],"stateChanged":true}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][notification-bridge] {"method":"turn/started","threadId":"thread-new-1","turnId":"turn-discovery-1","itemId":null,"actorSessionId":"9e3b9ad7-9eb5-421c-ae62-381c2220f169","followerSessionIds":[],"stateChanged":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"completed","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][notification-bridge] {"method":"turn/completed","threadId":"thread-new-1","turnId":"turn-discovery-1","itemId":null,"actorSessionId":"9e3b9ad7-9eb5-421c-ae62-381c2220f169","followerSessionIds":[],"stateChanged":true}
+✔ explicit new thread invalidates Desktop discovery at created, first-turn, and terminal lifecycle stages (388.156ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][codex][thread-reuse-check] {"sessionId":"0ac5e591-a4ca-421c-8fec-73d4675bf400","existingThreadId":null,"preferredThreadId":null,"forceNewThread":true,"requireExactExecutionContext":false,"requestedCwd":"E:\\coding\\TermLink","effectiveCodexConfig":{"defaultModel":null,"defaultReasoningEffort":null,"defaultPersonality":null,"approvalPolicy":"on-request","sandboxMode":"workspace-write"},"currentExecutionContextSignature":null,"nextExecutionContextSignature":"{\"cwd\":\"E:\\\\coding\\\\TermLink\",\"approvalPolicy\":\"on-request\",\"sandboxMode\":\"workspace-write\"}","executionContextMatches":false,"shouldReuseExistingThread":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][tokenUsage][thread/start] {"sessionId":"0ac5e591-a4ca-421c-8fec-73d4675bf400","threadId":"thread-new-1","tokenUsage":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][notification-bridge] {"method":"turn/started","threadId":"thread-new-1","turnId":"turn-owner-followers","itemId":null,"actorSessionId":"0ac5e591-a4ca-421c-8fec-73d4675bf400","followerSessionIds":[],"stateChanged":true}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][notification-bridge] {"method":"item/started","threadId":"thread-new-1","turnId":"turn-owner-followers","itemId":"item-owner-followers","actorSessionId":"0ac5e591-a4ca-421c-8fec-73d4675bf400","followerSessionIds":[],"stateChanged":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"completed","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][notification-bridge] {"method":"turn/completed","threadId":"thread-new-1","turnId":"turn-owner-followers","itemId":null,"actorSessionId":"0ac5e591-a4ca-421c-8fec-73d4675bf400","followerSessionIds":[],"stateChanged":true}
+✔ TermLink owner targets current followers and stops after unfollow or disconnect (389.065ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][codex][thread-reuse-check] {"sessionId":"3e5a5709-ccd7-4905-a32b-2ec8257b3024","existingThreadId":null,"preferredThreadId":null,"forceNewThread":true,"requireExactExecutionContext":false,"requestedCwd":"E:\\coding\\TermLink-rust-source-resolution-codex","effectiveCodexConfig":{"defaultModel":null,"defaultReasoningEffort":null,"defaultPersonality":null,"approvalPolicy":"on-request","sandboxMode":"workspace-write"},"currentExecutionContextSignature":null,"nextExecutionContextSignature":"{\"cwd\":\"E:\\\\coding\\\\TermLink-rust-source-resolution-codex\",\"approvalPolicy\":\"on-request\",\"sandboxMode\":\"workspace-write\"}","executionContextMatches":false,"shouldReuseExistingThread":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][tokenUsage][thread/start] {"sessionId":"3e5a5709-ccd7-4905-a32b-2ec8257b3024","threadId":"thread-new-1","tokenUsage":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][notification-bridge] {"method":"turn/started","threadId":"thread-new-1","turnId":"turn-malformed-follower","itemId":null,"actorSessionId":"3e5a5709-ccd7-4905-a32b-2ec8257b3024","followerSessionIds":[],"stateChanged":true}
+✔ TermLink owner ignores malformed following state instead of registering a follower (250.6127ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][codex][thread-reuse-check] {"sessionId":"28d36ab2-366f-4f6b-bef1-d50e38f849f1","existingThreadId":null,"preferredThreadId":null,"forceNewThread":true,"requireExactExecutionContext":false,"requestedCwd":"E:\\coding\\TermLink-rust-source-resolution-codex","effectiveCodexConfig":{"defaultModel":null,"defaultReasoningEffort":null,"defaultPersonality":null,"approvalPolicy":"on-request","sandboxMode":"workspace-write"},"currentExecutionContextSignature":null,"nextExecutionContextSignature":"{\"cwd\":\"E:\\\\coding\\\\TermLink-rust-source-resolution-codex\",\"approvalPolicy\":\"on-request\",\"sandboxMode\":\"workspace-write\"}","executionContextMatches":false,"shouldReuseExistingThread":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][tokenUsage][thread/start] {"sessionId":"28d36ab2-366f-4f6b-bef1-d50e38f849f1","threadId":"thread-new-1","tokenUsage":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][notification-bridge] {"method":"turn/started","threadId":"thread-new-1","turnId":"turn-after-send-failure","itemId":null,"actorSessionId":"28d36ab2-366f-4f6b-bef1-d50e38f849f1","followerSessionIds":[],"stateChanged":true}
+[gateway][ipc][status-broadcast] {"online":false,"clientId":null,"sentToClients":1}
+[gateway][ipc][status-conversations] {"conversationCount":1,"conversationIds":["thread-new-1"],"sentToClients":1,"online":false}
+[gateway][ipc][status-broadcast] {"online":true,"clientId":"termlink-ipc","sentToClients":1}
+[gateway][ipc][status-conversations] {"conversationCount":1,"conversationIds":["thread-new-1"],"sentToClients":1,"online":true}
+✔ TermLink owner contains follower handshake send failures and remains usable (250.9546ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][codex][thread-reuse-check] {"sessionId":"07fb2000-dd07-4694-81aa-1811e66a8f47","existingThreadId":null,"preferredThreadId":null,"forceNewThread":true,"requireExactExecutionContext":false,"requestedCwd":"E:\\coding\\TermLink","effectiveCodexConfig":{"defaultModel":null,"defaultReasoningEffort":null,"defaultPersonality":null,"approvalPolicy":"on-request","sandboxMode":"workspace-write"},"currentExecutionContextSignature":null,"nextExecutionContextSignature":"{\"cwd\":\"E:\\\\coding\\\\TermLink\",\"approvalPolicy\":\"on-request\",\"sandboxMode\":\"workspace-write\"}","executionContextMatches":false,"shouldReuseExistingThread":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-blank-owner","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-blank-owner","currentlySubscribedIds":[]}
+[gateway][tokenUsage][thread/start] {"sessionId":"07fb2000-dd07-4694-81aa-1811e66a8f47","threadId":"thread-new-blank-owner","tokenUsage":null}
+[gateway][ipc][set-active-conversation] {"conversationId":"thread-new-blank-owner","previousActiveConversationId":null,"sessionId":"07fb2000-dd07-4694-81aa-1811e66a8f47","sessionMode":"codex","previousThreadId":"thread-new-blank-owner"}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-blank-owner","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ new blank owner remains tracked through first selection and materializes its first turn (418.8556ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":true}
+[gateway][codex][thread-reuse-check] {"sessionId":"8b6be378-3df7-47bf-91e6-205b50e4016c","existingThreadId":null,"preferredThreadId":null,"forceNewThread":true,"requireExactExecutionContext":false,"requestedCwd":"E:\\coding\\TermLink","effectiveCodexConfig":{"defaultModel":null,"defaultReasoningEffort":null,"defaultPersonality":null,"approvalPolicy":"on-request","sandboxMode":"workspace-write"},"currentExecutionContextSignature":null,"nextExecutionContextSignature":"{\"cwd\":\"E:\\\\coding\\\\TermLink\",\"approvalPolicy\":\"on-request\",\"sandboxMode\":\"workspace-write\"}","executionContextMatches":false,"shouldReuseExistingThread":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][tokenUsage][thread/start] {"sessionId":"8b6be378-3df7-47bf-91e6-205b50e4016c","threadId":"thread-new-1","tokenUsage":null}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"running","previousStatus":"completed","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"running","previousStatus":"running","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"waiting_for_approval","previousStatus":"running","statusChanged":true,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][server-request] {"sessionId":"8b6be378-3df7-47bf-91e6-205b50e4016c","requestId":"desktop-owner-approval","method":"item/commandExecution/requestApproval","handledBy":"client","requestKind":"command","responseMode":"decision","questionCount":0,"summary":"echo desktop-owner","params":{"threadId":"thread-new-1","command":"echo desktop-owner"}}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"thread-new-1","status":"waiting_for_approval","previousStatus":"waiting_for_approval","statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":0}
+[gateway][ipc][mismatch] snapshot has no subscriber {"pushedConversationId":"thread-new-1","currentlySubscribedIds":[]}
+[gateway][codex][server-request] {"sessionId":"8b6be378-3df7-47bf-91e6-205b50e4016c","requestId":"desktop-owner-input","method":"item/tool/requestUserInput","handledBy":"client","requestKind":"userInput","responseMode":"answers","questionCount":1,"summary":"Continue?","params":{"threadId":"thread-new-1","questions":[{"id":"question-1","question":"Continue?"}]}}
+✔ owner request handlers keep Desktop controls on the TermLink app-server authority (296.0005ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":1,"conversationIds":["conv-rich-input"],"ipcOnline":true}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-rich-input","previousActiveConversationId":null,"sessionId":"b17e42fb-d628-4c71-8f68-eb9970e552cb","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][snapshot-push] {"conversationId":"conv-rich-input","status":"completed","itemCount":0,"hasActiveGoal":false,"hasPendingApproval":false,"hasPendingPlanAction":false,"currentCycleSurface":true,"ignoredForAndroidByOwner":false}
+[gateway][ipc][surface-snapshot-pushed] {"conversationId":"conv-rich-input","status":"completed","previousStatus":null,"statusChanged":false,"authoritativeSurface":true,"sentToSubscribers":1}
+✔ follower message carries plan, image and skill input through one authority route (420.31ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][set-active-conversation] {"conversationId":"conv-missing-owner","previousActiveConversationId":null,"sessionId":"42a9424b-5366-4ae6-a5ae-cd37ef2d8e83","sessionMode":"codex","previousThreadId":null}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+✔ missing owner thread requires confirmation and never silently starts a replacement (516.7789ms)
+ℹ tests 139
+ℹ suites 0
+ℹ pass 139
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32638.8097

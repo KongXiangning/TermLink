@@ -1,0 +1,14 @@
+[
+ {"op":"launch","activity":"com.termlink.app.SettingsActivity"},
+ {"op":"clickId","id":"btn_add_profile"},
+ {"op":"setText","id":"input_profile_name","text":"V20-External-A"},
+ {"op":"setText","id":"input_profile_base_url","text":"http://127.0.0.1:3010/api/health"},
+ {"op":"clickId","id":"spinner_profile_terminal_type"},
+ {"op":"clickText","text":"EXTERNAL_WEB"},
+ {"op":"clickId","id":"spinner_profile_auth_type"},
+ {"op":"clickText","text":"BASIC"},
+ {"op":"setText","id":"input_profile_basic_username","text":"admin"},
+ {"op":"setText","id":"input_profile_basic_password","text":"admin"},
+ {"op":"clickText","text":"确定"},
+ {"op":"assertText","text":"V20-External-A"}
+]

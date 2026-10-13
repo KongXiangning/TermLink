@@ -1,0 +1,122 @@
+{
+  "event_ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+  "captured_at": "2026-10-13T06:56:27.278Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/7295306be3d4cb4a69b264fe257da2d48059939b60931adf64573526c7dbb950.blob",
+      "sha256": "7295306be3d4cb4a69b264fe257da2d48059939b60931adf64573526c7dbb950",
+      "size": 1447,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery.log",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1a91dc50f3df1685aff1e1d30f172bfbb60a6ec994258b883f3fb585b2764ce1.blob",
+      "sha256": "1a91dc50f3df1685aff1e1d30f172bfbb60a6ec994258b883f3fb585b2764ce1",
+      "size": 757,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s3/ws-recovery-v2.log",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9491ee9aeba34843e5035d90ecb95b4523852573e1acb18ac650708908b3e3a5.blob",
+      "sha256": "9491ee9aeba34843e5035d90ecb95b4523852573e1acb18ac650708908b3e3a5",
+      "size": 757,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s3/switch-and-new.log",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/b6d45f3d3178e777a78b394156f578628dc6c3a77fba7af74ffa024fea8f7a9d.blob",
+      "sha256": "b6d45f3d3178e777a78b394156f578628dc6c3a77fba7af74ffa024fea8f7a9d",
+      "size": 757,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s3/pause-fixture-goal.log",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fa0747e62baa42782e834b90e3f0addea62fea42a833de9a6a2cae31a510c0bb.blob",
+      "sha256": "fa0747e62baa42782e834b90e3f0addea62fea42a833de9a6a2cae31a510c0bb",
+      "size": 3870,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery.log",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/188f96611a2195d000636a6868bf19624c8083e87fdfe3b73bf7ddcf31a008e2.blob",
+      "sha256": "188f96611a2195d000636a6868bf19624c8083e87fdfe3b73bf7ddcf31a008e2",
+      "size": 757,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s3/ipc-recovery-v3.log",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/dede1bc2fc9b25577b2bf1e0c00f4f6e50e1afd91b4768ca2c0d9280b099c315.blob",
+      "sha256": "dede1bc2fc9b25577b2bf1e0c00f4f6e50e1afd91b4768ca2c0d9280b099c315",
+      "size": 757,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s3/create-b.log",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/63412d1071aa91a4aa37acce25ce046f5ccfb3a83d48efce799e7db2c9d8d4c3.blob",
+      "sha256": "63412d1071aa91a4aa37acce25ce046f5ccfb3a83d48efce799e7db2c9d8d4c3",
+      "size": 4606,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s3/create-a.log",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9865da91710821430a0959b127b5f9602fd114ade80d11a0d210fcdfe3f19930.blob",
+      "sha256": "9865da91710821430a0959b127b5f9602fd114ade80d11a0d210fcdfe3f19930",
+      "size": 756,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s3/create-a-local.log",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+      "size": 13155,
+      "request": {
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "role": "same-execution-new-capture-of-previously-produced-stdout",
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

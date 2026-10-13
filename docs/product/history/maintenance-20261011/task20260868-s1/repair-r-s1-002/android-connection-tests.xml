@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.termlink.app.codex.CodexViewModelConnectionFailureTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-10-13T04:20:13.447Z" hostname="K-PC" time="0.032">
+  <properties/>
+  <testcase name="clearingSelectionExpiresTheOperationHintButPreservesTheTransportHint" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.018"/>
+  <testcase name="newThreadWithoutAnActiveSelectionAlsoExpiresAStaleOperationHint" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <testcase name="recoveryPreservesBusinessErrorsEvenWhenTheyContainTransportWords" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="webSocketConnectedAndIpcOnlineAreNotEnoughWhenFollowerOperationsRemainUnavailable" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.002"/>
+  <testcase name="directCatalogSelectionExpiresThePreviousConversationHintBeforeSurfaceArrives" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="recoveredTimeoutClearsItsConnectionHintWithoutLeavingRuntimeWarning" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <testcase name="operationHintDoesNotLeakToAnotherConversationOnTheSameConnection" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="newThreadWaitingStateExpiresTheOldConversationHintWithoutARecoveryEvent" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="queuedOldConnectionEventsCannotReintroduceErrorsAfterReconnect" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.007"/>
+  <testcase name="failuresWithoutAnExceptionMessageAreStillScopedToTheConnection" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <testcase name="ipcOperationHintExpiresWhenIpcRecoversWithoutWebSocketReconnect" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="serverAndProtocolErrorsRemainVisible" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="offlineConnectFailuresAreTransient" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="reselectingTheSameUnavailableConversationPreservesItsHint" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <testcase name="successfulOperationOnlyClearsTheMatchingConversationHint" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="retryingDoesNotClearTheHintBeforeRecoverySucceeds" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="directCatalogReselectionPreservesTheSameUnavailableConversationHint" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="authenticationTlsAndProtocolFailuresRemainVisibleAfterReconnect" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

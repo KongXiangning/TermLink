@@ -1,0 +1,6 @@
+{
+  "clientNotBefore": "2026-03-24T21:01:38.000Z",
+  "clientNotAfter": "2028-03-23T21:01:38.000Z",
+  "status": 200,
+  "body": "<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <link rel=\"shortcut icon\" href=\"/icons/favicon-green.ico\"/>\n  <link rel=\"apple-touch-icon\" href=\"/icons/icon-green.png\"/>\n  <title>client.badssl.com</title>\n  <link rel=\"stylesheet\" href=\"/style.css\">\n  <style>body { background: green; }</style>\n</head>\n<body>\n<div id=\"co"
+}

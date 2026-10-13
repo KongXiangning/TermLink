@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:24:29.770Z",
+  "payload_sha256": "44f38669d81dc38a3865f113677be52525fca609a0e5c87ed376115e5d88e4c4",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-r-s1-002-execution-20261013",
+    "request": {
+      "base_execution_ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+      "idempotency_key": "task20260868-s1-r-s1-002-execution-20261013",
+      "action": "execution",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+      "commands": [
+        "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain (baseline failed)",
+        "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModel*Test --tests com.termlink.app.codex.data.CodexIpcWireModelTest --tests com.termlink.app.codex.data.CodexHistoryWireTest --console=plain",
+        "node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js",
+        "git -c core.whitespace=cr-at-eol diff --check"
+      ],
+      "evidence_refs": [
+        {
+          "role": "fixed-repair-origin",
+          "ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+          "sha256": "33a2551ac2b5f7a85c84d56604ef3ff1687c9460e43cdf12ee29f5b5a9756ccd"
+        },
+        {
+          "role": "fixed-repair-origin",
+          "ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+          "sha256": "a359678c114dfb411a9807b7beb804653fee12a9fdebc1143febbe248fab5eb0"
+        },
+        {
+          "role": "fixed-repair-origin",
+          "ref": ".workflow-system/records/events/key-3ad0b3b9eacbe331ad553ee1f91500cda3a9cc65c4fa2faac7c97389b84d86b9.json",
+          "sha256": "25e2b6c55b77f2a07b7c990aeec093f807192768834bb9f71a82e352f4827da6"
+        }
+      ],
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "documentation": {
+        "assessment": "局部repair/test evidence retained without whole REQ acceptance",
+        "updated": [
+          "REQ/PLAN current repair progress",
+          "draft CR and INDEX",
+          "PROJECT current S1 progress",
+          "ASMT-TERMLINK-15 pending_sources"
+        ]
+      },
+      "decision_ref": ".workflow-system/records/events/key-3ad0b3b9eacbe331ad553ee1f91500cda3a9cc65c4fa2faac7c97389b84d86b9.json",
+      "remaining_work": [
+        "S1 repair待review-change重审；未finish",
+        "S2/S3未执行；S3 A→B→A、IPC恢复/新任务提示真机未验",
+        "无Git提交；CR draft/TBD；原review/failures保留"
+      ],
+      "result": "implemented-and-targeted-tests-passed",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/report.md",
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/source-manifest.json",
+        "docs/changes/records/CR-20261013-1219-codex-selection-hint-cleanup.md",
+        "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+        "android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt"
+      ],
+      "finding_ids": [
+        "R-S1-002"
+      ],
+      "step_id": "S1",
+      "summary": "R-S1-002局部repair：newThread两个分支清旧IPC提示，直接catalog selection复用作用域reconcile；4新回归，baseline18/3失败，最终Android292/Node139通过；待重审，真机/S2S3未执行，不finish。",
+      "review_ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/report.md",
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/source-manifest.json",
+      "docs/changes/records/CR-20261013-1219-codex-selection-hint-cleanup.md",
+      "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+      "android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt"
+    ],
+    "evidence_refs": [
+      {
+        "role": "fixed-repair-origin",
+        "ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+        "sha256": "33a2551ac2b5f7a85c84d56604ef3ff1687c9460e43cdf12ee29f5b5a9756ccd"
+      },
+      {
+        "role": "fixed-repair-origin",
+        "ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+        "sha256": "a359678c114dfb411a9807b7beb804653fee12a9fdebc1143febbe248fab5eb0"
+      },
+      {
+        "role": "fixed-repair-origin",
+        "ref": ".workflow-system/records/events/key-3ad0b3b9eacbe331ad553ee1f91500cda3a9cc65c4fa2faac7c97389b84d86b9.json",
+        "sha256": "25e2b6c55b77f2a07b7c990aeec093f807192768834bb9f71a82e352f4827da6"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "execution",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-3ad0b3b9eacbe331ad553ee1f91500cda3a9cc65c4fa2faac7c97389b84d86b9.json"
+      ],
+      "data": {
+        "base_execution_ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+        "commands": null,
+        "evidence_refs": null,
+        "documentation": {
+          "assessment": "局部repair/test evidence retained without whole REQ acceptance",
+          "updated": [
+            "REQ/PLAN current repair progress",
+            "draft CR and INDEX",
+            "PROJECT current S1 progress",
+            "ASMT-TERMLINK-15 pending_sources"
+          ]
+        },
+        "decision_ref": ".workflow-system/records/events/key-3ad0b3b9eacbe331ad553ee1f91500cda3a9cc65c4fa2faac7c97389b84d86b9.json",
+        "remaining_work": [
+          "S1 repair待review-change重审；未finish",
+          "S2/S3未执行；S3 A→B→A、IPC恢复/新任务提示真机未验",
+          "无Git提交；CR draft/TBD；原review/failures保留"
+        ],
+        "result": "implemented-and-targeted-tests-passed",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "files": null,
+        "finding_ids": [
+          "R-S1-002"
+        ],
+        "step_id": "S1",
+        "summary": "R-S1-002局部repair：newThread两个分支清旧IPC提示，直接catalog selection复用作用域reconcile；4新回归，baseline18/3失败，最终Android292/Node139通过；待重审，真机/S2S3未执行，不finish。",
+        "review_ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "a75714dd54b4056acd8f38b2b1ff6af381da489257ed4fdd74265cfc4365ec17",
+        "references": [
+          {
+            "data_pointer": "/commands",
+            "request_pointer": "/commands"
+          },
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

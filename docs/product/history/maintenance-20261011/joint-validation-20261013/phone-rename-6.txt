@@ -1,0 +1,166 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.FrameLayout
+com.termlink.app:id/action_bar_root | null | null | android.widget.LinearLayout
+android:id/content | null | null | android.widget.FrameLayout
+com.termlink.app:id/shell_root_drawer | null | null | androidx.drawerlayout.widget.DrawerLayout
+com.termlink.app:id/shell_main_content | null | null | android.widget.LinearLayout
+com.termlink.app:id/shell_top_bar | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_sessions_drawer | null | 会话 | android.widget.ImageButton
+com.termlink.app:id/shell_status_text | Codex v1.0  连接中… | null | android.widget.TextView
+com.termlink.app:id/btn_open_workspace | null | HTTP 401 | android.widget.ImageButton
+com.termlink.app:id/shell_fragment_container | null | null | android.widget.FrameLayout
+com.termlink.app:id/terminal_webview_container | null | null | android.widget.FrameLayout
+null | null | null | android.webkit.WebView
+null | TermLink Codex | null | android.webkit.WebView
+null |  | null | android.view.View
+terminal-shell |  | null | android.view.View
+terminal-main |  | null | android.view.View
+status-overlay | 已断开，正在重连... | null | android.widget.TextView
+codex-panel |  | null | android.view.View
+codex-header |  | null | android.view.View
+codex-top-bar |  | null | android.view.View
+codex-brand |  | null | android.view.View
+codex-brand-name | Codex | null | android.widget.TextView
+codex-top-bar-actions |  | null | android.view.View
+btn-codex-header-history | 任务历史 | null | android.widget.Button
+codex-status-strip |  | null | android.view.View
+btn-codex-hamburger | Open sessions | null | android.widget.Button
+codex-header-main |  | null | android.view.View
+codex-status-line |  | null | android.view.View
+codex-status-text | CODEX 错误：连接已断开 | null | android.widget.TextView
+codex-meta-line |  | null | android.view.View
+codex-meta-text |  | null | android.widget.TextView
+codex-notice-text |  | null | android.widget.TextView
+codex-log |  | null | android.view.View
+codex-empty-state |  | null | android.view.View
+codex-watermark | CODEX | null | android.widget.TextView
+codex-log-stack |  | null | android.view.View
+null | bridge | null | android.widget.TextView
+null | Codex 面板已就绪，可以直接发送请求。 | null | android.widget.TextView
+codex-composer |  | null | android.view.View
+codex-composer-surface |  | null | android.view.View
+codex-composer-input-row |  | null | android.view.View
+codex-input | 随便问点什么... | null | android.widget.EditText
+btn-codex-send | 发送 | null | android.widget.Button
+codex-composer-footer |  | null | android.view.View
+codex-footer-actions |  | null | android.view.View
+btn-codex-capsule-attach | Attach | null | android.widget.Button
+btn-codex-capsule-model | 模型 默认 | null | android.widget.Button
+btn-codex-capsule-reasoning | 推理 默认 | null | android.widget.Button
+btn-codex-capsule-sandbox | 权限 会话设置 | null | android.widget.Button
+codex-footer-spacer |  | null | android.widget.TextView
+codex-context-widget | 查看上下文窗口调试信息 | null | android.widget.Button
+com.termlink.app:id/shell_sessions_drawer_container | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/sessions_header_card | null | null | android.widget.LinearLayout
+com.termlink.app:id/sessions_header_content | null | null | android.widget.LinearLayout
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/sessions_title | 会话 | null | android.widget.TextView
+com.termlink.app:id/btn_sessions_open_settings | null | 打开设置 | android.widget.ImageButton
+com.termlink.app:id/sessions_active_profile | 已加载配置: 5 | 当前: Default | null | android.widget.TextView
+com.termlink.app:id/btn_create_session | 创建会话 | null | android.widget.Button
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/sessions_swipe_refresh | null | null | android.view.ViewGroup
+null | null | null | android.widget.ScrollView
+com.termlink.app:id/sessions_content | null | null | android.widget.LinearLayout
+com.termlink.app:id/sessions_list_container | null | null | android.widget.LinearLayout
+null | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/group_profile_name | Default | null | android.widget.TextView
+com.termlink.app:id/group_session_count | 0 个会话 | null | android.widget.TextView
+com.termlink.app:id/group_profile_url | 端点: http://192.168.50.12:3010 | null | android.widget.TextView
+com.termlink.app:id/group_error_text | [AUTH_FAILED] 身份验证失败。请在「设置 - 编辑配置」中检查 BASIC 用户名/密码。(HTTP 401) | null | android.widget.TextView
+null | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/group_profile_name | Task005 S2 Local | null | android.widget.TextView
+com.termlink.app:id/group_session_count | 5 个会话 | null | android.widget.TextView
+com.termlink.app:id/group_profile_url | 端点: http://127.0.0.1:3010 | null | android.widget.TextView
+com.termlink.app:id/group_sessions_container | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_card | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_name | V17-Phone-Renamed | null | android.widget.TextView
+com.termlink.app:id/session_meta_primary | 模式: 终端 | 状态: ACTIVE | 连接数: 3 | null | android.widget.TextView
+com.termlink.app:id/session_meta_secondary | 最后活跃: 刚刚 | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_session | 打开 | null | android.widget.Button
+com.termlink.app:id/btn_rename_session | 重命名 | null | android.widget.Button
+com.termlink.app:id/btn_delete_session | 删除 | null | android.widget.Button
+com.termlink.app:id/session_card | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_name | Codex Native | null | android.widget.TextView
+com.termlink.app:id/session_meta_primary | 模式: Codex 聊天 | 状态: IDLE | 连接数: 0 | null | android.widget.TextView
+com.termlink.app:id/session_meta_secondary | 最后活跃: 刚刚 | 工作目录: E:\coding\TermLink | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_session | 打开 | null | android.widget.Button
+com.termlink.app:id/btn_rename_session | 重命名 | null | android.widget.Button
+com.termlink.app:id/btn_delete_session | 删除 | null | android.widget.Button
+com.termlink.app:id/session_card | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_name | Codex Native | null | android.widget.TextView
+com.termlink.app:id/session_meta_primary | 模式: Codex 聊天 | 状态: IDLE | 连接数: 0 | null | android.widget.TextView
+com.termlink.app:id/session_meta_secondary | 最后活跃: 1 分钟前 | 工作目录: E:\coding\TermLink | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_session | 打开 | null | android.widget.Button
+com.termlink.app:id/btn_rename_session | 重命名 | null | android.widget.Button
+com.termlink.app:id/btn_delete_session | 删除 | null | android.widget.Button
+com.termlink.app:id/session_card | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_name | Codex Native | null | android.widget.TextView
+com.termlink.app:id/session_meta_primary | 模式: Codex 聊天 | 状态: IDLE | 连接数: 0 | null | android.widget.TextView
+com.termlink.app:id/session_meta_secondary | 最后活跃: 5 分钟前 | 工作目录: E:\coding\TermLink | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_session | 打开 | null | android.widget.Button
+com.termlink.app:id/btn_rename_session | 重命名 | null | android.widget.Button
+com.termlink.app:id/btn_delete_session | 删除 | null | android.widget.Button
+com.termlink.app:id/session_card | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_name | Codex Native | null | android.widget.TextView
+com.termlink.app:id/session_meta_primary | 模式: Codex 聊天 | 状态: IDLE | 连接数: 0 | null | android.widget.TextView
+com.termlink.app:id/session_meta_secondary | 最后活跃: 6 分钟前 | 工作目录: E:\coding\TermLink | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_session | 打开 | null | android.widget.Button
+com.termlink.app:id/btn_rename_session | 重命名 | null | android.widget.Button
+com.termlink.app:id/btn_delete_session | 删除 | null | android.widget.Button
+null | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/group_profile_name | V20-External-A | null | android.widget.TextView
+com.termlink.app:id/group_session_count | 0 个会话 | null | android.widget.TextView
+com.termlink.app:id/group_profile_url | 端点: http://127.0.0.1:3010/api/health | null | android.widget.TextView
+com.termlink.app:id/group_empty_text | 此配置下暂无会话。 | null | android.widget.TextView
+null | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/group_profile_name | V20-LAN | null | android.widget.TextView
+com.termlink.app:id/group_session_count | 1 个会话 | null | android.widget.TextView
+com.termlink.app:id/group_profile_url | 端点: http://192.168.50.13:3010 | null | android.widget.TextView
+com.termlink.app:id/group_sessions_container | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_card | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_name | V20-LAN-Codex | null | android.widget.TextView
+com.termlink.app:id/session_meta_primary | 模式: Codex 聊天 | 状态: ACTIVE | 连接数: 1 | null | android.widget.TextView
+com.termlink.app:id/session_meta_secondary | 最后活跃: 1 分钟前 | 工作目录: E:\coding\TermLink-rust-source-resolution-codex\output\validation\20261013-android-20\workspace | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_session | 打开 | null | android.widget.Button
+com.termlink.app:id/btn_rename_session | 重命名 | null | android.widget.Button
+com.termlink.app:id/btn_delete_session | 删除 | null | android.widget.Button
+null | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/group_profile_name | V17-MTLS-UI | null | android.widget.TextView
+com.termlink.app:id/group_session_count | 1 个会话 | null | android.widget.TextView
+com.termlink.app:id/group_profile_url | 端点: https://client.badssl.com | null | android.widget.TextView
+com.termlink.app:id/group_sessions_container | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_card | null | null | androidx.cardview.widget.CardView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/session_name | V17-MTLS-Web | null | android.widget.TextView
+com.termlink.app:id/session_meta_primary | 模式: 终端 | 状态: LOCAL | 连接数: 0 | null | android.widget.TextView
+com.termlink.app:id/session_meta_secondary | 最后活跃: 刚刚 | null | android.widget.TextView
+null | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_session | 打开 | null | android.widget.Button
+com.termlink.app:id/btn_rename_session | 重命名 | null | android.widget.Button
+com.termlink.app:id/btn_delete_session | 删除 | null | android.widget.Button
+android:id/statusBarBackground | null | null | android.view.View

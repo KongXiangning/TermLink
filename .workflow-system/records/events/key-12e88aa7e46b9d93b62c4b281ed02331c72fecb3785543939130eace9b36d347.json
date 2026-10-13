@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T07:14:50.636Z",
+  "payload_sha256": "b9744db4707402b2eca1028a39e594fa7e8825533a48533394207464cbd8d7c5",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s3-finish-user-decision-20261013",
+    "request": {
+      "step_id": "S3",
+      "decision_text": "finish",
+      "summary": "按用户finish完成S3步骤处置，沿用仍适用的clean局部自审，保留失败与覆盖限制；不关闭task或授权Git。",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "action": "review-decision",
+      "decision_source": "current user execute-step finish invocation, 2026-10-13",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "review_ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+      "choice": "finish",
+      "idempotency_key": "task20260868-s3-finish-user-decision-20261013",
+      "evidence_refs": [
+        {
+          "role": "fixed-reviewed-S3-subject-and-validation",
+          "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+          "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json"
+        },
+        {
+          "role": "fixed-reviewed-S3-subject-and-validation",
+          "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+          "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json"
+        },
+        {
+          "role": "fixed-reviewed-S3-subject-and-validation",
+          "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+          "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+        },
+        {
+          "role": "fixed-reviewed-S3-subject-and-validation",
+          "sha256": "22a3cb52b00546536b27ae2f14168d9ef877a0e186524ecf9809c703cae147e2",
+          "ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json"
+        }
+      ]
+    },
+    "evidence_refs": [
+      {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json"
+      },
+      {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+        "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json"
+      },
+      {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      },
+      {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "22a3cb52b00546536b27ae2f14168d9ef877a0e186524ecf9809c703cae147e2",
+        "ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "review-decision",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json"
+      ],
+      "data": {
+        "step_id": "S3",
+        "decision_text": "finish",
+        "summary": "按用户finish完成S3步骤处置，沿用仍适用的clean局部自审，保留失败与覆盖限制；不关闭task或授权Git。",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "decision_source": "current user execute-step finish invocation, 2026-10-13",
+        "review_ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+        "choice": "finish",
+        "evidence_refs": null
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "c3869d5e816f820a9d23d871ee8aa7c73ec0ea8d09b63703c78ed126144e2d5d",
+        "references": [
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T06:52:03.506Z",
+  "payload_sha256": "3a7e920aee6e882e2ff1f40cbf484ddb8284747a3403d0aa94c26f4ed3c4cf7c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s3-test-switch-and-new-20261013",
+    "request": {
+      "selector": "switch-and-new",
+      "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "command": "run-ui.ps1 -Case switch-and-new",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+      "step_id": "S3",
+      "summary": "同机同session任务历史A→B→A、正文隔离及/new清理；IPC/gate保持不可用，非独立自动catalog分支复现。",
+      "evidence_refs": [
+        {
+          "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+          "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+          "role": "exact-execution-and-retained-run-files"
+        }
+      ],
+      "idempotency_key": "task20260868-s3-test-switch-and-new-20261013",
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "report_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "result": "passed"
+    },
+    "evidence_refs": [
+      {
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "role": "exact-execution-and-retained-run-files"
+      }
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-e3eec97dad1be9d9386ec477c7c94ada93de5b3c3e02903c69467b8681e933db.json"
+      ],
+      "data": {
+        "selector": "switch-and-new",
+        "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "command": "run-ui.ps1 -Case switch-and-new",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+        "step_id": "S3",
+        "summary": "同机同session任务历史A→B→A、正文隔离及/new清理；IPC/gate保持不可用，非独立自动catalog分支复现。",
+        "evidence_refs": [
+          {
+            "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+            "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+            "role": "exact-execution-and-retained-run-files"
+          }
+        ],
+        "report_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "result": "passed"
+      }
+    }
+  },
+  "issues": []
+}

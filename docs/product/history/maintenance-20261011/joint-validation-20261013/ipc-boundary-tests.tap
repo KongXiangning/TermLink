@@ -1,0 +1,122 @@
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][disconnect] IPC connection closed, scheduling reconnect {"clientId":"fake-client-1","eventCount":0}
+[codex-ipc][feed][reconnect] scheduling reconnect {"delayMs":1000,"attempt":2}
+[codex-ipc][feed][connect] IPC connection failed {"error":"pipe unavailable","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][reconnect] scheduling reconnect {"delayMs":1000,"attempt":2}
+[codex-ipc][feed][connect] IPC connection failed {"error":"pipe unavailable","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][reconnect] scheduling reconnect {"delayMs":10,"attempt":2}
+✔ when IPC disabled, feed emits disabled status without connecting (2.5987ms)
+✔ feed emits online status on client connect (1.4398ms)
+✔ feed installs and disposes request handlers registered before start (1.0553ms)
+✔ feed emits offline status on client close (1.2263ms)
+✔ feed emits unavailable status when connect fails (0.8103ms)
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":2}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][following] {"conversationId":"conv-follow","hostId":"local","following":true,"clientId":"fake-client-1","connectionGeneration":1,"source":"initial","result":"sent"}
+[codex-ipc][feed][following] {"conversationId":"conv-follow","hostId":"local","following":false,"clientId":"fake-client-1","connectionGeneration":1,"source":"release","result":"sent"}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][following] {"conversationId":"conv-retained","hostId":"local","following":true,"clientId":"fake-client-1","connectionGeneration":1,"source":"retention","result":"sent"}
+[codex-ipc][feed][following] {"conversationId":"conv-retained","hostId":"local","following":false,"clientId":"fake-client-1","connectionGeneration":1,"source":"retention-release","result":"sent"}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"termlink-retention","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][following] {"conversationId":"conv-retention-reconnect","hostId":"local","following":true,"clientId":"termlink-retention","connectionGeneration":1,"source":"retention","result":"sent"}
+[codex-ipc][feed][disconnect] IPC connection closed, scheduling reconnect {"clientId":"termlink-retention","eventCount":0}
+[codex-ipc][feed][reconnect] scheduling reconnect {"delayMs":10,"attempt":2}
+✔ feed retries after initial connect failure and returns online (15.3642ms)
+✔ feed emits snapshot on thread-stream-state-changed broadcast (3.4356ms)
+✔ feed sends following only on first acquire and unfollows on final release (4.1108ms)
+✔ feed keeps host following while App and server-retention references overlap (2.5889ms)
+[codex-ipc][feed][following] {"conversationId":"conv-retention-reconnect","hostId":"local","following":true,"clientId":"termlink-retention","connectionGeneration":2,"source":"reconnect","result":"sent"}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"termlink-retention","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":2}
+[codex-ipc][feed][following] {"conversationId":"conv-retention-reconnect","hostId":"local","following":false,"clientId":"termlink-retention","connectionGeneration":2,"source":"retention-release","result":"sent"}
+[codex-ipc][feed][following] {"conversationId":"conv-observe","hostId":"local","following":true,"clientId":"termlink-client","connectionGeneration":1,"source":"initial","result":"sent"}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"termlink-client","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][disconnect] IPC connection closed, scheduling reconnect {"clientId":"termlink-client","eventCount":0}
+[codex-ipc][feed][reconnect] scheduling reconnect {"delayMs":10,"attempt":2}
+✔ feed replays a server-retained conversation after IPC reconnect (51.9247ms)
+[codex-ipc][feed][following] {"conversationId":"conv-observe","hostId":"local","following":true,"clientId":"termlink-client","connectionGeneration":2,"source":"reconnect","result":"sent"}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"termlink-client","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":2}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"termlink-follower","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][following] {"conversationId":"conv-status-observe","hostId":"local","following":true,"clientId":"termlink-follower","connectionGeneration":1,"source":"initial","result":"sent"}
+[codex-ipc][feed][following] {"conversationId":"conv-status-observe","hostId":"local","following":true,"clientId":"termlink-follower","connectionGeneration":1,"source":"status-request","result":"sent"}
+✔ feed exposes initial and reconnect announcement generations without changing desired ref-count (46.8935ms)
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][following] {"conversationId":"conv-send-failure","hostId":"local","following":true,"clientId":"fake-client-1","connectionGeneration":1,"source":"initial","result":"rejected"}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][following] {"conversationId":"conv-reconnect","hostId":"local","following":true,"clientId":"fake-client-1","connectionGeneration":1,"source":"initial","result":"sent"}
+[codex-ipc][feed][disconnect] IPC connection closed, scheduling reconnect {"clientId":"fake-client-1","eventCount":0}
+[codex-ipc][feed][reconnect] scheduling reconnect {"delayMs":10,"attempt":2}
+✔ feed exposes a targeted status-request reannouncement without changing desired generation (2.412ms)
+✔ feed records failed announcements while retaining desired intent (1.2243ms)
+[codex-ipc][feed][following] {"conversationId":"conv-reconnect","hostId":"local","following":true,"clientId":"fake-client-1","connectionGeneration":2,"source":"reconnect","result":"sent"}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":2}
+[codex-ipc][feed][following] {"conversationId":"conv-before-start","hostId":"local","following":true,"clientId":"fake-client-1","connectionGeneration":1,"source":"initial","result":"sent"}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"termlink-client","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"termlink-client","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+✔ feed replays desired following after IPC reconnect initializes a new client session (42.8064ms)
+✔ feed stores following requested before initialization and sends it once connect completes (1.7348ms)
+✔ feed exposes desync on revision mismatch and clears it on the next full snapshot (2.0846ms)
+✔ feed emits and caches demo-style sync events with surface projection (1.5787ms)
+✔ feed maps canonical runtime state and history to a running surface (2.7787ms)
+✔ feed records incoming and outgoing raw IPC events (0.9035ms)
+✔ snapshot is cached and retrievable via getLatestSnapshot (1.5476ms)
+✔ getRecentSnapshots returns latest per conversation sorted by timestamp (1.9018ms)
+✔ feed detects richer external surfaces for a conversation (2.0564ms)
+✔ feed detects pending plan action from external live surface only (2.0448ms)
+✔ snapshot cache is pruned when exceeding maxSnapshots (1.6219ms)
+✔ snapshots from different conversations do not interfere (2.5403ms)
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+✔ broadcasts other than thread-stream-state-changed do not emit snapshot (2.58ms)
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"termlink-follower","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][following] {"conversationId":"conv-follow-status","hostId":"local","following":true,"clientId":"termlink-follower","connectionGeneration":1,"source":"initial","result":"sent"}
+[codex-ipc][feed][following] {"conversationId":"conv-follow-status","hostId":"local","following":true,"clientId":"termlink-follower","connectionGeneration":1,"source":"status-request","result":"sent"}
+✔ feed exposes incoming lifecycle broadcasts without projecting a snapshot (1.1315ms)
+✔ feed forwards targeted broadcast options to the IPC client (0.8372ms)
+[codex-ipc][feed][connect] IPC connection established {"clientId":"termlink-follower","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+✔ feed re-announces an existing desired subscription to a requesting owner (2.2432ms)
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][error] IPC client error {"error":"boom","clientId":"fake-client-1","eventCount":0}
+[codex-ipc][feed][reconnect] scheduling reconnect {"delayMs":1000,"attempt":2}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+[codex-ipc][feed][connect] IPC connection established {"clientId":"fake-client-1","pipePath":"\\\\.\\pipe\\codex-ipc","connectAttempts":1}
+✔ feed does not claim following status for an untracked conversation (0.7917ms)
+✔ client errors are forwarded (2.7533ms)
+✔ stop emits offline status and cleans up (0.7549ms)
+✔ double start is a no-op (0.6633ms)
+✔ owner tracker keeps seeded external surface and appends owner turn surface (2.9429ms)
+✔ owner tracker leaves missing titles to Codex default naming and preserves real thread names (0.355ms)
+✔ owner tracker restores required turn params when turn/start omits them (0.7747ms)
+✔ owner tracker preserves turn input when a later notification omits params (0.516ms)
+✔ owner raw snapshot restores Desktop turn params from a real user item (0.5447ms)
+✔ owner Goal snapshot keeps the real Goal state without fabricating a user message (0.4493ms)
+✔ owner raw snapshot prunes only terminal Goal empty in-progress placeholders (0.4059ms)
+✔ owner completed Goal projects its objective into the real terminal turn (0.4079ms)
+✔ owner tracker projects pending approval request and resolves it (0.5727ms)
+✔ owner tracker consumes app-server turn notifications and message deltas (0.4462ms)
+✔ owner tracker keeps responded approval pending until owner progress arrives (0.4246ms)
+✔ owner tracker does not restore authoritative pending actions from the external seed (0.2077ms)
+✔ owner tracker projects active goal and keeps completed goal from reviving from seed (0.2278ms)
+✔ owner tracker releases only the requested conversation (0.2143ms)
+✔ owner tracker registers and clears follower client ids per conversation (0.2779ms)
+✔ owner tracker clears stale followers without releasing owner conversations (0.1285ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 301.9239

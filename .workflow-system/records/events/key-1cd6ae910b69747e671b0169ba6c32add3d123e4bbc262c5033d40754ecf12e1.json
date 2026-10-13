@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:32:09.374Z",
+  "payload_sha256": "5ba939b6ebf29ba6766ebf5444193420a27aa5c5769e872b5990eb4007a86e9c",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-finished-20261013",
+    "request": {
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "remaining_work": [
+        "S2 registration校验实施及HTTP/WS拒绝回归尚未开始",
+        "S3联合验证未执行，真机同机A→B→A、同连接IPC恢复及新任务提示未验证",
+        "无Git提交；draft CR保持commit_ref TBD；无部署/任务关闭",
+        "完整ViewModel协程/socket及真机闭环未由静态自审证明",
+        "旧finding与失败记录保留；两条历史管理关联缺口不在本次处置范围"
+      ],
+      "validation": {
+        "head_matches": true,
+        "reused": "Android292/292、Node139/139；本轮不重跑",
+        "source_matches": 9,
+        "manifest_sha256": "2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+        "review": "clean self-review, independent=false"
+      },
+      "review_ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+      "decision_source": "current user execute-step invocation",
+      "summary": "S1实施/两次repair及定向自动化已交付，当前第二次repairclean静态自审适用；核对9文件/HEAD无漂移后按用户请求finish。保留所有历史finding/失败；不把步骤处置当作S3或完整REQ验收。",
+      "decision_text": "finish，完成 TASK-20260868 的 S1 步骤处置，保留 S3 真机验证待执行。",
+      "idempotency_key": "task20260868-s1-finished-20261013",
+      "decision_ref": ".workflow-system/records/events/key-1fb0ee71a1c8524e17a16728ea57349b11d8bad288ca3f5ea5d5462004fb4195.json",
+      "evidence_refs": [
+        {
+          "sha256": "a4cf18b36b1a24c54dcb155be2875895d567ab39c5a92645eb6eaa205d098a07",
+          "ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+          "role": "fixed-S1-finish-basis"
+        },
+        {
+          "sha256": "a804df582237b33d18c5b067f7d20de90f66934483cc8cf70f719fe1471b38c6",
+          "ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+          "role": "fixed-S1-finish-basis"
+        },
+        {
+          "sha256": "c9ccc0a9eb67eec5bb8c645fedbf9d5928dca85bc3dba6488b93fa60c68e52a7",
+          "ref": ".workflow-system/records/events/key-1fb0ee71a1c8524e17a16728ea57349b11d8bad288ca3f5ea5d5462004fb4195.json",
+          "role": "fixed-S1-finish-basis"
+        },
+        {
+          "sha256": "02784245d09cf3cdb8922fbbcc245984c1905066c3cede50a383781a2d6f7129",
+          "ref": ".workflow-system/records/events/key-08268097697e917a023d7c83b4658978ba1d44defd5c1fe4068ced469538867d.json",
+          "role": "fixed-S1-finish-basis"
+        },
+        {
+          "sha256": "9b84e57a89e22ef6003c4a58cbf8ba96655e6d8c043ee34b80484750064e67e4",
+          "ref": ".workflow-system/records/events/key-4d3b29bad72ea2718398696148267c2e1fe64c0525950e023683128845c7793f.json",
+          "role": "fixed-S1-finish-basis"
+        },
+        {
+          "sha256": "2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+          "ref": ".workflow-system/records/evidence-objects/2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb.blob",
+          "role": "fixed-S1-finish-basis"
+        }
+      ],
+      "execution_ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+      "action": "step",
+      "step_id": "S1",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+      "state": "finished"
+    },
+    "evidence_refs": [
+      {
+        "sha256": "a4cf18b36b1a24c54dcb155be2875895d567ab39c5a92645eb6eaa205d098a07",
+        "ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      {
+        "sha256": "a804df582237b33d18c5b067f7d20de90f66934483cc8cf70f719fe1471b38c6",
+        "ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      {
+        "sha256": "c9ccc0a9eb67eec5bb8c645fedbf9d5928dca85bc3dba6488b93fa60c68e52a7",
+        "ref": ".workflow-system/records/events/key-1fb0ee71a1c8524e17a16728ea57349b11d8bad288ca3f5ea5d5462004fb4195.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      {
+        "sha256": "02784245d09cf3cdb8922fbbcc245984c1905066c3cede50a383781a2d6f7129",
+        "ref": ".workflow-system/records/events/key-08268097697e917a023d7c83b4658978ba1d44defd5c1fe4068ced469538867d.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      {
+        "sha256": "9b84e57a89e22ef6003c4a58cbf8ba96655e6d8c043ee34b80484750064e67e4",
+        "ref": ".workflow-system/records/events/key-4d3b29bad72ea2718398696148267c2e1fe64c0525950e023683128845c7793f.json",
+        "role": "fixed-S1-finish-basis"
+      },
+      {
+        "sha256": "2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+        "ref": ".workflow-system/records/evidence-objects/2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb.blob",
+        "role": "fixed-S1-finish-basis"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "step",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-1fb0ee71a1c8524e17a16728ea57349b11d8bad288ca3f5ea5d5462004fb4195.json"
+      ],
+      "data": {
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "remaining_work": null,
+        "validation": {
+          "head_matches": true,
+          "reused": "Android292/292、Node139/139；本轮不重跑",
+          "source_matches": 9,
+          "manifest_sha256": "2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+          "review": "clean self-review, independent=false"
+        },
+        "review_ref": ".workflow-system/records/events/key-cfe48868eb872ba5040f28492fb80d5f4480525c936d06ee5954852cf8953027.json",
+        "decision_source": "current user execute-step invocation",
+        "summary": "S1实施/两次repair及定向自动化已交付，当前第二次repairclean静态自审适用；核对9文件/HEAD无漂移后按用户请求finish。保留所有历史finding/失败；不把步骤处置当作S3或完整REQ验收。",
+        "decision_text": "finish，完成 TASK-20260868 的 S1 步骤处置，保留 S3 真机验证待执行。",
+        "decision_ref": ".workflow-system/records/events/key-1fb0ee71a1c8524e17a16728ea57349b11d8bad288ca3f5ea5d5462004fb4195.json",
+        "evidence_refs": null,
+        "execution_ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+        "step_id": "S1",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+        "state": "finished"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "f3b70a38f2a553ed9caa53043aca1dae4ce586284ca0226fcd08904db3ffafb1",
+        "references": [
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/remaining_work",
+            "request_pointer": "/remaining_work"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

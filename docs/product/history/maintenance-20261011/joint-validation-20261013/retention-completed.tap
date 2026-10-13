@@ -1,0 +1,19 @@
+Cleaning up idle session: 178543d2-7be7-4498-b79a-26aa35ccb856
+V17 boundary PID released 41628
+✔ real SessionManager and real PTY: TTL exact boundary retains; +1ms removes and releases process (546.946ms)
+Cleaning up idle session: 4129796f-2334-4863-82af-ff2367c2bc1b
+[SessionManager] Evicting idle session due to capacity limit: de6e5dd5-b8c1-4a34-a4b7-352b71a093c8
+✔ real cleanup interval fires and removes expired idle session (1635.741ms)
+✔ connected session is retained beyond idle TTL (35.3211ms)
+✔ capacity evicts oldest idle process and keeps active and more recent idle (634.1968ms)
+✔ capacity with all sessions connected refuses without killing active processes (93.009ms)
+(node:59040) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 unpipe listeners added to [Socket]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3266.7087

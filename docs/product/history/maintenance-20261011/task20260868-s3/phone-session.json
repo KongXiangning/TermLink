@@ -1,0 +1,14 @@
+{
+  "session": {
+    "id": "ca6c2b30-1df6-4120-a21e-59b0f3846fd6",
+    "name": "TASK20260868-S3-Codex",
+    "sessionMode": "codex",
+    "cwd": "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task20260868-s3\\workspace",
+    "workspaceRoot": "E:\\coding\\TermLink-rust-source-resolution-codex\\logs\\task20260868-s3\\workspace",
+    "workspaceRootSource": "session_cwd",
+    "lastCodexThreadId": null,
+    "codexConfig": null
+  },
+  "profileId": "task005-s2-local",
+  "registrationId": "990c7457-988e-439f-8b4f-d2fc59f1be33"
+}

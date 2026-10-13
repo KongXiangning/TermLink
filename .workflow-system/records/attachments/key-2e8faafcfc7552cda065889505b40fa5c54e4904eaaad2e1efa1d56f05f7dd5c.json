@@ -1,0 +1,136 @@
+{
+  "event_ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+  "captured_at": "2026-10-13T04:56:39.916Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/003520a9f5f0fb6c611896097411b30fab960d4567dfbe7009a968ec9b7ad279.blob",
+      "sha256": "003520a9f5f0fb6c611896097411b30fab960d4567dfbe7009a968ec9b7ad279",
+      "size": 6429,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/review-20261013.md",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+      "sha256": "cc05792e2680b820a8a8d9ad65ae77de3233ead74efc6b22634d1d8e873bbb55",
+      "size": 8078,
+      "request": {
+        "ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "cc05792e2680b820a8a8d9ad65ae77de3233ead74efc6b22634d1d8e873bbb55"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-73884da27cc87c94e937af666fbfd7cf794a861efd04283a2ac35b42cdced365.json",
+      "sha256": "df9b9c60daaf260ab7cf1a90230d1e007b55919fc9dffc58d1c3bea358a0d730",
+      "size": 3776,
+      "request": {
+        "ref": ".workflow-system/records/events/key-73884da27cc87c94e937af666fbfd7cf794a861efd04283a2ac35b42cdced365.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "df9b9c60daaf260ab7cf1a90230d1e007b55919fc9dffc58d1c3bea358a0d730"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-fd1f26ab10e8c062eb90a3c8f3a1d12199172dd50befbbeaa0a69d622eab16e3.json",
+      "sha256": "40d5d2d4c1e9b64b86b1d8efbac585ee5a6cb1f26269df8563fc953294f0dec8",
+      "size": 2775,
+      "request": {
+        "ref": ".workflow-system/records/events/key-fd1f26ab10e8c062eb90a3c8f3a1d12199172dd50befbbeaa0a69d622eab16e3.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "40d5d2d4c1e9b64b86b1d8efbac585ee5a6cb1f26269df8563fc953294f0dec8"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-1888c74db1d55c7352bcc61e4f9e5f137e6e641c81e68ca04998efb8ad43f129.json",
+      "sha256": "adb62efece61d20502b9b219e979d4da0071ce57c92556fe5d64e9557b3923b1",
+      "size": 3203,
+      "request": {
+        "ref": ".workflow-system/records/events/key-1888c74db1d55c7352bcc61e4f9e5f137e6e641c81e68ca04998efb8ad43f129.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "adb62efece61d20502b9b219e979d4da0071ce57c92556fe5d64e9557b3923b1"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-164df9832a9fce867f480429f07fd73f472a9e8bad7f851b6f1b0c18f88ea7db.json",
+      "sha256": "4264a72315398730035aef1329daebc6f86d5ed45eb083341a78de265daea54d",
+      "size": 3714,
+      "request": {
+        "ref": ".workflow-system/records/events/key-164df9832a9fce867f480429f07fd73f472a9e8bad7f851b6f1b0c18f88ea7db.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "4264a72315398730035aef1329daebc6f86d5ed45eb083341a78de265daea54d"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json",
+      "sha256": "b1a213b8b03661b69a60066510c912d06ec2a919122e4722436d44a29e0002c9",
+      "size": 3001,
+      "request": {
+        "ref": ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "b1a213b8b03661b69a60066510c912d06ec2a919122e4722436d44a29e0002c9"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/evidence-objects/eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b.blob",
+      "sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b",
+      "size": 2733,
+      "request": {
+        "ref": ".workflow-system/records/evidence-objects/eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b.blob",
+        "role": "fixed-reviewed-S2-evidence",
+        "sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

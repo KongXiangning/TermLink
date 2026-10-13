@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-16df088f3995be7a8da66b003ad5f33f8c7e6e6faba9fe951c1a4fd8969c7d54.json",
+  "captured_at": "2026-10-13T04:01:25.981Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/25aa11804f0fdf0ee59ba519267749bfc5ec897400164a469c2cc4076b5f129c.blob",
+      "sha256": "25aa11804f0fdf0ee59ba519267749bfc5ec897400164a469c2cc4076b5f129c",
+      "size": 5347,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests.txt",
+      "issues": []
+    }
+  ]
+}

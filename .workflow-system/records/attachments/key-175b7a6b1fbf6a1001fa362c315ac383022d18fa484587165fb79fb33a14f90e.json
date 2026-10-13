@@ -1,0 +1,51 @@
+{
+  "event_ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+  "captured_at": "2026-10-13T03:49:49.992Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/5d46a1e72c653616d658ac0a0e7a4864e309b73cd462cfc5a455863240c3c569.blob",
+      "sha256": "5d46a1e72c653616d658ac0a0e7a4864e309b73cd462cfc5a455863240c3c569",
+      "size": 4950,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/review-20261013.md",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/evidence-objects/134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967.blob",
+      "sha256": "134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967",
+      "size": 1907,
+      "request": {
+        "ref": ".workflow-system/records/evidence-objects/134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967.blob",
+        "role": "verified-current-source-manifest",
+        "sha256": "134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+      "sha256": "e71bddf124e82e4ca94de5ac19ee5089ad5684844491adbf3a351bf934eeae9d",
+      "size": 6225,
+      "request": {
+        "ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+        "role": "reviewed-execution",
+        "sha256": "e71bddf124e82e4ca94de5ac19ee5089ad5684844491adbf3a351bf934eeae9d"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

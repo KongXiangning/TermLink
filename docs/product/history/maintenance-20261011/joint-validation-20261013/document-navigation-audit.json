@@ -1,0 +1,49 @@
+{
+  "sample": [
+    {
+      "path": "docs/product/REQUIREMENTS_BACKLOG.md",
+      "exists": true
+    },
+    {
+      "path": "docs/product/PRODUCT_REQUIREMENTS.md",
+      "exists": true
+    },
+    {
+      "path": "docs/product/requirements/REQ-TEMPLATE.md",
+      "exists": true
+    },
+    {
+      "path": "docs/product/plans/PLAN-TEMPLATE.md",
+      "exists": true
+    },
+    {
+      "path": "docs/architecture/PROJECT_OVERVIEW.md",
+      "exists": true
+    },
+    {
+      "path": "docs/architecture/CURRENT_STATE.md",
+      "exists": true
+    },
+    {
+      "path": "docs/architecture/ROADMAP.md",
+      "exists": true
+    },
+    {
+      "path": "docs/architecture/decisions/ADR-TEMPLATE.md",
+      "exists": true
+    },
+    {
+      "path": "docs/codex/codex-plugin-capability-matrix.md",
+      "exists": true
+    },
+    {
+      "path": "docs/codex/cross-version-stable-findings.md",
+      "exists": true
+    }
+  ],
+  "sampleAllOpen": true,
+  "currentProjectEntryInNavigation": false,
+  "originalRequirementExists": true,
+  "historicalCrHasPendingVerification": true,
+  "limitations": "抽查10条路径存在性，不是全库导航和所有主题唯一性证明；隔离演练独立保存。"
+}

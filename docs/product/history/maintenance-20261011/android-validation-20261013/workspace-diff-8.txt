@@ -1,0 +1,40 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.FrameLayout
+com.termlink.app:id/action_bar_root | null | null | android.widget.LinearLayout
+android:id/content | null | null | android.widget.FrameLayout
+com.termlink.app:id/workspace_root | null | null | android.widget.LinearLayout
+com.termlink.app:id/workspace_top_bar | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_workspace_back | null | 返回会话 | android.widget.ImageButton
+com.termlink.app:id/workspace_title_container | null | null | android.widget.LinearLayout
+com.termlink.app:id/workspace_toolbar_title | 工作区 | null | android.widget.TextView
+com.termlink.app:id/workspace_toolbar_subtitle | Task005 S2 Local | 会话 3f5b1694-568b-47dd-95fe-c14fe89d5877 | null | android.widget.TextView
+null | null | null | android.webkit.WebView
+null | TermLink Workspace | null | android.webkit.WebView
+null | Workspace navigation | null | android.view.View
+btn-mobile-back | Back | null | android.widget.Button
+workspace-mobile-title | proof.txt | null | android.widget.TextView
+btn-workspace-more | More | null | android.widget.Button
+workspace-breadcrumbs | Breadcrumb | null | android.view.View
+null | / | null | android.widget.Button
+null | / | null | android.widget.TextView
+null | docs | null | android.widget.Button
+workspace-main |  | null | android.view.View
+null | Viewer | null | android.view.View
+viewer-kind | GIT · HEAD | null | android.widget.TextView
+viewer-title | proof.txt | null | android.widget.TextView
+viewer-meta | text · utf-8 · 40 B | null | android.widget.TextView
+viewer-path |  | null | android.view.View
+viewer-path-toggle | 路径 docs/proof.txt | null | android.widget.Button
+viewer-surface |  | null | android.view.View
+diff-viewer |  | null | android.view.View
+diff-body |  | null | android.view.View
+null |  | null | android.view.View
+null | @@ -1,1 +1,2 @@ | null | android.widget.TextView
+null | 1 | null | android.widget.TextView
+null | 1 | null | android.widget.TextView
+null |   | null | android.widget.TextView
+null | V20 DOCS baseline | null | android.widget.TextView
+null | 2 | null | android.widget.TextView
+null | + | null | android.widget.TextView
+null | V20 DOCS added diff | null | android.widget.TextView

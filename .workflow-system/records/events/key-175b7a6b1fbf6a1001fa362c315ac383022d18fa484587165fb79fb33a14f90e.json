@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T03:49:49.933Z",
+  "payload_sha256": "4a5ec4b7a00fc62539dfff3583d4dd2383e1ae97d4d24dd0ce807017ad552c2b",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-change-review-20261013-hint-lifetime",
+    "request": {
+      "stage": "change",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "summary": "S1静态审查发现1项P2：IPC操作不可用提示迁入connectionErrorMessage后，同WebSocket恢复及任务切换清理不完整；S1不标clean或finish。",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;working-source-manifest:134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/review-20261013.md"
+      ],
+      "findings": [
+        {
+          "body": "IPC离线但WebSocket保持CONNECTED时，审批入口写入connectionErrorMessage；IPC恢复/成功操作不清理新字段，同连接A→B的preparePendingHistorySelectionUiState仍只清errorMessage，导致旧提示留在正常B。原字段会随切换清空。应按提示来源和任务作用域补匹配恢复/重试/切换清理，并覆盖同连接路径，不清空有效业务错误。",
+          "title": "IPC操作提示迁移后丢失同连接恢复与任务切换清理",
+          "id": "R-S1-001",
+          "evidence": "静态赋值点与调用链；未执行完整ViewModel或真机复现。",
+          "status": "open",
+          "start_line": 5138,
+          "file": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+          "end_line": 5142,
+          "priority": "P2"
+        }
+      ],
+      "step_id": "S1",
+      "next_route": "execute-step",
+      "verdict": "findings",
+      "execution_ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+      "coverage": {
+        "excluded": [
+          "S2 registration实施",
+          "其他工作区维护资产",
+          "Rust、历史协议或数据库设计"
+        ],
+        "reviewed": [
+          "五个Android文件完整diff及相关ConnectionManager、UI、IPC可用性/错误清理调用链",
+          "CONTRACTS Codex实时核心及AD-004",
+          "S1计划/REQ/PLAN/draft CR/执行报告、测试原输出及9个文件哈希匹配"
+        ],
+        "not_run": [
+          "本轮无新产品测试或构建",
+          "完整ViewModel/socket竞态及S3真机断连恢复"
+        ],
+        "reused_tests": [
+          "Android ViewModel/wire 282/282",
+          "Node Owner/IPC 139/139"
+        ]
+      },
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "remaining_work": [
+        "修复R-S1-001并执行相关回归，记录新execution后重审",
+        "S1未finish，S2未开始，S3真机未运行",
+        "无Git提交，CR保持draft/TBD",
+        "两条历史管理关联缺口按既有范围继续保留"
+      ],
+      "action": "review",
+      "idempotency_key": "task20260868-s1-change-review-20261013-hint-lifetime",
+      "evidence_refs": [
+        {
+          "ref": ".workflow-system/records/evidence-objects/134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967.blob",
+          "role": "verified-current-source-manifest",
+          "sha256": "134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967"
+        },
+        {
+          "ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+          "role": "reviewed-execution",
+          "sha256": "e71bddf124e82e4ca94de5ac19ee5089ad5684844491adbf3a351bf934eeae9d"
+        }
+      ],
+      "provenance": {
+        "reviewer": "Codex单代理静态审查；本会话未实施代码",
+        "kind": "self-review",
+        "independent": false,
+        "method": "current diff and call-chain inspection plus original evidence/hash verification"
+      }
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/review-20261013.md"
+    ],
+    "evidence_refs": [
+      {
+        "ref": ".workflow-system/records/evidence-objects/134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967.blob",
+        "role": "verified-current-source-manifest",
+        "sha256": "134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967"
+      },
+      {
+        "ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+        "role": "reviewed-execution",
+        "sha256": "e71bddf124e82e4ca94de5ac19ee5089ad5684844491adbf3a351bf934eeae9d"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "review",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-731277d64645ce765bb054abeb9f13e878f3e3983de6e27e284a09fc0027cc85.json"
+      ],
+      "data": {
+        "stage": "change",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "summary": "S1静态审查发现1项P2：IPC操作不可用提示迁入connectionErrorMessage后，同WebSocket恢复及任务切换清理不完整；S1不标clean或finish。",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;working-source-manifest:134ad460424707ea31f756d03f5a025c5f570f4a99e8d17a0a44ce0e6046a967",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s1/review-20261013.md"
+        ],
+        "findings": null,
+        "step_id": "S1",
+        "next_route": "execute-step",
+        "verdict": "findings",
+        "execution_ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+        "coverage": null,
+        "remaining_work": [
+          "修复R-S1-001并执行相关回归，记录新execution后重审",
+          "S1未finish，S2未开始，S3真机未运行",
+          "无Git提交，CR保持draft/TBD",
+          "两条历史管理关联缺口按既有范围继续保留"
+        ],
+        "evidence_refs": null,
+        "provenance": {
+          "reviewer": "Codex单代理静态审查；本会话未实施代码",
+          "kind": "self-review",
+          "independent": false,
+          "method": "current diff and call-chain inspection plus original evidence/hash verification"
+        }
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "9e43eb474c77600c1fc7af7cae0d5034ed87ba435e7a97f71aed40da51844ef7",
+        "references": [
+          {
+            "data_pointer": "/coverage",
+            "request_pointer": "/coverage"
+          },
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/findings",
+            "request_pointer": "/findings"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

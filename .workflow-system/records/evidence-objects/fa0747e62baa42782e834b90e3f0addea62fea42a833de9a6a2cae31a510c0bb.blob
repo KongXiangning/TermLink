@@ -1,0 +1,38 @@
+INSTRUMENTATION_STATUS: class=com.termlink.app.LiveAcceptanceDriverTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+com.termlink.app.LiveAcceptanceDriverTest:
+INSTRUMENTATION_STATUS: test=executeObservedUiSteps
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.termlink.app.LiveAcceptanceDriverTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stack=java.lang.IllegalStateException: UI target not visible: 会话 | 会话 | Codex · 流式输出中 | 查看完整工作目录路径 | PATH · | E:\…\workspace | › | 任务历史 | 任务历史 | 文档 | 文档 | Goal · S3-NO-SEND-CONTROL | 运行中 | 暂停 Goal | ■ | 用户 | 14:35 | S3-MARKER-B. Disposable S3 check: reply exactly S3-MARKER-B. No tools, files or network. | Codex | 14:35 | S3-MARKER-B | 用户 | 目标 | 14:35 | S3-NO-SEND-CONTROL | Codex | 14:35 | What action or result does `S3-NO-SEND-CONTROL` require? | Codex | 14:35 | `S3-NO-SEND-CONTROL`doesnotspecifyanaction | 流式输出中 |  | 问任何问题... | 打开添加菜单 | + | 打开斜杠命令 | / | 自定义 (config.toml) | ◈ | 自定义 | 6.1 Sol 低 | ⌄ | 中断 | ■
+	at com.termlink.app.LiveAcceptanceDriverTest.awaitNode(LiveAcceptanceDriverTest.kt:108)
+	at com.termlink.app.LiveAcceptanceDriverTest.executeObservedUiSteps(LiveAcceptanceDriverTest.kt:87)
+
+INSTRUMENTATION_STATUS: stream=
+Error in executeObservedUiSteps(com.termlink.app.LiveAcceptanceDriverTest):
+java.lang.IllegalStateException: UI target not visible: 会话 | 会话 | Codex · 流式输出中 | 查看完整工作目录路径 | PATH · | E:\…\workspace | › | 任务历史 | 任务历史 | 文档 | 文档 | Goal · S3-NO-SEND-CONTROL | 运行中 | 暂停 Goal | ■ | 用户 | 14:35 | S3-MARKER-B. Disposable S3 check: reply exactly S3-MARKER-B. No tools, files or network. | Codex | 14:35 | S3-MARKER-B | 用户 | 目标 | 14:35 | S3-NO-SEND-CONTROL | Codex | 14:35 | What action or result does `S3-NO-SEND-CONTROL` require? | Codex | 14:35 | `S3-NO-SEND-CONTROL`doesnotspecifyanaction | 流式输出中 |  | 问任何问题... | 打开添加菜单 | + | 打开斜杠命令 | / | 自定义 (config.toml) | ◈ | 自定义 | 6.1 Sol 低 | ⌄ | 中断 | ■
+	at com.termlink.app.LiveAcceptanceDriverTest.awaitNode(LiveAcceptanceDriverTest.kt:108)
+	at com.termlink.app.LiveAcceptanceDriverTest.executeObservedUiSteps(LiveAcceptanceDriverTest.kt:87)
+
+INSTRUMENTATION_STATUS: test=executeObservedUiSteps
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: stream=
+
+Time: 25.73
+There was 1 failure:
+1) executeObservedUiSteps(com.termlink.app.LiveAcceptanceDriverTest)
+java.lang.IllegalStateException: UI target not visible: 会话 | 会话 | Codex · 流式输出中 | 查看完整工作目录路径 | PATH · | E:\…\workspace | › | 任务历史 | 任务历史 | 文档 | 文档 | Goal · S3-NO-SEND-CONTROL | 运行中 | 暂停 Goal | ■ | 用户 | 14:35 | S3-MARKER-B. Disposable S3 check: reply exactly S3-MARKER-B. No tools, files or network. | Codex | 14:35 | S3-MARKER-B | 用户 | 目标 | 14:35 | S3-NO-SEND-CONTROL | Codex | 14:35 | What action or result does `S3-NO-SEND-CONTROL` require? | Codex | 14:35 | `S3-NO-SEND-CONTROL`doesnotspecifyanaction | 流式输出中 |  | 问任何问题... | 打开添加菜单 | + | 打开斜杠命令 | / | 自定义 (config.toml) | ◈ | 自定义 | 6.1 Sol 低 | ⌄ | 中断 | ■
+	at com.termlink.app.LiveAcceptanceDriverTest.awaitNode(LiveAcceptanceDriverTest.kt:108)
+	at com.termlink.app.LiveAcceptanceDriverTest.executeObservedUiSteps(LiveAcceptanceDriverTest.kt:87)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1
+
+
+INSTRUMENTATION_CODE: -1

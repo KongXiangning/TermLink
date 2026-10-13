@@ -1,0 +1,16 @@
+[
+{"op":"launch","activity":"com.termlink.app.MainShellActivity"},
+{"op":"clickDesc","text":"会话"},
+{"op":"clickRow","text":"V20-Web-Two","id":"btn_delete_session"},
+{"op":"clickId","id":"android:id/button1"},
+{"op":"assertAbsent","text":"V20-Web-Two"},
+{"op":"clickRow","text":"V20-Web-Renamed","id":"btn_open_session"},
+{"op":"assertText","text":"\"status\":\"ok\""},
+{"op":"shell","command":"am force-stop com.termlink.app"},
+{"op":"launch","activity":"com.termlink.app.MainShellActivity"},
+{"op":"clickDesc","text":"会话"},
+{"op":"assertAbsent","text":"V20-Web-Two"},
+{"op":"assertText","text":"V20-Web-Renamed"},
+{"op":"clickRow","text":"V20-Web-Renamed","id":"btn_open_session"},
+{"op":"assertText","text":"\"status\":\"ok\""}
+]

@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { ClientRegistrationManager } = require('../src/services/clientRegistrationManager');
 
 function loadGatewayWithAuthMock(verifyWsUpgrade) {
     const authPath = require.resolve('../src/auth/basicAuth');
@@ -9,7 +10,12 @@ function loadGatewayWithAuthMock(verifyWsUpgrade) {
 
     const authModule = require(authPath);
     authModule.verifyWsUpgrade = verifyWsUpgrade;
-    return require(gatewayPath);
+    const registerTerminalGateway = require(gatewayPath);
+    return (wss, options) => {
+        // The current disposer enumerates sessionManager.sessions for attachment cleanup.
+        options.sessionManager.sessions = options.sessionManager.sessions || new Map();
+        return registerTerminalGateway(wss, options);
+    };
 }
 
 function createMockWss() {
@@ -69,6 +75,87 @@ function createSession(id, name = 'Session') {
     };
 }
 
+const registrationManager = new ClientRegistrationManager({ enabled: false });
+const activeRegistration = registrationManager.create('android');
+const revokedRegistration = registrationManager.create('android');
+registrationManager.revoke(revokedRegistration.id);
+
+function registrationGatewayFixture(t) {
+    const registerTerminalGateway = loadGatewayWithAuthMock(() => true);
+    const wss = createMockWss();
+    const session = createSession('owned-session');
+    session.registrationId = activeRegistration.id;
+    const calls = { lookup: [], create: [], add: [] };
+    const dispose = registerTerminalGateway(wss, {
+        registrationManager, heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' },
+        sessionManager: {
+            getSessionForRegistration(id, registrationId) {
+                calls.lookup.push([id, registrationId]);
+                return id === session.id && (!registrationId || registrationId === session.registrationId) ? session : null;
+            },
+            async createSession(options) { calls.create.push(options); return session; },
+            addConnection(currentSession, ws) { calls.add.push(currentSession.id); currentSession.connections.push(ws); },
+            removeConnection() {}
+        }
+    });
+    t.after(dispose);
+    return { wss, calls };
+}
+
+for (const [kind, registrationId] of [['unknown', 'missing-registration'], ['revoked', revokedRegistration.id]]) {
+    for (const withSession of [false, true]) {
+        test(`WS rejects ${kind} registration ${withSession ? 'before session reuse' : 'before default session creation'}`, async (t) => {
+            const { wss, calls } = registrationGatewayFixture(t);
+            const ws = createMockWs();
+            await wss.getHandler('connection')(ws, {
+                url: `/ws?registrationId=${registrationId}${withSession ? '&sessionId=owned-session' : ''}`,
+                headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' }
+            });
+            assert.deepEqual(ws.closed, [{ code: 4403, reason: 'Client registration is invalid or revoked' }]);
+            assert.deepEqual(ws.sent, []);
+            assert.deepEqual(calls, { lookup: [], create: [], add: [] });
+        });
+    }
+}
+
+for (const [kind, registrationId] of [['active', activeRegistration.id], ['legacy', null]]) {
+    for (const withSession of [false, true]) {
+        test(`WS preserves ${kind} registration ${withSession ? 'session reuse' : 'default session creation'}`, async (t) => {
+            const { wss, calls } = registrationGatewayFixture(t);
+            const ws = createMockWs();
+            const query = new URLSearchParams();
+            if (registrationId) query.set('registrationId', registrationId);
+            if (withSession) query.set('sessionId', 'owned-session');
+            await wss.getHandler('connection')(ws, {
+                url: `/ws?${query}`, headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' }
+            });
+            assert.deepEqual(ws.closed, []);
+            assert.equal(calls.create.length, withSession ? 0 : 1);
+            assert.deepEqual(calls.lookup, withSession ? [['owned-session', registrationId]] : []);
+            if (!withSession) assert.equal(calls.create[0].registrationId, registrationId);
+            assert.deepEqual(calls.add, ['owned-session']);
+            assert.equal(ws.sent[0].type, 'session_info');
+            assert.equal(ws.sent[0].sessionId, 'owned-session');
+        });
+    }
+}
+
+test('active registration cannot attach to another registration session over WS', async (t) => {
+    const otherRegistration = registrationManager.create('android');
+    const { wss, calls } = registrationGatewayFixture(t);
+    const ws = createMockWs();
+    await wss.getHandler('connection')(ws, {
+        url: `/ws?registrationId=${otherRegistration.id}&sessionId=owned-session`,
+        headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' }
+    });
+    assert.deepEqual(ws.closed, [{ code: 4403, reason: 'Session is not owned by this client registration' }]);
+    assert.equal(calls.lookup.length, 1);
+    assert.deepEqual(calls.create, []);
+    assert.deepEqual(calls.add, []);
+    assert.deepEqual(ws.sent, []);
+});
+
 test('WS without sessionId creates default session', async (t) => {
     const registerTerminalGateway = loadGatewayWithAuthMock(() => true);
     const wss = createMockWss();
@@ -108,8 +195,9 @@ test('WS without sessionId creates default session', async (t) => {
     assert.ok(calls.createOptions.privilegeMetadata);
     assert.equal(calls.createOptions.privilegeMetadata.privilegeLevel, 'STANDARD');
     assert.equal(ws.closed.length, 0);
-    assert.equal(ws.sent.length, 2);
+    assert.ok(ws.sent.length >= 2);
     assert.equal(ws.sent[0].type, 'session_info');
+    assert.equal(ws.sent[1].type, 'codex_capabilities');
     assert.equal(ws.sent[0].sessionId, 'new-session');
     assert.equal(ws.sent[0].privilegeLevel, 'STANDARD');
     assert.equal(ws.sent[0].activeConnectionCount, 1);

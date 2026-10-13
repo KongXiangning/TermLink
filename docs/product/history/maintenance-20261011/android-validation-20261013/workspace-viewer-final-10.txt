@@ -1,0 +1,23 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.FrameLayout
+android:id/decor_content_parent | null | null | android.view.ViewGroup
+android:id/action_bar_container | null | null | android.widget.FrameLayout
+android:id/action_bar | null | null | android.view.ViewGroup
+null | null | 向上导航 | android.widget.ImageButton
+null | 1791832653082.zip | null | android.widget.TextView
+android:id/content | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+android:id/list | null | null | android.widget.ListView
+null | null | null | android.widget.RelativeLayout
+com.huawei.filemanager:id/archive_icon | null | null | android.widget.ImageView
+com.huawei.filemanager:id/file_info_view | null | null | android.widget.RelativeLayout
+com.huawei.filemanager:id/archive_name | .. | Back | android.widget.TextView
+com.huawei.filemanager:id/view_archive_item_divider | null | null | android.widget.LinearLayout
+null | null | null | android.widget.RelativeLayout
+com.huawei.filemanager:id/archive_icon | null | null | android.widget.ImageView
+com.huawei.filemanager:id/file_info_view | null | null | android.widget.RelativeLayout
+com.huawei.filemanager:id/archive_name | proof.txt | null | android.widget.TextView
+com.huawei.filemanager:id/archive_size | 40 B | null | android.widget.TextView
+android:id/split_action_bar | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+android:id/statusBarBackground | null | null | android.view.View

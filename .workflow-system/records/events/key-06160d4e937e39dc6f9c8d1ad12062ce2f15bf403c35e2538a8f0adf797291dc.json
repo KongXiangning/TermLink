@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:14:13.124Z",
+  "payload_sha256": "9b73d811ba7150cc02345adcbb2cea48363ccc7954d4af12e24dc1d8c476046a",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-repair-review-20261013-new-selection-hint",
+    "request": {
+      "summary": "S1 repair重审：同连接IPC恢复与binding/history切换已修复；newThread及直接catalog选择仍保留旧conversation IPC提示，剩余1项P2，不标clean。",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/review-repair-20261013.md"
+      ],
+      "verdict": "findings",
+      "next_route": "execute-step",
+      "findings": [
+        {
+          "status": "open",
+          "priority": "P2",
+          "id": "R-S1-002",
+          "body": "A在IPC离线且WS CONNECTED时产生IPC操作提示后，newThread清空threadId/activeConversationId却保留ipcOperationErrorMessage及旧scope，直接send也不走新增清理；新任务等待页仍显示A提示。直接catalog selection同样在switched时保留字段，history/binding测试没有覆盖这两条路径。应在离开原任务时局部清理并补newThread/direct selection回归，保留网络与有效业务错误。",
+          "related_finding_id": "R-S1-001",
+          "start_line": 2627,
+          "file": "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt",
+          "evidence": "静态字段与Activity/selection调用链证明；本轮未运行新产品测试或真机。",
+          "title": "补齐新任务和直接conversation选择的IPC提示清理",
+          "end_line": 2633
+        }
+      ],
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "action": "review",
+      "evidence_refs": [
+        {
+          "sha256": "33a2551ac2b5f7a85c84d56604ef3ff1687c9460e43cdf12ee29f5b5a9756ccd",
+          "ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+          "role": "fixed-reviewed-evidence"
+        },
+        {
+          "sha256": "102a48371c215b75d5d158a39c08f1758d815f77345ccc02e195f1b96c61529d",
+          "ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+          "role": "fixed-reviewed-evidence"
+        },
+        {
+          "sha256": "f71eafb521b3ffa91224cbef90ddad76f68ee77b8b83d9cf881c72cfb90a9369",
+          "ref": ".workflow-system/records/events/key-df25232f0d071aa0b363c9f30ba6196b300807ddd69e4f3d39b49ddb43bab3cc.json",
+          "role": "fixed-reviewed-evidence"
+        },
+        {
+          "sha256": "1fe2d480b3cee79c5d00ee171d1a25ae04e06b4946867cdbd789a5a27c64c03e",
+          "ref": ".workflow-system/records/events/key-d4b7a018f7b336c7466244ec70fb0d57e71289fb1ebda75b3605cc0375262ec7.json",
+          "role": "fixed-reviewed-evidence"
+        },
+        {
+          "sha256": "d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898",
+          "ref": ".workflow-system/records/evidence-objects/d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898.blob",
+          "role": "fixed-reviewed-evidence"
+        },
+        {
+          "sha256": "88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba",
+          "ref": ".workflow-system/records/evidence-objects/88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba.blob",
+          "role": "fixed-reviewed-evidence"
+        },
+        {
+          "sha256": "0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412",
+          "ref": ".workflow-system/records/evidence-objects/0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412.blob",
+          "role": "fixed-reviewed-evidence"
+        },
+        {
+          "sha256": "71f7962ad513479a82ff603dbd9d9cf3d440f4c5b323fd9acccc6ee97c404586",
+          "ref": ".workflow-system/records/evidence-objects/71f7962ad513479a82ff603dbd9d9cf3d440f4c5b323fd9acccc6ee97c404586.blob",
+          "role": "fixed-reviewed-evidence"
+        }
+      ],
+      "coverage": {
+        "not_run": [
+          "本轮无新增产品测试或构建",
+          "完整ViewModel协程/socket闭环",
+          "S3同机A→B→A和IPC恢复真机"
+        ],
+        "excluded": [
+          "S2 registration实施",
+          "其他工作区维护资产",
+          "Rust/rollout/历史协议/数据库修改"
+        ],
+        "reviewed": [
+          "repair四文件CAS前后完整diff、操作入口/发送/IPC status/follower/surface/UI",
+          "binding/history/cache/catalog/newThread入口及配置返回链",
+          "计划S1/S3、CONTRACTS实时核心、AD-004、repair报告/draft CR",
+          "5个Android及4个Node文件当前hash匹配；相关附件hash核验"
+        ],
+        "reused_tests": [
+          "Android ViewModel/wire 288/288，连接类14/14新增6",
+          "Node Owner/IPC 139/139",
+          "原10项2失败baseline证明原两场景检出"
+        ]
+      },
+      "execution_ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+      "remaining_work": [
+        "修复R-S1-002并补newThread/direct selection定向回归后重审",
+        "S1未finish；S2/S3未执行；S3真机验收未运行",
+        "draft CR commit_ref TBD；无Git提交",
+        "产品文档pending locators见新报告；两条历史管理缺口保留"
+      ],
+      "idempotency_key": "task20260868-s1-repair-review-20261013-new-selection-hint",
+      "next_mode": "repair",
+      "original_review_ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "step_id": "S1",
+      "finding_reassessment": [
+        {
+          "result": "partially-addressed",
+          "summary": "原同连接IPC恢复及binding/history A→B场景有代码修复和检出/通过证据；剩余switch入口记为R-S1-002，旧review不重写。",
+          "id": "R-S1-001"
+        }
+      ],
+      "provenance": {
+        "kind": "self-review",
+        "independent": false,
+        "method": "retained original CAS versus current repair diff, caller/field inspection, test-output and hash verification",
+        "reviewer": "同会话Codex单代理；此前实施repair，本轮仅静态自审及证据核验"
+      },
+      "stage": "change",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/review-repair-20261013.md"
+    ],
+    "evidence_refs": [
+      {
+        "sha256": "33a2551ac2b5f7a85c84d56604ef3ff1687c9460e43cdf12ee29f5b5a9756ccd",
+        "ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+        "role": "fixed-reviewed-evidence"
+      },
+      {
+        "sha256": "102a48371c215b75d5d158a39c08f1758d815f77345ccc02e195f1b96c61529d",
+        "ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+        "role": "fixed-reviewed-evidence"
+      },
+      {
+        "sha256": "f71eafb521b3ffa91224cbef90ddad76f68ee77b8b83d9cf881c72cfb90a9369",
+        "ref": ".workflow-system/records/events/key-df25232f0d071aa0b363c9f30ba6196b300807ddd69e4f3d39b49ddb43bab3cc.json",
+        "role": "fixed-reviewed-evidence"
+      },
+      {
+        "sha256": "1fe2d480b3cee79c5d00ee171d1a25ae04e06b4946867cdbd789a5a27c64c03e",
+        "ref": ".workflow-system/records/events/key-d4b7a018f7b336c7466244ec70fb0d57e71289fb1ebda75b3605cc0375262ec7.json",
+        "role": "fixed-reviewed-evidence"
+      },
+      {
+        "sha256": "d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898",
+        "ref": ".workflow-system/records/evidence-objects/d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898.blob",
+        "role": "fixed-reviewed-evidence"
+      },
+      {
+        "sha256": "88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba",
+        "ref": ".workflow-system/records/evidence-objects/88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba.blob",
+        "role": "fixed-reviewed-evidence"
+      },
+      {
+        "sha256": "0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412",
+        "ref": ".workflow-system/records/evidence-objects/0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412.blob",
+        "role": "fixed-reviewed-evidence"
+      },
+      {
+        "sha256": "71f7962ad513479a82ff603dbd9d9cf3d440f4c5b323fd9acccc6ee97c404586",
+        "ref": ".workflow-system/records/evidence-objects/71f7962ad513479a82ff603dbd9d9cf3d440f4c5b323fd9acccc6ee97c404586.blob",
+        "role": "fixed-reviewed-evidence"
+      }
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "review",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-d4b7a018f7b336c7466244ec70fb0d57e71289fb1ebda75b3605cc0375262ec7.json"
+      ],
+      "data": {
+        "summary": "S1 repair重审：同连接IPC恢复与binding/history切换已修复；newThread及直接catalog选择仍保留旧conversation IPC提示，剩余1项P2，不标clean。",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s1/review-repair-20261013.md"
+        ],
+        "verdict": "findings",
+        "next_route": "execute-step",
+        "findings": null,
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "evidence_refs": null,
+        "coverage": null,
+        "execution_ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+        "remaining_work": [
+          "修复R-S1-002并补newThread/direct selection定向回归后重审",
+          "S1未finish；S2/S3未执行；S3真机验收未运行",
+          "draft CR commit_ref TBD；无Git提交",
+          "产品文档pending locators见新报告；两条历史管理缺口保留"
+        ],
+        "next_mode": "repair",
+        "original_review_ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+        "step_id": "S1",
+        "finding_reassessment": [
+          {
+            "result": "partially-addressed",
+            "summary": "原同连接IPC恢复及binding/history A→B场景有代码修复和检出/通过证据；剩余switch入口记为R-S1-002，旧review不重写。",
+            "id": "R-S1-001"
+          }
+        ],
+        "provenance": null,
+        "stage": "change",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "791da0db907fcfd18aed8d16e72aa0239a7565875fe3e877ad4cb6b7263a0ab1",
+        "references": [
+          {
+            "data_pointer": "/coverage",
+            "request_pointer": "/coverage"
+          },
+          {
+            "data_pointer": "/evidence_refs",
+            "request_pointer": "/evidence_refs"
+          },
+          {
+            "data_pointer": "/findings",
+            "request_pointer": "/findings"
+          },
+          {
+            "data_pointer": "/provenance",
+            "request_pointer": "/provenance"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

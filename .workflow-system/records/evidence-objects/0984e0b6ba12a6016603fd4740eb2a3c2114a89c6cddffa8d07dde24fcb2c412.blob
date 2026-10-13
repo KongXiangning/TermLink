@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.termlink.app.codex.CodexViewModelConnectionFailureTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-10-13T03:55:35.585Z" hostname="K-PC" time="0.044">
+  <properties/>
+  <testcase name="clearingSelectionExpiresTheOperationHintButPreservesTheTransportHint" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.022"/>
+  <testcase name="recoveryPreservesBusinessErrorsEvenWhenTheyContainTransportWords" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <testcase name="webSocketConnectedAndIpcOnlineAreNotEnoughWhenFollowerOperationsRemainUnavailable" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.004"/>
+  <testcase name="recoveredTimeoutClearsItsConnectionHintWithoutLeavingRuntimeWarning" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="operationHintDoesNotLeakToAnotherConversationOnTheSameConnection" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="queuedOldConnectionEventsCannotReintroduceErrorsAfterReconnect" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.012"/>
+  <testcase name="failuresWithoutAnExceptionMessageAreStillScopedToTheConnection" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="ipcOperationHintExpiresWhenIpcRecoversWithoutWebSocketReconnect" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="serverAndProtocolErrorsRemainVisible" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <testcase name="offlineConnectFailuresAreTransient" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="reselectingTheSameUnavailableConversationPreservesItsHint" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="successfulOperationOnlyClearsTheMatchingConversationHint" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.0"/>
+  <testcase name="retryingDoesNotClearTheHintBeforeRecoverySucceeds" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <testcase name="authenticationTlsAndProtocolFailuresRemainVisibleAfterReconnect" classname="com.termlink.app.codex.CodexViewModelConnectionFailureTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

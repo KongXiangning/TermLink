@@ -1,0 +1,91 @@
+{
+  "event_ref": ".workflow-system/records/events/key-b31468df5c6f964ca7e184af4655638cc03e81334e4bb91c543fcce6eba4c5bd.json",
+  "captured_at": "2026-10-13T07:15:08.375Z",
+  "attachments": [
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+      "size": 13155,
+      "request": {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json",
+      "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+      "size": 8952,
+      "request": {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "f69488e1b87a61267ccb69160bdef6ed075cd2fa30c2d0616ee1dec1eac56455",
+        "ref": ".workflow-system/records/events/key-098cf8d3d39adbd1c91a90bebd9275de5a3a25e74acbfab5699f88d0ee090eef.json"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+      "size": 11674,
+      "request": {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json",
+      "sha256": "22a3cb52b00546536b27ae2f14168d9ef877a0e186524ecf9809c703cae147e2",
+      "size": 5540,
+      "request": {
+        "role": "fixed-reviewed-S3-subject-and-validation",
+        "sha256": "22a3cb52b00546536b27ae2f14168d9ef877a0e186524ecf9809c703cae147e2",
+        "ref": ".workflow-system/records/events/key-99f0a7c0eb1f81b7989aed425c627a7600483cb04018310dc325f57d93297b8f.json"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-12e88aa7e46b9d93b62c4b281ed02331c72fecb3785543939130eace9b36d347.json",
+      "sha256": "fd9a67c7cd70722ee4344040d3831e40f60982094eb8237934ac2d6e72d66dcf",
+      "size": 4794,
+      "request": {
+        "role": "actual-user-finish-decision",
+        "sha256": "fd9a67c7cd70722ee4344040d3831e40f60982094eb8237934ac2d6e72d66dcf",
+        "ref": ".workflow-system/records/events/key-12e88aa7e46b9d93b62c4b281ed02331c72fecb3785543939130eace9b36d347.json"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "event_ref": ".workflow-system/records/events/key-ba620dafcfd0f8fb174337163449a702a5d1556b51f4487e1d7aa45afae9eb51.json",
+  "captured_at": "2026-10-13T02:27:06.143Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/48cb0de283e264cc98632484780005386ec5c2e1a01484307e08227e7a97899e.blob",
+      "sha256": "48cb0de283e264cc98632484780005386ec5c2e1a01484307e08227e7a97899e",
+      "size": 80703,
+      "source_path": "docs/product/assessments/JOINT-20261013.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/40a1faa6df133bce4cbcf7d9d9d72e3d2dca75e7b2a2a72ff19030cd72573304.blob",
+      "sha256": "40a1faa6df133bce4cbcf7d9d9d72e3d2dca75e7b2a2a72ff19030cd72573304",
+      "size": 21388,
+      "source_path": "docs/product/history/maintenance-20261011/joint-validation-20261013/验收报告.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/d5a1189ef505c5e116d05398c2da373699b002c8b92d7bf42477baed46113cf0.blob",
+      "sha256": "d5a1189ef505c5e116d05398c2da373699b002c8b92d7bf42477baed46113cf0",
+      "size": 2239,
+      "source_path": "docs/product/history/maintenance-20261011/joint-validation-20261013/maintenance-verification.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/9ac2a39a608ea4151e68085b73fcc0378162b6e83d2fdbb20077a918d143a0ca.blob",
+      "sha256": "9ac2a39a608ea4151e68085b73fcc0378162b6e83d2fdbb20077a918d143a0ca",
+      "size": 2032,
+      "source_path": "docs/product/history/maintenance-20261011/joint-validation-20261013/alignment-verification.json",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json",
+  "captured_at": "2026-10-13T04:46:59.364Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c0532cf748c44a92a7d2435666d790156d9a65acc2762f959f92cac27568a8b6.blob",
+      "sha256": "c0532cf748c44a92a7d2435666d790156d9a65acc2762f959f92cac27568a8b6",
+      "size": 10535,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/node-tests.txt",
+      "issues": []
+    }
+  ]
+}

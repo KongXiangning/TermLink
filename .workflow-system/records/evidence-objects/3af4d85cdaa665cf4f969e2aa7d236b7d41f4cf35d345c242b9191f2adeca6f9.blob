@@ -1,0 +1,8 @@
+[
+ {"op":"launch","activity":"com.termlink.app.MainShellActivity"},
+ {"op":"assertText","text":"Codex · 已连接"},
+ {"op":"setComposer","text":"Disposable S3 connectivity check. Reply exactly S3-MARKER-A. No tools, file changes, or network."},
+ {"op":"clickDesc","text":"发送"},
+ {"op":"wait","ms":12000},
+ {"op":"snapshot"}
+]

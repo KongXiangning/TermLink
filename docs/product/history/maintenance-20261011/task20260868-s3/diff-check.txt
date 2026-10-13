@@ -1,0 +1,10 @@
+warning: in the working copy of '.workflow-system/PRODUCT.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/product/DELIVERY_RECONCILIATION.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/product/MANAGED_REQUIREMENTS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/product/PROJECT.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/clientRegistrationManager.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/clientRegistrations.test.js', LF will be replaced by CRLF the next time Git touches it

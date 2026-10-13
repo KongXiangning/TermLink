@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:23:13.906Z",
+  "payload_sha256": "0fb6ada3e579a818b69c208cb2d7e85f64a8dd45a18891e5a4eb416e15f8584f",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-r-s1-002-user-repair-20261013",
+    "request": {
+      "action": "review-decision",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "summary": "用户选择对TASK-20260868/S1重审剩余R-S1-002做局部修复；保留原findings，不finish或执行S2/S3。",
+      "choice": "repair",
+      "decision_source": "current user execute-step invocation",
+      "review_ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+      "idempotency_key": "task20260868-s1-r-s1-002-user-repair-20261013",
+      "decision_text": "repair"
+    },
+    "task_event": {
+      "version": 1,
+      "action": "review-decision",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json"
+      ],
+      "data": {
+        "summary": "用户选择对TASK-20260868/S1重审剩余R-S1-002做局部修复；保留原findings，不finish或执行S2/S3。",
+        "choice": "repair",
+        "decision_source": "current user execute-step invocation",
+        "review_ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+        "decision_text": "repair"
+      }
+    }
+  },
+  "issues": []
+}

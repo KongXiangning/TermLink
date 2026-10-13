@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:01:25.902Z",
+  "payload_sha256": "870681831534c5c16246eeee449bce9f0e4ff3a9195aad1cb2e8f995ec9152ff",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-r-s1-001-20261013-fixture-compile-failed",
+    "request": {
+      "step_id": "S1",
+      "result": "failed",
+      "source_revision": "original S1 source object plus new test fixture; intermediate fixture bytes not captured",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests.txt"
+      ],
+      "summary": "fixture缺少CodexIpcStatus.reason必填参数，编译失败，未运行测试；后续单独修正fixture。",
+      "action": "test",
+      "idempotency_key": "task20260868-s1-r-s1-001-20261013-fixture-compile-failed",
+      "selector": "repair baseline test fixture compilation",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests.txt"
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json"
+      ],
+      "data": {
+        "step_id": "S1",
+        "result": "failed",
+        "source_revision": "original S1 source object plus new test fixture; intermediate fixture bytes not captured",
+        "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelConnectionFailureTest --console=plain",
+        "files": [
+          "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-001/baseline-tests.txt"
+        ],
+        "summary": "fixture缺少CodexIpcStatus.reason必填参数，编译失败，未运行测试；后续单独修正fixture。",
+        "selector": "repair baseline test fixture compilation",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      }
+    }
+  },
+  "issues": []
+}

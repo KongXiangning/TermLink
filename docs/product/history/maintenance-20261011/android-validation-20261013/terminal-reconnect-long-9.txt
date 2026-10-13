@@ -1,0 +1,47 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.LinearLayout
+null | null | null | android.widget.FrameLayout
+com.termlink.app:id/action_bar_root | null | null | android.widget.LinearLayout
+android:id/content | null | null | android.widget.FrameLayout
+com.termlink.app:id/shell_root_drawer | null | null | androidx.drawerlayout.widget.DrawerLayout
+com.termlink.app:id/shell_main_content | null | null | android.widget.LinearLayout
+com.termlink.app:id/shell_top_bar | null | null | android.widget.LinearLayout
+com.termlink.app:id/btn_open_sessions_drawer | null | 会话 | android.widget.ImageButton
+com.termlink.app:id/shell_status_text | 终端: 错误 (远程端点已关闭连接。) | null | android.widget.TextView
+com.termlink.app:id/btn_toggle_quick_toolbar | null | 切换快捷键盘 | android.widget.ImageButton
+com.termlink.app:id/shell_fragment_container | null | null | android.widget.FrameLayout
+com.termlink.app:id/terminal_webview_container | null | null | android.widget.FrameLayout
+null | null | null | android.webkit.WebView
+null | TermLink Terminal | null | android.webkit.WebView
+null |  | null | android.view.View
+terminal-shell |  | null | android.view.View
+terminal-main |  | null | android.view.View
+status-overlay | 连接失败。 | null | android.widget.TextView
+terminal-container |  | null | android.view.View
+null |  | null | android.view.View
+null |  | null | android.widget.TextView
+null |  | null | android.view.View
+null |  | null | android.view.View
+null |  | null | android.widget.EditText
+toolbar |  | null | android.view.View
+btn-paste | 📋 | null | android.widget.Button
+null | Esc | null | android.widget.Button
+null | Tab | null | android.widget.Button
+null | Ctrl | null | android.widget.Button
+null | Alt | null | android.widget.Button
+btn-toggle-input | 📝 | null | android.widget.Button
+null | Home | null | android.widget.Button
+null | ↑ | null | android.widget.Button
+null | End | null | android.widget.Button
+null | PgUp | null | android.widget.Button
+null | - | null | android.widget.Button
+null | / | null | android.widget.Button
+null | | | null | android.widget.Button
+null | ⏎ | null | android.widget.Button
+null | ← | null | android.widget.Button
+null | ↓ | null | android.widget.Button
+null | → | null | android.widget.Button
+null | PgDn | null | android.widget.Button
+btn-ctrl-c | 🛑 | null | android.widget.Button
+null | Enter ↵ | null | android.widget.Button
+null | cccccccccccccccccccccccccccccccc00000000000000000000000000000000 | null | android.widget.TextView

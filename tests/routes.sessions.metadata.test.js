@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const createSessionsRouter = require('../src/routes/sessions');
+const { ClientRegistrationManager } = require('../src/services/clientRegistrationManager');
 
 const VALID_CWD = path.resolve(__dirname, '..');
 
@@ -29,6 +30,85 @@ function createMockRes() {
         }
     };
 }
+
+const registrationManager = new ClientRegistrationManager({ enabled: false });
+const activeRegistration = registrationManager.create('android');
+const revokedRegistration = registrationManager.create('android');
+registrationManager.revoke(revokedRegistration.id);
+
+function registrationSessionFixture() {
+    const calls = { list: [], create: [], lookup: [], update: [], delete: [] };
+    const session = { id: 'owned-session', name: 'Owned', sessionMode: 'terminal', registrationId: activeRegistration.id };
+    const sessionManager = {
+        listSessions(id) { calls.list.push(id); return [session]; },
+        async createSession(options) { calls.create.push(options); return { ...session, registrationId: options.registrationId }; },
+        getSessionForRegistration(id, registrationId) {
+            calls.lookup.push([id, registrationId]);
+            return id === session.id && (!registrationId || registrationId === session.registrationId) ? session : null;
+        },
+        updateSession(id, updates) { calls.update.push([id, updates]); return { ...session, ...updates }; },
+        deleteSession(id) { calls.delete.push(id); return true; }
+    };
+    return { calls, router: createSessionsRouter(sessionManager, registrationManager) };
+}
+
+const registrationRoutes = [
+    ['/sessions', 'get'], ['/sessions', 'post'], ['/sessions/:id', 'patch'],
+    ['/sessions/:id', 'delete'], ['/sessions/:id/workspace/files', 'get']
+];
+
+for (const [kind, registrationId] of [['unknown', 'missing-registration'], ['revoked', revokedRegistration.id]]) {
+    for (const [route, method] of registrationRoutes) {
+        test(`${method.toUpperCase()} ${route} rejects ${kind} registration before session access`, async () => {
+            const { router, calls } = registrationSessionFixture();
+            const res = createMockRes();
+            await getRouteHandler(router, route, method)({
+                headers: { 'x-termlink-registration-id': registrationId },
+                params: { id: 'owned-session' }, query: {}, body: { name: 'Updated' }
+            }, res);
+            assert.equal(res.statusCode, 403);
+            assert.deepEqual(res.body, { error: 'Client registration is invalid or revoked.', code: 'REGISTRATION_INVALID' });
+            assert.deepEqual(calls, { list: [], create: [], lookup: [], update: [], delete: [] });
+        });
+    }
+}
+
+for (const [kind, registrationId] of [['active', activeRegistration.id], ['legacy', null]]) {
+    test(`session routes preserve ${kind} registration list/create/update/delete paths`, async () => {
+        const { router, calls } = registrationSessionFixture();
+        const headers = registrationId ? { 'x-termlink-registration-id': `  ${registrationId}  ` } : {};
+        for (const [route, method] of registrationRoutes) {
+            const res = createMockRes();
+            await getRouteHandler(router, route, method)({ headers, params: { id: 'owned-session' }, query: {}, body: { name: 'Updated' } }, res);
+            assert.equal(res.statusCode, 200);
+            assert.notEqual(res.body, undefined);
+        }
+        assert.deepEqual(calls.list, [registrationId]);
+        assert.equal(calls.create.length, 1);
+        assert.equal(calls.create[0].registrationId, registrationId || undefined);
+        assert.ok(calls.lookup.length >= 3);
+        assert.ok(calls.lookup.every(([id, owner]) => id === 'owned-session' && owner === registrationId));
+        assert.equal(calls.update.length, 1);
+        assert.deepEqual(calls.delete, ['owned-session']);
+    });
+}
+
+test('active registration cannot access or mutate another registration session over HTTP', async () => {
+    const otherRegistration = registrationManager.create('android');
+    const { router, calls } = registrationSessionFixture();
+    for (const [route, method] of registrationRoutes.slice(2)) {
+        const res = createMockRes();
+        await getRouteHandler(router, route, method)({
+            headers: { 'x-termlink-registration-id': otherRegistration.id },
+            params: { id: 'owned-session' }, query: {}, body: { name: 'Updated' }
+        }, res);
+        assert.equal(res.statusCode, 404);
+        assert.deepEqual(res.body, { error: 'Session not found' });
+    }
+    assert.equal(calls.lookup.length, 3);
+    assert.deepEqual(calls.update, []);
+    assert.deepEqual(calls.delete, []);
+});
 
 test('GET /sessions exposes aggregate TLS summary fields from sessionManager', () => {
     const router = createSessionsRouter({

@@ -1,0 +1,17 @@
+null | null | null | android.widget.FrameLayout
+null | null | null | android.widget.FrameLayout
+android:id/content | null | null | android.widget.FrameLayout
+null | null | null | android.view.ViewGroup
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | 命令确认 | null | android.widget.TextView
+null | 待处理 | null | android.widget.TextView
+null | null | null | android.widget.ScrollView
+null | Approval acceptance | null | android.widget.TextView
+null | null | null | android.view.View
+null | Write-Output V20-APPROVAL-ALLOW | null | android.widget.TextView
+null | null | null | android.view.View
+null | 拒绝 | null | android.widget.TextView
+null | null | null | android.view.View
+null | 批准 | null | android.widget.TextView

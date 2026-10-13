@@ -1,0 +1,91 @@
+{
+  "event_ref": ".workflow-system/records/events/key-df630f31fe0492b9861c72f857d496640df9d4237d307aabf62834cc6c2fdaab.json",
+  "captured_at": "2026-10-13T06:17:58.902Z",
+  "attachments": [
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+      "sha256": "cc05792e2680b820a8a8d9ad65ae77de3233ead74efc6b22634d1d8e873bbb55",
+      "size": 8078,
+      "request": {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "sha256": "cc05792e2680b820a8a8d9ad65ae77de3233ead74efc6b22634d1d8e873bbb55"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+      "sha256": "a9c7eb05aed57a523947154e3e27fc7523def1d1c4dfacf7f1d0d0a23d410e7a",
+      "size": 9966,
+      "request": {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/events/key-2e8faafcfc7552cda065889505b40fa5c54e4904eaaad2e1efa1d56f05f7dd5c.json",
+        "sha256": "a9c7eb05aed57a523947154e3e27fc7523def1d1c4dfacf7f1d0d0a23d410e7a"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-d9b5143c51065fafb1b15798a2894e3f4bdc881324bafa3ed7a64301cac67a96.json",
+      "sha256": "368c682e3ae06949a2e3b46292b78f041f1b4bf84803ceb679567d72026b35e1",
+      "size": 1758,
+      "request": {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/events/key-d9b5143c51065fafb1b15798a2894e3f4bdc881324bafa3ed7a64301cac67a96.json",
+        "sha256": "368c682e3ae06949a2e3b46292b78f041f1b4bf84803ceb679567d72026b35e1"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json",
+      "sha256": "b1a213b8b03661b69a60066510c912d06ec2a919122e4722436d44a29e0002c9",
+      "size": 3001,
+      "request": {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/events/key-b2af158c33bd06e34aa08c5c4544bc1f55248abae4e0d27a9c75e6a18bbdf606.json",
+        "sha256": "b1a213b8b03661b69a60066510c912d06ec2a919122e4722436d44a29e0002c9"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/evidence-objects/eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b.blob",
+      "sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b",
+      "size": 2733,
+      "request": {
+        "role": "fixed-S2-finish-basis",
+        "ref": ".workflow-system/records/evidence-objects/eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b.blob",
+        "sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

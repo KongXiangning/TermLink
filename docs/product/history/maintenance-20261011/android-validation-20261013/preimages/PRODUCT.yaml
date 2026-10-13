@@ -1,0 +1,41 @@
+{
+  "schema": "vnext-product-manifest/v2",
+  "project_id": "termlink",
+  "entry": "docs/product/PROJECT.md",
+  "managed_paths": [
+    "docs/product/PROJECT.md",
+    "docs/product/GOALS.md",
+    "docs/product/MANAGED_REQUIREMENTS.md",
+    "docs/product/DESIGN_REGISTER.md",
+    "docs/product/DELIVERY_RECONCILIATION.md",
+    "docs/product/ARRANGEMENTS.md",
+    "docs/product/HISTORY_CHANGES.md",
+    "docs/product/SCOPED_ASSESSMENTS.md",
+    "docs/product/assessments/ASSESSMENT-20261012-BATCH-1.md",
+    "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
+    "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
+    "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
+    "docs/product/assessments/SCOPED-CURRENT-20261012.md"
+  ],
+  "source_paths": [
+    "docs/**/*.md",
+    "docs/product/history/maintenance-20261009/**",
+    "TASKS/**/*.md",
+    "logs/history-save-repair-20261005/**/*.md",
+    "logs/shared-history-compat-20261005/**/*.md",
+    ".workflow-system/records/events/*.json",
+    "docs/product/history/maintenance-20261010/**",
+    "src/services/sessionManager.js",
+    "src/utils/ipCheck.js",
+    ".env.example",
+    "docs/product/history/maintenance-20261011/**"
+  ],
+  "capture_paths": [
+    "docs/product/history/maintenance-20261009/**",
+    "docs/product/MATERIAL_INVENTORY.md",
+    "docs/product/history/maintenance-20261010/**",
+    "docs/product/history/maintenance-20261011/**"
+  ],
+  "exclude_paths": [],
+  "maintenance": "enabled"
+}

@@ -1,0 +1,161 @@
+{
+  "event_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+  "captured_at": "2026-10-13T04:45:40.944Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f29b791e692cad1842209f2bb63040a8a5166924896b7b014c9e7a5a474eab9e.blob",
+      "sha256": "f29b791e692cad1842209f2bb63040a8a5166924896b7b014c9e7a5a474eab9e",
+      "size": 6538,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/report.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b.blob",
+      "sha256": "eb1f1e6f80a550741a0a96df4d468902c541d552a294c0e456311ab3f261c92b",
+      "size": 2733,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/source-manifest.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/1851af5222f17957898cf83697249f73913e201e9ebe98c69e658e8268903e87.blob",
+      "sha256": "1851af5222f17957898cf83697249f73913e201e9ebe98c69e658e8268903e87",
+      "size": 310,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/run-environment.json",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/fa056474f7ded416b6bab55d9787ef3ac962779d44fb59558814e28f0031b083.blob",
+      "sha256": "fa056474f7ded416b6bab55d9787ef3ac962779d44fb59558814e28f0031b083",
+      "size": 3117,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/before-clientRegistrationManager.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/8cd2267cd6e75571c99264bc1ff58e63cb1f369d19b295b1132521f1b3ae3655.blob",
+      "sha256": "8cd2267cd6e75571c99264bc1ff58e63cb1f369d19b295b1132521f1b3ae3655",
+      "size": 3842,
+      "source_path": "docs/changes/records/CR-20261013-1237-registration-validity-gates.md",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/a0ec66b61e689d029819cdd5cd3403bb2031f2cc2d1bda3f4abb8a6c9dd2dea0.blob",
+      "sha256": "a0ec66b61e689d029819cdd5cd3403bb2031f2cc2d1bda3f4abb8a6c9dd2dea0",
+      "size": 3198,
+      "source_path": "src/services/clientRegistrationManager.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/47a991ddf1c6c43b99e319445278517812259cf825097fe186221985503325e7.blob",
+      "sha256": "47a991ddf1c6c43b99e319445278517812259cf825097fe186221985503325e7",
+      "size": 2772,
+      "source_path": "tests/clientRegistrations.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/c2aae15941ba4cff581593a89b0957be0e72730862e60122f24ebe066bd69c10.blob",
+      "sha256": "c2aae15941ba4cff581593a89b0957be0e72730862e60122f24ebe066bd69c10",
+      "size": 21047,
+      "source_path": "tests/routes.sessions.metadata.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/6829c2020667f913d8eca78bffad0c16608b337930988b53926d335660104823.blob",
+      "sha256": "6829c2020667f913d8eca78bffad0c16608b337930988b53926d335660104823",
+      "size": 21070,
+      "source_path": "tests/terminalGateway.sessionid.test.js",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/f4e5d67e4c2b5401dfb005330791f6a70504431c54d15279161f88330826b933.blob",
+      "sha256": "f4e5d67e4c2b5401dfb005330791f6a70504431c54d15279161f88330826b933",
+      "size": 302,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/cr-validation.txt",
+      "issues": []
+    },
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/256a1061f4a34eb1bd52678d5781bb8d1ba8e78bb5c6b30e64cb95e6912f4bb8.blob",
+      "sha256": "256a1061f4a34eb1bd52678d5781bb8d1ba8e78bb5c6b30e64cb95e6912f4bb8",
+      "size": 184,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s2/cr-validation-pwsh.txt",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+      "size": 11674,
+      "request": {
+        "ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "sha256": "7ae1232ea533a7ca9df677cb49865f12212b2c2c354ec636ce5081c21dd748fb",
+        "role": "fixed-task-plan-and-S1-position"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+      "sha256": "3076c5018f881a2164ef0cdfd09a389aa45ccdecb9958b62518a5f4577f0a877",
+      "size": 8126,
+      "request": {
+        "ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+        "sha256": "3076c5018f881a2164ef0cdfd09a389aa45ccdecb9958b62518a5f4577f0a877",
+        "role": "fixed-task-plan-and-S1-position"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

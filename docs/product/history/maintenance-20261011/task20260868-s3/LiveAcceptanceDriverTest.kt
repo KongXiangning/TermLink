@@ -1,0 +1,119 @@
+package com.termlink.app
+
+import android.os.Bundle
+import android.view.accessibility.AccessibilityNodeInfo
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
+import org.json.JSONArray
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/** Drives production screens on the attached phone; does not seed or reset application stores. */
+@RunWith(AndroidJUnit4::class)
+class LiveAcceptanceDriverTest {
+    private val inst = InstrumentationRegistry.getInstrumentation()
+    private val automation get() = inst.uiAutomation
+    private val evidence by lazy { File(inst.targetContext.getExternalFilesDir(null), "live-acceptance").also { it.mkdirs() } }
+
+    @Test fun executeObservedUiSteps() {
+        val name = InstrumentationRegistry.getArguments().getString("case") ?: error("case required")
+        val steps = JSONArray(File(evidence, "$name.json").readText())
+        for (i in 0 until steps.length()) {
+            val step = steps.getJSONObject(i)
+            val op = step.getString("op")
+            when (op) {
+                "launch" -> inst.startActivitySync(android.content.Intent().apply {
+                    setClassName(inst.targetContext, step.getString("activity"))
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+                "shell" -> automation.executeShellCommand(step.getString("command")).use { p ->
+                    android.os.ParcelFileDescriptor.AutoCloseInputStream(p).readBytes()
+                }
+                "setText", "setComposer" -> {
+                    val node = awaitNode { if(op == "setComposer") it.isEditable else it.viewIdResourceName == "com.termlink.app:id/" + step.getString("id") }
+                    val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, step.getString("text")) }
+                    check(node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) { "setText rejected" }
+                }
+                "clickId", "clickText", "clickDesc" -> {
+                    var node: AccessibilityNodeInfo? = awaitNode {
+                        when(op) {
+                            "clickId" -> it.viewIdResourceName == step.getString("id") || it.viewIdResourceName == "com.termlink.app:id/" + step.getString("id")
+                            "clickText" -> if(step.optBoolean("contains")) it.text?.toString()?.contains(step.getString("text")) == true else it.text?.toString() == step.getString("text")
+                            else -> it.contentDescription?.toString() == step.getString("text")
+                        }
+                    }
+                    while (node != null && !node.isClickable) node = node.parent
+                    check(node?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) { "click rejected" }
+                }
+                "clickRow" -> {
+                    var scope: AccessibilityNodeInfo? = awaitNode { it.text?.toString()?.contains(step.getString("text")) == true }
+                    var target: AccessibilityNodeInfo? = null
+                    while (scope != null && target == null) {
+                        target = flatten(scope).firstOrNull { it.viewIdResourceName == "com.termlink.app:id/" + step.getString("id") }
+                        scope = scope.parent
+                    }
+                    check(target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) { "row click rejected" }
+                }
+                "clickRowText" -> {
+                    var scope: AccessibilityNodeInfo? = awaitNode { it.text?.toString() == step.getString("text") }
+                    var target: AccessibilityNodeInfo? = null
+                    while (scope != null && target == null) {
+                        target = flatten(scope).firstOrNull { it.text?.toString() == step.getString("action") }
+                        scope = scope.parent
+                    }
+                    while (target != null && !target.isClickable) target = target.parent
+                    check(target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true)
+                }
+                "snapshot" -> Unit
+                "doubleClickText", "tapText" -> {
+                    val node = awaitNode { it.isVisibleToUser && it.text?.toString() == step.getString("text") }
+                    val rect = android.graphics.Rect().also(node::getBoundsInScreen)
+                    repeat(if(op == "doubleClickText") 2 else 1) {
+                        val now = android.os.SystemClock.uptimeMillis()
+                        for(action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
+                            val event = android.view.MotionEvent.obtain(now,android.os.SystemClock.uptimeMillis(),action,rect.centerX().toFloat(),rect.centerY().toFloat(),0)
+                            event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+                            check(automation.injectInputEvent(event,true))
+                            event.recycle()
+                        }
+                        Thread.sleep(70)
+                    }
+                }
+                "assertAbsent" -> {
+                    val root = automation.rootInActiveWindow ?: error("no root")
+                    check(flatten(root).none { it.text?.toString()?.contains(step.getString("text")) == true }) { "unexpected text remains" }
+                }
+                "assertText" -> awaitNode { it.text?.toString()?.contains(step.getString("text")) == true }
+                "assertDesc" -> awaitNode { it.contentDescription?.toString()?.contains(step.getString("text")) == true }
+                "wait" -> Thread.sleep(step.getLong("ms"))
+                else -> error("unknown op: $op")
+            }
+            Thread.sleep(300)
+            val root = automation.rootInActiveWindow
+            File(evidence, "$name-$i.txt").writeText(root?.let { flatten(it).joinToString("\n") { n ->
+                "${n.viewIdResourceName} | ${n.text} | ${n.contentDescription} | ${n.className}"
+            } } ?: "no root")
+            automation.takeScreenshot()?.let { bitmap -> File(evidence,"$name-$i.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) } }
+            println("LIVE_ACCEPTANCE $name step=$i op=$op complete")
+        }
+    }
+
+    private fun awaitNode(predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo {
+        val deadline = System.currentTimeMillis() + 15000
+        while(System.currentTimeMillis() < deadline) {
+            automation.rootInActiveWindow?.let { root -> flatten(root).firstOrNull(predicate)?.let { return it } }
+            Thread.sleep(100)
+        }
+        error("UI target not visible: " + automation.rootInActiveWindow?.let { flatten(it).map { n -> n.text ?: n.contentDescription }.filterNotNull().joinToString(" | ") })
+    }
+
+    private fun flatten(root: AccessibilityNodeInfo): List<AccessibilityNodeInfo> {
+        val result = mutableListOf<AccessibilityNodeInfo>()
+        fun visit(n: AccessibilityNodeInfo) { result += n; for(i in 0 until n.childCount) n.getChild(i)?.let(::visit) }
+        visit(root)
+        return result
+    }
+}
+
+

@@ -12,6 +12,23 @@ function response() {
     };
 }
 
+test('client registration rejects missing records and invalid IDs', () => {
+    const manager = new ClientRegistrationManager({ enabled: false });
+    for (const id of ['missing-registration', '  missing-registration  ', '', '  ', null, undefined, 42, {}]) {
+        assert.equal(manager.isActive(id), false);
+    }
+});
+
+test('client registration normalizes active IDs and rejects revoked records including timestamp zero', () => {
+    const manager = new ClientRegistrationManager({ enabled: false });
+    const registration = manager.create('android');
+    assert.equal(manager.isActive(`  ${registration.id}  `), true);
+    assert.equal(manager.revoke(registration.id), true);
+    assert.equal(manager.isActive(`  ${registration.id}  `), false);
+    manager.registrations.set('revoked-at-zero', { id: 'revoked-at-zero', revokedAt: 0 });
+    assert.equal(manager.isActive('revoked-at-zero'), false);
+});
+
 test('client registration creates opaque ids and revokes them', () => {
     const manager = new ClientRegistrationManager({ enabled: false });
     const registration = manager.create('android');

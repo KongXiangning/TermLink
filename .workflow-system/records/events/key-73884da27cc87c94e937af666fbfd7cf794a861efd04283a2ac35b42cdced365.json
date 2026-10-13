@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:45:59.313Z",
+  "payload_sha256": "f7e195b99c57f3d4fb85b42cf85fc9a19fdd2655ef4cf7221ab2805b65e90eae",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s2-20261013-baseline-hung",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "step_id": "S2",
+      "selector": "tests/clientRegistrations.test.js; tests/routes.sessions.metadata.test.js; tests/terminalGateway.sessionid.test.js",
+      "action": "test",
+      "summary": "No completed summary; existing singleton interval kept child alive; only identified S2 parent/child stopped; initial test sources preserved",
+      "command": "node --test --test-reporter=tap three selectors, no force-exit",
+      "idempotency_key": "task20260868-s2-20261013-baseline-hung",
+      "result": "interrupted",
+      "cwd": "OS temporary isolation, exact path in execution run-environment attachment",
+      "source_revision": "before manager and initial added tests",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-hung-tests.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-clientRegistrations.test.js",
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-routes.sessions.metadata.test.js",
+        "docs/product/history/maintenance-20261011/task20260868-s2/baseline-terminalGateway.sessionid.test.js"
+      ],
+      "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-hung-tests.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-clientRegistrations.test.js",
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-routes.sessions.metadata.test.js",
+      "docs/product/history/maintenance-20261011/task20260868-s2/baseline-terminalGateway.sessionid.test.js"
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json"
+      ],
+      "data": {
+        "step_id": "S2",
+        "selector": "tests/clientRegistrations.test.js; tests/routes.sessions.metadata.test.js; tests/terminalGateway.sessionid.test.js",
+        "summary": "No completed summary; existing singleton interval kept child alive; only identified S2 parent/child stopped; initial test sources preserved",
+        "command": "node --test --test-reporter=tap three selectors, no force-exit",
+        "result": "interrupted",
+        "cwd": "OS temporary isolation, exact path in execution run-environment attachment",
+        "source_revision": "before manager and initial added tests",
+        "files": null,
+        "execution_ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "c7a746d93133779b1d65b275b35400e2f8099abbde4c805f73590e9e420c9bd6",
+        "references": [
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

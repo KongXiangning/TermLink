@@ -1,0 +1,14 @@
+[
+ {"op":"launch","activity":"com.termlink.app.MainShellActivity"},
+ {"op":"shell","command":"am start -n com.termlink.app/.codex.CodexActivity --es codex_profile_id task005-s2-local --es codex_session_id ca6c2b30-1df6-4120-a21e-59b0f3846fd6 --es codex_session_mode codex --es codex_thread_id 01a133f5-c1ee-7872-9cdb-35fb08c08f00 --es codex_launch_source sessions"},
+ {"op":"assertText","text":"Codex · 已连接"},
+ {"op":"assertText","text":"S3-MARKER-A"},
+ {"op":"wait","ms":12000},
+ {"op":"assertText","text":"重连中"},
+ {"op":"assertText","text":"Codex 正在重连，请等待连接恢复后再重试。"},
+ {"op":"wait","ms":30000},
+ {"op":"assertText","text":"Codex · 已连接"},
+ {"op":"assertAbsent","text":"Codex 正在重连，请等待连接恢复后再重试。"},
+ {"op":"assertText","text":"S3-MARKER-A"},
+ {"op":"snapshot"}
+]

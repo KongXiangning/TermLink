@@ -1,0 +1,12 @@
+{
+  "event_ref": ".workflow-system/records/events/key-6d37a60ef9bade039cee131e27a5a5aded36209d0b82933f0118b30a3f090a8c.json",
+  "captured_at": "2026-10-13T03:41:03.465Z",
+  "attachments": [
+    {
+      "status": "unavailable",
+      "request": "docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests-repaired.txt docs/product/history/maintenance-20261011/task20260868-s1/baseline-connection-tests.xml",
+      "code": "ENOENT",
+      "message": "ENOENT: no such file or directory, open 'E:\\coding\\TermLink-rust-source-resolution-codex\\docs\\product\\history\\maintenance-20261011\\task20260868-s1\\baseline-connection-tests-repaired.txt docs\\product\\history\\maintenance-20261011\\task20260868-s1\\baseline-connection-tests.xml'"
+    }
+  ]
+}

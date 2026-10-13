@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T04:25:01.712Z",
+  "payload_sha256": "040d5183d5a6dbaf7aee8fc72582cb6a57cee50e23963edbec5485f56656cb00",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s1-r-s1-002-20261013-android-green",
+    "request": {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+      "summary": "292 tests,0 failures/errors/skipped; connection18 tests,新增4; S3真机未运行",
+      "selector": "repair ViewModel and IPC/history wire JVM tests",
+      "step_id": "S1",
+      "result": "passed",
+      "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModel*Test --tests com.termlink.app.codex.data.CodexIpcWireModelTest --tests com.termlink.app.codex.data.CodexHistoryWireTest --console=plain",
+      "files": [
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/android-tests.txt",
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/android-test-summary.json",
+        "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/android-connection-tests.xml"
+      ],
+      "idempotency_key": "task20260868-s1-r-s1-002-20261013-android-green",
+      "execution_ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "action": "test"
+    },
+    "files": [
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/android-tests.txt",
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/android-test-summary.json",
+      "docs/product/history/maintenance-20261011/task20260868-s1/repair-r-s1-002/android-connection-tests.xml"
+    ],
+    "task_event": {
+      "version": 2,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-791415204d53541902a0ee664a8f1373829a1a61512d59f8ddf65ecbd289e503.json"
+      ],
+      "data": {
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;repair-source-manifest:2792741489f1333256b3e77cac4c173ac4ea81279d2d933d95b1571f3e04c0eb",
+        "summary": "292 tests,0 failures/errors/skipped; connection18 tests,新增4; S3真机未运行",
+        "selector": "repair ViewModel and IPC/history wire JVM tests",
+        "step_id": "S1",
+        "result": "passed",
+        "command": "JDK21 gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModel*Test --tests com.termlink.app.codex.data.CodexIpcWireModelTest --tests com.termlink.app.codex.data.CodexHistoryWireTest --console=plain",
+        "files": null,
+        "execution_ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "fcb6ec4facc99c3162f895bb6fcd0c0239dc464e034b702b51e23f298b3e677b",
+        "references": [
+          {
+            "data_pointer": "/files",
+            "request_pointer": "/files"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

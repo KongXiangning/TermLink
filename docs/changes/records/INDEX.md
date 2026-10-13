@@ -23,6 +23,10 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20261013-1237-registration-validity-gates | REQ-TERMLINK-SERVER-AUTH | draft | TBD | @maintainer | 2026-10-13 |  | `docs/changes/records/CR-20261013-1237-registration-validity-gates.md` |
+| CR-20261013-1219-codex-selection-hint-cleanup | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-10-13 |  | `docs/changes/records/CR-20261013-1219-codex-selection-hint-cleanup.md` |
+| CR-20261013-1153-codex-ipc-operation-hint-scope | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-10-13 |  | `docs/changes/records/CR-20261013-1153-codex-ipc-operation-hint-scope.md` |
+| CR-20261013-1130-codex-recovered-connection-hints | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-10-13 |  | `docs/changes/records/CR-20261013-1130-codex-recovered-connection-hints.md` |
 | CR-20261008-0135-android-history-detail-alias | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-08 |  | `docs/changes/records/CR-20261008-0135-android-history-detail-alias.md` |
 | CR-20261008-0045-stdout-utf8-repair | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-08 |  | `docs/changes/records/CR-20261008-0045-stdout-utf8-repair.md` |
 | CR-20261008-0022-branch-validation-utf8-diagnosis | REQ-20261005-codex-history-save-repair | draft | TBD | @maintainer | 2026-10-08 |  | `docs/changes/records/CR-20261008-0022-branch-validation-utf8-diagnosis.md` |

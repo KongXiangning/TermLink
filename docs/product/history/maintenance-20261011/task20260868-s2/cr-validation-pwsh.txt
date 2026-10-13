@@ -1,0 +1,3 @@
+CR: E:\coding\TermLink-rust-source-resolution-codex\docs\changes\records\CR-20261013-1237-registration-validity-gates.md
+FAILED:
+  - req_id format invalid: REQ-TERMLINK-SERVER-AUTH

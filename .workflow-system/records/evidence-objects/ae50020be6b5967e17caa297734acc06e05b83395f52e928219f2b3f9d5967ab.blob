@@ -1,0 +1,403 @@
+{
+  "date": "2026-10-13T06:26:01.545Z",
+  "endpoint": "local dev 3010",
+  "checks": [
+    {
+      "case": "HTTP basic auth required",
+      "status": 401
+    },
+    {
+      "case": "WS basic auth required",
+      "code": 4401,
+      "reason": "Unauthorized",
+      "frames": []
+    },
+    {
+      "case": "active HTTP create/list/rename/workspace",
+      "statuses": [
+        200,
+        200,
+        200,
+        200
+      ]
+    },
+    {
+      "case": "active WS reuse",
+      "code": 1000,
+      "reason": "",
+      "frames": [
+        "session_info",
+        "terminal_snapshot",
+        "codex_capabilities",
+        "codex_ipc_status",
+        "codex_ipc_conversations",
+        "follower_mode_changed"
+      ]
+    },
+    {
+      "case": "active WS create",
+      "code": 1000,
+      "reason": "",
+      "frames": [
+        "session_info",
+        "codex_capabilities",
+        "codex_ipc_status",
+        "codex_ipc_conversations",
+        "follower_mode_changed"
+      ]
+    },
+    {
+      "case": "legacy WS create",
+      "code": 1000,
+      "reason": "",
+      "frames": [
+        "session_info",
+        "codex_capabilities",
+        "codex_ipc_status",
+        "codex_ipc_conversations",
+        "follower_mode_changed"
+      ]
+    },
+    {
+      "case": "legacy WS reuse",
+      "code": 1000,
+      "reason": "",
+      "frames": [
+        "session_info",
+        "codex_capabilities",
+        "codex_ipc_status",
+        "codex_ipc_conversations",
+        "follower_mode_changed"
+      ]
+    },
+    {
+      "case": "unknown HTTP GET /sessions",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "unknown HTTP POST /sessions",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "unknown HTTP PATCH /sessions/b2b1c151-e495-408f-b939-22590ce64ecb",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "unknown HTTP DELETE /sessions/b2b1c151-e495-408f-b939-22590ce64ecb",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "unknown HTTP GET /sessions/b2b1c151-e495-408f-b939-22590ce64ecb/workspace/files?q=package",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "unknown WS reuse",
+      "code": 4403,
+      "reason": "Client registration is invalid or revoked",
+      "frames": []
+    },
+    {
+      "case": "unknown WS create",
+      "code": 4403,
+      "reason": "Client registration is invalid or revoked",
+      "frames": []
+    },
+    {
+      "case": "unknown no observable session create/rename/delete/attach",
+      "equal": true,
+      "before": [
+        {
+          "id": "28e7677f-ddf1-4ee9-b84f-e169359f9548",
+          "name": "V20-LAN-Codex",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "29f10973-57cf-40f7-8080-c0d9066439cf",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "3ba2208a-ef21-43e5-b6cf-f9d75d792cea",
+          "name": "Default Session",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "47c66c06-22b8-4967-9cac-614b91f8d576",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "66c37856-b674-4c02-a2d7-ba20f99ec40e",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "79354b6b-1fae-4f83-abe7-89d51da851a1",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "b2b1c151-e495-408f-b939-22590ce64ecb",
+          "name": "TASK20260868-S3-renamed",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "c6948ecb-64d5-43ab-b3b8-75e19f8da779",
+          "name": "Default Session",
+          "activeConnectionCount": 0
+        }
+      ],
+      "after": [
+        {
+          "id": "28e7677f-ddf1-4ee9-b84f-e169359f9548",
+          "name": "V20-LAN-Codex",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "29f10973-57cf-40f7-8080-c0d9066439cf",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "3ba2208a-ef21-43e5-b6cf-f9d75d792cea",
+          "name": "Default Session",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "47c66c06-22b8-4967-9cac-614b91f8d576",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "66c37856-b674-4c02-a2d7-ba20f99ec40e",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "79354b6b-1fae-4f83-abe7-89d51da851a1",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "b2b1c151-e495-408f-b939-22590ce64ecb",
+          "name": "TASK20260868-S3-renamed",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "c6948ecb-64d5-43ab-b3b8-75e19f8da779",
+          "name": "Default Session",
+          "activeConnectionCount": 0
+        }
+      ]
+    },
+    {
+      "case": "revoked HTTP GET /sessions",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "revoked HTTP POST /sessions",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "revoked HTTP PATCH /sessions/b2b1c151-e495-408f-b939-22590ce64ecb",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "revoked HTTP DELETE /sessions/b2b1c151-e495-408f-b939-22590ce64ecb",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "revoked HTTP GET /sessions/b2b1c151-e495-408f-b939-22590ce64ecb/workspace/files?q=package",
+      "status": 403,
+      "code": "REGISTRATION_INVALID"
+    },
+    {
+      "case": "revoked WS reuse",
+      "code": 4403,
+      "reason": "Client registration is invalid or revoked",
+      "frames": []
+    },
+    {
+      "case": "revoked WS create",
+      "code": 4403,
+      "reason": "Client registration is invalid or revoked",
+      "frames": []
+    },
+    {
+      "case": "revoked no observable session create/rename/delete/attach",
+      "equal": true,
+      "before": [
+        {
+          "id": "28e7677f-ddf1-4ee9-b84f-e169359f9548",
+          "name": "V20-LAN-Codex",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "29f10973-57cf-40f7-8080-c0d9066439cf",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "3ba2208a-ef21-43e5-b6cf-f9d75d792cea",
+          "name": "Default Session",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "47c66c06-22b8-4967-9cac-614b91f8d576",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "66c37856-b674-4c02-a2d7-ba20f99ec40e",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "79354b6b-1fae-4f83-abe7-89d51da851a1",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "b2b1c151-e495-408f-b939-22590ce64ecb",
+          "name": "TASK20260868-S3-renamed",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "c6948ecb-64d5-43ab-b3b8-75e19f8da779",
+          "name": "Default Session",
+          "activeConnectionCount": 0
+        }
+      ],
+      "after": [
+        {
+          "id": "28e7677f-ddf1-4ee9-b84f-e169359f9548",
+          "name": "V20-LAN-Codex",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "29f10973-57cf-40f7-8080-c0d9066439cf",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "3ba2208a-ef21-43e5-b6cf-f9d75d792cea",
+          "name": "Default Session",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "47c66c06-22b8-4967-9cac-614b91f8d576",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "66c37856-b674-4c02-a2d7-ba20f99ec40e",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "79354b6b-1fae-4f83-abe7-89d51da851a1",
+          "name": "Codex Native",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "b2b1c151-e495-408f-b939-22590ce64ecb",
+          "name": "TASK20260868-S3-renamed",
+          "activeConnectionCount": 0
+        },
+        {
+          "id": "c6948ecb-64d5-43ab-b3b8-75e19f8da779",
+          "name": "Default Session",
+          "activeConnectionCount": 0
+        }
+      ]
+    }
+  ],
+  "cleanup": [
+    {
+      "kind": "owned test session",
+      "id": "b2b1c151-e495-408f-b939-22590ce64ecb",
+      "status": 200
+    },
+    {
+      "kind": "owned test session",
+      "id": "3ba2208a-ef21-43e5-b6cf-f9d75d792cea",
+      "status": 200
+    },
+    {
+      "kind": "owned test session",
+      "id": "c6948ecb-64d5-43ab-b3b8-75e19f8da779",
+      "status": 200
+    },
+    {
+      "kind": "owned test registration revoke",
+      "id": "2abbff94-89bc-426f-ba21-031f3ab0d793",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "before": [
+    {
+      "id": "28e7677f-ddf1-4ee9-b84f-e169359f9548",
+      "name": "V20-LAN-Codex",
+      "activeConnectionCount": 0
+    },
+    {
+      "id": "29f10973-57cf-40f7-8080-c0d9066439cf",
+      "name": "Codex Native",
+      "activeConnectionCount": 0
+    },
+    {
+      "id": "47c66c06-22b8-4967-9cac-614b91f8d576",
+      "name": "Codex Native",
+      "activeConnectionCount": 0
+    },
+    {
+      "id": "66c37856-b674-4c02-a2d7-ba20f99ec40e",
+      "name": "Codex Native",
+      "activeConnectionCount": 0
+    },
+    {
+      "id": "79354b6b-1fae-4f83-abe7-89d51da851a1",
+      "name": "Codex Native",
+      "activeConnectionCount": 0
+    }
+  ],
+  "passed": true,
+  "afterCleanup": [
+    {
+      "id": "28e7677f-ddf1-4ee9-b84f-e169359f9548",
+      "name": "V20-LAN-Codex",
+      "activeConnectionCount": 0
+    },
+    {
+      "id": "29f10973-57cf-40f7-8080-c0d9066439cf",
+      "name": "Codex Native",
+      "activeConnectionCount": 0
+    },
+    {
+      "id": "47c66c06-22b8-4967-9cac-614b91f8d576",
+      "name": "Codex Native",
+      "activeConnectionCount": 0
+    },
+    {
+      "id": "66c37856-b674-4c02-a2d7-ba20f99ec40e",
+      "name": "Codex Native",
+      "activeConnectionCount": 0
+    },
+    {
+      "id": "79354b6b-1fae-4f83-abe7-89d51da851a1",
+      "name": "Codex Native",
+      "activeConnectionCount": 0
+    }
+  ],
+  "cleanupBaselineRestored": true
+}

@@ -71,6 +71,9 @@ import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.io.File
+import java.io.IOException
+import java.net.ProtocolException
+import javax.net.ssl.SSLException
 
 private const val PLAN_PHASE_READY_FOR_CONFIRMATION = "plan_ready_for_confirmation"
 private const val PLAN_PHASE_EXECUTING_CONFIRMED_PLAN = "executing_confirmed_plan"
@@ -442,6 +445,75 @@ internal fun isTransientWebSocketFailureMessage(message: String, code: Int?): Bo
         normalized.contains("ehostunreach") ||
         normalized.contains("connection timed out") ||
         normalized.contains("connect timed out")
+}
+
+internal fun applyConnectionStateToUiState(
+    state: CodexUiState,
+    nextState: ConnectionState
+): CodexUiState = reconcileIpcOperationErrorToUiState(state.copy(
+    connectionState = nextState,
+    connectionErrorMessage = if (nextState == ConnectionState.CONNECTED) null else state.connectionErrorMessage
+))
+
+internal fun applyIpcOperationUnavailableToUiState(state: CodexUiState, message: String): CodexUiState =
+    state.copy(
+        ipcOperationErrorMessage = message,
+        ipcOperationErrorConversationId = normalizeCodexThreadId(state.activeConversationId)
+            ?: normalizeCodexThreadId(state.threadId)
+    )
+
+private fun clearIpcOperationErrorFromUiState(state: CodexUiState): CodexUiState = state.copy(
+    ipcOperationErrorMessage = null,
+    ipcOperationErrorConversationId = null
+)
+
+internal fun reconcileIpcOperationErrorToUiState(state: CodexUiState): CodexUiState {
+    if (state.ipcOperationErrorMessage == null) return state
+    val activeId = normalizeCodexThreadId(state.activeConversationId)
+        ?: normalizeCodexThreadId(state.threadId)
+    val leftOriginalConversation = state.ipcOperationErrorConversationId != activeId
+    val operationAvailable = state.connectionState == ConnectionState.CONNECTED &&
+        shouldUseIpcFollowerTransportState(state)
+    return if (leftOriginalConversation || operationAvailable) clearIpcOperationErrorFromUiState(state) else state
+}
+
+internal fun clearIpcOperationErrorAfterSuccessfulSend(
+    state: CodexUiState,
+    conversationId: String?
+): CodexUiState {
+    val sentId = normalizeCodexThreadId(conversationId) ?: return state
+    return if (sentId == normalizeCodexThreadId(state.activeConversationId) &&
+        sentId == state.ipcOperationErrorConversationId) {
+        clearIpcOperationErrorFromUiState(state)
+    } else {
+        state
+    }
+}
+
+internal fun isRecoverableWebSocketFailure(throwable: Throwable, code: Int?): Boolean {
+    if (code != null && code >= 400) return false
+    if (throwable is SSLException || throwable is ProtocolException) return false
+    return throwable is IOException || isTransientWebSocketFailureMessage(throwable.message.orEmpty(), code)
+}
+
+internal fun applyWebSocketFailureToUiState(
+    state: CodexUiState,
+    throwable: Throwable,
+    code: Int?,
+    connectionHint: String
+): CodexUiState {
+    val message = throwable.message ?: "WebSocket failure"
+    if (isRecoverableWebSocketFailure(throwable, code)) {
+        return state.copy(connectionErrorMessage = connectionHint)
+    }
+    return state.copy(
+        errorMessage = message,
+        connectionErrorMessage = null,
+        currentTurnId = null,
+        planWorkflow = CodexPlanWorkflowState(),
+        executionWatch = CodexExecutionWatchState(),
+        runtimePanel = state.runtimePanel.copy(warning = message, warningTone = "error")
+    )
 }
 
 internal enum class MobileSlashAction {
@@ -824,12 +896,18 @@ internal fun applyIpcStatusToUiState(
     state: CodexUiState,
     status: CodexIpcStatus
 ): CodexUiState {
-    return state.copy(
+    return reconcileIpcOperationErrorToUiState(state.copy(
         ipcSupported = status.supported,
         ipcOnline = status.online,
         ipcClientId = status.clientId
-    )
+    ))
 }
+
+internal fun applyFollowerModeToUiState(state: CodexUiState, mode: CodexFollowerMode): CodexUiState =
+    reconcileIpcOperationErrorToUiState(state.copy(
+        followerModeEnabled = mode.enabled,
+        followerActiveSendAllowed = mode.activeSendAllowed
+    ))
 
 internal fun shouldUseIpcFollowerTransportState(state: CodexUiState): Boolean {
     val transportAvailable = state.ipcOnline ||
@@ -1984,7 +2062,7 @@ internal fun applyIpcConversationSelectionToUiState(
             state.planWorkflow
         }
     )
-    return recalculateNextTurnEffectiveConfigForUiState(updated)
+    return reconcileIpcOperationErrorToUiState(recalculateNextTurnEffectiveConfigForUiState(updated))
 }
 
 /**
@@ -2116,7 +2194,7 @@ internal fun applyIpcConversationBindingToUiState(
         submittingServerRequestIds = if (keepExistingBody) state.submittingServerRequestIds else emptySet(),
         planWorkflow = if (keepExistingBody) state.planWorkflow else CodexPlanWorkflowState()
     )
-    return recalculateNextTurnEffectiveConfigForUiState(updated)
+    return reconcileIpcOperationErrorToUiState(recalculateNextTurnEffectiveConfigForUiState(updated))
 }
 
 internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): CodexUiState {
@@ -2141,6 +2219,8 @@ internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): Code
         goalMode = false,
         followerModeEnabled = false,
         followerActiveSendAllowed = false,
+        ipcOperationErrorMessage = null,
+        ipcOperationErrorConversationId = null,
         messages = if (hadIpcSurface) emptyList() else state.messages,
         pendingServerRequests = state.pendingServerRequests.filterNot {
             it.handledBy.equals("ipc_follower", ignoreCase = true)
@@ -2177,6 +2257,8 @@ internal fun preparePendingHistorySelectionUiState(
         threadHistoryActionThreadId = "",
         threadHistoryActionKind = "",
         errorMessage = null,
+        ipcOperationErrorMessage = null,
+        ipcOperationErrorConversationId = null,
         status = "idle",
         currentTurnId = null,
         interactionState = null,
@@ -2283,7 +2365,7 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
         currentThreadTitle = snap.title ?: state.currentThreadTitle,
         cwd = snap.cwd ?: state.cwd
     )
-    return recalculateNextTurnEffectiveConfigForUiState(updated)
+    return reconcileIpcOperationErrorToUiState(recalculateNextTurnEffectiveConfigForUiState(updated))
 }
 
 internal fun reconcileOwnerConfirmedOverrides(
@@ -2540,9 +2622,10 @@ internal fun resolveNextTurnEffectiveCodexConfig(state: CodexUiState): CodexEffe
 
 internal fun prepareIpcStateForNewThread(state: CodexUiState): CodexUiState {
     val awaitingNewSurface = !state.activeConversationId.isNullOrBlank()
-    if (!awaitingNewSurface) return recalculateNextTurnEffectiveConfigForUiState(state)
+    val cleared = clearIpcOperationErrorFromUiState(state)
+    if (!awaitingNewSurface) return recalculateNextTurnEffectiveConfigForUiState(cleared)
     return recalculateNextTurnEffectiveConfigForUiState(
-        state.copy(
+        cleared.copy(
             activeConversationId = null,
             awaitingNewThreadIpcSurface = awaitingNewSurface,
             ipcSurfaceSnapshot = null,
@@ -4204,6 +4287,9 @@ class CodexViewModel(
                     currentTurnId = null,
                     messages = emptyList(),
                     errorMessage = null,
+                    connectionErrorMessage = null,
+                    ipcOperationErrorMessage = null,
+                    ipcOperationErrorConversationId = null,
                     connectionState = ConnectionState.CONNECTING,
                     serverNextTurnConfigBase = null,
                     ownerCurrentCodexConfig = null,
@@ -4817,6 +4903,9 @@ class CodexViewModel(
                 ?.takeIf { it.isNotEmpty() }
             current.copy(
                 errorMessage = null,
+                connectionErrorMessage = null,
+                ipcOperationErrorMessage = null,
+                ipcOperationErrorConversationId = null,
                 goalOwnerRequiredObjective = null,
                 goalMode = if (pendingGoalObjective != null) true else current.goalMode,
                 composerRecoveryText = pendingGoalObjective ?: current.composerRecoveryText
@@ -4833,7 +4922,7 @@ class CodexViewModel(
                 recoveryId = recovery.recoveryId,
                 action = normalizedAction
             ),
-            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
     }
 
@@ -4848,6 +4937,9 @@ class CodexViewModel(
                     sessionId = "",
                     threadId = null,
                     errorMessage = null,
+                    connectionErrorMessage = null,
+                    ipcOperationErrorMessage = null,
+                    ipcOperationErrorConversationId = null,
                     connectionState = ConnectionState.CONNECTING,
                     serverNextTurnConfigBase = null,
                     ownerCurrentCodexConfig = null,
@@ -4931,7 +5023,7 @@ class CodexViewModel(
         if (useFollowerTransport) {
             sendEnvelopeOrReportFailure(
                 payload = CodexClientMessages.followerInterruptTurn(state.activeConversationId!!),
-                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+                connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
             )
             return
         }
@@ -4946,7 +5038,7 @@ class CodexViewModel(
         }
         sendEnvelopeOrReportFailure(
             payload = CodexClientMessages.codexInterrupt(state.threadId),
-            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
     }
 
@@ -4961,7 +5053,7 @@ class CodexViewModel(
                 conversationId = conversationId,
                 action = goalControlActionForStatus(activeGoal.status)
             ),
-            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
     }
 
@@ -5098,7 +5190,7 @@ class CodexViewModel(
             if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) {
                 Log.w(TAG, "[approval][submit-skipped] IPC follower transport unavailable requestId=$requestId")
                 _uiState.update {
-                    it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
+                    applyIpcOperationUnavailableToUiState(it, appContext.getString(R.string.codex_native_connection_action_unavailable))
                 }
                 return
             }
@@ -5110,7 +5202,7 @@ class CodexViewModel(
                     decision = decision,
                     requestKind = request.requestKind.takeIf { it.isNotBlank() && it != "approval" }
                 ),
-                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+                connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
             )
             if (!sent) return
             PersistentDiagnosticLog.event(
@@ -5137,7 +5229,7 @@ class CodexViewModel(
                 requestId = requestId,
                 result = result
             ),
-            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
         if (!sent) return
         markServerRequestSubmitting(requestId)
@@ -5162,7 +5254,7 @@ class CodexViewModel(
                     questionId = firstQuestion?.id,
                     response = explicitResponse
                 ),
-                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+                connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
             )
             if (!sent) return
             markServerRequestSubmitting(requestId)
@@ -5179,7 +5271,7 @@ class CodexViewModel(
                 requestId = requestId,
                 result = result
             ),
-            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
         if (!sent) return
         markServerRequestSubmitting(requestId)
@@ -5212,7 +5304,7 @@ class CodexViewModel(
                 )
                 Log.w(TAG, "[user-input][reject-skipped] IPC follower transport unavailable requestId=$requestId")
                 _uiState.update {
-                    it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
+                    applyIpcOperationUnavailableToUiState(it, appContext.getString(R.string.codex_native_connection_action_unavailable))
                 }
                 return
             }
@@ -5223,7 +5315,7 @@ class CodexViewModel(
                     requestId = requestId,
                     questionId = request.questions.firstOrNull()?.id
                 ),
-                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+                connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
             )
             if (!sent) return
             PersistentDiagnosticLog.event(
@@ -5246,7 +5338,7 @@ class CodexViewModel(
                 requestId = requestId,
                 error = error
             ),
-            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
         if (!sent) return
         PersistentDiagnosticLog.event(
@@ -5260,30 +5352,23 @@ class CodexViewModel(
 
     private fun sendEnvelopeOrReportFailure(
         payload: String,
-        errorMessage: String
+        connectionErrorMessage: String
     ): Boolean {
         val sent = connectionManager.send(payload)
         if (!sent) {
             _uiState.update { state ->
-                state.copy(errorMessage = errorMessage)
+                state.copy(connectionErrorMessage = connectionErrorMessage)
+            }
+        } else {
+            val sentConversationId = runCatching {
+                val envelope = JSONObject(payload)
+                envelope.optStringOrNullCompat("conversationId") ?: envelope.optStringOrNullCompat("threadId")
+            }.getOrNull()
+            _uiState.update { state ->
+                clearIpcOperationErrorAfterSuccessfulSend(state, sentConversationId)
             }
         }
         return sent
-    }
-
-    private fun isTransientWebSocketFailure(message: String, code: Int?): Boolean {
-        return isTransientWebSocketFailureMessage(message, code)
-    }
-
-    private fun isTransientConnectionMessage(message: String?): Boolean {
-        val normalized = message?.trim().orEmpty()
-        if (normalized.isBlank()) {
-            return false
-        }
-        if (normalized == appContext.getString(R.string.codex_native_connection_action_unavailable)) {
-            return true
-        }
-        return isTransientWebSocketFailure(normalized, null)
     }
 
     private fun agentMessagePhase(item: JSONObject): String =
@@ -5997,6 +6082,8 @@ class CodexViewModel(
                             threadHistoryActionThreadId = "",
                             threadHistoryActionKind = "",
                             errorMessage = if (switched) null else selectedState.errorMessage,
+                            ipcOperationErrorMessage = if (switched) null else selectedState.ipcOperationErrorMessage,
+                            ipcOperationErrorConversationId = if (switched) null else selectedState.ipcOperationErrorConversationId,
                             status = if (switched) "idle" else selectedState.status,
                             currentTurnId = if (switched) null else selectedState.currentTurnId,
                             interactionState = if (switched) null else selectedState.interactionState,
@@ -6186,7 +6273,7 @@ class CodexViewModel(
                 level = "warn"
             )
             _uiState.update {
-                it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
+                applyIpcOperationUnavailableToUiState(it, appContext.getString(R.string.codex_native_connection_action_unavailable))
             }
             return false
         }
@@ -6268,7 +6355,7 @@ class CodexViewModel(
                     requestId = followerPlanRequestId,
                     questionId = state.planWorkflow.planQuestionId
                 ),
-                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+                connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
             )
             if (sent) {
                 _uiState.update { current ->
@@ -6711,7 +6798,7 @@ class CodexViewModel(
                 level = "warn"
             )
             _uiState.update {
-                it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
+                applyIpcOperationUnavailableToUiState(it, appContext.getString(R.string.codex_native_connection_action_unavailable))
             }
             return false
         }
@@ -6727,7 +6814,7 @@ class CodexViewModel(
                 collaborationMode = collaborationMode,
                 forceNewThread = effectiveForceNewThread
             ),
-            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            connectionErrorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
         if (!sent) {
             PersistentDiagnosticLog.event(
@@ -7188,17 +7275,7 @@ class CodexViewModel(
                 }
                 _uiState.update { current ->
                     syncExecutionWatch(
-                        current.copy(
-                            connectionState = nextState,
-                            errorMessage = if (
-                                nextState != ConnectionState.ERROR &&
-                                isTransientConnectionMessage(current.errorMessage)
-                            ) {
-                                null
-                            } else {
-                                current.errorMessage
-                            }
-                        ),
+                        applyConnectionStateToUiState(current, nextState),
                         markActivity = nextState != current.connectionState
                     )
                 }
@@ -7218,10 +7295,17 @@ class CodexViewModel(
     private fun observeWsEvents() {
         viewModelScope.launch {
             connectionManager.wsClient.events.collect { event ->
+                if (!connectionManager.wsClient.isCurrentEvent(event)) return@collect
                 try {
                     when (event) {
                         is WsEvent.Opened -> {
                             connectionManager.onConnected()
+                            _uiState.update { current ->
+                                syncExecutionWatch(
+                                    applyConnectionStateToUiState(current, ConnectionState.CONNECTED),
+                                    markActivity = true
+                                )
+                            }
                             if (_uiState.value.ipcOnline) {
                                 beginAwaitingFreshIpcSurface()
                             }
@@ -7232,6 +7316,12 @@ class CodexViewModel(
                                     connectionState = _uiState.value.connectionState
                                 )) {
                                 connectionManager.onConnected()
+                                _uiState.update { current ->
+                                    syncExecutionWatch(
+                                        applyConnectionStateToUiState(current, ConnectionState.CONNECTED),
+                                        markActivity = true
+                                    )
+                                }
                                 subscribeActiveConversationIfNeeded()
                             }
                             handleEnvelope(event.envelope)
@@ -7270,28 +7360,16 @@ class CodexViewModel(
                             resetHistoryRecoveryAfterTransportLoss("websocket-failure:${event.code}")
                             markPendingThreadResyncIfNeeded(_uiState.value)
                             val message = event.throwable.message ?: "WebSocket failure"
-                            if (isTransientWebSocketFailure(message, event.code)) {
-                                _uiState.update { state ->
-                                    if (isTransientConnectionMessage(state.errorMessage)) {
-                                        state.copy(errorMessage = null)
-                                    } else {
-                                        state
-                                    }
-                                }
-                            } else {
+                            if (!isRecoverableWebSocketFailure(event.throwable, event.code)) {
                                 appendMessage(ChatMessage.Role.ERROR, message)
-                                _uiState.update {
-                                    it.copy(
-                                        errorMessage = message,
-                                        currentTurnId = null,
-                                        planWorkflow = buildEmptyPlanWorkflowState(),
-                                        executionWatch = CodexExecutionWatchState(),
-                                        runtimePanel = it.runtimePanel.copy(
-                                            warning = message,
-                                            warningTone = "error"
-                                        )
-                                    )
-                                }
+                            }
+                            _uiState.update { state ->
+                                applyWebSocketFailureToUiState(
+                                    state,
+                                    event.throwable,
+                                    event.code,
+                                    appContext.getString(R.string.codex_native_connection_action_unavailable)
+                                )
                             }
                             connectionManager.onDisconnected()
                         }
@@ -7303,6 +7381,7 @@ class CodexViewModel(
         }
         viewModelScope.launch {
             connectionManager.wsClient.historyEvents.collect { event ->
+                if (!connectionManager.wsClient.isCurrentEvent(event)) return@collect
                 try {
                     if (event is WsEvent.Message) {
                         handleEnvelope(event.envelope)
@@ -10632,10 +10711,7 @@ class CodexViewModel(
             "follower_mode_changed" -> {
                 val mode = CodexFollowerMode.from(json)
                 _uiState.update {
-                    it.copy(
-                        followerModeEnabled = mode.enabled,
-                        followerActiveSendAllowed = mode.activeSendAllowed
-                    )
+                    applyFollowerModeToUiState(it, mode)
                 }
                 if (shouldRequestActiveFollowerModeEnable(mode)) {
                     connectionManager.send(CodexClientMessages.setActiveFollowerMode(true))

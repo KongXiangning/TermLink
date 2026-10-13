@@ -1,0 +1,153 @@
+{
+  "event_ref": ".workflow-system/records/events/key-06160d4e937e39dc6f9c8d1ad12062ce2f15bf403c35e2538a8f0adf797291dc.json",
+  "captured_at": "2026-10-13T04:14:13.239Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/03dc5fbf85c0ca6c180a7243d4e33ce9d541ae0d0f5d5de235a5ec797213b903.blob",
+      "sha256": "03dc5fbf85c0ca6c180a7243d4e33ce9d541ae0d0f5d5de235a5ec797213b903",
+      "size": 6497,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/review-repair-20261013.md",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+      "sha256": "33a2551ac2b5f7a85c84d56604ef3ff1687c9460e43cdf12ee29f5b5a9756ccd",
+      "size": 6872,
+      "request": {
+        "sha256": "33a2551ac2b5f7a85c84d56604ef3ff1687c9460e43cdf12ee29f5b5a9756ccd",
+        "ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+        "role": "fixed-reviewed-evidence"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+      "sha256": "102a48371c215b75d5d158a39c08f1758d815f77345ccc02e195f1b96c61529d",
+      "size": 7207,
+      "request": {
+        "sha256": "102a48371c215b75d5d158a39c08f1758d815f77345ccc02e195f1b96c61529d",
+        "ref": ".workflow-system/records/events/key-175b7a6b1fbf6a1001fa362c315ac383022d18fa484587165fb79fb33a14f90e.json",
+        "role": "fixed-reviewed-evidence"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-df25232f0d071aa0b363c9f30ba6196b300807ddd69e4f3d39b49ddb43bab3cc.json",
+      "sha256": "f71eafb521b3ffa91224cbef90ddad76f68ee77b8b83d9cf881c72cfb90a9369",
+      "size": 3718,
+      "request": {
+        "sha256": "f71eafb521b3ffa91224cbef90ddad76f68ee77b8b83d9cf881c72cfb90a9369",
+        "ref": ".workflow-system/records/events/key-df25232f0d071aa0b363c9f30ba6196b300807ddd69e4f3d39b49ddb43bab3cc.json",
+        "role": "fixed-reviewed-evidence"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/events/key-d4b7a018f7b336c7466244ec70fb0d57e71289fb1ebda75b3605cc0375262ec7.json",
+      "sha256": "1fe2d480b3cee79c5d00ee171d1a25ae04e06b4946867cdbd789a5a27c64c03e",
+      "size": 2649,
+      "request": {
+        "sha256": "1fe2d480b3cee79c5d00ee171d1a25ae04e06b4946867cdbd789a5a27c64c03e",
+        "ref": ".workflow-system/records/events/key-d4b7a018f7b336c7466244ec70fb0d57e71289fb1ebda75b3605cc0375262ec7.json",
+        "role": "fixed-reviewed-evidence"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/evidence-objects/d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898.blob",
+      "sha256": "d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898",
+      "size": 1517,
+      "request": {
+        "sha256": "d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898",
+        "ref": ".workflow-system/records/evidence-objects/d19b8ea81c571b8866cdf0d72fb77355262c66e1d2ad310005f293b37b48d898.blob",
+        "role": "fixed-reviewed-evidence"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/evidence-objects/88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba.blob",
+      "sha256": "88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba",
+      "size": 933,
+      "request": {
+        "sha256": "88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba",
+        "ref": ".workflow-system/records/evidence-objects/88cbaf367ebce7c960606aaf77afbc55f5192e640a899616fba78c25811cbcba.blob",
+        "role": "fixed-reviewed-evidence"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/evidence-objects/0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412.blob",
+      "sha256": "0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412",
+      "size": 2655,
+      "request": {
+        "sha256": "0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412",
+        "ref": ".workflow-system/records/evidence-objects/0984e0b6ba12a6016603fd4740eb2a3c2114a89c6cddffa8d07dde24fcb2c412.blob",
+        "role": "fixed-reviewed-evidence"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    },
+    {
+      "status": "referenced",
+      "kind": "fixed-evidence-reference/v1",
+      "ref": ".workflow-system/records/evidence-objects/71f7962ad513479a82ff603dbd9d9cf3d440f4c5b323fd9acccc6ee97c404586.blob",
+      "sha256": "71f7962ad513479a82ff603dbd9d9cf3d440f4c5b323fd9acccc6ee97c404586",
+      "size": 136109,
+      "request": {
+        "sha256": "71f7962ad513479a82ff603dbd9d9cf3d440f4c5b323fd9acccc6ee97c404586",
+        "ref": ".workflow-system/records/evidence-objects/71f7962ad513479a82ff603dbd9d9cf3d440f4c5b323fd9acccc6ee97c404586.blob",
+        "role": "fixed-reviewed-evidence"
+      },
+      "storage": "loose",
+      "live_source_read": false,
+      "verification": "whole-file",
+      "current_applicability": "not-evaluated",
+      "issues": []
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "collector": "current debug build explicitly enabled",
+  "deviceTime": "Tue Oct 13 03:11:17 CST 2026",
+  "apkSha256": "F148028B15FA3A8DFFE63CA483BCDA5A1CE9764BBDE817E68A357598D25DFD6A",
+  "commit": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+  "locale": "zh-Hans-CN",
+  "android": "10",
+  "auth": "Basic development test account",
+  "device": "VOG-AL00",
+  "transport": "USB 3010 reverse and LAN 192.168.50.13:3010"
+}

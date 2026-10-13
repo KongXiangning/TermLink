@@ -1,0 +1,20 @@
+android:id/content | null | null | android.view.ViewGroup
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | null | android.view.View
+null | null | 拖动手柄 | android.view.View
+null | null | null | android.widget.ScrollView
+null | 应如何批准 Codex 操作？ | null | android.widget.TextView
+null | 选择文件和网络操作的审核方式。 | null | android.widget.TextView
+null | null | null | android.view.View
+null | 请求批准 | null | android.widget.TextView
+null | 编辑外部文件和使用互联网时始终询问 | null | android.widget.TextView
+null | null | null | android.view.View
+null | 替我审批 | null | android.widget.TextView
+null | 仅对检测到的风险操作请求批准 | null | android.widget.TextView
+null | null | null | android.view.View
+null | 完全访问权限 | null | android.widget.TextView
+null | 不受限制地访问互联网和您电脑上的任何文件 | null | android.widget.TextView
+null | null | null | android.view.View

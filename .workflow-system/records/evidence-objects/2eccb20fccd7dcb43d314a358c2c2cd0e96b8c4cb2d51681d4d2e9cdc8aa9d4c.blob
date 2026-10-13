@@ -1,0 +1,124 @@
+package com.termlink.app.codex
+
+import com.termlink.app.codex.domain.CodexUiState
+import com.termlink.app.codex.domain.CodexRuntimePanelState
+import com.termlink.app.codex.domain.CodexPlanWorkflowState
+import com.termlink.app.codex.domain.ConnectionState
+import com.termlink.app.codex.network.WsEvent
+import com.termlink.app.codex.network.isCurrentWebSocketEvent
+import java.io.IOException
+import java.net.ProtocolException
+import javax.net.ssl.SSLHandshakeException
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class CodexViewModelConnectionFailureTest {
+    @Test
+    fun recoveredTimeoutClearsItsConnectionHintWithoutLeavingRuntimeWarning() {
+        val failed = applyWebSocketFailureToUiState(
+            CodexUiState(connectionState = ConnectionState.CONNECTED),
+            IOException("timeout"),
+            null,
+            "Reconnecting"
+        )
+        assertEquals("Reconnecting", failed.connectionErrorMessage)
+        val recovered = applyConnectionStateToUiState(failed, ConnectionState.CONNECTED)
+
+        assertNull(recovered.errorMessage)
+        assertNull(recovered.connectionErrorMessage)
+        assertEquals("", recovered.runtimePanel.warning)
+    }
+
+    @Test
+    fun retryingDoesNotClearTheHintBeforeRecoverySucceeds() {
+        var state = CodexUiState(connectionErrorMessage = "Reconnecting")
+        for (nextState in listOf(ConnectionState.RECONNECTING, ConnectionState.CONNECTING, ConnectionState.ERROR)) {
+            state = applyConnectionStateToUiState(state, nextState)
+            assertEquals("Reconnecting", state.connectionErrorMessage)
+        }
+        assertNull(applyConnectionStateToUiState(state, ConnectionState.CONNECTED).connectionErrorMessage)
+    }
+
+    @Test
+    fun recoveryPreservesBusinessErrorsEvenWhenTheyContainTransportWords() {
+        val state = CodexUiState(
+            errorMessage = "connection reset",
+            runtimePanel = CodexRuntimePanelState(warning = "connection reset", warningTone = "error"),
+            currentTurnId = "turn-live",
+            planWorkflow = CodexPlanWorkflowState(phase = "planning")
+        )
+        val failed = applyWebSocketFailureToUiState(state, IOException("timeout"), null, "Reconnecting")
+        val recovered = applyConnectionStateToUiState(failed, ConnectionState.CONNECTED)
+
+        assertEquals(state.errorMessage, recovered.errorMessage)
+        assertEquals(state.runtimePanel, recovered.runtimePanel)
+        assertEquals(state.currentTurnId, recovered.currentTurnId)
+        assertEquals(state.planWorkflow, recovered.planWorkflow)
+        assertNull(recovered.connectionErrorMessage)
+    }
+
+    @Test
+    fun authenticationTlsAndProtocolFailuresRemainVisibleAfterReconnect() {
+        val failures = listOf(
+            IOException("Unauthorized") to 401,
+            IOException("Client registration is invalid or revoked") to 4403,
+            IOException("timeout") to 1009,
+            SSLHandshakeException("connection reset") to null,
+            ProtocolException("Malformed response") to null
+        )
+        for ((throwable, code) in failures) {
+            val failed = applyWebSocketFailureToUiState(CodexUiState(), throwable, code, "Reconnecting")
+            val recovered = applyConnectionStateToUiState(failed, ConnectionState.CONNECTED)
+
+            assertEquals(throwable.message, recovered.errorMessage)
+            assertEquals(throwable.message, recovered.runtimePanel.warning)
+            assertEquals("error", recovered.runtimePanel.warningTone)
+            assertNull(recovered.connectionErrorMessage)
+        }
+    }
+
+    @Test
+    fun failuresWithoutAnExceptionMessageAreStillScopedToTheConnection() {
+        val failed = applyWebSocketFailureToUiState(CodexUiState(), IOException(), null, "Reconnecting")
+        val recovered = applyConnectionStateToUiState(failed, ConnectionState.CONNECTED)
+
+        assertNull(recovered.errorMessage)
+        assertNull(recovered.connectionErrorMessage)
+        assertEquals("", recovered.runtimePanel.warning)
+    }
+
+    @Test
+    fun queuedOldConnectionEventsCannotReintroduceErrorsAfterReconnect() {
+        val staleEvents = listOf(
+            WsEvent.Failure(IOException("timeout"), null, generation = 1),
+            WsEvent.Closed(4403, "Client registration is invalid or revoked", generation = 1),
+            WsEvent.Opened("http/1.1", generation = 1)
+        )
+        for (event in staleEvents) {
+            assertFalse(isCurrentWebSocketEvent(event, generation = 2))
+            assertTrue(isCurrentWebSocketEvent(event, generation = 1))
+        }
+    }
+
+    @Test
+    fun offlineConnectFailuresAreTransient() {
+        assertTrue(
+            isTransientWebSocketFailureMessage(
+                "Failed to connect to /192.168.50.12:3010 (ENETUNREACH)",
+                null
+            )
+        )
+        assertTrue(isTransientWebSocketFailureMessage("No route to host", null))
+        assertTrue(isTransientWebSocketFailureMessage("connect timed out", null))
+    }
+
+    @Test
+    fun serverAndProtocolErrorsRemainVisible() {
+        assertFalse(isTransientWebSocketFailureMessage("Unauthorized", 4401))
+        assertFalse(isTransientWebSocketFailureMessage("CODEX_ENVELOPE_TOO_LARGE", 1009))
+        assertFalse(isTransientWebSocketFailureMessage("Malformed response", null))
+    }
+}

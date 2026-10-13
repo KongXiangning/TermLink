@@ -1,0 +1,113 @@
+[
+  {
+    "op": "launch",
+    "activity": "com.termlink.app.MainShellActivity"
+  },
+  {
+    "text": "会话",
+    "op": "clickDesc"
+  },
+  {
+    "text": "V20-Phone-Terminal",
+    "op": "clickRow",
+    "id": "btn_open_session"
+  },
+  {
+    "op": "assertText",
+    "text": "终端: 已连接"
+  },
+  {
+    "op": "tapText",
+    "text": "Ctrl"
+  },
+  {
+    "op": "shell",
+    "command": "input text c"
+  },
+  {
+    "op": "doubleClickText",
+    "text": "Ctrl"
+  },
+  {
+    "op": "shell",
+    "command": "input text cc"
+  },
+  {
+    "op": "tapText",
+    "text": "Ctrl"
+  },
+  {
+    "op": "tapText",
+    "text": "Alt"
+  },
+  {
+    "op": "shell",
+    "command": "input text b"
+  },
+  {
+    "op": "doubleClickText",
+    "text": "Alt"
+  },
+  {
+    "op": "shell",
+    "command": "input text fb"
+  },
+  {
+    "op": "tapText",
+    "text": "Alt"
+  },
+  {
+    "op": "tapText",
+    "text": "🛑"
+  },
+  {
+    "op": "tapText",
+    "text": "⏎"
+  },
+  {
+    "op": "tapText",
+    "text": "Enter ↵"
+  },
+  {
+    "op": "shell",
+    "command": "input keyevent 4"
+  },
+  {
+    "op": "clickDesc",
+    "text": "切换快捷键盘"
+  },
+  {
+    "op": "shell",
+    "command": "input tap 350 350"
+  },
+  {
+    "op": "wait",
+    "ms": 500
+  },
+  {
+    "op": "shell",
+    "command": "input text Write-Output%sV20-FOCUS-HIDDEN"
+  },
+  {
+    "op": "shell",
+    "command": "input keyevent 66"
+  },
+  {
+    "op": "wait",
+    "ms": 800
+  },
+  {
+    "op": "snapshot"
+  },
+  {
+    "op": "shell",
+    "command": "input keyevent 4"
+  },
+  {
+    "op": "clickDesc",
+    "text": "切换快捷键盘"
+  },
+  {
+    "op": "snapshot"
+  }
+]

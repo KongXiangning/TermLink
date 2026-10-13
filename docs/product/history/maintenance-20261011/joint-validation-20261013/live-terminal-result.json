@@ -1,0 +1,35 @@
+{
+  "id": "51a4bc1a-20da-4353-b5cb-f3608bbdbd87",
+  "pid": 4296,
+  "disconnected": {
+    "id": "51a4bc1a-20da-4353-b5cb-f3608bbdbd87",
+    "name": "V17-Live-Retention",
+    "status": "IDLE",
+    "activeConnections": 0,
+    "activeConnectionCount": 0,
+    "allTls": false,
+    "allMtlsAuthorized": false,
+    "createdAt": 1791856063788,
+    "lastActiveAt": 1791856302762,
+    "sessionMode": "terminal",
+    "cwd": null,
+    "workspaceRoot": null,
+    "workspaceRootSource": null,
+    "lastCodexThreadId": null,
+    "codexConfig": null,
+    "codexThreadId": null
+  },
+  "shared": {
+    "activeConnections": 2
+  },
+  "sameProcessAndContext": true,
+  "outputWhileDisconnected": true,
+  "resize": "97x29",
+  "invalidId": {
+    "code": 4404,
+    "reason": "Session not found or expired"
+  },
+  "renamed": true,
+  "deleted": true,
+  "processReleased": true
+}

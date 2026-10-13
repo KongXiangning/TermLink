@@ -1,0 +1,729 @@
+TAP version 13
+# Subtest: client registration rejects missing records and invalid IDs
+not ok 1 - client registration rejects missing records and invalid IDs
+  ---
+  duration_ms: 0.8397
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\clientRegistrations.test.js:15:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\clientRegistrations.test.js:18:16)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.start (node:internal/test_runner/test:1003:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17)
+  ...
+# Subtest: client registration normalizes active IDs and rejects revoked records including timestamp zero
+ok 2 - client registration normalizes active IDs and rejects revoked records including timestamp zero
+  ---
+  duration_ms: 2.156
+  type: 'test'
+  ...
+# Subtest: client registration creates opaque ids and revokes them
+ok 3 - client registration creates opaque ids and revokes them
+  ---
+  duration_ms: 0.7566
+  type: 'test'
+  ...
+# Subtest: client registration routes revoke owned sessions without touching history cache
+ok 4 - client registration routes revoke owned sessions without touching history cache
+  ---
+  duration_ms: 1.5609
+  type: 'test'
+  ...
+# Subtest: GET /sessions rejects unknown registration before session access
+not ok 5 - GET /sessions rejects unknown registration before session access
+  ---
+  duration_ms: 2.4065
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    200 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 200
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: POST /sessions rejects unknown registration before session access
+not ok 6 - POST /sessions rejects unknown registration before session access
+  ---
+  duration_ms: 1.1358
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    200 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 200
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: PATCH /sessions/:id rejects unknown registration before session access
+not ok 7 - PATCH /sessions/:id rejects unknown registration before session access
+  ---
+  duration_ms: 0.264
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    404 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 404
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: DELETE /sessions/:id rejects unknown registration before session access
+not ok 8 - DELETE /sessions/:id rejects unknown registration before session access
+  ---
+  duration_ms: 0.4873
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    404 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 404
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: GET /sessions/:id/workspace/files rejects unknown registration before session access
+not ok 9 - GET /sessions/:id/workspace/files rejects unknown registration before session access
+  ---
+  duration_ms: 0.2405
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:62:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    404 !== 403
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 403
+  actual: 404
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:69:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: GET /sessions rejects revoked registration before session access
+ok 10 - GET /sessions rejects revoked registration before session access
+  ---
+  duration_ms: 0.4694
+  type: 'test'
+  ...
+# Subtest: POST /sessions rejects revoked registration before session access
+ok 11 - POST /sessions rejects revoked registration before session access
+  ---
+  duration_ms: 0.1564
+  type: 'test'
+  ...
+# Subtest: PATCH /sessions/:id rejects revoked registration before session access
+ok 12 - PATCH /sessions/:id rejects revoked registration before session access
+  ---
+  duration_ms: 0.1351
+  type: 'test'
+  ...
+# Subtest: DELETE /sessions/:id rejects revoked registration before session access
+ok 13 - DELETE /sessions/:id rejects revoked registration before session access
+  ---
+  duration_ms: 0.1687
+  type: 'test'
+  ...
+# Subtest: GET /sessions/:id/workspace/files rejects revoked registration before session access
+ok 14 - GET /sessions/:id/workspace/files rejects revoked registration before session access
+  ---
+  duration_ms: 0.2066
+  type: 'test'
+  ...
+# Subtest: session routes preserve active registration list/create/update/delete paths
+not ok 15 - session routes preserve active registration list/create/update/delete paths
+  ---
+  duration_ms: 1.8052
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\routes.sessions.metadata.test.js:77:5'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    ... Skipped lines
+    
+      [
+        [
+          'owned-session',
+          'ddb271aa-b2b9-44b7-a579-044c98217b84'
+        ],
+    ...
+        ],
+    +   [
+    +     'owned-session',
+    +     'ddb271aa-b2b9-44b7-a579-044c98217b84'
+    +   ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'owned-session'
+      1: 'ddb271aa-b2b9-44b7-a579-044c98217b84'
+    1: <Circular>
+    2: <Circular>
+  actual:
+    0:
+      0: 'owned-session'
+      1: 'ddb271aa-b2b9-44b7-a579-044c98217b84'
+    1:
+      0: 'owned-session'
+      1: 'ddb271aa-b2b9-44b7-a579-044c98217b84'
+    2:
+      0: 'owned-session'
+      1: 'ddb271aa-b2b9-44b7-a579-044c98217b84'
+    3:
+      0: 'owned-session'
+      1: 'ddb271aa-b2b9-44b7-a579-044c98217b84'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\routes.sessions.metadata.test.js:89:16)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: session routes preserve legacy registration list/create/update/delete paths
+ok 16 - session routes preserve legacy registration list/create/update/delete paths
+  ---
+  duration_ms: 1.1086
+  type: 'test'
+  ...
+# Subtest: active registration cannot access or mutate another registration session over HTTP
+ok 17 - active registration cannot access or mutate another registration session over HTTP
+  ---
+  duration_ms: 0.7762
+  type: 'test'
+  ...
+# Subtest: GET /sessions exposes aggregate TLS summary fields from sessionManager
+ok 18 - GET /sessions exposes aggregate TLS summary fields from sessionManager
+  ---
+  duration_ms: 0.4239
+  type: 'test'
+  ...
+# Subtest: POST /sessions passes sessionMode and cwd through to sessionManager
+ok 19 - POST /sessions passes sessionMode and cwd through to sessionManager
+  ---
+  duration_ms: 5.2589
+  type: 'test'
+  ...
+# Subtest: POST /sessions defaults codexConfig when creating codex session
+ok 20 - POST /sessions defaults codexConfig when creating codex session
+  ---
+  duration_ms: 0.9543
+  type: 'test'
+  ...
+# Subtest: POST /sessions allows explicit null codexConfig for codex session
+ok 21 - POST /sessions allows explicit null codexConfig for codex session
+  ---
+  duration_ms: 0.6749
+  type: 'test'
+  ...
+# Subtest: POST /sessions rejects invalid sessionMode
+ok 22 - POST /sessions rejects invalid sessionMode
+  ---
+  duration_ms: 0.1664
+  type: 'test'
+  ...
+# Subtest: POST /sessions requires cwd for codex mode
+ok 23 - POST /sessions requires cwd for codex mode
+  ---
+  duration_ms: 0.1076
+  type: 'test'
+  ...
+# Subtest: POST /sessions rejects invalid codexConfig for codex mode
+ok 24 - POST /sessions rejects invalid codexConfig for codex mode
+  ---
+  duration_ms: 0.1013
+  type: 'test'
+  ...
+# Subtest: PATCH /sessions/:id updates name and codexConfig
+ok 25 - PATCH /sessions/:id updates name and codexConfig
+  ---
+  duration_ms: 0.1631
+  type: 'test'
+  ...
+# Subtest: PATCH /sessions/:id allows clearing codexConfig with null
+ok 26 - PATCH /sessions/:id allows clearing codexConfig with null
+  ---
+  duration_ms: 0.1505
+  type: 'test'
+  ...
+# Subtest: POST /sessions rejects missing cwd directories
+ok 27 - POST /sessions rejects missing cwd directories
+  ---
+  duration_ms: 0.7205
+  type: 'test'
+  ...
+# Subtest: GET /sessions/:id/workspace/files returns empty list for terminal sessions
+ok 28 - GET /sessions/:id/workspace/files returns empty list for terminal sessions
+  ---
+  duration_ms: 0.2354
+  type: 'test'
+  ...
+# Subtest: GET /sessions/:id/workspace/files returns empty list for legacy codex sessions without workspaceRoot
+ok 29 - GET /sessions/:id/workspace/files returns empty list for legacy codex sessions without workspaceRoot
+  ---
+  duration_ms: 0.1954
+  type: 'test'
+  ...
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# [gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+# Subtest: WS rejects unknown registration before default session creation
+not ok 30 - WS rejects unknown registration before default session creation
+  ---
+  duration_ms: 31.8439
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:103:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + []
+    - [
+    -   {
+    -     code: 4403,
+    -     reason: 'Client registration is invalid or revoked'
+    -   }
+    - ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      code: 4403
+      reason: 'Client registration is invalid or revoked'
+  actual:
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:110:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: WS rejects unknown registration before session reuse
+not ok 31 - WS rejects unknown registration before session reuse
+  ---
+  duration_ms: 2.8977
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:103:9'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        {
+          code: 4403,
+    +     reason: 'Session is not owned by this client registration'
+    -     reason: 'Client registration is invalid or revoked'
+        }
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      code: 4403
+      reason: 'Client registration is invalid or revoked'
+  actual:
+    0:
+      code: 4403
+      reason: 'Session is not owned by this client registration'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:110:20)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS rejects revoked registration before default session creation
+not ok 32 - WS rejects revoked registration before default session creation
+  ---
+  duration_ms: 2.4988
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:103:9'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS rejects revoked registration before session reuse
+not ok 33 - WS rejects revoked registration before session reuse
+  ---
+  duration_ms: 2.842
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:103:9'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS preserves active registration default session creation
+not ok 34 - WS preserves active registration default session creation
+  ---
+  duration_ms: 2.7014
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:119:9'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS preserves active registration session reuse
+not ok 35 - WS preserves active registration session reuse
+  ---
+  duration_ms: 2.7129
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:119:9'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS preserves legacy registration default session creation
+not ok 36 - WS preserves legacy registration default session creation
+  ---
+  duration_ms: 2.6572
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:119:9'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS preserves legacy registration session reuse
+not ok 37 - WS preserves legacy registration session reuse
+  ---
+  duration_ms: 2.7693
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:119:9'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: active registration cannot attach to another registration session over WS
+not ok 38 - active registration cannot attach to another registration session over WS
+  ---
+  duration_ms: 2.6953
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:139:1'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS without sessionId creates default session
+not ok 39 - WS without sessionId creates default session
+  ---
+  duration_ms: 2.9215
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:154:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    5 !== 2
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 2
+  actual: 5
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:193:12)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS with valid sessionId reuses existing session
+not ok 40 - WS with valid sessionId reuses existing session
+  ---
+  duration_ms: 2.384
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:202:1'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:228:19)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS reuse keeps privilegeMetadata without session-level connectionSecurity
+not ok 41 - WS reuse keeps privilegeMetadata without session-level connectionSecurity
+  ---
+  duration_ms: 2.9962
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:246:1'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:276:19)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS session_info aggregates mixed security across multiple active connections
+not ok 42 - WS session_info aggregates mixed security across multiple active connections
+  ---
+  duration_ms: 2.5468
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:305:1'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:340:19)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS with empty sessionId returns 4404 and does not create session
+not ok 43 - WS with empty sessionId returns 4404 and does not create session
+  ---
+  duration_ms: 2.1138
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:370:1'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:393:19)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS with unknown sessionId returns 4404
+not ok 44 - WS with unknown sessionId returns 4404
+  ---
+  duration_ms: 1.9863
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:407:1'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:430:19)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS session_info includes unified connectionSecurity summary
+not ok 45 - WS session_info includes unified connectionSecurity summary
+  ---
+  duration_ms: 3.0929
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:444:1'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:468:19)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: WS session_info uses trusted nginx TLS headers when backend socket is plain HTTP
+not ok 46 - WS session_info uses trusted nginx TLS headers when backend socket is plain HTTP
+  ---
+  duration_ms: 2.5685
+  type: 'test'
+  location: 'E:\\coding\\TermLink-rust-source-resolution-codex\\tests\\terminalGateway.sessionid.test.js:500:1'
+  failureType: 'hookFailed'
+  error: "Cannot read properties of undefined (reading 'values')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+    TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:530:19)
+    TestHook.runInAsyncScope (node:async_hooks:214:14)
+    TestHook.run (node:internal/test_runner/test:1106:25)
+    TestHook.run (node:internal/test_runner/test:1427:18)
+    TestHook.run (node:internal/util:585:20)
+    Test.runHook (node:internal/test_runner/test:1024:20)
+    after (node:internal/test_runner/test:1064:20)
+    Test.run (node:internal/test_runner/test:1132:13)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+1..46
+# tests 46
+# suites 0
+# pass 22
+# fail 24
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 234.422

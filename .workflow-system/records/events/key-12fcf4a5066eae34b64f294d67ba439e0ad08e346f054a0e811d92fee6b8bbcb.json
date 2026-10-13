@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T06:52:18.716Z",
+  "payload_sha256": "3ff459fcf350b025ab302a25f4e575b9d40f0fb417928de274a93c079520059d",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:task20260868-s3-test-ws-recovery-v2-20261013",
+    "request": {
+      "selector": "ws-recovery-v2",
+      "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "command": "run-ui.ps1 -Case ws-recovery-v2; local-dev-server-control stop/start",
+      "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+      "step_id": "S3",
+      "summary": "真实开发服务中断触发连接失败提示，普通服务恢复后清理且同A正文可读。",
+      "evidence_refs": [
+        {
+          "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+          "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+          "role": "exact-execution-and-retained-run-files"
+        }
+      ],
+      "idempotency_key": "task20260868-s3-test-ws-recovery-v2-20261013",
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "report_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+      "result": "passed"
+    },
+    "evidence_refs": [
+      {
+        "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+        "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "role": "exact-execution-and-retained-run-files"
+      }
+    ],
+    "task_event": {
+      "version": 1,
+      "action": "test",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-9c46c18e2b3986e56d9c7ec52ad1d50bd1480bc524dd929ec2f28018070f463b.json"
+      ],
+      "data": {
+        "selector": "ws-recovery-v2",
+        "execution_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "command": "run-ui.ps1 -Case ws-recovery-v2; local-dev-server-control stop/start",
+        "source_revision": "4d586e0f2dab1fef9d2c273b770796b63a7d873d;S3-manifest:28f9e19f1c9d70c288325dcee7cabd753ad3533ea130ba915dcef05dde890a1e",
+        "step_id": "S3",
+        "summary": "真实开发服务中断触发连接失败提示，普通服务恢复后清理且同A正文可读。",
+        "evidence_refs": [
+          {
+            "sha256": "bb8416d2e0dd8cb3ceec09e7e879ec932007874f0683cd531677aa3caeda9f83",
+            "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+            "role": "exact-execution-and-retained-run-files"
+          }
+        ],
+        "report_ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "plan_ref": ".workflow-system/records/events/key-870f9a975e8d01f49e855dc72fc56532a60b6c49ca7d9791ead96a7fc00ced0a.json",
+        "result": "passed"
+      }
+    }
+  },
+  "issues": []
+}

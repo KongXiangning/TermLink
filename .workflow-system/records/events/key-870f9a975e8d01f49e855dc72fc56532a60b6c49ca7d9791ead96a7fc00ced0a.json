@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "kind": "workflow-observation",
+  "recorded_at": "2026-10-13T03:15:52.896Z",
+  "payload_sha256": "768ceb687c6fb1888d282d1d7424db95d685449a241ec6b9cd97cf6721382b38",
+  "assurance": "caller-reported",
+  "payload": {
+    "kind": "task-event",
+    "idempotency_key": "task:prepare-20261013-connection-hints-client-registration-v1",
+    "request": {
+      "action": "prepare",
+      "idempotency_key": "prepare-20261013-connection-hints-client-registration-v1",
+      "decision_source": "当前对话用户明确选定两项目标并调用 prepare-task；原文 docs/product/history/maintenance-20261011/next-task-20261013/user-request.txt",
+      "decision_text": "连接提示修复：恢复连接后清除已经失效的错误提示。客户端身份校验修复：不存在或已撤销的 registration 应被正确拒绝。这两项作为下一个task的目标",
+      "plan": {
+        "title": "连接恢复提示清理与客户端 registration 身份校验修复",
+        "goal": "修复连接恢复后失效错误提示残留，以及不存在或已撤销 registration 未被正确拒绝的问题。",
+        "acceptance": [
+          "Android Codex 在当前连接确已恢复后清除该次失效连接错误提示；恢复后的状态与提示一致，旧连接的迟到错误不得重新污染当前提示。",
+          "仍然有效的认证、协议、会话失效或业务操作错误保持正确展示；不得用连接成功无条件清空全部错误。",
+          "明确提交但不存在或已撤销的 registration 在既有 HTTP session API 身份门禁和 WebSocket 建连门禁被拒绝；HTTP 保持 403/REGISTRATION_INVALID，WebSocket 保持 4403，拒绝前不创建或接入 session。",
+          "有效 registration 的正常请求、建连及已有归属隔离保持正常；未携带 registration 的既有兼容行为保持。",
+          "定向自动化和一台 Android 真机断开/恢复验证保留实际结果；缺失或失败验证单独记录，不以构建、任务处置或历史 PASS 代替。"
+        ],
+        "scope": [
+          "Android Codex 当前连接错误的产生、归属、显示与恢复清理：优先定位 CodexViewModel、CodexConnectionManager、CodexWebSocketClient，仅实施必要局部修复。",
+          "ClientRegistrationManager.isActive 存在性/撤销状态判断及其 HTTP/WS 消费入口回归；仅在验证发现真实遗漏时最小修补调用入口。",
+          "扩展相关现有测试补足缺陷检出，修复记录与相关产品文档维护；本次 prepare 只保存候选计划。"
+        ],
+        "exclusions": [
+          "不改变 CONTRACTS.md Codex 原生会话实时同步核心或 DECISIONS.md AD-004：follower acquire/release、desired subscription/reconnect replay、canonical binding、owner fallback、Android IPC authority 和 A/B 隔离。",
+          "不新增 canonical 轮询或静默超时权威切换，不重构会话恢复/选择架构，不改变 Rust/rollout/历史保存/数据库协议。",
+          "不要求所有请求必须提供 registration，不增加新认证体系，不扩大到主动踢掉撤销前已建立连接、全局安全审计或 Relay。",
+          "不扩入其余验收失败、PDF/文件预览、发行部署或旧任务遗留项；不清空现有业务错误或修改历史失败事实。",
+          "不自动提交、推送、发布、切换工作区或清理用户数据；本轮不实施、不运行测试或安装 APK。"
+        ],
+        "steps": [
+          {
+            "id": "S1",
+            "title": "修复连接恢复后的失效错误提示并做定向回归",
+            "environment": [
+              "当前 Windows 工作区与 Android JVM 测试",
+              "Android Gradle 使用 D:/ProgramCode/openjdk/jdk-21；设置 JAVA_HOME 与 PATH"
+            ],
+            "implementation": [
+              "复核连接状态与 WsEvent 错误进入 UI 的顺序及复现错误来源；目前 observeConnectionState 按文本识别 transient，不能据静态阅读认定全部残留场景根因。",
+              "最小调整当前连接错误的清理条件及必要的来源/过期判断，覆盖恢复后旧错误清除、仍有效错误保留、旧事件迟到；不改变 IPC 权威和订阅流程。",
+              "优先扩展 CodexViewModelConnectionFailureTest 及有关状态测试，断言恢复前后实际状态行为，不只测试字符串分类。"
+            ],
+            "validation": [
+              "运行连接失败/恢复定向 Android JVM tests，验证失效错误消失、有效错误保留和迟到旧错误隔离。",
+              "按核心文件契约运行 Node tests/codexOwnerSurfaceTracker.test.js、tests/terminalGateway.codexIpc.test.js 及 Android Codex ViewModel/wire JVM tests。",
+              "如果实际修改影响 selection/restore，S3 必须增加同机 A→B→A smoke；否则不扩大到整套历史 E2E。"
+            ]
+          },
+          {
+            "id": "S2",
+            "title": "修复 registration 有效性判断及 HTTP/WS 拒绝回归",
+            "environment": [
+              "当前 Windows 工作区、Node.js、现有 Node test 夹具",
+              "使用隔离/禁用持久化的 registration 数据及测试 session，不撤销用户实际 registration"
+            ],
+            "implementation": [
+              "修复 isActive 必须先确认记录存在的判断；现有 optional chaining 加 == null 会把未知非空 ID 判为有效。已撤销记录明确保持无效。",
+              "检查 src/routes/sessions.js ensureRegistration 与 src/ws/terminalGateway.js handleConnection 现有门禁，保持错误协议与 legacy 缺省行为。",
+              "补充 tests/clientRegistrations.test.js 的 unknown/revoked/active 关键判定，复用 routes.sessions 与 terminalGateway.sessionid 夹具验证真实 manager 拒绝，无新 session 或 addConnection 副作用。"
+            ],
+            "validation": [
+              "Node 定向测试覆盖 unknown 与 revoked 的 HTTP 403/REGISTRATION_INVALID 和 WS 4403；同时覆盖 active 正向和既有 registration 归属隔离。",
+              "检查未提供 registration 的既有兼容与已有 create/revoke 行为；需要持久化测试时仅用临时目录。",
+              "若实际修改 terminalGateway.js，执行 CONTRACTS.md 要求的 Owner/IPC 与 Android ViewModel/wire 回归；可复用 S1 对同一最终代码对象的结果，无新改动不机械重跑。"
+            ]
+          },
+          {
+            "id": "S3",
+            "title": "联合验证、记录修复交付与未覆盖边界",
+            "environment": [
+              "一台可用 Android 真机、adb、JDK 21 与修复后的 debug APK",
+              "本仓库本地开发服务；验证前用 local-dev-server-control 检查/启动，真机步骤用项目 adb-real-device-debug",
+              "设备/服务/证书可用性尚未检查，执行时确认并记录真实限制"
+            ],
+            "implementation": [
+              "在同一 Codex 会话制造可控短暂断连并恢复，确认旧提示清除、正常会话继续可用，保留必要界面和日志证据。",
+              "在隔离 registration 与 session 上验证不存在、创建有效、撤销后新请求/建连的拒绝，不影响用户现存身份或数据。",
+              "按实际改动建立 draft CR 并同步相关范围/交付记录；没有真实 commit_ref 不标 active，不新增不相关需求或继承历史 PASS。"
+            ],
+            "validation": [
+              "实际网络恢复后 UI 无失效错误残留，错误再次有效时仍能展示；认证/协议错误保留以定向自动化补足，不要求额外真实异常宿主矩阵。",
+              "真实本地 HTTP/WS unknown/revoked 拒绝和 active 正向 smoke；保留结果及拒绝前无 session 副作用证据。",
+              "若 selection/restore 有影响，完成同机 A→B→A；若无设备或证书条件，记录未运行范围，不能将该项验收宣称通过。",
+              "汇总最终代码对象、运行命令、失败/未验证边界与待审内容；后续 change review 与任务处置分别记录，本计划没有预先给出 PASS。"
+            ]
+          }
+        ],
+        "sources": [
+          "docs/product/history/maintenance-20261011/next-task-20261013/user-request.txt",
+          "docs/product/PROJECT.md:2026-10-13 下一 task 目标（用户已选定）",
+          "docs/workflow/CONTRACTS.md:Codex 原生会话实时同步核心",
+          "docs/workflow/DECISIONS.md:AD-004",
+          "docs/workflow/test-admission-policy.md",
+          "src/services/clientRegistrationManager.js:isActive",
+          "src/routes/sessions.js:ensureRegistration",
+          "src/ws/terminalGateway.js:handleConnection",
+          "android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt:observeConnectionState/observeWsEvents",
+          "tests/clientRegistrations.test.js",
+          "android/app/src/test/java/com/termlink/app/codex/CodexViewModelConnectionFailureTest.kt"
+        ],
+        "association_recommendations": [
+          "GOAL-TERMLINK：本次两项局部修复；目标归属不自动扩大验收。",
+          "REQ-20260415-codex-android-runtime-interaction-fixes：仅连接恢复提示修复，建议 repair 关联；不是重新执行原11组范围。",
+          "REQ-TERMLINK-SERVER-AUTH：registration 校验为相关父级范围的建议关联，具体原子 ownership 未定位；REQ-TERMLINK-CLIENT-RISK 只涉及权限风险提示，不将其误绑为身份校验需求。",
+          "以上是准备阶段建议，未写 TaskBinding；用户确认实际计划后再保存所采用覆盖。"
+        ],
+        "unknowns": [
+          "错误残留是否包含 runtimePanel.warning 或仅 errorMessage，需要按实际复现核实，不能清空所有错误。",
+          "registration 判断缺陷已静态定位，但本轮没有运行复现/测试；已撤销路径的真实入口结果仍待执行验证。",
+          "两条已有未关联管理记录保留，不妨碍本次新任务准备，不在本次顺带修复。"
+        ]
+      }
+    },
+    "task_event": {
+      "version": 2,
+      "action": "prepare",
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "parents": [
+        ".workflow-system/records/events/key-79bca65f8486bf5902d66c5ab04982be6c85401e3342e6dfeb7c4acbf03d9fad.json",
+        ".workflow-system/records/events/key-ba620dafcfd0f8fb174337163449a702a5d1556b51f4487e1d7aa45afae9eb51.json",
+        ".workflow-system/records/events/key-12102b503a1961b3943473f36527b4673f908797d799174df41d82f7b35adbf8.json"
+      ],
+      "data": {
+        "decision_source": "当前对话用户明确选定两项目标并调用 prepare-task；原文 docs/product/history/maintenance-20261011/next-task-20261013/user-request.txt",
+        "decision_text": "连接提示修复：恢复连接后清除已经失效的错误提示。客户端身份校验修复：不存在或已撤销的 registration 应被正确拒绝。这两项作为下一个task的目标",
+        "plan": null,
+        "create": true,
+        "display_id": "TASK-20260868"
+      },
+      "data_encoding": {
+        "version": 1,
+        "kind": "request-json-pointers",
+        "request_sha256": "acfb9cca6562d3dc30ebb58f2a50eb02637ac5aad5ca5eeadca5505c48bd6a20",
+        "references": [
+          {
+            "data_pointer": "/plan",
+            "request_pointer": "/plan"
+          }
+        ]
+      }
+    }
+  },
+  "issues": []
+}

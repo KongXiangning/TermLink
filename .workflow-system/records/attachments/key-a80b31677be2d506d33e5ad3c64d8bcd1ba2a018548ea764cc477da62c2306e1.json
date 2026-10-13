@@ -1,0 +1,17 @@
+{
+  "event_ref": ".workflow-system/records/events/key-a80b31677be2d506d33e5ad3c64d8bcd1ba2a018548ea764cc477da62c2306e1.json",
+  "captured_at": "2026-10-13T03:41:58.034Z",
+  "attachments": [
+    {
+      "runtime_role": "assistance",
+      "development_gate": false,
+      "qualification": "not-evaluated",
+      "status": "saved",
+      "ref": ".workflow-system/records/evidence-objects/002ca11260467e258c553c9ce35f3b3c4f05e74e92de36254ad6e355acc3eafe.blob",
+      "sha256": "002ca11260467e258c553c9ce35f3b3c4f05e74e92de36254ad6e355acc3eafe",
+      "size": 136106,
+      "source_path": "docs/product/history/maintenance-20261011/task20260868-s1/node-ipc-tests.txt",
+      "issues": []
+    }
+  ]
+}

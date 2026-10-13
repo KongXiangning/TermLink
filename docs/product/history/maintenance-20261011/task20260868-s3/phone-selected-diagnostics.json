@@ -1,0 +1,1418 @@
+{
+  "selection": "UTC 06:37:39..06:45:00; IPC status, connection transitions, goal intent failures, new and selection events; sourced from production diagnostic logs in memory",
+  "events": [
+    {
+      "ts": "2026-10-13T06:37:44.386Z",
+      "elapsedMs": 1249,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 11,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:44.391Z",
+      "elapsedMs": 1253,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 12,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:45.394Z",
+      "elapsedMs": 2257,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 14,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:45.460Z",
+      "elapsedMs": 2323,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 15,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:45.465Z",
+      "elapsedMs": 2328,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 16,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:46.471Z",
+      "elapsedMs": 3334,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 17,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:46.521Z",
+      "elapsedMs": 3384,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 18,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:46.525Z",
+      "elapsedMs": 3388,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 19,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:47.529Z",
+      "elapsedMs": 4392,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 20,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:47.590Z",
+      "elapsedMs": 4453,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 21,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:47.595Z",
+      "elapsedMs": 4458,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 22,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:48.601Z",
+      "elapsedMs": 5464,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 23,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:48.658Z",
+      "elapsedMs": 5521,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 24,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:48.663Z",
+      "elapsedMs": 5526,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 25,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:49.670Z",
+      "elapsedMs": 6533,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 26,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:49.746Z",
+      "elapsedMs": 6609,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 27,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:49.751Z",
+      "elapsedMs": 6614,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 28,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:50.290Z",
+      "elapsedMs": 7153,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 34,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:50.334Z",
+      "elapsedMs": 7197,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 40,
+      "level": "warn",
+      "component": "codex",
+      "event": "android.codex.ipc.status",
+      "fields": {
+        "online": false,
+        "hadObservedStatus": false,
+        "wasOnline": false,
+        "clientIdPresent": false,
+        "historyCapabilityVersion": 1,
+        "historyStatusVersion": 1
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:52.132Z",
+      "elapsedMs": 8995,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 55,
+      "level": "warn",
+      "component": "codex",
+      "event": "android.codex.goal.intent.failed",
+      "fields": {
+        "conversationKey": "87c85ca08cc6ea77",
+        "goalKey": "f3cc02cd20c94115",
+        "objectiveLength": 18,
+        "reason": "follower_transport_unavailable",
+        "followerModeEnabled": false,
+        "activeSendAllowed": false
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:54.356Z",
+      "elapsedMs": 11219,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 56,
+      "level": "warn",
+      "component": "codex",
+      "event": "android.codex.ipc.status",
+      "fields": {
+        "online": false,
+        "hadObservedStatus": true,
+        "wasOnline": false,
+        "clientIdPresent": false,
+        "historyCapabilityVersion": 1,
+        "historyStatusVersion": 1
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:54.386Z",
+      "elapsedMs": 11249,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 59,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.ipc.status",
+      "fields": {
+        "online": true,
+        "hadObservedStatus": true,
+        "wasOnline": false,
+        "clientIdPresent": true,
+        "historyCapabilityVersion": 1,
+        "historyStatusVersion": 1
+      }
+    },
+    {
+      "ts": "2026-10-13T06:37:54.396Z",
+      "elapsedMs": 11259,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 61,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.ipc.status",
+      "fields": {
+        "online": true,
+        "hadObservedStatus": true,
+        "wasOnline": true,
+        "clientIdPresent": true,
+        "historyCapabilityVersion": 1,
+        "historyStatusVersion": 1
+      }
+    },
+    {
+      "ts": "2026-10-13T06:38:16.883Z",
+      "elapsedMs": 33746,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 65,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.history.selection_generation_advanced",
+      "fields": {
+        "generation": 3,
+        "reason": "disconnect"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:38:16.884Z",
+      "elapsedMs": 33747,
+      "runId": "ab7d5c78-5c90-4bd7-858b-83a314684522",
+      "seq": 66,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "IDLE"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:47.603Z",
+      "elapsedMs": 1265,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 11,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:47.608Z",
+      "elapsedMs": 1270,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 12,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:48.611Z",
+      "elapsedMs": 2274,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 14,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:48.683Z",
+      "elapsedMs": 2345,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 15,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:48.687Z",
+      "elapsedMs": 2349,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 16,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:49.691Z",
+      "elapsedMs": 3353,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 17,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:49.761Z",
+      "elapsedMs": 3422,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 18,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:49.766Z",
+      "elapsedMs": 3428,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 19,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:50.771Z",
+      "elapsedMs": 4433,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 20,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:50.823Z",
+      "elapsedMs": 4485,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 21,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:50.827Z",
+      "elapsedMs": 4489,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 22,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:51.832Z",
+      "elapsedMs": 5494,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 23,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:51.883Z",
+      "elapsedMs": 5544,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 24,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:51.888Z",
+      "elapsedMs": 5550,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 25,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:52.893Z",
+      "elapsedMs": 6556,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 26,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:52.955Z",
+      "elapsedMs": 6617,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 27,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:52.961Z",
+      "elapsedMs": 6622,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 28,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:53.464Z",
+      "elapsedMs": 7126,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 34,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:53.483Z",
+      "elapsedMs": 7144,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 40,
+      "level": "warn",
+      "component": "codex",
+      "event": "android.codex.ipc.status",
+      "fields": {
+        "online": false,
+        "hadObservedStatus": false,
+        "wasOnline": false,
+        "clientIdPresent": false,
+        "historyCapabilityVersion": 1,
+        "historyStatusVersion": 1
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:55.881Z",
+      "elapsedMs": 9543,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 55,
+      "level": "warn",
+      "component": "codex",
+      "event": "android.codex.goal.intent.failed",
+      "fields": {
+        "conversationKey": "87c85ca08cc6ea77",
+        "goalKey": "1f962effa2b0662c",
+        "objectiveLength": 24,
+        "reason": "follower_transport_unavailable",
+        "followerModeEnabled": false,
+        "activeSendAllowed": false
+      }
+    },
+    {
+      "ts": "2026-10-13T06:39:59.972Z",
+      "elapsedMs": 13634,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 59,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.history.selection_generation_advanced",
+      "fields": {
+        "generation": 3,
+        "reason": "resume:01a133f6-ac63-7811-87ad-fda0bb7ec70e"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:03.656Z",
+      "elapsedMs": 17318,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 81,
+      "level": "warn",
+      "component": "codex",
+      "event": "android.codex.goal.intent.failed",
+      "fields": {
+        "conversationKey": "dca63b35094011e2",
+        "goalKey": "1f962effa2b0662c",
+        "objectiveLength": 24,
+        "reason": "follower_transport_unavailable",
+        "followerModeEnabled": false,
+        "activeSendAllowed": false
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:05.508Z",
+      "elapsedMs": 19170,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 85,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.history.selection_generation_advanced",
+      "fields": {
+        "generation": 4,
+        "reason": "resume:01a133f5-c1ee-7872-9cdb-35fb08c08f00"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:09.106Z",
+      "elapsedMs": 22768,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 112,
+      "level": "warn",
+      "component": "codex",
+      "event": "android.codex.goal.intent.failed",
+      "fields": {
+        "conversationKey": "87c85ca08cc6ea77",
+        "goalKey": "1f962effa2b0662c",
+        "objectiveLength": 24,
+        "reason": "follower_transport_unavailable",
+        "followerModeEnabled": false,
+        "activeSendAllowed": false
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:10.851Z",
+      "elapsedMs": 24513,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 115,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.new.sent",
+      "fields": {
+        "sent": true,
+        "ipcOnline": false
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:13.108Z",
+      "elapsedMs": 26769,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 130,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.history.selection_generation_advanced",
+      "fields": {
+        "generation": 5,
+        "reason": "disconnect"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:13.109Z",
+      "elapsedMs": 26771,
+      "runId": "71827832-b6a7-4038-b6c0-312ff4c4fb64",
+      "seq": 131,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "IDLE"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:47.915Z",
+      "elapsedMs": 1261,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 11,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:47.920Z",
+      "elapsedMs": 1266,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 12,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:48.925Z",
+      "elapsedMs": 2271,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 14,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:48.994Z",
+      "elapsedMs": 2340,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 15,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:48.998Z",
+      "elapsedMs": 2344,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 16,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:50.004Z",
+      "elapsedMs": 3350,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 17,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:50.064Z",
+      "elapsedMs": 3409,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 18,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:50.068Z",
+      "elapsedMs": 3414,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 19,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:51.072Z",
+      "elapsedMs": 4418,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 20,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:51.133Z",
+      "elapsedMs": 4479,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 21,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:51.138Z",
+      "elapsedMs": 4484,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 22,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:52.144Z",
+      "elapsedMs": 5490,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 23,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:52.206Z",
+      "elapsedMs": 5552,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 24,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:52.211Z",
+      "elapsedMs": 5557,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 25,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:53.217Z",
+      "elapsedMs": 6563,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 26,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:53.272Z",
+      "elapsedMs": 6618,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 27,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:53.278Z",
+      "elapsedMs": 6624,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 28,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:53.825Z",
+      "elapsedMs": 7171,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 34,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:40:53.844Z",
+      "elapsedMs": 7189,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 40,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.ipc.status",
+      "fields": {
+        "online": true,
+        "hadObservedStatus": false,
+        "wasOnline": false,
+        "clientIdPresent": true,
+        "historyCapabilityVersion": 1,
+        "historyStatusVersion": 1
+      }
+    },
+    {
+      "ts": "2026-10-13T06:41:06.534Z",
+      "elapsedMs": 19880,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 54,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:41:07.542Z",
+      "elapsedMs": 20888,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 56,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:41:07.774Z",
+      "elapsedMs": 21120,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 58,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.history.selection_generation_advanced",
+      "fields": {
+        "generation": 3,
+        "reason": "disconnect"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:41:07.775Z",
+      "elapsedMs": 21121,
+      "runId": "21dee37e-7ce2-470c-82c2-142e231cfd30",
+      "seq": 59,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "IDLE"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:52.653Z",
+      "elapsedMs": 1253,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 11,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:52.658Z",
+      "elapsedMs": 1259,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 12,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:53.662Z",
+      "elapsedMs": 2263,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 14,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:53.728Z",
+      "elapsedMs": 2329,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 15,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:53.732Z",
+      "elapsedMs": 2333,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 16,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:54.738Z",
+      "elapsedMs": 3339,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 17,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:54.785Z",
+      "elapsedMs": 3386,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 18,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:54.789Z",
+      "elapsedMs": 3390,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 19,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:55.794Z",
+      "elapsedMs": 4395,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 20,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:55.863Z",
+      "elapsedMs": 4464,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 21,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:55.868Z",
+      "elapsedMs": 4469,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 22,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:56.874Z",
+      "elapsedMs": 5476,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 23,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:56.944Z",
+      "elapsedMs": 5545,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 24,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:56.950Z",
+      "elapsedMs": 5550,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 25,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:57.953Z",
+      "elapsedMs": 6554,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 26,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:58.005Z",
+      "elapsedMs": 6606,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 27,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:58.052Z",
+      "elapsedMs": 6653,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 28,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:58.522Z",
+      "elapsedMs": 7123,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 36,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:42:58.651Z",
+      "elapsedMs": 7252,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 41,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.ipc.status",
+      "fields": {
+        "online": true,
+        "hadObservedStatus": false,
+        "wasOnline": false,
+        "clientIdPresent": true,
+        "historyCapabilityVersion": 1,
+        "historyStatusVersion": 1
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:15.040Z",
+      "elapsedMs": 23641,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 56,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:16.048Z",
+      "elapsedMs": 24649,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 57,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:20.175Z",
+      "elapsedMs": 28776,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 58,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:21.687Z",
+      "elapsedMs": 30289,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 59,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:25.815Z",
+      "elapsedMs": 34416,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 60,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:25.832Z",
+      "elapsedMs": 34433,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 62,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "RECONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:26.837Z",
+      "elapsedMs": 35438,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 63,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "RECONNECTING",
+        "to": "CONNECTING"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:26.900Z",
+      "elapsedMs": 35501,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 64,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTING",
+        "to": "CONNECTED"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:26.988Z",
+      "elapsedMs": 35589,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 67,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.ipc.status",
+      "fields": {
+        "online": true,
+        "hadObservedStatus": true,
+        "wasOnline": true,
+        "clientIdPresent": true,
+        "historyCapabilityVersion": 1,
+        "historyStatusVersion": 1
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:49.798Z",
+      "elapsedMs": 58399,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 75,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.history.selection_generation_advanced",
+      "fields": {
+        "generation": 3,
+        "reason": "disconnect"
+      }
+    },
+    {
+      "ts": "2026-10-13T06:43:49.799Z",
+      "elapsedMs": 58400,
+      "runId": "d2739708-3aff-4b9b-8a51-40459e172e3c",
+      "seq": 76,
+      "level": "info",
+      "component": "codex",
+      "event": "android.codex.connection.state_changed",
+      "fields": {
+        "from": "CONNECTED",
+        "to": "IDLE"
+      }
+    }
+  ]
+}

@@ -1,0 +1,213 @@
+✔ resolveDirectMtlsOptions stays disabled when direct-server mTLS is not selected (11.4037ms)
+✔ resolveDirectMtlsOptions rejects direct-server mTLS without direct TLS mode (6.1003ms)
+✔ resolveDirectMtlsOptions supports generated server and client artifacts for nginx (5.6423ms)
+✔ generateDirectMtlsArtifacts creates the expected direct mTLS files (21.2775ms)
+✔ Linux installer defaults use FHS paths and the invoking sudo user (4.1762ms)
+✔ non-interactive HTTP configuration requires BasicAuth (3.278ms)
+✔ direct and nginx mTLS configurations validate (1.2634ms)
+✔ imported certificate mode requires PEM source paths (0.2979ms)
+✔ resolveNginxMtlsOptions uses a dedicated nginx-mtls output path (1.6353ms)
+✔ generateNginxMtlsArtifacts creates the expected nginx-side mTLS files (11.4071ms)
+✔ generateNginxMtlsArtifacts creates a password automatically when none is provided (10.5269ms)
+✔ parsePrivilegeConfig uses TERMLINK_* keys and defaults to standard mode (1.8151ms)
+✔ validateElevatedEnabled requires TERMLINK_ELEVATED_ENABLE when mode is elevated (0.2675ms)
+✔ runSecurityGates blocks elevated mode with default credentials (525.4809ms)
+✔ runSecurityGates blocks elevated mode when process lacks administrator privileges (501.914ms)
+✔ runSecurityGates requires TLS enabled when TERMLINK_ELEVATED_REQUIRE_MTLS=true (489.9598ms)
+✔ runSecurityGates requires client cert policy when mTLS required (417.9792ms)
+✔ runSecurityGates rejects request policy when strict mTLS required (419.5574ms)
+✔ runSecurityGates requires readable client CA when strict mTLS required (430.7325ms)
+✔ runSecurityGates passes with strong credentials and readable strict TLS+mTLS config (434.5473ms)
+✔ windows release plan uses repo-aligned install paths (0.6712ms)
+✔ linux release plan keeps scripts/install paths and setup-service compatibility entry (0.1398ms)
+✔ materialized release entries copy only the declared repo paths (0.4937ms)
+✔ terminal configuration uses semantic dialogs, explicit labels and no inline form layout (60.6617ms)
+✔ server configuration code validates URLs, restores dialog focus and avoids HTML interpolation (0.3194ms)
+✔ server profile form shows inline errors and uses a named confirmation dialog (165.279ms)
+✔ new-session dialog exposes accessible mode, folder and recovery controls (153.0097ms)
+✔ terminal session creation submits once and switches the live shell without reload (154.9662ms)
+✔ session APIs follow the active server profile when the terminal shell provides one (122.8421ms)
+✔ folder picker reports loading state and navigates directly into selected folders (199.775ms)
+✔ folder picker explains missing server configuration and preserves manual cwd input (154.9964ms)
+✔ folder picker distinguishes an unavailable configured root from generic failures (138.9507ms)
+✔ standalone Codex drawer is hidden from focus until opened and closes with Escape (139.5213ms)
+✔ session UX stylesheet includes touch, focus, narrow-screen and reduced-motion rules (0.157ms)
+✔ new session and drawer translations remain complete in English and Chinese (0.1833ms)
+✔ terminal workspace exposes persistent context, compact actions and an inert navigation drawer (9.6372ms)
+✔ terminal navigation drawer traps focus, closes with Escape and restores the menu trigger (26.5405ms)
+✔ terminal persistent status follows connect, session-info and reconnect transitions (225.1614ms)
+✔ fit action schedules terminal sizing and returns focus to xterm (62.0987ms)
+✔ reconnect and paste controls reuse the live transport without duplicating input (293.2238ms)
+✔ terminal resize and connection UI preserve the existing transport state machine (0.1725ms)
+✔ terminal workspace CSS keeps status visible and shortcuts touch-safe without motion dependency (0.1644ms)
+✔ terminal workspace translations remain complete in English and Chinese (0.0969ms)
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+[gateway][ipc][broadcast-ipc-status] {"conversationCount":0,"conversationIds":[],"ipcOnline":false}
+✖ WS without sessionId creates default session (73.7402ms)
+✖ WS with valid sessionId reuses existing session (5.2489ms)
+✖ WS reuse keeps privilegeMetadata without session-level connectionSecurity (5.0811ms)
+✖ WS session_info aggregates mixed security across multiple active connections (6.1093ms)
+✖ WS with empty sessionId returns 4404 and does not create session (3.9733ms)
+✖ WS with unknown sessionId returns 4404 (4.1423ms)
+✖ WS session_info includes unified connectionSecurity summary (4.8273ms)
+✖ WS session_info uses trusted nginx TLS headers when backend socket is plain HTTP (5.669ms)
+✔ parseTlsConfig defaults to disabled when no env vars set (2.8995ms)
+✔ parseTlsConfig reads TLS cert and key paths (0.2757ms)
+✔ parseTlsConfig detects mtlsEnabled when CA and client cert policy set (0.2233ms)
+✔ parseTlsConfig mtlsEnabled false when TLS disabled even with CA (0.2236ms)
+✔ parseTlsConfig preserves invalid client cert policy as validation error (0.2384ms)
+✔ parseTlsConfig reads passphrase (0.1517ms)
+✔ parseTlsConfig reads trusted proxy TLS settings (0.1464ms)
+✔ parseTlsConfig preserves invalid proxy mode as validation error (0.1507ms)
+✔ validateTlsConfig passes when TLS disabled (0.4563ms)
+✔ validateTlsConfig fails when cert path missing (0.2165ms)
+✔ validateTlsConfig fails when client cert policy is invalid (0.0897ms)
+✔ validateTlsConfig fails when proxy mode is invalid (0.0801ms)
+✔ validateTlsConfig fails when trusted proxy mode is enabled without secret (0.053ms)
+✔ validateTlsConfig fails when CA missing but client cert required (5.45ms)
+✔ validateTlsConfig passes with all files readable (4.5703ms)
+✔ validateTlsConfig does not require CA when clientCertPolicy is none (3.7727ms)
+✔ buildHttpsOptions reads cert and key files (4.6198ms)
+✔ buildHttpsOptions sets requestCert and rejectUnauthorized for require (4.2911ms)
+✔ buildHttpsOptions sets rejectUnauthorized false for request policy (4.3206ms)
+✔ Windows runtime manifest pins official Node win-x64 archive and SHA-256 (0.5482ms)
+✔ Setup compiler manifest pins official Inno Setup release and checksum (0.0785ms)
+✔ Portable root launchers use bundled PowerShell tools and install-root-local paths (6.1041ms)
+✔ Windows staging sensitive scan accepts empty persistent layout and rejects runtime secrets (26.9309ms)
+✔ clean-host verifier covers zero-system-Node, GUI/CLI, autostart, mTLS, upgrade, and uninstall gates (0.4516ms)
+✔ Windows PowerShell 5.1 parses and imports the shared module and CLI (1471.8987ms)
+✔ WinForms GUI launches in smoke mode, binds shared-core operations, and applies a port (833.5732ms)
+✔ mTLS generator creates and validates private artifacts without leaking secrets (339.8419ms)
+✔ config initialization is local, atomic, and redacts the generated password (939.4042ms)
+✔ port set validates before replacing config (1940.6152ms)
+✔ status, autostart dry-run, and open dry-run do not mutate the host (2186.1898ms)
+✔ embedded Node service can start, pass health, enable mTLS, restart, and stop (105382.1028ms)
+ℹ tests 82
+ℹ suites 0
+ℹ pass 74
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 113431.4417
+
+✖ failing tests:
+
+test at tests\terminalGateway.sessionid.test.js:72:1
+✖ WS without sessionId creates default session (73.7402ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  5 !== 2
+  
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:111:12)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 5,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\terminalGateway.sessionid.test.js:120:1
+✖ WS with valid sessionId reuses existing session (5.2489ms)
+  TypeError: Cannot read properties of undefined (reading 'values')
+      at E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:146:19)
+      at TestHook.runInAsyncScope (node:async_hooks:214:14)
+      at TestHook.run (node:internal/test_runner/test:1106:25)
+      at TestHook.run (node:internal/test_runner/test:1427:18)
+      at TestHook.run (node:internal/util:585:20)
+      at Test.runHook (node:internal/test_runner/test:1024:20)
+      at after (node:internal/test_runner/test:1064:20)
+      at Test.run (node:internal/test_runner/test:1132:13)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+
+test at tests\terminalGateway.sessionid.test.js:164:1
+✖ WS reuse keeps privilegeMetadata without session-level connectionSecurity (5.0811ms)
+  TypeError: Cannot read properties of undefined (reading 'values')
+      at E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:194:19)
+      at TestHook.runInAsyncScope (node:async_hooks:214:14)
+      at TestHook.run (node:internal/test_runner/test:1106:25)
+      at TestHook.run (node:internal/test_runner/test:1427:18)
+      at TestHook.run (node:internal/util:585:20)
+      at Test.runHook (node:internal/test_runner/test:1024:20)
+      at after (node:internal/test_runner/test:1064:20)
+      at Test.run (node:internal/test_runner/test:1132:13)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+
+test at tests\terminalGateway.sessionid.test.js:223:1
+✖ WS session_info aggregates mixed security across multiple active connections (6.1093ms)
+  TypeError: Cannot read properties of undefined (reading 'values')
+      at E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:258:19)
+      at TestHook.runInAsyncScope (node:async_hooks:214:14)
+      at TestHook.run (node:internal/test_runner/test:1106:25)
+      at TestHook.run (node:internal/test_runner/test:1427:18)
+      at TestHook.run (node:internal/util:585:20)
+      at Test.runHook (node:internal/test_runner/test:1024:20)
+      at after (node:internal/test_runner/test:1064:20)
+      at Test.run (node:internal/test_runner/test:1132:13)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+
+test at tests\terminalGateway.sessionid.test.js:288:1
+✖ WS with empty sessionId returns 4404 and does not create session (3.9733ms)
+  TypeError: Cannot read properties of undefined (reading 'values')
+      at E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:311:19)
+      at TestHook.runInAsyncScope (node:async_hooks:214:14)
+      at TestHook.run (node:internal/test_runner/test:1106:25)
+      at TestHook.run (node:internal/test_runner/test:1427:18)
+      at TestHook.run (node:internal/util:585:20)
+      at Test.runHook (node:internal/test_runner/test:1024:20)
+      at after (node:internal/test_runner/test:1064:20)
+      at Test.run (node:internal/test_runner/test:1132:13)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+
+test at tests\terminalGateway.sessionid.test.js:325:1
+✖ WS with unknown sessionId returns 4404 (4.1423ms)
+  TypeError: Cannot read properties of undefined (reading 'values')
+      at E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:348:19)
+      at TestHook.runInAsyncScope (node:async_hooks:214:14)
+      at TestHook.run (node:internal/test_runner/test:1106:25)
+      at TestHook.run (node:internal/test_runner/test:1427:18)
+      at TestHook.run (node:internal/util:585:20)
+      at Test.runHook (node:internal/test_runner/test:1024:20)
+      at after (node:internal/test_runner/test:1064:20)
+      at Test.run (node:internal/test_runner/test:1132:13)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+
+test at tests\terminalGateway.sessionid.test.js:362:1
+✖ WS session_info includes unified connectionSecurity summary (4.8273ms)
+  TypeError: Cannot read properties of undefined (reading 'values')
+      at E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:386:19)
+      at TestHook.runInAsyncScope (node:async_hooks:214:14)
+      at TestHook.run (node:internal/test_runner/test:1106:25)
+      at TestHook.run (node:internal/test_runner/test:1427:18)
+      at TestHook.run (node:internal/util:585:20)
+      at Test.runHook (node:internal/test_runner/test:1024:20)
+      at after (node:internal/test_runner/test:1064:20)
+      at Test.run (node:internal/test_runner/test:1132:13)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+
+test at tests\terminalGateway.sessionid.test.js:418:1
+✖ WS session_info uses trusted nginx TLS headers when backend socket is plain HTTP (5.669ms)
+  TypeError: Cannot read properties of undefined (reading 'values')
+      at E:\coding\TermLink-rust-source-resolution-codex\src\ws\terminalGateway.js:9076:55
+      at TestContext.<anonymous> (E:\coding\TermLink-rust-source-resolution-codex\tests\terminalGateway.sessionid.test.js:448:19)
+      at TestHook.runInAsyncScope (node:async_hooks:214:14)
+      at TestHook.run (node:internal/test_runner/test:1106:25)
+      at TestHook.run (node:internal/test_runner/test:1427:18)
+      at TestHook.run (node:internal/util:585:20)
+      at Test.runHook (node:internal/test_runner/test:1024:20)
+      at after (node:internal/test_runner/test:1064:20)
+      at Test.run (node:internal/test_runner/test:1132:13)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)

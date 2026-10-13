@@ -15,7 +15,9 @@
     "docs/product/assessments/ASSESSMENT-20261012-BATCH-2.md",
     "docs/product/assessments/ASSESSMENT-20261012-BATCH-3.md",
     "docs/product/assessments/ASSESSMENT-20261012-BATCH-4.md",
-    "docs/product/assessments/SCOPED-CURRENT-20261012.md"
+    "docs/product/assessments/SCOPED-CURRENT-20261012.md",
+    "docs/product/assessments/ANDROID-20261013.md",
+    "docs/product/assessments/JOINT-20261013.md"
   ],
   "source_paths": [
     "docs/**/*.md",
