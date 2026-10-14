@@ -1,0 +1,77 @@
+{
+  "kind": "static-document-readback-only",
+  "checked_at": "2026-10-14T19:42:20.630374+00:00",
+  "baseline": "a78fe55e033bbcb6db816acd2c801de5aa28a081",
+  "current_count": 66,
+  "reports": 66,
+  "conclusions": {
+    "undetermined": 29,
+    "partially-satisfied": 18,
+    "satisfied": 19
+  },
+  "startup": {
+    "已开始过": 66
+  },
+  "old_requirement_bytes_preserved": true,
+  "old_goal_business_body_and_scopes_preserved": true,
+  "source_hashes_match": true,
+  "explicit_report_anchors": 66,
+  "roadmap_members": 66,
+  "roadmap_reconciliation": "unknown",
+  "full_identity_coverage": true,
+  "unusable_count": 0,
+  "limitations": "文档schema/来源哈希/身份/引用及Git差异静态核对，不是产品业务测试或新运行验证。",
+  "retained_diagnostic_counts": {
+    "DEFINITION_CHANGED": 28,
+    "PENDING_SOURCES": 15,
+    "BINDING_CONTRIBUTION_UNCLASSIFIED": 50,
+    "CHANGE_TARGET": 1,
+    "TASK_ID_UNCONFIRMED": 2,
+    "GOAL_DEFINITION_CHANGED": 38,
+    "DEFINITION_UNKNOWN": 66
+  },
+  "scoped_selection_readback": {
+    "checked_at": "2026-10-14T19:42:21.035460+00:00",
+    "count": 66,
+    "selected_expected_report_and_conclusion": 66,
+    "full_coverage": 66,
+    "all_exit_zero": true
+  },
+  "batches": [
+    {
+      "batch": 1,
+      "count": 22,
+      "features": 194,
+      "conclusions": {
+        "undetermined": 8,
+        "partially-satisfied": 8,
+        "satisfied": 6
+      },
+      "readback": "22 usable / 0 invalid"
+    },
+    {
+      "batch": 2,
+      "count": 22,
+      "features": 83,
+      "conclusions": {
+        "undetermined": 13,
+        "partially-satisfied": 3,
+        "satisfied": 6
+      },
+      "readback": "22 usable / 0 invalid"
+    },
+    {
+      "batch": 3,
+      "count": 22,
+      "features": 49,
+      "conclusions": {
+        "undetermined": 8,
+        "partially-satisfied": 7,
+        "satisfied": 7
+      },
+      "readback": "22 usable / 0 invalid"
+    }
+  ],
+  "planning_limit": "baseline保存并读回；unknown唯一原因unread-sources，66定义/安排均已读，不代表业务未开始。",
+  "independent_review": "独立语义审查已通过；Skills未发送草稿恢复越界已移除，options共因保留待核假设；本记录不是运行验证。"
+}

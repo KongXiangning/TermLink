@@ -1,0 +1,2950 @@
+{
+  "baseline": "a78fe55e033bbcb6db816acd2c801de5aa28a081",
+  "time_convention": "事件时间统一UTC recorded_at；commit同时保留Git原作者/提交时区。任务编号/历史导入日期不可代替实施先后。",
+  "summary": [
+    "业务依赖：Rust读取/投影→Node交付/持久事务→产品provider→Android缓存/详情→自然E2E；已交付层不重新开工。",
+    "真实执行顺序为831发现问题→832诊断拆范围→833先交付共享H1/H3→832继续H2/UTF8/Android三样本；不是按831/832/833数字直排全部。",
+    "868后来的局部修复取代同提示/registration旧失败，但不会取代无关终端/工作区/Plan/Skills/文件/大详情缺口。"
+  ],
+  "stages": [
+    {
+      "business_stage": "Rust正式采集基础→输入兼容→归约→隔离运行时",
+      "task_ids": [
+        "20260819-001",
+        "20260820-001",
+        "20260820-002",
+        "20260820-003"
+      ],
+      "actual_time_basis": "原任务阶段8/19–8/22；不是任务编号排序推测",
+      "git_commits": [
+        {
+          "sha": "cecee23d8e36d0c3914b53eaed9f85ada6e49157",
+          "parents": [
+            "d149b2a6db9f5842218a9cd6d313c2b79aafb6c1"
+          ],
+          "author_time": "2026-08-19T23:54:49+08:00",
+          "committer_time": "2026-08-19T23:54:49+08:00",
+          "title": "feat(codex): add formal rollout collector foundation",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "19ef94c54f75ce6283d5d8cf417e685f24fc5330",
+          "parents": [
+            "cecee23d8e36d0c3914b53eaed9f85ada6e49157"
+          ],
+          "author_time": "2026-08-20T10:37:48+08:00",
+          "committer_time": "2026-08-20T10:37:48+08:00",
+          "title": "feat(codex): complete collector input compatibility",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "1b37d812a879046bca8f89c3b180149199056e39",
+          "parents": [
+            "19ef94c54f75ce6283d5d8cf417e685f24fc5330"
+          ],
+          "author_time": "2026-08-20T10:38:21+08:00",
+          "committer_time": "2026-08-20T10:38:21+08:00",
+          "title": "feat(codex): complete rollout collector stage 3",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "21b6d423d5e47a95bf64e5f4cd3df5970bc5f2b4",
+          "parents": [
+            "1b37d812a879046bca8f89c3b180149199056e39"
+          ],
+          "author_time": "2026-08-20T11:51:29+08:00",
+          "committer_time": "2026-08-20T11:51:29+08:00",
+          "title": "feat(codex): add isolated rollout collector runtime",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "4646e3e9c4d2cfb2dfceb64b8c2c838a61682b76",
+          "parents": [
+            "21b6d423d5e47a95bf64e5f4cd3df5970bc5f2b4"
+          ],
+          "author_time": "2026-08-20T14:24:34+08:00",
+          "committer_time": "2026-08-20T14:24:34+08:00",
+          "title": "feat(codex): integrate rollout collector stage 2",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "0874ecf6fe12783858257ae0b9a39a5d48754c5b",
+          "parents": [
+            "4646e3e9c4d2cfb2dfceb64b8c2c838a61682b76"
+          ],
+          "author_time": "2026-08-20T15:43:09+08:00",
+          "committer_time": "2026-08-20T15:43:09+08:00",
+          "title": "feat(codex): complete collector checkpoint integration",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "a89a3e433cc31168fa064a26f2302a019ec9b388",
+          "parents": [
+            "0874ecf6fe12783858257ae0b9a39a5d48754c5b"
+          ],
+          "author_time": "2026-08-22T02:07:28+08:00",
+          "committer_time": "2026-08-22T02:07:28+08:00",
+          "title": "docs(codex): archive rollout collector stage 4",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "Formal package、输入/adapter-reducer、isolated runtime/checkpoint依次落地",
+      "limits": "这些是采集基础层，不证明Node产品数据库和Android已集成",
+      "sources": [
+        {
+          "path": "TASKS/TASK-20260819-001-codex-rollout-collector-formal-bootstrap.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "TASKS/TASK-20260820-001-codex-rollout-collector-stage-2-input-compat.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "TASKS/TASK-20260820-002-codex-rollout-collector-stage-3-adapter-reducer-conformance.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "TASKS/TASK-20260820-003-codex-rollout-collector-stage-4-runtime-and-conformance.md",
+          "storage": "git-file"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "Lineage与公共接口契约先收敛",
+      "task_ids": [
+        "20260823-001",
+        "20260825-003"
+      ],
+      "actual_time_basis": "8/23–8/26原归档与提交",
+      "git_commits": [
+        {
+          "sha": "a7093245066edd8ab13f1a8a4c28aea58b045882",
+          "parents": [
+            "7e9f552a73063878cefd8bdaaea1d4d9504e16fe"
+          ],
+          "author_time": "2026-08-23T02:18:25+08:00",
+          "committer_time": "2026-08-23T02:18:25+08:00",
+          "title": "feat: add session lineage rollout discovery",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "e5e0cc29d9f3ea3eeaf58b2fd690d699e762941c",
+          "parents": [
+            "a7093245066edd8ab13f1a8a4c28aea58b045882"
+          ],
+          "author_time": "2026-08-23T20:32:43+08:00",
+          "committer_time": "2026-08-23T20:32:43+08:00",
+          "title": "fix(rust): harden rollout lineage discovery",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "be30c7f0a91562d3a63702693c5f86a95a46e585",
+          "parents": [
+            "e5e0cc29d9f3ea3eeaf58b2fd690d699e762941c"
+          ],
+          "author_time": "2026-08-24T01:35:15+08:00",
+          "committer_time": "2026-08-24T01:35:15+08:00",
+          "title": "fix(rust): remove parent lineage full-file mutation guard",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "a94dcbcae9a115f1fb201d9acf861c92919f1f77",
+          "parents": [
+            "be30c7f0a91562d3a63702693c5f86a95a46e585"
+          ],
+          "author_time": "2026-08-24T02:23:12+08:00",
+          "committer_time": "2026-08-24T02:23:12+08:00",
+          "title": "fix(collector): canonicalize rollout siblings",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "eaa30190d43593416ec82c66303677ebf3591c01",
+          "parents": [
+            "71398e889edf14b3aefa547ff646665f2542be9c",
+            "3ccbc428920bb1ec05caf1fcbb3604f57eba7036"
+          ],
+          "author_time": "2026-08-24T15:28:13+08:00",
+          "committer_time": "2026-08-24T15:28:13+08:00",
+          "title": "Merge Codex session lineage collector work",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "5cf848879b57b5b1b3ccb9ca3439eef89547f97d",
+          "parents": [
+            "eaa30190d43593416ec82c66303677ebf3591c01"
+          ],
+          "author_time": "2026-08-25T02:55:00+08:00",
+          "committer_time": "2026-08-25T02:55:00+08:00",
+          "title": "docs(codex): converge node rust collector contracts",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "bef0274a08f5f60ff3bb6a39ee0c60f779dad92d",
+          "parents": [
+            "f3400a8b1a6f2d2fcabaecfdb5b139b8d6cb00b9"
+          ],
+          "author_time": "2026-08-26T02:00:30+08:00",
+          "committer_time": "2026-08-26T02:00:30+08:00",
+          "title": "docs(codex): retire discovery/fingerprint public semantics, close task 20260825-003",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "lineage分支合并后退役Node公开discovery/fingerprint语义",
+      "limits": "eaa3019是双亲merge，不应按作者时间把另一分支当线性直系父节点",
+      "sources": [
+        {
+          "path": "TASKS/TASK-20260823-001-codex-rollout-collector-session-lineage-replan.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "TASKS/TASK-20260825-003-codex-node-rust-interface-contract-convergence.md",
+          "storage": "git-file"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "Rust4.5 target先交付，身份修复随后",
+      "task_ids": [
+        "20260826-001",
+        "20260827-001"
+      ],
+      "actual_time_basis": "原826归档明确开始8/26、结束8/27；当前10/11导入记录不是实施时间",
+      "git_commits": [
+        {
+          "sha": "b03f673e052ed89914e5dc525ff95d03b30f17a0",
+          "parents": [
+            "3060e66fa5bdb5dcdebec4757c72fe6e3c041be8"
+          ],
+          "author_time": "2026-08-27T16:22:59+08:00",
+          "committer_time": "2026-08-27T16:22:59+08:00",
+          "title": "feat(codex): migrate Rust collector target protocol",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "5a3214a1e63a0e2c94c846ded3f1abb1127c727e",
+          "parents": [
+            "b03f673e052ed89914e5dc525ff95d03b30f17a0"
+          ],
+          "author_time": "2026-08-27T16:52:38+08:00",
+          "committer_time": "2026-08-27T16:52:38+08:00",
+          "title": "fix(codex): derive deterministic target delivery identities",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "7a167711950710b05f3e84c8d3ad975df1c6ab0c",
+          "parents": [
+            "5a3214a1e63a0e2c94c846ded3f1abb1127c727e"
+          ],
+          "author_time": "2026-08-27T21:19:49+08:00",
+          "committer_time": "2026-08-27T21:19:49+08:00",
+          "title": "docs(workflow): archive target identity repair",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "9409b35a5b31afa37dc39a4159ef7181bdec81fb",
+          "parents": [
+            "b4a695a370e6716e2933db2a55510bd183280311"
+          ],
+          "author_time": "2026-09-09T17:55:22+08:00",
+          "committer_time": "2026-09-09T17:55:22+08:00",
+          "title": "fix(collector): complete target protocol migration and regression cleanup",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "Rust startup/hello、三mode、ACK/complete、source/lineage与确定性delivery identity",
+      "limits": "9409b35为9/9后续target清理提交；其与原826具体步骤归属不可仅按title自动绑定；隔离范围排除Node产品DB/App",
+      "sources": [
+        {
+          "path": "TASKS/TASK-20260826-001-codex-collector-phase45-rust-protocol-migration.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "TASKS/TASK-20260827-001-codex-target-delivery-identity-repair.md",
+          "storage": "git-file"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "Node4.5 consumer/coordinator在Rust之后",
+      "task_ids": [
+        "20260828-001"
+      ],
+      "actual_time_basis": "原归档完成9/13；final20b79197+当时工作树verification repair，repair后于9/14提交",
+      "git_commits": [
+        {
+          "sha": "20b79197ce8889294c7a12585ebe3ae008fac11d",
+          "parents": [
+            "9409b35a5b31afa37dc39a4159ef7181bdec81fb"
+          ],
+          "author_time": "2026-09-13T01:46:01+08:00",
+          "committer_time": "2026-09-13T01:46:01+08:00",
+          "title": "feat(codex-collector): complete Node 4.5 recovery flow",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "7282a1f1e520cfd9ec6c5e9b4e70b7bd3b364b32",
+          "parents": [
+            "20b79197ce8889294c7a12585ebe3ae008fac11d"
+          ],
+          "author_time": "2026-09-14T01:05:43+08:00",
+          "committer_time": "2026-09-14T01:05:43+08:00",
+          "title": "fix(codex-collector): retry after synchronous spawn failure",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "f8125dd54fadb61e30f2139ba7b0791b62d8e33f",
+          "parents": [
+            "7282a1f1e520cfd9ec6c5e9b4e70b7bd3b364b32"
+          ],
+          "author_time": "2026-09-14T01:08:28+08:00",
+          "committer_time": "2026-09-14T01:08:28+08:00",
+          "title": "chore(workflow): migrate to vNext and archive Node task",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "Node-first hello、单例/单飞、batch持久ACK、checkpoint、有限重试；同步spawn失败补修",
+      "limits": "原边界排除产品DB、gateway、Android、IPC、release，不能据归档判整个历史链完成",
+      "sources": [
+        {
+          "path": "TASKS/TASK-20260828-001-codex-node-analyzer-phase45-migration.md",
+          "storage": "git-file"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "001审计→002采集阻断修复",
+      "task_ids": [
+        "legacy-doc-87ea7576bc76f5782bea891f",
+        "legacy-doc-05c82c8a6e6c9181adfc2be2"
+      ],
+      "actual_time_basis": "9/14–9/23文档/实现提交与原任务事实",
+      "git_commits": [
+        {
+          "sha": "c1b512da39580b7efd1755b720933ccd6add4286",
+          "parents": [
+            "f8125dd54fadb61e30f2139ba7b0791b62d8e33f"
+          ],
+          "author_time": "2026-09-14T10:55:54+08:00",
+          "committer_time": "2026-09-14T10:55:54+08:00",
+          "title": "docs: add reviewed rollout history business test matrix",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "5285ec205b91ac56838679651819c6b7aef87e81",
+          "parents": [
+            "c1b512da39580b7efd1755b720933ccd6add4286"
+          ],
+          "author_time": "2026-09-14T22:07:01+08:00",
+          "committer_time": "2026-09-14T22:07:01+08:00",
+          "title": "test(codex): record Rust audit evidence",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "eae82f5cceb0dccb6c6c3526c882c4e548529069",
+          "parents": [
+            "2a1d967cec0d391d0a83950cca38a895d393d510"
+          ],
+          "author_time": "2026-09-16T02:25:56+08:00",
+          "committer_time": "2026-09-16T02:25:56+08:00",
+          "title": "docs(codex): complete S4 Gemini fix reuse assessment and finalize audit task",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "42d7831a6ab4325dd0a26f1d2bd0813944f05d60",
+          "parents": [
+            "036c514458d689de660f7cc0d40199dc6f184f09"
+          ],
+          "author_time": "2026-09-20T01:09:18+08:00",
+          "committer_time": "2026-09-20T01:09:18+08:00",
+          "title": "fix(rollout): complete bounded backfill and safe append promotion",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "da77150a4be6d85c6e4bc7cc40f28df8550ff7f9",
+          "parents": [
+            "42d7831a6ab4325dd0a26f1d2bd0813944f05d60"
+          ],
+          "author_time": "2026-09-21T01:10:38+08:00",
+          "committer_time": "2026-09-21T01:10:38+08:00",
+          "title": "fix(rollout): sync source resolution and workflow runtime",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "00afa798a39674e7e74be5de20afed6acc9f05fb",
+          "parents": [
+            "da77150a4be6d85c6e4bc7cc40f28df8550ff7f9"
+          ],
+          "author_time": "2026-09-22T01:21:19+08:00",
+          "committer_time": "2026-09-22T01:21:19+08:00",
+          "title": "fix(rollout): close S1 continuation and conflict remediation, sync workflow runtime",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "d596bf629baa4a82a75cc1cc319664fa647c1c37",
+          "parents": [
+            "00afa798a39674e7e74be5de20afed6acc9f05fb"
+          ],
+          "author_time": "2026-09-23T08:32:15+08:00",
+          "committer_time": "2026-09-23T08:32:15+08:00",
+          "title": "fix(rollout): map completed items and guard partial cursors",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "f8a6635c1e8d00f236631e7e278bd60893ac74bc",
+          "parents": [
+            "d596bf629baa4a82a75cc1cc319664fa647c1c37"
+          ],
+          "author_time": "2026-09-23T10:47:29+08:00",
+          "committer_time": "2026-09-23T10:47:29+08:00",
+          "title": "fix(rollout): complete isolated collector lifecycle verification",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "先核RUST001–009/Gemini复用，随后bounded backfill、安全append、source resolution/partial cursor等隔离修复",
+      "limits": "001是审计，不把审计提交当产品修复；002隔离闭环仍非完整产品历史E2E",
+      "sources": [
+        {
+          "path": "TASKS/TASK-001-rust-issues-audit-worktree-rust-001-rust-009-gemini.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "TASKS/TASK-002-rollout.md",
+          "storage": "git-file"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "旧003开始Node产品历史，用户停止后由004承接",
+      "task_ids": [
+        "legacy-doc-03166aa61e365e5f8af1f680",
+        "legacy-doc-fdd730cf99bb383419d74988"
+      ],
+      "actual_time_basis": "003原记录9/28 stopped-by-user；004 S3登记2026-09-29T07:16:58.075Z，关闭08:16:07.170Z",
+      "git_commits": [
+        {
+          "sha": "f33bfb912e790bfe2a77e170ace5a4b30057bd86",
+          "parents": [
+            "e10f849dd8894a5b3e4d87fecfacbbf673c932aa"
+          ],
+          "author_time": "2026-09-23T21:01:28+08:00",
+          "committer_time": "2026-09-23T21:01:28+08:00",
+          "title": "test(collector): assert exact path preservation",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "9da94e2d0c7eef250f7aa511d694edf1d32f7332",
+          "parents": [
+            "f33bfb912e790bfe2a77e170ace5a4b30057bd86"
+          ],
+          "author_time": "2026-09-24T16:42:59+08:00",
+          "committer_time": "2026-09-24T16:42:59+08:00",
+          "title": "fix(history): preserve __proto__ fields in product history",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "2322da503f12dc484748f80e9264e9b1f7453926",
+          "parents": [
+            "20595649a0a094f9f1b0fce346c60b1cbcb6fea8"
+          ],
+          "author_time": "2026-09-24T17:03:50+08:00",
+          "committer_time": "2026-09-24T17:03:50+08:00",
+          "title": "feat(codex-history): add product history provider and gateway",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "4f75e40f1abbd7f95cc6f579897807daf311442c",
+          "parents": [
+            "60f783be3a30be4559941aa862e1827b8fdfba48"
+          ],
+          "author_time": "2026-09-28T13:52:54+08:00",
+          "committer_time": "2026-09-28T13:52:54+08:00",
+          "title": "chore: checkpoint Task 003 work and vNext workflow state",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "89259dec5566ebe1827424083efd92b080d17fb0",
+          "parents": [
+            "a62dc4c0512d994b7cb828c6c41e508f72f65308"
+          ],
+          "author_time": "2026-09-28T21:19:05+08:00",
+          "committer_time": "2026-09-28T21:19:05+08:00",
+          "title": "docs(task-004): record S1 verification and contract sync",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "33c6dd7a588a361a86351c510b15fe0e4a0e26fa",
+          "parents": [
+            "89259dec5566ebe1827424083efd92b080d17fb0"
+          ],
+          "author_time": "2026-09-28T23:09:15+08:00",
+          "committer_time": "2026-09-28T23:09:15+08:00",
+          "title": "test(task-004): verify package history staging, recovery, and contract sync (S2)",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "7e32943de2fe889f6336082bc91e8942b69aa2ea",
+          "parents": [
+            "d1109c04f73235f15636b5d62f017d734310c696"
+          ],
+          "author_time": "2026-09-29T23:23:08+08:00",
+          "committer_time": "2026-09-29T23:23:08+08:00",
+          "title": "test(task-004): finalize S3 acceptance and evidence",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "保留真实路径/内容、产品事务库/provider/gateway；004独立验证包内历史staging/recovery/契约",
+      "limits": "003当前显示TASK-20260842只是历史映射；不是004身份。003停止不抹掉其代码，004通过不等于App E2E",
+      "sources": [
+        {
+          "path": "TASKS/TASK-003-rust-node-app.md",
+          "storage": "git-file"
+        },
+        {
+          "logical_ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 387,
+          "record_sha256": "b857a11067ed8380c15dce6ab52bb9efffb11c8a366313c66f350aaac00e92bd",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "005 Android接入途中先修830 Rust兼容，再继续005",
+      "task_ids": [
+        "task-7a4566ccf322e08968cd5c7935cf61dd",
+        "task-751a3f4ef6d9d4cd1c08b99ec1b0b963"
+      ],
+      "actual_time_basis": "005计划9/29 08:39Z；9/30 05:16Z暂停，830 13:25Z关闭，005 13:43Z恢复；005 10/2 15:31Z关闭保留缺口",
+      "git_commits": [
+        {
+          "sha": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+          "parents": [
+            "74c7bf54f1f9b9d086963ddd2a273a570ea37f4a"
+          ],
+          "author_time": "2026-09-30T01:25:55+08:00",
+          "committer_time": "2026-09-30T01:25:55+08:00",
+          "title": "feat(codex): integrate product history first-page cache",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "eb1de240357282aa346800c9d7553ae2c729eefd",
+          "parents": [
+            "a551686571224aac1c79229c1dc9eacc7a1dd88b"
+          ],
+          "author_time": "2026-10-02T03:08:05+08:00",
+          "committer_time": "2026-10-02T03:08:05+08:00",
+          "title": "fix(collector): support Codex rollout compatibility and canonical diagnostics",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "ed8dec26ae035cc1614b75c31a21f8c7160e95c8",
+          "parents": [
+            "eb1de240357282aa346800c9d7553ae2c729eefd"
+          ],
+          "author_time": "2026-10-02T03:08:09+08:00",
+          "committer_time": "2026-10-02T03:08:09+08:00",
+          "title": "fix(history): keep analyzer diagnostics out of product projection",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "bc7ff0a715c193bc5063b46c5ce035a8656ec822",
+          "parents": [
+            "c95f94d641248c3d45765d8dc83b133b10aa5f83"
+          ],
+          "author_time": "2026-10-02T17:13:14+08:00",
+          "committer_time": "2026-10-02T17:13:14+08:00",
+          "title": "fix(android): display cached product event facts",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+          "parents": [
+            "bc7ff0a715c193bc5063b46c5ce035a8656ec822"
+          ],
+          "author_time": "2026-10-02T18:13:32+08:00",
+          "committer_time": "2026-10-02T18:13:32+08:00",
+          "title": "feat(android): add read-only Codex history details",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "2c9ff5e5e5574dc34ab5c6280f30634b15e6394f",
+          "parents": [
+            "241becbc2e72f3a1c90970e47f7e95ccf0021dba"
+          ],
+          "author_time": "2026-10-02T23:38:30+08:00",
+          "committer_time": "2026-10-02T23:38:30+08:00",
+          "title": "chore(workflow): checkpoint Task 005 validation and closure evidence",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "先cache-first、再修token_usage_record/developer carrier兼容与diagnostics隔离，再真实product_db首屏/Android eventFacts/只读详情",
+      "limits": "9/30执行在工作区，若干产品改动到10/2才提交；执行先后不等于commit时间。005关闭保留older/append/详情/竞态未知",
+      "sources": [
+        {
+          "logical_ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 162,
+          "record_sha256": "d29d89c6341757903fa47a1f0df6696a49fd13aa73ca23c12f03d2b2da487c10",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        },
+        {
+          "logical_ref": ".workflow-system/records/events/key-9315aa5f56fdf91a7d40826f4d804242411c2d30690ca05178394be9475ec93c.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 277,
+          "record_sha256": "c9149347d1cfd945b166490f39df320bb4acda43f354be586ad4ee7f170b5d57",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        },
+        {
+          "logical_ref": ".workflow-system/records/events/key-842adb4b99da17473bc6a06d4d488f5f4537220720dc4d4a83702bf3e8e13f4f.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 254,
+          "record_sha256": "43511c714c8299f2c8ab17fd44a2f591f7c2b4a697b29a8178169b5d8cbd1540",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        },
+        {
+          "logical_ref": ".workflow-system/records/events/key-dbec71588bac0244303f6bc3daeccbcc0c9d7247e490cf74dd19ce73d0d24e60.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 376,
+          "record_sha256": "a278afe179a0c4156756adadacc8a11447f738ed7d5198b8e05f99cd99aa9ec9",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "831真实E2E调查暴露共享/分支保存问题",
+      "task_ids": [
+        "task-25654b249109f357a559899562804c15"
+      ],
+      "actual_time_basis": "采纳10/2 18:39Z；S2 20:04Z，S4 10/3 18:44Z，S5 10/4 09:48Z，S6 15:51Z，关闭16:10Z",
+      "git_commits": [
+        {
+          "sha": "ee5d491204f9c684b8c90cb2a5ae60943db9f026",
+          "parents": [
+            "2c9ff5e5e5574dc34ab5c6280f30634b15e6394f"
+          ],
+          "author_time": "2026-10-03T03:30:33+08:00",
+          "committer_time": "2026-10-03T03:30:33+08:00",
+          "title": "chore(workflow): checkpoint E2E evidence records",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "0bf998452a3f86afa3d68bd0e43d3d9c515499ed",
+          "parents": [
+            "ee5d491204f9c684b8c90cb2a5ae60943db9f026"
+          ],
+          "author_time": "2026-10-03T16:04:57+08:00",
+          "committer_time": "2026-10-03T16:04:57+08:00",
+          "title": "chore(workflow): checkpoint S2 execution review",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "19bf3121203ba17ad21147ffe02877d50a22d4a0",
+          "parents": [
+            "0bf998452a3f86afa3d68bd0e43d3d9c515499ed"
+          ],
+          "author_time": "2026-10-04T02:17:39+08:00",
+          "committer_time": "2026-10-04T02:17:39+08:00",
+          "title": "chore(workflow): checkpoint S3 disposition",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+          "parents": [
+            "19bf3121203ba17ad21147ffe02877d50a22d4a0"
+          ],
+          "author_time": "2026-10-04T03:19:57+08:00",
+          "committer_time": "2026-10-04T03:19:57+08:00",
+          "title": "chore(workflow): checkpoint S4 disposition",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "026892bb02a44c6664dc96e62acb41428422a310",
+          "parents": [
+            "60c507f6a4ac5573e96028429d24684d1f3e0b5e"
+          ],
+          "author_time": "2026-10-04T23:32:33+08:00",
+          "committer_time": "2026-10-04T23:32:33+08:00",
+          "title": "chore(workflow): checkpoint S5 disposition",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+          "parents": [
+            "026892bb02a44c6664dc96e62acb41428422a310"
+          ],
+          "author_time": "2026-10-05T00:14:25+08:00",
+          "committer_time": "2026-10-05T00:14:25+08:00",
+          "title": "chore(workflow): checkpoint task closure evidence",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "真实host/手机/DB观察及缺口分类已做；S4-R1/S5-R1仅补证据，不是产品修复",
+      "limits": "A delegation carrier、branch publication失败当时真实；不把checkpoint管理commit当业务修复。older/自然详情更新/resend/受控竞态未全闭合",
+      "sources": [
+        {
+          "logical_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 173,
+          "record_sha256": "94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        },
+        {
+          "logical_ref": ".workflow-system/records/events/key-8464c4002ea41b1b57974aaf26a47b116e56a5f8f029fc6e7fc0074df0158a68.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 256,
+          "record_sha256": "22ee0f9837348c0cf89fe0b753d2132ab07b558a50a534dbcc6ac8d9c147bf45",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "832先诊断，再拆833共享前置",
+      "task_ids": [
+        "task-58bc12d9a46b8d84fb6e42888785b402",
+        "task-7ff69ba8242c90c52f0b93fa1144a655"
+      ],
+      "actual_time_basis": "832计划10/4 18:36Z、S1 19:08Z；S2拆共享10/5 05:52Z；833计划05:54Z/采纳06:29Z",
+      "git_commits": [
+        {
+          "sha": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+          "parents": [
+            "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f"
+          ],
+          "author_time": "2026-10-05T13:37:53+08:00",
+          "committer_time": "2026-10-05T13:37:53+08:00",
+          "title": "chore(workflow): checkpoint TASK-20260832 S1 disposition",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "将H1/H3公共delegated/input/growth语义与H2 branch、真实三样本分开实施",
+      "limits": "此时832早已开始；S1诊断与S2范围准备并非产品修复，也不是832未开始",
+      "sources": [
+        {
+          "logical_ref": ".workflow-system/records/events/key-857c88fe513282c2114ba4795cbdbc79b11b873e410d8821b987100ae6fe0bba.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 258,
+          "record_sha256": "9d97451429e1c34db0e1422c2b715f31c407cb4c00ba4cd139d465f75084b190",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        },
+        {
+          "logical_ref": ".workflow-system/records/events/key-b16597f8fef0ad14ea72f51db11ed6fd6e8676496e0c2ffe63caf7e9f2e6c32b.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 320,
+          "record_sha256": "42de2013822217a8c15d0958e619ba95b2a297e84f718f9e9bd3d0dcfad3c327",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "833共享前置先落地并隔离验收",
+      "task_ids": [
+        "task-7ff69ba8242c90c52f0b93fa1144a655"
+      ],
+      "actual_time_basis": "S2 10/5 11:34Z；S3 18:55Z；S4 10/6 07:09Z/R1 10:48Z；S5 12:21Z；关闭16:10Z",
+      "git_commits": [
+        {
+          "sha": "6e04e4ad07c73897683a95265f15eade042e9076",
+          "parents": [
+            "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71"
+          ],
+          "author_time": "2026-10-06T00:27:51+08:00",
+          "committer_time": "2026-10-06T00:27:51+08:00",
+          "title": "feat(codex): add shared history wire compatibility closure",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+          "parents": [
+            "644d9b1fad603719ee58d3514d32668735b1efdb"
+          ],
+          "author_time": "2026-10-06T14:43:54+08:00",
+          "committer_time": "2026-10-06T14:43:54+08:00",
+          "title": "feat(rust): add delegated event and target compatibility",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "f2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8",
+          "parents": [
+            "7ce1d08e6dbb7863d5b95fb992086f1b37637488"
+          ],
+          "author_time": "2026-10-06T19:52:45+08:00",
+          "committer_time": "2026-10-06T19:52:45+08:00",
+          "title": "fix(history): gate delegated promotion by durable evidence",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+          "parents": [
+            "f2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8"
+          ],
+          "author_time": "2026-10-07T00:19:18+08:00",
+          "committer_time": "2026-10-07T00:19:18+08:00",
+          "title": "test(history): record product delivery persistence evidence",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "Spike→formal wire、Rust delegated类型、Node消费及durable promotion proof；真实Rust/File/临时SQLite/provider隔离43/43",
+      "limits": "可取代H1/H3原缺兼容的判断；不证明832 branch与真实host/phone三样本，也不证明005/831自然全链",
+      "sources": [
+        {
+          "path": "docs/product/history/maintenance-20261011/current-assessment-20261012/history-833s5-report.md",
+          "storage": "git-file"
+        },
+        {
+          "logical_ref": ".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 309,
+          "record_sha256": "2ff52d93fc480911b12401674a8e790c5e5d07f47d5f3f408d6d9f414ddb9348",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "833之后继续832 branch→UTF8→Android样本闭环",
+      "task_ids": [
+        "task-58bc12d9a46b8d84fb6e42888785b402"
+      ],
+      "actual_time_basis": "S2 finish10/6 17:03Z明确复用833；S3 18:07Z/S4 18:50Z；S5 UTF8修复10/7 16:50Z；S6 18:11Z；关闭10/8 07:06Z",
+      "git_commits": [
+        {
+          "sha": "714379dafa7eedb3517d5d0550518faca969966c",
+          "parents": [
+            "589a62a78c6214fea13e7c5eecac5466d64d7a5d"
+          ],
+          "author_time": "2026-10-07T02:39:59+08:00",
+          "committer_time": "2026-10-07T02:39:59+08:00",
+          "title": "fix(history): repair branch lineage reads",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "32c6b66179ac314321540fab3b0a82b56050e317",
+          "parents": [
+            "714379dafa7eedb3517d5d0550518faca969966c"
+          ],
+          "author_time": "2026-10-07T11:37:56+08:00",
+          "committer_time": "2026-10-07T11:37:56+08:00",
+          "title": "test(history): add branch product delivery regression",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "488dc6c9e597ef096f617d17499fa8e048306c06",
+          "parents": [
+            "32c6b66179ac314321540fab3b0a82b56050e317"
+          ],
+          "author_time": "2026-10-08T01:07:22+08:00",
+          "committer_time": "2026-10-08T01:07:22+08:00",
+          "title": "fix(history): preserve UTF-8 analyzer output across chunks",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "0618cafcb12f73d33b8699b8d9bfa76b4ee55e1e",
+          "parents": [
+            "488dc6c9e597ef096f617d17499fa8e048306c06"
+          ],
+          "author_time": "2026-10-08T15:19:55+08:00",
+          "committer_time": "2026-10-08T15:19:55+08:00",
+          "title": "fix(android): preserve history tool detail refs",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "Rust parent locating/切点/有界窗口、真实持久branch、UTF8 chunk解码、Androiddetail alias，原N/C/D三样本完成",
+      "limits": "833关闭并不自动恢复832焦点；10/7 adopted_by是S6范围补充不能误当首次开始。三样本PASS只取代对应原保存失败，不抹掉大详情/older/E07/races未知",
+      "sources": [
+        {
+          "logical_ref": ".workflow-system/records/events/key-1bf17b543f6a0cd77feda64b334a08e4202b0963e8580459b73c22ab08cb69bf.json",
+          "storage": "git-archive-member",
+          "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+          "record_index": 136,
+          "record_sha256": "7eb588bfeae69eec75de5f7e5fef95826ff1cc57081eb167328c3636ddbe925c",
+          "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+        },
+        {
+          "path": "docs/product/history/maintenance-20261011/TASK832-close-report.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "docs/product/history/maintenance-20261011/current-assessment-20261012/history-report.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "docs/product/history/maintenance-20261011/current-assessment-20261012/history-832review-report.md",
+          "storage": "git-file"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    },
+    {
+      "business_stage": "10/11–13治理/验收材料后接868局部修复",
+      "task_ids": [
+        "task-d211a98b3f7889123b22ace1f99dfacb"
+      ],
+      "actual_time_basis": "868采纳10/13 03:23Z；S1 finished04:32Z；S2 finished06:17Z；S3 finished07:15Z；closed07:25Z；代码commit07:57:42Z",
+      "git_commits": [
+        {
+          "sha": "786b81ffdb999e956ca205b0cfc8b01a334f0df0",
+          "parents": [
+            "bb4849692fd600c3eb57866e28400fba612ee6aa"
+          ],
+          "author_time": "2026-10-12T23:47:00+08:00",
+          "committer_time": "2026-10-12T23:47:00+08:00",
+          "title": "docs(product): record current requirement assessment and evidence",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+          "parents": [
+            "786b81ffdb999e956ca205b0cfc8b01a334f0df0"
+          ],
+          "author_time": "2026-10-13T00:21:09+08:00",
+          "committer_time": "2026-10-13T00:21:09+08:00",
+          "title": "chore(vnext): upgrade runtime to 0.24.8",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "3d72aac95a1f8bfc7fe3089797e868c28a185454",
+          "parents": [
+            "4d586e0f2dab1fef9d2c273b770796b63a7d873d"
+          ],
+          "author_time": "2026-10-13T15:57:42+08:00",
+          "committer_time": "2026-10-13T15:57:42+08:00",
+          "title": "fix: clear recovered connection hints and reject invalid registrations",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "d3b71779ecd4ad2aa52cfd04738995030dabd0a6",
+          "parents": [
+            "3d72aac95a1f8bfc7fe3089797e868c28a185454"
+          ],
+          "author_time": "2026-10-14T15:24:34+08:00",
+          "committer_time": "2026-10-14T15:24:34+08:00",
+          "title": "chore(vnext): upgrade runtime to 0.24.10",
+          "ancestor_of_baseline": true
+        },
+        {
+          "sha": "a78fe55e033bbcb6db816acd2c801de5aa28a081",
+          "parents": [
+            "d3b71779ecd4ad2aa52cfd04738995030dabd0a6"
+          ],
+          "author_time": "2026-10-15T00:45:58+08:00",
+          "committer_time": "2026-10-15T00:45:58+08:00",
+          "title": "chore(vnext): upgrade runtime to 0.24.11",
+          "ancestor_of_baseline": true
+        }
+      ],
+      "actual_delivery": "S1网络与IPC失效提示按generation/conversation清理，S2真实registration未知/撤销拒绝，S3真WS/受控IPC/A-B-new局部验证；随后仅vNext升级",
+      "limits": "3d72aac只改4个Codex Kotlin+registrationManager和相关4测试及材料；不修终端Ctrl/首输入、PDF、Plan options、Skills覆盖、文件contentURI、大历史详情。S3 manifest13源码/测试及server.js与当前同hash，可接局部证据，不整REQ PASS",
+      "sources": [
+        {
+          "path": "docs/product/history/maintenance-20261011/task20260868-close/closure-20261013.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "docs/product/history/maintenance-20261011/task20260868-close/local-evaluation-20261013.md",
+          "storage": "git-file"
+        },
+        {
+          "path": "docs/product/history/maintenance-20261011/task20260868-s3/source-manifest.json",
+          "storage": "git-file"
+        },
+        {
+          "path": ".workflow-system/records/events/key-dd98bdeedf29d71c36dbc48dc774837f36555aea1f882afe36defcb5cc571068.json",
+          "storage": "git-file"
+        }
+      ],
+      "association": "confirmed-by-task-document/event-and-commit-scope"
+    }
+  ],
+  "git_ancestry": {
+    "method": "git merge-base --is-ancestor; read-only",
+    "all_selected_commits_ancestors_of_baseline": true,
+    "selected_sequence_edges": [
+      {
+        "ancestor": "cecee23d8e36d0c3914b53eaed9f85ada6e49157",
+        "descendant": "19ef94c54f75ce6283d5d8cf417e685f24fc5330",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "19ef94c54f75ce6283d5d8cf417e685f24fc5330",
+        "descendant": "1b37d812a879046bca8f89c3b180149199056e39",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "1b37d812a879046bca8f89c3b180149199056e39",
+        "descendant": "21b6d423d5e47a95bf64e5f4cd3df5970bc5f2b4",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "21b6d423d5e47a95bf64e5f4cd3df5970bc5f2b4",
+        "descendant": "4646e3e9c4d2cfb2dfceb64b8c2c838a61682b76",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "4646e3e9c4d2cfb2dfceb64b8c2c838a61682b76",
+        "descendant": "0874ecf6fe12783858257ae0b9a39a5d48754c5b",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "0874ecf6fe12783858257ae0b9a39a5d48754c5b",
+        "descendant": "a89a3e433cc31168fa064a26f2302a019ec9b388",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "a89a3e433cc31168fa064a26f2302a019ec9b388",
+        "descendant": "a7093245066edd8ab13f1a8a4c28aea58b045882",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "a7093245066edd8ab13f1a8a4c28aea58b045882",
+        "descendant": "e5e0cc29d9f3ea3eeaf58b2fd690d699e762941c",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "e5e0cc29d9f3ea3eeaf58b2fd690d699e762941c",
+        "descendant": "be30c7f0a91562d3a63702693c5f86a95a46e585",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "be30c7f0a91562d3a63702693c5f86a95a46e585",
+        "descendant": "a94dcbcae9a115f1fb201d9acf861c92919f1f77",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "a94dcbcae9a115f1fb201d9acf861c92919f1f77",
+        "descendant": "eaa30190d43593416ec82c66303677ebf3591c01",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "eaa30190d43593416ec82c66303677ebf3591c01",
+        "descendant": "5cf848879b57b5b1b3ccb9ca3439eef89547f97d",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "5cf848879b57b5b1b3ccb9ca3439eef89547f97d",
+        "descendant": "bef0274a08f5f60ff3bb6a39ee0c60f779dad92d",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "bef0274a08f5f60ff3bb6a39ee0c60f779dad92d",
+        "descendant": "b03f673e052ed89914e5dc525ff95d03b30f17a0",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "b03f673e052ed89914e5dc525ff95d03b30f17a0",
+        "descendant": "5a3214a1e63a0e2c94c846ded3f1abb1127c727e",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "5a3214a1e63a0e2c94c846ded3f1abb1127c727e",
+        "descendant": "7a167711950710b05f3e84c8d3ad975df1c6ab0c",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "7a167711950710b05f3e84c8d3ad975df1c6ab0c",
+        "descendant": "9409b35a5b31afa37dc39a4159ef7181bdec81fb",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "9409b35a5b31afa37dc39a4159ef7181bdec81fb",
+        "descendant": "20b79197ce8889294c7a12585ebe3ae008fac11d",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "20b79197ce8889294c7a12585ebe3ae008fac11d",
+        "descendant": "7282a1f1e520cfd9ec6c5e9b4e70b7bd3b364b32",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "7282a1f1e520cfd9ec6c5e9b4e70b7bd3b364b32",
+        "descendant": "f8125dd54fadb61e30f2139ba7b0791b62d8e33f",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "f8125dd54fadb61e30f2139ba7b0791b62d8e33f",
+        "descendant": "c1b512da39580b7efd1755b720933ccd6add4286",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "c1b512da39580b7efd1755b720933ccd6add4286",
+        "descendant": "5285ec205b91ac56838679651819c6b7aef87e81",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "5285ec205b91ac56838679651819c6b7aef87e81",
+        "descendant": "eae82f5cceb0dccb6c6c3526c882c4e548529069",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "eae82f5cceb0dccb6c6c3526c882c4e548529069",
+        "descendant": "42d7831a6ab4325dd0a26f1d2bd0813944f05d60",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "42d7831a6ab4325dd0a26f1d2bd0813944f05d60",
+        "descendant": "da77150a4be6d85c6e4bc7cc40f28df8550ff7f9",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "da77150a4be6d85c6e4bc7cc40f28df8550ff7f9",
+        "descendant": "00afa798a39674e7e74be5de20afed6acc9f05fb",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "00afa798a39674e7e74be5de20afed6acc9f05fb",
+        "descendant": "d596bf629baa4a82a75cc1cc319664fa647c1c37",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "d596bf629baa4a82a75cc1cc319664fa647c1c37",
+        "descendant": "f8a6635c1e8d00f236631e7e278bd60893ac74bc",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "f8a6635c1e8d00f236631e7e278bd60893ac74bc",
+        "descendant": "f33bfb912e790bfe2a77e170ace5a4b30057bd86",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "f33bfb912e790bfe2a77e170ace5a4b30057bd86",
+        "descendant": "9da94e2d0c7eef250f7aa511d694edf1d32f7332",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "9da94e2d0c7eef250f7aa511d694edf1d32f7332",
+        "descendant": "2322da503f12dc484748f80e9264e9b1f7453926",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "2322da503f12dc484748f80e9264e9b1f7453926",
+        "descendant": "4f75e40f1abbd7f95cc6f579897807daf311442c",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "4f75e40f1abbd7f95cc6f579897807daf311442c",
+        "descendant": "89259dec5566ebe1827424083efd92b080d17fb0",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "89259dec5566ebe1827424083efd92b080d17fb0",
+        "descendant": "33c6dd7a588a361a86351c510b15fe0e4a0e26fa",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "33c6dd7a588a361a86351c510b15fe0e4a0e26fa",
+        "descendant": "7e32943de2fe889f6336082bc91e8942b69aa2ea",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "7e32943de2fe889f6336082bc91e8942b69aa2ea",
+        "descendant": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "29a199d2eb3faa8838185d1577c40f0ec4779e00",
+        "descendant": "eb1de240357282aa346800c9d7553ae2c729eefd",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "eb1de240357282aa346800c9d7553ae2c729eefd",
+        "descendant": "ed8dec26ae035cc1614b75c31a21f8c7160e95c8",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "ed8dec26ae035cc1614b75c31a21f8c7160e95c8",
+        "descendant": "bc7ff0a715c193bc5063b46c5ce035a8656ec822",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "bc7ff0a715c193bc5063b46c5ce035a8656ec822",
+        "descendant": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "241becbc2e72f3a1c90970e47f7e95ccf0021dba",
+        "descendant": "2c9ff5e5e5574dc34ab5c6280f30634b15e6394f",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "2c9ff5e5e5574dc34ab5c6280f30634b15e6394f",
+        "descendant": "ee5d491204f9c684b8c90cb2a5ae60943db9f026",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "ee5d491204f9c684b8c90cb2a5ae60943db9f026",
+        "descendant": "0bf998452a3f86afa3d68bd0e43d3d9c515499ed",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "0bf998452a3f86afa3d68bd0e43d3d9c515499ed",
+        "descendant": "19bf3121203ba17ad21147ffe02877d50a22d4a0",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "19bf3121203ba17ad21147ffe02877d50a22d4a0",
+        "descendant": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "60c507f6a4ac5573e96028429d24684d1f3e0b5e",
+        "descendant": "026892bb02a44c6664dc96e62acb41428422a310",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "026892bb02a44c6664dc96e62acb41428422a310",
+        "descendant": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "1d762bb3f8ed3f0f972a47b7edb78f0615220e7f",
+        "descendant": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "fe3969f28b1b8934d2368f0b5b4a8b1a12b35f71",
+        "descendant": "6e04e4ad07c73897683a95265f15eade042e9076",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "6e04e4ad07c73897683a95265f15eade042e9076",
+        "descendant": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "7ce1d08e6dbb7863d5b95fb992086f1b37637488",
+        "descendant": "f2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "f2fc146d7a5099f9871f3af8e6a1cd3ee52b59b8",
+        "descendant": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "589a62a78c6214fea13e7c5eecac5466d64d7a5d",
+        "descendant": "714379dafa7eedb3517d5d0550518faca969966c",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "714379dafa7eedb3517d5d0550518faca969966c",
+        "descendant": "32c6b66179ac314321540fab3b0a82b56050e317",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "32c6b66179ac314321540fab3b0a82b56050e317",
+        "descendant": "488dc6c9e597ef096f617d17499fa8e048306c06",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "488dc6c9e597ef096f617d17499fa8e048306c06",
+        "descendant": "0618cafcb12f73d33b8699b8d9bfa76b4ee55e1e",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "0618cafcb12f73d33b8699b8d9bfa76b4ee55e1e",
+        "descendant": "786b81ffdb999e956ca205b0cfc8b01a334f0df0",
+        "is_ancestor": true,
+        "direct_parent": false
+      },
+      {
+        "ancestor": "786b81ffdb999e956ca205b0cfc8b01a334f0df0",
+        "descendant": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+        "descendant": "3d72aac95a1f8bfc7fe3089797e868c28a185454",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "3d72aac95a1f8bfc7fe3089797e868c28a185454",
+        "descendant": "d3b71779ecd4ad2aa52cfd04738995030dabd0a6",
+        "is_ancestor": true,
+        "direct_parent": true
+      },
+      {
+        "ancestor": "d3b71779ecd4ad2aa52cfd04738995030dabd0a6",
+        "descendant": "a78fe55e033bbcb6db816acd2c801de5aa28a081",
+        "is_ancestor": true,
+        "direct_parent": true
+      }
+    ],
+    "note": "direct_parent=false表示中间有未列提交，不是断链；保留merge父列表。"
+  },
+  "event_milestones": [
+    {
+      "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+      "display_id": "TASK-004",
+      "kind": "executions",
+      "step_id": "S3",
+      "ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-29T07:16:58.075Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-e0162f7c7a703a20ad89597cb0f6a66b2de5a64ac2dc6f23f6ccea2169e4b3e7.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 386,
+        "record_sha256": "8e1db8540494c86e8f5c0faa5bf54ad1f14f3d1dd2e352696f1e05f97fe5481a",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "legacy-doc-fdd730cf99bb383419d74988",
+      "display_id": "TASK-004",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-29T08:16:07.170Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-e08526b3c8735b7d386e9646487feb657dd66d468f56308ceb54b0aef26d94cf.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 387,
+        "record_sha256": "b857a11067ed8380c15dce6ab52bb9efffb11c8a366313c66f350aaac00e92bd",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-29T08:39:42.866Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-005f309a3e41c0772ba6c92bae44fd759cf28acd7c39768ea03e22c269d9717b.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 111,
+        "record_sha256": "4c59acc0705f0140894178e4a1683fe0599070185a0c4fb34de72acb28e86e31",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-29T08:54:36.989Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-9a54dcf832813570ce4778b1e5718ea49c7795d352e895267d5bfb327a7442bf.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 293,
+        "record_sha256": "e425ae980db2ba7189298b8ba107cdded347050812cfaad4a62ac253eb255171",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-29T09:11:40.091Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-bdb602dbab52ddebabed3802a19e2d6cdf4e3875b446b641d428d14fbfd0e5f2.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 333,
+        "record_sha256": "61678d1c1a175ff2d75de32ffc79c01afa044f71423ef92ebaa1c19b5e8d3688",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-c6c174c4ba8d5a4953340280937b11003902d1d28ca3c6f783c4ee3a6b00f5f1.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-29T16:21:38.863Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-c6c174c4ba8d5a4953340280937b11003902d1d28ca3c6f783c4ee3a6b00f5f1.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 347,
+        "record_sha256": "1a407a883400586ee56ed8564563cfe4b5d5b2c7f7651b957f6ccf4188a3221f",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-c6f1cf87a1afebfdd6a736b3f758d8f2ac9c2e440adc8b694b6fea73ffbd6c24.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-29T16:45:08.505Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-c6f1cf87a1afebfdd6a736b3f758d8f2ac9c2e440adc8b694b6fea73ffbd6c24.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 348,
+        "record_sha256": "fd2033b50f9cae281092b4f1c997d2ab7635157dbe4593aca48a3744849ee387",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-5da390e578b18c7950ab2ecd4bbc75c261e658587784e525a42d432669cdd81f.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-29T17:04:01.827Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-5da390e578b18c7950ab2ecd4bbc75c261e658587784e525a42d432669cdd81f.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 217,
+        "record_sha256": "02c4b5936b4019b9f56bdceaff15f83a91e6a36dc838f22f3ed8e99e47fd8ddb",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-2c0ccd20d3adcf1ac35e9ede5252704ece0615cb541a684e030a8f908775846c.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T05:02:04.378Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-2c0ccd20d3adcf1ac35e9ede5252704ece0615cb541a684e030a8f908775846c.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 155,
+        "record_sha256": "fccc0c9f567e1400a70e12895b71e3a13639034a6ab9fea495b755b78c826c79",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "dispositions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T05:16:54.032Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-2f752b12ea801d28e4959cce67a25f828a51e70f133b783416062823298915c8.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 162,
+        "record_sha256": "d29d89c6341757903fa47a1f0df6696a49fd13aa73ca23c12f03d2b2da487c10",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-b179a6e505cedd3993ef2790bc45178cdd736df1b1ef9b8b8833e9221ea17430.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T05:49:17.388Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-b179a6e505cedd3993ef2790bc45178cdd736df1b1ef9b8b8833e9221ea17430.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 321,
+        "record_sha256": "884fecc8247ae4b8fe016ef465cb18048b33cbd4d31e8805d2ae9e4ac08fe7bd",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T06:14:12.138Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-31fc8142618369011343cb966e6cc07aecb4657a63301c13e722fdc5093a87f8.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 164,
+        "record_sha256": "dd20d1ed1bf530167a90eeecd9df86e2d8ffe396b413aaba178d8ac8022736c0",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "adoption",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-d541cb97ed966f0411f7d9df6baeb4e447d062044e94dba489a3dd8fd14590bd.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T06:25:50.595Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-d541cb97ed966f0411f7d9df6baeb4e447d062044e94dba489a3dd8fd14590bd.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 365,
+        "record_sha256": "6cd40e884ad2dd2c34f8d1951e84b6b884c5b002be6cb1dbacb2aab1e64eb43e",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-e0af9387d83643740bc55919abce22c16b3dd8a11f1dce91d399b994fcea084b.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T06:45:02.306Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-e0af9387d83643740bc55919abce22c16b3dd8a11f1dce91d399b994fcea084b.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 390,
+        "record_sha256": "35661cd5e5a588bb0d1d3b1f969b56a1c18bfdbe465ae7fc951a072ee2a3e058",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-7614d3975c6c70d363fe32820628d1b412a949ee483b4378dff747b0d584f18b.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T07:25:56.472Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-7614d3975c6c70d363fe32820628d1b412a949ee483b4378dff747b0d584f18b.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 235,
+        "record_sha256": "0940c9456a2522db910cdb9d59379e5a27b43d9286f6c351a8a7a7ab3e8131bb",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-c69e4323d056ef05d8ac264d844c03c247e278db539bc2ea47b333a89e4f3f44.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T08:28:18.771Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-c69e4323d056ef05d8ac264d844c03c247e278db539bc2ea47b333a89e4f3f44.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 346,
+        "record_sha256": "17ebe77578b5de1e800c44f60382ea46623135107f5d21aa8f6c3c1cc631a7b4",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T09:14:07.119Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-7d0094626a98543689eba824c8d7b486e2d8b2ffd1b55e990cc54a2aab9ebfef.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 242,
+        "record_sha256": "276765c5eeebc48fa217769e650916760c827a69d5f43fe8e62930b9e5e80985",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "executions",
+      "step_id": "S3",
+      "ref": ".workflow-system/records/events/key-2c7b6dc094697782c3c71694b3b6f629f1478c1db23be359922bd0b5537fff7d.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T09:54:41.332Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-2c7b6dc094697782c3c71694b3b6f629f1478c1db23be359922bd0b5537fff7d.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 157,
+        "record_sha256": "6ba9cb343ef2a3215496e3a3233b8f5482d91fadf4e7bf14f8fcecae1fbe1d4a",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "executions",
+      "step_id": "S3",
+      "ref": ".workflow-system/records/events/key-b8abacef93150a2c569748f45ee35b71588a12556dc8f8829388307c5f49abf1.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T12:15:53.524Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-b8abacef93150a2c569748f45ee35b71588a12556dc8f8829388307c5f49abf1.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 327,
+        "record_sha256": "f1871ade80d55d86989b73066873a6220ee31f071b749f70c4ffedad39c81c5c",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "executions",
+      "step_id": "S3",
+      "ref": ".workflow-system/records/events/key-a92b9f06dcb48c219d68320b621b30ce37743eb429cef441b07f06d05b09fd92.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T12:53:48.052Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-a92b9f06dcb48c219d68320b621b30ce37743eb429cef441b07f06d05b09fd92.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 304,
+        "record_sha256": "936988359cd59ea3ee976da0235c15bc1c136cb2e62e7760eed3d84aa9300c71",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-751a3f4ef6d9d4cd1c08b99ec1b0b963",
+      "display_id": "TASK-20260830",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-9315aa5f56fdf91a7d40826f4d804242411c2d30690ca05178394be9475ec93c.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T13:25:31.054Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-9315aa5f56fdf91a7d40826f4d804242411c2d30690ca05178394be9475ec93c.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 277,
+        "record_sha256": "c9149347d1cfd945b166490f39df320bb4acda43f354be586ad4ee7f170b5d57",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-842adb4b99da17473bc6a06d4d488f5f4537220720dc4d4a83702bf3e8e13f4f.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T13:43:33.754Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-842adb4b99da17473bc6a06d4d488f5f4537220720dc4d4a83702bf3e8e13f4f.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 254,
+        "record_sha256": "43511c714c8299f2c8ab17fd44a2f591f7c2b4a697b29a8178169b5d8cbd1540",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-cbc083765e32426798a220655f9ab660afa2d0ecc401bc777a957d398937398f.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T14:46:40.645Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-cbc083765e32426798a220655f9ab660afa2d0ecc401bc777a957d398937398f.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 354,
+        "record_sha256": "343cb0861b463bef8a4d9ac0daf64fa5e7af3650133133c1fdf37b8fccf66907",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T16:16:51.168Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-24436d5fd1f6e4a8fd44381dc8a997b37f51512561ac77999e9d5e996a517650.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 146,
+        "record_sha256": "075a9a9f858346df696ec721bdad022ba743e1f3b970190e9d10f58ab2f6b23a",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "adoption",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-f51e7610b09cf057dbe07e1bd0391d6aa451e06bea629572b7b9bcf5c4fc3f61.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T16:18:53.512Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-f51e7610b09cf057dbe07e1bd0391d6aa451e06bea629572b7b9bcf5c4fc3f61.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 414,
+        "record_sha256": "c01b10452d854144097bc2ef919c6ffaff0558bf7a58f1e2ab144a9acdbc1b32",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-585fea80c03ac11b86aa9a07a548cef66acd890d4b58e1dfaf1c64fa9b1ed8f0.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T17:02:01.362Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-585fea80c03ac11b86aa9a07a548cef66acd890d4b58e1dfaf1c64fa9b1ed8f0.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 209,
+        "record_sha256": "1c737b5a9ead83a39572fa31f5edf4365b89e2c4ed1be40f879e89ea64a53506",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T17:25:25.985Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-54725148078471b7680b67ce2478e86f76f9450fe3c3c61c20eb5b6b2fd82a59.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 201,
+        "record_sha256": "bbcf36bc4d963e4ec4dbda6a796d3b5616a4b5bb02b49904e31eda963d92a70d",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-5065567fa5c67f074da79a772807cc1bf3b83fb21f5d35be463660ec86def497.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T17:46:11.983Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-5065567fa5c67f074da79a772807cc1bf3b83fb21f5d35be463660ec86def497.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 197,
+        "record_sha256": "3dc11bf9fb7ec48471531b9fc8550df9e08d41032a46f8a6541fce2df65b3d13",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-56abf257b1b774cbef4fc6d21f08e7ed9f6c77fafc2c8a2fc1acc9f4a1270195.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T18:15:31.714Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-56abf257b1b774cbef4fc6d21f08e7ed9f6c77fafc2c8a2fc1acc9f4a1270195.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 204,
+        "record_sha256": "e26f6a758b7049078803b11fd6ae9523d94a339bd3b0dd28823ef0ec913b50ad",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-2d86332d4c64885bb8047c06afdc58b1114d2fba20c82f1e3c1137286a68cb05.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T18:41:31.910Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-2d86332d4c64885bb8047c06afdc58b1114d2fba20c82f1e3c1137286a68cb05.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 159,
+        "record_sha256": "fc225f3a59329d1f9279aec9fe5e3022d32b114b39d953caf87e380b205409c5",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json",
+      "legacy_import": false,
+      "recorded_at": "2026-09-30T20:08:46.050Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-c40bb405309562b7c3c47d176c273dc75761c448c0fcb91541237b1c12658fe8.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 340,
+        "record_sha256": "91324f74f121937f7c29447099b39f54a677487f2946a90b2130d35381caf265",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-7ec873f6b3f384e2d6336ba998f7d0ac469a9cdd78fda6bc173b0b47b6c943f5.json",
+      "legacy_import": false,
+      "recorded_at": "2026-10-02T03:59:19.521Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-7ec873f6b3f384e2d6336ba998f7d0ac469a9cdd78fda6bc173b0b47b6c943f5.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 245,
+        "record_sha256": "bed265f995e91b5baa0f006e64c6afe251936125e47151c5204f9a7c3285c07f",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-fd6d130f9dc0afb35fbf55cf5f50b895869dddb4c86c671bbb90c0947e74944f.json",
+      "legacy_import": false,
+      "recorded_at": "2026-10-02T04:22:33.560Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-fd6d130f9dc0afb35fbf55cf5f50b895869dddb4c86c671bbb90c0947e74944f.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 427,
+        "record_sha256": "7c2588c7436f5a16b465b876799095307f8614b7e28594a09e5f987db2ff6b7a",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S3",
+      "ref": ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json",
+      "legacy_import": false,
+      "recorded_at": "2026-10-02T09:38:50.324Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-de1398e41bc2b1e8dac540af241b96fdac2d2970be3e5838899bb035606fb589.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 381,
+        "record_sha256": "ca18bcd3c349d96fad7ca5291895b92d61899ed67c9595ebae02245b02024a66",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "executions",
+      "step_id": "S4",
+      "ref": ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+      "legacy_import": false,
+      "recorded_at": "2026-10-02T10:43:17.189Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-f23d5b45ecd3c11aefb2064678f4d5de449d9b1289f382c4952aa1dc072ba0e0.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 413,
+        "record_sha256": "10d17f008e4c0f31c61799e833baa20a21e174a6a1034616d40c835353959c4f",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7a4566ccf322e08968cd5c7935cf61dd",
+      "display_id": "TASK-005",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-dbec71588bac0244303f6bc3daeccbcc0c9d7247e490cf74dd19ce73d0d24e60.json",
+      "legacy_import": false,
+      "recorded_at": "2026-10-02T15:31:07.254Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-dbec71588bac0244303f6bc3daeccbcc0c9d7247e490cf74dd19ce73d0d24e60.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 376,
+        "record_sha256": "a278afe179a0c4156756adadacc8a11447f738ed7d5198b8e05f99cd99aa9ec9",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-24e49edd9f0d1d7ba5734cb7d0bbe80192d84d7e5fe6fe809f2627716f936dfb.json",
+      "recorded_at": "2026-10-02T17:58:26.254Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-24e49edd9f0d1d7ba5734cb7d0bbe80192d84d7e5fe6fe809f2627716f936dfb.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 148,
+        "record_sha256": "181f241917ffe1d3d92ff895c5f28198bfe433cae75d47c3970f95d688e32db0",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+      "recorded_at": "2026-10-02T18:22:23.153Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-36aa5482134317528d5ee9267276349064482246681c2a9d35a41854d49ad98e.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 173,
+        "record_sha256": "94cc61e667ff94b058f22df9471fd980344ad27bdb05da2169b894849dacf41d",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "adoption",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json",
+      "recorded_at": "2026-10-02T18:39:52.973Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-f831fe465a80257eb5d21ecb7b6f65b61890e1db3afc00e1d8ea83b26b27460b.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 423,
+        "record_sha256": "700db58cd25929e0b1449e6422a9cb3eaa44326e6f31a6da6d3f285051c02b08",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-8dbc66430516b40fcb46fb6dbc50b56f728e81b33b86ae4b9c6ee9a358907955.json",
+      "recorded_at": "2026-10-02T19:12:30.902Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-8dbc66430516b40fcb46fb6dbc50b56f728e81b33b86ae4b9c6ee9a358907955.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 272,
+        "record_sha256": "fdfe317b9f48f205d7b96b5f714d4c56413fdb59a92bb682033faea037a4b215",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-5f905bc784d5c8156da8bd91a6a9029ea02f7a52389aa6e88dab9d67b85aebf9.json",
+      "recorded_at": "2026-10-02T20:04:55.559Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-5f905bc784d5c8156da8bd91a6a9029ea02f7a52389aa6e88dab9d67b85aebf9.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 219,
+        "record_sha256": "ebb0aa8faafb160cf1d6ea941608385edfc8aca74e566d474e3a9eadef8e1022",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "executions",
+      "step_id": "S3",
+      "ref": ".workflow-system/records/events/key-2ca151f99db0ae2a1a48fe59ab4e8df4faf81bf2e36b8bba846d07f813d691af.json",
+      "recorded_at": "2026-10-03T09:16:00.510Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-2ca151f99db0ae2a1a48fe59ab4e8df4faf81bf2e36b8bba846d07f813d691af.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 158,
+        "record_sha256": "47deef481763f8eb2b6d3c349fd80c9db4370c9872c82aa1f2287f41220b7b2c",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "executions",
+      "step_id": "S4",
+      "ref": ".workflow-system/records/events/key-80adab6cdb9d564d9c2d729f2e0415a0b66e64d0871efb83c8bc599215602030.json",
+      "recorded_at": "2026-10-03T18:44:04.581Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-80adab6cdb9d564d9c2d729f2e0415a0b66e64d0871efb83c8bc599215602030.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 247,
+        "record_sha256": "56d1868c95135037110b4ac00ae0eeedc21de9f21e81ad1f4684a86164b1a398",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "executions",
+      "step_id": "S4",
+      "ref": ".workflow-system/records/events/key-8c69801a7b6a494d76648900f9090141231eb2f63462fc5966ab2f67eab2e8e4.json",
+      "recorded_at": "2026-10-03T19:07:11.090Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-8c69801a7b6a494d76648900f9090141231eb2f63462fc5966ab2f67eab2e8e4.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 270,
+        "record_sha256": "3340ec1669cfe10ca22a66a5a5a4753da6aeb5ea8abfc76d336c9ad89e3e72bc",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "executions",
+      "step_id": "S5",
+      "ref": ".workflow-system/records/events/key-26ddca1b4078a7ec73313b6c7dc8a8cc45d37592dbadb757bf18a01a0e7b3332.json",
+      "recorded_at": "2026-10-04T09:48:55.768Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-26ddca1b4078a7ec73313b6c7dc8a8cc45d37592dbadb757bf18a01a0e7b3332.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 149,
+        "record_sha256": "ff76ad94752d06effa13411a38776be2194eb4dfba9bb6e27984664b36b5bf41",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "executions",
+      "step_id": "S5",
+      "ref": ".workflow-system/records/events/key-e6906d8b7bdeaf575fab4a136ea2f140c1c238f18a6f24c4c6b46f48fea716ac.json",
+      "recorded_at": "2026-10-04T10:13:48.927Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-e6906d8b7bdeaf575fab4a136ea2f140c1c238f18a6f24c4c6b46f48fea716ac.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 397,
+        "record_sha256": "ef8456f9c75cad6ffc8985c213a0c5c5b62c2b2691c5a5504ea094e213978470",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "executions",
+      "step_id": "S6",
+      "ref": ".workflow-system/records/events/key-239872f59e75b6579bac30729f9c7afe739a9ead35939b93fd367d560e03a234.json",
+      "recorded_at": "2026-10-04T15:51:24.037Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-239872f59e75b6579bac30729f9c7afe739a9ead35939b93fd367d560e03a234.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 143,
+        "record_sha256": "ff9a85277df3bc6c8e822017ccf35605c89586683540ef88507214d583ab49f8",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-25654b249109f357a559899562804c15",
+      "display_id": "TASK-20260831",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-8464c4002ea41b1b57974aaf26a47b116e56a5f8f029fc6e7fc0074df0158a68.json",
+      "recorded_at": "2026-10-04T16:10:14.785Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-8464c4002ea41b1b57974aaf26a47b116e56a5f8f029fc6e7fc0074df0158a68.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 256,
+        "record_sha256": "22ee0f9837348c0cf89fe0b753d2132ab07b558a50a534dbcc6ac8d9c147bf45",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+      "recorded_at": "2026-10-04T18:36:37.876Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-883610b55d72c5bf14820162de6216e4bf8c367d310b5ee5c262ed9f6ae323f0.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 262,
+        "record_sha256": "5b4c134e77afe433728515cd668e1c194be90f26ad621466bfe72c7af4d08b00",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-857c88fe513282c2114ba4795cbdbc79b11b873e410d8821b987100ae6fe0bba.json",
+      "recorded_at": "2026-10-04T19:08:12.381Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-857c88fe513282c2114ba4795cbdbc79b11b873e410d8821b987100ae6fe0bba.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 258,
+        "record_sha256": "9d97451429e1c34db0e1422c2b715f31c407cb4c00ba4cd139d465f75084b190",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-248acd0c7d34961431c8c987339c07919fbf316b12d5d8bcca70cb2061cf37d2.json",
+      "recorded_at": "2026-10-05T04:57:26.893Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-248acd0c7d34961431c8c987339c07919fbf316b12d5d8bcca70cb2061cf37d2.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 147,
+        "record_sha256": "b515e599c3f367615cd7a93bc2120604f43731b3eb896da2393aef5e5afbd52d",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-b16597f8fef0ad14ea72f51db11ed6fd6e8676496e0c2ffe63caf7e9f2e6c32b.json",
+      "recorded_at": "2026-10-05T05:52:07.395Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-b16597f8fef0ad14ea72f51db11ed6fd6e8676496e0c2ffe63caf7e9f2e6c32b.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 320,
+        "record_sha256": "42de2013822217a8c15d0958e619ba95b2a297e84f718f9e9bd3d0dcfad3c327",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+      "recorded_at": "2026-10-05T05:54:24.188Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-81e218c75e20e038114c3745822b65db24660581f4d7f6b2751a5bbba3ca7d4e.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 249,
+        "record_sha256": "2eac783a4cd98a8de297c143ec19ec7ddcbae3a533e97f0e404a327e099bf2ab",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-56e67631043abd0af05fa6ce1c8852e2df1e9564c7e919d6233879194db06cd0.json",
+      "recorded_at": "2026-10-05T05:59:14.160Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-56e67631043abd0af05fa6ce1c8852e2df1e9564c7e919d6233879194db06cd0.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 205,
+        "record_sha256": "6ab612b6be7635e9299fd69ad15649f5669775122488a5e307c8b2fa5be8458d",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "adoption",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-c9ee87ca72baea443b6cb1d53f14387af5407d633ad8cdf5988b80c0be34ff1d.json",
+      "recorded_at": "2026-10-05T06:29:35.050Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-c9ee87ca72baea443b6cb1d53f14387af5407d633ad8cdf5988b80c0be34ff1d.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 352,
+        "record_sha256": "f4aace1e97b46c8e9f3def27a997e62dfb6ac736a0be1b40ef8a787299e29380",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+      "recorded_at": "2026-10-05T07:29:40.495Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-1a020f3fadcb0c89b7dfff30169fd074ba05d1124e5665544e7d3ff8d5c5e580.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 135,
+        "record_sha256": "3ef9a5f5b016fe3c39d3ba97eb59f3bf65f47a0db607bac8595ff95f3dd3611d",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "executions",
+      "step_id": "S1",
+      "ref": ".workflow-system/records/events/key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+      "recorded_at": "2026-10-05T09:32:26.519Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-e09204c58ed58bd6aecafaedfad8ca34ea6a9e40b7921851c9a0cb10026f5933.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 388,
+        "record_sha256": "3328dc04cc96aebf6a547d27f81579ac72d08d64416251fbac1b51ffedf478f1",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "executions",
+      "step_id": "S2",
+      "ref": ".workflow-system/records/events/key-debf41cd5061f6e5a4a33043db5815bca9513c7396550d5dcfde38bfc5437308.json",
+      "recorded_at": "2026-10-05T11:34:10.947Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-debf41cd5061f6e5a4a33043db5815bca9513c7396550d5dcfde38bfc5437308.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 383,
+        "record_sha256": "fe142b2e10056bc26d71af0310f66178b9cef82ff255fb0aee54730bad73e2a7",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "executions",
+      "step_id": "S3",
+      "ref": ".workflow-system/records/events/key-133d6c3b6cac6f1b6a502ab2dc2c76c61e198c19ee1324bda700d90326895382.json",
+      "recorded_at": "2026-10-05T18:55:32.494Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-133d6c3b6cac6f1b6a502ab2dc2c76c61e198c19ee1324bda700d90326895382.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 127,
+        "record_sha256": "8801134a2f61ecaaae774943db313fe0495be2a9b7b09697b0878f1f091e2f8a",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "executions",
+      "step_id": "S4",
+      "ref": ".workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json",
+      "recorded_at": "2026-10-06T07:09:13.635Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-704dc7f71fb9b413ceb4f206154c8a7ff9b109823a12239d2b51e883368c263c.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 229,
+        "record_sha256": "64ca365f789eedbeca23fbd3a1b133e7bb1bcedf3a23fafd9f44c606549cd770",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "executions",
+      "step_id": "S4",
+      "ref": ".workflow-system/records/events/key-fe2ea2e3cfa3398d95d7b34abe90be165036f95737eec18f5a0a04e473e120ca.json",
+      "recorded_at": "2026-10-06T10:48:21.333Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-fe2ea2e3cfa3398d95d7b34abe90be165036f95737eec18f5a0a04e473e120ca.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 430,
+        "record_sha256": "417d3e0159f4ea30ba5c1e55de73dabcf337c0198759d004791cb3f7fda49947",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "executions",
+      "step_id": "S5",
+      "ref": ".workflow-system/records/events/key-9066ef26e085cf17840f5df83f588e75059cfb580f6f650d8dc9ef8c6c41fd18.json",
+      "recorded_at": "2026-10-06T12:21:47.221Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-9066ef26e085cf17840f5df83f588e75059cfb580f6f650d8dc9ef8c6c41fd18.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 276,
+        "record_sha256": "263e84437208556cb968214dcd01b1992d0d4683ae3054d2a58a5996eea9e6a5",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-7ff69ba8242c90c52f0b93fa1144a655",
+      "display_id": "TASK-20260833",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json",
+      "recorded_at": "2026-10-06T16:10:36.692Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-ab2831b4bfe6fc017ff681204a3c80c98b0216a9dd0dfa09f10941a255856861.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 309,
+        "record_sha256": "2ff52d93fc480911b12401674a8e790c5e5d07f47d5f3f408d6d9f414ddb9348",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "S2-finish-resumption",
+      "step_id": "S2",
+      "recorded_at": "2026-10-06T17:03:19.242Z",
+      "ref": ".workflow-system/records/events/key-1bf17b543f6a0cd77feda64b334a08e4202b0963e8580459b73c22ab08cb69bf.json",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-1bf17b543f6a0cd77feda64b334a08e4202b0963e8580459b73c22ab08cb69bf.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 136,
+        "record_sha256": "7eb588bfeae69eec75de5f7e5fef95826ff1cc57081eb167328c3636ddbe925c",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S3",
+      "ref": ".workflow-system/records/events/key-caa4ad2a4c543fcbac91cd3b4183dce7bc2022a20a522b3016dd59dce2b6ed35.json",
+      "recorded_at": "2026-10-06T18:07:00.822Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-caa4ad2a4c543fcbac91cd3b4183dce7bc2022a20a522b3016dd59dce2b6ed35.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 353,
+        "record_sha256": "b5668538d27c8e2934bc878a1b23dfc28d94c0f2fc8f84881b8c1eea8e30e107",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S3",
+      "ref": ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json",
+      "recorded_at": "2026-10-06T18:21:46.932Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-84446cf3e9320397d5eb4b52002da9f98e6a9f12733127705641dff1bcf90f29.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 255,
+        "record_sha256": "358a62427b3df58de4c4c6aafe3c5d818e3f904856fe6cc2ebbef3bd152b91be",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S4",
+      "ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+      "recorded_at": "2026-10-06T18:50:46.365Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-8ddef1358f673636db8e4923d31b087c504694e05340b8cb94dd2e0757671df0.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 273,
+        "record_sha256": "3c91671dc09a2499b78ac1e45a1443cf9d6c6b90211cd7b39d3e3b352d2a8a06",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S5",
+      "ref": ".workflow-system/records/events/key-abe07ca136dfe6172d3e6ab2c443d5b54c5d7ef66e0c571b228a5cebb25ad16b.json",
+      "recorded_at": "2026-10-07T04:43:16.742Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-abe07ca136dfe6172d3e6ab2c443d5b54c5d7ef66e0c571b228a5cebb25ad16b.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 310,
+        "record_sha256": "bdde35d5a4a73768f4571c4a990bd4a691333be143ab4832e29a7f64fc4b7a4e",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S5",
+      "ref": ".workflow-system/records/events/key-19dd68e045a40e76c03d34046984656965a34d4f21ce22b7c7b5a41a3693f51c.json",
+      "recorded_at": "2026-10-07T16:22:57.385Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-19dd68e045a40e76c03d34046984656965a34d4f21ce22b7c7b5a41a3693f51c.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 134,
+        "record_sha256": "7eaaea82e65ef5c80e7ed8905d67a761cd5cd8b83ebf70bb9404d87f8808d26f",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S5",
+      "ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+      "recorded_at": "2026-10-07T16:50:56.041Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-d0b8dc2e154ae495d2861d6b345314a0f56fc0c50b8709819f3208d1620f4517.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 361,
+        "record_sha256": "b9693dc6b185e3d00f2af76d3a1f42ab79f528871499f668ef4bbe982e87b95f",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "adoption",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-d99d9cbfdf82571710ab524da759d74872184e4aafe91bd395b6c8b5f35b3d55.json",
+      "recorded_at": "2026-10-07T17:32:21.437Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-d99d9cbfdf82571710ab524da759d74872184e4aafe91bd395b6c8b5f35b3d55.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 373,
+        "record_sha256": "6f8347b1459808233892099ce4341dd2c4df73db1bc7dbe9440ecaad7610a35a",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "executions",
+      "step_id": "S6",
+      "ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+      "recorded_at": "2026-10-07T18:11:26.943Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-29fa58717d0180fac733d3b4915b441a270f74cdf061ae1599b668532c01903d.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 153,
+        "record_sha256": "871ca994d31fcaa782ea654bb98fcbc108d32f7e519f5d987470184d5faccfb8",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-58bc12d9a46b8d84fb6e42888785b402",
+      "display_id": "TASK-20260832",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json",
+      "recorded_at": "2026-10-08T07:06:14.461Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "logical_ref": ".workflow-system/records/events/key-10d87e3cd143d897104386e51c4d8dc8cf171e4e5d4c73f26bfc589438fa3e62.json",
+        "storage": "git-archive-member",
+        "index_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/index-000000.json",
+        "record_index": 124,
+        "record_sha256": "7ad1ade16edf685faf79fb5dc40685ea5c084c4ef0346252ea8afaf85c56bb59",
+        "pack_path": ".workflow-system/records/archives/1ff0d39963575e208eb8fe59afbf82b26a93e4d9918b7ab440d965bba958b98d/pack-000000.bin"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "legacy-doc-03166aa61e365e5f8af1f680",
+      "display_id": "TASK-20260842",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-72f1ac8e88c6f4215c5300f94b9441f6632cc497cd1388f30fb1b55c4317b4df.json",
+      "legacy_import": true,
+      "recorded_at": "2026-10-11T10:07:31.515Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-72f1ac8e88c6f4215c5300f94b9441f6632cc497cd1388f30fb1b55c4317b4df.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "legacy-doc-03166aa61e365e5f8af1f680",
+      "display_id": "TASK-20260842",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-91546f93fc200c972d910fa2163cc6a90dbf4915d72ee20b31173b7f22ba368a.json",
+      "legacy_import": true,
+      "recorded_at": "2026-10-11T10:07:50.550Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-91546f93fc200c972d910fa2163cc6a90dbf4915d72ee20b31173b7f22ba368a.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "20260828-001",
+      "display_id": "TASK-20260845",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-be8d1979ac16a25d5130c4018c805010174eb8571e4412a534e1a03498882422.json",
+      "legacy_import": true,
+      "recorded_at": "2026-10-11T10:09:15.155Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-be8d1979ac16a25d5130c4018c805010174eb8571e4412a534e1a03498882422.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "20260828-001",
+      "display_id": "TASK-20260845",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-552c1c9f84f07949c71b70cff603157a86558e5774b288169deaa1b009c92dc2.json",
+      "legacy_import": true,
+      "recorded_at": "2026-10-11T10:09:34.561Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-552c1c9f84f07949c71b70cff603157a86558e5774b288169deaa1b009c92dc2.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "20260826-001",
+      "display_id": "TASK-20260847",
+      "kind": "plans",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-d3ee3a88876db95de377a7fc4d2fb9416b07bdb0a49737e4e9934e468d6fb356.json",
+      "legacy_import": true,
+      "recorded_at": "2026-10-11T10:10:26.662Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-d3ee3a88876db95de377a7fc4d2fb9416b07bdb0a49737e4e9934e468d6fb356.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "20260826-001",
+      "display_id": "TASK-20260847",
+      "kind": "dispositions",
+      "step_id": null,
+      "ref": ".workflow-system/records/events/key-edc05a925de28b80ccc79a9f9af36750a0b97636de56143e952ae5bd1f026cb3.json",
+      "legacy_import": true,
+      "recorded_at": "2026-10-11T10:10:46.469Z",
+      "time_basis": "原事件 recorded_at，UTC；执行结果登记时间，不是运行开始/结束时间；legacy_import=true时只是历史导入时间",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-edc05a925de28b80ccc79a9f9af36750a0b97636de56143e952ae5bd1f026cb3.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "adopt",
+      "step_id": null,
+      "recorded_at": "2026-10-13T03:23:30.705Z",
+      "ref": ".workflow-system/records/events/key-d1ee8fb9ad2e21aa91b9cf8924de34f5248b473137cd1012139ca74339ac5de3.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-d1ee8fb9ad2e21aa91b9cf8924de34f5248b473137cd1012139ca74339ac5de3.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "execution",
+      "step_id": "S1",
+      "recorded_at": "2026-10-13T03:39:31.787Z",
+      "ref": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-d682e8cde9d718b9237711ef5257adf8634567baafb5abdf743b5188616d05ac.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "execution",
+      "step_id": "S1",
+      "recorded_at": "2026-10-13T04:00:13.956Z",
+      "ref": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-4982538c28e0d517c1d5ab134ef9194f6641446af34f4e3f2dcd33ab63a0a78a.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "execution",
+      "step_id": "S1",
+      "recorded_at": "2026-10-13T04:24:29.770Z",
+      "ref": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-d2e0e494ca0692c884e4ee2f343b54e455c2ff19f9814357dcc42853faaabaf5.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "step",
+      "step_id": "S1",
+      "recorded_at": "2026-10-13T04:32:09.374Z",
+      "ref": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-1cd6ae910b69747e671b0169ba6c32add3d123e4bbc262c5033d40754ecf12e1.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "execution",
+      "step_id": "S2",
+      "recorded_at": "2026-10-13T04:45:40.680Z",
+      "ref": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-600cc7c9dece1f1555e240abc5943c12341f12f9ca1e3af573b4a282383d500c.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "step",
+      "step_id": "S2",
+      "recorded_at": "2026-10-13T06:17:58.784Z",
+      "ref": ".workflow-system/records/events/key-df630f31fe0492b9861c72f857d496640df9d4237d307aabf62834cc6c2fdaab.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-df630f31fe0492b9861c72f857d496640df9d4237d307aabf62834cc6c2fdaab.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "execution",
+      "step_id": "S3",
+      "recorded_at": "2026-10-13T06:50:18.671Z",
+      "ref": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-556f7c4d54a22b94d2657fd6f7a04d0165adb42ea3586e128bdf67960717f371.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "step",
+      "step_id": "S3",
+      "recorded_at": "2026-10-13T07:15:08.295Z",
+      "ref": ".workflow-system/records/events/key-b31468df5c6f964ca7e184af4655638cc03e81334e4bb91c543fcce6eba4c5bd.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-b31468df5c6f964ca7e184af4655638cc03e81334e4bb91c543fcce6eba4c5bd.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    },
+    {
+      "task_id": "task-d211a98b3f7889123b22ace1f99dfacb",
+      "display_id": "TASK-20260868",
+      "kind": "close",
+      "step_id": null,
+      "recorded_at": "2026-10-13T07:25:17.601Z",
+      "ref": ".workflow-system/records/events/key-dd98bdeedf29d71c36dbc48dc774837f36555aea1f882afe36defcb5cc571068.json",
+      "durable_source": {
+        "path": ".workflow-system/records/events/key-dd98bdeedf29d71c36dbc48dc774837f36555aea1f882afe36defcb5cc571068.json",
+        "storage": "git-file"
+      },
+      "timestamp_meaning": "原recorded_at：事实/执行结果登记时间，不是精确运行起止时间"
+    }
+  ],
+  "ordering_recommendation": [
+    {
+      "order": 1,
+      "work": "沿原历史链先排会阻断后续读取/保存的现行明确缺陷：大工具详情截断；832/833已验收局部不得列成未开始",
+      "basis": "采集/持久/provider/App详情存在真实依赖，后续端到端证据需要可读真实内容"
+    },
+    {
+      "order": 2,
+      "work": "完成既有005/831明确保留的自然growth/E07、older、resend、在途隔离和媒体清理的证据核对；先定位现存证据，再决定任何新执行",
+      "basis": "这些未因832三样本或868提示测试关闭；本次不授权运行"
+    },
+    {
+      "order": 3,
+      "work": "并行处理互不依赖的terminal首输入/Ctrl、workspacePDF、Plan/Skills/文件上下文等已知缺口；同一共享能力只排一次",
+      "basis": "不能以历史Task编号把独立现行故障全部排到历史链之后"
+    },
+    {
+      "order": 4,
+      "work": "保留clean-host/外部host已明确延期验证；不因旧未测状态重开已交付代码",
+      "basis": "时间顺序用于证据覆盖，业务依赖与当前影响用于执行排序"
+    }
+  ],
+  "unknowns": [
+    "旧Rust阶段的十月journal时间是导入，已以原归档8/26–27及Git链区分；无法精确到运行秒时不伪造",
+    "9409b35及部分早期收尾提交的具体旧step对应未逐一定位，不新造task绑定",
+    "source_revision常是执行开始HEAD+工作区，不能当产物最终commit；关联依原CR/事件范围及后续commit文件语义",
+    "Git祖先只证包含顺序，不证明产品结果；所有运行结论仍是原报告指定对象"
+  ],
+  "excerpt_policy": "仅保留排序所需事件身份、登记时间和持久来源定位；原source_revision与result在对应journal/归档成员中保留，本摘要不复制完整执行输出。"
+}

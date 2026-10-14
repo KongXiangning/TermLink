@@ -1,0 +1,146 @@
+[
+  {
+    "commit": "67bc2c309983aa3b8db0c26744df8afbf14c63dc",
+    "author_date": "2026-02-23T21:26:04+08:00",
+    "subject": "feat(server): implement session retention phase1 behavior",
+    "parents": [
+      "6f4cbf10c4ec2735c1b934aabf6f448c54431a93"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "f4ce64fce2807f2d9a63eda22063da0717247706",
+    "author_date": "2026-02-24T00:22:20+08:00",
+    "subject": "fix(ws): honor provided sessionId parameter and add regression tests",
+    "parents": [
+      "67bc2c309983aa3b8db0c26744df8afbf14c63dc"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "1899f6de311827140cfb6ba6fe4b15d5b918ec91",
+    "author_date": "2026-03-07T00:25:25+08:00",
+    "subject": "feat: sync session retention changes and codex app repair",
+    "parents": [
+      "46ca7ef2a9fb50a6897cebe92bf33e7d1d7708f0"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "a6ceeec53fadd52c117b4af88c4112be88a359e6",
+    "author_date": "2026-02-24T14:56:41+08:00",
+    "subject": "feat: enhance terminal gateway session handling and Android integration",
+    "parents": [
+      "b367d109ddf06aba55911b0f1e40daf89ad77ff0"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "76e76f80a23f1592f905407602a76be8b1a6269e",
+    "author_date": "2026-02-24T16:20:59+08:00",
+    "subject": "fix(server): restore elevated mode config, gates, and audit flow",
+    "parents": [
+      "88511406a0c51e2693ef6f4b8358cfebeae62de2"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "9ccfd3d1e2afb6b9c73581caa0540ba7add78363",
+    "author_date": "2026-03-31T09:08:43+08:00",
+    "subject": "feat(server): complete REQ-20260222 admin privilege mode",
+    "parents": [
+      "fbb7d7f1d647397f5a79bef497b44962f9c43a7d"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "5b32acaa6766f4a2f3d1bc7edad8c85aab27f64d",
+    "author_date": "2026-03-31T09:15:49+08:00",
+    "subject": "fix(server): address code review findings for admin privilege mode",
+    "parents": [
+      "9ccfd3d1e2afb6b9c73581caa0540ba7add78363"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "ab47cb8baff99c0d7ef324f729b969c297e64958",
+    "author_date": "2026-02-24T22:44:51+08:00",
+    "subject": "feat(android): add external web terminal profile/session POC",
+    "parents": [
+      "76e76f80a23f1592f905407602a76be8b1a6269e"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "d675956cbef54305f7f229abb2990c020580c1d2",
+    "author_date": "2026-03-27T01:40:47+08:00",
+    "subject": "feat(android): complete profile mTLS runtime certificate flow",
+    "parents": [
+      "940191024c914d978976c72cafed76919b2719f5"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "2d1c83bacc42345cc8827800eb478b53210389ee",
+    "author_date": "2026-07-30T15:20:39+08:00",
+    "subject": "修复终端触摸滚动、PTY 快照附加与会话列表体验",
+    "parents": [
+      "366f50665e83651167829dedae68cf69ba33854a"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "c5e73d011027057176e0f2e9c9a59a2dd97a3c92",
+    "author_date": "2026-07-30T16:15:28+08:00",
+    "subject": "终端文本选择 + 长按复制/粘贴",
+    "parents": [
+      "2d1c83bacc42345cc8827800eb478b53210389ee"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "98174ac4dd2eaa9777a6e44d6bbf843d0376a731",
+    "author_date": "2026-07-30T17:25:35+08:00",
+    "subject": "客户端注册：将会话绑定到设备，支持重装/重加配置后恢复",
+    "parents": [
+      "c5e73d011027057176e0f2e9c9a59a2dd97a3c92"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "4d586e0f2dab1fef9d2c273b770796b63a7d873d",
+    "author_date": "2026-10-13T00:21:09+08:00",
+    "subject": "chore(vnext): upgrade runtime to 0.24.8",
+    "parents": [
+      "786b81ffdb999e956ca205b0cfc8b01a334f0df0"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "3d72aac95a1f8bfc7fe3089797e868c28a185454",
+    "author_date": "2026-10-13T15:57:42+08:00",
+    "subject": "fix: clear recovered connection hints and reject invalid registrations",
+    "parents": [
+      "4d586e0f2dab1fef9d2c273b770796b63a7d873d"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "d3b71779ecd4ad2aa52cfd04738995030dabd0a6",
+    "author_date": "2026-10-14T15:24:34+08:00",
+    "subject": "chore(vnext): upgrade runtime to 0.24.10",
+    "parents": [
+      "3d72aac95a1f8bfc7fe3089797e868c28a185454"
+    ],
+    "ancestor_of_baseline": true
+  },
+  {
+    "commit": "a78fe55e033bbcb6db816acd2c801de5aa28a081",
+    "author_date": "2026-10-15T00:45:58+08:00",
+    "subject": "chore(vnext): upgrade runtime to 0.24.11",
+    "parents": [
+      "d3b71779ecd4ad2aa52cfd04738995030dabd0a6"
+    ],
+    "ancestor_of_baseline": true
+  }
+]
