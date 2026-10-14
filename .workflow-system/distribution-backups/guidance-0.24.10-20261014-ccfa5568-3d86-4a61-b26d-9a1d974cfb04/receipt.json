@@ -1,0 +1,25 @@
+{
+  "kind": "same-version-guidance-update/v1",
+  "id": "ccfa5568-3d86-4a61-b26d-9a1d974cfb04",
+  "target_root": "E:\\coding\\TermLink-rust-source-resolution-codex",
+  "version": "0.24.10",
+  "source_manifest_digest": "d29bf187a00f318ea5be1f30f684603f582f18bd669339f8138894009f36753a",
+  "previous_manifest_digest": "0809b16c0cdd48f014c7fe2cbc8dc5c444065486456bea899bd7064d099555aa",
+  "authorization": "版本不递增，更新至目标项目termlink(E:\\coding\\TermLink-rust-source-resolution-codex)以及lawagent",
+  "changed_files": [
+    {
+      "path": ".workflow-system/runtime/support/product-maintenance/references/update.md",
+      "before": "7f2ff3d100f8e4f0c101e356d12a7e67a78a02f63aa7aadfab088f8d0da74737",
+      "after": "714fa941a8c4b86cf8d43d4d8caf365f12d3ff065e0fdc1f3dddde24904e8cc3"
+    },
+    {
+      "path": ".workflow-system/vnext/DISTRIBUTION_STATE.json",
+      "before": "6f5b8b743202d9b5b527749a321b361a809eb377901f83e682f1fade916d8af7",
+      "after": "bc2b00e61d144fdbc7d95537ca7731294bbf20cbdc10e745b7071e165f50e63d"
+    }
+  ],
+  "status": "updated",
+  "read_back_verified": true,
+  "preserved_files": 4894,
+  "completed_at": "2026-10-14T06:21:08.792Z"
+}

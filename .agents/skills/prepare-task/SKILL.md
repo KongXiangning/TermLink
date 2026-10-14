@@ -145,8 +145,14 @@ plan_id is never Runtime plan_ref. Simple requests still prepare directly withou
 a project plan. During prepare retain the returned task_id/event ref and present
 known ownership and optional association recommendations; preparation alone does
 not adopt suggested bindings. In confirm, save bindings for the actually adopted
-coverage using maintain-project references/plan.md within existing maintenance
-authority. Reuse explicit user association or non-association choices without
+coverage using maintain-project references/plan.md and the shared
+references/binding-contribution.md within existing maintenance authority. Both prepare
+recommendations and actual confirm/adoption use that same method: read concrete owner
+obligations and adopted Task scope; new/reclassified v5 bindings carry direct/supporting,
+coverage, reason and actual sources. A suggestion is not execution or adoption. With
+insufficient relationship evidence create no formal binding; leave old unknowns intact.
+Migrate only the affected binding document to v5 and read back the saved fields; an
+existing v4 Roadmap needs no migration. Classification never certifies delivery. Reuse explicit user association or non-association choices without
 asking again; confirmation does not adopt recommendations outside that choice.
 Without a project plan, omit plan_items; do not create a plan just for binding.
 Unknown ownership remains an explicit pending locator; maintenance/exploration can
@@ -158,6 +164,12 @@ preparation. The existing direct product write boundary remains unchanged; a
 read-only request returns pending maintenance locators instead of writing.
 
 ## Result
+
+Implementation Roadmap is optional. For directly selected nearby work, consume only the
+already selected relevant Roadmap and its scoped differences/prerequisites via plan.md;
+do not require creation or whole-project reconciliation before preparing a Task. Keep
+order distinct from actual prerequisite, and do not infer full Requirement delivery from
+earlier Task closure. Missing/unknown Roadmap data is a reported limit, never admission.
 
 Return the actual requested result, affected scope, evidence/record references,
 remaining work and any unsaved/unreconciled data. Preserve existing user decisions

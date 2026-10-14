@@ -40,17 +40,40 @@ be withdrawn with its failure retained; if that failure affects remaining capabi
 describe that actual scope. Never require repairing retired scope before honoring
 new intent, stopping or continuing other authorized work.
 
-For v3 keep root_goal_id an explicit project choice and current part_of/supports
+For v3/v4/v5 keep root_goal_id an explicit project choice and current part_of/supports
 relations distinct from dependencies and historical replaces/derived_from. Adding
 a child retains the parent's identity/scope by default; real replacement needs
 explicit withdrawn coverage and the corresponding old scope/relations changed,
 not just a replaces edge. Preserve any other goal the old item still supports.
 Maintain one project requirement_order: initial adopted decomposition order, then
-append each new batch's v2/v3 requirements in the adopted order when a usable v3
-project exists. Do not migrate the requirement files merely to register order.
+the helper appends successfully saved new v2/v3/v4/v5 requirement IDs in batch/file-item
+order when a unique usable v3/v4/v5 project exists. An explicit order supplied or
+removed in the request takes precedence, including an intentionally empty order.
+Do not migrate the requirement files merely to register order. If project order
+maintenance is pending/failed, retain saved requirements and retry only that update;
+v2-only additions without a usable v3/v4/v5 project keep their legacy save behavior,
+while v3/v4/v5 additions report pending order maintenance. Read back the final project
+and requirement files after the batch; the order follow-up is a separate per-file save.
 Only an explicitly adopted reorder changes existing positions; record its basis
 and old/new order. Dependency, task, work-item and report changes never reorder it.
 Keep all readable unordered requirements visible rather than inventing order.
+
+## Local contribution checks after changed obligations
+
+Use binding-contribution.md after an actual requirement, acceptance, adopted Task
+scope or coverage change affects a related binding. Read both the old obligation
+and the changed one; preserve valid historical attribution instead of assigning
+new obligations retroactively. Reclassify only supported affected relationships,
+under their existing IDs with coverage/reason/sources and necessary prior material.
+Unreviewed relations and unknown old classifications remain readable, not globally
+invalidated. A classification-only correction does not rewrite requirement bodies,
+create a new business requirement, change order or prepare a successor Task.
+
+Maintain delivery separately through reconcile.md; a changed binding is not evidence
+of satisfaction. A failed source check or whole-file byte change is not automatically
+a changed business definition. Only a real authorized obligation/arrangement change
+uses the existing Roadmap maintenance below. Do not require roadmap current before
+saving contribution, and do not replan all work for a metadata correction.
 
 ## Adopted structure in the same maintenance pass
 
@@ -158,6 +181,15 @@ Whole candidates may repair selected malformed fields; retain untouched bad neig
 Actual deletions use the API's precise removal declarations, not implicit renaming.
 
 ## Current decisions and arrangements
+
+After adopted Requirement/Goal/Design changes, use plan.md to identify affected selected
+Implementation Roadmaps by stable IDs and effective relationships. Save authoritative
+definitions and necessary Change first, then reread and maintain affected arrangements
+within authority. Compare definitions/membership even without Change; do not fabricate a
+Change to find manual drift. Unknown ownership is a candidate, not an addition to every
+Roadmap. Explicit deferral takes precedence. Advance planning_baseline only after actual
+impact review; successful definitions remain intact when Roadmap writes partially fail,
+with pending differences rediscoverable on next consumption. Retry only the failed part.
 
 A clear adopted decision within existing maintenance authority updates the affected
 current goal/requirement body, necessary change basis and related arrangement in

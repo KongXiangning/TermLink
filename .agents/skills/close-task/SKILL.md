@@ -135,6 +135,11 @@ Paused/missing PRODUCT, explicit deferral, unavailable evidence or an assessment
 save failure leaves the close intact. Report saved closure and evaluated/deferred
 scope separately; never reopen the task, force new checks or create a repair task
 merely to obtain an assessment. Details and report production belong in reconcile.md.
+If actual closure evidence reveals a wrong contribution or coverage, use the shared
+references/binding-contribution.md method for only that authorized relation correction,
+keeping the binding ID, sources and necessary history. Supporting work closing is not
+owner implementation or satisfaction; direct work closing is not whole-scope delivery.
+Missing classification or a binding save failure never delays or reverses the close.
 Retain any actual parent continuation and selected focus during this local
 evaluation; advice or a maintenance failure never replaces or blocks that return.
 
@@ -165,5 +170,10 @@ with a brief reason. Choose it from the actual outcome and remaining work; use
 already covered by the user's instruction before choosing the route. The route is
 advice, not permission or the only allowed next action. Do not invoke it solely
 because it was recommended or widen validation or external effects without authorization.
+
+Implementation Roadmap differences do not gate closure. Keep scoped delivery reconciliation
+and parent continuation priority; consume a selected applicable Roadmap only when actually
+selecting a new business candidate. Do not scan all requirements, create/focus future Tasks,
+advance planning_baseline or mark a whole Requirement delivered merely because this Task closed.
 
 terminal_boundary: public-entry-terminal/v1

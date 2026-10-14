@@ -73,10 +73,20 @@ without requiring an overall plan.
 
 - First inventory (combine update/plan/reconcile for requested historical business overview) and material sufficiency/prerequisite candidates: `product-maintenance/references/inventory.md`.
 - Current requirements/design/decisions: `product-maintenance/references/update.md`.
-- Preplanning, continuous next-work selection, hybrid planning and actual task binding: `product-maintenance/references/plan.md`.
+- First Implementation Roadmap, preplanning, continuous next-work selection, hybrid planning, v4 reconciliation baseline and actual task binding: `product-maintenance/references/plan.md`.
 - Selected discussion capture, host-model association and recall: `product-maintenance/references/discussion.md`.
-- Observations, scoped remaining work, delivery discrepancies and E6 repair: `product-maintenance/references/reconcile.md`.
+- Existing-requirement rejudgment, observations, scoped remaining work, delivery discrepancies and E6 repair: `product-maintenance/references/reconcile.md`.
+- Shared TaskBinding direct/supporting judgment, no-evidence abstention, same-ID correction and historical protection for every entry: `product-maintenance/references/binding-contribution.md`.
 - Entry missing, old format, write conflict or partial save: `product-maintenance/references/recovery.md`.
+
+A request to reanalyze existing requirements is normal maintenance, using reconcile.md
+and the shared binding-contribution.md method. Separate current/historical obligation,
+relation disposition, scoped delivery and arrangements. Analysis-only writes nothing;
+relationship corrections do not authorize changing acceptance, Task lifecycle, Assessment
+or Roadmap. Honor a local selection or complete an explicitly requested full range in
+recoverable batches, reporting read/judged/unread/unsaved scope. Preserve real Task IDs,
+old unknown bindings and failures; never invent old Tasks or shrink requirements to code.
+No new mode, per-edge approval or mandatory all-project cleanup is introduced.
 
 Read the relevant index, actual candidate bodies and needed sources before making
 business judgments. Keep current/planned/candidate/retired requirements, delivered
@@ -102,6 +112,16 @@ Use reconcile.md for four-value conclusions and local evaluation; the helper's
 selection and digest checks do not make the host's business judgment for it.
 Planning strategies are not Runtime modes. No plan is required to select or prepare
 authorized nearby work; preserve complete requirements and the current task/history.
+Use Implementation Roadmap (项目实施路线图) publicly; keep internal plan/work_items and
+existing filenames. For existing requirements without one, plan.md initializes adopted or
+proposed scope and actual reviewed baseline without recreating requirements or future Tasks.
+Consume the explicitly selected applicable Roadmap at next-business selection, preserving
+real current focus and parent continuation. Read/check roadmap_query compares members,
+definitions and arrangements even without Change. A snapshot_proposal is unreviewed material;
+only semantic impact review can advance planning_baseline. Partial/unread scope stays unknown,
+exact-version deferral reuses the user's choice, and failed saves leave successful definitions
+intact. Differences, absent Roadmaps and old formats never gate Task work or require all-project
+scans on execute-step, close-task or Git. Multiple Roadmaps remain independently scoped.
 Persist necessary decisions in the applicable plan or, without machine-order needs,
 the project body. For requested parseable order use existing work_items in a scoped
 plan, including when no overall plan exists. Clear adopted decisions update affected
