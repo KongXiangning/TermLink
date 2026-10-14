@@ -16596,7 +16596,104 @@ function planTasks(catalog) {
 }
 function impactCandidates(catalog, ids) {
   const relations = reverseRelations(catalog);
-  return { seeds: ids, scope: "direct-candidates-only", candidates: catalog.items.filter((i) => i.usable && (ids.includes(i.id) || relations.some((r) => ids.includes(r.owner) && r.target === i.id || ids.includes(r.target) && r.owner === i.id) || i.type === "plan" && i.metadata.work_items.some((w) => w.targets.some((t) => ids.includes(t.target))))).map((i) => ({ id: i.id, type: i.type, path: i.path, title: i.title, relations: relations.filter((r) => r.owner === i.id || r.target === i.id), task_bindings: i.metadata.task_bindings ?? [] })), judgment: "Agent must read candidate content and decide actual impact; references/inferred links do not imply strong dependency or project-wide invalidation" };
+  const seeds = ids.flatMap((id2) => {
+    const item = catalog.byId.get(id2);
+    if (!item)
+      return [];
+    const target = item.type === "assessment" ? catalog.byId.get(item.metadata.target) : undefined;
+    return target ? [item, target] : [item];
+  });
+  const candidates = [];
+  for (const item of catalog.items.filter((i) => i.usable)) {
+    const reasons = [];
+    if (ids.includes(item.id))
+      reasons.push({ kind: "selected-item" });
+    for (const relation of relations) {
+      if (ids.includes(relation.owner) && relation.target === item.id || ids.includes(relation.target) && relation.owner === item.id) {
+        reasons.push({ kind: "relation", relation });
+      }
+    }
+    if (item.type === "plan" && item.metadata.work_items.some((w) => w.targets.some((t) => ids.includes(t.target))))
+      reasons.push({ kind: "work-item-target" });
+    if (item.type === "requirement" || item.type === "goal") {
+      for (const seed of seeds) {
+        if (seed.id === item.id)
+          continue;
+        const seedBindings = (seed.metadata.task_bindings ?? []).filter((b) => b.state === "active");
+        for (const binding of item.metadata.task_bindings ?? []) {
+          if (binding.state !== "active" || !binding.task.task_id)
+            continue;
+          const shared = seedBindings.filter((b) => b.task.task_id === binding.task.task_id);
+          for (const original of shared)
+            reasons.push({ kind: "shared-task", seed_id: seed.id, task_id: binding.task.task_id, seed_binding_id: original.id, binding_id: binding.id });
+        }
+        const seedSources = implementationSources(seed);
+        for (const source2 of implementationSources(item)) {
+          if (seedSources.some((s) => sourceKey(s) === sourceKey(source2)))
+            reasons.push({ kind: "shared-source", seed_id: seed.id, source: source2 });
+        }
+      }
+    }
+    if (reasons.length)
+      candidates.push({
+        id: item.id,
+        type: item.type,
+        path: item.path,
+        title: item.title,
+        locator: { kind: "file", path: item.path, item_id: item.id },
+        reasons: [...new Map(reasons.map((reason) => [JSON.stringify(reason), reason])).values()],
+        relations: relations.filter((r) => r.owner === item.id || r.target === item.id),
+        task_bindings: item.metadata.task_bindings ?? []
+      });
+  }
+  return {
+    seeds: ids,
+    scope: "direct-candidates-only",
+    coverage: { complete: catalog.coverage.complete, paths: catalog.coverage.paths, omitted: catalog.coverage.omitted },
+    unresolved_seeds: ids.filter((id2) => !catalog.byId.has(id2)),
+    candidates,
+    judgment: "Read candidate obligations and actual evidence before judging impact. Shared tasks/sources are discovery hints, not dependencies, consent or invalidation. Unrecorded relationships may still require local semantic lookup."
+  };
+}
+function implementationSources(item) {
+  const bindings = (item.metadata.task_bindings ?? []).filter((b) => b.state === "active");
+  return collectSources([item.metadata.sources, item.metadata.pending_sources, bindings.map((b) => [b.task.source, b.sources])]).filter((source2) => source2.kind === "file" && (source2.item_id || source2.section || source2.lines || !/\.md$/i.test(source2.path)));
+}
+function sourceKey(source2) {
+  return JSON.stringify([source2.path, source2.item_id ?? null, source2.section ?? null, source2.lines ? [source2.lines.start, source2.lines.end] : null]);
+}
+function assessmentCopyDiagnostics(items) {
+  const groups = new Map;
+  for (const item of items.filter((i) => i.usable && i.type === "assessment")) {
+    const body = item.body.replace(/\r\n|\r/g, `
+`).replace(/^##[^\n]*\n/, "").trim();
+    if (!body)
+      continue;
+    const key = JSON.stringify([item.metadata.target, body]);
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
+  const diagnostics = [];
+  for (const group of groups.values()) {
+    for (const item of group) {
+      const identity2 = evaluationIdentity(item);
+      const copies = group.filter((other) => {
+        const otherIdentity = evaluationIdentity(other);
+        return other !== item && (!identity2 || !otherIdentity || identity2 === otherIdentity);
+      });
+      if (!copies.length)
+        continue;
+      diagnostics.push(diagnostic("ASSESSMENT_BODY_COPY", item.path, `Matching assessment body also occurs in ${copies.map((other) => `${other.path}#${other.id}`).join(", ")}. Keep independent observations; use summary links for mirrors of one current report. No automatic merge or invalidation.`, { item_id: item.id, line: item.line }));
+    }
+  }
+  return diagnostics;
+}
+function evaluationIdentity(item) {
+  if ((item.version ?? 0) < 3)
+    return null;
+  const { applicability, subject: subject2 } = item.metadata;
+  return JSON.stringify([applicability.goal_id, applicability.scope_id, subject2.kind, subject2.value, subject2.revision ?? null]);
 }
 function recallDiscussions(catalog, ids) {
   return catalog.items.filter((i) => i.usable && i.type === "discussion" && i.metadata.record_state === "active" && i.metadata.links?.some((l) => l.relation === "discusses" && l.state === "active" && ids.includes(l.target))).map((i) => ({ id: i.id, title: i.title, path: i.path, summary: i.sections["整理摘要"]?.[0]?.text ?? "", raw_ref: i.metadata.raw_ref, links: i.metadata.links, adopted: false }));
@@ -16723,6 +16820,7 @@ function readCatalog(rootInput, input = {}) {
   if (projects.length !== 1 || projects[0]?.path !== manifest.entry)
     catalog.diagnostics.push(diagnostic("PROJECT_ENTRY", manifestPath, "Expected a unique project entry in the manifest entry document"));
   analyze(catalog);
+  catalog.diagnostics.push(...assessmentCopyDiagnostics(catalog.items));
   catalog.coverage = { ...catalog.coverage, omitted: [...new Set(catalog.coverage.omitted)], complete: !enumeration.incomplete && !catalog.coverage.omitted.length, files_read: catalog.documents.length, bytes_read: bytesRead, max_files: maxFiles, max_file_bytes: maxFileBytes, max_total_bytes: maxTotalBytes, usable_count: catalog.items.filter((i) => i.usable).length, invalid_count: catalog.items.filter((i) => !i.usable).length };
   return catalog;
 }
@@ -17992,7 +18090,7 @@ function isRecord(value) {
 function relationList(value) {
   return Array.isArray(value) ? value.filter(isRecord) : [];
 }
-function sourceKey(source2) {
+function sourceKey2(source2) {
   if (!isRecord(source2))
     return null;
   if (source2.kind === "text" && typeof source2.text === "string")
@@ -18007,9 +18105,9 @@ function sourceKey(source2) {
   return null;
 }
 function hasNewBasis(old, next) {
-  const previous2 = new Set((Array.isArray(old.sources) ? old.sources : []).map(sourceKey).filter((key) => key !== null));
+  const previous2 = new Set((Array.isArray(old.sources) ? old.sources : []).map(sourceKey2).filter((key) => key !== null));
   return typeof next.reason === "string" && !!next.reason.trim() && Array.isArray(next.sources) && next.sources.some((source2) => {
-    const key = sourceKey(source2);
+    const key = sourceKey2(source2);
     return key !== null && !previous2.has(key);
   });
 }
@@ -18020,7 +18118,7 @@ function relationIdentity(relation, field) {
   const locator = { ...task.source };
   if (locator.kind === "file")
     delete locator.sha256;
-  const identity2 = task.task_id ? [task.task_id, task.step_id ?? null] : [sourceKey(locator), task.step_id ?? null];
+  const identity2 = task.task_id ? [task.task_id, task.step_id ?? null] : [sourceKey2(locator), task.step_id ?? null];
   return canonical([identity2, relation.role, relation.coverage]);
 }
 function unmatchedRelations(previous2, next, field, allowUniqueCorrection = false) {
@@ -18265,7 +18363,7 @@ function apply(root, input) {
         if (previous2 && parsed2.version !== previous2.version && operation.migrate !== `v${parsed2.version}`)
           throw new Error(`MIGRATION_REQUIRED: explicitly select migrate=v${parsed2.version} for this document`);
         next.affected = validateProductCandidate(previous2, parsed2, operation, next.affected, catalog2);
-        diagnostics = parsed2.diagnostics;
+        diagnostics = [...parsed2.diagnostics, ...assessmentCopyDiagnostics([...catalog2.items.filter((i) => i.path !== operation.path), ...parsed2.items]).filter((d) => d.path === operation.path && next.affected.includes(d.item_id))];
         newRequirements = parsed2.items.filter((i) => i.type === "requirement" && i.usable && !previous2?.items.some((old) => old.id === i.id));
         explicitOrder ||= suppliesOrder(operation, parsed2);
         baselinePlans = parsed2.items.filter((i) => i.usable && i.type === "plan" && i.metadata.planning_baseline && canonical(i.metadata.planning_baseline) !== canonical(previous2?.items.find((old) => old.id === i.id)?.metadata.planning_baseline));
@@ -18416,6 +18514,16 @@ function run(action, root, input = {}) {
       if (input.source)
         return { ...envelope, root: catalog2.root, project_id: catalog2.manifest?.project_id ?? null, ...readSource(catalog2, input.source, input) };
       const selected = catalog2.items.filter((i) => !input.item_ids || input.item_ids.includes(i.id));
+      let impactIds = input.impact_ids;
+      if (impactIds === undefined) {
+        if (input.item_ids) {
+          impactIds = input.item_ids.filter((id2) => {
+            const item = catalog2.byId.get(id2);
+            return !item || ["requirement", "assessment"].includes(item.type);
+          });
+        } else
+          impactIds = input.assessment_query ? [input.assessment_query.target] : [];
+      }
       return {
         ...envelope,
         status: catalog2.status,
@@ -18434,7 +18542,7 @@ function run(action, root, input = {}) {
         reverse_relations: reverseRelations(catalog2),
         plan_tasks: planTasks(catalog2),
         discussions: input.discussion_targets ? recallDiscussions(catalog2, input.discussion_targets) : [],
-        impact: input.impact_ids ? impactCandidates(catalog2, input.impact_ids) : null,
+        impact: impactIds.length || input.impact_ids ? impactCandidates(catalog2, impactIds) : null,
         sources: input.resolve_sources ? resolveSources(catalog2, input.item_ids) : [],
         diagnostics: catalog2.diagnostics,
         coverage: { ...catalog2.coverage, selection: input.item_ids ?? "all-enumerated-items", source_bodies: input.resolve_sources ? "byte status only; fetch selected source explicitly" : "not-read" },
@@ -18446,13 +18554,14 @@ function run(action, root, input = {}) {
         if (input.path === catalog2.manifest_path) {
           const yaml = strictYaml(input.content, input.path);
           const version = yaml.value?.schema === "vnext-product-manifest/v1" ? 1 : 2;
-          const diagnostics = [...yaml.problems.map((p) => p.diagnostic), ...validate(yaml.value, manifestSchema(version)).map((e) => diagnostic("MANIFEST_METADATA", input.path, e.message, { severity: "error", pointer: e.pointer }))];
-          return { ...envelope, status: diagnostics.length ? "invalid" : "valid", diagnostics, business_validity: "not-evaluated" };
+          const diagnostics2 = [...yaml.problems.map((p) => p.diagnostic), ...validate(yaml.value, manifestSchema(version)).map((e) => diagnostic("MANIFEST_METADATA", input.path, e.message, { severity: "error", pointer: e.pointer }))];
+          return { ...envelope, status: diagnostics2.length ? "invalid" : "valid", diagnostics: diagnostics2, business_validity: "not-evaluated" };
         }
         if (!catalog2.manifest || !allowed(catalog2.manifest, input.path, "managed"))
           throw new Error("CHECK_OUT_OF_RANGE: candidate is outside managed_paths");
         const doc = parseProduct(input.content, input.path);
-        return { ...envelope, status: doc.diagnostics.some((d) => d.severity === "error") ? "invalid" : "valid", schema: doc.schema, usable_items: doc.items.filter((i) => i.usable).map((i) => i.id), diagnostics: doc.diagnostics, business_validity: "not-evaluated" };
+        const diagnostics = [...doc.diagnostics, ...assessmentCopyDiagnostics([...catalog2.items.filter((i) => i.path !== input.path), ...doc.items]).filter((d) => d.path === input.path)];
+        return { ...envelope, status: diagnostics.some((d) => d.severity === "error") ? "invalid" : "valid", schema: doc.schema, usable_items: doc.items.filter((i) => i.usable).map((i) => i.id), diagnostics, business_validity: "not-evaluated" };
       }
       return { ...envelope, status: catalog2.status !== "available" ? catalog2.status : !catalog2.coverage.complete || catalog2.diagnostics.some((d) => d.severity === "error") ? "partial" : "checked", diagnostics: catalog2.diagnostics, coverage: catalog2.coverage, sources: input.resolve_sources ? resolveSources(catalog2, input.item_ids) : [], roadmap_reconciliation: input.roadmap_query ? reconcileRoadmap(catalog2, input.roadmap_query) : null, business_validity: "not-evaluated" };
     }

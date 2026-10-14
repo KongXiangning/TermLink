@@ -16591,6 +16591,39 @@ function reverseRelations(catalog) {
 function planTasks(catalog) {
   return catalog.items.filter((i) => i.usable && i.type === "plan").map((plan) => ({ plan_id: plan.id, work_items: plan.metadata.work_items.map((work) => ({ work_item_id: work.id, bindings: catalog.items.filter((i) => i.usable).flatMap((owner) => (owner.metadata.task_bindings ?? []).filter((b) => b.state === "active" && b.plan_items?.some((p) => p.plan_id === plan.id && p.work_item_id === work.id)).map((b) => ({ owner: owner.id, binding_id: b.id, task: b.task, role: b.role, coverage: b.coverage, ...b.contribution ? { contribution: b.contribution } : {}, origin: b.origin, state: b.state, ...b.reason ? { reason: b.reason } : {}, sources: b.sources ?? [], locator: { kind: "file", path: owner.path, item_id: owner.id }, line: owner.line }))) })) }));
 }
+function assessmentCopyDiagnostics(items) {
+  const groups = new Map;
+  for (const item of items.filter((i) => i.usable && i.type === "assessment")) {
+    const body = item.body.replace(/\r\n|\r/g, `
+`).replace(/^##[^\n]*\n/, "").trim();
+    if (!body)
+      continue;
+    const key = JSON.stringify([item.metadata.target, body]);
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
+  const diagnostics = [];
+  for (const group of groups.values()) {
+    for (const item of group) {
+      const identity2 = evaluationIdentity(item);
+      const copies = group.filter((other) => {
+        const otherIdentity = evaluationIdentity(other);
+        return other !== item && (!identity2 || !otherIdentity || identity2 === otherIdentity);
+      });
+      if (!copies.length)
+        continue;
+      diagnostics.push(diagnostic("ASSESSMENT_BODY_COPY", item.path, `Matching assessment body also occurs in ${copies.map((other) => `${other.path}#${other.id}`).join(", ")}. Keep independent observations; use summary links for mirrors of one current report. No automatic merge or invalidation.`, { item_id: item.id, line: item.line }));
+    }
+  }
+  return diagnostics;
+}
+function evaluationIdentity(item) {
+  if ((item.version ?? 0) < 3)
+    return null;
+  const { applicability, subject: subject2 } = item.metadata;
+  return JSON.stringify([applicability.goal_id, applicability.scope_id, subject2.kind, subject2.value, subject2.revision ?? null]);
+}
 
 // runtime/vnext/src/product-maintenance/catalog.ts
 function readCatalog(rootInput, input = {}) {
@@ -16713,6 +16746,7 @@ function readCatalog(rootInput, input = {}) {
   if (projects.length !== 1 || projects[0]?.path !== manifest.entry)
     catalog.diagnostics.push(diagnostic("PROJECT_ENTRY", manifestPath, "Expected a unique project entry in the manifest entry document"));
   analyze(catalog);
+  catalog.diagnostics.push(...assessmentCopyDiagnostics(catalog.items));
   catalog.coverage = { ...catalog.coverage, omitted: [...new Set(catalog.coverage.omitted)], complete: !enumeration.incomplete && !catalog.coverage.omitted.length, files_read: catalog.documents.length, bytes_read: bytesRead, max_files: maxFiles, max_file_bytes: maxFileBytes, max_total_bytes: maxTotalBytes, usable_count: catalog.items.filter((i) => i.usable).length, invalid_count: catalog.items.filter((i) => !i.usable).length };
   return catalog;
 }
